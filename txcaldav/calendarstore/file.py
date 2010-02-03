@@ -33,7 +33,7 @@ from twisted.python.filepath import FilePath
 
 from twext.log import LoggingMixIn
 from twext.python.icalendar import Component as iComponent
-from twext.python.icalendar import Component as InvalidICalendarDataError
+from twext.python.icalendar import InvalidICalendarDataError
 
 from txdav.propertystore.xattr import PropertyStore
 
@@ -44,6 +44,7 @@ from txcaldav.icalendarstore import CalendarObjectNameAlreadyExistsError
 from txcaldav.icalendarstore import NotFoundError
 from txcaldav.icalendarstore import NoSuchCalendarError
 from txcaldav.icalendarstore import NoSuchCalendarObjectError
+from txcaldav.icalendarstore import InvalidCalendarComponentError
 from txcaldav.icalendarstore import InternalDataStoreError
 
 
@@ -221,7 +222,13 @@ class CalendarObject(LoggingMixIn):
         return self.path.basename()
 
     def setComponent(self, component):
-        # FIXME: validate the component
+        if not isinstance(component, iComponent):
+            raise TypeError(iComponent)
+
+        try:
+            component.validateForCalDAV()
+        except InvalidICalendarDataError, e:
+            raise InvalidCalendarComponentError(e)
 
         fh = self.path.open("w")
         try:

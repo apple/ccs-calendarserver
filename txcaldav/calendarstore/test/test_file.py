@@ -29,8 +29,11 @@ from txdav.idav import IPropertyStore
 
 from txcaldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject
 from txcaldav.icalendarstore import CalendarNameNotAllowedError
+from txcaldav.icalendarstore import CalendarObjectNameNotAllowedError
 from txcaldav.icalendarstore import CalendarAlreadyExistsError
+from txcaldav.icalendarstore import CalendarObjectNameAlreadyExistsError
 from txcaldav.icalendarstore import NoSuchCalendarError
+from txcaldav.icalendarstore import InvalidCalendarComponentError
 
 from txcaldav.calendarstore.file import CalendarStore, CalendarHome
 from txcaldav.calendarstore.file import Calendar, CalendarObject
@@ -49,7 +52,7 @@ calendar1_objectNames = (
     "3.ics",
 )
 
-newEvent1_text = (
+event4_text = (
     "BEGIN:VCALENDAR\r\n"
       "VERSION:2.0\r\n"
       "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
@@ -73,8 +76,34 @@ newEvent1_text = (
       "END:VTIMEZONE\r\n"
       "BEGIN:VEVENT\r\n"
         "CREATED:20100203T013849Z\r\n"
-        "UID:new-1\r\n"
+        "UID:4\r\n"
         "DTEND;TZID=US/Pacific:20100207T173000\r\n"
+        "TRANSP:OPAQUE\r\n"
+        "SUMMARY:New Event\r\n"
+        "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
+        "DTSTAMP:20100203T013909Z\r\n"
+        "SEQUENCE:3\r\n"
+        "BEGIN:VALARM\r\n"
+          "X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1\r\n"
+          "TRIGGER:-PT20M\r\n"
+          "ATTACH;VALUE=URI:Basso\r\n"
+          "ACTION:AUDIO\r\n"
+        "END:VALARM\r\n"
+      "END:VEVENT\r\n"
+    "END:VCALENDAR\r\n"
+)
+
+event1conflict_text = event4_text.replace("\r\nUID:4\r\n", "\r\nUID:1\r\n")
+
+notFitForCalDAVEvent_text = (
+    "BEGIN:VCALENDAR\r\n"
+      "VERSION:2.0\r\n"
+      "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
+      "CALSCALE:GREGORIAN\r\n"
+      "BEGIN:VEVENT\r\n"
+        "CREATED:20100203T013849Z\r\n"
+        "UID:4\r\n"
+        "DTEND;TZID=US/Pacific:20100207T173000\r\n" # TZID without VTIMEZONE
         "TRANSP:OPAQUE\r\n"
         "SUMMARY:New Event\r\n"
         "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
@@ -395,19 +424,37 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         self.home1.path.child(name).touch()
         self.assertEquals(self.calendar1.calendarObjectWithName(name), None)
 
-    def test_calendarObjectWithUID(self):
-        raise NotImplementedError()
-    test_calendarObjectWithUID.todo = "Unimplemented"
+    def test_calendarObjectWithUID_exists(self):
+        """
+        Find existing calendar object by name.
+        """
+        calendarObject = self.calendar1.calendarObjectWithUID("1")
+        self.failUnless(
+            isinstance(calendarObject, CalendarObject),
+            calendarObject
+        )
+        self.assertEquals(
+            calendarObject.component(),
+            self.calendar1.calendarObjectWithName("1.ics").component()
+        )
+    test_calendarObjectWithUID_exists.todo = "Unimplemented"
+
+    def test_calendarObjectWithUID_absent(self):
+        """
+        Missing calendar object.
+        """
+        self.assertEquals(self.calendar1.calendarObjectWithUID("xyzzy"), None)
+    test_calendarObjectWithUID_absent.todo = "Unimplemented"
 
     def test_createCalendarObjectWithName_absent(self):
         """
         Create a new calendar object.
         """
-        name = "new1.ics"
+        name = "4.ics"
 
         assert self.calendar1.calendarObjectWithName(name) is None
 
-        component = iComponent.fromString(newEvent1_text)
+        component = iComponent.fromString(event4_text)
         self.calendar1.createCalendarObjectWithName(name, component)
 
         calendarObject = self.calendar1.calendarObjectWithName(name)
@@ -417,8 +464,11 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         """
         Attempt to create an existing calendar object should raise.
         """
-        raise NotImplementedError()
-    test_createCalendarObjectWithName_exists.todo = "Unimplemented"
+        self.assertRaises(
+            CalendarObjectNameAlreadyExistsError,
+            self.calendar1.createCalendarObjectWithName,
+            "1.ics", iComponent.fromString(event4_text)
+        )
 
     def test_createCalendarObjectWithName_dot(self):
         """
@@ -426,7 +476,11 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         implementation, so no calendar object names may start with
         ".".
         """
-        raise NotImplementedError()
+        self.assertRaises(
+            CalendarObjectNameNotAllowedError,
+            self.calendar1.createCalendarObjectWithName,
+            ".foo", iComponent.fromString(event4_text)
+        )
     test_createCalendarObjectWithName_dot.todo = "Unimplemented"
 
     def test_createCalendarObjectWithName_uidconflict(self):
@@ -442,8 +496,11 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         Attempt to create a calendar object with a invalid iCalendar text
         should raise.
         """
-        raise NotImplementedError()
-    test_createCalendarObjectWithName_invalid.todo = "Unimplemented"
+        self.assertRaises(
+            InvalidCalendarComponentError,
+            self.calendar1.createCalendarObjectWithName,
+            "new", iComponent.fromString(notFitForCalDAVEvent_text)
+        )
 
     def test_removeCalendarObjectWithName_exists(self):
         """
