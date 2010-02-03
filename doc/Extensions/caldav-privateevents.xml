@@ -3,8 +3,8 @@
 <!ENTITY rfc2119 PUBLIC '' 'bibxml/reference.RFC.2119.xml'>
 <!ENTITY rfc3744 PUBLIC '' 'bibxml/reference.RFC.3744.xml'>
 <!ENTITY rfc4791 PUBLIC '' 'bibxml/reference.RFC.4791.xml'>
-<!ENTITY rfc5445 PUBLIC '' 'bibxml/reference.RFC.5445.xml'>
-<!ENTITY rfc5446 PUBLIC '' 'bibxml/reference.RFC.5446.xml'>
+<!ENTITY rfc5545 PUBLIC '' 'bibxml/reference.RFC.5545.xml'>
+<!ENTITY rfc5546 PUBLIC '' 'bibxml/reference.RFC.5546.xml'>
 <!ENTITY I-D.desruisseaux-caldav-sched PUBLIC '' 'bibxml3/reference.I-D.desruisseaux-caldav-sched.xml'>
 ]> 
 <?rfc toc="yes"?>
@@ -46,7 +46,7 @@
     <middle>
         <section title='Introduction'>
             <t>
-                Internet calendaring and scheduling standards are defined by <xref target="RFC5445">iCalendar</xref> and <xref target="RFC5446">iTIP</xref>. The <xref target="RFC4791">CalDAV</xref> standard defines a way to access calendar data stored on a server. CalDAV uses <xref target="RFC3744">WebDAV ACLs</xref> to allow a calendar user to grant rights to other users to see the calendar data stored on the server. This is an "all or nothing" behavior, i.e. if another user is granted the DAV:read privilege to a calendar component, then that user can read all the calendar data in the calendar resource stored on the server.
+                Internet calendaring and scheduling standards are defined by <xref target="RFC5545">iCalendar</xref> and <xref target="RFC5546">iTIP</xref>. The <xref target="RFC4791">CalDAV</xref> standard defines a way to access calendar data stored on a server. CalDAV uses <xref target="RFC3744">WebDAV ACLs</xref> to allow a calendar user to grant rights to other users to see the calendar data stored on the server. This is an "all or nothing" behavior, i.e. if another user is granted the DAV:read privilege to a calendar component, then that user can read all the calendar data in the calendar resource stored on the server.
             </t>
             <t>
                 It is often the case that a calendar user wants to give "restricted" access to portions of the calendar data. e.g., allow another calendar user to see only the start and end times of an event, but not other information (such as summary, description, location, attendee list etc). There is currently no way to do that with CalDAV.
@@ -531,8 +531,8 @@
             &rfc2119;
             &rfc3744;
             &rfc4791;
-            &rfc5445;
-            &rfc5446;
+            &rfc5545;
+            &rfc5546;
             &I-D.desruisseaux-caldav-sched; 
         </references>
 <!--

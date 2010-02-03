@@ -46,7 +46,7 @@ Table of Contents
    7.  Normative References . . . . . . . . . . . . . . . . . . . . . 11
    Appendix A.  Acknowledgments . . . . . . . . . . . . . . . . . . . 12
    Appendix B.  Change History  . . . . . . . . . . . . . . . . . . . 12
-   Author's Address . . . . . . . . . . . . . . . . . . . . . . . . . 12
+   Author's Address . . . . . . . . . . . . . . . . . . . . . . . . . 13
 
 
 
@@ -60,7 +60,7 @@ Daboo                                                           [Page 1]
 1.  Introduction
 
    Internet calendaring and scheduling standards are defined by
-   iCalendar [RFC5445] and iTIP [RFC5446].  The CalDAV [RFC4791]
+   iCalendar [RFC5545] and iTIP [RFC5546].  The CalDAV [RFC4791]
    standard defines a way to access calendar data stored on a server.
    CalDAV uses WebDAV ACLs [RFC3744] to allow a calendar user to grant
    rights to other users to see the calendar data stored on the server.
@@ -627,11 +627,13 @@ Daboo                                                          [Page 11]
               "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
               March 2007.
 
-   [RFC5445]  Watson, M., "Basic Forward Error Correction (FEC)
-              Schemes", RFC 5445, March 2009.
+   [RFC5545]  Desruisseaux, B., "Internet Calendaring and Scheduling
+              Core Object Specification (iCalendar)", RFC 5545,
+              September 2009.
 
-   [RFC5446]  Korhonen, J. and U. Nilsson, "Service Selection for Mobile
-              IPv4", RFC 5446, February 2009.
+   [RFC5546]  Daboo, C., "iCalendar Transport-Independent
+              Interoperability Protocol (iTIP)", RFC 5546,
+              December 2009.
 
 
 Appendix A.  Acknowledgments
@@ -660,8 +662,6 @@ Appendix B.  Change History
    4.  Added text about who is allowed to change the property value.
 
    5.  Added new pre-conditions for PUT & POST.
-
-
 
 
 
