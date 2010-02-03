@@ -125,21 +125,49 @@ class CalendarStoreTest(unittest.TestCase):
 
     # FIXME: If we define an interface
     #def test_interface(self):
+    #    """
+    #    Interface is completed and conforming.
+    #    """
     #    try:
     #        verifyObject(ICalendarStore, self.calendarstore)
     #    except BrokenMethodImplementation, e:
     #        self.fail(e)
 
     def test_init(self):
+        """
+        Ivars are correctly initialized.
+        """
         self.failUnless(
             isinstance(self.calendarStore.path, FilePath),
             self.calendarStore.path
         )
 
-    def test_calendarHomeWithUID(self):
+    def test_calendarHomeWithUID_exists(self):
+        """
+        Find an existing calendar home by UID.
+        """
         calendarHome = self.calendarStore.calendarHomeWithUID("home1")
 
         self.failUnless(isinstance(calendarHome, CalendarHome))
+
+    def test_calendarHomeWithUID_absent(self):
+        """
+        Missing calendar home.
+        """
+        self.assertEquals(
+            self.calendarStore.calendarHomeWithUID("xyzzy"),
+            None
+        )
+
+    def test_calendarHomeWithUID_dot(self):
+        """
+        Filenames starting with "." are reserved by this
+        implementation, so no UIDs may start with ".".
+        """
+        self.assertEquals(
+            self.calendarStore.calendarHomeWithUID("xyzzy"),
+            None
+        )
 
 
 class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
@@ -147,12 +175,18 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
         setUpHome1(self)
 
     def test_interface(self):
+        """
+        Interface is completed and conforming.
+        """
         try:
             verifyObject(ICalendarHome, self.home1)
         except BrokenMethodImplementation, e:
             self.fail(e)
 
     def test_init(self):
+        """
+        Ivars are correctly initialized.
+        """
         self.failUnless(
             isinstance(self.home1.path, FilePath),
             self.home1.path
@@ -163,9 +197,15 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
         )
 
     def test_uid(self):
+        """
+        UID is correct.
+        """
         self.assertEquals(self.home1.uid(), "home1")
 
     def test_calendars(self):
+        """
+        Find all of the calendars.
+        """
         # Add a dot directory to make sure we don't find it
         self.home1.path.child(".foo").createDirectory()
 
@@ -180,26 +220,42 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
         )
 
     def test_calendarWithName_exists(self):
+        """
+        Find existing calendar by name.
+        """
         for name in home1_calendarNames:
             calendar = self.home1.calendarWithName(name)
             self.failUnless(isinstance(calendar, Calendar), calendar)
             self.assertEquals(calendar.name(), name)
 
     def test_calendarWithName_absent(self):
+        """
+        Missing calendar.
+        """
         self.assertEquals(self.home1.calendarWithName("xyzzy"), None)
 
     def test_calendarWithName_dot(self):
+        """
+        Filenames starting with "." are reserved by this
+        implementation, so no calendar names may start with ".".
+        """
         name = ".foo"
         self.home1.path.child(name).createDirectory()
         self.assertEquals(self.home1.calendarWithName(name), None)
 
     def test_createCalendarWithName_absent(self):
+        """
+        Create a new calendar.
+        """
         name = "new"
         assert self.home1.calendarWithName(name) is None
         self.home1.createCalendarWithName(name)
         self.failUnless(self.home1.calendarWithName(name) is not None)
 
     def test_createCalendarWithName_exists(self):
+        """
+        Attempt to create an existing calendar should raise.
+        """
         for name in home1_calendarNames:
             self.assertRaises(
                 CalendarAlreadyExistsError,
@@ -208,6 +264,10 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
             )
 
     def test_createCalendarWithName_dot(self):
+        """
+        Filenames starting with "." are reserved by this
+        implementation, so no calendar names may start with ".".
+        """
         self.assertRaises(
             CalendarNameNotAllowedError,
             self.home1.createCalendarWithName,
@@ -215,11 +275,17 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
         )
 
     def test_removeCalendarWithName_exists(self):
+        """
+        Remove an existing calendar.
+        """
         for name in home1_calendarNames:
             self.home1.removeCalendarWithName(name)
             self.assertEquals(self.home1.calendarWithName(name), None)
 
     def test_removeCalendarWithName_absent(self):
+        """
+        Attempt to remove an non-existing calendar should raise.
+        """
         self.assertRaises(
             NoSuchCalendarError,
             self.home1.removeCalendarWithName,
@@ -227,6 +293,10 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
         )
 
     def test_removeCalendarWithName_dot(self):
+        """
+        Filenames starting with "." are reserved by this
+        implementation, so no calendar names may start with ".".
+        """
         name = ".foo"
         self.home1.path.child(name).createDirectory()
         self.assertRaises(
@@ -240,12 +310,18 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         setUpCalendar1(self)
 
     def test_interface(self):
+        """
+        Interface is completed and conforming.
+        """
         try:
             verifyObject(ICalendar, self.calendar1)
         except BrokenMethodImplementation, e:
             self.fail(e)
 
     def test_init(self):
+        """
+        Ivars are correctly initialized.
+        """
         self.failUnless(
             isinstance(self.calendar1.path, FilePath),
             self.calendar1
@@ -256,9 +332,15 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         )
 
     def test_name(self):
+        """
+        Name is correct.
+        """
         self.assertEquals(self.calendar1.name(), "calendar_1")
 
     def test_ownerCalendarHome(self):
+        """
+        Owner is correct.
+        """
         # Note that here we know that home1 owns calendar1
         self.assertEquals(
             self.calendar1.ownerCalendarHome().uid(),
@@ -266,6 +348,9 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         )
 
     def test_calendarObjects(self):
+        """
+        Find all of the calendar objects.
+        """
         # Add a dot file to make sure we don't find it
         self.home1.path.child(".foo").createDirectory()
 
@@ -283,6 +368,9 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         )
 
     def test_calendarObjectWithName_exists(self):
+        """
+        Find existing calendar object by name.
+        """
         for name in calendar1_objectNames:
             calendarObject = self.calendar1.calendarObjectWithName(name)
             self.failUnless(
@@ -292,9 +380,17 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
             self.assertEquals(calendarObject.name(), name)
 
     def test_calendarObjectWithName_absent(self):
+        """
+        Missing calendar object.
+        """
         self.assertEquals(self.calendar1.calendarObjectWithName("xyzzy"), None)
 
     def test_calendarObjectWithName_dot(self):
+        """
+        Filenames starting with "." are reserved by this
+        implementation, so no calendar object names may start with
+        ".".
+        """
         name = ".foo.ics"
         self.home1.path.child(name).touch()
         self.assertEquals(self.calendar1.calendarObjectWithName(name), None)
@@ -304,6 +400,9 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
     test_calendarObjectWithUID.todo = "Unimplemented"
 
     def test_createCalendarObjectWithName_absent(self):
+        """
+        Create a new calendar object.
+        """
         name = "new1.ics"
 
         assert self.calendar1.calendarObjectWithName(name) is None
@@ -314,48 +413,103 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         calendarObject = self.calendar1.calendarObjectWithName(name)
         self.assertEquals(calendarObject.component(), component)
 
-
     def test_createCalendarObjectWithName_exists(self):
+        """
+        Attempt to create an existing calendar object should raise.
+        """
         raise NotImplementedError()
     test_createCalendarObjectWithName_exists.todo = "Unimplemented"
 
     def test_createCalendarObjectWithName_dot(self):
+        """
+        Filenames starting with "." are reserved by this
+        implementation, so no calendar object names may start with
+        ".".
+        """
         raise NotImplementedError()
     test_createCalendarObjectWithName_dot.todo = "Unimplemented"
 
     def test_createCalendarObjectWithName_uidconflict(self):
+        """
+        Attempt to create a calendar object with a conflicting UID
+        should raise.
+        """
         raise NotImplementedError()
     test_createCalendarObjectWithName_uidconflict.todo = "Unimplemented"
 
     def test_createCalendarObjectWithName_invalid(self):
+        """
+        Attempt to create a calendar object with a invalid iCalendar text
+        should raise.
+        """
         raise NotImplementedError()
     test_createCalendarObjectWithName_invalid.todo = "Unimplemented"
 
-    def test_removeCalendarComponentWithName_exists(self):
+    def test_removeCalendarObjectWithName_exists(self):
+        """
+        Remove an existing calendar object.
+        """
         raise NotImplementedError()
-    test_removeCalendarComponentWithName_exists.todo = "Unimplemented"
+    test_removeCalendarObjectWithName_exists.todo = "Unimplemented"
 
-    def test_removeCalendarComponentWithName_absent(self):
+    def test_removeCalendarObjectWithName_absent(self):
+        """
+        Attempt to remove an non-existing calendar object should raise.
+        """
         raise NotImplementedError()
-    test_removeCalendarComponentWithName_absent.todo = "Unimplemented"
+    test_removeCalendarObjectWithName_absent.todo = "Unimplemented"
 
-    def test_removeCalendarComponentWithName_dot(self):
+    def test_removeCalendarObjectWithName_dot(self):
+        """
+        Filenames starting with "." are reserved by this
+        implementation, so no calendar object names may start with
+        ".".
+        """
         raise NotImplementedError()
-    test_removeCalendarComponentWithName_dot.todo = "Unimplemented"
+    test_removeCalendarObjectWithName_dot.todo = "Unimplemented"
 
-    def test_removeCalendarComponentWithUID(self):
+    def test_removeCalendarObjectWithUID_exists(self):
+        """
+        Remove an existing calendar object.
+        """
         raise NotImplementedError()
-    test_removeCalendarComponentWithUID.todo = "Unimplemented"
+    test_removeCalendarObjectWithUID_exists.todo = "Unimplemented"
+
+    def test_removeCalendarObjectWithUID_absent(self):
+        """
+        Attempt to remove an non-existing calendar object should raise.
+        """
+        raise NotImplementedError()
+    test_removeCalendarObjectWithUID_absent.todo = "Unimplemented"
+
+    def test_removeCalendarObjectWithUID_dot(self):
+        """
+        Filenames starting with "." are reserved by this
+        implementation, so no calendar object names may start with
+        ".".
+        """
+        raise NotImplementedError()
+    test_removeCalendarObjectWithUID_dot.todo = "Unimplemented"
 
     def test_syncToken(self):
+        """
+        Sync token is correct.
+        """
         raise NotImplementedError()
     test_syncToken.todo = "Unimplemented"
 
     def test_calendarObjectsInTimeRange(self):
+        """
+        Find calendar objects occuring in a given time range.
+        """
         raise NotImplementedError()
     test_calendarObjectsInTimeRange.todo = "Unimplemented"
 
     def test_calendarObjectsSinceToken(self):
+        """
+        Find calendar objects that have been modified since a given
+        sync token.
+        """
         raise NotImplementedError()
     test_calendarObjectsSinceToken.todo = "Unimplemented"
 
@@ -366,12 +520,18 @@ class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
         self.object1 = self.calendar1.calendarObjectWithName("1.ics")
 
     def test_interface(self):
+        """
+        Interface is completed and conforming.
+        """
         try:
             verifyObject(ICalendarObject, self.object1)
         except BrokenMethodImplementation, e:
             self.fail(e)
 
     def test_init(self):
+        """
+        Ivars are correctly initialized.
+        """
         self.failUnless(
             isinstance(self.object1.path, FilePath),
             self.object1.path
@@ -382,13 +542,22 @@ class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
         )
 
     def test_name(self):
+        """
+        Name is correct.
+        """
         self.assertEquals(self.object1.name(), "1.ics")
 
     def test_setComponent(self):
+        """
+        Rewrite component.
+        """
         raise NotImplementedError()
     test_setComponent.todo = "Unimplemented"
 
     def test_component(self):
+        """
+        Component is correct.
+        """
         component = self.object1.component()
 
         self.failUnless(
@@ -401,6 +570,9 @@ class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
         self.assertEquals(component.resourceUID(), "uid1")
 
     def text_iCalendarText(self):
+        """
+        iCalendar text is correct.
+        """
         text = self.object1.iCalendarText()
 
         self.failUnless(text.startswith("BEGIN:VCALENDAR\r\n"))
@@ -408,10 +580,22 @@ class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
         self.failUnless(text.endswith("\r\nEND:VCALENDAR\r\n"))
 
     def test_uid(self):
+        """
+        UID is correct.
+        """
         self.assertEquals(self.object1.uid(), "uid1")
 
     def test_componentType(self):
+        """
+        Component type is correct.
+        """
         self.assertEquals(self.object1.componentType(), "VEVENT")
 
     def test_organizer(self):
-        self.assertEquals(self.object1.organizer(), "mailto:wsanchez@apple.com")
+        """
+        Organizer is correct.
+        """
+        self.assertEquals(
+            self.object1.organizer(),
+            "mailto:wsanchez@apple.com"
+        )

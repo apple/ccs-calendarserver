@@ -69,7 +69,15 @@ class CalendarStore(LoggingMixIn):
         return "<%s: %s>" % (self.__class__.__name__, self.path.path)
 
     def calendarHomeWithUID(self, uid):
-        return CalendarHome(self.path.child(uid), self)
+        if uid.startswith("."):
+            return None
+
+        childPath = self.path.child(uid)
+
+        if childPath.isdir():
+            return CalendarHome(childPath, self)
+        else:
+            return None
 
 
 class CalendarHome(LoggingMixIn):
