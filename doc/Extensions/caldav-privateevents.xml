@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE rfc SYSTEM 'rfc2629.dtd' [
 <!ENTITY rfc2119 PUBLIC '' 'bibxml/reference.RFC.2119.xml'>
-<!ENTITY rfc2445 PUBLIC '' 'bibxml/reference.RFC.2445.xml'>
-<!ENTITY rfc2446 PUBLIC '' 'bibxml/reference.RFC.2446.xml'>
 <!ENTITY rfc3744 PUBLIC '' 'bibxml/reference.RFC.3744.xml'>
 <!ENTITY rfc4791 PUBLIC '' 'bibxml/reference.RFC.4791.xml'>
+<!ENTITY rfc5445 PUBLIC '' 'bibxml/reference.RFC.5445.xml'>
+<!ENTITY rfc5446 PUBLIC '' 'bibxml/reference.RFC.5446.xml'>
 <!ENTITY I-D.desruisseaux-caldav-sched PUBLIC '' 'bibxml3/reference.I-D.desruisseaux-caldav-sched.xml'>
 ]> 
 <?rfc toc="yes"?>
@@ -17,7 +17,7 @@
 <?rfc compact="yes"?>
 <?rfc subcompact="no"?>
 <?rfc private="Calendar Server Extension"?>
-<rfc ipr="none" docName='icalendar-privateevents-01'>
+<rfc ipr="none" docName='icalendar-privateevents-02'>
     <front>
         <title abbrev="CalDAV Private Calendar Components">Private Calendar Components in CalDAV</title> 
         <author initials="C." surname="Daboo" fullname="Cyrus Daboo">
@@ -36,7 +36,7 @@
                 <uri>http://www.apple.com/</uri>
             </address>
         </author>
-        <date year='2007'/>
+        <date />
         <abstract>
             <t>
                 This document defines an extension to CalDAV that enables a client to mark events with an access classification (e.g., "private") so that other calendar users have restricted rights to view the data in the calendar component.
@@ -46,7 +46,7 @@
     <middle>
         <section title='Introduction'>
             <t>
-                Internet calendaring and scheduling standards are defined by <xref target="RFC2445">iCalendar</xref> and <xref target="RFC2446">iTIP</xref>. The <xref target="RFC4791">CalDAV</xref> standard defines a way to access calendar data stored on a server. CalDAV uses <xref target="RFC3744">WebDAV ACLs</xref> to allow a calendar user to grant rights to other users to see the calendar data stored on the server. This is an "all or nothing" behavior, i.e. if another user is granted the DAV:read privilege to a calendar component, then that user can read all the calendar data in the calendar resource stored on the server.
+                Internet calendaring and scheduling standards are defined by <xref target="RFC5445">iCalendar</xref> and <xref target="RFC5446">iTIP</xref>. The <xref target="RFC4791">CalDAV</xref> standard defines a way to access calendar data stored on a server. CalDAV uses <xref target="RFC3744">WebDAV ACLs</xref> to allow a calendar user to grant rights to other users to see the calendar data stored on the server. This is an "all or nothing" behavior, i.e. if another user is granted the DAV:read privilege to a calendar component, then that user can read all the calendar data in the calendar resource stored on the server.
             </t>
             <t>
                 It is often the case that a calendar user wants to give "restricted" access to portions of the calendar data. e.g., allow another calendar user to see only the start and end times of an event, but not other information (such as summary, description, location, attendee list etc). There is currently no way to do that with CalDAV.
@@ -192,7 +192,7 @@
 						<t>There are no additional restrictions beyond normal WebDAV access control applied to the calendar resource for this access restriction. Note that in this case the server will explicitly set WebDAV ACLs to prevent access to the data by any principal other than the one indicated in the DAV:owner property on the calendar resource.
 						</t>
 					</section>
-					<section title="X-CALENDARSERVER-ACCESS set to CONIFDENTIAL" anchor="confidential">
+					<section title="X-CALENDARSERVER-ACCESS set to CONFIDENTIAL" anchor="confidential">
 						<t>In addition to normal WebDAV access control, a calendar user authorized as a principal that is not the DAV:owner of the calendar resource can retrieve or match on only the following iCalendar properties (assuming these properties actually occur in the calendar object):
 						</t>
 						<texttable>
@@ -529,10 +529,10 @@
     <back>
         <references title='Normative References'>
             &rfc2119;
-            &rfc2445;
-            &rfc2446;
             &rfc3744;
             &rfc4791;
+            &rfc5445;
+            &rfc5446;
             &I-D.desruisseaux-caldav-sched; 
         </references>
 <!--
@@ -541,10 +541,16 @@
 -->
         <section title='Acknowledgments'>
             <t>
-                This specification is the result of discussions between the Apple calendar server and client teams.
+                This specification is the result of discussions between the Apple calendar server and client teams. Also thanks to Filip Navara for comments.
             </t>
         </section>
         <section title='Change History'>
+          <t>Changes since -01
+            <list style='numbers'>
+              <t>Fixed typo.</t>
+              <t>Updated to new 5545 and 5546 specs.</t>
+            </list>
+		  </t>
           <t>Changes since -00
             <list style='numbers'>
               <t>Added security text on how to deal with unrecognized values.</t>

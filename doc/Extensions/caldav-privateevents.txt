@@ -3,11 +3,10 @@
 
 Calendar Server Extension                                       C. Daboo
                                                                    Apple
-                                                       December 18, 2007
+                                                        February 3, 2010
 
 
                  Private Calendar Components in CalDAV
-                       icalendar-privateevents-01
 
 Abstract
 
@@ -34,7 +33,7 @@ Table of Contents
          4.2.2.1.  Changing the X-CALENDARSERVER-ACCESS value . . . .  5
          4.2.2.2.  X-CALENDARSERVER-ACCESS set to PUBLIC  . . . . . .  5
          4.2.2.3.  X-CALENDARSERVER-ACCESS set to PRIVATE . . . . . .  5
-         4.2.2.4.  X-CALENDARSERVER-ACCESS set to CONIFDENTIAL  . . .  6
+         4.2.2.4.  X-CALENDARSERVER-ACCESS set to CONFIDENTIAL  . . .  6
          4.2.2.5.  X-CALENDARSERVER-ACCESS set to RESTRICTED  . . . .  6
        4.2.3.  Changes to WebDAV Privileges when
                X-CALENDARSERVER-ACCESS is used  . . . . . . . . . . .  7
@@ -52,15 +51,16 @@ Table of Contents
 
 
 
+
 Daboo                                                           [Page 1]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
 1.  Introduction
 
    Internet calendaring and scheduling standards are defined by
-   iCalendar [RFC2445] and iTIP [RFC2446].  The CalDAV [RFC4791]
+   iCalendar [RFC5445] and iTIP [RFC5446].  The CalDAV [RFC4791]
    standard defines a way to access calendar data stored on a server.
    CalDAV uses WebDAV ACLs [RFC3744] to allow a calendar user to grant
    rights to other users to see the calendar data stored on the server.
@@ -110,7 +110,7 @@ Daboo                                                           [Page 1]
 
 Daboo                                                           [Page 2]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
    1.  None right now.
@@ -166,7 +166,7 @@ Daboo                                                           [Page 2]
 
 Daboo                                                           [Page 3]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
    store or when sent via an iTIP message.  When used on a CalDAV
@@ -222,7 +222,7 @@ Daboo                                                           [Page 3]
 
 Daboo                                                           [Page 4]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
 4.2.1.1.  Example: Using OPTIONS for the Discovery of Private Event
@@ -278,12 +278,12 @@ Daboo                                                           [Page 4]
 
 Daboo                                                           [Page 5]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
    indicated in the DAV:owner property on the calendar resource.
 
-4.2.2.4.  X-CALENDARSERVER-ACCESS set to CONIFDENTIAL
+4.2.2.4.  X-CALENDARSERVER-ACCESS set to CONFIDENTIAL
 
    In addition to normal WebDAV access control, a calendar user
    authorized as a principal that is not the DAV:owner of the calendar
@@ -334,7 +334,7 @@ Daboo                                                           [Page 5]
 
 Daboo                                                           [Page 6]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
    +-----------+-------------------------------------------------------+
@@ -390,7 +390,7 @@ Daboo                                                           [Page 6]
 
 Daboo                                                           [Page 7]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
    | CONFIDENTIAL | The DAV:write privilege MUST be denied to all      |
@@ -446,7 +446,7 @@ Daboo                                                           [Page 7]
 
 Daboo                                                           [Page 8]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
    |              | REPORT -          | Any CALDAV:calendar-data       |
@@ -502,7 +502,7 @@ Daboo                                                           [Page 8]
 
 Daboo                                                           [Page 9]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
    |              | REPORT -          | Normal ACLs apply.             |
@@ -558,7 +558,7 @@ Daboo                                                           [Page 9]
 
 Daboo                                                          [Page 10]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
 5.  Security Considerations
@@ -604,9 +604,9 @@ Daboo                                                          [Page 10]
 7.  Normative References
 
    [I-D.desruisseaux-caldav-sched]
-              Desruisseaux, B., "Scheduling Extensions to CalDAV",
-              draft-desruisseaux-caldav-sched-03 (work in progress),
-              January 2007.
+              Daboo, C. and B. Desruisseaux, "CalDAV Scheduling
+              Extensions to WebDAV", draft-desruisseaux-caldav-sched-08
+              (work in progress), August 2009.
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
 
@@ -614,19 +614,10 @@ Daboo                                                          [Page 10]
 
 Daboo                                                          [Page 11]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
               Requirement Levels", BCP 14, RFC 2119, March 1997.
-
-   [RFC2445]  Dawson, F. and Stenerson, D., "Internet Calendaring and
-              Scheduling Core Object Specification (iCalendar)",
-              RFC 2445, November 1998.
-
-   [RFC2446]  Silverberg, S., Mansour, S., Dawson, F., and R. Hopson,
-              "iCalendar Transport-Independent Interoperability Protocol
-              (iTIP) Scheduling Events, BusyTime, To-dos and Journal
-              Entries", RFC 2446, November 1998.
 
    [RFC3744]  Clemm, G., Reschke, J., Sedlar, E., and J. Whitehead, "Web
               Distributed Authoring and Versioning (WebDAV)
@@ -636,14 +627,27 @@ Daboo                                                          [Page 11]
               "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
               March 2007.
 
+   [RFC5445]  Watson, M., "Basic Forward Error Correction (FEC)
+              Schemes", RFC 5445, March 2009.
+
+   [RFC5446]  Korhonen, J. and U. Nilsson, "Service Selection for Mobile
+              IPv4", RFC 5446, February 2009.
+
 
 Appendix A.  Acknowledgments
 
    This specification is the result of discussions between the Apple
-   calendar server and client teams.
+   calendar server and client teams.  Also thanks to Filip Navara for
+   comments.
 
 
 Appendix B.  Change History
+
+   Changes since -01
+
+   1.  Fixed typo.
+
+   2.  Updated to new 5545 and 5546 specs.
 
    Changes since -00
 
@@ -664,13 +668,9 @@ Appendix B.  Change History
 
 
 
-
-
-
-
 Daboo                                                          [Page 12]
 
-                   CalDAV Private Calendar Components      December 2007
+                   CalDAV Private Calendar Components      February 2010
 
 
 Author's Address
