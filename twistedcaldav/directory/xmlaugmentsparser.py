@@ -36,6 +36,7 @@ ELEMENT_RECORD            = "record"
 ELEMENT_GUID              = "guid"
 ELEMENT_ENABLE            = "enable"
 ELEMENT_HOSTEDAT          = "hosted-at"
+ELEMENT_ENABLEADDRESSBOOK = "enable-addressbook"
 ELEMENT_ENABLECALENDAR    = "enable-calendar"
 ELEMENT_AUTOSCHEDULE      = "auto-schedule"
 
@@ -45,11 +46,12 @@ VALUE_TRUE                = "true"
 VALUE_FALSE               = "false"
 
 ELEMENT_AUGMENTRECORD_MAP = {
-    ELEMENT_GUID:           "guid",
-    ELEMENT_ENABLE:         "enabled",
-    ELEMENT_HOSTEDAT:       "hostedAt",
-    ELEMENT_ENABLECALENDAR: "enabledForCalendaring",
-    ELEMENT_AUTOSCHEDULE:   "autoSchedule",
+    ELEMENT_GUID:              "guid",
+    ELEMENT_ENABLE:            "enabled",
+    ELEMENT_HOSTEDAT:          "hostedAt",
+    ELEMENT_ENABLECALENDAR:    "enabledForCalendaring",
+    ELEMENT_ENABLEADDRESSBOOK: "enabledForAddressBooks",
+    ELEMENT_AUTOSCHEDULE:      "autoSchedule",
 }
 
 class XMLAugmentsParser(object):
@@ -101,6 +103,7 @@ class XMLAugmentsParser(object):
                     ELEMENT_ENABLE,
                     ELEMENT_ENABLECALENDAR,
                     ELEMENT_AUTOSCHEDULE,
+                    ELEMENT_ENABLEADDRESSBOOK
                 ):
                     fields[node.tag] = node.text == VALUE_TRUE
                 else:

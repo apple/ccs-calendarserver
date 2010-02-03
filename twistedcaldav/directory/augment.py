@@ -40,11 +40,13 @@ class AugmentRecord(object):
         hostedAt="",
         enabledForCalendaring=False,
         autoSchedule=False,
+        enabledForAddressBooks=False,
     ):
         self.guid = guid
         self.enabled = enabled
         self.hostedAt = hostedAt
         self.enabledForCalendaring = enabledForCalendaring
+        self.enabledForAddressBooks = enabledForAddressBooks
         self.autoSchedule = autoSchedule
 
 class AugmentDB(object):

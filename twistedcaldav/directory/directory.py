@@ -303,7 +303,7 @@ class DirectoryRecord(LoggingMixIn):
         shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
         calendarUserAddresses=set(), autoSchedule=False, enabledForCalendaring=None,
-        enabledForAddressBooks=True,
+        enabledForAddressBooks=None,
         uid=None,
     ):
         assert service.realmName is not None
@@ -377,6 +377,7 @@ class DirectoryRecord(LoggingMixIn):
             self.enabled = augment.enabled
             self.hostedAt = augment.hostedAt
             self.enabledForCalendaring = augment.enabledForCalendaring
+            self.enabledForAddressBooks = augment.enabledForAddressBooks
             self.autoSchedule = augment.autoSchedule
 
             if self.enabledForCalendaring and self.recordType == self.service.recordType_groups:
