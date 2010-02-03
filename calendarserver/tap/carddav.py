@@ -43,7 +43,18 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
-from calendarserver.provision.root import RootResource
+from calendarserver.provision.root import _ParentRootResource
+
+
+
+class RootResource (_ParentRootResource):
+    """
+    A special root resource that contains support checking SACLs
+    as well as adding responseFilters.
+    """
+
+    saclService = "addressbook"
+
 
 
 class CardDAVServiceMaker (CalDAVServiceMaker):
