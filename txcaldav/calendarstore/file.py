@@ -32,20 +32,18 @@ from zope.interface import implements
 from twisted.python.filepath import FilePath
 
 from twext.log import LoggingMixIn
-from twext.python.icalendar import Component as iComponent, InvalidICalendarDataError
+from twext.python.icalendar import Component as iComponent
+from twext.python.icalendar import Component as InvalidICalendarDataError
 
 from txdav.propertystore.xattr import PropertyStore
 
 from txcaldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject
-#from txcaldav.icalendarstore import CalendarStoreError
-#from txcaldav.icalendarstore import AlreadyExistsError
-#from txcaldav.icalendarstore import CalendarAlreadyExistsError
-#from txcaldav.icalendarstore import CalendarObjectNameAlreadyExistsError
-#from txcaldav.icalendarstore import CalendarObjectUIDAlreadyExistsError
+from txcaldav.icalendarstore import CalendarNameNotAllowedError
+from txcaldav.icalendarstore import CalendarAlreadyExistsError
+from txcaldav.icalendarstore import CalendarObjectNameAlreadyExistsError
 from txcaldav.icalendarstore import NotFoundError
-#from txcaldav.icalendarstore import NoSuchCalendarError
+from txcaldav.icalendarstore import NoSuchCalendarError
 from txcaldav.icalendarstore import NoSuchCalendarObjectError
-#from txcaldav.icalendarstore import InvalidCalendarComponentError
 from txcaldav.icalendarstore import InternalDataStoreError
 
 
@@ -97,6 +95,9 @@ class CalendarHome(LoggingMixIn):
         )
 
     def calendarWithName(self, name):
+        if name.startswith("."):
+            return None
+
         childPath = self.path.child(name)
         if childPath.isdir():
             return Calendar(childPath, self)
@@ -104,10 +105,29 @@ class CalendarHome(LoggingMixIn):
             return None
 
     def createCalendarWithName(self, name):
-        raise NotImplementedError()
+        if name.startswith("."):
+            raise CalendarNameNotAllowedError(name)
+
+        childPath = self.path.child(name)
+
+        try:
+            childPath.createDirectory()
+        except (IOError, OSError), e:
+            if e.errno == errno.EEXIST:
+                raise CalendarAlreadyExistsError(name)
+            raise
 
     def removeCalendarWithName(self, name):
-        raise NotImplementedError()
+        if name.startswith("."):
+            raise NoSuchCalendarError(name)
+
+        childPath = self.path.child(name)
+        try:
+            childPath.remove()
+        except (IOError, OSError), e:
+            if e.errno == errno.ENOENT:
+                raise NoSuchCalendarError(name)
+            raise
 
     def properties(self):
         if not hasattr(self, "_properties"):
@@ -151,7 +171,12 @@ class Calendar(LoggingMixIn):
         raise NotImplementedError()
 
     def createCalendarObjectWithName(self, name, component):
-        raise NotImplementedError()
+        childPath = self.path.child(name)
+        if childPath.exists():
+            raise CalendarObjectNameAlreadyExistsError(name)
+
+        calendarObject = CalendarObject(childPath, self)
+        calendarObject.setComponent(component)
 
     def removeCalendarObjectWithName(self, name):
         raise NotImplementedError()
@@ -188,7 +213,13 @@ class CalendarObject(LoggingMixIn):
         return self.path.basename()
 
     def setComponent(self, component):
-        raise NotImplementedError()
+        # FIXME: validate the component
+
+        fh = self.path.open("w")
+        try:
+            fh.write(str(component))
+        finally:
+            fh.close()
 
     def component(self):
         if not hasattr(self, "_component"):

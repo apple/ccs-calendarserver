@@ -27,14 +27,13 @@ from twext.python.icalendar import Component as iComponent
 
 from txdav.idav import IPropertyStore
 
-from txcaldav.icalendarstore import ICalendarHome
-from txcaldav.icalendarstore import ICalendar
-from txcaldav.icalendarstore import ICalendarObject
+from txcaldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject
+from txcaldav.icalendarstore import CalendarNameNotAllowedError
+from txcaldav.icalendarstore import CalendarAlreadyExistsError
+from txcaldav.icalendarstore import NoSuchCalendarError
 
-from txcaldav.calendarstore.file import CalendarStore
-from txcaldav.calendarstore.file import CalendarHome
-from txcaldav.calendarstore.file import Calendar
-from txcaldav.calendarstore.file import CalendarObject
+from txcaldav.calendarstore.file import CalendarStore, CalendarHome
+from txcaldav.calendarstore.file import Calendar, CalendarObject
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -48,6 +47,47 @@ calendar1_objectNames = (
     "1.ics",
     "2.ics",
     "3.ics",
+)
+
+newEvent1_text = (
+    "BEGIN:VCALENDAR\r\n"
+      "VERSION:2.0\r\n"
+      "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
+      "CALSCALE:GREGORIAN\r\n"
+      "BEGIN:VTIMEZONE\r\n"
+        "TZID:US/Pacific\r\n"
+        "BEGIN:DAYLIGHT\r\n"
+          "TZOFFSETFROM:-0800\r\n"
+          "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\n"
+          "DTSTART:20070311T020000\r\n"
+          "TZNAME:PDT\r\n"
+          "TZOFFSETTO:-0700\r\n"
+        "END:DAYLIGHT\r\n"
+        "BEGIN:STANDARD\r\n"
+          "TZOFFSETFROM:-0700\r\n"
+          "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\n"
+          "DTSTART:20071104T020000\r\n"
+          "TZNAME:PST\r\n"
+          "TZOFFSETTO:-0800\r\n"
+        "END:STANDARD\r\n"
+      "END:VTIMEZONE\r\n"
+      "BEGIN:VEVENT\r\n"
+        "CREATED:20100203T013849Z\r\n"
+        "UID:new-1\r\n"
+        "DTEND;TZID=US/Pacific:20100207T173000\r\n"
+        "TRANSP:OPAQUE\r\n"
+        "SUMMARY:New Event\r\n"
+        "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
+        "DTSTAMP:20100203T013909Z\r\n"
+        "SEQUENCE:3\r\n"
+        "BEGIN:VALARM\r\n"
+          "X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1\r\n"
+          "TRIGGER:-PT20M\r\n"
+          "ATTACH;VALUE=URI:Basso\r\n"
+          "ACTION:AUDIO\r\n"
+        "END:VALARM\r\n"
+      "END:VEVENT\r\n"
+    "END:VCALENDAR\r\n"
 )
 
 
@@ -91,12 +131,15 @@ class CalendarStoreTest(unittest.TestCase):
     #        self.fail(e)
 
     def test_init(self):
-        assert isinstance(self.calendarStore.path, FilePath), self.calendarStore.path
+        self.failUnless(
+            isinstance(self.calendarStore.path, FilePath),
+            self.calendarStore.path
+        )
 
     def test_calendarHomeWithUID(self):
         calendarHome = self.calendarStore.calendarHomeWithUID("home1")
 
-        assert isinstance(calendarHome, CalendarHome)
+        self.failUnless(isinstance(calendarHome, CalendarHome))
 
 
 class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
@@ -123,6 +166,9 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
         self.assertEquals(self.home1.uid(), "home1")
 
     def test_calendars(self):
+        # Add a dot directory to make sure we don't find it
+        self.home1.path.child(".foo").createDirectory()
+
         calendars = tuple(self.home1.calendars())
 
         for calendar in calendars:
@@ -133,21 +179,61 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
             home1_calendarNames
         )
 
-    def test_calendarWithName(self):
+    def test_calendarWithName_exists(self):
         for name in home1_calendarNames:
             calendar = self.home1.calendarWithName(name)
             self.failUnless(isinstance(calendar, Calendar), calendar)
             self.assertEquals(calendar.name(), name)
+
+    def test_calendarWithName_absent(self):
         self.assertEquals(self.home1.calendarWithName("xyzzy"), None)
 
-    def test_createCalendarWithName(self):
-        raise NotImplementedError()
-    test_createCalendarWithName.todo = "Unimplemented"
+    def test_calendarWithName_dot(self):
+        name = ".foo"
+        self.home1.path.child(name).createDirectory()
+        self.assertEquals(self.home1.calendarWithName(name), None)
 
-    def test_removeCalendarWithName(self):
-        raise NotImplementedError()
-    test_removeCalendarWithName.todo = "Unimplemented"
+    def test_createCalendarWithName_absent(self):
+        name = "new"
+        assert self.home1.calendarWithName(name) is None
+        self.home1.createCalendarWithName(name)
+        self.failUnless(self.home1.calendarWithName(name) is not None)
 
+    def test_createCalendarWithName_exists(self):
+        for name in home1_calendarNames:
+            self.assertRaises(
+                CalendarAlreadyExistsError,
+                self.home1.createCalendarWithName,
+                name
+            )
+
+    def test_createCalendarWithName_dot(self):
+        self.assertRaises(
+            CalendarNameNotAllowedError,
+            self.home1.createCalendarWithName,
+            ".foo"
+        )
+
+    def test_removeCalendarWithName_exists(self):
+        for name in home1_calendarNames:
+            self.home1.removeCalendarWithName(name)
+            self.assertEquals(self.home1.calendarWithName(name), None)
+
+    def test_removeCalendarWithName_absent(self):
+        self.assertRaises(
+            NoSuchCalendarError,
+            self.home1.removeCalendarWithName,
+            "xyzzy"
+        )
+
+    def test_removeCalendarWithName_dot(self):
+        name = ".foo"
+        self.home1.path.child(name).createDirectory()
+        self.assertRaises(
+            NoSuchCalendarError,
+            self.home1.removeCalendarWithName,
+            name
+        )
 
 class CalendarTest(unittest.TestCase, PropertiesTestMixin):
     def setUp(self):
@@ -180,6 +266,9 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         )
 
     def test_calendarObjects(self):
+        # Add a dot file to make sure we don't find it
+        self.home1.path.child(".foo").createDirectory()
+
         calendarObjects = tuple(self.calendar1.calendarObjects())
 
         for calendarObject in calendarObjects:
@@ -193,7 +282,7 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
             calendar1_objectNames
         )
 
-    def test_calendarObjectWithName(self):
+    def test_calendarObjectWithName_exists(self):
         for name in calendar1_objectNames:
             calendarObject = self.calendar1.calendarObjectWithName(name)
             self.failUnless(
@@ -202,19 +291,57 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
             )
             self.assertEquals(calendarObject.name(), name)
 
+    def test_calendarObjectWithName_absent(self):
         self.assertEquals(self.calendar1.calendarObjectWithName("xyzzy"), None)
+
+    def test_calendarObjectWithName_dot(self):
+        name = ".foo.ics"
+        self.home1.path.child(name).touch()
+        self.assertEquals(self.calendar1.calendarObjectWithName(name), None)
 
     def test_calendarObjectWithUID(self):
         raise NotImplementedError()
     test_calendarObjectWithUID.todo = "Unimplemented"
 
-    def test_createCalendarObjectWithName(self):
-        raise NotImplementedError()
-    test_createCalendarObjectWithName.todo = "Unimplemented"
+    def test_createCalendarObjectWithName_absent(self):
+        name = "new1.ics"
 
-    def test_removeCalendarComponentWithName(self):
+        assert self.calendar1.calendarObjectWithName(name) is None
+
+        component = iComponent.fromString(newEvent1_text)
+        self.calendar1.createCalendarObjectWithName(name, component)
+
+        calendarObject = self.calendar1.calendarObjectWithName(name)
+        self.assertEquals(calendarObject.component(), component)
+
+
+    def test_createCalendarObjectWithName_exists(self):
         raise NotImplementedError()
-    test_removeCalendarComponentWithName.todo = "Unimplemented"
+    test_createCalendarObjectWithName_exists.todo = "Unimplemented"
+
+    def test_createCalendarObjectWithName_dot(self):
+        raise NotImplementedError()
+    test_createCalendarObjectWithName_dot.todo = "Unimplemented"
+
+    def test_createCalendarObjectWithName_uidconflict(self):
+        raise NotImplementedError()
+    test_createCalendarObjectWithName_uidconflict.todo = "Unimplemented"
+
+    def test_createCalendarObjectWithName_invalid(self):
+        raise NotImplementedError()
+    test_createCalendarObjectWithName_invalid.todo = "Unimplemented"
+
+    def test_removeCalendarComponentWithName_exists(self):
+        raise NotImplementedError()
+    test_removeCalendarComponentWithName_exists.todo = "Unimplemented"
+
+    def test_removeCalendarComponentWithName_absent(self):
+        raise NotImplementedError()
+    test_removeCalendarComponentWithName_absent.todo = "Unimplemented"
+
+    def test_removeCalendarComponentWithName_dot(self):
+        raise NotImplementedError()
+    test_removeCalendarComponentWithName_dot.todo = "Unimplemented"
 
     def test_removeCalendarComponentWithUID(self):
         raise NotImplementedError()
