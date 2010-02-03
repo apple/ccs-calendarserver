@@ -32,6 +32,7 @@ from txcaldav.icalendarstore import CalendarNameNotAllowedError
 from txcaldav.icalendarstore import CalendarObjectNameNotAllowedError
 from txcaldav.icalendarstore import CalendarAlreadyExistsError
 from txcaldav.icalendarstore import CalendarObjectNameAlreadyExistsError
+from txcaldav.icalendarstore import CalendarObjectUIDAlreadyExistsError
 from txcaldav.icalendarstore import NoSuchCalendarError
 from txcaldav.icalendarstore import NoSuchCalendarObjectError
 from txcaldav.icalendarstore import InvalidCalendarComponentError
@@ -94,9 +95,9 @@ event4_text = (
     "END:VCALENDAR\r\n"
 )
 
-event1conflict_text = event4_text.replace("\r\nUID:4\r\n", "\r\nUID:1\r\n")
+event1modified_text = event4_text.replace("\r\nUID:4\r\n", "\r\nUID:1\r\n")
 
-notFitForCalDAVEvent_text = (
+event4notCalDAV_text = (
     "BEGIN:VCALENDAR\r\n"
       "VERSION:2.0\r\n"
       "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
@@ -119,6 +120,15 @@ notFitForCalDAVEvent_text = (
       "END:VEVENT\r\n"
     "END:VCALENDAR\r\n"
 )
+
+
+def featureUnimplemented(f):
+    f.todo = "Feature Unimplemented"
+    return f
+
+def testUnimplemented(f):
+    f.todo = "Test Unimplemented"
+    return f
 
 
 class PropertiesTestMixin(object):
@@ -422,6 +432,7 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         self.home1.path.child(name).touch()
         self.assertEquals(self.calendar1.calendarObjectWithName(name), None)
 
+    @featureUnimplemented
     def test_calendarObjectWithUID_exists(self):
         """
         Find existing calendar object by name.
@@ -435,14 +446,13 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
             calendarObject.component(),
             self.calendar1.calendarObjectWithName("1.ics").component()
         )
-    test_calendarObjectWithUID_exists.todo = "Unimplemented"
 
+    @featureUnimplemented
     def test_calendarObjectWithUID_absent(self):
         """
         Missing calendar object.
         """
         self.assertEquals(self.calendar1.calendarObjectWithUID("xyzzy"), None)
-    test_calendarObjectWithUID_absent.todo = "Unimplemented"
 
     def test_createCalendarObjectWithName_absent(self):
         """
@@ -478,14 +488,20 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
             ".foo", iComponent.fromString(event4_text)
         )
 
+    @featureUnimplemented
     def test_createCalendarObjectWithName_uidconflict(self):
         """
         Attempt to create a calendar object with a conflicting UID
         should raise.
         """
-        raise NotImplementedError()
-    test_createCalendarObjectWithName_uidconflict.todo = "Unimplemented"
-
+        name = "foo.ics"
+        assert self.calendar1.calendarObjectWithName(name) is None
+        component = iComponent.fromString(event1modified_text)
+        self.assertRaises(
+            CalendarObjectUIDAlreadyExistsError,
+            self.calendar1.createCalendarObjectWithName,
+            name, component
+        )
     def test_createCalendarObjectWithName_invalid(self):
         """
         Attempt to create a calendar object with a invalid iCalendar text
@@ -494,7 +510,7 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         self.assertRaises(
             InvalidCalendarComponentError,
             self.calendar1.createCalendarObjectWithName,
-            "new", iComponent.fromString(notFitForCalDAVEvent_text)
+            "new", iComponent.fromString(event4notCalDAV_text)
         )
 
     def test_removeCalendarObjectWithName_exists(self):
@@ -531,50 +547,55 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
             self.calendar1.removeCalendarObjectWithName, name
         )
 
+    @featureUnimplemented
     def test_removeCalendarObjectWithUID_exists(self):
         """
         Remove an existing calendar object.
         """
-        raise NotImplementedError()
-    test_removeCalendarObjectWithUID_exists.todo = "Unimplemented"
+        for name in calendar1_objectNames:
+            uid = name.rstrip(".ics")
+            assert self.calendar1.calendarObjectWithUID(uid) is not None
+            self.calendar1.removeCalendarObjectWithUID(uid)
+            self.assertEquals(
+                self.calendar1.calendarObjectWithUID(uid),
+                None
+            )
+            self.assertEquals(
+                self.calendar1.calendarObjectWithName(name),
+                None
+            )
 
+    @featureUnimplemented
     def test_removeCalendarObjectWithUID_absent(self):
         """
         Attempt to remove an non-existing calendar object should raise.
         """
-        raise NotImplementedError()
-    test_removeCalendarObjectWithUID_absent.todo = "Unimplemented"
+        self.assertRaises(
+            NoSuchCalendarObjectError,
+            self.calendar1.removeCalendarObjectWithUID, "xyzzy"
+        )
 
-    def test_removeCalendarObjectWithUID_dot(self):
-        """
-        Filenames starting with "." are reserved by this
-        implementation, so no calendar object names may start with
-        ".".
-        """
-        raise NotImplementedError()
-    test_removeCalendarObjectWithUID_dot.todo = "Unimplemented"
-
+    @testUnimplemented
     def test_syncToken(self):
         """
         Sync token is correct.
         """
         raise NotImplementedError()
-    test_syncToken.todo = "Unimplemented"
 
+    @testUnimplemented
     def test_calendarObjectsInTimeRange(self):
         """
         Find calendar objects occuring in a given time range.
         """
         raise NotImplementedError()
-    test_calendarObjectsInTimeRange.todo = "Unimplemented"
 
+    @testUnimplemented
     def test_calendarObjectsSinceToken(self):
         """
         Find calendar objects that have been modified since a given
         sync token.
         """
         raise NotImplementedError()
-    test_calendarObjectsSinceToken.todo = "Unimplemented"
 
 
 class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
@@ -614,8 +635,35 @@ class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
         """
         Rewrite component.
         """
-        raise NotImplementedError()
-    test_setComponent.todo = "Unimplemented"
+        component = iComponent.fromString(event1modified_text)
+
+        calendarObject = self.calendar1.calendarObjectWithName("1.ics")
+        oldComponent = calendarObject.component() # Trigger caching
+        assert component != oldComponent
+        calendarObject.setComponent(component)
+        self.assertEquals(calendarObject.component(), component)
+
+        # Also check a new instance
+        calendarObject = self.calendar1.calendarObjectWithName("1.ics")
+        self.assertEquals(calendarObject.component(), component)
+
+    @featureUnimplemented
+    def test_setComponent_uidchanged(self):
+        component = iComponent.fromString(event4_text)
+
+        calendarObject = self.calendar1.calendarObjectWithName("1.ics")
+        self.assertRaises(
+            CalendarObjectUIDAlreadyExistsError,
+            calendarObject.setComponent, component
+        )
+
+    def test_setComponent_invalid(self):
+        calendarObject = self.calendar1.calendarObjectWithName("1.ics")
+        self.assertRaises(
+            InvalidCalendarComponentError,
+            calendarObject.setComponent,
+            iComponent.fromString(event4notCalDAV_text)
+        )
 
     def test_component(self):
         """

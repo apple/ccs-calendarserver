@@ -48,6 +48,8 @@ from txcaldav.icalendarstore import NoSuchCalendarObjectError
 from txcaldav.icalendarstore import InvalidCalendarComponentError
 from txcaldav.icalendarstore import InternalDataStoreError
 
+from twistedcaldav.index import Index
+
 
 class CalendarStore(LoggingMixIn):
     # FIXME: Do we need an interface?
@@ -240,6 +242,10 @@ class CalendarObject(LoggingMixIn):
             component.validateForCalDAV()
         except InvalidICalendarDataError, e:
             raise InvalidCalendarComponentError(e)
+
+        self._component = component
+        if hasattr(self, "_text"):
+            del self._text
 
         fh = self.path.open("w")
         try:
