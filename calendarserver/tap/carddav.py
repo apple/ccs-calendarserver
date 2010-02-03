@@ -43,7 +43,7 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
-from calendarserver.provision.root import _ParentRootResource
+from calendarserver.provision.root import RootResource as _ParentRootResource
 
 
 
