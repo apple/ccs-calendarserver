@@ -43,7 +43,7 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
-from addressbookserver.provision.root import RootResource
+from calendarserver.provision.root import RootResource
 
 
 class CardDAVServiceMaker (CalDAVServiceMaker):
