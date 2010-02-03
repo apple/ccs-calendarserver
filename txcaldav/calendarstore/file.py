@@ -67,8 +67,8 @@ class CalendarStore(LoggingMixIn):
             # be CalendarStoreNotFoundError.
             raise NotFoundError("No such calendar store")
 
-    def __str__(self):
-        return "<%s: %s>" % (self.__class__, self.path)
+    def __repr__(self):
+        return "<%s: %s>" % (self.__class__.__name__, self.path.path)
 
     def calendarHomeWithUID(self, uid):
         return CalendarHome(self.path.child(uid), self)
@@ -83,8 +83,8 @@ class CalendarHome(LoggingMixIn):
         self.path = path
         self.calendarStore = calendarStore
 
-    def __str__(self):
-        return "<%s: %s>" % (self.__class__, self.path)
+    def __repr__(self):
+        return "<%s: %s>" % (self.__class__.__name__, self.path)
 
     def uid(self):
         return self.path.basename()
@@ -97,7 +97,11 @@ class CalendarHome(LoggingMixIn):
         )
 
     def calendarWithName(self, name):
-        return Calendar(self.path.child(name), self)
+        childPath = self.path.child(name)
+        if childPath.isdir():
+            return Calendar(childPath, self)
+        else:
+            return None
 
     def createCalendarWithName(self, name):
         raise NotImplementedError()
@@ -120,8 +124,8 @@ class Calendar(LoggingMixIn):
         self.path = path
         self.calendarHome = calendarHome
 
-    def __str__(self):
-        return "<%s: %s>" % (self.__class__, self.path)
+    def __repr__(self):
+        return "<%s: %s>" % (self.__class__.__name__, self.path.path)
 
     def name(self):
         return self.path.basename()
@@ -137,7 +141,11 @@ class Calendar(LoggingMixIn):
         )
 
     def calendarObjectWithName(self, name):
-        return CalendarObject(self.path.child(name), self)
+        childPath = self.path.child(name)
+        if childPath.isfile():
+            return CalendarObject(childPath, self)
+        else:
+            return None
 
     def calendarObjectWithUID(self, uid):
         raise NotImplementedError()
@@ -173,8 +181,8 @@ class CalendarObject(LoggingMixIn):
         self.path = path
         self.calendar = calendar
 
-    def __str__(self):
-        return "<%s: %s>" % (self.__class__, self.path)
+    def __repr__(self):
+        return "<%s: %s>" % (self.__class__.__name__, self.path.path)
 
     def name(self):
         return self.path.basename()

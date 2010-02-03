@@ -61,9 +61,27 @@ class PropertiesTestMixin(object):
         )
 
 
+def setUpCalendarStore(test):
+    test.root = FilePath(test.mktemp())
+    test.root.createDirectory()
+
+    calendarPath = test.root.child("store")
+    storePath.copyTo(calendarPath)
+
+    test.calendarStore = CalendarStore(calendarPath)
+
+def setUpHome1(test):
+    setUpCalendarStore(test)
+    test.home1 = test.calendarStore.calendarHomeWithUID("home1")
+
+def setUpCalendar1(test):
+    setUpHome1(test)
+    test.calendar1 = test.home1.calendarWithName("calendar_1")
+
+
 class CalendarStoreTest(unittest.TestCase):
     def setUp(self):
-        self.calendarStore = CalendarStore(storePath)
+        setUpCalendarStore(self)
 
     # FIXME: If we define an interface
     #def test_interface(self):
@@ -83,8 +101,7 @@ class CalendarStoreTest(unittest.TestCase):
 
 class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
     def setUp(self):
-        self.calendarStore = CalendarStore(storePath)
-        self.home1 = self.calendarStore.calendarHomeWithUID("home1")
+        setUpHome1(self)
 
     def test_interface(self):
         try:
@@ -121,6 +138,7 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
             calendar = self.home1.calendarWithName(name)
             self.failUnless(isinstance(calendar, Calendar), calendar)
             self.assertEquals(calendar.name(), name)
+        self.assertEquals(self.home1.calendarWithName("xyzzy"), None)
 
     def test_createCalendarWithName(self):
         raise NotImplementedError()
@@ -133,9 +151,7 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
 
 class CalendarTest(unittest.TestCase, PropertiesTestMixin):
     def setUp(self):
-        self.calendarStore = CalendarStore(storePath)
-        self.home1 = self.calendarStore.calendarHomeWithUID("home1")
-        self.calendar1 = self.home1.calendarWithName("calendar_1")
+        setUpCalendar1(self)
 
     def test_interface(self):
         try:
@@ -186,6 +202,8 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
             )
             self.assertEquals(calendarObject.name(), name)
 
+        self.assertEquals(self.calendar1.calendarObjectWithName("xyzzy"), None)
+
     def test_calendarObjectWithUID(self):
         raise NotImplementedError()
     test_calendarObjectWithUID.todo = "Unimplemented"
@@ -217,9 +235,7 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
 
 class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
     def setUp(self):
-        self.calendarStore = CalendarStore(storePath)
-        self.home1 = self.calendarStore.calendarHomeWithUID("home1")
-        self.calendar1 = self.home1.calendarWithName("calendar_1")
+        setUpCalendar1(self)
         self.object1 = self.calendar1.calendarObjectWithName("1.ics")
 
     def test_interface(self):
