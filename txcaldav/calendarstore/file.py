@@ -39,6 +39,7 @@ from txdav.propertystore.xattr import PropertyStore
 
 from txcaldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject
 from txcaldav.icalendarstore import CalendarNameNotAllowedError
+from txcaldav.icalendarstore import CalendarObjectNameNotAllowedError
 from txcaldav.icalendarstore import CalendarAlreadyExistsError
 from txcaldav.icalendarstore import CalendarObjectNameAlreadyExistsError
 from txcaldav.icalendarstore import NotFoundError
@@ -180,6 +181,9 @@ class Calendar(LoggingMixIn):
         raise NotImplementedError()
 
     def createCalendarObjectWithName(self, name, component):
+        if name.startswith("."):
+            raise CalendarObjectNameNotAllowedError(name)
+
         childPath = self.path.child(name)
         if childPath.exists():
             raise CalendarObjectNameAlreadyExistsError(name)
@@ -188,7 +192,14 @@ class Calendar(LoggingMixIn):
         calendarObject.setComponent(component)
 
     def removeCalendarObjectWithName(self, name):
-        raise NotImplementedError()
+        if name.startswith("."):
+            raise NoSuchCalendarObjectError(name)
+
+        childPath = self.path.child(name)
+        if childPath.isfile():
+            childPath.remove()
+        else:
+            raise NoSuchCalendarObjectError(name)
 
     def removeCalendarObjectWithUID(self, uid):
         raise NotImplementedError()

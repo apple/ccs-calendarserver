@@ -33,6 +33,7 @@ from txcaldav.icalendarstore import CalendarObjectNameNotAllowedError
 from txcaldav.icalendarstore import CalendarAlreadyExistsError
 from txcaldav.icalendarstore import CalendarObjectNameAlreadyExistsError
 from txcaldav.icalendarstore import NoSuchCalendarError
+from txcaldav.icalendarstore import NoSuchCalendarObjectError
 from txcaldav.icalendarstore import InvalidCalendarComponentError
 
 from txcaldav.calendarstore.file import CalendarStore, CalendarHome
@@ -288,8 +289,7 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
         for name in home1_calendarNames:
             self.assertRaises(
                 CalendarAlreadyExistsError,
-                self.home1.createCalendarWithName,
-                name
+                self.home1.createCalendarWithName, name
             )
 
     def test_createCalendarWithName_dot(self):
@@ -299,8 +299,7 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
         """
         self.assertRaises(
             CalendarNameNotAllowedError,
-            self.home1.createCalendarWithName,
-            ".foo"
+            self.home1.createCalendarWithName, ".foo"
         )
 
     def test_removeCalendarWithName_exists(self):
@@ -308,6 +307,7 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
         Remove an existing calendar.
         """
         for name in home1_calendarNames:
+            assert self.home1.calendarWithName(name) is not None
             self.home1.removeCalendarWithName(name)
             self.assertEquals(self.home1.calendarWithName(name), None)
 
@@ -317,8 +317,7 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
         """
         self.assertRaises(
             NoSuchCalendarError,
-            self.home1.removeCalendarWithName,
-            "xyzzy"
+            self.home1.removeCalendarWithName, "xyzzy"
         )
 
     def test_removeCalendarWithName_dot(self):
@@ -330,8 +329,7 @@ class CalendarHomeTest(unittest.TestCase, PropertiesTestMixin):
         self.home1.path.child(name).createDirectory()
         self.assertRaises(
             NoSuchCalendarError,
-            self.home1.removeCalendarWithName,
-            name
+            self.home1.removeCalendarWithName, name
         )
 
 class CalendarTest(unittest.TestCase, PropertiesTestMixin):
@@ -451,9 +449,7 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         Create a new calendar object.
         """
         name = "4.ics"
-
         assert self.calendar1.calendarObjectWithName(name) is None
-
         component = iComponent.fromString(event4_text)
         self.calendar1.createCalendarObjectWithName(name, component)
 
@@ -481,7 +477,6 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
             self.calendar1.createCalendarObjectWithName,
             ".foo", iComponent.fromString(event4_text)
         )
-    test_createCalendarObjectWithName_dot.todo = "Unimplemented"
 
     def test_createCalendarObjectWithName_uidconflict(self):
         """
@@ -506,15 +501,22 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         """
         Remove an existing calendar object.
         """
-        raise NotImplementedError()
-    test_removeCalendarObjectWithName_exists.todo = "Unimplemented"
+        for name in calendar1_objectNames:
+            assert self.calendar1.calendarObjectWithName(name) is not None
+            self.calendar1.removeCalendarObjectWithName(name)
+            self.assertEquals(
+                self.calendar1.calendarObjectWithName(name),
+                None
+            )
 
     def test_removeCalendarObjectWithName_absent(self):
         """
         Attempt to remove an non-existing calendar object should raise.
         """
-        raise NotImplementedError()
-    test_removeCalendarObjectWithName_absent.todo = "Unimplemented"
+        self.assertRaises(
+            NoSuchCalendarObjectError,
+            self.calendar1.removeCalendarObjectWithName, "xyzzy"
+        )
 
     def test_removeCalendarObjectWithName_dot(self):
         """
@@ -522,8 +524,12 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         implementation, so no calendar object names may start with
         ".".
         """
-        raise NotImplementedError()
-    test_removeCalendarObjectWithName_dot.todo = "Unimplemented"
+        name = ".foo"
+        self.calendar1.path.child(name).touch()
+        self.assertRaises(
+            NoSuchCalendarObjectError,
+            self.calendar1.removeCalendarObjectWithName, name
+        )
 
     def test_removeCalendarObjectWithUID_exists(self):
         """
