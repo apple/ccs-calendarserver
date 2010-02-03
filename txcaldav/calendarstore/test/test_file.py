@@ -647,12 +647,13 @@ class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
         calendarObject = self.calendar1.calendarObjectWithName("1.ics")
         self.assertEquals(calendarObject.component(), component)
 
+    @featureUnimplemented
     def test_setComponent_uidchanged(self):
         component = iComponent.fromString(event4_text)
 
         calendarObject = self.calendar1.calendarObjectWithName("1.ics")
         self.assertRaises(
-            InvalidCalendarComponentError,
+            CalendarObjectUIDAlreadyExistsError,
             calendarObject.setComponent, component
         )
 

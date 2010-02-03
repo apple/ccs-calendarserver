@@ -159,51 +159,18 @@ class Calendar(LoggingMixIn):
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self.path.path)
 
-    def index(self):
-        #
-        # OK, here's where we get ugly.
-        # The index code needs to be rewritten also, but in the meantime...
-        #
-        class StubResource(object):
-            """
-            Just enough resource to keep the Index class going.
-            """
-            def __init__(self, calendar):
-                self.calendar = calendar
-                self.fp = self.calendar.path
-
-            def getChild(self, name):
-                # None if no child... else child needs to support .iCalendar()
-                raise NotImplementedError()
-
-            def bumpSyncToken(self, xxx):
-                raise NotImplementedError()
-
-        if not hasattr(self, "_index"):
-            self._index = Index(StubResource(self))
-        return self._index
-
     def name(self):
         return self.path.basename()
 
     def ownerCalendarHome(self):
         return self.calendarHome
 
-    def _calendarObjects_index(self):
-        for name, uid, componentType in self.index().bruteForceSearch():
-            calendarObject = self.calendarObjectWithName(name)
-            calendarObject._uid = uid
-            calendarObject._componentType = componentType
-
-
-    def _calendarObjects_listdir(self):
+    def calendarObjects(self):
         return (
             self.calendarObjectWithName(name)
             for name in self.path.listdir()
             if not name.startswith(".")
         )
-
-    calendarObjects = _calendarObjects_index
 
     def calendarObjectWithName(self, name):
         childPath = self.path.child(name)
@@ -270,13 +237,6 @@ class CalendarObject(LoggingMixIn):
     def setComponent(self, component):
         if not isinstance(component, iComponent):
             raise TypeError(iComponent)
-
-        if component.resourceUID() != self.uid():
-            raise InvalidCalendarComponentError(
-                "UID may not change (%s != %s)" % (
-                    component.resourceUID(), self.uid()
-                 )
-            )
 
         try:
             component.validateForCalDAV()
