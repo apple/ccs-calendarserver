@@ -6,7 +6,7 @@
     <string>addressBookServer</string>
     
     <key>RestoreBinaryPath</key>
-    <string>/usr/libexec/server_backup/addressBookServer_restore</string>
+    <string>/usr/libexec/server_backup/calendarServer_restore</string>
     <key>RestoreLog</key>
     <string>/private/var/log/server_backup/addressBookServer_restore.log</string>
 
