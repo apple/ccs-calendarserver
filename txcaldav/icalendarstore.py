@@ -32,6 +32,7 @@ __all__ = [
     "NoSuchCalendarError",
     "NoSuchCalendarObjectError",
     "InvalidCalendarComponentError",
+    "TryAgainLaterError",
     "InternalDataStoreError",
 
     # Classes
@@ -108,6 +109,11 @@ class NoSuchCalendarObjectError(NotFoundError):
 class InvalidCalendarComponentError(CalendarStoreError):
     """
     Invalid calendar component.
+    """
+
+class TryAgainLaterError(CalendarStoreError):
+    """
+    Requested resource is in use.  Try again later.
     """
 
 class InternalDataStoreError(CalendarStoreError):

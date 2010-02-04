@@ -829,9 +829,11 @@ class Index (CalendarIndex):
         assert resource.isCalendarCollection(), "non-calendar collection resource %s has no index." % (resource,)
         super(Index, self).__init__(resource)
 
-        if config.Memcached.Pools.Default.ClientEnabled:
+        if (
+            hasattr(config, "Memcached") and
+            config.Memcached.Pools.Default.ClientEnabled
+        ):
             self.reserver = MemcachedUIDReserver(self)
-
         else:
             self.reserver = SQLUIDReserver(self)
 

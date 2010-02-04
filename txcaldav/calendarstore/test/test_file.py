@@ -78,7 +78,7 @@ event4_text = (
       "END:VTIMEZONE\r\n"
       "BEGIN:VEVENT\r\n"
         "CREATED:20100203T013849Z\r\n"
-        "UID:4\r\n"
+        "UID:uid4\r\n"
         "DTEND;TZID=US/Pacific:20100207T173000\r\n"
         "TRANSP:OPAQUE\r\n"
         "SUMMARY:New Event\r\n"
@@ -95,7 +95,10 @@ event4_text = (
     "END:VCALENDAR\r\n"
 )
 
-event1modified_text = event4_text.replace("\r\nUID:4\r\n", "\r\nUID:1\r\n")
+event1modified_text = event4_text.replace(
+    "\r\nUID:uid4\r\n",
+    "\r\nUID:uid1\r\n"
+)
 
 event4notCalDAV_text = (
     "BEGIN:VCALENDAR\r\n"
@@ -647,13 +650,12 @@ class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
         calendarObject = self.calendar1.calendarObjectWithName("1.ics")
         self.assertEquals(calendarObject.component(), component)
 
-    @featureUnimplemented
     def test_setComponent_uidchanged(self):
         component = iComponent.fromString(event4_text)
 
         calendarObject = self.calendar1.calendarObjectWithName("1.ics")
         self.assertRaises(
-            CalendarObjectUIDAlreadyExistsError,
+            InvalidCalendarComponentError,
             calendarObject.setComponent, component
         )
 

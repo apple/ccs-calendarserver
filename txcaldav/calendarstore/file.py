@@ -30,6 +30,7 @@ import errno
 from zope.interface import implements
 
 from twisted.python.filepath import FilePath
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.log import LoggingMixIn
 from twext.python.icalendar import Component as iComponent
@@ -49,6 +50,7 @@ from txcaldav.icalendarstore import InvalidCalendarComponentError
 from txcaldav.icalendarstore import InternalDataStoreError
 
 from twistedcaldav.index import Index
+from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 
 
 class CalendarStore(LoggingMixIn):
@@ -159,18 +161,68 @@ class Calendar(LoggingMixIn):
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self.path.path)
 
+    def index(self):
+        #
+        # OK, here's where we get ugly.
+        # The index code needs to be rewritten also, but in the meantime...
+        #
+        class StubResource(object):
+            """
+            Just enough resource to keep the Index class going.
+            """
+            def __init__(self, calendar):
+                self.calendar = calendar
+                self.fp = self.calendar.path
+
+            def isCalendarCollection(self):
+                return True
+
+            def getChild(self, name):
+                calendarObject = self.calendar.calendarObjectWithName(name)
+                if calendarObject:
+                    class ChildResource(object):
+                        def __init__(self, calendarObject):
+                            self.calendarObject = calendarObject
+
+                        def iCalendar(self):
+                            return self.calendarObject.component()
+
+                    return ChildResource(calendarObject)
+                else:
+                    return None
+
+            def bumpSyncToken(self, reset=False):
+                return self.calendar._updateSyncToken(reset)
+
+        if not hasattr(self, "_index"):
+            self._index = Index(StubResource(self))
+        return self._index
+
     def name(self):
         return self.path.basename()
 
     def ownerCalendarHome(self):
         return self.calendarHome
 
-    def calendarObjects(self):
+    def _calendarObjects_index(self):
+        for name, uid, componentType in self.index().bruteForceSearch():
+            calendarObject = self.calendarObjectWithName(name)
+
+            # Precache what we found in the index
+            calendarObject._uid = uid
+            calendarObject._componentType = componentType
+
+            yield calendarObject
+
+    def _calendarObjects_listdir(self):
         return (
             self.calendarObjectWithName(name)
             for name in self.path.listdir()
             if not name.startswith(".")
         )
+
+    calendarObjects = _calendarObjects_listdir
+   #calendarObjects = _calendarObjects_index
 
     def calendarObjectWithName(self, name):
         childPath = self.path.child(name)
@@ -209,6 +261,31 @@ class Calendar(LoggingMixIn):
     def syncToken(self):
         raise NotImplementedError()
 
+    @inlineCallbacks
+    def _updateSyncToken(self, reset=False):
+        return
+
+        lock = MemcacheLock("Calendar", self.fp.path, timeout=60.0)
+        try:
+            try:
+                yield lock.acquire()
+            except MemcacheLockTimeoutError:
+                raise InternalDataStoreError("Timed out on calendar lock")
+
+            def newToken():
+                raise NotImplementedError()
+
+            if reset:
+                token = newToken()
+
+            raise NotImplementedError()
+
+        finally:
+            yield lock.clean()
+
+
+        raise NotImplementedError()
+
     def calendarObjectsInTimeRange(self, start, end, timeZone):
         raise NotImplementedError()
 
@@ -237,6 +314,16 @@ class CalendarObject(LoggingMixIn):
     def setComponent(self, component):
         if not isinstance(component, iComponent):
             raise TypeError(iComponent)
+
+        try:
+            if component.resourceUID() != self.uid():
+                raise InvalidCalendarComponentError(
+                    "UID may not change (%s != %s)" % (
+                        component.resourceUID(), self.uid()
+                     )
+                )
+        except NoSuchCalendarObjectError:
+            pass
 
         try:
             component.validateForCalDAV()
