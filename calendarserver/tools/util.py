@@ -32,6 +32,8 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+from twistedcaldav.directory.aggregate import AggregateDirectoryService
+
 
 def loadConfig(configFileName):
     if configFileName is None:
@@ -100,6 +102,13 @@ def getDirectory():
     directory = MyDirectoryService(config.DirectoryService.params)
     while not directory.isAvailable():
         sleep(5)
+
+
+    if config.ResourceService.Enabled:
+        resourceClass = namedClass(config.ResourceService.type)
+        resourceDirectory = resourceClass(config.ResourceService.params)
+        directories = (directory, resourceDirectory)
+        directory = AggregateDirectoryService(directories)
 
     return directory
 

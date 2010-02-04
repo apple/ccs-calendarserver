@@ -39,10 +39,19 @@ DEFAULT_CONFIG_FILE = "/etc/caldavd/caldavd.plist"
 DEFAULT_SERVICE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "/etc/caldavd/accounts.xml",
+        "recordTypes": ("users", "groups", "locations", "resources"),
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
         "cacheTimeout": 30,
+        "recordTypes": ("users", "groups", "locations", "resources"),
+    },
+}
+
+DEFAULT_RESOURCE_PARAMS = {
+    "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
+        "xmlFile": "/etc/caldavd/resources.xml",
+        "recordTypes" : ("locations", "resources"),
     },
 }
 
@@ -124,6 +133,18 @@ DEFAULT_CONFIG = {
     "DirectoryService": {
         "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
         "params": DEFAULT_SERVICE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
+    },
+
+    #
+    # Locations and Resources service
+    #
+    #    Supplements the directory service with information about locations
+    #    and resources.
+    #
+    "ResourceService": {
+        "Enabled" : False,
+        "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
+        "params": DEFAULT_RESOURCE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
     },
 
     #

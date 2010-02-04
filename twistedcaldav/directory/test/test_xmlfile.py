@@ -18,6 +18,7 @@ import os
 
 from twisted.python.filepath import FilePath
 
+from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService
 import twistedcaldav.directory.test.util
@@ -225,3 +226,16 @@ class XMLFile (
         self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "enabled").enabledForCalendaring)
         self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "disabled").enabledForCalendaring)
 
+
+class XMLFileSubset (XMLFileBase, TestCase):
+    """
+    Test the recordTypes subset feature of XMLFile service.
+    """
+    recordTypes = set((
+        DirectoryService.recordType_users,
+        DirectoryService.recordType_groups,
+    ))
+
+    def test_recordTypesSubset(self):
+        directory = XMLDirectoryService({'xmlFile' : self.xmlFile(), 'recordTypes' : (DirectoryService.recordType_users, DirectoryService.recordType_groups)}, alwaysStat=True)
+        self.assertEquals(set(("users", "groups")), set(directory.recordTypes()))

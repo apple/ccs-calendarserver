@@ -50,9 +50,17 @@ class XMLDirectoryService(CachingDirectoryService):
 
         defaults = {
             'xmlFile' : None,
+            'recordTypes' : (
+                self.recordType_users,
+                self.recordType_groups,
+                self.recordType_locations,
+                self.recordType_resources,
+            ),
         }
         ignored = None
         params = self.getParams(params, defaults, ignored)
+
+        self._recordTypes = params['recordTypes']
 
         super(XMLDirectoryService, self).__init__()
 
@@ -67,13 +75,7 @@ class XMLDirectoryService(CachingDirectoryService):
         self._accounts()
 
     def recordTypes(self):
-        recordTypes = (
-            DirectoryService.recordType_users,
-            DirectoryService.recordType_groups,
-            DirectoryService.recordType_locations,
-            DirectoryService.recordType_resources
-        )
-        return recordTypes
+        return self._recordTypes
 
     def queryDirectory(self, recordTypes, indexType, indexKey):
         

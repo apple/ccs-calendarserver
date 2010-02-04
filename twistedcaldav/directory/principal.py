@@ -535,10 +535,11 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
         assert record is not None, "Principal must have a directory record"
 
-        url = joinURL(parent.principalCollectionURL(), record.guid) + slash
 
         self.record = record
         self.parent = parent
+
+        url = joinURL(parent.principalCollectionURL(), self.principalUID()) + slash
         self._url   = url
 
         self._alternate_urls = tuple([

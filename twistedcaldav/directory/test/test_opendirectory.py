@@ -261,3 +261,18 @@ else:
             self.assertEquals(len(results), 2)
             for record in results:
                 self.assertTrue(isinstance(record, OpenDirectoryRecord))
+
+
+    class OpenDirectorySubset (OpenDirectory):
+        """
+        Test the recordTypes subset feature of Apple OpenDirectoryService.
+        """
+        recordTypes = set((
+            DirectoryService.recordType_users,
+            DirectoryService.recordType_groups,
+        ))
+
+        def setUp(self):
+            super(OpenDirectorySubset, self).setUp()
+            self._service = OpenDirectoryService({'node' : "/Search", 'recordTypes' : (DirectoryService.recordType_users, DirectoryService.recordType_groups)}, dosetup=False)
+            augment.AugmentService = augment.AugmentXMLDB(xmlFiles=())
