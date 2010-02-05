@@ -282,7 +282,7 @@ class DirectoryService(LoggingMixIn):
         return result
 
 
-    def createRecord(self, recordType, guid, shortNames=(), authIDs=set(),
+    def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
         uid=None, password=None, **kwds):
         """

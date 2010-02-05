@@ -47,9 +47,8 @@ def loadConfig(configFileName):
     return config
 
 def getDirectory():
-    BaseDirectoryService = namedClass(config.DirectoryService.type)
 
-    class MyDirectoryService (BaseDirectoryService):
+    class MyDirectoryService (AggregateDirectoryService):
         def getPrincipalCollection(self):
             if not hasattr(self, "_principalCollection"):
                 #
@@ -99,18 +98,21 @@ def getDirectory():
     calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
 
     # Wait for directory service to become available
-    directory = MyDirectoryService(config.DirectoryService.params)
+    BaseDirectoryService = namedClass(config.DirectoryService.type)
+    directory = BaseDirectoryService(config.DirectoryService.params)
     while not directory.isAvailable():
         sleep(5)
 
 
+    directories = [directory]
+
     if config.ResourceService.Enabled:
         resourceClass = namedClass(config.ResourceService.type)
         resourceDirectory = resourceClass(config.ResourceService.params)
-        directories = (directory, resourceDirectory)
-        directory = AggregateDirectoryService(directories)
+        directories.append(resourceDirectory)
 
-    return directory
+    aggregate = MyDirectoryService(directories)
+    return aggregate
 
 class DummyDirectoryService (DirectoryService):
     realmName = ""

@@ -495,7 +495,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             self.log_info("Configuring resource service of type: %s" % (resourceClass,))
 
-            resourceDirectory = resourceClass(**config.ResourceService.params)
+            resourceDirectory = resourceClass(config.ResourceService.params)
             directories.append(resourceDirectory)
 
         #

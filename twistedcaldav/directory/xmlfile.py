@@ -35,6 +35,7 @@ from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser, XMLAccountRecord
 import xml.etree.ElementTree as ET
+from uuid import uuid4
 
 
 class XMLDirectoryService(CachingDirectoryService):
@@ -225,7 +226,7 @@ class XMLDirectoryService(CachingDirectoryService):
         # TODO: nuke memcache entries, or prepopulate them
 
 
-    def createRecord(self, recordType, guid, shortNames=(), authIDs=set(),
+    def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
         uid=None, password=None, **kwds):
         """
@@ -234,6 +235,9 @@ class XMLDirectoryService(CachingDirectoryService):
         to elementtree elements, a new element is added for the new record,
         and the document is serialized to disk.
         """
+
+        if guid is None:
+            guid = str(uuid4())
 
         # Make sure latest XML records are read in
         self._lastCheck = 0
