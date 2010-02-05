@@ -33,7 +33,9 @@ from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
-from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
+from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser, XMLAccountRecord
+import xml.etree.ElementTree as ET
+
 
 class XMLDirectoryService(CachingDirectoryService):
     """
@@ -88,13 +90,6 @@ class XMLDirectoryService(CachingDirectoryService):
                     xmlPrincipal  = xmlPrincipal,
                 )
 
-                record = XMLDirectoryRecord(
-                    service       = self,
-                    recordType    = recordType,
-                    shortNames    = tuple(xmlPrincipal.shortNames),
-                    xmlPrincipal  = xmlPrincipal,
-                )
-                
                 # Look up augment information
                 # TODO: this needs to be deferred but for now we hard code the deferred result because
                 # we know it is completing immediately.
@@ -191,6 +186,131 @@ class XMLDirectoryService(CachingDirectoryService):
                 self.realmName = parser.realm
                 self._fileInfo = fileInfo
         return self._parsedAccounts
+
+
+    def _addElement(self, parent, principal):
+        """
+        Create an XML element from principal and add it as a child of parent
+        """
+
+        # TODO: derive this from xmlaccountsparser.py
+        xmlTypes = {
+            'users'     : 'user',
+            'groups'    : 'group',
+            'locations' : 'location',
+            'resources' : 'resource',
+        }
+        xmlType = xmlTypes[principal.recordType]
+
+        element = ET.SubElement(parent, xmlType)
+        for value in principal.shortNames:
+            ET.SubElement(element, "uid").text = value
+        ET.SubElement(element, "guid").text = principal.guid
+        ET.SubElement(element, "name").text = principal.fullName
+        ET.SubElement(element, "first-name").text = principal.firstName
+        ET.SubElement(element, "last-name").text = principal.lastName
+        for value in principal.emailAddresses:
+            ET.SubElement(element, "email-address").text = value
+
+        return element
+
+    def _persistRecords(self, element):
+        # TODO: make this robust:
+        ET.ElementTree(element).write(self.xmlFile.path)
+
+        # Reload
+        self._initCaches(self.cacheClass) # nuke local cache
+        self._lastCheck = 0
+        self._accounts()
+        # TODO: nuke memcache entries, or prepopulate them
+
+
+    def createRecord(self, recordType, guid, shortNames=(), authIDs=set(),
+        fullName=None, firstName=None, lastName=None, emailAddresses=set(),
+        uid=None, password=None, **kwds):
+        """
+        Create and persist a record using the provided information.  In this
+        XML-based implementation, the xml accounts are read in and converted
+        to elementtree elements, a new element is added for the new record,
+        and the document is serialized to disk.
+        """
+
+        # Make sure latest XML records are read in
+        self._lastCheck = 0
+        accounts = self._accounts()
+
+        accountsElement = ET.Element("accounts", realm=self.realmName)
+        for recType in self.recordTypes():
+            for xmlPrincipal in accounts[recType].itervalues():
+                self._addElement(accountsElement, xmlPrincipal)
+
+        xmlPrincipal = XMLAccountRecord(recordType)
+        xmlPrincipal.shortNames = shortNames
+        xmlPrincipal.guid = guid
+        xmlPrincipal.password = password
+        xmlPrincipal.fullName = fullName
+        xmlPrincipal.firstName = firstName
+        xmlPrincipal.lastName = lastName
+        xmlPrincipal.emailAddresses = emailAddresses
+        self._addElement(accountsElement, xmlPrincipal)
+
+        self._persistRecords(accountsElement)
+
+
+    def destroyRecord(self, recordType, guid):
+        """
+        Remove the record matching guid.  In this XML-based implementation,
+        the xml accounts are read in and those not matching the given guid are
+        converted to elementtree elements, then the document is serialized to
+        disk.
+        """
+
+        # Make sure latest XML records are read in
+        self._lastCheck = 0
+        accounts = self._accounts()
+
+        accountsElement = ET.Element("accounts", realm=self.realmName)
+        for recType in self.recordTypes():
+
+            for xmlPrincipal in accounts[recType].itervalues():
+                if xmlPrincipal.guid != guid:
+                    self._addElement(accountsElement, xmlPrincipal)
+
+        self._persistRecords(accountsElement)
+
+
+    def updateRecord(self, recordType, guid, shortNames=(), authIDs=set(),
+        fullName=None, firstName=None, lastName=None, emailAddresses=set(),
+        uid=None, password=None, **kwds):
+        """
+        Update the record matching guid.  In this XML-based implementation,
+        the xml accounts are read in and converted to elementtree elements.
+        The account matching the given guid is replaced, then the document
+        is serialized to disk.
+        """
+
+        # Make sure latest XML records are read in
+        self._lastCheck = 0
+        accounts = self._accounts()
+
+        accountsElement = ET.Element("accounts", realm=self.realmName)
+        for recType in self.recordTypes():
+
+            for xmlPrincipal in accounts[recType].itervalues():
+                if xmlPrincipal.guid == guid:
+                    # Replace this record
+                    xmlPrincipal.shortNames = shortNames
+                    xmlPrincipal.password = password
+                    xmlPrincipal.fullName = fullName
+                    xmlPrincipal.firstName = firstName
+                    xmlPrincipal.lastName = lastName
+                    xmlPrincipal.emailAddresses = emailAddresses
+                    self._addElement(accountsElement, xmlPrincipal)
+                else:
+                    self._addElement(accountsElement, xmlPrincipal)
+
+        self._persistRecords(accountsElement)
+
 
 class XMLDirectoryRecord(CachingDirectoryRecord):
     """

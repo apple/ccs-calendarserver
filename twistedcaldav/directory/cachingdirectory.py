@@ -150,6 +150,7 @@ class CachingDirectoryService(DirectoryService):
         
         self.cacheTimeout = cacheTimeout * 60
 
+        self.cacheClass = cacheClass
         self._initCaches(cacheClass)
 
         super(CachingDirectoryService, self).__init__()
