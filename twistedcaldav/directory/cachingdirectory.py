@@ -73,6 +73,7 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
             CachingDirectoryService.INDEX_TYPE_CUA    : {},
             CachingDirectoryService.INDEX_TYPE_AUTHID   : {},
         }
+        self.directoryService = directoryService
 
     def addRecord(self, record, indexType, indexKey, useMemcache=True,
         neverExpire=False):
@@ -92,7 +93,9 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
         for indexType, indexKey in indexTypes:
             self.recordsIndexedBy[indexType][indexKey] = record
             if useMemcache:
-                key = "dir|%s|%s" % (indexType, indexKey)
+                key = "dir|%s|%s|%s|%s" % (self.directoryService.baseGUID,
+                    indexType, indexKey,
+                    "|".join(self.directoryService.recordTypes()))
                 self.log_debug("Memcache: storing %s" % (key,))
                 try:
                     self.directoryService.memcacheSet(key, record)
@@ -292,7 +295,8 @@ class CachingDirectoryService(DirectoryService):
             
             # Check memcache
             if config.Memcached.Pools.Default.ClientEnabled:
-                key = "dir|%s|%s" % (indexType, indexKey)
+                key = "dir|%s|%s|%s|%s" % (self.baseGUID, indexType, indexKey,
+                    "|".join(self.recordTypes()))
                 self.log_debug("Memcache: checking %s" % (key,))
 
                 try:

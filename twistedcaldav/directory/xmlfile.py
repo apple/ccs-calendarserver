@@ -80,6 +80,12 @@ class XMLDirectoryService(CachingDirectoryService):
     def recordTypes(self):
         return self._recordTypes
 
+    def listRecords(self, recordType):
+        for xmlPrincipal in self._accounts()[recordType].itervalues():
+            record = self.recordWithGUID(xmlPrincipal.guid)
+            if record is not None:
+                yield record
+
     def queryDirectory(self, recordTypes, indexType, indexKey):
         
         for recordType in recordTypes:

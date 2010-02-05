@@ -195,11 +195,13 @@ class XMLFile (
 <accounts realm="Test Realm">
   <group>
     <uid>enabled</uid>
+    <guid>enabled</guid>
     <password>enabled</password>
     <name>Enabled</name>
   </group>
   <group>
     <uid>disabled</uid>
+    <guid>disabled</guid>
     <password>disabled</password>
     <name>Disabled</name>
   </group>
