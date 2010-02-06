@@ -30,7 +30,7 @@ from twisted.web2.auth.digest import DigestedCredentials
 from twisted.python.filepath import FilePath
 
 from twistedcaldav.directory import augment
-from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser, XMLAccountRecord
@@ -81,13 +81,24 @@ class XMLDirectoryService(CachingDirectoryService):
         return self._recordTypes
 
     def listRecords(self, recordType):
+        self._lastCheck = 0
         for xmlPrincipal in self._accounts()[recordType].itervalues():
             record = self.recordWithGUID(xmlPrincipal.guid)
             if record is not None:
                 yield record
 
     def queryDirectory(self, recordTypes, indexType, indexKey):
-        
+        """
+        If the query is a miss, re-read from the XML file and try again
+        """
+        if not self._queryDirectory(recordTypes, indexType, indexKey):
+            self._lastCheck = 0
+            self._queryDirectory(recordTypes, indexType, indexKey)
+
+    def _queryDirectory(self, recordTypes, indexType, indexKey):
+
+        anyMatches = False
+
         for recordType in recordTypes:
             for xmlPrincipal in self._accounts()[recordType].itervalues():
                 record = XMLDirectoryRecord(
@@ -112,7 +123,10 @@ class XMLDirectoryService(CachingDirectoryService):
                     matched = indexKey in record.calendarUserAddresses
                 
                 if matched:
+                    anyMatches = True
                     self.recordCacheForType(recordType).addRecord(record, indexType, indexKey)
+
+        return anyMatches
             
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         # Default, brute force method search of underlying XML data
@@ -221,7 +235,26 @@ class XMLDirectoryService(CachingDirectoryService):
 
         return element
 
+
     def _persistRecords(self, element):
+
+        def indent(elem, level=0):
+            i = "\n" + level*"  "
+            if len(elem):
+                if not elem.text or not elem.text.strip():
+                    elem.text = i + "  "
+                if not elem.tail or not elem.tail.strip():
+                    elem.tail = i
+                for elem in elem:
+                    indent(elem, level+1)
+                if not elem.tail or not elem.tail.strip():
+                    elem.tail = i
+            else:
+                if level and (not elem.tail or not elem.tail.strip()):
+                    elem.tail = i
+
+        indent(element)
+
         # TODO: make this robust:
         ET.ElementTree(element).write(self.xmlFile.path)
 
@@ -252,6 +285,8 @@ class XMLDirectoryService(CachingDirectoryService):
         accountsElement = ET.Element("accounts", realm=self.realmName)
         for recType in self.recordTypes():
             for xmlPrincipal in accounts[recType].itervalues():
+                if xmlPrincipal.guid == guid:
+                    raise DirectoryError("Duplicate guid: %s" % (guid,))
                 self._addElement(accountsElement, xmlPrincipal)
 
         xmlPrincipal = XMLAccountRecord(recordType)

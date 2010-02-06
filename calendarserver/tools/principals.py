@@ -103,7 +103,6 @@ def main():
                #"search=",
                 "list-principal-types",
                 "list-principals=",
-                "create-principal=",
                 "read-property=",
                 "list-read-proxies",
                 "list-write-proxies",
@@ -124,7 +123,6 @@ def main():
     configFileName = None
     listPrincipalTypes = False
     listPrincipals = None
-    createPrincipal = None
     principalActions = []
 
     for opt, arg in optargs:
@@ -139,9 +137,6 @@ def main():
 
         elif opt in ("", "--list-principals"):
             listPrincipals = arg
-
-        elif opt in ("", "--create-principal"):
-            createPrincipal = arg
 
         elif opt in ("", "--read-property"):
             try:
@@ -243,18 +238,6 @@ def main():
             usage(e)
 
         return
-
-    #
-    # Create principal
-    #
-    if createPrincipal:
-        if args:
-            usage("Too many arguments")
-
-        recordType, shortName = createPrincipal.split(":", 1)
-        config.directory.createRecord(recordType, shortNames=(shortName,))
-        return
-
 
     #
     # Do a quick sanity check that arguments look like principal

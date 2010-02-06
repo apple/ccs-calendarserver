@@ -19,6 +19,7 @@ from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
 from twisted.python.filepath import FilePath
+from twistedcaldav.directory.directory import DirectoryError
 
 
 class ModificationTestCase(TestCase):
@@ -119,3 +120,9 @@ class ModificationTestCase(TestCase):
         # Make sure old records are still there:
         record = directory.recordWithUID("location01")
         self.assertNotEquals(record, None)
+
+    def test_createDuplicateRecord(self):
+        directory = getDirectory()
+
+        directory.createRecord("resources", "resource01", shortNames=("resource01",), uid="resource01")
+        self.assertRaises(DirectoryError, directory.createRecord, "resources", "resource01", shortNames=("resource01",), uid="resource01")

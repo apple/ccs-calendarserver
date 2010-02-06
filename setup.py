@@ -109,6 +109,7 @@ dist = setup(
                          "bin/caldavd",
                          "bin/calendarserver_export",
                          "bin/calendarserver_manage_principals"
+                         "bin/calendarserver_command_gateway"
                        ],
     data_files       = [ ("caldavd", ["conf/caldavd.plist"]) ],
     ext_modules      = extensions,
