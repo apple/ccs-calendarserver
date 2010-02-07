@@ -113,71 +113,88 @@ def main():
     else:
         commands = [plist]
 
-    # Make sure 'command' is specified
-    for command in commands:
-        if not command.has_key('command'):
-            abort("'command' missing from plist")
+    runner = Runner(config.directory, commands)
+    runner.validate()
+    runner.run()
 
-    run(commands)
 
-def run(commands):
-    for command in commands:
-        commandName = command['command']
 
-        methodName = "command_%s" % (commandName,)
-        if hasattr(Commands, methodName):
-            getattr(Commands, methodName)(command)
-        else:
-            abort("Unknown command '%s'" % (commandName,))
+class Runner(object):
 
-class Commands(object):
+    def __init__(self, directory, commands):
+        self.dir = directory
+        self.commands = commands
 
-    @classmethod
-    def command_getLocationList(cls, command):
-        directory = config.directory
-        result = []
-        for record in directory.listRecords("locations"):
-            result.append( {
-                'GeneratedUID' : record.guid,
-                'RecordName' : [n for n in record.shortNames],
-                'RealName' : record.fullName,
-                'AutoSchedule' : record.autoSchedule,
-            } )
-        respond(command, result)
+    def validate(self):
+        # Make sure commands are valid
+        for command in self.commands:
+            if not command.has_key('command'):
+                abort("'command' missing from plist")
+            commandName = command['command']
+            methodName = "command_%s" % (commandName,)
+            if not hasattr(self, methodName):
+                abort("Unknown command '%s'" % (commandName,))
 
-    @classmethod
-    def command_createLocation(cls, command):
-        directory = config.directory
+    def run(self):
+        for command in self.commands:
+            commandName = command['command']
+            methodName = "command_%s" % (commandName,)
+            if hasattr(self, methodName):
+                getattr(self, methodName)(command)
+            else:
+                abort("Unknown command '%s'" % (commandName,))
 
+    # Locations
+
+    def command_getLocationList(self, command):
+        respondWithRecordsOfType(self.dir, command, "locations")
+
+    def command_createLocation(self, command):
         try:
-            directory.createRecord("locations", guid=command['GeneratedUID'],
+            self.dir.createRecord("locations", guid=command['GeneratedUID'],
                 shortNames=command['RecordName'], fullName=command['RealName'])
         except DirectoryError, e:
             abort(str(e))
+        respondWithRecordsOfType(self.dir, command, "locations")
 
-        result = []
-        for record in directory.listRecords("locations"):
-            result.append( {
-                'GeneratedUID' : record.guid,
-                'RecordName' : [n for n in record.shortNames],
-                'RealName' : record.fullName,
-                'AutoSchedule' : record.autoSchedule,
-            } )
-        respond(command, result)
+    def command_deleteLocation(self, command):
+        try:
+            self.dir.destroyRecord("locations", guid=command['GeneratedUID'])
+        except DirectoryError, e:
+            abort(str(e))
+        respondWithRecordsOfType(self.dir, command, "locations")
+
+    # Resources
+
+    def command_getResourceList(self, command):
+        respondWithRecordsOfType(self.dir, command, "resources")
+
+    def command_createResource(self, command):
+        try:
+            self.dir.createRecord("resources", guid=command['GeneratedUID'],
+                shortNames=command['RecordName'], fullName=command['RealName'])
+        except DirectoryError, e:
+            abort(str(e))
+        respondWithRecordsOfType(self.dir, command, "resources")
+
+    def command_deleteResource(self, command):
+        try:
+            self.dir.destroyRecord("resources", guid=command['GeneratedUID'])
+        except DirectoryError, e:
+            abort(str(e))
+        respondWithRecordsOfType(self.dir, command, "resources")
 
 
-    @classmethod
-    def command_getResourceList(cls, command):
-        directory = config.directory
-        result = []
-        for record in directory.listRecords("resources"):
-            result.append( {
-                'GeneratedUID' : record.guid,
-                'RecordName' : [n for n in record.shortNames],
-                'RealName' : record.fullName,
-                'AutoSchedule' : record.autoSchedule,
-            } )
-        respond(command, result)
+def respondWithRecordsOfType(directory, command, recordType):
+    result = []
+    for record in directory.listRecords(recordType):
+        result.append( {
+            'GeneratedUID' : record.guid,
+            'RecordName' : [n for n in record.shortNames],
+            'RealName' : record.fullName,
+            'AutoSchedule' : record.autoSchedule,
+        } )
+    respond(command, result)
 
 def respond(command, result):
     sys.stdout.write(plistlib.writePlistToString( { 'command' : command['command'], 'result' : result } ) )
