@@ -64,6 +64,12 @@ class OpenDirectoryService(CachingDirectoryService):
         defaults = {
             'node' : '/Search',
             'cacheTimeout' : 30,
+            'recordTypes' : (
+                self.recordType_users,
+                self.recordType_groups,
+                self.recordType_locations,
+                self.recordType_resources,
+            ),
         }
         ignored = (
             'requireComputerRecord',
@@ -71,6 +77,8 @@ class OpenDirectoryService(CachingDirectoryService):
             'restrictToGroup'
         )
         params = self.getParams(params, defaults, ignored)
+
+        self._recordTypes = params['recordTypes']
 
         super(OpenDirectoryService, self).__init__(params['cacheTimeout'])
 
@@ -161,12 +169,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 yield GUID
 
     def recordTypes(self):
-        return (
-            self.recordType_users,
-            self.recordType_groups,
-            self.recordType_locations,
-            self.recordType_resources,
-        )
+        return self._recordTypes
 
     def groupsForGUID(self, guid):
         

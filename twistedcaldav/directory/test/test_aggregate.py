@@ -22,7 +22,6 @@ from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory import augment
 
-apache_prefix = "apache:"
 xml_prefix = "xml:"
 
 testServices = (

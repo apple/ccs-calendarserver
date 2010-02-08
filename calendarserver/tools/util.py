@@ -24,14 +24,20 @@ __all__ = [
 
 import os
 from time import sleep
+import socket
 
 from twisted.python.reflect import namedClass
 
-import socket
+from calendarserver.provision.root import RootResource
+from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.notify import installNotificationClient
+from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+
 
 def loadConfig(configFileName):
     if configFileName is None:
@@ -45,9 +51,8 @@ def loadConfig(configFileName):
     return config
 
 def getDirectory():
-    BaseDirectoryService = namedClass(config.DirectoryService.type)
 
-    class MyDirectoryService (BaseDirectoryService):
+    class MyDirectoryService (AggregateDirectoryService):
         def getPrincipalCollection(self):
             if not hasattr(self, "_principalCollection"):
                 #
@@ -97,11 +102,37 @@ def getDirectory():
     calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
 
     # Wait for directory service to become available
-    directory = MyDirectoryService(config.DirectoryService.params)
+    BaseDirectoryService = namedClass(config.DirectoryService.type)
+    directory = BaseDirectoryService(config.DirectoryService.params)
     while not directory.isAvailable():
         sleep(5)
 
-    return directory
+
+    directories = [directory]
+
+    if config.ResourceService.Enabled:
+        resourceClass = namedClass(config.ResourceService.type)
+        resourceDirectory = resourceClass(config.ResourceService.params)
+        directories.append(resourceDirectory)
+
+    aggregate = MyDirectoryService(directories)
+
+    #
+    # Wire up the resource hierarchy
+    #
+    principalCollection = aggregate.getPrincipalCollection()
+    root = RootResource(
+        config.DocumentRoot,
+        principalCollections=(principalCollection,),
+    )
+    root.putChild("principals", principalCollection)
+    calendarCollection = CalendarHomeProvisioningFile(
+        os.path.join(config.DocumentRoot, "calendars"),
+        aggregate, "/calendars/",
+    )
+    root.putChild("calendars", calendarCollection)
+
+    return aggregate
 
 class DummyDirectoryService (DirectoryService):
     realmName = ""
@@ -147,3 +178,25 @@ def autoDisableMemcached(config):
 
     except socket.error:
         config.Memcached.Pools.Default.ClientEnabled = False
+
+
+def setupMemcached(config):
+    #
+    # Connect to memcached
+    #
+    memcachepool.installPools(
+        config.Memcached.Pools,
+        config.Memcached.MaxClients
+    )
+    autoDisableMemcached(config)
+
+def setupNotifications(config):
+    #
+    # Connect to notifications
+    #
+    if config.Notifications.Enabled:
+        installNotificationClient(
+            config.Notifications.InternalNotificationHost,
+            config.Notifications.InternalNotificationPort,
+        )
+

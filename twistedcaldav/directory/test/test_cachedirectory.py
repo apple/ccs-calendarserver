@@ -86,7 +86,7 @@ class CachingDirectoryTest(TestCase):
         self.service.queried = False
 
     def loadRecords(self, records):
-        self.service._initCaches(DictRecordTypeCache)
+        self.service._initCaches()
         self.service.fakerecords = records
         self.service.queried = False
 

@@ -54,13 +54,6 @@ limitations under the License.
     <email-address>dreid@example.com</email-address>
   </user>
   <user>
-    <uid>sagen</uid>
-    <guid>34360DAD-9BDE-4508-3C34-250394720345</guid>
-    <password>negas</password>
-    <name>Morgen Sagen</name>
-    <email-address>sagen@example.com</email-address>
-  </user>
-  <user>
     <uid>nocalendar</uid>
     <guid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</guid>
     <password>radnelacon</password>
