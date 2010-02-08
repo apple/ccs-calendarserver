@@ -1097,6 +1097,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         
                 if config.Memcached.MaxMemory is not 0:
                     memcachedArgv.extend(["-m", str(config.Memcached.MaxMemory)])
+                if config.UserName:
+                    memcachedArgv.extend(["-u", config.UserName])
         
                 memcachedArgv.extend(config.Memcached.Options)
         
