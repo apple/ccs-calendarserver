@@ -24,10 +24,12 @@ __all__ = [
 
 from time import time
 import types
+import os, pwd, grp
 
 from twisted.cred.credentials import UsernamePassword
 from twisted.web2.auth.digest import DigestedCredentials
 from twisted.python.filepath import FilePath
+from twistedcaldav.config import config
 
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService, DirectoryError
@@ -60,17 +62,44 @@ class XMLDirectoryService(CachingDirectoryService):
                 self.recordType_resources,
             ),
             'cacheTimeout' : 30,
+            'realmName' : '/Search',
         }
         ignored = None
         params = self.getParams(params, defaults, ignored)
 
         self._recordTypes = params['recordTypes']
+        self.realmName = params['realmName']
 
         super(XMLDirectoryService, self).__init__(params['cacheTimeout'])
 
         xmlFile = params.get("xmlFile")
         if type(xmlFile) is str:
             xmlFile = FilePath(xmlFile)
+
+        if not xmlFile.exists():
+            xmlFile.setContent("""<?xml version="1.0" encoding="utf-8"?>
+
+<accounts realm="%s">
+</accounts>
+""" % (self.realmName,))
+
+        uid = -1
+        if config.UserName:
+            try:
+                uid = pwd.getpwnam(config.UserName).pw_uid
+            except KeyError:
+                log.error("User not found: %s" % (config.UserName,))
+
+        gid = -1
+        if config.GroupName:
+            try:
+                gid = grp.getgrnam(config.GroupName).gr_gid
+            except KeyError:
+                log.error("Group not found: %s" % (config.GroupName,))
+
+        if uid != -1 and gid != -1:
+            os.chown(xmlFile.path, uid, gid)
+
 
         self.xmlFile = xmlFile
         self._fileInfo = None
