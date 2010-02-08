@@ -719,6 +719,16 @@
       <array>
         <!--<string>-vv</string>-->
       </array>
+      <key>Pools</key>
+        <dict>
+        <key>Default</key>
+            <dict>
+                <key>ClientEnabled</key>
+                <false/>
+                <key>ServerEnabled</key>
+                <false/>
+            </dict>
+        </dict>
     </dict>
 
     <!-- Response Caching -->
