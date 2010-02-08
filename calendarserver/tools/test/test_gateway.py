@@ -17,13 +17,85 @@
 import os
 import plistlib
 import xml
+
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
+from twisted.internet.error import ProcessDone
+from twisted.internet.protocol import ProcessProtocol
+
 from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
 from twisted.python.filepath import FilePath
 from twistedcaldav.directory.directory import DirectoryError
-from subprocess import Popen, PIPE, STDOUT
 
+class ErrorOutput(Exception):
+    """
+    The process produced some error output and exited with a non-zero exit
+    code.
+    """
+
+
+class CapturingProcessProtocol(ProcessProtocol):
+    """
+    A L{ProcessProtocol} that captures its output and error.
+
+    @ivar output: a C{list} of all C{str}s received to stderr.
+
+    @ivar error: a C{list} of all C{str}s received to stderr.
+    """
+
+    def __init__(self, deferred, inputData):
+        """
+        Initialize a L{CapturingProcessProtocol}.
+
+        @param deferred: the L{Deferred} to fire when the process is complete.
+
+        @param inputData: a C{str} to feed to the subprocess's stdin.
+        """
+        self.deferred = deferred
+        self.input = inputData
+        self.output = []
+        self.error = []
+
+
+    def connectionMade(self):
+        """
+        The process started; feed its input on stdin.
+        """
+        self.transport.write(self.input)
+        self.transport.closeStdin()
+
+
+    def outReceived(self, data):
+        """
+        Some output was received on stdout.
+        """
+        self.output.append(data)
+
+
+    def errReceived(self, data):
+        """
+        Some output was received on stderr.
+        """
+        self.error.append(data)
+        # Attempt to exit promptly if a traceback is displayed, so we don't
+        # deal with timeouts.
+        lines = ''.join(self.error).split("\n")
+        if len(lines) > 1:
+            errorReportLine = lines[-2].split(": ", 1)
+            if len(errorReportLine) == 2 and ' ' not in errorReportLine[0] and '\t' not in errorReportLine[0]:
+                self.transport.signalProcess("TERM")
+
+
+    def processEnded(self, why):
+        """
+        The process is over, fire the Deferred with the output.
+        """
+        if why.check(ProcessDone) and not self.error:
+            self.deferred.callback(''.join(self.output))
+        else:
+            self.deferred.errback(ErrorOutput(''.join(self.error)))
 
 
 class GatewayTestCase(TestCase):
@@ -74,67 +146,85 @@ class GatewayTestCase(TestCase):
 
         super(GatewayTestCase, self).setUp()
 
+        # Make sure trial puts the reactor in the right state, by letting it
+        # run one reactor iteration.  (Ignore me, please.)
+        d = Deferred()
+        reactor.callLater(0, d.callback, True)
+        return d
+
+    @inlineCallbacks
     def runCommand(self, command):
+        """
+        Run the given command by feeding it as standard input to
+        calendarserver_command_gateway in a subprocess.
+        """
         sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         python = os.path.join(sourceRoot, "python")
         gateway = os.path.join(sourceRoot, "bin", "calendarserver_command_gateway")
-        child = Popen(
-            args=[python, gateway, "-f", self.configFileName],
-            cwd=sourceRoot,
-            stdin=PIPE, stdout=PIPE, stderr=STDOUT,
-        )
-        output, error = child.communicate(input=command)
+
+        args = [python, gateway, "-f", self.configFileName]
+        cwd = sourceRoot
+
+        deferred = Deferred()
+        reactor.spawnProcess(CapturingProcessProtocol(deferred, command), python, args, env=os.environ, path=cwd)
+        output = yield deferred
         try:
             plist = plistlib.readPlistFromString(output)
         except xml.parsers.expat.ExpatError, e:
             print "Error (%s) parsing (%s)" % (e, output)
             raise
 
-        return plist
+        returnValue(plist)
 
+    @inlineCallbacks
     def test_getLocationList(self):
-        results = self.runCommand(command_getLocationList)
+        results = yield self.runCommand(command_getLocationList)
         self.assertEquals(len(results['result']), 10)
 
+    @inlineCallbacks
     def test_getResourceList(self):
-        results = self.runCommand(command_getResourceList)
+        results = yield self.runCommand(command_getResourceList)
         self.assertEquals(len(results['result']), 10)
 
+    @inlineCallbacks
     def test_createLocation(self):
         directory = getDirectory()
 
         record = directory.recordWithUID("createdlocation01")
         self.assertEquals(record, None)
 
-        results = self.runCommand(command_createLocation)
+        yield self.runCommand(command_createLocation)
 
         directory.flushCaches()
         record = directory.recordWithUID("createdlocation01")
         self.assertNotEquals(record, None)
 
+    @inlineCallbacks
     def test_destroyRecord(self):
         directory = getDirectory()
 
         record = directory.recordWithUID("location01")
         self.assertNotEquals(record, None)
 
-        results = self.runCommand(command_deleteLocation)
+        yield self.runCommand(command_deleteLocation)
 
         directory.flushCaches()
         record = directory.recordWithUID("location01")
         self.assertEquals(record, None)
 
+    @inlineCallbacks
     def test_addWriteProxy(self):
         directory = getDirectory()
 
-        results = self.runCommand(command_addWriteProxy)
+        results = yield self.runCommand(command_addWriteProxy)
         self.assertEquals(len(results['result']['Proxies']), 1)
 
+    @inlineCallbacks
     def test_removeWriteProxy(self):
         directory = getDirectory()
 
-        results = self.runCommand(command_addWriteProxy)
-        results = self.runCommand(command_removeWriteProxy)
+        results = yield self.runCommand(command_addWriteProxy)
+        results = yield self.runCommand(command_removeWriteProxy)
         self.assertEquals(len(results['result']['Proxies']), 0)
 
 
