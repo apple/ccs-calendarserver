@@ -131,12 +131,15 @@ class GatewayTestCase(TestCase):
         copyAugmentFile = tmpDir.child("augments.xml")
         origAugmentFile.copyTo(copyAugmentFile)
 
+        proxyFile = tmpDir.child("proxies.sqlite")
+
         newConfig = template % {
             'DataRoot' : dataRoot.path,
             'DocumentRoot' : docRoot.path,
             'DirectoryXMLFile' : copyUsersFile.path,
             'ResourceXMLFile' : copyResourcesFile.path,
             'AugmentXMLFile' : copyAugmentFile.path,
+            'ProxyDBFile' : proxyFile.path,
         }
         configFilePath = tmpDir.child("caldavd.plist")
         configFilePath.setContent(newConfig)

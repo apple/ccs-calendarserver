@@ -334,7 +334,7 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
         if checkOnly:
             return None
 
-        return directory.principalCollection.principalForUID(guid)
+        return directory.principalCollection.principalForUID(str(guid))
     except ValueError:
         pass
 
