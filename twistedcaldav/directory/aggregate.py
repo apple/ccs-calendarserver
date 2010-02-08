@@ -145,11 +145,19 @@ class AggregateDirectoryService(DirectoryService):
 
     def _queryAll(self, query, *args):
         for service in self._recordTypes.values():
-            record = getattr(service, query)(*args)
+            try:
+                record = getattr(service, query)(*args)
+            except UnknownRecordTypeError:
+                record = None
             if record is not None:
                 return record
         else:
             return None
+
+    def flushCaches(self):
+        for service in self._recordTypes.values():
+            if hasattr(service, "_initCaches"):
+                service._initCaches()
 
     userRecordTypes = [DirectoryService.recordType_users]
 
@@ -167,6 +175,28 @@ class AggregateDirectoryService(DirectoryService):
                 if result:
                     results.append(result)
         return results
+
+    def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
+        fullName=None, firstName=None, lastName=None, emailAddresses=set(),
+        uid=None, password=None, **kwds):
+        service = self.serviceForRecordType(recordType)
+        return service.createRecord(recordType, guid=guid,
+            shortNames=shortNames, authIDs=authIDs, fullName=fullName,
+            firstName=firstName, lastName=lastName,
+            emailAddresses=emailAddresses, uid=uid, password=password, **kwds)
+
+    def updateRecord(self, recordType, guid, shortNames=(), authIDs=set(),
+        fullName=None, firstName=None, lastName=None, emailAddresses=set(),
+        uid=None, password=None, **kwds):
+        service = self.serviceForRecordType(recordType)
+        return service.updateRecord(recordType, guid, shortNames=shortNames,
+            authIDs=authIDs, fullName=fullName, firstName=firstName,
+            lastName=lastName, emailAddresses=emailAddresses, uid=uid,
+            password=password, **kwds)
+
+    def destroyRecord(self, recordType, guid):
+        service = self.serviceForRecordType(recordType)
+        return service.destroyRecord(recordType, guid)
 
 class DuplicateRecordTypeError(DirectoryError):
     """

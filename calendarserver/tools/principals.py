@@ -33,15 +33,10 @@ from twext.log import setLogLevelForNamespace
 from twext.python.log import StandardIOObserver
 from twext.web2.dav.davxml import sname2qname, qname2sname
 
-from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.notify import installNotificationClient
-from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
 
-from calendarserver.tools.util import booleanArgument, autoDisableMemcached
-from calendarserver.tools.util import loadConfig, getDirectory
-from calendarserver.provision.root import RootResource
+from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications, booleanArgument
 
 def usage(e=None):
     if e:
@@ -210,7 +205,8 @@ def main():
             config.directory = getDirectory()
         except DirectoryError, e:
             abort(e)
-        autoDisableMemcached(config)
+        setupMemcached(config)
+        setupNotifications(config)
     except ConfigurationError, e:
         abort(e)
 
@@ -261,40 +257,6 @@ def main():
 @inlineCallbacks
 def run(principalIDs, actions):
     try:
-        #
-        # Connect to memcached, notifications
-        #
-        memcachepool.installPools(
-            config.Memcached.Pools,
-            config.Memcached.MaxClients
-        )
-        if config.Notifications.Enabled:
-            installNotificationClient(
-                config.Notifications.InternalNotificationHost,
-                config.Notifications.InternalNotificationPort,
-            )
-
-        #
-        # Wire up the resource hierarchy
-        #
-        principalCollection = config.directory.getPrincipalCollection()
-        root = RootResource(
-            config.DocumentRoot,
-            principalCollections=(principalCollection,),
-        )
-        root.putChild("principals", principalCollection)
-        calendarCollection = CalendarHomeProvisioningFile(
-            os.path.join(config.DocumentRoot, "calendars"),
-            config.directory, "/calendars/",
-        )
-        root.putChild("calendars", calendarCollection)
-
-        #
-        # Wrap root resource
-        #
-        # FIXME: not a fan -wsanchez
-        #root = ResourceWrapper(root)
-
         for principalID in principalIDs:
             # Resolve the given principal IDs to principals
             try:
@@ -317,6 +279,7 @@ def run(principalIDs, actions):
         #
         reactor.stop()
 
+
 def principalForPrincipalID(principalID, checkOnly=False, directory=None):
     
     # Allow a directory parameter to be passed in, but default to config.directory
@@ -326,10 +289,18 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
         directory = config.directory
 
     if principalID.startswith("/"):
-        raise ValueError("Can't resolve paths yet")
+        segments = principalID.strip("/").split("/")
+        if (len(segments) == 3 and
+            segments[0] == "principals" and segments[1] == "__uids__"):
+            uid = segments[2]
+        else:
+            raise ValueError("Can't resolve all paths yet")
 
         if checkOnly:
             return None
+
+        return directory.principalCollection.principalForUID(uid)
+
 
     if principalID.startswith("("):
         try:
@@ -363,7 +334,7 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
         if checkOnly:
             return None
 
-        return directory.principalCollection.principalForUID(guid)
+        return directory.principalCollection.principalForUID(str(guid))
     except ValueError:
         pass
 
@@ -407,30 +378,39 @@ def action_addProxy(principal, proxyType, *proxyIDs):
 
 @inlineCallbacks
 def action_addProxyPrincipal(principal, proxyType, proxyPrincipal):
+    try:
+        (yield addProxy(principal, proxyType, proxyPrincipal))
+        print "Added %s as a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
+    except ProxyError, e:
+        print "Error:", e
+    except ProxyWarning, e:
+        print e
+
+@inlineCallbacks
+def addProxy(principal, proxyType, proxyPrincipal):
     proxyURL = proxyPrincipal.url()
 
     subPrincipal = proxySubprincipal(principal, proxyType)
     if subPrincipal is None:
-        sys.stderr.write("Unable to edit %s proxies for %s\n" % (proxyType, principal))
-        return
+        raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType, principal))
 
     membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
 
     for memberURL in membersProperty.children:
         if str(memberURL) == proxyURL:
-            print "%s is already a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
-            break
+            raise ProxyWarning("%s is already a %s proxy for %s" % (proxyPrincipal, proxyType, principal))
+
     else:
         memberURLs = list(membersProperty.children)
         memberURLs.append(davxml.HRef(proxyURL))
         membersProperty = davxml.GroupMemberSet(*memberURLs)
         (yield subPrincipal.writeProperty(membersProperty, None))
-        print "Added %s as a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
 
     proxyTypes = ["read", "write"]
     proxyTypes.remove(proxyType)
 
     (yield action_removeProxyPrincipal(principal, proxyPrincipal, proxyTypes=proxyTypes))
+
 
 @inlineCallbacks
 def action_removeProxy(principal, *proxyIDs, **kwargs):
@@ -440,14 +420,23 @@ def action_removeProxy(principal, *proxyIDs, **kwargs):
 
 @inlineCallbacks
 def action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs):
+    try:
+        (yield removeProxy(principal, proxyPrincipal, **kwargs))
+    except ProxyError, e:
+        print "Error:", e
+    except ProxyWarning, e:
+        print e
+
+
+@inlineCallbacks
+def removeProxy(principal, proxyPrincipal, **kwargs):
     proxyTypes = kwargs.get("proxyTypes", ("read", "write"))
     for proxyType in proxyTypes:
         proxyURL = proxyPrincipal.url()
 
         subPrincipal = proxySubprincipal(principal, proxyType)
         if subPrincipal is None:
-            sys.stderr.write("Unable to edit %s proxies for %s\n" % (proxyType, principal))
-            continue
+            raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType, principal))
 
         membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
 
@@ -462,7 +451,8 @@ def action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs):
 
         membersProperty = davxml.GroupMemberSet(*memberURLs)
         (yield subPrincipal.writeProperty(membersProperty, None))
-        print "Removed %s as a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
+
+
 
 @inlineCallbacks
 def action_setAutoSchedule(principal, autoSchedule):
@@ -529,6 +519,17 @@ def abort(msg, status=1):
     except RuntimeError:
         pass
     sys.exit(status)
+
+class ProxyError(Exception):
+    """
+    Raised when proxy assignments cannot be performed
+    """
+
+class ProxyWarning(Exception):
+    """
+    Raised for harmless proxy assignment failures such as trying to add a
+    duplicate or remove a non-existent assignment.
+    """
 
 if __name__ == "__main__":
     main()

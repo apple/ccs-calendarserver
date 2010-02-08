@@ -487,6 +487,20 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         directories.append(baseDirectory)
 
+        #
+        # Setup the Locations and Resources Service
+        #
+        if config.ResourceService.Enabled:
+            resourceClass = namedClass(config.ResourceService.type)
+
+            self.log_info("Configuring resource service of type: %s" % (resourceClass,))
+
+            resourceDirectory = resourceClass(config.ResourceService.params)
+            directories.append(resourceDirectory)
+
+        #
+        # Add sudoers directory
+        #
         sudoDirectory = None
 
         if config.SudoersFile and os.path.exists(config.SudoersFile):
@@ -1083,6 +1097,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         
                 if config.Memcached.MaxMemory is not 0:
                     memcachedArgv.extend(["-m", str(config.Memcached.MaxMemory)])
+                if config.UserName:
+                    memcachedArgv.extend(["-u", config.UserName])
         
                 memcachedArgv.extend(config.Memcached.Options)
         

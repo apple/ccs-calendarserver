@@ -282,6 +282,29 @@ class DirectoryService(LoggingMixIn):
         return result
 
 
+    def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
+        fullName=None, firstName=None, lastName=None, emailAddresses=set(),
+        uid=None, password=None, **kwds):
+        """
+        Create/persist a directory record based on the given values
+        """
+        raise NotImplementedError("Subclass must implement createRecord")
+
+    def updateRecord(self, recordType, guid, shortNames=(), authIDs=set(),
+        fullName=None, firstName=None, lastName=None, emailAddresses=set(),
+        uid=None, password=None, **kwds):
+        """
+        Update/persist a directory record based on the given values
+        """
+        raise NotImplementedError("Subclass must implement updateRecord")
+
+    def destroyRecord(self, recordType, guid):
+        """
+        Remove a directory record from the directory
+        """
+        raise NotImplementedError("Subclass must implement destroyRecord")
+
+
 class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)
 

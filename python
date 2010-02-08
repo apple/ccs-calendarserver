@@ -4,4 +4,4 @@ wd="$(cd "$(dirname "$0")" && pwd)";
 
 export PYTHONPATH="$("${wd}/run" -p)";
 
-python "$@";
+exec python "$@";

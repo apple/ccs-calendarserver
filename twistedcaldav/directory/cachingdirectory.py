@@ -73,6 +73,7 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
             CachingDirectoryService.INDEX_TYPE_CUA    : {},
             CachingDirectoryService.INDEX_TYPE_AUTHID   : {},
         }
+        self.directoryService = directoryService
 
     def addRecord(self, record, indexType, indexKey, useMemcache=True,
         neverExpire=False):
@@ -92,7 +93,9 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
         for indexType, indexKey in indexTypes:
             self.recordsIndexedBy[indexType][indexKey] = record
             if useMemcache:
-                key = "dir|%s|%s" % (indexType, indexKey)
+                key = "dir|%s|%s|%s|%s" % (self.directoryService.baseGUID,
+                    indexType, indexKey,
+                    "|".join(self.directoryService.recordTypes()))
                 self.log_debug("Memcache: storing %s" % (key,))
                 try:
                     self.directoryService.memcacheSet(key, record)
@@ -150,7 +153,8 @@ class CachingDirectoryService(DirectoryService):
         
         self.cacheTimeout = cacheTimeout * 60
 
-        self._initCaches(cacheClass)
+        self.cacheClass = cacheClass
+        self._initCaches()
 
         super(CachingDirectoryService, self).__init__()
 
@@ -200,9 +204,9 @@ class CachingDirectoryService(DirectoryService):
                 raise DirectoryMemcacheError("Failed to read from memcache")
         return record
 
-    def _initCaches(self, cacheClass):
+    def _initCaches(self):
         self._recordCaches = dict([
-            (recordType, cacheClass(self, recordType))
+            (recordType, self.cacheClass(self, recordType))
             for recordType in self.recordTypes()
         ])
             
@@ -291,7 +295,8 @@ class CachingDirectoryService(DirectoryService):
             
             # Check memcache
             if config.Memcached.Pools.Default.ClientEnabled:
-                key = "dir|%s|%s" % (indexType, indexKey)
+                key = "dir|%s|%s|%s|%s" % (self.baseGUID, indexType, indexKey,
+                    "|".join(self.recordTypes()))
                 self.log_debug("Memcache: checking %s" % (key,))
 
                 try:
@@ -327,7 +332,6 @@ class CachingDirectoryService(DirectoryService):
             if record:
                 self.log_debug("Found record for attribute '%s' with value '%s'" % (indexType, indexKey,))
                 return record
-
 
             # Add to negative cache with timestamp
             self.log_debug("Failed to fault record for attribute '%s' with value '%s'" % (indexType, indexKey,))
