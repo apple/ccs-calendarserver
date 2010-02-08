@@ -39,6 +39,7 @@ DEFAULT_CONFIG_FILE = "/etc/caldavd/caldavd.plist"
 DEFAULT_SERVICE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "/etc/caldavd/accounts.xml",
+        "cacheTimeout": 30,
         "recordTypes": ("users", "groups", "locations", "resources"),
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
@@ -51,6 +52,7 @@ DEFAULT_SERVICE_PARAMS = {
 DEFAULT_RESOURCE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "/etc/caldavd/resources.xml",
+        "cacheTimeout": 30,
         "recordTypes" : ("locations", "resources"),
     },
 }

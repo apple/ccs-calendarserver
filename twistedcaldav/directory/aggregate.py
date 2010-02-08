@@ -154,6 +154,11 @@ class AggregateDirectoryService(DirectoryService):
         else:
             return None
 
+    def flushCaches(self):
+        for service in self._recordTypes.values():
+            if hasattr(service, "_initCaches"):
+                service._initCaches()
+
     userRecordTypes = [DirectoryService.recordType_users]
 
     def requestAvatarId(self, credentials):

@@ -59,13 +59,14 @@ class XMLDirectoryService(CachingDirectoryService):
                 self.recordType_locations,
                 self.recordType_resources,
             ),
+            'cacheTimeout' : 30,
         }
         ignored = None
         params = self.getParams(params, defaults, ignored)
 
         self._recordTypes = params['recordTypes']
 
-        super(XMLDirectoryService, self).__init__()
+        super(XMLDirectoryService, self).__init__(params['cacheTimeout'])
 
         xmlFile = params.get("xmlFile")
         if type(xmlFile) is str:
@@ -195,6 +196,10 @@ class XMLDirectoryService(CachingDirectoryService):
                     if record:
                         yield record
 
+    def _initCaches(self):
+        super(XMLDirectoryService, self)._initCaches()
+        self._lastCheck = 0
+
     def _accounts(self):
         currentTime = time()
         if self._alwaysStat or currentTime - self._lastCheck > 60:
@@ -259,7 +264,7 @@ class XMLDirectoryService(CachingDirectoryService):
         ET.ElementTree(element).write(self.xmlFile.path)
 
         # Reload
-        self._initCaches(self.cacheClass) # nuke local cache
+        self._initCaches() # nuke local cache
         self._lastCheck = 0
         self._accounts()
         # TODO: nuke memcache entries, or prepopulate them

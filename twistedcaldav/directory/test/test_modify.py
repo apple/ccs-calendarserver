@@ -24,12 +24,6 @@ from twistedcaldav.directory.directory import DirectoryError
 
 class ModificationTestCase(TestCase):
 
-    def xmlFile(self):
-        if not hasattr(self, "_xmlFile"):
-            self._xmlFile = FilePath(self.mktemp())
-            xmlFile.copyTo(self._xmlFile)
-        return self._xmlFile
-
     def setUp(self):
         testRoot = os.path.join(os.path.dirname(__file__), "modify")
         configFileName = os.path.join(testRoot, "caldavd.plist")

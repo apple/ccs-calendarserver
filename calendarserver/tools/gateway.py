@@ -16,22 +16,23 @@
 # limitations under the License.
 ##
 
-import sys
+from getopt import getopt, GetoptError
+from grp import getgrnam
+from pwd import getpwnam
 import os
 import plistlib
+import sys
 import xml
 
-import operator
-from getopt import getopt, GetoptError
-from pwd import getpwnam
-from grp import getgrnam
-
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks
 from twisted.python.util import switchUID
-
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryError
+from twisted.web2.dav import davxml
 
-from calendarserver.tools.util import loadConfig, getDirectory, autoDisableMemcached
+from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications
+from calendarserver.tools.principals import principalForPrincipalID, proxySubprincipal, addProxy, removeProxy, ProxyError, ProxyWarning
 
 def usage(e=None):
 
@@ -93,7 +94,8 @@ def main():
             config.directory = getDirectory()
         except DirectoryError, e:
             abort(e)
-        autoDisableMemcached(config)
+        setupMemcached(config)
+        setupNotifications(config)
     except ConfigurationError, e:
         abort(e)
 
@@ -115,8 +117,12 @@ def main():
 
     runner = Runner(config.directory, commands)
     runner.validate()
-    runner.run()
 
+    #
+    # Start the reactor
+    #
+    reactor.callLater(0, runner.run)
+    reactor.run()
 
 
 class Runner(object):
@@ -135,14 +141,17 @@ class Runner(object):
             if not hasattr(self, methodName):
                 abort("Unknown command '%s'" % (commandName,))
 
+    @inlineCallbacks
     def run(self):
         for command in self.commands:
             commandName = command['command']
             methodName = "command_%s" % (commandName,)
             if hasattr(self, methodName):
-                getattr(self, methodName)(command)
+                (yield getattr(self, methodName)(command))
             else:
                 abort("Unknown command '%s'" % (commandName,))
+
+        reactor.stop()
 
     # Locations
 
@@ -150,6 +159,7 @@ class Runner(object):
         respondWithRecordsOfType(self.dir, command, "locations")
 
     def command_createLocation(self, command):
+
         try:
             self.dir.createRecord("locations", guid=command['GeneratedUID'],
                 shortNames=command['RecordName'], fullName=command['RealName'])
@@ -184,6 +194,82 @@ class Runner(object):
             abort(str(e))
         respondWithRecordsOfType(self.dir, command, "resources")
 
+    # Proxies
+
+    @inlineCallbacks
+    def command_listWriteProxies(self, command):
+        principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        (yield respondWithProxies(self.dir, command, principal, "write"))
+
+    @inlineCallbacks
+    def command_addWriteProxy(self, command):
+        principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        try:
+            (yield addProxy(principal, "write", proxy))
+        except ProxyError, e:
+            abort(str(e))
+        except ProxyWarning, e:
+            pass
+        (yield respondWithProxies(self.dir, command, principal, "write"))
+
+    @inlineCallbacks
+    def command_removeWriteProxy(self, command):
+        principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        try:
+            (yield removeProxy(principal, proxy, proxyTypes=("write",)))
+        except ProxyError, e:
+            abort(str(e))
+        except ProxyWarning, e:
+            pass
+        (yield respondWithProxies(self.dir, command, principal, "write"))
+
+    @inlineCallbacks
+    def command_listReadProxies(self, command):
+        principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        (yield respondWithProxies(self.dir, command, principal, "read"))
+
+    @inlineCallbacks
+    def command_addReadProxy(self, command):
+        principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        try:
+            (yield addProxy(principal, "read", proxy))
+        except ProxyError, e:
+            abort(str(e))
+        except ProxyWarning, e:
+            pass
+        (yield respondWithProxies(self.dir, command, principal, "read"))
+
+    @inlineCallbacks
+    def command_removeReadProxy(self, command):
+        principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        try:
+            (yield removeProxy(principal, proxy, proxyTypes=("read",)))
+        except ProxyError, e:
+            abort(str(e))
+        except ProxyWarning, e:
+            pass
+        (yield respondWithProxies(self.dir, command, principal, "read"))
+
+
+@inlineCallbacks
+def respondWithProxies(directory, command, principal, proxyType):
+    proxies = []
+    subPrincipal = proxySubprincipal(principal, proxyType)
+    if subPrincipal is not None:
+        membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+        if membersProperty.children:
+            for member in membersProperty.children:
+                proxyPrincipal = principalForPrincipalID(str(member))
+                proxies.append(proxyPrincipal.record.guid)
+
+    respond(command, {
+        'Principal' : principal.record.guid, 'Proxies' : proxies
+    })
+
 
 def respondWithRecordsOfType(directory, command, recordType):
     result = []
@@ -201,6 +287,10 @@ def respond(command, result):
 
 def abort(msg, status=1):
     sys.stdout.write(plistlib.writePlistToString( { 'error' : msg, } ) )
+    try:
+        reactor.stop()
+    except RuntimeError:
+        pass
     sys.exit(status)
 
 if __name__ == "__main__":
