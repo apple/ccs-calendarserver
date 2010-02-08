@@ -155,6 +155,32 @@
         <string></string>
         <key>cacheTimeout</key>
         <integer>30</integer>
+        <key>recordTypes</key>
+        <array>
+            <string>groups</string>
+            <string>users</string>
+        </array>
+      </dict>
+    </dict>
+
+
+    <!-- Resource and Locations service -->
+    <key>ResourceService</key>
+    <dict>
+      <key>Enabled</key>
+      <true/>
+      <key>type</key>
+      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
+
+      <key>params</key>
+      <dict>
+        <key>xmlFile</key>
+        <string>/Library/CalendarServer/Data/resources.xml</string>
+        <key>recordTypes</key>
+        <array>
+            <string>locations</string>
+            <string>resources</string>
+        </array>
       </dict>
     </dict>
 
