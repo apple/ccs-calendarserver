@@ -1552,17 +1552,16 @@ class DirectoryBackedAddressBookFile (DirectoryBackedAddressBookResource, CalDAV
             if e.errno != errno.EEXIST:
                 raise
 
-
-
     
     def getChild(self, name):
         
         if name is "":
             return self
         else:
-            return CalDAVFile(join(self.fp.path, name ), 
-                              principalCollections=self.principalCollections()
-                              )
+            return CalDAVFile(
+                self.fp,
+                principalCollections=self.principalCollections()
+            ).getChild(name)
        
  
 ##
