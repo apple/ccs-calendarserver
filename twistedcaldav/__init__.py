@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,10 +43,14 @@ File.contentTypes = loadMimeTypes(("/etc/apache2/mime.types", "/etc/httpd/mime.t
 
 import twisted.web2.dav.davxml
 import twistedcaldav.caldavxml
+import twistedcaldav.carddavxml
+import twistedcaldav.mkcolxml
 import twistedcaldav.customxml
 
 twisted.web2.dav.davxml.registerElements(twistedcaldav.caldavxml)
 twisted.web2.dav.davxml.registerElements(twistedcaldav.customxml)
+twisted.web2.dav.davxml.registerElements(twistedcaldav.carddavxml)
+twisted.web2.dav.davxml.registerElements(twistedcaldav.mkcolxml)
 
 #
 # DefaultHTTPHandler

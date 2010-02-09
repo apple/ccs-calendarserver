@@ -2,7 +2,21 @@ Index: vobject/icalendar.py
 ===================================================================
 --- vobject/icalendar.py	(revision 219)
 +++ vobject/icalendar.py	(working copy)
-@@ -1675,9 +1675,10 @@
+@@ -1622,8 +1622,12 @@
+ 
+ # DQUOTE included to work around iCal's penchant for backslash escaping it,
+ # although it isn't actually supposed to be escaped according to rfc2445 TEXT
+-escapableCharList = '\\;,Nn"'
+ 
++# COLON included to work around Address Book's escaping it in vCard data,
++# despite the fact that it is similarly not supposed to be escaped.
++escapableCharList = '\\;:,Nn"'
++strictEscapableCharList = '\\;,Nn'
++
+ def stringToTextValues(s, listSeparator=',', charList=None, strict=False):
+     """Returns list of strings."""
+     
+@@ -1675,9 +1679,10 @@
                  else:
                      current.append(char)
              else:

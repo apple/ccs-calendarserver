@@ -46,9 +46,9 @@ def find_modules():
 # Options
 #
 
-description = "CalDAV protocol extensions to twisted.web2.dav",
+description = "CardDAV protocol extensions to twisted.web2.dav",
 long_description = """
-Extends twisted.web2.dav to implement CalDAV-aware resources and methods.
+Extends twisted.web2.dav to implement CardDAV-aware resources and methods.
 """
 
 classifiers = None
@@ -109,9 +109,11 @@ dist = setup(
                          "bin/caldavd",
                          "bin/calendarserver_export",
                          "bin/calendarserver_manage_principals",
-                         "bin/calendarserver_command_gateway"
+                         "bin/calendarserver_command_gateway",
+                         "bin/carddavd",
                        ],
-    data_files       = [ ("caldavd", ["conf/caldavd.plist"]) ],
+    data_files       = [ ("caldavd", ["conf/caldavd.plist"]),
+                         ("carddavd", ["conf/carddavd.plist.default" ])],
     ext_modules      = extensions,
     py_modules       = ["kqreactor", "memcacheclient"],
 )

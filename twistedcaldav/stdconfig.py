@@ -85,6 +85,32 @@ DEFAULT_PROXYDB_PARAMS = {
     },
 }
 
+
+directoryAddressBookBackingServiceDefaultParams = {
+    "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
+        "xmlFile": "/etc/carddavd/accounts.xml",
+    },
+    "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService": {
+        "queryPeopleRecords": True,
+        "peopleNode": "/Search/Contacts",
+        "queryUserRecords": True,
+        "userNode": "/Search",
+        "maxDSQueryRecords":150,
+        "queryDSLocal": False,
+        "ignoreSystemRecords": True,
+        "dsLocalCacheTimeout":30,
+        "liveQuery": True,
+        "fakeETag": True,
+        "cacheQuery": False,
+        "cacheTimeout": 30,
+        "standardizeSyntheticUIDs": False,
+        "addDSAttrXProperties": False,
+        "appleInternalServer": False,
+        "additionalAttributes" : [],
+        "allowedAttributes" : [],
+    },
+}
+
 DEFAULT_CONFIG = {
     # Note: Don't use None values below; that confuses the command-line parser.
 
@@ -113,6 +139,27 @@ DEFAULT_CONFIG = {
     "BindSSLPorts" : [],   # List of port numbers to bind to for SSL [empty = same as "SSLPort"]
     "InheritFDs": [],   # File descriptors to inherit for HTTP requests (empty = don't inherit)
     "InheritSSLFDs": [],   # File descriptors to inherit for HTTPS requests (empty = don't inherit)
+
+    #
+    # Types of service provided
+    #
+    "EnableCalDAV"  : True,  # Enable CalDAV service
+    "EnableCardDAV" : False,  # Enable CardDAV service
+
+    # XXX CardDAV
+    "DirectoryAddressBook": {
+        "type": "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
+        "params": directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
+    },
+    "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
+
+    "EnableSearchAddressBook": False,
+    "EnableSearchAllAddressBook":False,
+    "MaxAddressBookQueryResults":1000,
+    "MaxAddressBookMultigetHrefs":5000,
+
+    "EnableFindSharedReport":False,
+    # /XXX CardDAV
 
     #
     # Data store
@@ -572,6 +619,44 @@ def _postUpdateDirectoryService(configDict):
             if param not in DEFAULT_SERVICE_PARAMS[configDict.DirectoryService.type]:
                 del configDict.DirectoryService.params[param]
 
+
+def _updateAddressBook(configDict):
+    #
+    # FIXME: Use the config object instead of doing this here
+    #
+    from twistedcaldav.resource import CalendarPrincipalResource
+    CalendarPrincipalResource.enableAddressBooks(configDict.EnableCardDAV)
+
+
+
+def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items):
+    #
+    # Special handling for directory address book configs
+    #
+    dsType = items.get("DirectoryAddressBook", {}).get("type", None)
+    if dsType is None:
+        dsType = configDict["DirectoryAddressBook"]["type"]
+    else:
+        if dsType == configDict["DirectoryAddressBook"]["type"]:
+            oldParams = configDict["DirectoryAddressBook"]["params"]
+            newParams = items["DirectoryAddressBook"].get("params", {})
+            _mergeData(oldParams, newParams)
+        else:
+            if dsType in directoryAddressBookBackingServiceDefaultParams:
+                configDict["DirectoryAddressBook"]["params"] = copy.deepcopy(directoryAddressBookBackingServiceDefaultParams[dsType])
+            else:
+                configDict["DirectoryAddressBook"]["params"] = {}
+
+    for param in items.get("DirectoryAddressBook", {}).get("params", {}):
+        if param not in directoryAddressBookBackingServiceDefaultParams[dsType]:
+            raise ConfigurationError("Parameter %s is not supported by service %s" % (param, dsType))
+
+    _mergeData(configDict, items)
+
+    for param in tuple(configDict["DirectoryAddressBook"]["params"]):
+        if param not in directoryAddressBookBackingServiceDefaultParams[configDict["DirectoryAddressBook"]["type"]]:
+            del configDict["DirectoryAddressBook"]["params"][param]
+
 def _postUpdateAugmentService(configDict):
     if configDict.AugmentService.type in DEFAULT_AUGMENT_PARAMS:
         for param in tuple(configDict.AugmentService.params):
@@ -731,6 +816,8 @@ def _updateNotifications(configDict):
                     raise ConfigurationError("Invalid %s for XMPPNotifierService: %r"
                                              % (key, value))
 
+
+
 def _updateScheduling(configDict):
     #
     # Scheduling
@@ -791,9 +878,11 @@ def _updatePartitions(configDict):
 
 PRE_UPDATE_HOOKS = (
     _preUpdateDirectoryService,
+    _preUpdateDirectoryAddressBookBackingDirectoryService,
     )
 POST_UPDATE_HOOKS = (
     _updateHostName,
+    _updateAddressBook,
     _postUpdateDirectoryService,
     _postUpdateAugmentService,
     _postUpdateProxyDBService,

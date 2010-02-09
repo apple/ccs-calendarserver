@@ -32,6 +32,10 @@ __all__ = [
     "DropBoxCollectionFile",
     "DropBoxChildFile",
     "TimezoneServiceFile",
+    "AddressBookHomeProvisioningFile",
+    "AddressBookHomeUIDProvisioningFile",
+    "AddressBookHomeFile",
+    "DirectoryBackedAddressBookFile",
 ]
 
 import datetime
@@ -58,6 +62,7 @@ from twisted.web2.dav.resource import davPrivilegeSet
 from twisted.web2.dav.util import parentForURL, bindMethods, joinURL
 
 from twistedcaldav import caldavxml
+from twistedcaldav import carddavxml
 from twistedcaldav import customxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.client.reverseproxy import ReverseProxyResource
@@ -71,8 +76,15 @@ from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule, SyncTokenValidException
 from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
+from twistedcaldav.resource import isAddressBookCollectionResource, SearchAddressBookResource, SearchAllAddressBookResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource, IScheduleInboxResource
 from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource
+from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
+from twistedcaldav.directory.addressbook import uidsResourceName as uidsResourceNameAddressBook
+from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
+from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeTypeProvisioningResource
+from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeUIDProvisioningResource
+from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeResource
 from twistedcaldav.directory.calendar import uidsResourceName
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeTypeProvisioningResource
@@ -80,6 +92,7 @@ from twistedcaldav.directory.calendar import DirectoryCalendarHomeUIDProvisionin
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 from twistedcaldav.timezoneservice import TimezoneServiceResource
+from twistedcaldav.vcardindex import AddressBookIndex
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.notify import getPubSubConfiguration, getPubSubXMPPURI
 from twistedcaldav.notify import getPubSubHeartbeatURI, getPubSubPath
@@ -347,6 +360,95 @@ class CalDAVFile (CalDAVResource, DAVFile):
     def iCalendarXML(self, name=None):
         return caldavxml.CalendarData.fromCalendar(self.iCalendarText(name))
 
+    def createAddressBook(self, request):
+        #
+        # request object is required because we need to validate against parent
+        # resources, and we need the request in order to locate the parents.
+        #
+
+        if self.fp.exists():
+            log.err("Attempt to create collection where file exists: %s" % (self.fp.path,))
+            raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
+
+        if not os.path.isdir(os.path.dirname(self.fp.path)):
+            log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
+            raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
+
+        #
+        # Verify that no parent collection is a calendar also
+        #
+        log.msg("Creating address book collection %s" % (self,))
+
+        def _defer(parent):
+            if parent is not None:
+                log.err("Cannot create an address book collection within an address book collection %s" % (parent,))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (carddavxml.carddav_namespace, "addressbook-collection-location-ok")
+                ))
+
+            return self.createAddressBookCollection()
+
+        parent = self._checkParents(request, isAddressBookCollectionResource)
+        parent.addCallback(_defer)
+        return parent
+
+    def createAddressBookCollection(self):
+        #
+        # Create the collection once we know it is safe to do so
+        #
+        def onAddressBookCollection(status):
+            if status != responsecode.CREATED:
+                raise HTTPError(status)
+
+            # Initialize CTag on the address book collection
+            d1 = self.updateCTag()
+
+            # Create the index so its ready when the first PUTs come in
+            d1.addCallback(lambda _: self.index().create())
+            d1.addCallback(lambda _: status)
+            return d1
+
+        d = self.createSpecialCollection(davxml.ResourceType.addressbook) #@UndefinedVariable
+        d.addCallback(onAddressBookCollection)
+        return d
+
+    @inlineCallbacks
+    def vCardRolledup(self, request):
+        # TODO: just catenate all the vCards together 
+        yield fail(HTTPError((ErrorResponse(responsecode.BAD_REQUEST))))
+
+    def vCardText(self, name=None):
+        if self.isAddressBookCollection():
+            if name is None:
+                return str(self.vCard())
+
+            try:
+                vcard_file = self.fp.child(name).open()
+            except IOError, e:
+                if e[0] == errno.ENOENT: return None
+                raise
+
+        elif self.isCollection():
+            return None
+
+        else:
+            if name is not None:
+                raise AssertionError("name must be None for non-collection vcard resource")
+
+            vcard_file = self.fp.open()
+
+        # FIXME: This is blocking I/O
+        try:
+            vcard_data = vcard_file.read()
+        finally:
+            vcard_file.close()
+
+        return vcard_data
+
+    def vCardXML(self, name=None):
+        return carddavxml.AddressData.fromAddressData(self.vCardText(name))
+
     def supportedPrivileges(self, request):
         # read-free-busy support on calendar collection and calendar object resources
         if self.isCollection():
@@ -375,7 +477,10 @@ class CalDAVFile (CalDAVResource, DAVFile):
         @raise AssertionError: if this resource is not a calendar collection
             resource.
         """
-        return Index(self)
+        if self.isAddressBookCollection():
+            return AddressBookIndex(self)
+        else:
+            return Index(self)
 
     def whatchanged(self, client_token):
         
@@ -1182,6 +1287,283 @@ class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
     def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
         return succeed(None)
 
+class AddressBookHomeProvisioningFile (DirectoryAddressBookHomeProvisioningResource, DAVFile):
+    """
+    Resource which provisions address book home collections as needed.
+    """
+    def __init__(self, path, directory, url):
+        """
+        @param path: the path to the file which will back the resource.
+        @param directory: an L{IDirectoryService} to provision address books from.
+        @param url: the canonical URL for the resource.
+        """
+        DAVFile.__init__(self, path)
+        DirectoryAddressBookHomeProvisioningResource.__init__(self, directory, url)
+
+        # create with permissions
+        try:
+            os.mkdir(path)
+            os.chmod(path, 0750)
+            if config.UserName and config.GroupName:
+                import pwd
+                import grp
+                uid = pwd.getpwnam(config.UserName)[2]
+                gid = grp.getgrnam(config.GroupName)[2]
+                os.chown(path, uid, gid)
+ 
+            log.msg("Created %s" % (path,))
+            
+        except (OSError,), e:
+            # this is caused by multiprocessor race and is harmless
+            if e.errno != errno.EEXIST:
+                raise
+
+
+    def provisionChild(self, name):
+        if name == uidsResourceNameAddressBook:
+            return AddressBookHomeUIDProvisioningFile(self.fp.child(name).path, self)
+
+        return AddressBookHomeTypeProvisioningFile(self.fp.child(name).path, self, name)
+
+    def createSimilarFile(self, path):
+        raise HTTPError(responsecode.NOT_FOUND)
+
+class AddressBookHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeTypeProvisioningResource, DAVFile):
+    def __init__(self, path, parent, recordType):
+        """
+        @param path: the path to the file which will back the resource.
+        @param parent: the parent of this resource
+        @param recordType: the directory record type to provision.
+        """
+        DAVFile.__init__(self, path)
+        DirectoryAddressBookHomeTypeProvisioningResource.__init__(self, parent, recordType)
+
+class AddressBookHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeUIDProvisioningResource, DAVFile):
+    def __init__(self, path, parent, homeResourceClass=None):
+        """
+        @param path: the path to the file which will back the resource.
+        """
+        DAVFile.__init__(self, path)
+        DirectoryAddressBookHomeUIDProvisioningResource.__init__(self, parent)
+        if homeResourceClass is None:
+            self.homeResourceClass = AddressBookHomeFile
+        else:
+            self.homeResourceClass = homeResourceClass
+
+    def provisionChild(self, name):
+        record = self.directory.recordWithUID(name)
+
+        if record is None:
+            log.msg("No directory record with GUID %r" % (name,))
+            return None
+
+        if not record.enabledForAddressBooks:
+            log.msg("Directory record %r is not enabled for address books" % (record,))
+            return None
+
+        assert len(name) > 4
+        
+        childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
+        child = self.homeResourceClass(childPath.path, self, record)
+
+        if not child.exists():
+            self.provision()
+
+            if not childPath.parent().isdir():
+                childPath.parent().makedirs()
+
+            for oldPath in (
+                # Pre 2.0: All in one directory
+                self.fp.child(name),
+                # Pre 1.2: In types hierarchy instead of the GUID hierarchy
+                self.parent.getChild(record.recordType).fp.child(record.shortNames[0]),
+            ):
+                if oldPath.exists():
+                    # The child exists at an old location.  Move to new location.
+                    log.msg("Moving address book home from old location %r to new location %r." % (oldPath, childPath))
+                    try:
+                        oldPath.moveTo(childPath)
+                    except (OSError, IOError), e:
+                        log.err("Error moving address book home %r: %s" % (oldPath, e))
+                        raise HTTPError(StatusResponse(
+                            responsecode.INTERNAL_SERVER_ERROR,
+                            "Unable to move address book home."
+                        ))
+                    child.fp.restat(False)
+                    break
+            else:
+                #
+                # NOTE: provisionDefaultAddressBooks() returns a deferred, which we are ignoring.
+                # The result being that the default calendars will be present at some point
+                # in the future, not necessarily right now, and we don't have a way to wait
+                # on that to finish.
+                #
+                child.provisionDefaultAddressBooks()
+
+                #
+                # Try to work around the above a little by telling the client that something
+                # when wrong temporarily if the child isn't provisioned right away.
+                #
+                if not child.exists():
+                    raise HTTPError(StatusResponse(
+                        responsecode.SERVICE_UNAVAILABLE,
+                        "Provisioning address book home."
+                    ))
+
+            assert child.exists()
+
+        return child
+
+    def createSimilarFile(self, path):
+        raise HTTPError(responsecode.NOT_FOUND)
+
+class AddressBookHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, DirectoryAddressBookHomeResource, CalDAVFile):
+    """
+    Address book home collection resource.
+    """
+    cacheNotifierFactory = DisabledCacheNotifier
+
+    liveProperties = CalDAVFile.liveProperties + (
+        (customxml.calendarserver_namespace, "xmpp-uri"),
+    )
+
+    def __init__(self, path, parent, record):
+        """
+        @param path: the path to the file which will back the resource.
+        """
+        self.cacheNotifier = self.cacheNotifierFactory(self)
+        self.clientNotifier = ClientNotifier(self)
+        CalDAVFile.__init__(self, path)
+        DirectoryAddressBookHomeResource.__init__(self, parent, record)
+
+    def provisionChild(self, name):
+ 
+        SearchAddressBookFileClass = None
+        SearchAllAddressBookFileClass = None
+        if config.EnableSearchAddressBook and config.DirectoryAddressBook:
+            SearchAddressBookFileClass = SearchAddressBookFile
+        if config.EnableSearchAllAddressBook:
+            SearchAllAddressBookFileClass = SearchAllAddressBookFile
+        
+        cls = {
+            "search"       : SearchAddressBookFileClass,
+            "searchall"    : SearchAllAddressBookFileClass,
+        }.get(name, None)
+
+        if cls is not None:
+            child = cls(self.fp.child(name).path, self)
+            child.cacheNotifier = self.cacheNotifier
+            child.clientNotifier = self.clientNotifier
+            return child
+
+        return self.createSimilarFile(self.fp.child(name).path)
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+        else:
+            similar = CalDAVFile(path, principalCollections=self.principalCollections())
+            similar.cacheNotifier = self.cacheNotifier
+            similar.clientNotifier = self.clientNotifier
+            return similar
+
+    def getChild(self, name):
+        # This avoids finding case variants of put children on case-insensitive filesystems.
+        if name not in self.putChildren and name.lower() in (x.lower() for x in self.putChildren):
+            return None
+
+        return super(AddressBookHomeFile, self).getChild(name)
+
+
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname == (customxml.calendarserver_namespace, "xmpp-uri"):
+            pubSubConfiguration = getPubSubConfiguration(config)
+            if pubSubConfiguration['enabled']:
+                return succeed(customxml.PubSubXMPPURIProperty(
+                    getPubSubXMPPURI(self.url(), pubSubConfiguration)))
+            else:
+                return succeed(customxml.PubSubXMPPURIProperty())
+
+        return super(AddressBookHomeFile, self).readProperty(property, request)
+
+
+class SearchAddressBookFile (SearchAddressBookResource, CalDAVFile):
+    """
+    Search collection resource.
+    """
+    def __init__(self, path, parent):
+        SearchAddressBookResource.__init__(self, parent)
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+        self.parent = parent
+
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+
+        # FIXME:  path here is similar too .../addressbooks/__uids__/us/er/user01/search/move2_1.vcf
+        #        so we should really redirect to /directory/move2_1.vcf or perhaps we shouldn't be here in the first place
+        raise HTTPError(responsecode.NOT_FOUND)
+
+class SearchAllAddressBookFile (SearchAllAddressBookResource, CalDAVFile):
+    """
+    Search collection resource.
+    """
+    def __init__(self, path, parent):
+        SearchAllAddressBookResource.__init__(self, parent)
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+        self.parent = parent
+   
+    def createSimilarFile(self, path):
+        if path == self.fp.path:
+            return self
+
+        # FIXME:  see note above
+        raise HTTPError(responsecode.NOT_FOUND)
+
+class DirectoryBackedAddressBookFile (DirectoryBackedAddressBookResource, CalDAVFile):
+    """
+    Directory-backed address book, supporting directory vcard search.
+    """
+    def __init__(self, path, principalCollections):
+        CalDAVFile.__init__(self, path, principalCollections=principalCollections)
+        DirectoryBackedAddressBookResource.__init__(self)
+
+        # create with permissions, similar to CardDAVOptions in tap.py
+        # FIXME:  /Directory does not need to be in file system unless debug-only caching options are used
+        try:
+            os.mkdir(path)
+            os.chmod(path, 0750)
+            if config.UserName and config.GroupName:
+                import pwd
+                import grp
+                uid = pwd.getpwnam(config.UserName)[2]
+                gid = grp.getgrnam(config.GroupName)[2]
+                os.chown(path, uid, gid)
+ 
+            log.msg("Created %s" % (path,))
+            
+        except (OSError,), e:
+            # this is caused by multiprocessor race and is harmless
+            if e.errno != errno.EEXIST:
+                raise
+
+    
+    def getChild(self, name):
+        
+        if name is "":
+            return self
+        else:
+            return CalDAVFile(
+                self.fp,
+                principalCollections=self.principalCollections()
+            ).getChild(name)
+       
+ 
 ##
 # Utilities
 ##
@@ -1255,7 +1637,7 @@ def _calendarPrivilegeSet ():
                         davxml.SupportedPrivilege(
                             davxml.Privilege(caldavxml.ReadFreeBusy()),
                             davxml.Description("allow free busy report query", **{"xml:lang": "en"}),
-                        ),
+                        )
                     )
                     all_supported_privileges.append(
                         davxml.SupportedPrivilege(read_privilege, read_description, *read_supported_privileges)
@@ -1295,3 +1677,13 @@ twistedcaldav.method.get.CalDAVFile      = CalDAVFile
 twistedcaldav.method.mkcol.CalDAVFile    = CalDAVFile
 twistedcaldav.method.propfind.CalDAVFile = CalDAVFile
 twistedcaldav.method.put.CalDAVFile      = CalDAVFile
+
+
+#
+# Attach method to DirectoryCalendarPrincipalResource for "Find Shared Address Books" REPORT method
+#
+from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
+from twistedcaldav import report_addressbook_findshared
+setattr(DirectoryCalendarPrincipalResource, "report_http___addressbookserver_org_ns__addressbook_findshared", report_addressbook_findshared.http___addressbookserver_org_ns__addressbook_findshared)
+
+

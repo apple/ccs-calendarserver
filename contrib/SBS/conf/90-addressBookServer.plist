@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>ServiceName</key>
+    <string>addressBookServer</string>
+    
+    <key>RestoreBinaryPath</key>
+    <string>/usr/libexec/server_backup/calendarServer_restore</string>
+    <key>RestoreLog</key>
+    <string>/private/var/log/server_backup/addressBookServer_restore.log</string>
+
+    <key>Version</key>
+    <string>10.6</string>
+</dict>
+</plist>

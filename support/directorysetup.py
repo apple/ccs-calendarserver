@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 ##
-# Copyright (c) 2007 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ add the new "com.apple.macosxserver.virtualhosts" entry.
 
 def initComputerRecord(admin_user, admin_pswd, node, recordname):
     plistdefault = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
         <key>ReplicaName</key>
@@ -65,7 +65,7 @@ def initComputerRecord(admin_user, admin_pswd, node, recordname):
     plistdefault = plistdefault.replace('\n', '')
 
     plist_good = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
     <dict>
         <key>ReplicaName</key>
@@ -138,12 +138,12 @@ def initComputerRecord(admin_user, admin_pswd, node, recordname):
                     <key>http</key>
                     <dict>
                         <key>port</key>
-                        <integer>8008</integer>
+                        <integer>8800</integer>
                     </dict>
                     <key>https</key>
                     <dict>
                         <key>port</key>
-                        <integer>8443</integer>
+                        <integer>8843</integer>
                     </dict>
                 </dict>
 

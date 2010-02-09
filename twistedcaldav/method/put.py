@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,10 +29,16 @@ from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twistedcaldav.caldavxml import caldav_namespace
+
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
+from twistedcaldav.static import CalDAVFile
 
 log = Logger()
+
+from twistedcaldav.carddavxml import carddav_namespace
+from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
+from twistedcaldav.resource import isAddressBookCollectionResource
 
 @inlineCallbacks
 def http_PUT(self, request):
@@ -73,6 +79,40 @@ def http_PUT(self, request):
 
         except ValueError, e:
             log.err("Error while handling (calendar) PUT: %s" % (e,))
+            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
+
+    elif isAddressBookCollectionResource(parent):
+        self.fp.restat(False)
+
+        # Content-type check
+        content_type = request.headers.getHeader("content-type")
+        if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "vcard"):
+            log.err("MIME type %s not allowed in address book collection" % (content_type,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "supported-address-data")))
+            
+        # Read the vcard component from the stream
+        try:
+            vcarddata = (yield allDataFromStream(request.stream))
+
+            # We must have some data at this point
+            if vcarddata is None:
+                # Use correct DAV:error response
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-address-data")))
+
+            storer = StoreAddressObjectResource(
+                request = request,
+                sourceadbk = False,
+                vcard = vcarddata,
+                destination = self,
+                destination_uri = request.uri,
+                destinationadbk = True,
+                destinationparent = parent,
+            )
+            result = (yield storer.run())
+            returnValue(result)
+
+        except ValueError, e:
+            log.err("Error while handling (address book) PUT: %s" % (e,))
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     else:

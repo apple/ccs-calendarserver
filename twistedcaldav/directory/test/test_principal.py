@@ -201,7 +201,9 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for (
+            provisioningResource, recordType, recordResource, record
+        ) in self._allRecords():
             principalURL = recordResource.principalURL()
             if principalURL.endswith("/"):
                 alternateURL = principalURL[:-1]
@@ -218,10 +220,32 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
         # Explicitly check the disabled record
         provisioningResource = self.principalRootResources['XMLDirectoryService']
-        self.failIf(provisioningResource.principalForCalendarUserAddress("mailto:nocalendar@example.com") is not None)
-        self.failIf(provisioningResource.principalForCalendarUserAddress("urn:uuid:543D28BA-F74F-4D5F-9243-B3E3A61171E5") is not None)
-        self.failIf(provisioningResource.principalForCalendarUserAddress("/principals/users/nocalendar/") is not None)
-        self.failIf(provisioningResource.principalForCalendarUserAddress("/principals/__uids__/543D28BA-F74F-4D5F-9243-B3E3A61171E5/") is not None)
+
+        self.failUnlessIdentical(
+            provisioningResource.principalForCalendarUserAddress(
+                "mailto:nocalendar@example.com"
+            ),
+            None
+        )
+        self.failUnlessIdentical(
+            provisioningResource.principalForCalendarUserAddress(
+                "urn:uuid:543D28BA-F74F-4D5F-9243-B3E3A61171E5"
+            ),
+            None
+        )
+        self.failUnlessIdentical(
+            provisioningResource.principalForCalendarUserAddress(
+                "/principals/users/nocalendar/"
+            ),
+            None
+        )
+        self.failUnlessIdentical(
+            provisioningResource.principalForCalendarUserAddress(
+                "/principals/__uids__/543D28BA-F74F-4D5F-9243-B3E3A61171E5/"
+            ),
+            None
+        )
+
 
     def test_enabledForCalendaring(self):
         """
@@ -460,7 +484,9 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             for each record in each directory in C{directoryServices}.
         """
         for directory in self.directoryServices:
-            provisioningResource = self.principalRootResources[directory.__class__.__name__]
+            provisioningResource = self.principalRootResources[
+                directory.__class__.__name__
+            ]
             for recordType in directory.recordTypes():
                 for record in directory.listRecords(recordType):
                     recordResource = provisioningResource.principalForRecord(record)

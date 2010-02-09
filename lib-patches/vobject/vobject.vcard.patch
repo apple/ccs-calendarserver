@@ -1,0 +1,13 @@
+Index: vobject/vcard.py
+===================================================================
+--- vobject/vcard.py	(revision 219)
++++ vobject/vcard.py	(working copy)
+@@ -210,7 +210,7 @@
+ def splitFields(string):
+     """Return a list of strings or lists from a Name or Address."""
+     return [toListOrString(i) for i in
+-            stringToTextValues(string, listSeparator=';', charList=';')]
++            stringToTextValues(string, listSeparator=';')]
+ 
+ def toList(stringOrList):
+     if isinstance(stringOrList, basestring):

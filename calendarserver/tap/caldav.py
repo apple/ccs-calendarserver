@@ -527,6 +527,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             directories.append(wikiDirectory)
 
         directory = AggregateDirectoryService(directories)
+        self.directory = directory
 
         if sudoDirectory:
             directory.userRecordTypes.insert(0,
@@ -667,6 +668,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             "/principals/",
             directory,
         )
+        self.principalCollection = principalCollection
 
         self.log_info("Setting up calendar collection: %r"
                       % (self.calendarResourceClass,))
@@ -683,6 +685,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             config.DocumentRoot,
             principalCollections=(principalCollection,),
         )
+        self.root = root
 
         root.putChild("principals", principalCollection)
         root.putChild("calendars", calendarCollection)

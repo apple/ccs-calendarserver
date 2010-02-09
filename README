@@ -2,7 +2,7 @@ Getting Started
 ===============
 
 This is the core code base for Darwin Calendar Server, which is a
-CalDAV, WebDAV, and HTTP server.
+CalDAV, CardDAV, WebDAV, and HTTP server.
 
 For general information about the server, see:
 

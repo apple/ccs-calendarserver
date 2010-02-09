@@ -56,6 +56,7 @@ class DirectoryService(LoggingMixIn):
     realmName = None
 
     recordType_users = "users"
+    recordType_people = "people"
     recordType_groups = "groups"
     recordType_locations = "locations"
     recordType_resources = "resources"
@@ -78,6 +79,20 @@ class DirectoryService(LoggingMixIn):
 
     baseGUID = None
     guid = property(_generatedGUID)
+
+    # Needed by twistedcaldav.directorybackedaddressbook
+    liveQuery = False
+
+    def available(self):
+        """
+        By default, the directory is available.  This may return a boolean or a
+        Deferred which fires a boolean.
+
+        A return value of "False" means that the directory is currently
+        unavailable due to the service starting up.
+        """
+        return True
+    # end directorybackedaddressbook requirements
 
     ##
     # ICredentialsChecker
@@ -324,6 +339,8 @@ class DirectoryRecord(LoggingMixIn):
         self, service, recordType, guid,
         shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
+        calendarUserAddresses=set(), autoSchedule=False, enabledForCalendaring=None,
+        enabledForAddressBooks=None,
         uid=None,
     ):
         assert service.realmName is not None
@@ -351,8 +368,10 @@ class DirectoryRecord(LoggingMixIn):
         self.firstName             = firstName
         self.lastName              = lastName
         self.emailAddresses        = emailAddresses
-        self.enabledForCalendaring = False
-        self.autoSchedule          = False
+        self.enabledForCalendaring = enabledForCalendaring
+        self.autoSchedule          = autoSchedule
+        self.enabledForAddressBooks = enabledForAddressBooks
+
 
     def get_calendarUserAddresses(self):
         """
@@ -395,6 +414,7 @@ class DirectoryRecord(LoggingMixIn):
             self.enabled = augment.enabled
             self.hostedAt = augment.hostedAt
             self.enabledForCalendaring = augment.enabledForCalendaring
+            self.enabledForAddressBooks = augment.enabledForAddressBooks
             self.autoSchedule = augment.autoSchedule
 
             if self.enabledForCalendaring and self.recordType == self.service.recordType_groups:

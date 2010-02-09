@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 CalDAV COPY and MOVE methods.
 """
 
-__all__ = ["http_COPY", "http_MOVE"]
+__all__ = ["maybeCOPYContact", "maybeMOVEContact"]
 
 from urlparse import urlsplit
 
@@ -26,49 +26,36 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web2 import responsecode
 from twisted.web2.filter.location import addLocation
 from twisted.web2.dav import davxml
-from twext.web2.dav.davxml import ErrorResponse
+from twisted.web2.dav.http import ErrorResponse
 from twisted.web2.dav.util import parentForURL
 from twisted.web2.http import StatusResponse, HTTPError
 
+from twistedcaldav.carddavxml import carddav_namespace
+from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
+from twistedcaldav.resource import isAddressBookCollectionResource
 from twext.log import Logger
-
-from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.method.put_common import StoreCalendarObjectResource
-from twistedcaldav.method.copymove_contact import (
-    maybeCOPYContact, maybeMOVEContact, KEEP_GOING
-)
-
-from twistedcaldav.resource import isCalendarCollectionResource,\
-    isPseudoCalendarCollectionResource
-
-CalDAVFile = None               # Pacify PyFlakes; this *should* be fixed, but
-                                # it's not actually an undefined name, as the
-                                # bottom of twistedcaldav.static fixes it up
-                                # for us before any functions in this module
-                                # are invoked.
 
 log = Logger()
 
+KEEP_GOING = object()
+
 @inlineCallbacks
-def http_COPY(self, request):
+def maybeCOPYContact(self, request):
     """
-    Special handling of COPY request if parents are calendar collections.
+    Special handling of COPY request if parents are addressbook collections.
     When copying we do not have to worry about the source resource as it
     is not being changed in any way. We do need to do an index update for
-    the destination if its a calendar collection.
+    the destination if its an addressbook collection.
     """
-
-    # Copy of calendar collections isn't allowed.
-    if isPseudoCalendarCollectionResource(self):
+    # Copy of addressbook collections isn't allowed.
+    if isAddressBookCollectionResource(self):
         returnValue(responsecode.FORBIDDEN)
 
-    result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = (yield checkForCalendarAction(self, request))
-    if not result or not destinationcal:
-        # Check with CardDAV first (XXX might want to check EnableCardDAV switch?)
-        result = yield maybeCOPYContact(self, request)
-        if result is KEEP_GOING:
-            result = yield super(CalDAVFile, self).http_COPY(request)
-        returnValue(result)
+    result, sourceadbk, sourceparent, destination_uri, destination, destinationadbk, destinationparent = (yield checkForAddressBookAction(self, request))
+    if not result or not destinationadbk:
+        # Give up, do default action.
+        
+        returnValue(KEEP_GOING)
 
     #
     # Check authentication and access controls
@@ -91,14 +78,14 @@ def http_COPY(self, request):
             "Destination %s already exists." % (destination_uri,))
         )
 
-    # Checks for copying a calendar collection
-    if self.isCalendarCollection():
-        log.err("Attempt to copy a calendar collection into another calendar collection %s" % destination)
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "calendar-collection-location-ok")))
+    # Checks for copying an addressbook collection
+    if self.isAddressBookCollection():
+        log.err("Attempt to copy an addressbook collection into another addressbook collection %s" % destination)
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "addressbook-collection-location-ok")))
 
-    # We also do not allow regular collections in calendar collections
+    # We also do not allow regular collections in addressbook collections
     if self.isCollection():
-        log.err("Attempt to copy a collection into a calendar collection")
+        log.err("Attempt to copy a collection into an addressbook collection")
         raise HTTPError(StatusResponse(
             responsecode.FORBIDDEN,
             "Cannot create collection within special collection %s" % (destination,))
@@ -107,46 +94,37 @@ def http_COPY(self, request):
     # May need to add a location header
     addLocation(request, destination_uri)
 
-    storer = StoreCalendarObjectResource(
+    storer = StoreAddressObjectResource(
         request = request,
         source = self,
         source_uri = request.uri,
         sourceparent = sourceparent,
-        sourcecal = sourcecal,
+        sourceadbk = sourceadbk,
         destination = destination,
         destination_uri = destination_uri,
         destinationparent = destinationparent,
-        destinationcal = destinationcal,
+        destinationadbk = destinationadbk,
     )
     result = (yield storer.run())
     returnValue(result)
 
 @inlineCallbacks
-def http_MOVE(self, request):
+def maybeMOVEContact(self, request):
     """
-    Special handling of MOVE request if parent is a calendar collection.
+    Special handling of MOVE request if parent is an addressbook collection.
     When moving we may need to remove the index entry for the source resource
     since its effectively being deleted. We do need to do an index update for
-    the destination if its a calendar collection
+    the destination if its an addressbook collection
     """
-    result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = (yield checkForCalendarAction(self, request))
-    if not result:
-        is_calendar_collection = isPseudoCalendarCollectionResource(self)
-        defaultCalendar = (yield self.isDefaultCalendar(request)) if is_calendar_collection else False
+    result, sourceadbk, sourceparent, destination_uri, destination, destinationadbk, destinationparent = (yield checkForAddressBookAction(self, request))
+    if not result or not destinationadbk:
 
-        if not is_calendar_collection:
-            result = yield maybeMOVEContact(self, request)
-            if result is not KEEP_GOING:
-                returnValue(result)
-
+        # assume it will work and dirty caches
+        if isAddressBookCollectionResource(self):
+            yield self.updateCTag()
+            
         # Do default WebDAV action
-        result = (yield super(CalDAVFile, self).http_MOVE(request))
-        
-        if is_calendar_collection:
-            # Do some clean up
-            yield self.movedCalendar(request, defaultCalendar, destination, destination_uri)
-
-        returnValue(result)
+        returnValue(KEEP_GOING)
         
     #
     # Check authentication and access controls
@@ -170,15 +148,15 @@ def http_MOVE(self, request):
             "Destination %s already exists." % (destination_uri,)
         ))
 
-    if destinationcal:
-        # Checks for copying a calendar collection
-        if self.isCalendarCollection():
-            log.err("Attempt to move a calendar collection into another calendar collection %s" % destination)
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "calendar-collection-location-ok")))
+    if destinationadbk:
+        # Checks for copying an addressbook collection
+        if self.isAddressBookCollection():
+            log.err("Attempt to move an addressbook collection into another addressbook collection %s" % destination)
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "addressbook-collection-location-ok")))
     
-        # We also do not allow regular collections in calendar collections
+        # We also do not allow regular collections in addressbook collections
         if self.isCollection():
-            log.err("Attempt to move a collection into a calendar collection")
+            log.err("Attempt to move a collection into an addressbook collection")
             raise HTTPError(StatusResponse(
                 responsecode.FORBIDDEN,
                 "Cannot create collection within special collection %s" % (destination,)
@@ -187,45 +165,45 @@ def http_MOVE(self, request):
     # May need to add a location header
     addLocation(request, destination_uri)
 
-    storer = StoreCalendarObjectResource(
+    storer = StoreAddressObjectResource(
         request = request,
         source = self,
         source_uri = request.uri,
         sourceparent = sourceparent,
-        sourcecal = sourcecal,
+        sourceadbk = sourceadbk,
         deletesource = True,
         destination = destination,
         destination_uri = destination_uri,
         destinationparent = destinationparent,
-        destinationcal = destinationcal,
+        destinationadbk = destinationadbk,
     )
     result = (yield storer.run())
     returnValue(result)
 
 @inlineCallbacks
-def checkForCalendarAction(self, request):
+def checkForAddressBookAction(self, request):
     """
     Check to see whether the source or destination of the copy/move
-    is a calendar collection, since we need to do special processing
+    is an addressbook collection, since we need to do special processing
     if that is the case.
     @return: tuple::
         result:           True if special CalDAV processing required, False otherwise
             NB If there is any type of error with the request, return False
             and allow normal COPY/MOVE processing to return the error.
-        sourcecal:        True if source is in a calendar collection, False otherwise
+        sourceadbk:        True if source is in an addressbook collection, False otherwise
         sourceparent:     The parent resource for the source
         destination_uri:  The URI of the destination resource
-        destination:      CalDAVFile of destination if special proccesing required,
+        destination:      CalDAVFile of destination if special processing required,
         None otherwise
-        destinationcal:   True if the destination is in a calendar collection,
+        destinationadbk:   True if the destination is in an addressbook collection,
             False otherwise
         destinationparent:The parent resource for the destination
         
     """
     
     result = False
-    sourcecal = False
-    destinationcal = False
+    sourceadbk = False
+    destinationadbk = False
     
     # Check the source path first
     if not self.fp.exists():
@@ -235,11 +213,11 @@ def checkForCalendarAction(self, request):
             "Source resource %s not found." % (request.uri,)
         ))
 
-    # Check for parent calendar collection
+    # Check for parent addressbook collection
     sourceparent = (yield request.locateResource(parentForURL(request.uri)))
-    if isCalendarCollectionResource(sourceparent):
+    if isAddressBookCollectionResource(sourceparent):
         result = True
-        sourcecal = True
+        sourceadbk = True
     
     #
     # Find the destination resource
@@ -253,11 +231,11 @@ def checkForCalendarAction(self, request):
     
     destination = (yield request.locateResource(destination_uri))
 
-    # Check for parent calendar collection
+    # Check for parent addressbook collection
     destination_uri = urlsplit(destination_uri)[2]
     destinationparent = (yield request.locateResource(parentForURL(destination_uri)))
-    if isCalendarCollectionResource(destinationparent):
+    if isAddressBookCollectionResource(destinationparent):
         result = True
-        destinationcal = True
+        destinationadbk = True
 
-    returnValue((result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent))
+    returnValue((result, sourceadbk, sourceparent, destination_uri, destination, destinationadbk, destinationparent))

@@ -16,6 +16,7 @@
 
 __all__ = [
     "applyToCalendarCollections",
+    "applyToAddressBookCollections",
     "responseForHref",
     "allPropertiesForResource",
     "propertyNamesForResource",
@@ -53,6 +54,7 @@ from twisted.web2.http import HTTPError
 from twext.log import Logger
 
 from twistedcaldav import caldavxml
+from twistedcaldav import carddavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
@@ -99,7 +101,44 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
         if not result:
             break
 
-def responseForHref(request, responses, href, resource, calendar, timezone, propertiesForResource, propertyreq, isowner=True):
+@inlineCallbacks
+def applyToAddressBookCollections(resource, request, request_uri, depth, apply, privileges):
+    """
+    Run an operation on all address book collections, starting at the specified
+    root, to the specified depth. This involves scanning the URI hierarchy
+    down from the root. Return a MultiStatus element of all responses.
+    
+    @param request: the L{IRequest} for the current request.
+    @param resource: the L{CalDAVFile} representing the root to start scanning
+        for address book collections.
+    @param depth: the depth to do the scan.
+    @param apply: the function to apply to each address book collection located
+        during the scan.
+    @param privileges: the privileges that must exist on the address book collection.
+    """
+
+    # First check the privilege on this resource
+    if privileges:
+        try:
+            print ("DeleteResource.applyToAddressBookCollections(1.5)")
+            yield resource.checkPrivileges(request, privileges)
+        except AccessDeniedError:
+            returnValue( None )
+
+    # When scanning we only go down as far as an address book collection - not into one
+    if resource.isAddressBookCollection():
+        resources = [(resource, request_uri)]
+    elif not resource.isCollection():
+        resources = [(resource, request_uri)]
+    else:
+        resources = []
+        yield resource.findCalendarCollections(depth, request, lambda x, y: resources.append((x, y)), privileges = privileges)
+         
+    for addrresource, uri in resources:
+        yield apply(addrresource, uri)
+
+
+def responseForHref(request, responses, href, resource, calendar, timezone, propertiesForResource, propertyreq, isowner=True, vcard=None):
     """
     Create an appropriate property status response for the given resource.
 
@@ -110,7 +149,14 @@ def responseForHref(request, responses, href, resource, calendar, timezone, prop
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
-    @param propertiesForResource: the method to use to get the list of properties to return.
+    @param vcard: the L{Component} for the vcard for the resource. This may be None
+        if the vcard has not already been read in, in which case the resource
+        will be used to get the vcard if needed.
+
+    @param propertiesForResource: the method to use to get the list of
+        properties to return.  This is a callable object with a signature
+        matching that of L{allPropertiesForResource}.
+
     @param propertyreq: the L{PropertyContainer} element for the properties of interest.
     @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
         C{False} otherwise.
@@ -131,13 +177,28 @@ def responseForHref(request, responses, href, resource, calendar, timezone, prop
         if propstats:
             responses.append(davxml.PropertyStatusResponse(href, *propstats))
 
-    d = propertiesForResource(request, propertyreq, resource, calendar, timezone, isowner)
+    d = propertiesForResource(request, propertyreq, resource, calendar, timezone, vcard, isowner)
     d.addCallback(_defer)
     return d
 
-def allPropertiesForResource(request, prop, resource, calendar=None, timezone=None, isowner=True):
+
+
+def responseForHrefAB(request, responses, href, resource, propertiesForResource,
+                      propertyreq, calendar=None, timezone=None, vcard=None,
+                      isowner=True):
+    """
+    Legacy wrapper for compatibility of signature of L{responseForHref} in
+    Contacts Server.
+    """
+    return responseForHref(request, responses, href, resource, calendar,
+                           timezone, propertiesForResource, propertyreq, isowner, vcard)
+
+
+
+def allPropertiesForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True):
     """
     Return all (non-hidden) properties for the specified resource.
+
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
     @param resource: the L{CalDAVFile} for the targeted resource.
@@ -145,19 +206,22 @@ def allPropertiesForResource(request, prop, resource, calendar=None, timezone=No
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
     @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
+    @param vcard: the L{Component} for the vcard for the resource. This may be None
+        if the vcard has not already been read in, in which case the resource
+        will be used to get the vcard if needed.
     @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
         C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
     """
 
     def _defer(props):
-        return _namedPropertiesForResource(request, props, resource, calendar, timezone, isowner)
+        return _namedPropertiesForResource(request, props, resource, calendar, timezone, vcard, isowner)
 
     d = resource.listAllprop(request)
     d.addCallback(_defer)
     return d
 
-def propertyNamesForResource(request, prop, resource, calendar=None, timezone=None, isowner=True): #@UnusedVariable
+def propertyNamesForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True): #@UnusedVariable
     """
     Return property names for all properties on the specified resource.
     @param request: the L{IRequest} for the current request.
@@ -182,7 +246,7 @@ def propertyNamesForResource(request, prop, resource, calendar=None, timezone=No
     d.addCallback(_defer)
     return d
 
-def propertyListForResource(request, prop, resource, calendar=None, timezone=None, isowner=True):
+def propertyListForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True):
     """
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
@@ -197,7 +261,7 @@ def propertyListForResource(request, prop, resource, calendar=None, timezone=Non
     @return: a map of OK and NOT FOUND property values.
     """
     
-    return _namedPropertiesForResource(request, prop.children, resource, calendar, timezone, isowner)
+    return _namedPropertiesForResource(request, prop.children, resource, calendar, timezone, vcard, isowner)
 
 def validPropertyListCalendarDataTypeVersion(prop):
     """
@@ -222,8 +286,31 @@ def validPropertyListCalendarDataTypeVersion(prop):
 
     return result, message, generate_calendar_data
 
+def validPropertyListAddressDataTypeVersion(prop):
+    """
+    If the supplied prop element includes an address-data element, verify that
+    the type/version on that matches what we can handle..
+
+    @param prop: the L{PropertyContainer} element for the properties of interest.
+    @return:     a tuple: (True/False if the address-data element is one we can handle or not present,
+                           error message).
+    """
+    
+    result = True
+    message = ""
+    generate_address_data = False
+    for property in prop.children:
+        if isinstance(property, carddavxml.AddressData):
+            if not property.verifyTypeVersion([("text/vcard", "3.0")]):
+                result = False
+                message = "Address-data element type/version not supported: content-type: %s, version: %s" % (property.content_type,property.version)
+            generate_address_data = True
+            break
+
+    return result, message, generate_address_data
+
 @inlineCallbacks
-def _namedPropertiesForResource(request, props, resource, calendar=None, timezone=None, isowner=True):
+def _namedPropertiesForResource(request, props, resource, calendar=None, timezone=None, vcard=None, isowner=True):
     """
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
@@ -233,6 +320,9 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
     @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
+    @param vcard: the L{Component} for the vcard for the resource. This may be None
+        if the vcard has not already been read in, in which case the resource
+        will be used to get the vcard if needed.
     @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
         C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
@@ -259,6 +349,16 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
                 propvalue = property.elementFromResourceWithAccessRestrictions(resource, access, timezone)
             if propvalue is None:
                 raise ValueError("Invalid CalDAV:calendar-data for request: %r" % (property,))
+            properties_by_status[responsecode.OK].append(propvalue)
+            continue
+    
+        if isinstance(property, carddavxml.AddressData):
+            if vcard:
+                propvalue = property.elementFromAddress(vcard)
+            else:
+                propvalue = property.elementFromResource(resource)
+            if propvalue is None:
+                raise ValueError("Invalid CardDAV:address-data for request: %r" % (property,))
             properties_by_status[responsecode.OK].append(propvalue)
             continue
     

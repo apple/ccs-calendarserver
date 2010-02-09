@@ -25,6 +25,9 @@ __all__ = [
     "CalendarPrincipalResource",
     "isCalendarCollectionResource",
     "isPseudoCalendarCollectionResource",
+    "isAddressBookCollectionResource",
+    "SearchAddressBookResource",
+    "SearchAllAddressBookResource",
 ]
 
 import urllib
@@ -54,6 +57,8 @@ import twisted.web2.server
 
 import twistedcaldav
 from twistedcaldav import caldavxml, customxml
+from twistedcaldav import carddavxml
+from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
@@ -63,11 +68,13 @@ from twistedcaldav.ical import Component
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
+from twistedcaldav.vcard import Component as vComponent
+
 
 if twistedcaldav.__version__:
-    serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/" + twistedcaldav.__version__
+    serverVersion = twisted.web2.server.VERSION + " TwistedCardDAV/" + twistedcaldav.__version__
 else:
-    serverVersion = twisted.web2.server.VERSION + " TwistedCalDAV/?"
+    serverVersion = twisted.web2.server.VERSION + " TwistedCardDAV/?"
 
 class CalDAVComplianceMixIn(object):
 
@@ -83,6 +90,8 @@ class CalDAVComplianceMixIn(object):
         if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
             extra_compliance += customxml.calendarserver_private_comments_compliance
         extra_compliance += customxml.calendarserver_principal_property_search
+        if config.EnableCardDAV:
+            extra_compliance += carddavxml.carddav_compliance
         return tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) + extra_compliance
 
 
@@ -440,6 +449,9 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
     ##
 
     def displayName(self):
+        if self.isAddressBookCollection() and not self.hasDeadProperty((davxml.dav_namespace, "displayname")):
+            return None
+        
         if 'record' in dir(self):
             if self.record.fullName:
                 return self.record.fullName
@@ -459,6 +471,15 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         See L{ICalDAVResource.isCalendarCollection}.
         """
         return self.isSpecialCollection(caldavxml.Calendar)
+
+    def isAddressBookCollection(self):
+        """
+        See L{ICalDAVResource.isAddressBookCollection}.
+        """
+        return self.isSpecialCollection(carddavxml.AddressBook)
+
+    def isDirectoryBackedAddressBookCollection(self):       # ATM - temporary fix? (this one worked)
+        return False
 
     def isSpecialCollection(self, collectiontype):
         """
@@ -685,6 +706,65 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                 return principal
         return None
 
+    def createAddressBook(self, request):
+        """
+        See L{ICalDAVResource.createAddressBook}.
+        This implementation raises L{NotImplementedError}; a subclass must
+        override it.
+        """
+        unimplemented(self)
+
+    def vCard(self, name=None):
+        """
+        See L{ICalDAVResource.vCard}.
+
+        This implementation returns the an object created from the data returned
+        by L{vCardText} when given the same arguments.
+
+        Note that L{vCardText} by default calls this method, which creates
+        an infinite loop.  A subclass must override one of both of these
+        methods.
+        """
+        vcard_data = self.vCardText(name)
+
+        if vcard_data is None: return None
+
+        try:
+            return vComponent.fromString(vcard_data)
+        except ValueError:
+            return None
+
+    def vCardRolledup(self, request):
+        """
+        See L{ICalDAVResource.vCardRolledup}.
+
+        This implementation raises L{NotImplementedError}; a subclass must
+        override it.
+        """
+        unimplemented(self)
+
+    def vCardText(self, name=None):
+        """
+        See L{ICalDAVResource.vCardText}.
+
+        This implementation returns the string representation (according to
+        L{str}) of the object returned by L{vCard} when given the same
+        arguments.
+
+        Note that L{vCard} by default calls this method, which creates
+        an infinite loop.  A subclass must override one of both of these
+        methods.
+        """
+        return str(self.vCard(name))
+
+    def vCardXML(self, name=None):
+        """
+        See L{ICalDAVResource.vCardXML}.
+        This implementation returns an XML element constructed from the object
+        returned by L{vCard} when given the same arguments.
+        """
+        return carddavxml.AddressData.fromAddress(self.vCard(name))
+
     def supportedReports(self):
         result = super(CalDAVResource, self).supportedReports()
         result.append(davxml.Report(caldavxml.CalendarQuery(),))
@@ -692,6 +772,9 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         if self.isCollection():
             # Only allowed on collections
             result.append(davxml.Report(caldavxml.FreeBusyQuery(),))
+        if config.EnableCardDAV:
+            result.append(davxml.Report(carddavxml.AddressBookQuery(),))
+            result.append(davxml.Report(carddavxml.AddressBookMultiGet(),))
         if self.isPseudoCalendarCollection() and config.EnableSyncReport:
             # Only allowed on calendar/inbox collections
             result.append(davxml.Report(SyncCollection(),))
@@ -709,7 +792,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         """
 
         # Do this only for regular calendar collections and Inbox/Outbox
-        if self.isPseudoCalendarCollection():
+        if self.isPseudoCalendarCollection() or self.isAddressBookCollection():
             edited_aces = []
             for ace in newaces:
                 if TwistedACLInheritable() not in ace.children:
@@ -782,6 +865,12 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
     def isPseudoCalendarCollection(self):
         return False
 
+    def isAddressBookCollection(self):
+        return False
+
+    def isDirectoryBackedAddressBookCollection(self):
+        return False
+
     def principalForCalendarUserAddress(self, address):
         return None
 
@@ -838,6 +927,14 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
     @classmethod
     def enableDropBox(clz, enable):
         qname = (calendarserver_namespace, "dropbox-home-URL" )
+        if enable and qname not in clz.liveProperties:
+            clz.liveProperties += (qname,)
+        elif not enable and qname in clz.liveProperties:
+            clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
+
+    @classmethod
+    def enableAddressBooks(clz, enable):
+        qname = (carddav_namespace, "addressbook-home-set" )
         if enable and qname not in clz.liveProperties:
             clz.liveProperties += (qname,)
         elif not enable and qname in clz.liveProperties:
@@ -902,6 +999,11 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                 returnValue(customxml.CalendarProxyWriteFor(
                     *[davxml.HRef(principal.principalURL()) for principal in results]
                 ))
+        elif config.EnableCardDAV and namespace == carddav_namespace:
+            if name == "addressbook-home-set":
+                returnValue(carddavxml.AddressBookHomeSet(
+                    *[davxml.HRef(url) for url in self.addressBookHomeURLs()]
+                 ))
 
             elif name == "auto-schedule":
                 autoSchedule = self.getAutoSchedule()
@@ -982,6 +1084,13 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         else:
             return None
 
+    def addressBookHomeURLs(self):
+        if self.hasDeadProperty((carddav_namespace, "addressbook-home-set")):
+            home_set = self.readDeadProperty((carddav_namespace, "addressbook-home-set"))
+            return [str(h) for h in home_set.children]
+        else:
+            return ()
+
     ##
     # Quota
     ##
@@ -997,6 +1106,64 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         Quota root only ever set on calendar homes.
         """
         return None
+
+
+
+
+
+class SearchAddressBookResource (CalDAVResource):
+    """
+    Search collection resource.
+    """
+    def __init__(self, parent):
+        """
+        @param parent: the parent resource of this one.
+        """
+        assert parent is not None
+
+        CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
+
+        self.parent = parent
+
+    def resourceType(self):
+        return davxml.ResourceType.searchaddressbook #@UndefinedVariable
+
+    def renderHTTP(self, request):
+        return RedirectResponse(request.unparseURL(path="/directory/"))
+
+
+class SearchAllAddressBookResource (CalDAVResource):
+    """
+    Search collection resource.
+    """
+    def __init__(self, parent):
+        """
+        @param parent: the parent resource of this one.
+        """
+        assert parent is not None
+
+        CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
+
+        self.parent = parent
+
+    def resourceType(self):
+        return davxml.ResourceType.searchalladdressbook #@UndefinedVariable
+
+    def renderHTTP(self, request):
+        
+        # if requested path ends with "searchall", redirect it for now, redirect to "addressbook"
+        #
+        # in future, should combine all accessible address books
+        
+        matchString = "/searchall"
+        if request.path[-1] == "/":
+            matchString += "/"
+            
+        if request.path.endswith( matchString ):
+            return RedirectResponse(request.unparseURL(path=request.path[:-len(matchString)] + "/addressbook/"))
+        else:
+            return CalDAVResource.renderHTTP(self, request)
+
 
 
 class AuthenticationWrapper(SuperAuthenticationWrapper):
@@ -1047,4 +1214,11 @@ def isPseudoCalendarCollectionResource(resource):
     else:
         return resource.isPseudoCalendarCollection()
 
+def isAddressBookCollectionResource(resource):
+    try:
+        resource = ICalDAVResource(resource)
+    except TypeError:
+        return False
+    else:
+        return resource.isAddressBookCollection()
 
