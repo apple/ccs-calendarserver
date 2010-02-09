@@ -125,13 +125,13 @@ event4notCalDAV_text = (
 )
 
 
-def featureUnimplemented(f):
-    f.todo = "Feature Unimplemented"
+def _todo(f, why):
+    f.todo = why
     return f
 
-def testUnimplemented(f):
-    f.todo = "Test Unimplemented"
-    return f
+featureUnimplemented = lambda f: _todo(f, "Feature unimplemented")
+testUnimplemented = lambda f: _todo(f, "Test unimplemented")
+todo = lambda why: lambda f: _todo(f, why)
 
 
 class PropertiesTestMixin(object):
@@ -387,14 +387,13 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
             self.home1.uid()
         )
 
-    def test_calendarObjects(self):
-        """
-        Find all of the calendar objects.
-        """
+    def _test_calendarObjects(self, which):
         # Add a dot file to make sure we don't find it
         self.home1.path.child(".foo").createDirectory()
 
-        calendarObjects = tuple(self.calendar1.calendarObjects())
+        methodName = "_calendarObjects_%s" % (which,)
+        method = getattr(self.calendar1, methodName)
+        calendarObjects = tuple(method())
 
         for calendarObject in calendarObjects:
             self.failUnless(
@@ -406,6 +405,21 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
             tuple(o.name() for o in calendarObjects),
             calendar1_objectNames
         )
+
+    def test_calendarObjects_listdir(self):
+        """
+        Find all of the calendar objects using the listdir
+        implementation.
+        """
+        return self._test_calendarObjects("listdir")
+
+    @todo("Index is missing 1.ics?")
+    def test_calendarObjects_index(self):
+        """
+        Find all of the calendar objects using the index
+        implementation.
+        """
+        return self._test_calendarObjects("index")
 
     def test_calendarObjectWithName_exists(self):
         """
@@ -505,6 +519,7 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
             self.calendar1.createCalendarObjectWithName,
             name, component
         )
+
     def test_createCalendarObjectWithName_invalid(self):
         """
         Attempt to create a calendar object with a invalid iCalendar text

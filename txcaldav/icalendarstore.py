@@ -18,6 +18,10 @@
 Calendar store interfaces
 """
 
+# FIXME:  Still to do:
+# - Where to defer?
+# - commit() and abort()
+
 __all__ = [
     # Exceptions
     "CalendarStoreError",
@@ -32,7 +36,6 @@ __all__ = [
     "NoSuchCalendarError",
     "NoSuchCalendarObjectError",
     "InvalidCalendarComponentError",
-    "TryAgainLaterError",
     "InternalDataStoreError",
 
     # Classes
@@ -109,11 +112,6 @@ class NoSuchCalendarObjectError(NotFoundError):
 class InvalidCalendarComponentError(CalendarStoreError):
     """
     Invalid calendar component.
-    """
-
-class TryAgainLaterError(CalendarStoreError):
-    """
-    Requested resource is in use.  Try again later.
     """
 
 class InternalDataStoreError(CalendarStoreError):

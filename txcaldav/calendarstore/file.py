@@ -30,7 +30,7 @@ import errno
 from zope.interface import implements
 
 from twisted.python.filepath import FilePath
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks
 
 from twext.log import LoggingMixIn
 from twext.python.icalendar import Component as iComponent
@@ -49,7 +49,7 @@ from txcaldav.icalendarstore import NoSuchCalendarObjectError
 from txcaldav.icalendarstore import InvalidCalendarComponentError
 from txcaldav.icalendarstore import InternalDataStoreError
 
-from twistedcaldav.index import Index
+from twistedcaldav.index import Index as OldIndex
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 
 
@@ -162,40 +162,8 @@ class Calendar(LoggingMixIn):
         return "<%s: %s>" % (self.__class__.__name__, self.path.path)
 
     def index(self):
-        #
-        # OK, here's where we get ugly.
-        # The index code needs to be rewritten also, but in the meantime...
-        #
-        class StubResource(object):
-            """
-            Just enough resource to keep the Index class going.
-            """
-            def __init__(self, calendar):
-                self.calendar = calendar
-                self.fp = self.calendar.path
-
-            def isCalendarCollection(self):
-                return True
-
-            def getChild(self, name):
-                calendarObject = self.calendar.calendarObjectWithName(name)
-                if calendarObject:
-                    class ChildResource(object):
-                        def __init__(self, calendarObject):
-                            self.calendarObject = calendarObject
-
-                        def iCalendar(self):
-                            return self.calendarObject.component()
-
-                    return ChildResource(calendarObject)
-                else:
-                    return None
-
-            def bumpSyncToken(self, reset=False):
-                return self.calendar._updateSyncToken(reset)
-
         if not hasattr(self, "_index"):
-            self._index = Index(StubResource(self))
+            self._index = Index(self)
         return self._index
 
     def name(self):
@@ -205,14 +173,7 @@ class Calendar(LoggingMixIn):
         return self.calendarHome
 
     def _calendarObjects_index(self):
-        for name, uid, componentType in self.index().bruteForceSearch():
-            calendarObject = self.calendarObjectWithName(name)
-
-            # Precache what we found in the index
-            calendarObject._uid = uid
-            calendarObject._componentType = componentType
-
-            yield calendarObject
+        return self.index().calendarObjects()
 
     def _calendarObjects_listdir(self):
         return (
@@ -221,8 +182,7 @@ class Calendar(LoggingMixIn):
             if not name.startswith(".")
         )
 
-    calendarObjects = _calendarObjects_listdir
-   #calendarObjects = _calendarObjects_index
+    calendarObjects = _calendarObjects_index
 
     def calendarObjectWithName(self, name):
         childPath = self.path.child(name)
@@ -278,7 +238,7 @@ class Calendar(LoggingMixIn):
             if reset:
                 token = newToken()
 
-            raise NotImplementedError()
+            raise NotImplementedError(token)
 
         finally:
             yield lock.clean()
@@ -409,3 +369,52 @@ class CalendarObject(LoggingMixIn):
         if not hasattr(self, "_properties"):
             self._properties = PropertyStore(self.path)
         return self._properties
+
+class Index (object):
+    #
+    # OK, here's where we get ugly.
+    # The index code needs to be rewritten also, but in the meantime...
+    #
+    class StubResource(object):
+        """
+        Just enough resource to keep the Index class going.
+        """
+        def __init__(self, calendar):
+            self.calendar = calendar
+            self.fp = self.calendar.path
+
+        def isCalendarCollection(self):
+            return True
+
+        def getChild(self, name):
+            calendarObject = self.calendar.calendarObjectWithName(name)
+            if calendarObject:
+                class ChildResource(object):
+                    def __init__(self, calendarObject):
+                        self.calendarObject = calendarObject
+
+                    def iCalendar(self):
+                        return self.calendarObject.component()
+
+                return ChildResource(calendarObject)
+            else:
+                return None
+
+        def bumpSyncToken(self, reset=False):
+            return self.calendar._updateSyncToken(reset)
+
+
+    def __init__(self, calendar):
+        self.calendar = calendar
+        self._oldIndex = OldIndex(Index.StubResource(calendar))
+
+    def calendarObjects(self):
+        calendar = self.calendar
+        for name, uid, componentType in self._oldIndex.bruteForceSearch():
+            calendarObject = calendar.calendarObjectWithName(name)
+
+            # Precache what we found in the index
+            calendarObject._uid = uid
+            calendarObject._componentType = componentType
+
+            yield calendarObject
