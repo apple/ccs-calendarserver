@@ -19,12 +19,36 @@ WebDAV interfaces
 """
 
 __all__ = [
+    "PropertyStoreError",
+    "IPropertyName",
     "IPropertyStore",
 ]
 
-#from zope.interface import Attribute, Interface
+from zope.interface import Attribute, Interface
 
 from zope.interface.common.mapping import IMapping
+
+
+class PropertyStoreError(RuntimeError):
+    """
+    Property store error.
+    """
+
+
+class IPropertyName(Interface):
+    """
+    Property name.
+    """
+    namespace = Attribute("Namespace")
+    name      = Attribute("Name")
+
+    def toString():
+        """
+        Returns the string representation of the property name.
+
+        @return: a string
+        """
+
 
 class IPropertyStore(IMapping):
     """

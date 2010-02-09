@@ -14,13 +14,15 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
-    CachingDirectoryRecord, DictRecordTypeCache
-from twistedcaldav.test.util import TestCase
+from uuid import uuid4
+
+from twistedcaldav.directory.cachingdirectory import CachingDirectoryService
+from twistedcaldav.directory.cachingdirectory import CachingDirectoryRecord
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.util import uuidFromName
-from uuid import uuid4
 from twistedcaldav.directory.augment import AugmentRecord
+from twistedcaldav.test.util import TestCase
+
 
 class TestDirectoryService (CachingDirectoryService):
 
@@ -86,7 +88,7 @@ class CachingDirectoryTest(TestCase):
         self.service.queried = False
 
     def loadRecords(self, records):
-        self.service._initCaches(DictRecordTypeCache)
+        self.service._initCaches()
         self.service.fakerecords = records
         self.service.queried = False
 

@@ -18,6 +18,10 @@
 Calendar store interfaces
 """
 
+# FIXME:  Still to do:
+# - Where to defer?
+# - commit() and abort()
+
 __all__ = [
     # Exceptions
     "CalendarStoreError",

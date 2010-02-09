@@ -159,6 +159,22 @@
     </dict>
 
 
+    <!-- Resource and Locations service -->
+    <key>ResourceService</key>
+    <dict>
+      <key>Enabled</key>
+      <true/>
+      <key>type</key>
+      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
+
+      <key>params</key>
+      <dict>
+        <key>xmlFile</key>
+        <string>/Library/CalendarServer/Data/resources.xml</string>
+      </dict>
+    </dict>
+
+
     <!--
         Augment service
 
@@ -224,7 +240,7 @@
       <key>params</key>
       <dict>
         <key>dbpath</key>
-        <string>/etc/caldavd/proxies.sqlite</string>
+        <string>/Library/CalendarServer/Data/proxies.sqlite</string>
       </dict>
     </dict>
 

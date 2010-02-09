@@ -295,6 +295,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             changedCount = 0
             def changed(self):
                 self.changedCount += 1
+                return succeed(None)
 
         user = self._getPrincipalByShortName(self.directoryService.recordType_users, "cdaboo")
 
