@@ -88,14 +88,14 @@ class XMLDirectoryService(CachingDirectoryService):
             try:
                 uid = pwd.getpwnam(config.UserName).pw_uid
             except KeyError:
-                log.error("User not found: %s" % (config.UserName,))
+                self.log_error("User not found: %s" % (config.UserName,))
 
         gid = -1
         if config.GroupName:
             try:
                 gid = grp.getgrnam(config.GroupName).gr_gid
             except KeyError:
-                log.error("Group not found: %s" % (config.GroupName,))
+                self.log_error("Group not found: %s" % (config.GroupName,))
 
         if uid != -1 and gid != -1:
             os.chown(xmlFile.path, uid, gid)

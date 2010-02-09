@@ -37,8 +37,9 @@ class ResourcesTestCase(TestCase):
 
         super(ResourcesTestCase, self).setUp()
 
-    def test_loadConfig(self):
-        directory = getDirectory()
+# Uh, what's this testing?
+#    def test_loadConfig(self):
+#        directory = getDirectory()
 
     def test_recordInPrimaryDirectory(self):
         directory = getDirectory()
