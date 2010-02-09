@@ -18,6 +18,7 @@ import os
 import plistlib
 import xml
 
+from twisted.python.filepath import FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.error import ProcessDone
@@ -26,8 +27,7 @@ from twisted.internet.protocol import ProcessProtocol
 from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
-from twisted.python.filepath import FilePath
-from twistedcaldav.directory.directory import DirectoryError
+
 
 class ErrorOutput(Exception):
     """
@@ -217,15 +217,11 @@ class GatewayTestCase(TestCase):
 
     @inlineCallbacks
     def test_addWriteProxy(self):
-        directory = getDirectory()
-
         results = yield self.runCommand(command_addWriteProxy)
         self.assertEquals(len(results['result']['Proxies']), 1)
 
     @inlineCallbacks
     def test_removeWriteProxy(self):
-        directory = getDirectory()
-
         results = yield self.runCommand(command_addWriteProxy)
         results = yield self.runCommand(command_removeWriteProxy)
         self.assertEquals(len(results['result']['Proxies']), 0)
