@@ -138,16 +138,20 @@ $(BuildDirectory)/%: %.tgz
 	@echo "Extracting source for $(notdir $<)..."
 	$(_v) $(MKDIR) -p "$(BuildDirectory)"
 	$(_v) $(RMDIR) "$@"
-	$(_v) $(TAR) -C "$(BuildDirectory)" -xzf $<
+	$(_v) $(TAR) -C "$(BuildDirectory)" -xzf "$<"
 
 %.tgz: ../%
 	@echo "Archiving sources for $(notdir $<)..."
+	$(_v) if [ -f "$</setup.py" ] && grep setuptools "$</setup.py" > /dev/null; then \
+	        echo "Working around setuptools' stupid need to download a new version."; \
+	        cd "$<" && $(PYTHON) "setup.py" --help >/dev/null; \
+	      fi
 	$(_v) $(TAR) -C "$(dir $<)"        \
 	          --exclude=.svn           \
 	          --exclude=build          \
 	          --exclude=_trial_temp    \
 	          --exclude=dropin.cache   \
-	          -czf $@ "$(notdir $<)"
+	          -czf "$@" "$(notdir $<)"
 
 #
 # Open Source Hooey
