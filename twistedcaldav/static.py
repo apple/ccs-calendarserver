@@ -1634,14 +1634,12 @@ def _calendarPrivilegeSet ():
                 if isinstance(read_privilege.children[0], davxml.Read):
                     read_description = all_supported_privilege.childOfType(davxml.Description)
                     read_supported_privileges = list(all_supported_privilege.childrenOfType(davxml.SupportedPrivilege))
-                    """ Calendar Server Only
                     read_supported_privileges.append(
                         davxml.SupportedPrivilege(
                             davxml.Privilege(caldavxml.ReadFreeBusy()),
                             davxml.Description("allow free busy report query", **{"xml:lang": "en"}),
-                        ),
+                        )
                     )
-                    """
                     all_supported_privileges.append(
                         davxml.SupportedPrivilege(read_privilege, read_description, *read_supported_privileges)
                     )
