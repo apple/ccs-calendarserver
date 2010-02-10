@@ -83,88 +83,89 @@ if sys.platform == "darwin":
 # Run setup
 #
 
-from distutils.core import setup
+if __name__ == "__main__":
+    from distutils.core import setup
 
-dist = setup(
-    name             = "twistedcaldav",
-    version          = version_string,
-    description      = description,
-    long_description = long_description,
-    url              = None,
-    classifiers      = classifiers,
-    author           = "Apple Inc.",
-    author_email     = None,
-    license          = None,
-    platforms        = [ "all" ],
-    packages         = find_modules(),
-    package_data     = {
-                         "twistedcaldav": [
-                           "zoneinfo/*.ics",
-                           "zoneinfo/*/*.ics",
-                           "zoneinfo/*/*/*.ics",
-                           "images/*/*.jpg",
-                         ],
-                       },
-    scripts          = [
-                         "bin/caldavd",
-                         "bin/calendarserver_export",
-                         "bin/calendarserver_manage_principals",
-                         "bin/calendarserver_command_gateway",
-                         "bin/carddavd",
-                       ],
-    data_files       = [ ("caldavd", ["conf/caldavd.plist"]),
-                         ("carddavd", ["conf/carddavd.plist.default" ])],
-    ext_modules      = extensions,
-    py_modules       = ["kqreactor", "memcacheclient"],
-)
+    dist = setup(
+        name             = "Calendar and Contacts Server",
+        version          = version_string,
+        description      = description,
+        long_description = long_description,
+        url              = None,
+        classifiers      = classifiers,
+        author           = "Apple Inc.",
+        author_email     = None,
+        license          = None,
+        platforms        = [ "all" ],
+        packages         = find_modules(),
+        package_data     = {
+                             "twistedcaldav": [
+                               "zoneinfo/*.ics",
+                               "zoneinfo/*/*.ics",
+                               "zoneinfo/*/*/*.ics",
+                               "images/*/*.jpg",
+                             ],
+                           },
+        scripts          = [
+                             "bin/caldavd",
+                             "bin/calendarserver_export",
+                             "bin/calendarserver_manage_principals",
+                             "bin/calendarserver_command_gateway",
+                             "bin/carddavd",
+                           ],
+        data_files       = [ ("caldavd", ["conf/caldavd.plist"]),
+                             ("carddavd", ["conf/carddavd.plist.default" ])],
+        ext_modules      = extensions,
+        py_modules       = ["kqreactor", "memcacheclient"],
+    )
 
-if "install" in dist.commands:
-    import os
-    install_scripts = dist.command_obj["install"].install_scripts
-    install_lib = dist.command_obj["install"].install_lib
-    root = dist.command_obj["install"].root
-    base = dist.command_obj["install"].install_base
+    if "install" in dist.commands:
+        import os
+        install_scripts = dist.command_obj["install"].install_scripts
+        install_lib = dist.command_obj["install"].install_lib
+        root = dist.command_obj["install"].root
+        base = dist.command_obj["install"].install_base
 
-    if root:
-        install_lib = install_lib[len(root):]
+        if root:
+            install_lib = install_lib[len(root):]
 
-    for script in dist.scripts:
-        scriptPath = os.path.join(install_scripts, os.path.basename(script))
+        for script in dist.scripts:
+            scriptPath = os.path.join(install_scripts, os.path.basename(script))
 
-        print "rewriting %s" % (scriptPath,)
+            print "rewriting %s" % (scriptPath,)
 
-        script = []
-    
-        fileType = None
+            script = []
 
-        for line in file(scriptPath, "r"):
-            if not fileType:
-                if line.startswith("#!"):
-                    if "python" in line.lower():
-                        fileType = "python"
-                    elif "sh" in line.lower():
-                        fileType = "sh"
+            fileType = None
 
-            line = line.rstrip("\n")
-            if fileType == "sh":
-                if line == "#PYTHONPATH":
-                    script.append('PYTHONPATH="%s:$PYTHONPATH"' % (install_lib,))
-                elif line == "#PATH":
-                    script.append('PATH="%s:$PATH"' % (os.path.join(base, "bin"),))
+            for line in file(scriptPath, "r"):
+                if not fileType:
+                    if line.startswith("#!"):
+                        if "python" in line.lower():
+                            fileType = "python"
+                        elif "sh" in line.lower():
+                            fileType = "sh"
+
+                line = line.rstrip("\n")
+                if fileType == "sh":
+                    if line == "#PYTHONPATH":
+                        script.append('PYTHONPATH="%s:$PYTHONPATH"' % (install_lib,))
+                    elif line == "#PATH":
+                        script.append('PATH="%s:$PATH"' % (os.path.join(base, "bin"),))
+                    else:
+                        script.append(line)
+
+                elif fileType == "python":
+                    if line == "#PYTHONPATH":
+                        script.append('PYTHONPATH="%s"' % (install_lib,))
+                    elif line == "#PATH":
+                        script.append('PATH="%s"' % (os.path.join(base, "bin"),))
+                    else:
+                        script.append(line)
+
                 else:
                     script.append(line)
 
-            elif fileType == "python":
-                if line == "#PYTHONPATH":
-                    script.append('PYTHONPATH="%s"' % (install_lib,))
-                elif line == "#PATH":
-                    script.append('PATH="%s"' % (os.path.join(base, "bin"),))
-                else:
-                    script.append(line)
-
-            else:
-                script.append(line)
-
-        newScript = open(scriptPath, "w")
-        newScript.write("\n".join(script))
-        newScript.close()
+            newScript = open(scriptPath, "w")
+            newScript.write("\n".join(script))
+            newScript.close()
