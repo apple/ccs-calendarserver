@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,9 +46,9 @@ def find_modules():
 # Options
 #
 
-description = "CardDAV protocol extensions to twisted.web2.dav",
+description = "CalDAV/CardDAV protocol extensions to twisted.web2.dav",
 long_description = """
-Extends twisted.web2.dav to implement CardDAV-aware resources and methods.
+Extends twisted.web2.dav to implement CalDAV/CardDAV-aware resources and methods.
 """
 
 classifiers = None
@@ -109,6 +109,9 @@ if __name__ == "__main__":
         scripts          = [
                              "bin/caldavd",
                              "bin/calendarserver_export",
+                             "bin/calendarserver_load_augmentdb",
+                             "bin/calendarserver_make_partition",
+                             "bin/calendarserver_manage_augments",
                              "bin/calendarserver_manage_principals",
                              "bin/calendarserver_command_gateway",
                              "bin/carddavd",
@@ -120,7 +123,6 @@ if __name__ == "__main__":
     )
 
     if "install" in dist.commands:
-        import os
         install_scripts = dist.command_obj["install"].install_scripts
         install_lib = dist.command_obj["install"].install_lib
         root = dist.command_obj["install"].root
