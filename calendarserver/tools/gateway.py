@@ -179,6 +179,7 @@ class Runner(object):
 
         except Exception, e:
             respondWithError("Command failed: '%s'" % (str(e),))
+            raise
 
         finally:
             reactor.stop()
@@ -299,12 +300,23 @@ class Runner(object):
     @inlineCallbacks
     def command_listWriteProxies(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
         (yield respondWithProxies(self.dir, command, principal, "write"))
 
     @inlineCallbacks
     def command_addWriteProxy(self, command):
-        principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        principal = principalForPrincipalID(command['Principal'],
+            directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
+
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        if proxy is None:
+            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            return
         try:
             (yield addProxy(principal, "write", proxy))
         except ProxyError, e:
@@ -317,7 +329,13 @@ class Runner(object):
     @inlineCallbacks
     def command_removeWriteProxy(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        if proxy is None:
+            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            return
         try:
             (yield removeProxy(principal, proxy, proxyTypes=("write",)))
         except ProxyError, e:
@@ -330,12 +348,21 @@ class Runner(object):
     @inlineCallbacks
     def command_listReadProxies(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
         (yield respondWithProxies(self.dir, command, principal, "read"))
 
     @inlineCallbacks
     def command_addReadProxy(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        if proxy is None:
+            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            return
         try:
             (yield addProxy(principal, "read", proxy))
         except ProxyError, e:
@@ -348,7 +375,13 @@ class Runner(object):
     @inlineCallbacks
     def command_removeReadProxy(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        if proxy is None:
+            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            return
         try:
             (yield removeProxy(principal, proxy, proxyTypes=("read",)))
         except ProxyError, e:
