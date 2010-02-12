@@ -159,7 +159,7 @@ class XMLFile (
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
 <augments>
   <record>
-    <guid>myoffice</guid>
+    <uid>myoffice</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <auto-schedule>true</auto-schedule>
@@ -227,6 +227,71 @@ class XMLFile (
         # All groups are disabled
         self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "enabled").enabledForCalendaring)
         self.assertFalse(service.recordWithShortName(DirectoryService.recordType_groups, "disabled").enabledForCalendaring)
+
+
+    def test_readExtras(self):
+        service = self.service()
+
+        self.xmlFile().open("w").write(
+"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<accounts realm="Test Realm">
+  <location>
+    <uid>my office</uid>
+    <guid>myoffice</guid>
+    <name>My Office</name>
+    <extras>
+        <comment>This is the comment</comment>
+        <capacity>40</capacity>
+    </extras>
+  </location>
+</accounts>
+"""
+        )
+        
+        record = service.recordWithShortName(
+            DirectoryService.recordType_locations, "my office")
+        self.assertEquals(record.guid, "myoffice")
+        self.assertEquals(record.extras["comment"], "This is the comment")
+        self.assertEquals(record.extras["capacity"], "40")
+
+    def test_writeExtras(self):
+        service = self.service()
+
+        service.createRecord(DirectoryService.recordType_locations, "newguid",
+            shortNames=("New office",),
+            fullName="My New Office",
+            address="1 Infinite Loop, Cupertino, CA",
+            capacity="10",
+            comment="Test comment",
+        )
+
+        record = service.recordWithShortName(
+            DirectoryService.recordType_locations, "New office")
+        self.assertEquals(record.extras["comment"], "Test comment")
+        self.assertEquals(record.extras["capacity"], "10")
+
+
+        service.updateRecord(DirectoryService.recordType_locations, "newguid",
+            shortNames=("New office",),
+            fullName="My Newer Office",
+            address="2 Infinite Loop, Cupertino, CA",
+            capacity="20",
+            comment="Test comment updated",
+        )
+
+        record = service.recordWithShortName(
+            DirectoryService.recordType_locations, "New office")
+        self.assertEquals(record.fullName, "My Newer Office")
+        self.assertEquals(record.extras["address"], "2 Infinite Loop, Cupertino, CA")
+        self.assertEquals(record.extras["comment"], "Test comment updated")
+        self.assertEquals(record.extras["capacity"], "20")
+
+        service.destroyRecord(DirectoryService.recordType_locations, "newguid")
+
+        record = service.recordWithShortName(
+            DirectoryService.recordType_locations, "New office")
+        self.assertEquals(record, None)
 
 
 class XMLFileSubset (XMLFileBase, TestCase):

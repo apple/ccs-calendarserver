@@ -93,11 +93,13 @@ def main():
         try:
             config.directory = getDirectory()
         except DirectoryError, e:
-            abort(e)
+            respondWithError(str(e))
+            return
         setupMemcached(config)
         setupNotifications(config)
     except ConfigurationError, e:
-        abort(e)
+        respondWithError(e)
+        return
 
     #
     # Read commands from stdin
@@ -106,7 +108,8 @@ def main():
     try:
         plist = plistlib.readPlistFromString(rawInput)
     except xml.parsers.expat.ExpatError, e:
-        abort(str(e))
+        respondWithError(str(e))
+        return
 
     # If the plist is an array, each element of the array is a separate
     # command dictionary.
@@ -116,7 +119,8 @@ def main():
         commands = [plist]
 
     runner = Runner(config.directory, commands)
-    runner.validate()
+    if not runner.validate():
+        return
 
     #
     # Start the reactor
@@ -124,6 +128,24 @@ def main():
     reactor.callLater(0, runner.run)
     reactor.run()
 
+
+attrMap = {
+    'GeneratedUID' : { 'attr' : 'guid', },
+    'RealName' : { 'attr' : 'fullName', },
+    'RecordName' : { 'attr' : 'shortNames', },
+    'Comment' : { 'extras' : True, 'attr' : 'comment', },
+    'Description' : { 'extras' : True, 'attr' : 'description', },
+    'Type' : { 'extras' : True, 'attr' : 'type', },
+    'Capacity' : { 'extras' : True, 'attr' : 'capacity', },
+    'Building' : { 'extras' : True, 'attr' : 'building', },
+    'Floor' : { 'extras' : True, 'attr' : 'floor', },
+    'Street' : { 'extras' : True, 'attr' : 'street', },
+    'City' : { 'extras' : True, 'attr' : 'city', },
+    'State' : { 'extras' : True, 'attr' : 'state', },
+    'ZIP' : { 'extras' : True, 'attr' : 'zip', },
+    'Country' : { 'extras' : True, 'attr' : 'country', },
+    'Phone' : { 'extras' : True, 'attr' : 'phone', },
+}
 
 class Runner(object):
 
@@ -135,23 +157,32 @@ class Runner(object):
         # Make sure commands are valid
         for command in self.commands:
             if not command.has_key('command'):
-                abort("'command' missing from plist")
+                respondWithError("'command' missing from plist")
+                return False
             commandName = command['command']
             methodName = "command_%s" % (commandName,)
             if not hasattr(self, methodName):
-                abort("Unknown command '%s'" % (commandName,))
+                respondWithError("Unknown command '%s'" % (commandName,))
+                return False
+        return True
 
     @inlineCallbacks
     def run(self):
-        for command in self.commands:
-            commandName = command['command']
-            methodName = "command_%s" % (commandName,)
-            if hasattr(self, methodName):
-                (yield getattr(self, methodName)(command))
-            else:
-                abort("Unknown command '%s'" % (commandName,))
+        try:
+            for command in self.commands:
+                commandName = command['command']
+                methodName = "command_%s" % (commandName,)
+                if hasattr(self, methodName):
+                    (yield getattr(self, methodName)(command))
+                else:
+                    respondWithError("Unknown command '%s'" % (commandName,))
 
-        reactor.stop()
+        except Exception, e:
+            respondWithError("Command failed: '%s'" % (str(e),))
+            raise
+
+        finally:
+            reactor.stop()
 
     # Locations
 
@@ -160,18 +191,53 @@ class Runner(object):
 
     def command_createLocation(self, command):
 
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
         try:
-            self.dir.createRecord("locations", guid=command['GeneratedUID'],
-                shortNames=command['RecordName'], fullName=command['RealName'])
+            self.dir.createRecord("locations", **kwargs)
         except DirectoryError, e:
-            abort(str(e))
+            respondWithError(str(e))
+            return
         respondWithRecordsOfType(self.dir, command, "locations")
 
-    def command_deleteLocation(self, command):
+    def command_getLocationAttributes(self, command):
+        guid = command['GeneratedUID']
+        record = self.dir.recordWithGUID(guid)
+        recordDict = recordToDict(record)
+        # principal = principalForPrincipalID(guid, directory=self.dir)
+        # recordDict['AutoSchedule'] = principal.getAutoSchedule()
+        respond(command, recordDict)
+
+    def command_setLocationAttributes(self, command):
+
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
         try:
-            self.dir.destroyRecord("locations", guid=command['GeneratedUID'])
+            self.dir.updateRecord("locations", **kwargs)
         except DirectoryError, e:
-            abort(str(e))
+            respondWithError(str(e))
+            return
+
+        # principal = principalForPrincipalID(command['GeneratedUID'],
+        #     directory=self.dir)
+        # principal.setAutoSchedule(command.get('AutoSchedule', False))
+
+        self.command_getLocationAttributes(command)
+
+    def command_deleteLocation(self, command):
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
+        try:
+            self.dir.destroyRecord("locations", **kwargs)
+        except DirectoryError, e:
+            respondWithError(str(e))
+            return
         respondWithRecordsOfType(self.dir, command, "locations")
 
     # Resources
@@ -180,18 +246,53 @@ class Runner(object):
         respondWithRecordsOfType(self.dir, command, "resources")
 
     def command_createResource(self, command):
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
         try:
-            self.dir.createRecord("resources", guid=command['GeneratedUID'],
-                shortNames=command['RecordName'], fullName=command['RealName'])
+            self.dir.createRecord("resources", **kwargs)
         except DirectoryError, e:
-            abort(str(e))
+            respondWithError(str(e))
+            return
         respondWithRecordsOfType(self.dir, command, "resources")
 
-    def command_deleteResource(self, command):
+    def command_getResourceAttributes(self, command):
+        guid = command['GeneratedUID']
+        record = self.dir.recordWithGUID(guid)
+        recordDict = recordToDict(record)
+        # principal = principalForPrincipalID(guid, directory=self.dir)
+        # recordDict['AutoSchedule'] = principal.getAutoSchedule()
+        respond(command, recordDict)
+
+    def command_setResourceAttributes(self, command):
+
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
         try:
-            self.dir.destroyRecord("resources", guid=command['GeneratedUID'])
+            self.dir.updateRecord("resources", **kwargs)
         except DirectoryError, e:
-            abort(str(e))
+            respondWithError(str(e))
+            return
+
+        # principal = principalForPrincipalID(command['GeneratedUID'],
+        #     directory=self.dir)
+        # principal.setAutoSchedule(command.get('AutoSchedule', False))
+
+        self.command_getResourceAttributes(command)
+
+    def command_deleteResource(self, command):
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
+        try:
+            self.dir.destroyRecord("resources", **kwargs)
+        except DirectoryError, e:
+            respondWithError(str(e))
+            return
         respondWithRecordsOfType(self.dir, command, "resources")
 
     # Proxies
@@ -199,16 +300,28 @@ class Runner(object):
     @inlineCallbacks
     def command_listWriteProxies(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
         (yield respondWithProxies(self.dir, command, principal, "write"))
 
     @inlineCallbacks
     def command_addWriteProxy(self, command):
-        principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        principal = principalForPrincipalID(command['Principal'],
+            directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
+
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        if proxy is None:
+            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            return
         try:
             (yield addProxy(principal, "write", proxy))
         except ProxyError, e:
-            abort(str(e))
+            respondWithError(str(e))
+            return
         except ProxyWarning, e:
             pass
         (yield respondWithProxies(self.dir, command, principal, "write"))
@@ -216,11 +329,18 @@ class Runner(object):
     @inlineCallbacks
     def command_removeWriteProxy(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        if proxy is None:
+            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            return
         try:
             (yield removeProxy(principal, proxy, proxyTypes=("write",)))
         except ProxyError, e:
-            abort(str(e))
+            respondWithError(str(e))
+            return
         except ProxyWarning, e:
             pass
         (yield respondWithProxies(self.dir, command, principal, "write"))
@@ -228,16 +348,26 @@ class Runner(object):
     @inlineCallbacks
     def command_listReadProxies(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
         (yield respondWithProxies(self.dir, command, principal, "read"))
 
     @inlineCallbacks
     def command_addReadProxy(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        if proxy is None:
+            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            return
         try:
             (yield addProxy(principal, "read", proxy))
         except ProxyError, e:
-            abort(str(e))
+            respondWithError(str(e))
+            return
         except ProxyWarning, e:
             pass
         (yield respondWithProxies(self.dir, command, principal, "read"))
@@ -245,11 +375,18 @@ class Runner(object):
     @inlineCallbacks
     def command_removeReadProxy(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (command['Principal'],))
+            return
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
+        if proxy is None:
+            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            return
         try:
             (yield removeProxy(principal, proxy, proxyTypes=("read",)))
         except ProxyError, e:
-            abort(str(e))
+            respondWithError(str(e))
+            return
         except ProxyWarning, e:
             pass
         (yield respondWithProxies(self.dir, command, principal, "read"))
@@ -271,27 +408,38 @@ def respondWithProxies(directory, command, principal, proxyType):
     })
 
 
+def recordToDict(record):
+    recordDict = {}
+    for key, info in attrMap.iteritems():
+        try:
+            if info.get('extras', False):
+                value = record.extras[info['attr']]
+            else:
+                value = getattr(record, info['attr'])
+            recordDict[key] = value
+        except KeyError:
+            pass
+    return recordDict
+
 def respondWithRecordsOfType(directory, command, recordType):
     result = []
     for record in directory.listRecords(recordType):
-        result.append( {
-            'GeneratedUID' : record.guid,
-            'RecordName' : [n for n in record.shortNames],
-            'RealName' : record.fullName,
-            'AutoSchedule' : record.autoSchedule,
-        } )
+        recordDict = recordToDict(record)
+        result.append(recordDict)
     respond(command, result)
 
 def respond(command, result):
     sys.stdout.write(plistlib.writePlistToString( { 'command' : command['command'], 'result' : result } ) )
 
-def abort(msg, status=1):
+def respondWithError(msg, status=1):
     sys.stdout.write(plistlib.writePlistToString( { 'error' : msg, } ) )
+    """
     try:
         reactor.stop()
     except RuntimeError:
         pass
     sys.exit(status)
+    """
 
 if __name__ == "__main__":
     main()

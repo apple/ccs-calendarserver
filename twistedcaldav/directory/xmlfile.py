@@ -276,6 +276,10 @@ class XMLDirectoryService(CachingDirectoryService):
         ET.SubElement(element, "last-name").text = principal.lastName
         for value in principal.emailAddresses:
             ET.SubElement(element, "email-address").text = value
+        if principal.extras:
+            extrasElement = ET.SubElement(element, "extras")
+            for key, value in principal.extras.iteritems():
+                ET.SubElement(extrasElement, key).text = value
 
         return element
 
@@ -311,7 +315,7 @@ class XMLDirectoryService(CachingDirectoryService):
 
     def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        uid=None, password=None, **kwds):
+        uid=None, password=None, **kwargs):
         """
         Create and persist a record using the provided information.  In this
         XML-based implementation, the xml accounts are read in and converted
@@ -341,12 +345,13 @@ class XMLDirectoryService(CachingDirectoryService):
         xmlPrincipal.firstName = firstName
         xmlPrincipal.lastName = lastName
         xmlPrincipal.emailAddresses = emailAddresses
+        xmlPrincipal.extras = kwargs
         self._addElement(accountsElement, xmlPrincipal)
 
         self._persistRecords(accountsElement)
 
 
-    def destroyRecord(self, recordType, guid):
+    def destroyRecord(self, recordType, guid=None):
         """
         Remove the record matching guid.  In this XML-based implementation,
         the xml accounts are read in and those not matching the given guid are
@@ -368,9 +373,9 @@ class XMLDirectoryService(CachingDirectoryService):
         self._persistRecords(accountsElement)
 
 
-    def updateRecord(self, recordType, guid, shortNames=(), authIDs=set(),
+    def updateRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        uid=None, password=None, **kwds):
+        uid=None, password=None, **kwargs):
         """
         Update the record matching guid.  In this XML-based implementation,
         the xml accounts are read in and converted to elementtree elements.
@@ -394,6 +399,7 @@ class XMLDirectoryService(CachingDirectoryService):
                     xmlPrincipal.firstName = firstName
                     xmlPrincipal.lastName = lastName
                     xmlPrincipal.emailAddresses = emailAddresses
+                    xmlPrincipal.extras = kwargs
                     self._addElement(accountsElement, xmlPrincipal)
                 else:
                     self._addElement(accountsElement, xmlPrincipal)
@@ -415,6 +421,7 @@ class XMLDirectoryRecord(CachingDirectoryRecord):
             firstName             = xmlPrincipal.firstName,
             lastName              = xmlPrincipal.lastName,
             emailAddresses        = xmlPrincipal.emailAddresses,
+            **xmlPrincipal.extras
         )
 
         self.password          = xmlPrincipal.password

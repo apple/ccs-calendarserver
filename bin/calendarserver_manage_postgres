@@ -38,5 +38,5 @@ if __name__ == "__main__":
         if child.wait() == 0:
             sys.path[0:0] = path.split(":")
 
-    from calendarserver.tools.manageaugments import main
+    from calendarserver.tools.managepostgres import main
     main()

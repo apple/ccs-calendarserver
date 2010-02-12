@@ -647,14 +647,9 @@ class CalDAVServiceMaker (LoggingMixIn):
                 credentialFactories.append(credFactory)
 
 
-        # Set up a digest credential factory for use on the /inbox iMIP
+        # Set up a basic credential factory for use on the /inbox iMIP
         # injection resource
-        schemeConfig = config.Authentication.Digest
-        digestCredentialFactory = QopDigestCredentialFactory(
-            schemeConfig["Algorithm"],
-            schemeConfig["Qop"],
-            realm,
-        )
+        inboxCredentialFactory = BasicCredentialFactory(realm)
 
         #
         # Setup Resource hierarchy
@@ -728,7 +723,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                           % (self.imipResourceClass,))
 
             # The authenticationWrapper below will be configured to always
-            # allow digest auth on /inbox
+            # allow basic auth on /inbox
             root.putChild("inbox", self.imipResourceClass(root))
 
         #
@@ -772,7 +767,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             credentialFactories,
             (auth.IPrincipal,),
             overrides = {
-                "/inbox" : (digestCredentialFactory,),
+                "/inbox" : (inboxCredentialFactory,),
             }
         )
 

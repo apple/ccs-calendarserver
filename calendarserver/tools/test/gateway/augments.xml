@@ -20,17 +20,17 @@ limitations under the License.
 
 <augments>
   <record>
-    <guid>user01</guid>
+    <uid>user01</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
   </record>
   <record>
-    <guid>user02</guid>
+    <uid>user02</uid>
     <enable>false</enable>
     <enable-calendar>false</enable-calendar>
   </record>
   <record>
-    <guid>location01</guid>
+    <uid>location01</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
   </record>

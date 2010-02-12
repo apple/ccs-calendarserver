@@ -20,31 +20,31 @@ limitations under the License.
 
 <augments>
   <record>
-    <guid>Default</guid>
+    <uid>Default</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
   </record>
   <record repeat="10">
-    <guid>location%02d</guid>
+    <uid>location%02d</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
   </record>
   <record repeat="10">
-    <guid>resource%02d</guid>
+    <uid>resource%02d</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
   </record>
   <record repeat="4">
-    <guid>group%02d</guid>
+    <uid>group%02d</uid>
     <enable>true</enable>
   </record>
   <record>
-    <guid>disabledgroup</guid>
+    <uid>disabledgroup</uid>
     <enable>false</enable>
   </record>
 </augments>

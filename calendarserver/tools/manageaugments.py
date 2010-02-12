@@ -15,144 +15,25 @@
 # limitations under the License.
 ##
 
+from calendarserver.tools.loadaugmentdb import StandardIOObserver
+from calendarserver.tools.util import loadConfig, getDirectory,\
+    autoDisableMemcached
+from grp import getgrnam
 from optparse import OptionParser
-from twistedcaldav.directory import xmlaugmentsparser
-from xml.etree.ElementTree import ElementTree, tostring, SubElement
-from xml.parsers.expat import ExpatError
-import sys
+from pwd import getpwnam
+from twext.log import setLogLevelForNamespace
+from twisted.internet import reactor
+from twisted.python.util import switchUID
+from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.directory import augment
+from twistedcaldav.directory.augment import AugmentRecord
 import os
+import sys
+from twisted.internet.defer import inlineCallbacks
 
 def error(s):
     print s
     sys.exit(1)
-
-def readXML(xmlfile):
-
-    # Read in XML
-    try:
-        tree = ElementTree(file=xmlfile)
-    except ExpatError, e:
-        error("Unable to parse file '%s' because: %s" % (xmlfile, e,))
-
-    # Verify that top-level element is correct
-    augments_node = tree.getroot()
-    if augments_node.tag != xmlaugmentsparser.ELEMENT_AUGMENTS:
-        error("Ignoring file '%s' because it is not a augments file" % (xmlfile,))
-
-    return augments_node
-
-def writeXML(xmlfile, root):
-    
-    data = """<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE augments SYSTEM "augments.dtd">
-
-""" + tostring(root)
-
-    with open(xmlfile, "w") as f:
-        f.write(data)
-
-def addSubElement(parent, tag, text=None, indent=0):
-    
-    child = SubElement(parent, tag)
-    child.text = text
-    child.tail = "\n" + " " * indent
-    return child
-
-def changeSubElementText(parent, tag, text):
-    
-    child = parent.find(tag)
-    child.text = text
-
-def doAdd(xmlfile, guid, host, enable_calendar, auto_schedule):
-
-    augments_node = readXML(xmlfile)
-
-    # Make sure GUID is not already present
-    for child in augments_node.getchildren():
-        
-        if child.tag != xmlaugmentsparser.ELEMENT_RECORD:
-            error("Unknown augment type: '%s' in augment file: '%s'" % (child.tag, xmlfile,))
-
-        for node in child.getchildren():
-            
-            if node.tag == xmlaugmentsparser.ELEMENT_GUID and node.text == guid:
-                error("Cannot add guid '%s' because it already exists in augment file: '%s'" % (guid, xmlfile,))
-    
-    # Create new record
-    if len(augments_node.getchildren()):
-        augments_node.getchildren()[-1].tail = "\n  "
-    record = addSubElement(augments_node, xmlaugmentsparser.ELEMENT_RECORD, "\n    ")
-    addSubElement(record, xmlaugmentsparser.ELEMENT_GUID, guid, 4)
-    addSubElement(record, xmlaugmentsparser.ELEMENT_ENABLE, "true", 4)
-    addSubElement(record, xmlaugmentsparser.ELEMENT_HOSTEDAT, host, 4)
-    addSubElement(record, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true" if enable_calendar else "false", 4)
-    addSubElement(record, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if auto_schedule else "false", 2)
-    
-    # Modify xmlfile
-    writeXML(xmlfile, augments_node)
-    print "Added guid '%s' in augment file: '%s'" % (guid, xmlfile,)
-    
-def doModify(xmlfile, guid, host, enable_calendar, auto_schedule):
-
-    augments_node = readXML(xmlfile)
-
-    # Make sure GUID is present
-    for child in augments_node.getchildren():
-        
-        if child.tag != xmlaugmentsparser.ELEMENT_RECORD:
-            error("Unknown augment type: '%s' in augment file: '%s'" % (child.tag, xmlfile,))
-
-        for node in child.getchildren():
-            
-            if node.tag == xmlaugmentsparser.ELEMENT_GUID and node.text == guid:
-                break
-        else:
-            continue
-        break
-    else:
-        error("Cannot modify guid '%s' because it does not exist in augment file: '%s'" % (guid, xmlfile,))
-    
-    # Modify record
-    if host is not None:
-        child.find(xmlaugmentsparser.ELEMENT_HOSTEDAT).text = host
-    child.find(xmlaugmentsparser.ELEMENT_ENABLECALENDAR).text = "true" if enable_calendar else "false"
-    child.find(xmlaugmentsparser.ELEMENT_AUTOSCHEDULE).text = "true" if auto_schedule else "false"
-    
-    # Modify xmlfile
-    writeXML(xmlfile, augments_node)
-    print "Modified guid '%s' in augment file: '%s'" % (guid, xmlfile,)
-
-def doRemove(xmlfile, guid):
-
-    augments_node = readXML(xmlfile)
-
-    # Make sure GUID is present
-    for child in augments_node.getchildren():
-        
-        if child.tag != xmlaugmentsparser.ELEMENT_RECORD:
-            error("Unknown augment type: '%s' in augment file: '%s'" % (child.tag, xmlfile,))
-
-        for node in child.getchildren():
-            
-            if node.tag == xmlaugmentsparser.ELEMENT_GUID and node.text == guid:
-                break
-        else:
-            continue
-        augments_node.remove(child)
-        break
-    else:
-        error("Cannot remove guid '%s' because it does not exist in augment file: '%s'" % (guid, xmlfile,))
-    
-    # Modify xmlfile
-    writeXML(xmlfile, augments_node)
-    print "Removed guid '%s' from augment file: '%s'" % (guid, xmlfile,)
-    
-def doPrint(xmlfile):
-
-    # Read in XML
-    augments_node = readXML(xmlfile)
-
-    print tostring(augments_node)
 
 def main():
 
@@ -163,7 +44,6 @@ ACTION is one of add|modify|remove|print
   add:    add a user record
   modify: modify a user record
   remove: remove a user record
-  print:  print all user records
 """
     description = "Tool to manipulate CalendarServer augments XML file"
     version = "%prog v1.0"
@@ -171,47 +51,97 @@ ACTION is one of add|modify|remove|print
     parser.epilog = epilog
     parser.format_epilog = lambda _:epilog
 
-    parser.add_option("-f", "--file", dest="xmlfilename",
-                      help="XML augment file to manipulate", metavar="FILE")
-    parser.add_option("-g", "--guid", dest="guid",
-                      help="OD GUID to manipulate", metavar="GUID")
-    parser.add_option("-i", "--guidfile", dest="guidfile",
-                      help="File containing a list of GUIDs to manipulate", metavar="GUIDFILE")
+    parser.add_option("-f", "--file", dest="configfilename",
+                      help="caldavd.plist defining Augment Service", metavar="FILE")
+    parser.add_option("-u", "--uid", dest="uid",
+                      help="OD GUID to manipulate", metavar="UID")
+    parser.add_option("-i", "--uidfile", dest="uidfile",
+                      help="File containing a list of GUIDs to manipulate", metavar="UIDFILE")
     parser.add_option("-n", "--node", dest="node",
-                      help="Partition node to assign to GUID", metavar="NODE")
+                      help="Partition node to assign to UID", metavar="NODE")
     parser.add_option("-c", "--enable-calendar", action="store_true", dest="enable_calendar",
-                      default=True, help="Enable calendaring for this GUID: %default")
-    parser.add_option("-a", "--auto-schedule", action="store_true", dest="auto_schedule",
-                      default=False, help="Enable auto-schedule for this GUID: %default")
+                      default=True, help="Enable calendaring for this UID: %default")
+    parser.add_option("-a", "--enable-addressbooks", action="store_true", dest="enable_addressbook",
+                      default=True, help="Enable calendaring for this UID: %default")
+    parser.add_option("-s", "--auto-schedule", action="store_true", dest="auto_schedule",
+                      default=False, help="Enable auto-schedule for this UID: %default")
 
     (options, args) = parser.parse_args()
 
     if len(args) != 1:
         parser.error("incorrect number of arguments")
 
-    guids = []
-    if options.guid:
-        guids.append(options.guid)
-    elif options.guidfile:
-        if not os.path.exists(options.guidfile):
-            parser.error("File containing list of GUIDs does not exist")
-        with open(options.guidfile) as f:
-            for line in f:
-                guids.append(line[:-1])
-        
-    if args[0] == "add":
-        if not options.node:
-            parser.error("Partition node must be specified when adding")
-        for guid in guids:
-            doAdd(options.xmlfilename, guid, options.node, options.enable_calendar, options.auto_schedule)
-    elif args[0] == "modify":
-        for guid in guids:
-            doModify(options.xmlfilename, guid, options.node, options.enable_calendar, options.auto_schedule)
-    elif args[0] == "remove":
-        for guid in guids:
-            doRemove(options.xmlfilename, guid)
-    elif args[0] == "print":
-        doPrint(options.xmlfilename)
+    observer = StandardIOObserver()
+    observer.start()
+
+    #
+    # Get configuration
+    #
+    try:
+        loadConfig(options.configfilename)
+        setLogLevelForNamespace(None, "warn")
+
+        # Shed privileges
+        if config.UserName and config.GroupName and os.getuid() == 0:
+            uid = getpwnam(config.UserName).pw_uid
+            gid = getgrnam(config.GroupName).gr_gid
+            switchUID(uid, uid, gid)
+
+        os.umask(config.umask)
+
+        config.directory = getDirectory()
+        autoDisableMemcached(config)
+    except ConfigurationError, e:
+        usage("Unable to start: %s" % (e,))
+
+    #
+    # Start the reactor
+    #
+    reactor.callLater(0, run, parser, options, args)
+    reactor.run()
+
+def makeRecord(uid, options):
+    return AugmentRecord(
+        uid = uid,
+        enabled = True,
+        hostedAt = options.node,
+        enabledForCalendaring = options.enable_calendar,
+        enabledForAddressBooks = options.enable_addressbook,
+        autoSchedule = options.auto_schedule,
+    )
+
+@inlineCallbacks
+def run(parser, options, args):
+    
+    try:
+        uids = []
+        if options.uid:
+            uids.append(options.uid)
+        elif options.uidfile:
+            if not os.path.exists(options.uidfile):
+                parser.error("File containing list of UIDs does not exist")
+            with open(options.uidfile) as f:
+                for line in f:
+                    uids.append(line[:-1])
+            
+        if args[0] == "add":
+            if not options.node:
+                parser.error("Partition node must be specified when adding")
+            yield augment.AugmentService.addAugmentRecords([makeRecord(uid, options) for uid in uids], False)
+            for uid in uids:
+                print "Added uid '%s' to augment database" % (uid,)
+        elif args[0] == "modify":
+            yield augment.AugmentService.addAugmentRecords([makeRecord(uid, options) for uid in uids], True)
+            for uid in uids:
+                print "Modified uid '%s' in augment database" % (uid,)
+        elif args[0] == "remove":
+            yield augment.AugmentService.removeAugmentRecords(uids)
+            for uid in uids:
+                print "Removed uid '%s' from augment database" % (uid,)
+        else:
+            parser.error("Unknown argument")
+    finally:
+        reactor.stop()
 
 if __name__ == '__main__':
     main()

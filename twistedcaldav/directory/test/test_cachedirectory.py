@@ -68,7 +68,7 @@ class TestDirectoryService (CachingDirectoryService):
                     ) 
                     
                     augmentRecord = AugmentRecord(
-                        guid = cacheRecord.guid,
+                        uid = cacheRecord.guid,
                         enabled=True,
                         enabledForCalendaring = True,
                     )

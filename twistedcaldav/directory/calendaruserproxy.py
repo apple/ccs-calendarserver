@@ -719,15 +719,17 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
             ifnotexists=True,
         )
 
-        yield self._db_execute(
-            """
-            create index if not exists GROUPNAMES on GROUPS (GROUPNAME)
-            """
+        yield self._create_index(
+            "GROUPNAMES",
+            "GROUPS",
+            ("GROUPNAME",),
+            ifnotexists=True,
         )
-        yield self._db_execute(
-            """
-            create index if not exists MEMBERS on GROUPS (MEMBER)
-            """
+        yield self._create_index(
+            "MEMBERS",
+            "GROUPS",
+            ("MEMBER",),
+            ifnotexists=True,
         )
 
     @inlineCallbacks
@@ -740,15 +742,17 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
         # Add index if old version is less than "4"
         if int(old_version) < 4:
-            yield self._db_execute(
-                """
-                create index if not exists GROUPNAMES on GROUPS (GROUPNAME)
-                """
+            yield self._create_index(
+                "GROUPNAMES",
+                "GROUPS",
+                ("GROUPNAME",),
+                ifnotexists=True,
             )
-            yield self._db_execute(
-                """
-                create index if not exists MEMBERS on GROUPS (MEMBER)
-                """
+            yield self._create_index(
+                "MEMBERS",
+                "GROUPS",
+                ("MEMBER",),
+                ifnotexists=True,
             )
 
     def _db_empty_data_tables(self):

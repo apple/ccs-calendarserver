@@ -46,6 +46,7 @@ from twisted.plugin import IPlugin
 from twisted.python.reflect import namedClass
 from twisted.python.usage import Options, UsageError
 from twisted.web import client
+
 from twext.web2 import server, responsecode
 from twext.web2.channel.http import HTTPFactory
 from twext.web2.dav import auth
@@ -53,13 +54,13 @@ from twext.web2.dav import davxml
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.http import Response, HTTPError
 from twext.web2.http_headers import MimeType
+from twext.web2.auth.basic import BasicCredentialFactory
 
 from twext.log import Logger, LoggingMixIn
 
 from twistedcaldav import ical, caldavxml
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config
-from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.ical import Property
@@ -70,8 +71,6 @@ from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.static import CalDAVFile, deliverSchedulePrivilegeSet
 from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from twistedcaldav.sql import AbstractSQLDatabase
-from twistedcaldav.localization import translationTo
 
 from calendarserver.provision.root import RootResource
 
@@ -605,17 +604,11 @@ class IScheduleService(service.Service, LoggingMixIn):
         portal = Portal(auth.DavRealm())
         portal.registerChecker(directory)
         realm = directory.realmName or ""
-        schemeConfig = config.Authentication.Digest
-        digestCredentialFactory = QopDigestCredentialFactory(
-            schemeConfig["Algorithm"],
-            schemeConfig["Qop"],
-            realm,
-        )
         root.putChild('inbox',
             auth.AuthenticationWrapper(
                 IMIPInvitationInboxResource(root, mailer),
                 portal,
-                (digestCredentialFactory,),
+                (BasicCredentialFactory(realm),),
                 (auth.IPrincipal,),
             )
         )
