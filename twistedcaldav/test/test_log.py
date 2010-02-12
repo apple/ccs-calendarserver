@@ -157,29 +157,29 @@ class Logging (TestCase):
         """
         Setting and retrieving log levels.
         """
-        setLogLevelForNamespace("twisted.web2", "debug")
-        setLogLevelForNamespace("twisted.web2.dav", "error")
+        setLogLevelForNamespace("twext.web2", "debug")
+        setLogLevelForNamespace("twext.web2.dav", "error")
 
         self.assertEquals(logLevelForNamespace("twisted"                     ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twisted.web2"                ), "debug")
-        self.assertEquals(logLevelForNamespace("twisted.web2.dav"            ), "error")
-        self.assertEquals(logLevelForNamespace("twisted.web2.dav.test"       ), "error")
-        self.assertEquals(logLevelForNamespace("twisted.web2.dav.test1.test2"), "error")
+        self.assertEquals(logLevelForNamespace("twext.web2"                ), "debug")
+        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), "error")
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), "error")
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), "error")
 
     def test_clearLogLevel(self):
         """
         Clearing log levels.
         """
-        setLogLevelForNamespace("twisted.web2", "debug")
-        setLogLevelForNamespace("twisted.web2.dav", "error")
+        setLogLevelForNamespace("twext.web2", "debug")
+        setLogLevelForNamespace("twext.web2.dav", "error")
 
         clearLogLevels()
 
         self.assertEquals(logLevelForNamespace("twisted"                     ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twisted.web2"                ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twisted.web2.dav"            ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twisted.web2.dav.test"       ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twisted.web2.dav.test1.test2"), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2"                ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), defaultLogLevel)
 
     def test_willLogAtLevel(self):
         """

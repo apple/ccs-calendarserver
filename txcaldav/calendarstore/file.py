@@ -29,7 +29,7 @@ import errno
 
 from zope.interface import implements
 
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet.defer import inlineCallbacks
 
 from twext.log import LoggingMixIn

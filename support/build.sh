@@ -84,7 +84,6 @@ init_build () {
       top="$(cd "${caldav}/.." && pwd -L)";
   patches="${caldav}/lib-patches";
   twisted="${top}/Twisted";
-      dav="${twisted}/twisted/web2/dav";
 
   # Find a command that can hash up a string for us
   if type -t openssl > /dev/null; then
@@ -471,18 +470,8 @@ dependencies () {
     false false false false 0;
 
   py_dependency "Twisted" "twisted" "Twisted" \
-    "svn" "svn://svn.twistedmatrix.com/svn/Twisted/branches/dav-take-two-3081-4" \
-    false true true false 27622;
-
-  # twisted.web2 doesn't get installed by default, so in the install phase
-  # let's make sure it does.
-  if [ -n "${install}" ]; then
-    echo "";
-    echo "Installing Twisted.web2...";
-    cd "${twisted}";
-    "${python}" ./twisted/web2/topfiles/setup.py install "${install_flag}${install}";
-    cd /;
-  fi;
+    "svn" "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-9.0.0" \
+    false true true false 27606;
 
   py_dependency "dateutil" "dateutil" "python-dateutil-1.4.1" \
     "www" "http://www.labix.org/download/python-dateutil/python-dateutil-1.4.1.tar.gz" \

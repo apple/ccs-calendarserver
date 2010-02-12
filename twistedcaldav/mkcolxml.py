@@ -25,7 +25,7 @@ change.
 See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
 
-from twisted.web2.dav import davxml
+from twext.web2.dav import davxml
 
 ##
 # Extended MKCOL objects

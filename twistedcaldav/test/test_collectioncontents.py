@@ -17,11 +17,11 @@
 import os
 
 from twisted.internet.defer import DeferredList
-from twisted.web2 import responsecode
-from twisted.web2.iweb import IResponse
-from twisted.web2.stream import MemoryStream, FileStream
-from twisted.web2.http_headers import MimeType
-from twisted.web2.test.test_server import SimpleRequest
+from twext.web2 import responsecode
+from twext.web2.iweb import IResponse
+from twext.web2.stream import MemoryStream, FileStream
+from twext.web2.http_headers import MimeType
+from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.ical import Component
 from twistedcaldav.memcachelock import MemcacheLock

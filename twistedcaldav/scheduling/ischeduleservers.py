@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 
 from twext.log import Logger
 

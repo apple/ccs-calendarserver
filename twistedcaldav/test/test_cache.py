@@ -20,10 +20,10 @@ import cPickle
 
 from twisted.internet.defer import succeed, maybeDeferred
 
-from twisted.web2.dav import davxml
-from twisted.web2.dav.util import allDataFromStream
-from twisted.web2.stream import MemoryStream
-from twisted.web2.http_headers import Headers
+from twext.web2.dav import davxml
+from twext.web2.dav.util import allDataFromStream
+from twext.web2.stream import MemoryStream
+from twext.web2.http_headers import Headers
 
 from twistedcaldav.cache import MemcacheResponseCache
 from twistedcaldav.cache import MemcacheChangeNotifier

@@ -42,8 +42,8 @@ from vobject import newFromBehavior, readComponents
 from vobject.base import Component as vComponent, ContentLine as vContentLine, ParseError as vParseError
 from vobject.icalendar import TimezoneComponent, dateTimeToString, deltaToOffset, getTransition, stringToDate, stringToDateTime, stringToDurations, utc
 
-from twisted.web2.dav.util import allDataFromStream
-from twisted.web2.stream import IStream
+from twext.web2.dav.util import allDataFromStream
+from twext.web2.stream import IStream
 
 from twext.log import Logger
 

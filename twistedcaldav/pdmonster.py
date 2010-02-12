@@ -2,7 +2,7 @@ from twisted.internet import protocol
 from twisted.internet import address
 from twisted.protocols import amp
 
-from twisted.web2.resource import WrapperResource
+from twext.web2.resource import WrapperResource
 
 from twext.log import LoggingMixIn
 

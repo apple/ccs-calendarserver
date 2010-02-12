@@ -26,7 +26,7 @@ Test memcacheprops.
 
 import os
 
-from twisted.web2.http import HTTPError
+from twext.web2.http import HTTPError
 
 from twistedcaldav.memcacheprops import MemcachePropertyCollection
 from twistedcaldav.test.util import InMemoryPropertyStore

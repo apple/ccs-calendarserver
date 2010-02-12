@@ -20,7 +20,7 @@ Property store tests.
 
 from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
-#from twisted.python.filepath import FilePath
+#from twext.python.filepath import CachingFilePath as FilePath
 from twisted.trial import unittest
 
 from txdav.idav import IPropertyStore

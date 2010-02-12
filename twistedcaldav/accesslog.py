@@ -31,10 +31,10 @@ import time
 
 from twisted.internet import protocol
 from twisted.protocols import amp
-from twisted.web2 import iweb
-from twisted.web2.dav import davxml
-from twisted.web2.log import BaseCommonAccessLoggingObserver
-from twisted.web2.log import LogWrapperResource
+from twext.web2 import iweb
+from twext.web2.dav import davxml
+from twext.web2.log import BaseCommonAccessLoggingObserver
+from twext.web2.log import LogWrapperResource
 
 from twext.log import Logger
 

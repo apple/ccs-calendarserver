@@ -29,7 +29,7 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.python.util import switchUID
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryError
-from twisted.web2.dav import davxml
+from twext.web2.dav import davxml
 
 from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications
 from calendarserver.tools.principals import principalForPrincipalID, proxySubprincipal, addProxy, removeProxy, ProxyError, ProxyWarning

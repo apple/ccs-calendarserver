@@ -23,10 +23,10 @@ __all__ = ["http_DELETE"]
 from twext.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.dav.util import parentForURL
-from twisted.web2.http import HTTPError
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.dav.util import parentForURL
+from twext.web2.http import HTTPError
 
 from twistedcaldav.method.delete_common import DeleteResource
 

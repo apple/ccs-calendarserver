@@ -24,9 +24,9 @@ __all__ = [
 ]
 
 from twext.web2.dav.davxml import ErrorResponse
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.dav.resource import DAVResource, TwistedACLInheritable
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.dav.resource import DAVResource, TwistedACLInheritable
 
 from twext.log import Logger
 

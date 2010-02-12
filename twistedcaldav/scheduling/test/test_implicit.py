@@ -18,7 +18,7 @@ from twistedcaldav.ical import Component
 import twistedcaldav.test.util
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from dateutil.tz import tzutc
-from twisted.web2.dav import davxml
+from twext.web2.dav import davxml
 import datetime
 
 class Implicit (twistedcaldav.test.util.TestCase):

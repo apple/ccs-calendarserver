@@ -46,13 +46,13 @@ from twisted.plugin import IPlugin
 from twisted.python.reflect import namedClass
 from twisted.python.usage import Options, UsageError
 from twisted.web import client
-from twisted.web2 import server, responsecode
-from twisted.web2.channel.http import HTTPFactory
-from twisted.web2.dav import auth
-from twisted.web2.dav import davxml
-from twisted.web2.dav.noneprops import NonePropertyStore
-from twisted.web2.http import Response, HTTPError
-from twisted.web2.http_headers import MimeType
+from twext.web2 import server, responsecode
+from twext.web2.channel.http import HTTPFactory
+from twext.web2.dav import auth
+from twext.web2.dav import davxml
+from twext.web2.dav.noneprops import NonePropertyStore
+from twext.web2.http import Response, HTTPError
+from twext.web2.http_headers import MimeType
 
 from twext.log import Logger, LoggingMixIn
 

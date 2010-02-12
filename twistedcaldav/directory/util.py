@@ -40,7 +40,7 @@ def uuidFromName(namespace, name):
 
 import errno
 import time
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 
 class NotFilePath(FilePath):
     """

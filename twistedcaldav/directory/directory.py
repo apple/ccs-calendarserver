@@ -35,7 +35,7 @@ from zope.interface import implements
 
 from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
-from twisted.web2.dav.auth import IPrincipalCredentials
+from twext.web2.dav.auth import IPrincipalCredentials
 from twisted.internet.defer import succeed
 
 from twext.log import LoggingMixIn

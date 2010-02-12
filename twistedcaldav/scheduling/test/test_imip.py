@@ -15,7 +15,7 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks
-from twisted.web2 import responsecode
+from twext.web2 import responsecode
 from twistedcaldav.ical import Component
 from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser
 from twistedcaldav.scheduling.imip import ScheduleViaIMip

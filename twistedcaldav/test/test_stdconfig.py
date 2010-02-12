@@ -17,7 +17,7 @@
 
 from cStringIO import StringIO
 
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 from twisted.trial.unittest import TestCase
 
 from twistedcaldav.config import Config

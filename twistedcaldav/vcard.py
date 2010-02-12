@@ -30,8 +30,8 @@ from vobject.base import Component as vComponent
 from vobject.base import ContentLine as vContentLine
 from vobject.base import ParseError as vParseError
 
-from twisted.web2.stream import IStream
-from twisted.web2.dav.util import allDataFromStream
+from twext.web2.stream import IStream
+from twext.web2.dav.util import allDataFromStream
 
 vCardProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
 

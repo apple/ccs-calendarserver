@@ -17,8 +17,8 @@
 import os
 
 from twisted.internet.defer import inlineCallbacks
-from twisted.web2.dav import davxml
-from twisted.web2.test.test_server import SimpleRequest
+from twext.web2.dav import davxml
+from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import caldavxml
 from twistedcaldav.directory import augment

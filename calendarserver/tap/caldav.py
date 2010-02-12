@@ -48,10 +48,10 @@ from twisted.application.service import Service, MultiService, IServiceMaker
 from twisted.scripts.mktap import getid
 from twisted.runner import procmon
 from twisted.cred.portal import Portal
-from twisted.web2.dav import auth
-from twisted.web2.auth.basic import BasicCredentialFactory
-from twisted.web2.server import Site
-from twisted.web2.static import File as FileResource
+from twext.web2.dav import auth
+from twext.web2.auth.basic import BasicCredentialFactory
+from twext.web2.server import Site
+from twext.web2.static import File as FileResource
 
 from twext.log import Logger, LoggingMixIn
 from twext.log import logLevelForNamespace, setLogLevelForNamespace

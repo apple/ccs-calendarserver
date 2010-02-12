@@ -21,8 +21,8 @@ import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
 
-from twisted.web2.dav.fileop import rmdir
-from twisted.web2.dav import davxml
+from twext.web2.dav.fileop import rmdir
+from twext.web2.dav import davxml
 
 from twext.log import Logger
 

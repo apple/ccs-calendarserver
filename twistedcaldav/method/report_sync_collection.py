@@ -25,14 +25,14 @@ from twext.web2.dav.davxml import ErrorResponse, SyncToken
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.dav.element.base import WebDAVElement
-from twisted.web2.dav.http import MultiStatusResponse, statusForFailure
-from twisted.web2.dav.method.prop_common import responseForHref
-from twisted.web2.dav.method.propfind import propertyName
-from twisted.web2.dav.util import joinURL
-from twisted.web2.http import HTTPError
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.dav.element.base import WebDAVElement
+from twext.web2.dav.http import MultiStatusResponse, statusForFailure
+from twext.web2.dav.method.prop_common import responseForHref
+from twext.web2.dav.method.propfind import propertyName
+from twext.web2.dav.util import joinURL
+from twext.web2.http import HTTPError
 
 from twistedcaldav.config import config
 

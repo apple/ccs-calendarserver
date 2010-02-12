@@ -23,7 +23,7 @@ __all__ = [
     "ICalendarPrincipalResource",
 ]
 
-from twisted.web2.dav.idav import IDAVResource
+from twext.web2.dav.idav import IDAVResource
 
 class ICalDAVResource(IDAVResource):
     """

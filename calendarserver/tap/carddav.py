@@ -23,7 +23,7 @@ import os
 
 from zope.interface import implements
 
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 from twisted.plugin import IPlugin
 from twisted.internet.reactor import callLater
 from twisted.application.service import IServiceMaker

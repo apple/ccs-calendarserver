@@ -28,11 +28,11 @@ __all__ = [
 ]
 
 from twisted.internet.defer import succeed
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.http import HTTPError
-from twisted.web2.dav.util import joinURL
-from twisted.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.http import HTTPError
+from twext.web2.dav.util import joinURL
+from twext.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty
 
 from twistedcaldav.config import config
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource

@@ -24,9 +24,9 @@ from twext.log import Logger
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
-from twisted.web2.dav.util import joinURL
-from twisted.web2.http import HTTPError
+from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
+from twext.web2.dav.util import joinURL
+from twext.web2.http import HTTPError
 from twistedcaldav import customxml, caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Property

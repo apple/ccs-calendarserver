@@ -18,7 +18,7 @@ import os
 from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 from twistedcaldav.directory.directory import DirectoryError
 
 

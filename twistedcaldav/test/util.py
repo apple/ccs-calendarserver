@@ -21,19 +21,19 @@ import xattr
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import succeed, fail
-from twisted.web2.http import HTTPError, StatusResponse
+from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import memcacher
 from twistedcaldav.config import config
 from twistedcaldav.static import CalDAVFile
 import memcacheclient
 
-import twisted.web2.dav.test.util
+import twext.web2.dav.test.util
 
 from twisted.internet.base import DelayedCall
 DelayedCall.debug = True
 
-class TestCase(twisted.web2.dav.test.util.TestCase):
+class TestCase(twext.web2.dav.test.util.TestCase):
     resource_class = CalDAVFile
 
     def setUp(self):

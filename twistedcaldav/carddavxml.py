@@ -28,7 +28,7 @@ See draft spec:
 from twistedcaldav.vcard import Property as iProperty
 from twistedcaldav.vcard import Component
 
-from twisted.web2.dav import davxml
+from twext.web2.dav import davxml
 
 ##
 # CardDAV objects

@@ -20,8 +20,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
-from twisted.web2 import responsecode
-from twisted.web2.http import HTTPError
+from twext.web2 import responsecode
+from twext.web2.http import HTTPError
 from twisted.web import client
 
 from twistedcaldav.caldavxml import caldav_namespace

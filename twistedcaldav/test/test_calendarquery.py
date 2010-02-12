@@ -18,13 +18,13 @@ import os
 import shutil
 
 from twisted.trial.unittest import SkipTest
-from twisted.web2 import responsecode
-from twisted.web2.iweb import IResponse
-from twisted.web2.stream import MemoryStream
-from twisted.web2.dav import davxml
-from twisted.web2.dav.fileop import rmdir
-from twisted.web2.dav.util import davXMLFromStream
-from twisted.web2.test.test_server import SimpleRequest
+from twext.web2 import responsecode
+from twext.web2.iweb import IResponse
+from twext.web2.stream import MemoryStream
+from twext.web2.dav import davxml
+from twext.web2.dav.fileop import rmdir
+from twext.web2.dav.util import davXMLFromStream
+from twext.web2.test.test_server import SimpleRequest
 
 import twistedcaldav.test.util
 from twistedcaldav import caldavxml
