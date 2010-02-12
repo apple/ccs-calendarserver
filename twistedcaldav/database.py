@@ -408,6 +408,9 @@ class AbstractADBAPIDatabase(object):
     def _test_table(self, name):
         raise NotImplementedError
 
+    def _create_index(self, name, ontable, columns, ifnotexists=False):
+        raise NotImplementedError
+
     def _prepare_statement(self, sql):
         raise NotImplementedError
         
@@ -452,6 +455,17 @@ class ADBAPISqliteMixin(object):
          where TYPE = 'table' and NAME = '%s'
         """ % (name,)))
         returnValue(result)
+
+    @inlineCallbacks
+    def _create_index(self, name, ontable, columns, ifnotexists=False):
+        
+        statement = "create index %s%s on %s (%s)" % (
+            "if not exists " if ifnotexists else "",
+            name,
+            ontable,
+            ", ".join(columns),
+        )
+        yield self._db_execute(statement)
 
     def _prepare_statement(self, sql):
         # We are going to use the sqlite syntax of :1, :2 etc for our
@@ -510,6 +524,26 @@ if pgdb:
              where tablename = '%s'
             """ % (name.lower(),)))
             returnValue(result)
+    
+        @inlineCallbacks
+        def _create_index(self, name, ontable, columns, ifnotexists=False):
+            
+            statement = "create index %s on %s (%s)" % (
+                name,
+                ontable,
+                ", ".join(columns),
+            )
+            
+            try:
+                yield self._db_execute(statement)
+            except pgdb.DatabaseError:
+                
+                if not ifnotexists:
+                    raise
+                
+                result = (yield self._test_table(name))
+                if not result:
+                    raise 
     
         @inlineCallbacks
         def _db_init_schema_table(self):
