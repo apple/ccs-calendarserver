@@ -149,10 +149,6 @@
       <dict>
         <key>node</key>
         <string>/Search</string>
-        <key>restrictEnabledRecords</key>
-        <false/>
-        <key>restrictToGroup</key>
-        <string></string>
         <key>cacheTimeout</key>
         <integer>30</integer>
       </dict>
