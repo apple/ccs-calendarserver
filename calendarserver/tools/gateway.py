@@ -211,7 +211,7 @@ class Runner(object):
         #     directory=self.dir)
         # principal.setAutoSchedule(command.get('AutoSchedule', False))
 
-        respondWithRecordsOfType(self.dir, command, "locations")
+        self.command_getLocationAttributes(command)
 
     def command_deleteLocation(self, command):
         kwargs = {}
@@ -263,7 +263,7 @@ class Runner(object):
         #     directory=self.dir)
         # principal.setAutoSchedule(command.get('AutoSchedule', False))
 
-        respondWithRecordsOfType(self.dir, command, "resources")
+        self.command_getResourceAttributes(command)
 
     def command_deleteResource(self, command):
         kwargs = {}
