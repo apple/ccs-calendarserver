@@ -101,53 +101,37 @@ class CapturingProcessProtocol(ProcessProtocol):
 class GatewayTestCase(TestCase):
 
     def setUp(self):
+        super(GatewayTestCase, self).setUp()
+
         testRoot = os.path.join(os.path.dirname(__file__), "gateway")
         templateName = os.path.join(testRoot, "caldavd.plist")
         templateFile = open(templateName)
         template = templateFile.read()
         templateFile.close()
 
-        tmpDir = FilePath(self.mktemp())
-        tmpDir.makedirs()
-        dataRoot = tmpDir.child("data")
-        dataRoot.makedirs()
-        docRoot = tmpDir.child("documents")
-        docRoot.makedirs()
-
-        # Copy xml files to a temp directory because they may get modified
-
-        origUsersFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "users-groups.xml"))
-        copyUsersFile = tmpDir.child("users-groups.xml")
-        origUsersFile.copyTo(copyUsersFile)
-
-        origResourcesFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "resources-locations.xml"))
-        copyResourcesFile = tmpDir.child("resources-locations.xml")
-        origResourcesFile.copyTo(copyResourcesFile)
-
-        origAugmentFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "augments.xml"))
-        copyAugmentFile = tmpDir.child("augments.xml")
-        origAugmentFile.copyTo(copyAugmentFile)
-
-        proxyFile = tmpDir.child("proxies.sqlite")
-
         newConfig = template % {
-            'DataRoot' : dataRoot.path,
-            'DocumentRoot' : docRoot.path,
-            'DirectoryXMLFile' : copyUsersFile.path,
-            'ResourceXMLFile' : copyResourcesFile.path,
-            'AugmentXMLFile' : copyAugmentFile.path,
-            'ProxyDBFile' : proxyFile.path,
+            'ServerRoot' : os.path.abspath(config.ServerRoot),
         }
-        configFilePath = tmpDir.child("caldavd.plist")
+        configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
         configFilePath.setContent(newConfig)
 
         self.configFileName = configFilePath.path
         config.load(self.configFileName)
 
-        super(GatewayTestCase, self).setUp()
+        origUsersFile = FilePath(os.path.join(os.path.dirname(__file__),
+            "gateway", "users-groups.xml"))
+        copyUsersFile = FilePath(os.path.join(config.DataRoot, "accounts.xml"))
+        origUsersFile.copyTo(copyUsersFile)
+
+        origResourcesFile = FilePath(os.path.join(os.path.dirname(__file__),
+            "gateway", "resources-locations.xml"))
+        copyResourcesFile = FilePath(os.path.join(config.DataRoot, "resources.xml"))
+        origResourcesFile.copyTo(copyResourcesFile)
+
+        origAugmentFile = FilePath(os.path.join(os.path.dirname(__file__),
+            "gateway", "augments.xml"))
+        copyAugmentFile = FilePath(os.path.join(config.DataRoot, "augments.xml"))
+        origAugmentFile.copyTo(copyAugmentFile)
 
         # Make sure trial puts the reactor in the right state, by letting it
         # run one reactor iteration.  (Ignore me, please.)

@@ -31,6 +31,7 @@ from twisted.web2.auth.digest import DigestedCredentials
 from twisted.python.filepath import FilePath
 from twistedcaldav.config import config
 
+from twistedcaldav.config import fullServerPath
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
@@ -73,7 +74,7 @@ class XMLDirectoryService(CachingDirectoryService):
 
         super(XMLDirectoryService, self).__init__(params['cacheTimeout'])
 
-        xmlFile = params.get("xmlFile")
+        xmlFile = fullServerPath(config.DataRoot, params.get("xmlFile"))
         if type(xmlFile) is str:
             xmlFile = FilePath(xmlFile)
 

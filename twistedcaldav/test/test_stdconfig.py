@@ -71,10 +71,18 @@ class ConfigParsingTests(TestCase):
         plist1 = """
 <plist version="1.0">
   <dict>
+    <key>ServerRoot</key>
+    <string>/root</string>
     <key>DocumentRoot</key>
     <string>defaultdoc</string>
     <key>DataRoot</key>
     <string>defaultdata</string>
+    <key>ConfigRoot</key>
+    <string>defaultconfig</string>
+    <key>LogRoot</key>
+    <string>defaultlog</string>
+    <key>RunRoot</key>
+    <string>defaultrun</string>
     <key>Includes</key>
     <array>
         <string>%s</string>
@@ -99,10 +107,14 @@ class ConfigParsingTests(TestCase):
         tempfile1.setContent(plist1 % (tempfile2.path,))
 
         cfg = Config(PListConfigProvider({
+            "ServerRoot": "",
             "DocumentRoot": "",
             "DataRoot": "",
+            "ConfigRoot": "",
+            "LogRoot": "",
+            "RunRoot": "",
             "Includes": [],
         }))
         cfg.load(tempfile1.path)
-        self.assertEquals(cfg.DocumentRoot, "defaultdoc")
-        self.assertEquals(cfg.DataRoot, "overridedata")
+        self.assertEquals(cfg.DocumentRoot, "/root/defaultdoc")
+        self.assertEquals(cfg.DataRoot, "/root/overridedata")

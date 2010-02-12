@@ -73,13 +73,29 @@
         Data Store
       -->
 
+    <!-- Server root -->
+    <key>ServerRoot</key>
+    <string>data</string>
+
     <!-- Data root -->
     <key>DataRoot</key>
-    <string>data/</string>
+    <string>Data</string>
 
     <!-- Document root -->
     <key>DocumentRoot</key>
-    <string>twistedcaldav/test/data/</string>
+    <string>Documents</string>
+
+    <!-- Configuration root -->
+    <key>ConfigRoot</key>
+    <string>./conf</string>
+
+    <!-- Log root -->
+    <key>LogRoot</key>
+    <string>Logs</string>
+
+    <!-- Run root -->
+    <key>RunRoot</key>
+    <string>Run</string>
 
     <!-- Child aliases -->
     <key>Aliases</key>
@@ -130,7 +146,7 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>conf/auth/accounts-test.xml</string>
+        <string>./conf/auth/accounts-test.xml</string>
         <key>recordTypes</key>
         <array>
             <string>users</string>
@@ -150,7 +166,7 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>conf/auth/resources-test.xml</string>
+        <string>./conf/auth/resources-test.xml</string>
         <key>recordTypes</key>
         <array>
             <string>locations</string>
@@ -195,7 +211,7 @@
       <dict>
         <key>xmlFiles</key>
         <array>
-	      <string>conf/auth/augments-test.xml</string>
+	      <string>./conf/auth/augments-test.xml</string>
         </array>
       </dict>
     </dict>
@@ -210,7 +226,7 @@
       <key>params</key>
       <dict>
         <key>dbpath</key>
-        <string>/etc/caldavd/augments.sqlite</string>
+        <string>./conf/auth/augments.sqlite</string>
       </dict>
     </dict>
      -->
@@ -241,7 +257,7 @@
       <key>params</key>
       <dict>
         <key>dbpath</key>
-        <string>data/proxies.sqlite</string>
+        <string>proxies.sqlite</string>
       </dict>
     </dict>
 
@@ -263,7 +279,7 @@
      -->
 
 	<key>ProxyLoadFromFile</key>
-    <string>conf/auth/proxies-test.xml</string>
+    <string>./conf/auth/proxies-test.xml</string>
 
     <!--
         Special principals
@@ -286,7 +302,7 @@
 
     <!-- Principals that can pose as other principals -->
     <key>SudoersFile</key>
-    <string>conf/sudoers.plist</string>
+    <string>sudoers.plist</string>
 
     <!-- Create "proxy access" principals -->
     <key>EnableProxyPrincipals</key>
@@ -372,13 +388,13 @@
 
     <!-- Apache-style access log -->
     <key>AccessLogFile</key>
-    <string>logs/access.log</string>
+    <string>access.log</string>
     <key>RotateAccessLog</key>
     <false/>
 
     <!-- Server activity log -->
     <key>ErrorLogFile</key>
-    <string>logs/error.log</string>
+    <string>error.log</string>
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
@@ -395,7 +411,7 @@
 
     <!-- Global server stats --> 
     <key>GlobalStatsSocket</key> 
-    <string>logs/caldavd-stats.sock</string> 
+    <string>caldavd-stats.sock</string> 
 
     <!-- Global server stats logging period --> 
     <key>GlobalStatsLoggingPeriod</key> 
@@ -405,13 +421,9 @@
     <key>GlobalStatsLoggingFrequency</key> 
     <integer>12</integer>
 
-    <!-- Server statistics file -->
-    <key>ServerStatsFile</key>
-    <string>logs/stats.plist</string>
-
     <!-- Server process ID file -->
     <key>PIDFile</key>
-    <string>logs/caldavd.pid</string>
+    <string>caldavd.pid</string>
 
 
     <!--
@@ -585,7 +597,7 @@
         <array>
         </array>
         <key>Servers</key>
-        <string>conf/servertoserver-test.xml</string>
+        <string>servertoserver-test.xml</string>
       </dict>
 
       <!-- iMIP protocol options -->
@@ -704,7 +716,7 @@
     <!-- A unix socket used for communication between the child and master processes.
          An empty value tells the server to use a tcp socket instead. -->
     <key>ControlSocket</key>
-    <string>logs/caldavd.sock</string>
+    <string>caldavd.sock</string>
 
     <!-- Support for Memcached -->
     <key>Memcached</key>

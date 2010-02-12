@@ -73,13 +73,29 @@
         Data Store
       -->
 
+    <!-- Server root -->
+    <key>ServerRoot</key>
+    <string>%(ServerRoot)s</string>
+
     <!-- Data root -->
     <key>DataRoot</key>
-    <string>%(DataRoot)s</string>
+    <string>Data</string>
 
     <!-- Document root -->
     <key>DocumentRoot</key>
-    <string>%(DocumentRoot)s</string>
+    <string>Documents</string>
+
+    <!-- Configuration root -->
+    <key>ConfigRoot</key>
+    <string>/etc/caldavd</string>
+
+    <!-- Log root -->
+    <key>LogRoot</key>
+    <string>/var/log/caldavd</string>
+
+    <!-- Run root -->
+    <key>RunRoot</key>
+    <string>/var/run</string>
 
     <!-- Child aliases -->
     <key>Aliases</key>
@@ -130,7 +146,7 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>%(DirectoryXMLFile)s</string>
+        <string>accounts.xml</string>
         <key>recordTypes</key>
         <array>
             <string>users</string>
@@ -150,7 +166,7 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>%(ResourceXMLFile)s</string>
+        <string>resources.xml</string>
         <key>recordTypes</key>
         <array>
             <string>resources</string>
@@ -197,7 +213,7 @@
       <dict>
         <key>xmlFiles</key>
         <array>
-	      <string>%(AugmentXMLFile)s</string>
+	      <string>augments.xml</string>
         </array>
       </dict>
     </dict>
@@ -243,7 +259,7 @@
       <key>params</key>
       <dict>
         <key>dbpath</key>
-        <string>%(ProxyDBFile)s</string>
+        <string>proxies.sqlite</string>
       </dict>
     </dict>
 

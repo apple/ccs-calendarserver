@@ -134,25 +134,25 @@ class ConfigTests(TestCase):
 
     def testDirectoryService_noChange(self):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")
-        self.assertEquals(config.DirectoryService.params.xmlFile, "/etc/caldavd/accounts.xml")
+        self.assertEquals(config.DirectoryService.params.xmlFile, "accounts.xml")
 
         config.update({"DirectoryService": {}})
 
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")
-        self.assertEquals(config.DirectoryService.params.xmlFile, "/etc/caldavd/accounts.xml")
+        self.assertEquals(config.DirectoryService.params.xmlFile, "accounts.xml")
 
     def testDirectoryService_sameType(self):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")
-        self.assertEquals(config.DirectoryService.params.xmlFile, "/etc/caldavd/accounts.xml")
+        self.assertEquals(config.DirectoryService.params.xmlFile, "accounts.xml")
 
         config.update({"DirectoryService": {"type": "twistedcaldav.directory.xmlfile.XMLDirectoryService"}})
 
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")
-        self.assertEquals(config.DirectoryService.params.xmlFile, "/etc/caldavd/accounts.xml")
+        self.assertEquals(config.DirectoryService.params.xmlFile, "accounts.xml")
 
     def testDirectoryService_newType(self):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")
-        self.assertEquals(config.DirectoryService.params.xmlFile, "/etc/caldavd/accounts.xml")
+        self.assertEquals(config.DirectoryService.params.xmlFile, "accounts.xml")
 
         config.update({"DirectoryService": {"type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"}})
 
@@ -162,7 +162,7 @@ class ConfigTests(TestCase):
 
     def testDirectoryService_newParam(self):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")
-        self.assertEquals(config.DirectoryService.params.xmlFile, "/etc/caldavd/accounts.xml")
+        self.assertEquals(config.DirectoryService.params.xmlFile, "accounts.xml")
 
         config.update({"DirectoryService": {"type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"}})
 
@@ -171,7 +171,7 @@ class ConfigTests(TestCase):
 
     def testDirectoryService_unknownType(self):
         self.assertEquals(config.DirectoryService.type, "twistedcaldav.directory.xmlfile.XMLDirectoryService")
-        self.assertEquals(config.DirectoryService.params.xmlFile, "/etc/caldavd/accounts.xml")
+        self.assertEquals(config.DirectoryService.params.xmlFile, "accounts.xml")
 
         config.update({"DirectoryService": {"type": "twistedcaldav.test.test_config.SuperDuperAwesomeService"}})
 

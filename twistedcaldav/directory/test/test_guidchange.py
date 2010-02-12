@@ -38,7 +38,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         super(ProvisionedPrincipals, self).setUp()
         
         # Setup the initial directory
-        self.xmlFile = self.mktemp()
+        self.xmlFile = os.path.abspath(self.mktemp())
         fd = open(self.xmlFile, "w")
         fd.write(open(xmlFile.path, "r").read())
         fd.close()

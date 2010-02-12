@@ -39,7 +39,7 @@ from twisted.web2.dav.noneprops import NonePropertyStore
 
 from twext.log import LoggingMixIn
 
-from twistedcaldav.config import config
+from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
     ADBAPIPostgreSQLMixin
 from twistedcaldav.extensions import DAVFile, DAVPrincipalResource
@@ -789,7 +789,7 @@ class ProxySqliteDB(ADBAPISqliteMixin, ProxyDB):
     def __init__(self, dbpath):
         
         ADBAPISqliteMixin.__init__(self)
-        ProxyDB.__init__(self, "Proxies", "sqlite3", (dbpath,))
+        ProxyDB.__init__(self, "Proxies", "sqlite3", (fullServerPath(config.DataRoot, dbpath),))
 
 class ProxyPostgreSQLDB(ADBAPIPostgreSQLMixin, ProxyDB):
     """

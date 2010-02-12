@@ -264,23 +264,61 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         self.parent["pidfile"] = config.PIDFile
 
+
         #
-        # Verify that document root, data root actually exist
+        # Verify that server root actually exists
         #
         self.checkDirectory(
-            config.DocumentRoot,
-            "Document root",
-            # Don't require write access because one might not allow editing on /
-            access=os.R_OK,
-            create=(0750, config.UserName, config.GroupName),
-        )
-        self.checkDirectory(
-            config.DataRoot,
-            "Data root",
+            config.ServerRoot,
+            "Server root",
+            # Require write access because one might not allow editing on /
             access=os.W_OK,
             create=(0750, config.UserName, config.GroupName),
         )
+        
+        #
+        # Verify that other root paths are OK
+        #
+        if config.DocumentRoot.startswith(config.ServerRoot + os.sep):
+            self.checkDirectory(
+                config.DocumentRoot,
+                "Document root",
+                # Don't require write access because one might not allow editing on /
+                access=os.R_OK,
+                create=(0750, config.UserName, config.GroupName),
+            )
+        if config.DataRoot.startswith(config.ServerRoot + os.sep):
+            self.checkDirectory(
+                config.DataRoot,
+                "Data root",
+                access=os.W_OK,
+                create=(0750, config.UserName, config.GroupName),
+            )
 
+        if config.ConfigRoot.startswith(config.ServerRoot + os.sep):
+            self.checkDirectory(
+                config.ConfigRoot,
+                "Config root",
+                access=os.W_OK,
+                create=(0750, config.UserName, config.GroupName),
+            )
+
+        if config.LogRoot.startswith(config.ServerRoot + os.sep):
+            self.checkDirectory(
+                config.LogRoot,
+                "Log root",
+                access=os.W_OK,
+                create=(0750, config.UserName, config.GroupName),
+            )
+
+        if config.RunRoot.startswith(config.ServerRoot + os.sep):
+            self.checkDirectory(
+                config.RunRoot,
+                "Run root",
+                access=os.W_OK,
+                create=(0750, config.UserName, config.GroupName),
+            )
+            
         #
         # Nuke the file log observer's time format.
         #

@@ -28,6 +28,7 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.static import CalendarHomeProvisioningFile
 
 import twistedcaldav.test.util
+from twistedcaldav.config import config
 
 class ProvisionedCalendars (twistedcaldav.test.util.TestCase):
     """
@@ -37,11 +38,11 @@ class ProvisionedCalendars (twistedcaldav.test.util.TestCase):
         super(ProvisionedCalendars, self).setUp()
         
         # Setup the initial directory
-        self.xmlFile = self.mktemp()
+        self.xmlFile = os.path.join(config.DataRoot, "accounts.xml")
         fd = open(self.xmlFile, "w")
         fd.write(open(xmlFile.path, "r").read())
         fd.close()
-        self.directoryService = XMLDirectoryService({'xmlFile' : self.xmlFile})
+        self.directoryService = XMLDirectoryService({'xmlFile' : "accounts.xml"})
         augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
         
         # Set up a principals hierarchy for each service we're testing with

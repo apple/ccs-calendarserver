@@ -27,7 +27,7 @@ from twext.log import Logger, InvalidLogLevelError
 from twext.log import clearLogLevels, setLogLevelForNamespace
 
 from twistedcaldav.config import ConfigProvider, ConfigurationError
-from twistedcaldav.config import config, _mergeData
+from twistedcaldav.config import config, _mergeData, fullServerPath
 from twistedcaldav.partitions import partitions
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
@@ -38,7 +38,7 @@ DEFAULT_CONFIG_FILE = "/etc/caldavd/caldavd.plist"
 
 DEFAULT_SERVICE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
-        "xmlFile": "/etc/caldavd/accounts.xml",
+        "xmlFile": "accounts.xml",
         "cacheTimeout": 30,
         "recordTypes": ("users", "groups"),
     },
@@ -51,7 +51,7 @@ DEFAULT_SERVICE_PARAMS = {
 
 DEFAULT_RESOURCE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
-        "xmlFile": "/etc/caldavd/resources.xml",
+        "xmlFile": "resources.xml",
         "cacheTimeout": 30,
         "realmName": "/Search",
         "recordTypes" : ("locations", "resources"),
@@ -60,10 +60,10 @@ DEFAULT_RESOURCE_PARAMS = {
 
 DEFAULT_AUGMENT_PARAMS = {
     "twistedcaldav.directory.augment.AugmentXMLDB": {
-        "xmlFiles": ["/etc/caldavd/augments.xml",],
+        "xmlFiles": ["augments.xml",],
     },
     "twistedcaldav.directory.augment.AugmentSqliteDB": {
-        "dbpath": "/etc/caldavd/augments.sqlite",
+        "dbpath": "augments.sqlite",
     },
     "twistedcaldav.directory.augment.AugmentPostgreSQLDB": {
         "host":     "localhost",
@@ -75,7 +75,7 @@ DEFAULT_AUGMENT_PARAMS = {
 
 DEFAULT_PROXYDB_PARAMS = {
     "twistedcaldav.directory.calendaruserproxy.ProxySqliteDB": {
-        "dbpath": "/etc/caldavd/proxies.sqlite",
+        "dbpath": "proxies.sqlite",
     },
     "twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB": {
         "host":     "localhost",
@@ -164,8 +164,12 @@ DEFAULT_CONFIG = {
     #
     # Data store
     #
-    "DataRoot"                : "/Library/CalendarServer/Data",
-    "DocumentRoot"            : "/Library/CalendarServer/Documents",
+    "ServerRoot"              : "/Library/CalendarServer",
+    "DataRoot"                : "Data",
+    "DocumentRoot"            : "Documents",
+    "ConfigRoot"              : "/etc/caldavd",
+    "LogRoot"                 : "/var/log/caldavd",
+    "RunRoot"                 : "/var/run",
     "UserQuota"               : 104857600, # User quota (in bytes)
     "MaximumAttachmentSize"   :   1048576, # Attachment size limit (in bytes)
     "MaxAttendeesPerInstance" :       100, # Maximum number of unique attendees
@@ -221,7 +225,7 @@ DEFAULT_CONFIG = {
     #
     "AdminPrincipals": [],                       # Principals with "DAV:all" access (relative URLs)
     "ReadPrincipals": [],                        # Principals with "DAV:read" access (relative URLs)
-    "SudoersFile": "/etc/caldavd/sudoers.plist", # Principals that can pose as other principals
+    "SudoersFile": "sudoers.plist",              # Principals that can pose as other principals
     "EnableProxyPrincipals": True,               # Create "proxy access" principals
 
     #
@@ -263,10 +267,9 @@ DEFAULT_CONFIG = {
     #
     # Logging
     #
-    "AccessLogFile"  : "/var/log/caldavd/access.log",  # Apache-style access log
-    "ErrorLogFile"   : "/var/log/caldavd/error.log",   # Server activity log
-    "ServerStatsFile": "/var/run/caldavd/stats.plist",
-    "PIDFile"        : "/var/run/caldavd.pid",
+    "AccessLogFile"  : "access.log",  # Apache-style access log
+    "ErrorLogFile"   : "error.log",   # Server activity log
+    "PIDFile"        : "caldavd.pid",
     "RotateAccessLog"   : False,
     "EnableExtendedAccessLog": True,
     "DefaultLogLevel"   : "",
@@ -277,9 +280,9 @@ DEFAULT_CONFIG = {
         "iTIP": False,
     },
     "AccountingPrincipals": [],
-    "AccountingLogRoot"   : "/var/log/caldavd/accounting",
+    "AccountingLogRoot"   : "accounting",
 
-    "GlobalStatsSocket"           : "/var/run/caldavd-stats.sock", 
+    "GlobalStatsSocket"           : "caldavd-stats.sock", 
     "GlobalStatsLoggingPeriod"    : 60, 
     "GlobalStatsLoggingFrequency" : 12, 
 
@@ -351,7 +354,7 @@ DEFAULT_CONFIG = {
         "iSchedule": {
             "Enabled"          : False, # iSchedule protocol
             "AddressPatterns"  : [],    # Reg-ex patterns to match iSchedule-able calendar user addresses
-            "Servers"          : "/etc/caldavd/servertoserver.xml",    # iSchedule server configurations
+            "Servers"          : "servertoserver.xml",    # iSchedule server configurations
         },
 
         "iMIP": {
@@ -437,7 +440,7 @@ DEFAULT_CONFIG = {
     "Partitioning" : {
         "Enabled":             False,   # Partitioning enabled or not
         "ServerPartitionID":   "",      # Unique ID for this server's partition instance.
-        "PartitionConfigFile": "/etc/caldavd/partitions.plist", # File path for partition information
+        "PartitionConfigFile": "partitions.plist", # File path for partition information
         "MaxClients":          5,       # Pool size for connections to each partition
     },
 
@@ -486,7 +489,7 @@ DEFAULT_CONFIG = {
 
     # A unix socket used for communication between the child and master
     # processes. If blank, then an AF_INET socket is used instead.
-    "ControlSocket": "/var/run/caldavd.sock",
+    "ControlSocket": "caldavd.sock",
 
 
     # Support for Content-Encoding compression options as specified in
@@ -563,13 +566,15 @@ class PListConfigProvider(ConfigProvider):
                 
         # Now check for Includes and parse and add each of those
         if "Includes" in configDict:
+            configRoot = os.path.join(configDict.ServerRoot, configDict.ConfigRoot)
             for include in configDict.Includes:
                 
-                additionalDict = self._parseConfigFromFile(include)
+                additionalDict = self._parseConfigFromFile(fullServerPath(configRoot, include))
                 if additionalDict:
                     log.info("Adding configuration from file: '%s'" % (include,))
                     configDict.update(additionalDict)
 
+        _updateDataStore(configDict)
         return configDict
 
     def _parseConfigFromFile(self, filename):
@@ -584,6 +589,36 @@ class PListConfigProvider(ConfigProvider):
             configDict = _cleanup(configDict, self._defaults)
         
         return configDict
+
+def _updateDataStore(configDict):
+    
+    # Base paths
+    if hasattr(configDict, "ServerRoot"):
+        configDict.DataRoot = fullServerPath(configDict.ServerRoot, configDict.DataRoot)
+        configDict.DocumentRoot = fullServerPath(configDict.ServerRoot, configDict.DocumentRoot)
+        configDict.ConfigRoot = fullServerPath(configDict.ServerRoot, configDict.ConfigRoot)
+        configDict.LogRoot = fullServerPath(configDict.ServerRoot, configDict.LogRoot)
+        configDict.RunRoot = fullServerPath(configDict.ServerRoot, configDict.RunRoot)
+
+    # Config paths
+    if hasattr(configDict, "SudoersFile"):
+        configDict.SudoersFile = fullServerPath(configDict.ConfigRoot, configDict.SudoersFile)
+
+    # Log paths
+    if hasattr(configDict, "AccessLogFile"):
+        configDict.AccessLogFile = fullServerPath(configDict.LogRoot, configDict.AccessLogFile)
+    if hasattr(configDict, "ErrorLogFile"):
+        configDict.ErrorLogFile = fullServerPath(configDict.LogRoot, configDict.ErrorLogFile)
+    if hasattr(configDict, "AccountingLogRoot"):
+        configDict.AccountingLogRoot = fullServerPath(configDict.LogRoot, configDict.AccountingLogRoot)
+
+    # Run paths
+    if hasattr(configDict, "PIDFile"):
+        configDict.PIDFile = fullServerPath(configDict.RunRoot, configDict.PIDFile)
+    if hasattr(configDict, "GlobalStatsSocket"):
+        configDict.GlobalStatsSocket = fullServerPath(configDict.RunRoot, configDict.GlobalStatsSocket)
+    if hasattr(configDict, "ControlSocket"):
+        configDict.ControlSocket = fullServerPath(configDict.RunRoot, configDict.ControlSocket)
 
 def _updateHostName(configDict):
     if not configDict.ServerHostName:
@@ -871,7 +906,7 @@ def _updatePartitions(configDict):
     if configDict.Partitioning.Enabled:
         partitions.setSelfPartition(configDict.Partitioning.ServerPartitionID)
         partitions.setMaxClients(configDict.Partitioning.MaxClients)
-        partitions.readConfig(configDict.Partitioning.PartitionConfigFile)
+        partitions.readConfig(fullServerPath(configDict.ConfigRoot, configDict.Partitioning.PartitionConfigFile))
         partitions.installReverseProxies()
     else:
         partitions.clear()

@@ -28,7 +28,7 @@
 	    <key>ServerPartitionID</key>
 	    <string>00002</string>
 	    <key>PartitionConfigFile</key>
-	    <string>/etc/caldavd/partitions.plist</string>
+	    <string>partitions.plist</string>
 	    <key>MaxClients</key>
 	    <integer>5</integer>
 	</dict>

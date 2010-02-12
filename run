@@ -124,8 +124,8 @@ run () {
     fi;
 
     cd "${wd}";
-    if [ ! -d "${wd}/logs" ]; then
-      mkdir "${wd}/logs";
+    if [ ! -d "${wd}/data" ]; then
+      mkdir "${wd}/data";
     fi;
 
     echo "";

@@ -25,14 +25,16 @@ from twistedcaldav.directory.directory import DirectoryError
 class ModificationTestCase(TestCase):
 
     def setUp(self):
+        super(ModificationTestCase, self).setUp()
+
         testRoot = os.path.join(os.path.dirname(__file__), "modify")
-        configFileName = os.path.join(testRoot, "caldavd.plist")
-        config.load(configFileName)
+        #configFileName = os.path.join(testRoot, "caldavd.plist")
+        #config.load(configFileName)
 
         usersFile = os.path.join(testRoot, "users-groups.xml")
         config.DirectoryService.params.xmlFile = usersFile
 
-        # Copy xml file containgin locations/resources to a temp file because
+        # Copy xml file containing locations/resources to a temp file because
         # we're going to be modifying it during testing
 
         origResourcesFile = FilePath(os.path.join(os.path.dirname(__file__),
@@ -40,11 +42,10 @@ class ModificationTestCase(TestCase):
         copyResourcesFile = FilePath(self.mktemp())
         origResourcesFile.copyTo(copyResourcesFile)
         config.ResourceService.params.xmlFile = copyResourcesFile
+        config.ResourceService.Enabled = True
 
         augmentsFile = os.path.join(testRoot, "augments.xml")
         config.AugmentService.params.xmlFiles = (augmentsFile,)
-
-        super(ModificationTestCase, self).setUp()
 
     def test_createRecord(self):
         directory = getDirectory()

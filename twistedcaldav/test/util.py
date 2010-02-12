@@ -25,6 +25,7 @@ from twisted.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import memcacher
 from twistedcaldav.config import config
+from twistedcaldav.stdconfig import _updateDataStore
 from twistedcaldav.static import CalDAVFile
 import memcacheclient
 
@@ -39,9 +40,20 @@ class TestCase(twisted.web2.dav.test.util.TestCase):
     def setUp(self):
         super(TestCase, self).setUp()
 
-        dataroot = self.mktemp()
-        os.mkdir(dataroot)
-        config.DataRoot = dataroot
+        config.reset()
+        serverroot = self.mktemp()
+        os.mkdir(serverroot)
+        config.ServerRoot = serverroot
+        config.ConfigRoot = "config"
+        _updateDataStore(config)
+        
+        if not os.path.exists(config.DataRoot):
+            os.makedirs(config.DataRoot)
+        if not os.path.exists(config.DocumentRoot):
+            os.makedirs(config.DocumentRoot)
+        if not os.path.exists(config.ConfigRoot):
+            os.makedirs(config.ConfigRoot)
+
         config.Memcached.Pools.Default.ClientEnabled = False
         config.Memcached.Pools.Default.ServerEnabled = False
         memcacheclient.ClientFactory.allowTestCache = True

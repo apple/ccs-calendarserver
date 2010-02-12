@@ -76,13 +76,29 @@
         Data Store
       -->
 
+    <!-- Server root -->
+    <key>ServerRoot</key>
+    <string>/Library/CalendarServer</string>
+
     <!-- Data root -->
     <key>DataRoot</key>
-    <string>/Library/CalendarServer/Data/</string>
+    <string>Data</string>
 
     <!-- Document root -->
     <key>DocumentRoot</key>
-    <string>/Library/CalendarServer/Documents/</string>
+    <string>Documents</string>
+
+    <!-- Configuration root -->
+    <key>ConfigRoot</key>
+    <string>/etc/caldavd</string>
+
+    <!-- Log root -->
+    <key>LogRoot</key>
+    <string>/var/log/caldavd</string>
+
+    <!-- Run root -->
+    <key>RunRoot</key>
+    <string>/var/run</string>
 
     <!-- Child aliases -->
     <key>Aliases</key>
@@ -134,7 +150,7 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>/etc/caldavd/accounts.xml</string>
+        <string>accounts.xml</string>
       </dict>
     </dict>
     -->
@@ -166,7 +182,7 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>/Library/CalendarServer/Data/resources.xml</string>
+        <string>resources.xml</string>
       </dict>
     </dict>
 
@@ -190,7 +206,7 @@
       <dict>
         <key>xmlFiles</key>
         <array>
-	      <string>/etc/caldavd/augments.xml</string>
+	      <string>augments.xml</string>
         </array>
       </dict>
     </dict>
@@ -205,7 +221,7 @@
       <key>params</key>
       <dict>
         <key>dbpath</key>
-        <string>/etc/caldavd/augments.sqlite</string>
+        <string>augments.sqlite</string>
       </dict>
     </dict>
      -->
@@ -236,7 +252,7 @@
       <key>params</key>
       <dict>
         <key>dbpath</key>
-        <string>/Library/CalendarServer/Data/proxies.sqlite</string>
+        <string>proxies.sqlite</string>
       </dict>
     </dict>
 
@@ -278,7 +294,7 @@
 
     <!-- Principals that can pose as other principals -->
     <key>SudoersFile</key>
-    <string>/etc/caldavd/sudoers.plist</string>
+    <string>sudoers.plist</string>
 
     <!-- Create "proxy access" principals -->
     <key>EnableProxyPrincipals</key>
@@ -356,13 +372,13 @@
 
     <!-- Apache-style access log -->
     <key>AccessLogFile</key>
-    <string>/var/log/caldavd/access.log</string>
+    <string>access.log</string>
     <key>RotateAccessLog</key>
     <true/>
 
     <!-- Server activity log -->
     <key>ErrorLogFile</key>
-    <string>/var/log/caldavd/error.log</string>
+    <string>error.log</string>
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
@@ -370,15 +386,11 @@
 
     <!-- Global server stats --> 
     <key>GlobalStatsSocket</key> 
-    <string>/var/run/caldavd-stats.sock</string> 
-
-    <!-- Server statistics file -->
-    <key>ServerStatsFile</key>
-    <string>/var/run/caldavd/stats.plist</string>
+    <string>caldavd-stats.sock</string> 
 
     <!-- Server process ID file -->
     <key>PIDFile</key>
-    <string>/var/run/caldavd.pid</string>
+    <string>caldavd.pid</string>
 
 
     <!--
@@ -486,7 +498,7 @@
         <array>
         </array>
         <key>Servers</key>
-        <string>/etc/caldavd/servertoserver.xml</string>
+        <string>servertoserver.xml</string>
       </dict>
 
       <!-- iMIP protocol options -->

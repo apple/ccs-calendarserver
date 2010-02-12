@@ -18,7 +18,7 @@ from twisted.python.filepath import FilePath
 
 from twext.log import Logger
 
-from twistedcaldav.config import config
+from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.scheduling.delivery import DeliveryService
 
 import xml.dom.minidom
@@ -46,7 +46,12 @@ class IScheduleServers(object):
 
     def _loadConfig(self):
         if IScheduleServers._servers is None:
-            IScheduleServers._xmlFile = FilePath(config.Scheduling[DeliveryService.serviceType_ischedule]["Servers"])
+            IScheduleServers._xmlFile = FilePath(
+                fullServerPath(
+                    config.ConfigRoot,
+                    config.Scheduling[DeliveryService.serviceType_ischedule]["Servers"]
+                )
+            )
         IScheduleServers._xmlFile.restat()
         fileInfo = (IScheduleServers._xmlFile.getmtime(), IScheduleServers._xmlFile.getsize())
         if fileInfo != IScheduleServers._fileInfo:
