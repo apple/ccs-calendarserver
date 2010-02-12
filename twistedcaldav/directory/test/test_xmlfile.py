@@ -159,7 +159,7 @@ class XMLFile (
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
 <augments>
   <record>
-    <guid>myoffice</guid>
+    <uid>myoffice</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <auto-schedule>true</auto-schedule>

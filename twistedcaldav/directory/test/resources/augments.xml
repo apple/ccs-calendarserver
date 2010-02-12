@@ -20,23 +20,23 @@ limitations under the License.
 
 <augments>
   <record>
-    <guid>user01</guid>
+    <uid>user01</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
   </record>
   <record>
-    <guid>user02</guid>
+    <uid>user02</uid>
     <enable>false</enable>
     <enable-calendar>false</enable-calendar>
   </record>
   <record>
-    <guid>resource01</guid>
+    <uid>resource01</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <auto-schedule>true</auto-schedule>
   </record>
   <record>
-    <guid>resource02</guid>
+    <uid>resource02</uid>
     <enable>false</enable>
     <enable-calendar>false</enable-calendar>
     <auto-schedule>false</auto-schedule>

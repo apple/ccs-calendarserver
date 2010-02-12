@@ -20,41 +20,41 @@ limitations under the License.
 
 <augments>
   <record>
-    <guid>Default</guid>
+    <uid>Default</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <hosted-at>00001</hosted-at>
   </record>
   <record>
-    <guid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</guid>
+    <uid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</uid>
     <enable>true</enable>
   </record>
   <record>
-    <guid>6423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
+    <uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
   </record>
   <record>
-    <guid>5A985493-EE2C-4665-94CF-4DFEA3A89500</guid>
+    <uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
     <enable>false</enable>
   </record>
   <record>
-    <guid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</guid>
+    <uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</uid>
     <enable>true</enable>
     <enable-calendar>false</enable-calendar>
   </record>
   <record>
-    <guid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</guid>
+    <uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
     <enable>true</enable>
     <hosted-at>00001</hosted-at>
   </record>
   <record>
-    <guid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</guid>
+    <uid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</uid>
     <enable>true</enable>
     <hosted-at>00002</hosted-at>
   </record>
   <record>
-    <guid>6A73326A-F781-47E7-A9F8-AF47364D4152</guid>
+    <uid>6A73326A-F781-47E7-A9F8-AF47364D4152</uid>
     <enable>true</enable>
     <hosted-at>00002</hosted-at>
     <enable>true</enable>

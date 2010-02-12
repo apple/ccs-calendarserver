@@ -33,7 +33,7 @@ log = Logger()
 ELEMENT_AUGMENTS          = "augments"
 ELEMENT_RECORD            = "record"
 
-ELEMENT_GUID              = "guid"
+ELEMENT_UID               = "uid"
 ELEMENT_ENABLE            = "enable"
 ELEMENT_HOSTEDAT          = "hosted-at"
 ELEMENT_ENABLEADDRESSBOOK = "enable-addressbook"
@@ -46,7 +46,7 @@ VALUE_TRUE                = "true"
 VALUE_FALSE               = "false"
 
 ELEMENT_AUGMENTRECORD_MAP = {
-    ELEMENT_GUID:              "guid",
+    ELEMENT_UID:               "uid",
     ELEMENT_ENABLE:            "enabled",
     ELEMENT_HOSTEDAT:          "hostedAt",
     ELEMENT_ENABLECALENDAR:    "enabledForCalendaring",
@@ -95,7 +95,7 @@ class XMLAugmentsParser(object):
             for node in child.getchildren():
                 
                 if node.tag in (
-                    ELEMENT_GUID,
+                    ELEMENT_UID,
                     ELEMENT_HOSTEDAT,
                 ):
                     fields[node.tag] = node.text
@@ -109,9 +109,9 @@ class XMLAugmentsParser(object):
                 else:
                     log.error("Invalid element '%s' in augment file: '%s'" % (node.tag, self.xmlFile,), raiseException=RuntimeError)
                     
-            # Must have at least a guid
-            if ELEMENT_GUID not in fields:
-                log.error("Invalid record '%s' without a guid in augment file: '%s'" % (child, self.xmlFile,), raiseException=RuntimeError)
+            # Must have at least a uid
+            if ELEMENT_UID not in fields:
+                log.error("Invalid record '%s' without a uid in augment file: '%s'" % (child, self.xmlFile,), raiseException=RuntimeError)
                 
             if repeat > 1:
                 for i in xrange(1, repeat+1):
@@ -137,4 +137,4 @@ class XMLAugmentsParser(object):
             actualFields[ELEMENT_AUGMENTRECORD_MAP[k]] = expandCount(v, count)
 
         record = AugmentRecord(**actualFields)
-        self.items[record.guid] = record
+        self.items[record.uid] = record
