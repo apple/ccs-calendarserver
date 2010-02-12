@@ -23,22 +23,26 @@ limitations under the License.
     <uid>user01</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>user02</uid>
     <enable>false</enable>
     <enable-calendar>false</enable-calendar>
+    <enable-addressbook>false</enable-addressbook>
   </record>
   <record>
     <uid>resource01</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
   </record>
   <record>
     <uid>resource02</uid>
     <enable>false</enable>
     <enable-calendar>false</enable-calendar>
+    <enable-addressbook>false</enable-addressbook>
     <auto-schedule>false</auto-schedule>
   </record>
 </augments>

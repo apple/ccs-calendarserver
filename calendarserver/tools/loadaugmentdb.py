@@ -165,15 +165,22 @@ def run(dbxml):
         updated = 0
         removed = 0
         if dbxml:
+            add_records = list()
+            modify_records = list()
             for record in dbxml.db.values():
-                yield augment.AugmentService.addAugmentRecord(record, record.uid in uids)
                 if record.uid in uids:
-                    updated += 1
+                    modify_records.append(record)
                 else:
-                    added += 1
-            for uid in uids.difference(dbxml.db.keys()):
-                yield augment.AugmentService.removeAugmentRecord(uid)
-                removed += 1
+                    add_records.append(record)
+            yield augment.AugmentService.addAugmentRecords(add_records, False)
+            added = len(add_records)
+
+            yield augment.AugmentService.addAugmentRecords(modify_records, True)
+            updated = len(modify_records)
+
+            remove_uids = uids.difference(dbxml.db.keys())
+            yield augment.AugmentService.removeAugmentRecords(remove_uids)
+            removed = len(remove_uids)
         else:
             yield augment.AugmentService.clean()
             removed = len(uids)

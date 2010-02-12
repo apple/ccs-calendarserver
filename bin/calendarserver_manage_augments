@@ -20,6 +20,7 @@ import sys
 #PYTHONPATH
 
 if __name__ == "__main__":
+
     if "PYTHONPATH" in globals():
         sys.path.insert(0, PYTHONPATH)
     else:
@@ -30,7 +31,7 @@ if __name__ == "__main__":
         run = join(home, "run")
 
         child = Popen((run, "-p"), stdout=PIPE)
-        path, stderr = child.communicate()
+        path, _ignore_stderr = child.communicate()
 
         path = path.rstrip("\n")
 

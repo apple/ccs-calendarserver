@@ -36,8 +36,8 @@ ELEMENT_RECORD            = "record"
 ELEMENT_UID               = "uid"
 ELEMENT_ENABLE            = "enable"
 ELEMENT_HOSTEDAT          = "hosted-at"
-ELEMENT_ENABLEADDRESSBOOK = "enable-addressbook"
 ELEMENT_ENABLECALENDAR    = "enable-calendar"
+ELEMENT_ENABLEADDRESSBOOK = "enable-addressbook"
 ELEMENT_AUTOSCHEDULE      = "auto-schedule"
 
 ATTRIBUTE_REPEAT          = "repeat"
@@ -102,8 +102,8 @@ class XMLAugmentsParser(object):
                 elif node.tag in (
                     ELEMENT_ENABLE,
                     ELEMENT_ENABLECALENDAR,
+                    ELEMENT_ENABLEADDRESSBOOK,
                     ELEMENT_AUTOSCHEDULE,
-                    ELEMENT_ENABLEADDRESSBOOK
                 ):
                     fields[node.tag] = node.text == VALUE_TRUE
                 else:

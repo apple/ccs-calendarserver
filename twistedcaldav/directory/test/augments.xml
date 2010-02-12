@@ -23,36 +23,43 @@ limitations under the License.
     <uid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</uid>
     <enable>true</enable>
     <enable-calendar>false</enable-calendar>
+    <enable-addressbook>false</enable-addressbook>
   </record>
   <record repeat="2">
     <uid>user%02d</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
@@ -94,35 +101,42 @@ limitations under the License.
     <uid>mercury</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>gemini</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>apollo</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>orion</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>transporter</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>ftlcpu</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>non_calendar_proxy</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
 </augments>

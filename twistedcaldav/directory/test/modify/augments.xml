@@ -23,10 +23,12 @@ limitations under the License.
     <uid>user01</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>user02</uid>
     <enable>false</enable>
     <enable-calendar>false</enable-calendar>
+    <enable-addressbook>false</enable-addressbook>
   </record>
 </augments>
