@@ -69,9 +69,9 @@ def doRun(basedir, verbose):
 
 def doClean(basedir):
     
-    cmd("rm -rf %s/data" % (basedir, basedir,))
+    cmd("rm -rf %s/data" % (basedir,))
 
-if __name__ == '__main__':
+def main():
 
     usage = "%prog [options] ACTION"
     epilog = """
@@ -93,7 +93,7 @@ ACTION is one of init|start|stop|run
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
                       default=True, help="Use debug logging for PostgreSQL")
     parser.add_option("-d", "--base-dir", dest="basedir",
-                      default="%s/../postgresql-8.4.1/_root" % (os.getcwd(),), help="Base directory for PostgreSQL install")
+                      default="%s/../postgresql-8.4.2/_root" % (os.getcwd(),), help="Base directory for PostgreSQL install")
 
     (options, args) = parser.parse_args()
 
@@ -112,3 +112,6 @@ ACTION is one of init|start|stop|run
         doClean(options.basedir)
     else:
         parser.error("incorrect argument '%s'" % (args[0],))
+
+if __name__ == '__main__':
+    main()
