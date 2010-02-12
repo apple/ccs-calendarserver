@@ -125,6 +125,24 @@ def main():
     reactor.run()
 
 
+attrMap = {
+    'GeneratedUID' : { 'attr' : 'guid', },
+    'RealName' : { 'attr' : 'fullName', },
+    'RecordName' : { 'attr' : 'shortNames', },
+    'Comment' : { 'extras' : True, 'attr' : 'comment', },
+    'Description' : { 'extras' : True, 'attr' : 'description', },
+    'Type' : { 'extras' : True, 'attr' : 'type', },
+    'Capacity' : { 'extras' : True, 'attr' : 'capacity', },
+    'Building' : { 'extras' : True, 'attr' : 'building', },
+    'Floor' : { 'extras' : True, 'attr' : 'floor', },
+    'Street' : { 'extras' : True, 'attr' : 'street', },
+    'City' : { 'extras' : True, 'attr' : 'city', },
+    'State' : { 'extras' : True, 'attr' : 'state', },
+    'ZIP' : { 'extras' : True, 'attr' : 'zip', },
+    'Country' : { 'extras' : True, 'attr' : 'country', },
+    'Phone' : { 'extras' : True, 'attr' : 'phone', },
+}
+
 class Runner(object):
 
     def __init__(self, directory, commands):
@@ -160,16 +178,48 @@ class Runner(object):
 
     def command_createLocation(self, command):
 
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
         try:
-            self.dir.createRecord("locations", guid=command['GeneratedUID'],
-                shortNames=command['RecordName'], fullName=command['RealName'])
+            self.dir.createRecord("locations", **kwargs)
         except DirectoryError, e:
             abort(str(e))
         respondWithRecordsOfType(self.dir, command, "locations")
 
-    def command_deleteLocation(self, command):
+    def command_getLocationAttributes(self, command):
+        guid = command['GeneratedUID']
+        record = self.dir.recordWithGUID(guid)
+        recordDict = recordToDict(record)
+        # principal = principalForPrincipalID(guid, directory=self.dir)
+        # recordDict['AutoSchedule'] = principal.getAutoSchedule()
+        respond(command, recordDict)
+
+    def command_setLocationAttributes(self, command):
+
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
         try:
-            self.dir.destroyRecord("locations", guid=command['GeneratedUID'])
+            self.dir.updateRecord("locations", **kwargs)
+        except DirectoryError, e:
+            abort(str(e))
+
+        # principal = principalForPrincipalID(command['GeneratedUID'],
+        #     directory=self.dir)
+        # principal.setAutoSchedule(command.get('AutoSchedule', False))
+
+        respondWithRecordsOfType(self.dir, command, "locations")
+
+    def command_deleteLocation(self, command):
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
+        try:
+            self.dir.destroyRecord("locations", **kwargs)
         except DirectoryError, e:
             abort(str(e))
         respondWithRecordsOfType(self.dir, command, "locations")
@@ -180,16 +230,48 @@ class Runner(object):
         respondWithRecordsOfType(self.dir, command, "resources")
 
     def command_createResource(self, command):
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
         try:
-            self.dir.createRecord("resources", guid=command['GeneratedUID'],
-                shortNames=command['RecordName'], fullName=command['RealName'])
+            self.dir.createRecord("resources", **kwargs)
         except DirectoryError, e:
             abort(str(e))
         respondWithRecordsOfType(self.dir, command, "resources")
 
-    def command_deleteResource(self, command):
+    def command_getResourceAttributes(self, command):
+        guid = command['GeneratedUID']
+        record = self.dir.recordWithGUID(guid)
+        recordDict = recordToDict(record)
+        # principal = principalForPrincipalID(guid, directory=self.dir)
+        # recordDict['AutoSchedule'] = principal.getAutoSchedule()
+        respond(command, recordDict)
+
+    def command_setResourceAttributes(self, command):
+
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
         try:
-            self.dir.destroyRecord("resources", guid=command['GeneratedUID'])
+            self.dir.updateRecord("resources", **kwargs)
+        except DirectoryError, e:
+            abort(str(e))
+
+        # principal = principalForPrincipalID(command['GeneratedUID'],
+        #     directory=self.dir)
+        # principal.setAutoSchedule(command.get('AutoSchedule', False))
+
+        respondWithRecordsOfType(self.dir, command, "resources")
+
+    def command_deleteResource(self, command):
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if command.has_key(key):
+                kwargs[info['attr']] = command[key]
+        try:
+            self.dir.destroyRecord("resources", **kwargs)
         except DirectoryError, e:
             abort(str(e))
         respondWithRecordsOfType(self.dir, command, "resources")
@@ -271,15 +353,24 @@ def respondWithProxies(directory, command, principal, proxyType):
     })
 
 
+def recordToDict(record):
+    recordDict = {}
+    for key, info in attrMap.iteritems():
+        try:
+            if info.get('extras', False):
+                value = record.extras[info['attr']]
+            else:
+                value = getattr(record, info['attr'])
+            recordDict[key] = value
+        except KeyError:
+            pass
+    return recordDict
+
 def respondWithRecordsOfType(directory, command, recordType):
     result = []
     for record in directory.listRecords(recordType):
-        result.append( {
-            'GeneratedUID' : record.guid,
-            'RecordName' : [n for n in record.shortNames],
-            'RealName' : record.fullName,
-            'AutoSchedule' : record.autoSchedule,
-        } )
+        recordDict = recordToDict(record)
+        result.append(recordDict)
     respond(command, result)
 
 def respond(command, result):

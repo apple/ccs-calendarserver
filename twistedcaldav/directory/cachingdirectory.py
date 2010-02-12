@@ -357,12 +357,12 @@ class CachingDirectoryRecord(DirectoryRecord):
         self, service, recordType, guid,
         shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        uid=None,
+        uid=None, **kwargs
     ):
         super(CachingDirectoryRecord, self).__init__(
-            service               = service,
-            recordType            = recordType,
-            guid                  = guid,
+            service,
+            recordType,
+            guid,
             shortNames            = shortNames,
             authIDs               = authIDs,
             fullName              = fullName,
@@ -370,6 +370,7 @@ class CachingDirectoryRecord(DirectoryRecord):
             lastName              = lastName,
             emailAddresses        = emailAddresses,
             uid                   = uid,
+            **kwargs
         )
         
         self.cachedTime = time.time()

@@ -48,6 +48,7 @@ ELEMENT_LAST_NAME         = "last-name"
 ELEMENT_EMAIL_ADDRESS     = "email-address"
 ELEMENT_MEMBERS           = "members"
 ELEMENT_MEMBER            = "member"
+ELEMENT_EXTRAS            = "extras"
 
 ATTRIBUTE_REALM           = "realm"
 ATTRIBUTE_REPEAT          = "repeat"
@@ -156,6 +157,7 @@ class XMLAccountRecord (object):
         self.emailAddresses = set()
         self.members = set()
         self.groups = set()
+        self.extras = {}
 
     def repeat(self, ctr):
         """
@@ -205,6 +207,7 @@ class XMLAccountRecord (object):
         result.lastName = lastName
         result.emailAddresses = emailAddresses
         result.members = self.members
+        result.extras = self.extras
         return result
 
     def parseXML(self, node):
@@ -237,6 +240,8 @@ class XMLAccountRecord (object):
                     self.emailAddresses.add(child.firstChild.data.encode("utf-8").lower())
             elif child_name == ELEMENT_MEMBERS:
                 self._parseMembers(child, self.members)
+            elif child_name == ELEMENT_EXTRAS:
+                self._parseExtras(child, self.extras)
             else:
                 raise RuntimeError("Unknown account attribute: %s" % (child_name,))
 
@@ -252,3 +257,10 @@ class XMLAccountRecord (object):
                     recordType = DirectoryService.recordType_users
                 if child.firstChild is not None:
                     addto.add((recordType, child.firstChild.data.encode("utf-8")))
+
+    def _parseExtras(self, node, addto):
+        for child in node._get_childNodes():
+            key = child._get_localName()
+            if key:
+                value = child.firstChild.data.encode("utf-8")
+                addto[key.encode("utf-8")] = value

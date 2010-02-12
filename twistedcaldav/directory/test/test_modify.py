@@ -52,12 +52,18 @@ class ModificationTestCase(TestCase):
         record = directory.recordWithUID("resource01")
         self.assertEquals(record, None)
 
-        directory.createRecord("resources", "resource01", shortNames=("resource01",), uid="resource01")
+        directory.createRecord("resources", guid="resource01",
+            shortNames=("resource01",), uid="resource01",
+            emailAddresses=("res1@example.com", "res2@example.com"),
+            comment="Test Comment")
 
         record = directory.recordWithUID("resource01")
         self.assertNotEquals(record, None)
 
-        directory.createRecord("resources", "resource02", shortNames=("resource02",), uid="resource02")
+        self.assertEquals(len(record.emailAddresses), 2)
+        self.assertEquals(record.extras['comment'], "Test Comment")
+
+        directory.createRecord("resources", guid="resource02", shortNames=("resource02",), uid="resource02")
 
         record = directory.recordWithUID("resource02")
         self.assertNotEquals(record, None)
@@ -74,12 +80,12 @@ class ModificationTestCase(TestCase):
         record = directory.recordWithUID("resource01")
         self.assertEquals(record, None)
 
-        directory.createRecord("resources", "resource01", shortNames=("resource01",), uid="resource01")
+        directory.createRecord("resources", guid="resource01", shortNames=("resource01",), uid="resource01")
 
         record = directory.recordWithUID("resource01")
         self.assertNotEquals(record, None)
 
-        directory.destroyRecord("resources", "resource01")
+        directory.destroyRecord("resources", guid="resource01")
 
         record = directory.recordWithUID("resource01")
         self.assertEquals(record, None)
@@ -91,17 +97,18 @@ class ModificationTestCase(TestCase):
     def test_updateRecord(self):
         directory = getDirectory()
 
-        directory.createRecord("resources", "resource01",
+        directory.createRecord("resources", guid="resource01",
             shortNames=("resource01",), uid="resource01",
             fullName="Resource number 1")
 
         record = directory.recordWithUID("resource01")
         self.assertEquals(record.fullName, "Resource number 1")
 
-        directory.updateRecord("resources", "resource01",
+        directory.updateRecord("resources", guid="resource01",
             shortNames=("resource01", "r01"), uid="resource01",
             fullName="Resource #1", firstName="First", lastName="Last",
-            emailAddresses=("resource01@example.com", "r01@example.com"))
+            emailAddresses=("resource01@example.com", "r01@example.com"),
+            comment="Test Comment")
 
         record = directory.recordWithUID("resource01")
         self.assertEquals(record.fullName, "Resource #1")
@@ -110,6 +117,7 @@ class ModificationTestCase(TestCase):
         self.assertEquals(set(record.shortNames), set(["resource01", "r01"]))
         self.assertEquals(record.emailAddresses,
             set(["resource01@example.com", "r01@example.com"]))
+        self.assertEquals(record.extras['comment'], "Test Comment")
 
         # Make sure old records are still there:
         record = directory.recordWithUID("location01")
@@ -118,5 +126,5 @@ class ModificationTestCase(TestCase):
     def test_createDuplicateRecord(self):
         directory = getDirectory()
 
-        directory.createRecord("resources", "resource01", shortNames=("resource01",), uid="resource01")
-        self.assertRaises(DirectoryError, directory.createRecord, "resources", "resource01", shortNames=("resource01",), uid="resource01")
+        directory.createRecord("resources", guid="resource01", shortNames=("resource01",), uid="resource01")
+        self.assertRaises(DirectoryError, directory.createRecord, "resources", guid="resource01", shortNames=("resource01",), uid="resource01")

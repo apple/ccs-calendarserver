@@ -192,25 +192,26 @@ class AggregateDirectoryService(DirectoryService):
 
     def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        uid=None, password=None, **kwds):
+        uid=None, password=None, **kwargs):
         service = self.serviceForRecordType(recordType)
         return service.createRecord(recordType, guid=guid,
             shortNames=shortNames, authIDs=authIDs, fullName=fullName,
             firstName=firstName, lastName=lastName,
-            emailAddresses=emailAddresses, uid=uid, password=password, **kwds)
+            emailAddresses=emailAddresses, uid=uid, password=password, **kwargs)
 
-    def updateRecord(self, recordType, guid, shortNames=(), authIDs=set(),
+    def updateRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        uid=None, password=None, **kwds):
+        uid=None, password=None, **kwargs):
         service = self.serviceForRecordType(recordType)
-        return service.updateRecord(recordType, guid, shortNames=shortNames,
+        return service.updateRecord(recordType, guid=guid,
+            shortNames=shortNames,
             authIDs=authIDs, fullName=fullName, firstName=firstName,
             lastName=lastName, emailAddresses=emailAddresses, uid=uid,
-            password=password, **kwds)
+            password=password, **kwargs)
 
-    def destroyRecord(self, recordType, guid):
+    def destroyRecord(self, recordType, guid=None):
         service = self.serviceForRecordType(recordType)
-        return service.destroyRecord(recordType, guid)
+        return service.destroyRecord(recordType, guid=guid)
 
 class DuplicateRecordTypeError(DirectoryError):
     """

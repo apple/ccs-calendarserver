@@ -185,25 +185,79 @@ class GatewayTestCase(TestCase):
         self.assertEquals(len(results['result']), 10)
 
     @inlineCallbacks
+    def test_getLocationAttributes(self):
+        results = yield self.runCommand(command_createLocation)
+        results = yield self.runCommand(command_getLocationAttributes)
+        self.assertEquals(results['result']['Building'], "Test Building")
+        self.assertEquals(results['result']['City'], "Cupertino")
+        self.assertEquals(results['result']['Capacity'], "40")
+        self.assertEquals(results['result']['Description'], "Test Description")
+        self.assertEquals(results['result']['ZIP'], "95014")
+        self.assertEquals(results['result']['Floor'], "First")
+        self.assertEquals(results['result']['RecordName'], ['createdlocation01'])
+        self.assertEquals(results['result']['State'], "CA")
+        self.assertEquals(results['result']['Street'], "1 Infinite Loop")
+        self.assertEquals(results['result']['RealName'], "Created Location 01")
+        self.assertEquals(results['result']['Comment'], "Test Comment")
+
+    @inlineCallbacks
     def test_getResourceList(self):
         results = yield self.runCommand(command_getResourceList)
         self.assertEquals(len(results['result']), 10)
 
     @inlineCallbacks
+    def test_getResourceAttributes(self):
+        results = yield self.runCommand(command_createResource)
+        results = yield self.runCommand(command_getResourceAttributes)
+        self.assertEquals(results['result']['Comment'], "Test Comment")
+
+    @inlineCallbacks
     def test_createLocation(self):
         directory = getDirectory()
 
-        record = directory.recordWithUID("createdlocation01")
+        record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         self.assertEquals(record, None)
 
         yield self.runCommand(command_createLocation)
 
         directory.flushCaches()
-        record = directory.recordWithUID("createdlocation01")
+        record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         self.assertNotEquals(record, None)
 
+        self.assertEquals(record.extras['comment'], "Test Comment")
+        self.assertEquals(record.extras['building'], "Test Building")
+        self.assertEquals(record.extras['floor'], "First")
+        self.assertEquals(record.extras['capacity'], "40")
+        self.assertEquals(record.extras['street'], "1 Infinite Loop")
+        self.assertEquals(record.extras['city'], "Cupertino")
+        self.assertEquals(record.extras['state'], "CA")
+        self.assertEquals(record.extras['zip'], "95014")
+        self.assertEquals(record.extras['country'], "USA")
+        self.assertEquals(record.extras['phone'], "(408) 555-1212")
+
     @inlineCallbacks
-    def test_destroyRecord(self):
+    def test_setLocationAttributes(self):
+        directory = getDirectory()
+
+        yield self.runCommand(command_createLocation)
+        record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
+        yield self.runCommand(command_setLocationAttributes)
+        directory.flushCaches()
+        record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
+
+        self.assertEquals(record.extras['comment'], "Updated Test Comment")
+        self.assertEquals(record.extras['building'], "Updated Test Building")
+        self.assertEquals(record.extras['floor'], "Second")
+        self.assertEquals(record.extras['capacity'], "41")
+        self.assertEquals(record.extras['street'], "2 Infinite Loop")
+        self.assertEquals(record.extras['city'], "Updated Cupertino")
+        self.assertEquals(record.extras['state'], "Updated CA")
+        self.assertEquals(record.extras['zip'], "95015")
+        self.assertEquals(record.extras['country'], "Updated USA")
+        self.assertEquals(record.extras['phone'], "(408) 555-1213")
+
+    @inlineCallbacks
+    def test_destroyLocation(self):
         directory = getDirectory()
 
         record = directory.recordWithUID("location01")
@@ -213,6 +267,46 @@ class GatewayTestCase(TestCase):
 
         directory.flushCaches()
         record = directory.recordWithUID("location01")
+        self.assertEquals(record, None)
+
+    @inlineCallbacks
+    def test_createResource(self):
+        directory = getDirectory()
+
+        record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
+        self.assertEquals(record, None)
+
+        yield self.runCommand(command_createResource)
+
+        directory.flushCaches()
+        record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
+        self.assertNotEquals(record, None)
+
+    @inlineCallbacks
+    def test_setResourceAttributes(self):
+        directory = getDirectory()
+
+        yield self.runCommand(command_createResource)
+        record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
+        self.assertEquals(record.fullName, "Laptop 1")
+
+        yield self.runCommand(command_setResourceAttributes)
+
+        directory.flushCaches()
+        record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
+        self.assertEquals(record.fullName, "Updated Laptop 1")
+
+    @inlineCallbacks
+    def test_destroyResource(self):
+        directory = getDirectory()
+
+        record = directory.recordWithUID("resource01")
+        self.assertNotEquals(record, None)
+
+        yield self.runCommand(command_deleteResource)
+
+        directory.flushCaches()
+        record = directory.recordWithUID("resource01")
         self.assertEquals(record, None)
 
     @inlineCallbacks
@@ -227,18 +321,6 @@ class GatewayTestCase(TestCase):
         self.assertEquals(len(results['result']['Proxies']), 0)
 
 
-
-command_deleteLocation = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-        <key>command</key>
-        <string>deleteLocation</string>
-        <key>GeneratedUID</key>
-        <string>guidoffice3</string>
-</dict>
-</plist>
-"""
 
 command_addReadProxy = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -277,16 +359,39 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         <key>AutoSchedule</key>
         <true/>
         <key>GeneratedUID</key>
-        <string>createdlocation01</string>
+        <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
         <key>RealName</key>
         <string>Created Location 01</string>
         <key>RecordName</key>
         <array>
                 <string>createdlocation01</string>
         </array>
+        <key>Comment</key>
+        <string>Test Comment</string>
+        <key>Description</key>
+        <string>Test Description</string>
+        <key>Building</key>
+        <string>Test Building</string>
+        <key>Floor</key>
+        <string>First</string>
+        <key>Capacity</key>
+        <string>40</string>
+        <key>Street</key>
+        <string>1 Infinite Loop</string>
+        <key>City</key>
+        <string>Cupertino</string>
+        <key>State</key>
+        <string>CA</string>
+        <key>ZIP</key>
+        <string>95014</string>
+        <key>Country</key>
+        <string>USA</string>
+        <key>Phone</key>
+        <string>(408) 555-1212</string>
 </dict>
 </plist>
 """
+
 
 command_createResource = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -297,13 +402,15 @@ command_createResource = """<?xml version="1.0" encoding="UTF-8"?>
         <key>AutoSchedule</key>
         <true/>
         <key>GeneratedUID</key>
-        <string>guidlaptop1</string>
+        <string>AF575A61-CFA6-49E1-A0F6-B5662C9D9801</string>
         <key>RealName</key>
         <string>Laptop 1</string>
         <key>RecordName</key>
         <array>
                 <string>laptop1</string>
         </array>
+        <key>Comment</key>
+        <string>Test Comment</string>
 </dict>
 </plist>
 """
@@ -327,7 +434,7 @@ command_deleteResource = """<?xml version="1.0" encoding="UTF-8"?>
         <key>command</key>
         <string>deleteResource</string>
         <key>GeneratedUID</key>
-        <string>guidlaptop1</string>
+        <string>resource01</string>
 </dict>
 </plist>
 """
@@ -400,6 +507,92 @@ command_removeWriteProxy = """<?xml version="1.0" encoding="UTF-8"?>
         <string>locations:location01</string>
         <key>Proxy</key>
         <string>users:user01</string>
+</dict>
+</plist>
+"""
+
+command_setLocationAttributes = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>setLocationAttributes</string>
+        <key>AutoSchedule</key>
+        <false/>
+        <key>GeneratedUID</key>
+        <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
+        <key>RealName</key>
+        <string>Updated Location 01</string>
+        <key>RecordName</key>
+        <array>
+                <string>createdlocation01</string>
+        </array>
+        <key>Comment</key>
+        <string>Updated Test Comment</string>
+        <key>Description</key>
+        <string>Updated Test Description</string>
+        <key>Building</key>
+        <string>Updated Test Building</string>
+        <key>Floor</key>
+        <string>Second</string>
+        <key>Capacity</key>
+        <string>41</string>
+        <key>Street</key>
+        <string>2 Infinite Loop</string>
+        <key>City</key>
+        <string>Updated Cupertino</string>
+        <key>State</key>
+        <string>Updated CA</string>
+        <key>ZIP</key>
+        <string>95015</string>
+        <key>Country</key>
+        <string>Updated USA</string>
+        <key>Phone</key>
+        <string>(408) 555-1213</string>
+</dict>
+</plist>
+"""
+
+command_getLocationAttributes = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>getLocationAttributes</string>
+        <key>GeneratedUID</key>
+        <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
+</dict>
+</plist>
+"""
+
+command_setResourceAttributes = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>setResourceAttributes</string>
+        <key>AutoSchedule</key>
+        <false/>
+        <key>GeneratedUID</key>
+        <string>AF575A61-CFA6-49E1-A0F6-B5662C9D9801</string>
+        <key>RealName</key>
+        <string>Updated Laptop 1</string>
+        <key>RecordName</key>
+        <array>
+                <string>laptop1</string>
+        </array>
+</dict>
+</plist>
+"""
+
+command_getResourceAttributes = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>getResourceAttributes</string>
+        <key>GeneratedUID</key>
+        <string>AF575A61-CFA6-49E1-A0F6-B5662C9D9801</string>
 </dict>
 </plist>
 """

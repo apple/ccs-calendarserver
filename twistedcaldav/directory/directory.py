@@ -299,21 +299,21 @@ class DirectoryService(LoggingMixIn):
 
     def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        uid=None, password=None, **kwds):
+        uid=None, password=None, **kwargs):
         """
         Create/persist a directory record based on the given values
         """
         raise NotImplementedError("Subclass must implement createRecord")
 
-    def updateRecord(self, recordType, guid, shortNames=(), authIDs=set(),
+    def updateRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        uid=None, password=None, **kwds):
+        uid=None, password=None, **kwargs):
         """
         Update/persist a directory record based on the given values
         """
         raise NotImplementedError("Subclass must implement updateRecord")
 
-    def destroyRecord(self, recordType, guid):
+    def destroyRecord(self, recordType, guid=None):
         """
         Remove a directory record from the directory
         """
@@ -342,6 +342,7 @@ class DirectoryRecord(LoggingMixIn):
         calendarUserAddresses=set(), autoSchedule=False, enabledForCalendaring=None,
         enabledForAddressBooks=None,
         uid=None,
+        **kwargs
     ):
         assert service.realmName is not None
         assert recordType
@@ -356,21 +357,23 @@ class DirectoryRecord(LoggingMixIn):
         if fullName is None:
             fullName = ""
 
-        self.service               = service
-        self.recordType            = recordType
-        self.guid                  = guid
-        self.uid                   = uid
-        self.enabled               = False
-        self.hostedAt              = ""
-        self.shortNames            = shortNames
-        self.authIDs               = authIDs
-        self.fullName              = fullName
-        self.firstName             = firstName
-        self.lastName              = lastName
-        self.emailAddresses        = emailAddresses
-        self.enabledForCalendaring = enabledForCalendaring
-        self.autoSchedule          = autoSchedule
+        self.service                = service
+        self.recordType             = recordType
+        self.guid                   = guid
+        self.uid                    = uid
+        self.enabled                = False
+        self.hostedAt               = ""
+        self.shortNames             = shortNames
+        self.authIDs                = authIDs
+        self.fullName               = fullName
+        self.firstName              = firstName
+        self.lastName               = lastName
+        self.emailAddresses         = emailAddresses
+        self.enabledForCalendaring  = enabledForCalendaring
+        self.autoSchedule           = autoSchedule
         self.enabledForAddressBooks = enabledForAddressBooks
+        self.extras                 = kwargs
+
 
 
     def get_calendarUserAddresses(self):
