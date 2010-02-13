@@ -127,11 +127,11 @@ def run(parser, options, args):
         if args[0] == "add":
             if not options.node:
                 parser.error("Partition node must be specified when adding")
-            yield augment.AugmentService.addAugmentRecords([makeRecord(uid, options) for uid in uids], False)
+            yield augment.AugmentService.addAugmentRecords([makeRecord(uid, options) for uid in uids])
             for uid in uids:
                 print "Added uid '%s' to augment database" % (uid,)
         elif args[0] == "modify":
-            yield augment.AugmentService.addAugmentRecords([makeRecord(uid, options) for uid in uids], True)
+            yield augment.AugmentService.addAugmentRecords([makeRecord(uid, options) for uid in uids])
             for uid in uids:
                 print "Modified uid '%s' in augment database" % (uid,)
         elif args[0] == "remove":

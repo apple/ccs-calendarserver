@@ -98,7 +98,7 @@ class XMLAugmentsParser(object):
                     ELEMENT_UID,
                     ELEMENT_HOSTEDAT,
                 ):
-                    fields[node.tag] = node.text
+                    fields[node.tag] = node.text if node.text else ""
                 elif node.tag in (
                     ELEMENT_ENABLE,
                     ELEMENT_ENABLECALENDAR,

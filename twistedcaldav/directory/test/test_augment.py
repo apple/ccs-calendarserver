@@ -16,11 +16,12 @@
 
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory.augment import AugmentXMLDB, AugmentSqliteDB,\
-    AugmentPostgreSQLDB
+    AugmentPostgreSQLDB, AugmentRecord
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 import cStringIO
 import os
+from twisted.python.filepath import FilePath
 
 xmlFile = os.path.join(os.path.dirname(__file__), "augments-test.xml")
 xmlFileDefault = os.path.join(os.path.dirname(__file__), "augments-test-default.xml")
@@ -36,6 +37,15 @@ testRecords = (
 )
 
 testRecordDefault = {"uid":"A4318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":True, "enabledForAddressBooks":True, "autoSchedule":False}
+
+testAddRecords = (
+    {"uid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975767", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+)
+
+testModifyRecords = (
+    {"uid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975767", "enabled":True,  "hostedAt":"", "enabledForCalendaring":True, "enabledForAddressBooks":True, "autoSchedule":False},
+)
+
 
 class AugmentTests(TestCase):
 
@@ -105,6 +115,40 @@ class AugmentXMLTests(AugmentTests):
   </record>
 """), db)
 
+    @inlineCallbacks
+    def test_add_modify(self):
+        
+        # Duplicate file as we will change it
+        newxmlfile = FilePath(self.mktemp())
+        FilePath(xmlFile).copyTo(newxmlfile)
+        
+        db = AugmentXMLDB((newxmlfile.path,))
+
+        for item in testRecords:
+            yield self._checkRecord(db, item)
+
+        newrecord = AugmentRecord(
+            **testAddRecords[0]
+        )
+        yield db.addAugmentRecords((newrecord,))
+
+        newdb = AugmentXMLDB((newxmlfile.path,))
+
+        for item in testRecords:
+            yield self._checkRecord(newdb, item)
+        yield self._checkRecord(newdb, testAddRecords[0])
+
+        newrecord = AugmentRecord(
+            **testModifyRecords[0]
+        )
+        yield db.addAugmentRecords((newrecord,))
+
+        newdb = AugmentXMLDB((newxmlfile.path,))
+
+        for item in testRecords:
+            yield self._checkRecord(newdb, item)
+        yield self._checkRecord(newdb, testModifyRecords[0])
+
 class AugmentSqliteTests(AugmentTests):
 
     @inlineCallbacks
@@ -132,6 +176,42 @@ class AugmentSqliteTests(AugmentTests):
             yield self._checkRecord(db, item)
 
         yield self._checkRecord(db, testRecordDefault)
+
+    @inlineCallbacks
+    def test_add_modify(self):
+        
+        dbpath = os.path.abspath(self.mktemp())
+        db = AugmentSqliteDB(dbpath)
+
+        dbxml = AugmentXMLDB((xmlFile,))
+        yield db.addAugmentRecords(dbxml.db.values())
+
+        for item in testRecords:
+            yield self._checkRecord(db, item)
+
+        yield self._checkNoRecord(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+
+        newrecord = AugmentRecord(
+            **testAddRecords[0]
+        )
+        yield db.addAugmentRecords((newrecord,))
+
+        newdb = AugmentSqliteDB(dbpath)
+
+        for item in testRecords:
+            yield self._checkRecord(newdb, item)
+        yield self._checkRecord(newdb, testAddRecords[0])
+
+        newrecord = AugmentRecord(
+            **testModifyRecords[0]
+        )
+        yield db.addAugmentRecords((newrecord,))
+
+        newdb = AugmentSqliteDB(dbpath)
+
+        for item in testRecords:
+            yield self._checkRecord(newdb, item)
+        yield self._checkRecord(newdb, testModifyRecords[0])
 
 class AugmentPostgreSQLTests(AugmentTests):
 
@@ -162,6 +242,42 @@ class AugmentPostgreSQLTests(AugmentTests):
             yield self._checkRecord(db, item)
 
         yield self._checkRecord(db, testRecordDefault)
+
+    @inlineCallbacks
+    def test_add_modify(self):
+        
+        db = AugmentPostgreSQLDB("localhost", "augments")
+        yield db.clean()
+
+        dbxml = AugmentXMLDB((xmlFile,))
+        yield db.addAugmentRecords(dbxml.db.values())
+
+        for item in testRecords:
+            yield self._checkRecord(db, item)
+
+        yield self._checkNoRecord(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+
+        newrecord = AugmentRecord(
+            **testAddRecords[0]
+        )
+        yield db.addAugmentRecords((newrecord,))
+
+        newdb = AugmentPostgreSQLDB("localhost", "augments")
+
+        for item in testRecords:
+            yield self._checkRecord(newdb, item)
+        yield self._checkRecord(newdb, testAddRecords[0])
+
+        newrecord = AugmentRecord(
+            **testModifyRecords[0]
+        )
+        yield db.addAugmentRecords((newrecord,))
+
+        newdb = AugmentPostgreSQLDB("localhost", "augments")
+
+        for item in testRecords:
+            yield self._checkRecord(newdb, item)
+        yield self._checkRecord(newdb, testModifyRecords[0])
 
 try:
     import pgdb

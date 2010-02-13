@@ -104,14 +104,12 @@ class AugmentDB(object):
         
         raise NotImplementedError("Child class must define this.")
 
-    def addAugmentRecords(self, records, update=False):
+    def addAugmentRecords(self, records):
         """
         Add an AugmentRecord to the DB.
 
         @param record: augment records to add
         @type record: C{list} of L{AugmentRecord}
-        @param update: C{True} if changing an existing record
-        @type update: C{bool}
         
         @return: L{Deferred}
         """
@@ -133,8 +131,20 @@ class AugmentDB(object):
     def refresh(self):
         """
         Refresh any cached data.
+        
+        @return: L{Deferred}
         """
-        pass
+
+        return succeed(None)
+    
+    def clean(self):
+        """
+        Remove all records.
+        
+        @return: L{Deferred}
+        """
+
+        raise NotImplementedError("Child class must define this.")
         
 AugmentService = AugmentDB()   # Global augment service
 
@@ -208,7 +218,7 @@ class AugmentXMLDB(AugmentDB):
             
         return succeed(self.db.get(uid))
 
-    def addAugmentRecords(self, records, update=False):
+    def addAugmentRecords(self, records):
         """
         Add an AugmentRecord to the DB.
 
@@ -220,13 +230,22 @@ class AugmentXMLDB(AugmentDB):
         @return: L{Deferred}
         """
 
-        if update:
+        # Look at each record and determine whether it is new or a modify
+        new_records = list()
+        existing_records = list() 
+        for record in records:
+            (existing_records if record.uid in self.db else new_records).append(record)
+
+        if existing_records:
             # Now look at each file and modify the UIDs
             for xmlFile in self.xmlFiles:
-                self._doModifyInFile(xmlFile, records)
-        else:
+                self._doModifyInFile(xmlFile, existing_records)
+
+        if new_records:
             # Add to first file in list
-            self._doAddToFile(self.xmlFiles[0], records)
+            self._doAddToFile(self.xmlFiles[0], new_records)
+
+        return succeed(None)
 
     def _doAddToFile(self, xmlfile, records):
     
@@ -327,6 +346,16 @@ class AugmentXMLDB(AugmentDB):
             log.error("Failed to parse XML augments file during cache refresh - ignoring")
         self.lastCached = time.time()
 
+        return succeed(None)
+
+    def clean(self):
+        """
+        Remove all records.
+        """
+
+        self.removeAugmentRecords(self.db.keys())
+        return succeed(None)
+        
     def _parseXML(self):
         
         # Do each file
@@ -395,40 +424,17 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
             returnValue(record)
 
     @inlineCallbacks
-    def addAugmentRecords(self, records, update=False):
+    def addAugmentRecords(self, records):
 
         for record in records:
-            partitionid = (yield self._getPartitionID(record.hostedAt))
             
+            results = (yield self.query("select UID from AUGMENTS where UID = :1", (record.uid,)))
+            update = len(results) > 0
+
             if update:
-                yield self.execute(
-                    """update AUGMENTS set
-                    (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE) =
-                    (:1, :2, :3, :4, :5, :6) where UID = :7""",
-                    (
-                        record.uid,
-                        "T" if record.enabled else "F",
-                        partitionid,
-                        "T" if record.enabledForCalendaring else "F",
-                        "T" if record.enabledForAddressBooks else "F",
-                        "T" if record.autoSchedule else "F",
-                        record.uid,
-                    )
-                )
+                yield self._modifyRecord(record)
             else:
-                yield self.execute(
-                    """insert into AUGMENTS
-                    (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
-                    values (:1, :2, :3, :4, :5, :6)""",
-                    (
-                        record.uid,
-                        "T" if record.enabled else "F",
-                        partitionid,
-                        "T" if record.enabledForCalendaring else "F",
-                        "T" if record.enabledForAddressBooks else "F",
-                        "T" if record.autoSchedule else "F",
-                    )
-                )
+                yield self._addRecord(record)
 
     @inlineCallbacks
     def removeAugmentRecords(self, uids):
@@ -436,6 +442,13 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
         for uid in uids:
             yield self.execute("delete from AUGMENTS where UID = :1", (uid,))
 
+    def clean(self):
+        """
+        Remove all records.
+        """
+
+        return self.execute("delete from AUGMENTS", ())
+        
     @inlineCallbacks
     def _getPartitionID(self, hostedat, createIfMissing=True):
         
@@ -523,6 +536,26 @@ class AugmentSqliteDB(ADBAPISqliteMixin, AugmentADAPI):
         ADBAPISqliteMixin.__init__(self)
         AugmentADAPI.__init__(self, "Augments", "sqlite3", (fullServerPath(config.DataRoot, dbpath),))
 
+    @inlineCallbacks
+    def _addRecord(self, record):
+        partitionid = (yield self._getPartitionID(record.hostedAt))
+        yield self.execute(
+            """insert or replace into AUGMENTS
+            (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
+            values (:1, :2, :3, :4, :5, :6)""",
+            (
+                record.uid,
+                "T" if record.enabled else "F",
+                partitionid,
+                "T" if record.enabledForCalendaring else "F",
+                "T" if record.enabledForAddressBooks else "F",
+                "T" if record.autoSchedule else "F",
+            )
+        )
+
+    def _modifyRecord(self, record):
+        return self._addRecord(record)
+
 class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
     """
     PostgreSQL based augment database implementation.
@@ -533,3 +566,37 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
         ADBAPIPostgreSQLMixin.__init__(self)
         AugmentADAPI.__init__(self, "Augments", "pgdb", (), host=host, database=database, user=user, password=password,)
 
+    @inlineCallbacks
+    def _addRecord(self, record):
+        partitionid = (yield self._getPartitionID(record.hostedAt))
+        yield self.execute(
+            """insert into AUGMENTS
+            (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
+            values (:1, :2, :3, :4, :5, :6)""",
+            (
+                record.uid,
+                "T" if record.enabled else "F",
+                partitionid,
+                "T" if record.enabledForCalendaring else "F",
+                "T" if record.enabledForAddressBooks else "F",
+                "T" if record.autoSchedule else "F",
+            )
+        )
+
+    @inlineCallbacks
+    def _modifyRecord(self, record):
+        partitionid = (yield self._getPartitionID(record.hostedAt))
+        yield self.execute(
+            """update AUGMENTS set
+            (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE) =
+            (:1, :2, :3, :4, :5, :6) where UID = :7""",
+            (
+                record.uid,
+                "T" if record.enabled else "F",
+                partitionid,
+                "T" if record.enabledForCalendaring else "F",
+                "T" if record.enabledForAddressBooks else "F",
+                "T" if record.autoSchedule else "F",
+                record.uid,
+            )
+        )
