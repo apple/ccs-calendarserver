@@ -35,6 +35,7 @@ from twext.web2.dav.davxml import sname2qname, qname2sname
 
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
+from twistedcaldav.directory import augment
 
 from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications, booleanArgument
 
@@ -453,7 +454,6 @@ def removeProxy(principal, proxyPrincipal, **kwargs):
         (yield subPrincipal.writeProperty(membersProperty, None))
 
 
-
 @inlineCallbacks
 def action_setAutoSchedule(principal, autoSchedule):
     if autoSchedule and principal.record.recordType in ("users", "groups"):
@@ -464,8 +464,17 @@ def action_setAutoSchedule(principal, autoSchedule):
             principal,
         )
         principal.setAutoSchedule(autoSchedule)
+        record = principal.record
+        aug = (yield augment.AugmentService.getAugmentRecord(record.guid))
+        aug.autoSchedule = autoSchedule
 
-@inlineCallbacks
+        # FIXME: This doesn't seem like a good idea, but I don't see a way
+        # to know whether there is already a record there, so I'm currently
+        # removing the record before adding it.
+        (yield augment.AugmentService.removeAugmentRecords([record.guid]))
+
+        (yield augment.AugmentService.addAugmentRecords([aug], update=False))
+
 def action_getAutoSchedule(principal):
     autoSchedule = principal.getAutoSchedule()
     print "Autoschedule for %s is %s" % (

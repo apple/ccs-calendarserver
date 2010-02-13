@@ -132,3 +132,18 @@ class MangePrincipalsTestCase(TestCase):
         results = yield self.runCommand("--list-read-proxies",
             "locations:location01")
         self.assertTrue("No read proxies for (locations)location01" in results)
+
+
+    @inlineCallbacks
+    def test_autoSchedule(self):
+        results = yield self.runCommand("--get-auto-schedule",
+            "locations:location01")
+        self.assertTrue(results.startswith("Autoschedule for (locations)location01 is false"))
+
+        results = yield self.runCommand("--set-auto-schedule=true",
+            "locations:location01")
+        self.assertTrue(results.startswith("Setting auto-schedule to true for (locations)location01"))
+
+        results = yield self.runCommand("--get-auto-schedule",
+            "locations:location01")
+        self.assertTrue(results.startswith("Autoschedule for (locations)location01 is true"))
