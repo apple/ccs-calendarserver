@@ -826,11 +826,12 @@ class ImplicitScheduler(object):
                 # We will allow the attendee to do anything in this case, but we will mark the organizer
                 # with an schedule-status error
                 log.debug("Attendee '%s' is allowed to update UID: '%s' with invalid organizer '%s'" % (self.attendee, self.uid, self.organizer))
-                self.calendar.setParameterToValueForPropertyWithValue(
-                    "SCHEDULE-STATUS",
-                    iTIPRequestStatus.NO_USER_SUPPORT_CODE,
-                    "ORGANIZER",
-                    self.organizer)
+                if doScheduling:
+                    self.calendar.setParameterToValueForPropertyWithValue(
+                        "SCHEDULE-STATUS",
+                        iTIPRequestStatus.NO_USER_SUPPORT_CODE,
+                        "ORGANIZER",
+                        self.organizer)
                 returnValue(None)
 
             else:
