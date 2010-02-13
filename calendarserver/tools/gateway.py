@@ -28,7 +28,6 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.util import switchUID
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.stdconfig import DEFAULT_CONFIG
 from twistedcaldav.directory.directory import DirectoryError
 from twisted.web2.dav import davxml
 

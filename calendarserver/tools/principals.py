@@ -329,7 +329,7 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
         return directory.principalCollection.principalForShortName(recordType, shortName)
 
     try:
-        guid = UUID(principalID)
+        UUID(principalID)
 
         if checkOnly:
             return None

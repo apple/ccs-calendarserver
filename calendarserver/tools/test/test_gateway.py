@@ -21,81 +21,10 @@ import xml
 from twisted.python.filepath import FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
-from twisted.internet.error import ProcessDone
-from twisted.internet.protocol import ProcessProtocol
 
 from twistedcaldav.config import config
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tools.util import getDirectory
-
-
-class ErrorOutput(Exception):
-    """
-    The process produced some error output and exited with a non-zero exit
-    code.
-    """
-
-
-class CapturingProcessProtocol(ProcessProtocol):
-    """
-    A L{ProcessProtocol} that captures its output and error.
-
-    @ivar output: a C{list} of all C{str}s received to stderr.
-
-    @ivar error: a C{list} of all C{str}s received to stderr.
-    """
-
-    def __init__(self, deferred, inputData):
-        """
-        Initialize a L{CapturingProcessProtocol}.
-
-        @param deferred: the L{Deferred} to fire when the process is complete.
-
-        @param inputData: a C{str} to feed to the subprocess's stdin.
-        """
-        self.deferred = deferred
-        self.input = inputData
-        self.output = []
-        self.error = []
-
-
-    def connectionMade(self):
-        """
-        The process started; feed its input on stdin.
-        """
-        self.transport.write(self.input)
-        self.transport.closeStdin()
-
-
-    def outReceived(self, data):
-        """
-        Some output was received on stdout.
-        """
-        self.output.append(data)
-
-
-    def errReceived(self, data):
-        """
-        Some output was received on stderr.
-        """
-        self.error.append(data)
-        # Attempt to exit promptly if a traceback is displayed, so we don't
-        # deal with timeouts.
-        lines = ''.join(self.error).split("\n")
-        if len(lines) > 1:
-            errorReportLine = lines[-2].split(": ", 1)
-            if len(errorReportLine) == 2 and ' ' not in errorReportLine[0] and '\t' not in errorReportLine[0]:
-                self.transport.signalProcess("TERM")
-
-
-    def processEnded(self, why):
-        """
-        The process is over, fire the Deferred with the output.
-        """
-        if why.check(ProcessDone) and not self.error:
-            self.deferred.callback(''.join(self.output))
-        else:
-            self.deferred.errback(ErrorOutput(''.join(self.error)))
 
 
 class GatewayTestCase(TestCase):
