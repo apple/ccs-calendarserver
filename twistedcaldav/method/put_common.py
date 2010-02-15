@@ -27,7 +27,7 @@ from twisted.internet.defer import maybeDeferred
 from twisted.internet.defer import waitForDeferred
 from twisted.python import failure
 from twisted.python.filepath import FilePath
-from twisted.web2 import responsecode
+from twisted.web2 import responsecode, http
 from twisted.web2.dav import davxml
 from twisted.web2.dav.element.base import dav_namespace
 from twisted.web2.dav.element.base import PCDATAElement
@@ -458,7 +458,15 @@ def storeCalendarObjectResource(
             
             if destination_uri and not reserved:
                 raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use." % (destination_uri,)))
-        
+
+            # Re-evaluate the HTTP pre-conditions (If-Match etc) after acquiring the UID lock. This avoids
+            # a race condition where two simultaneous PUTs with If-Match can conflict (i.e. second PUT does
+            # not fail even though underlying resource was changed by first PUT). We also need to reload the
+            # property cache before we do this as the etag property may have changed.
+            if destination.exists():
+                destination.deadProperties().reloadCache()
+            destination.checkPreconditions(request)
+
             # uid conflict check - note we do this after reserving the UID to avoid a race condition where two requests
             # try to write the same calendar data to two different resource URIs.
             if not isiTIP:

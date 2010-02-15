@@ -265,6 +265,10 @@ class MemcachePropertyCollection (LoggingMixIn):
             if not result:
                 raise MemcacheError("Unable to flush cache on %s" % (child,))
 
+    def reloadCache(self, child):
+        loaded = self._loadCache(childNames=(child.fp.basename(),))
+        self.propertyCache().update(loaded.iteritems())
+
     def propertyStoreForChild(self, child, childPropertyStore):
         return self.ChildPropertyStore(self, child, childPropertyStore)
 
@@ -282,6 +286,9 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         def flushCache(self):
             self.parentPropertyCollection.flushCache(self.child)
+
+        def reloadCache(self):
+            self.parentPropertyCollection.reloadCache(self.child)
 
         def get(self, qname, cache=True):
             if cache:
