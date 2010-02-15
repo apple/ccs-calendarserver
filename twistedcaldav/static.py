@@ -341,7 +341,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
         if isCalendarCollectionResource(self):
 
-			# Short-circuit stat with information we know to be true at this point
+            # Short-circuit stat with information we know to be true at this point
             if isinstance(path, FilePath) and hasattr(self, "knownChildren"):
                 if os.path.basename(path.path) in self.knownChildren:
                     path.existsCached = True
