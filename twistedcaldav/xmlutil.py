@@ -35,12 +35,12 @@ def readXML(xmlfile, expectedRootTag=None):
     try:
         etree = ElementTree(file=xmlfile)
     except ExpatError, e:
-        ValueError("Unable to parse file '%s' because: %s" % (xmlfile, e,))
+        raise ValueError("Unable to parse file '%s' because: %s" % (xmlfile, e,))
 
     if expectedRootTag:
         root = etree.getroot()
         if root.tag != expectedRootTag:
-            ValueError("Ignoring file '%s' because it is not a %s file" % (xmlfile, expectedRootTag,))
+            raise ValueError("Ignoring file '%s' because it is not a %s file" % (xmlfile, expectedRootTag,))
     
     return etree, etree.getroot()
 
@@ -95,5 +95,7 @@ def addSubElement(parent, tag, text=None):
 def changeSubElementText(parent, tag, text):
     
     child = parent.find(tag)
-    child.text = text
-
+    if child is not None:
+        child.text = text
+    else:
+        addSubElement(parent, tag, text)

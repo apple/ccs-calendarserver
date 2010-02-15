@@ -473,7 +473,7 @@ def action_setAutoSchedule(principal, autoSchedule):
         # removing the record before adding it.
         (yield augment.AugmentService.removeAugmentRecords([record.guid]))
 
-        (yield augment.AugmentService.addAugmentRecords([aug], update=False))
+        (yield augment.AugmentService.addAugmentRecords([aug]))
 
 def action_getAutoSchedule(principal):
     autoSchedule = principal.getAutoSchedule()

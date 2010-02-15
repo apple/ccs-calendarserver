@@ -273,20 +273,22 @@ class AugmentXMLDB(AugmentDB):
 
         # Make sure UID is present
         changed = False
-        for child in augments_node.getchildren():
+        for record_node in augments_node.getchildren():
             
-            if child.tag != xmlaugmentsparser.ELEMENT_RECORD:
+            if record_node.tag != xmlaugmentsparser.ELEMENT_RECORD:
                 continue
     
-            uid = child.find(xmlaugmentsparser.ELEMENT_UID).text
+            uid = record_node.find(xmlaugmentsparser.ELEMENT_UID).text
             if uid in recordMap:
                 # Modify record
                 record = recordMap[uid]
-                child.find(xmlaugmentsparser.ELEMENT_ENABLE).text = "true" if record.enabled else "false"
-                child.find(xmlaugmentsparser.ELEMENT_HOSTEDAT).text = record.hostedAt
-                child.find(xmlaugmentsparser.ELEMENT_ENABLECALENDAR).text = "true" if record.enabledForCalendaring else "false"
-                child.find(xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK).text = "true" if record.enabledForAddressBooks else "false"
-                child.find(xmlaugmentsparser.ELEMENT_AUTOSCHEDULE).text = "true" if record.autoSchedule else "false"
+                del record_node.getchildren()[:]
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_UID, record.uid)
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_HOSTEDAT, record.hostedAt)
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true" if record.enabledForCalendaring else "false")
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true" if record.enabledForAddressBooks else "false")
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if record.autoSchedule else "false")
                 changed = True
         
         
