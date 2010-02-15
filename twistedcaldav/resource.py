@@ -999,15 +999,16 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                 returnValue(customxml.CalendarProxyWriteFor(
                     *[davxml.HRef(principal.principalURL()) for principal in results]
                 ))
+
+            elif name == "auto-schedule":
+                autoSchedule = self.getAutoSchedule()
+                returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
+
         elif config.EnableCardDAV and namespace == carddav_namespace:
             if name == "addressbook-home-set":
                 returnValue(carddavxml.AddressBookHomeSet(
                     *[davxml.HRef(url) for url in self.addressBookHomeURLs()]
                  ))
-
-            elif name == "auto-schedule":
-                autoSchedule = self.getAutoSchedule()
-                returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
 
         result = (yield super(CalendarPrincipalResource, self).readProperty(property, request))
         returnValue(result)
