@@ -133,6 +133,17 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                         if " " in v:
                             v = '"%s"' % (v,)
                         formats.append("%s=%s" % (k, v))
+
+                fwdHeaders = request.headers.getRawHeaders("x-forwarded-for", "")
+                if fwdHeaders:
+                    # Limit each x-forwarded-header to 50 in case someone is
+                    # trying to overwhelm the logs
+                    forwardedFor = ",".join([hdr[:50] for hdr in fwdHeaders])
+                    forwardedFor = forwardedFor.replace(" ", "")
+                    formats.append("fwd=%(fwd)s")
+                else:
+                    forwardedFor = ""
+
                 format = " ".join(formats)
 
             formatArgs = {
@@ -149,6 +160,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 "serverInstance"      : config.LogID,
                 "timeSpent"           : (time.time() - request.initTime) * 1000,
                 "outstandingRequests" : request.chanRequest.channel.factory.outstandingRequests,
+                "fwd"                 : forwardedFor,
             }
             self.logMessage(format % formatArgs)
 
