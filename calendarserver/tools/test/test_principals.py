@@ -15,8 +15,6 @@
 ##
 
 import os
-import plistlib
-import xml
 
 from twisted.python.filepath import FilePath
 from twisted.internet import reactor
@@ -24,7 +22,6 @@ from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 
 from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
-from calendarserver.tools.util import getDirectory
 
 
 class MangePrincipalsTestCase(TestCase):

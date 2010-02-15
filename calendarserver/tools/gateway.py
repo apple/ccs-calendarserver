@@ -34,6 +34,9 @@ from twisted.web2.dav import davxml
 from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications
 from calendarserver.tools.principals import principalForPrincipalID, proxySubprincipal, addProxy, removeProxy, ProxyError, ProxyWarning
 
+from twext.python.log import StandardIOObserver
+
+
 def usage(e=None):
 
     name = os.path.basename(sys.argv[0])
@@ -43,6 +46,7 @@ def usage(e=None):
     print ""
     print "options:"
     print "  -h --help: print this help and exit"
+    print "  -e --error: send stderr to stdout"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
     print ""
 
@@ -56,8 +60,9 @@ def main():
 
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:", [
+            sys.argv[1:], "hef:", [
                 "help",
+                "error",
                 "config=",
             ],
         )
@@ -72,6 +77,10 @@ def main():
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
             usage()
+
+        if opt in ("-e", "--error"):
+            observer = StandardIOObserver()
+            observer.start()
 
         elif opt in ("-f", "--config"):
             configFileName = arg
@@ -206,10 +215,14 @@ class Runner(object):
         guid = command['GeneratedUID']
         record = self.dir.recordWithGUID(guid)
         recordDict = recordToDict(record)
-        # principal = principalForPrincipalID(guid, directory=self.dir)
-        # recordDict['AutoSchedule'] = principal.getAutoSchedule()
+        principal = principalForPrincipalID(guid, directory=self.dir)
+        if principal is None:
+            respondWithError("Principal not found: %s" % (guid,))
+            return
+        recordDict['AutoSchedule'] = principal.getAutoSchedule()
         respond(command, recordDict)
 
+    @inlineCallbacks
     def command_setLocationAttributes(self, command):
 
         kwargs = {}
@@ -222,9 +235,9 @@ class Runner(object):
             respondWithError(str(e))
             return
 
-        # principal = principalForPrincipalID(command['GeneratedUID'],
-        #     directory=self.dir)
-        # principal.setAutoSchedule(command.get('AutoSchedule', False))
+        principal = principalForPrincipalID(command['GeneratedUID'],
+            directory=self.dir)
+        (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
 
         self.command_getLocationAttributes(command)
 
@@ -258,13 +271,9 @@ class Runner(object):
         respondWithRecordsOfType(self.dir, command, "resources")
 
     def command_getResourceAttributes(self, command):
-        guid = command['GeneratedUID']
-        record = self.dir.recordWithGUID(guid)
-        recordDict = recordToDict(record)
-        # principal = principalForPrincipalID(guid, directory=self.dir)
-        # recordDict['AutoSchedule'] = principal.getAutoSchedule()
-        respond(command, recordDict)
+        self.command_getLocationAttributes(command)
 
+    @inlineCallbacks
     def command_setResourceAttributes(self, command):
 
         kwargs = {}
@@ -277,9 +286,9 @@ class Runner(object):
             respondWithError(str(e))
             return
 
-        # principal = principalForPrincipalID(command['GeneratedUID'],
-        #     directory=self.dir)
-        # principal.setAutoSchedule(command.get('AutoSchedule', False))
+        principal = principalForPrincipalID(command['GeneratedUID'],
+            directory=self.dir)
+        (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
 
         self.command_getResourceAttributes(command)
 

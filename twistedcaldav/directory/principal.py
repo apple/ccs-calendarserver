@@ -56,6 +56,7 @@ from twistedcaldav.authkerb import NegotiateCredentials
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.directory import calendaruserproxy
+from twistedcaldav.directory import augment
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.util import NotFilePath
@@ -488,7 +489,6 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
             subType = None
 
         record = self.directory.recordWithUID(primaryUID)
-
         primaryPrincipal = self.principalForRecord(record) if record and record.enabled else None
         if primaryPrincipal is None:
             log.err("No principal found for UID: %s" % (name,))
@@ -786,8 +786,12 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     # Extra resource info
     ##
 
+    @inlineCallbacks
     def setAutoSchedule(self, autoSchedule):
         self.record.autoSchedule = autoSchedule
+        augmentRecord = (yield augment.AugmentService.getAugmentRecord(self.record.guid))
+        augmentRecord.autoSchedule = autoSchedule
+        (yield augment.AugmentService.addAugmentRecords([augmentRecord]))
 
     def getAutoSchedule(self):
         return self.record.autoSchedule

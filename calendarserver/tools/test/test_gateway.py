@@ -26,6 +26,8 @@ from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tools.util import getDirectory
 
+from twistedcaldav.directory import augment
+
 
 class GatewayTestCase(TestCase):
 
@@ -69,7 +71,7 @@ class GatewayTestCase(TestCase):
         return d
 
     @inlineCallbacks
-    def runCommand(self, command):
+    def runCommand(self, command, error=False):
         """
         Run the given command by feeding it as standard input to
         calendarserver_command_gateway in a subprocess.
@@ -79,6 +81,9 @@ class GatewayTestCase(TestCase):
         gateway = os.path.join(sourceRoot, "bin", "calendarserver_command_gateway")
 
         args = [python, gateway, "-f", self.configFileName]
+        if error:
+            args.append("--error")
+
         cwd = sourceRoot
 
         deferred = Deferred()
@@ -112,6 +117,7 @@ class GatewayTestCase(TestCase):
         self.assertEquals(results['result']['Street'], "1 Infinite Loop")
         self.assertEquals(results['result']['RealName'], "Created Location 01")
         self.assertEquals(results['result']['Comment'], "Test Comment")
+        self.assertEquals(results['result']['AutoSchedule'], False)
 
     @inlineCallbacks
     def test_getResourceList(self):
@@ -156,6 +162,11 @@ class GatewayTestCase(TestCase):
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         yield self.runCommand(command_setLocationAttributes)
         directory.flushCaches()
+
+        # This appears to be necessary in order for record.autoSchedule to
+        # reflect the change
+        augment.AugmentService.refresh()
+
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
 
         self.assertEquals(record.extras['comment'], "Updated Test Comment")
@@ -168,6 +179,11 @@ class GatewayTestCase(TestCase):
         self.assertEquals(record.extras['zip'], "95015")
         self.assertEquals(record.extras['country'], "Updated USA")
         self.assertEquals(record.extras['phone'], "(408) 555-1213")
+        self.assertEquals(record.autoSchedule, True)
+
+        results = yield self.runCommand(command_getLocationAttributes)
+        self.assertEquals(results['result']['AutoSchedule'], True)
+
 
     @inlineCallbacks
     def test_destroyLocation(self):
@@ -379,7 +395,7 @@ command_listReadProxies = """<?xml version="1.0" encoding="UTF-8"?>
         <key>command</key>
         <string>listReadProxies</string>
         <key>Principal</key>
-        <string>locations:location01</string>
+        <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
 </dict>
 </plist>
 """
@@ -391,7 +407,7 @@ command_listWriteProxies = """<?xml version="1.0" encoding="UTF-8"?>
         <key>command</key>
         <string>listWriteProxies</string>
         <key>Principal</key>
-        <string>locations:location01</string>
+        <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
 </dict>
 </plist>
 """
@@ -431,7 +447,7 @@ command_setLocationAttributes = """<?xml version="1.0" encoding="UTF-8"?>
         <key>command</key>
         <string>setLocationAttributes</string>
         <key>AutoSchedule</key>
-        <false/>
+        <true/>
         <key>GeneratedUID</key>
         <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
         <key>RealName</key>
