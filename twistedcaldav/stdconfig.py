@@ -197,7 +197,7 @@ DEFAULT_CONFIG = {
     #    and resources.
     #
     "ResourceService": {
-        "Enabled" : False,
+        "Enabled" : True,
         "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
         "params": DEFAULT_RESOURCE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
     },

@@ -170,23 +170,6 @@
       </dict>
     </dict>
 
-
-    <!-- Resource and Locations service -->
-    <key>ResourceService</key>
-    <dict>
-      <key>Enabled</key>
-      <true/>
-      <key>type</key>
-      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
-
-      <key>params</key>
-      <dict>
-        <key>xmlFile</key>
-        <string>resources.xml</string>
-      </dict>
-    </dict>
-
-
     <!--
         Augment service
 
