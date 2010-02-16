@@ -618,6 +618,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             """---------------------\n"""
             """Directory GUID: %s\n"""         % (self.record.service.guid,),
             """Realm: %s\n"""                  % (self.record.service.realmName,),
+            """Hosted-At: %s\n"""              % (self.record.hostedAt,) if config.Partitioning.Enabled else "", 
             """\n"""
             """Principal Information\n"""
             """---------------------\n"""
