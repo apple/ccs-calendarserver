@@ -18,12 +18,13 @@
 from twisted.web2.dav import davxml
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
+#from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
+CalendarUserProxyDatabase = None
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import UpgradeError, upgradeData, updateFreeBusySet
-from twistedcaldav.test.util import TestCase
+#from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
 
 import hashlib
@@ -34,7 +35,7 @@ cTagAttr = "WebDAV:{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"
 md5Attr = "WebDAV:{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"
 
 
-class ProxyDBUpgradeTests(TestCase):
+class ProxyDBUpgradeTests(object): #(TestCase):
     todo = "upgrade.py needs to be fixed"
     
     def setUpXMLDirectory(self):
