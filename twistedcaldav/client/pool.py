@@ -32,7 +32,9 @@ from twisted.internet.error import ConnectionLost, ConnectionDone, ConnectError
 from twisted.internet.protocol import ClientFactory
 from twisted.web2 import responsecode
 from twisted.web2.client.http import HTTPClientProtocol
+from twisted.web2.dav.util import allDataFromStream
 from twisted.web2.http import StatusResponse, HTTPError
+from twisted.web2.stream import MemoryStream
 from twistedcaldav.config import config
 
 class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
@@ -232,9 +234,17 @@ class HTTPClientPool(LoggingMixIn):
         @return: A L{Deferred} that fires with the result of the given command.
         """
 
+        # Since we may need to replay the request we have to read the request.stream
+        # into memory and reset request.stream to use a MemoryStream each time we repeat
+        # the request
+        data = (yield allDataFromStream(request.stream))
+
         # Try this maxRetries times
         for ctr in xrange(self.maxRetries + 1):
             try:
+                request.stream = MemoryStream(data if data is not None else "")
+                request.stream.doStartReading = None
+
                 response = (yield self._submitRequest(request, args, kwargs))
 
             except (ConnectionLost, ConnectionDone, ConnectError), e:
