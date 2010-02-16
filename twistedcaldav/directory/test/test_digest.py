@@ -14,6 +14,10 @@
 # limitations under the License.
 ##
 
+import sys
+import time
+from hashlib import md5
+
 from twisted.cred import error
 from twisted.internet import address
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -26,10 +30,6 @@ from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
 from twisted.web2.auth.digest import DigestCredentialFactory
-import time
-
-import md5
-import sys
 
 class FakeDigestCredentialFactory(QopDigestCredentialFactory):
     """
@@ -344,10 +344,10 @@ class DigestAuthTestCase(TestCase):
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
     
             self.failUnless(creds.checkHash(
-                    md5.md5('username:test realm:password').hexdigest()))
+                    md5('username:test realm:password').hexdigest()))
     
             self.failIf(creds.checkHash(
-                    md5.md5('username:test realm:bogus').hexdigest()))
+                    md5('username:test realm:bogus').hexdigest()))
 
     @inlineCallbacks
     def test_invalidNonceCount(self):
