@@ -25,7 +25,7 @@ import os
 import socket
 import stat
 import sys
-from time import sleep, time
+from time import time
 
 from subprocess import Popen, PIPE
 from pwd import getpwnam, getpwuid
@@ -37,9 +37,7 @@ from zope.interface import implements
 
 from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
-from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
-from twisted.internet import reactor
 from twisted.internet.reactor import callLater, spawnProcess
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
@@ -47,11 +45,7 @@ from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import Service, MultiService, IServiceMaker
 from twisted.scripts.mktap import getid
 from twisted.runner import procmon
-from twisted.cred.portal import Portal
-from twisted.web2.dav import auth
-from twisted.web2.auth.basic import BasicCredentialFactory
 from twisted.web2.server import Site
-from twisted.web2.static import File as FileResource
 
 from twext.log import Logger, LoggingMixIn
 from twext.log import logLevelForNamespace, setLogLevelForNamespace
@@ -66,30 +60,18 @@ except ImportError:
     from version import version as getVersion
     version = "%s (%s)" % getVersion()
 
-from twistedcaldav import memcachepool
 from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
 from twistedcaldav.accesslog import AMPLoggingFactory
-from twistedcaldav.accesslog import DirectoryLogWrapperResource
 from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
-from twistedcaldav.directory import augment, calendaruserproxy
-from twistedcaldav.directory.aggregate import AggregateDirectoryService
-from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
-from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.sudo import SudoDirectoryService
-from twistedcaldav.directory.util import NotFilePath
-from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
-from twistedcaldav.notify import installNotificationClient
-from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.upgrade import upgradeData
 from twistedcaldav.util import getNCPU
 
@@ -102,6 +84,7 @@ except ImportError:
 from calendarserver.provision.root import RootResource
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
+from calendarserver.util import getRootResource
 
 log = Logger()
 
@@ -507,312 +490,10 @@ class CalDAVServiceMaker (LoggingMixIn):
         oldLogLevel = logLevelForNamespace(None)
         setLogLevelForNamespace(None, "info")
 
-        #
-        # Setup the Directory
-        #
-        directories = []
-
-        directoryClass = namedClass(config.DirectoryService.type)
-
-        self.log_info("Configuring directory service of type: %s"
-                      % (config.DirectoryService.type,))
-
-        baseDirectory = directoryClass(config.DirectoryService.params)
-
-        # Wait for the directory to become available
-        while not baseDirectory.isAvailable():
-            sleep(5)
-
-        directories.append(baseDirectory)
-
-        #
-        # Setup the Locations and Resources Service
-        #
-        if config.ResourceService.Enabled:
-            resourceClass = namedClass(config.ResourceService.type)
-
-            self.log_info("Configuring resource service of type: %s" % (resourceClass,))
-
-            resourceDirectory = resourceClass(config.ResourceService.params)
-            directories.append(resourceDirectory)
-
-        #
-        # Add sudoers directory
-        #
-        sudoDirectory = None
-
-        if config.SudoersFile and os.path.exists(config.SudoersFile):
-            self.log_info("Configuring SudoDirectoryService with file: %s"
-                          % (config.SudoersFile,))
-
-            sudoDirectory = SudoDirectoryService(config.SudoersFile)
-            sudoDirectory.realmName = baseDirectory.realmName
-
-            CalDAVResource.sudoDirectory = sudoDirectory
-            directories.insert(0, sudoDirectory)
-        else:
-            self.log_info(
-                "Not using SudoDirectoryService; file doesn't exist: %s"
-                % (config.SudoersFile,)
-            )
-
-        #
-        # Add wiki directory service
-        #
-        if config.Authentication.Wiki.Enabled:
-            wikiDirectory = WikiDirectoryService()
-            wikiDirectory.realmName = baseDirectory.realmName
-            directories.append(wikiDirectory)
-
-        directory = AggregateDirectoryService(directories)
-        self.directory = directory
-
-        if sudoDirectory:
-            directory.userRecordTypes.insert(0,
-                SudoDirectoryService.recordType_sudoers)
-
-        #
-        # Setup the Augment Service
-        #
-        augmentClass = namedClass(config.AugmentService.type)
-
-        self.log_info("Configuring augment service of type: %s" % (augmentClass,))
-
-        try:
-            augment.AugmentService = augmentClass(**config.AugmentService.params)
-        except IOError, e:
-            self.log_error("Could not start augment service")
-            raise
-
-        #
-        # Setup the PoxyDB Service
-        #
-        proxydbClass = namedClass(config.ProxyDBService.type)
-
-        self.log_info("Configuring proxydb service of type: %s" % (proxydbClass,))
-
-        try:
-            calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
-        except IOError, e:
-            self.log_error("Could not start proxydb service")
-            raise
-
-        #
-        # Make sure proxies get initialized
-        #
-        if config.ProxyLoadFromFile:
-            def _doProxyUpdate():
-                loader = XMLCalendarUserProxyLoader(config.ProxyLoadFromFile)
-                return loader.updateProxyDB()
-            
-            reactor.addSystemEventTrigger("after", "startup", _doProxyUpdate)
-
-        #
-        # Configure Memcached Client Pool
-        #
-        memcachepool.installPools(
-            config.Memcached.Pools,
-            config.Memcached.MaxClients,
-        )
-
-        #
-        # Configure NotificationClient
-        #
-        if config.Notifications.Enabled:
-            installNotificationClient(
-                config.Notifications.InternalNotificationHost,
-                config.Notifications.InternalNotificationPort,
-            )
-
-        #
-        # Configure the Site and Wrappers
-        #
-        credentialFactories = []
-
-        portal = Portal(auth.DavRealm())
-
-        portal.registerChecker(directory)
-
-        realm = directory.realmName or ""
-
-        self.log_info("Configuring authentication for realm: %s" % (realm,))
-
-        for scheme, schemeConfig in config.Authentication.iteritems():
-            scheme = scheme.lower()
-
-            credFactory = None
-
-            if schemeConfig["Enabled"]:
-                self.log_info("Setting up scheme: %s" % (scheme,))
-
-                if scheme == "kerberos":
-                    if not NegotiateCredentialFactory:
-                        self.log_info("Kerberos support not available")
-                        continue
-
-                    try:
-                        principal = schemeConfig["ServicePrincipal"]
-                        if not principal:
-                            credFactory = NegotiateCredentialFactory(
-                                type="HTTP",
-                                hostname=config.ServerHostName,
-                            )
-                        else:
-                            credFactory = NegotiateCredentialFactory(
-                                principal=principal,
-                            )
-                    except ValueError:
-                        self.log_info("Could not start Kerberos")
-                        continue
-
-                elif scheme == "digest":
-                    credFactory = QopDigestCredentialFactory(
-                        schemeConfig["Algorithm"],
-                        schemeConfig["Qop"],
-                        realm,
-                    )
-
-                elif scheme == "basic":
-                    credFactory = BasicCredentialFactory(realm)
-
-                elif scheme == "wiki":
-                    pass
-
-                else:
-                    self.log_error("Unknown scheme: %s" % (scheme,))
-
-            if credFactory:
-                credentialFactories.append(credFactory)
-
-
-        # Set up a basic credential factory for use on the /inbox iMIP
-        # injection resource
-        inboxCredentialFactory = BasicCredentialFactory(realm)
-
-        #
-        # Setup Resource hierarchy
-        #
-        self.log_info("Setting up document root at: %s"
-                      % (config.DocumentRoot,))
-        self.log_info("Setting up principal collection: %r"
-                      % (self.principalResourceClass,))
-
-        principalCollection = self.principalResourceClass(
-            "/principals/",
-            directory,
-        )
-        self.principalCollection = principalCollection
-
-        self.log_info("Setting up calendar collection: %r"
-                      % (self.calendarResourceClass,))
-
-        calendarCollection = self.calendarResourceClass(
-            os.path.join(config.DocumentRoot, "calendars"),
-            directory, "/calendars/",
-        )
-
-        self.log_info("Setting up root resource: %r"
-                      % (self.rootResourceClass,))
-
-        root = self.rootResourceClass(
-            config.DocumentRoot,
-            principalCollections=(principalCollection,),
-        )
-        self.root = root
-
-        root.putChild("principals", principalCollection)
-        root.putChild("calendars", calendarCollection)
-
-        for name, info in config.Aliases.iteritems():
-            if os.path.sep in name or not info.get("path", None):
-                self.log_error("Invalid alias: %s" % (name,))
-                continue
-            self.log_info("Adding alias %s -> %s" % (name, info["path"]))
-            resource = FileResource(info["path"])
-            root.putChild(name, resource)
-
-        # Timezone service is optional
-        if config.EnableTimezoneService:
-            self.log_info("Setting up time zone service resource: %r"
-                          % (self.timezoneServiceResourceClass,))
-
-            timezoneService = self.timezoneServiceResourceClass(
-                NotFilePath(isfile=True),
-                root,
-            )
-            root.putChild("timezones", timezoneService)
-
-        # iSchedule service is optional
-        if config.Scheduling.iSchedule.Enabled:
-            self.log_info("Setting up iSchedule inbox resource: %r"
-                          % (self.iScheduleResourceClass,))
-
-            ischedule = self.iScheduleResourceClass(
-                NotFilePath(isfile=True),
-                root,
-            )
-            root.putChild("ischedule", ischedule)
-
-        #
-        # IMIP delivery resource
-        #
+        additional = []
         if config.Scheduling.iMIP.Enabled:
-            self.log_info("Setting up iMIP inbox resource: %r"
-                          % (self.imipResourceClass,))
-
-            # The authenticationWrapper below will be configured to always
-            # allow basic auth on /inbox
-            root.putChild("inbox", self.imipResourceClass(root))
-
-        #
-        # WebCal
-        #
-        if config.WebCalendarRoot:
-            self.log_info("Setting up WebCalendar resource: %s"
-                          % (config.WebCalendarRoot,))
-            webCalendar = self.webCalendarResourceClass(
-                config.WebCalendarRoot,
-                principalCollections=(principalCollection,),
-            )
-            root.putChild("webcal", webCalendar)
-
-        #
-        # WebAdmin
-        #
-        if config.EnableWebAdmin:
-            self.log_info("Setting up WebAdmin resource")
-            webAdmin = self.webAdminResourceClass(
-                config.WebCalendarRoot,
-                root,
-                directory,
-                principalCollections=(principalCollection,),
-            )
-            root.putChild("admin", webAdmin)
-
-        #
-        # Configure ancillary data
-        #
-        self.log_info("Setting up Timezone Cache")
-        TimezoneCache.create()
-
-
-
-        self.log_info("Configuring authentication wrapper")
-
-        authWrapper = AuthenticationWrapper(
-            root,
-            portal,
-            credentialFactories,
-            (auth.IPrincipal,),
-            overrides = {
-                "/inbox" : (inboxCredentialFactory,),
-            }
-        )
-
-        logWrapper = DirectoryLogWrapperResource(
-            authWrapper,
-            directory,
-        )
+            additional.append(("inbox", IMIPReplyInboxResource, [], "basic"))
+        rootResource = getRootResource(config, additional)
 
         #
         # Configure the service
@@ -820,8 +501,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("Setting up service")
 
         if config.ProcessType == "Slave":
-            realRoot = logWrapper
-
             if config.ControlSocket:
                 mode = "AF_UNIX"
                 id = config.ControlSocket
@@ -837,8 +516,6 @@ class CalDAVServiceMaker (LoggingMixIn):
             # Make sure no old socket files are lying around.
             self.deleteStaleSocketFiles()
 
-            realRoot = logWrapper
-
             logObserver = RotatingFileAccessLoggingObserver(
                 config.AccessLogFile,
             )
@@ -847,7 +524,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         service = CalDAVService(logObserver)
 
-        site = Site(realRoot)
+        site = Site(rootResource)
 
         httpFactory = LimitingHTTPFactory(
             site,

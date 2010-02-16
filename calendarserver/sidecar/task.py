@@ -22,7 +22,6 @@ __all__ = [
     "Task",
 ]
 
-from time import sleep
 import os
 
 from zope.interface import implements
@@ -31,24 +30,19 @@ from twisted.application.service import Service, IServiceMaker
 from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
 from twisted.internet.reactor import callLater
 from twisted.plugin import IPlugin
-from twisted.python.reflect import namedClass
 from twisted.python.usage import Options, UsageError
 from twisted.web2.http_headers import Headers
 
 from twext.log import Logger, LoggingMixIn
 from twext.log import logLevelForNamespace, setLogLevelForNamespace
 
-from twistedcaldav import memcachepool
 from twistedcaldav.config import config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.ical import Component
-from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
 from twistedcaldav.scheduling.scheduler import DirectScheduler
-from twistedcaldav.static import CalendarHomeProvisioningFile
 
-from calendarserver.provision.root import RootResource
+from calendarserver.util import getRootResource
 
 log = Logger()
 
@@ -201,9 +195,9 @@ class Task(object):
 
 class CalDAVTaskService(Service):
 
-    def __init__(self, root, directory):
+    def __init__(self, root):
         self.root = root
-        self.directory = directory
+        self.directory = root.directory
         self.seconds = 30 # How often to check for new tasks in incomingDir
         self.taskDir = os.path.join(config.DataRoot, "tasks")
         # New task files are placed into "incoming"
@@ -345,13 +339,6 @@ class CalDAVTaskServiceMaker (LoggingMixIn):
     description = "Calendar Server Task Process"
     options = CalDAVTaskOptions
 
-    #
-    # Default resource classes
-    #
-    rootResourceClass            = RootResource
-    principalResourceClass       = DirectoryPrincipalProvisioningResource
-    calendarResourceClass        = CalendarHomeProvisioningFile
-
     def makeService(self, options):
 
         #
@@ -366,70 +353,9 @@ class CalDAVTaskServiceMaker (LoggingMixIn):
         oldLogLevel = logLevelForNamespace(None)
         setLogLevelForNamespace(None, "info")
 
-        #
-        # Setup the Directory
-        #
-        directoryClass = namedClass(config.DirectoryService.type)
+        rootResource = getRootResource(config)
 
-        self.log_info("Configuring directory service of type: %s"
-                      % (config.DirectoryService.type,))
-
-        directory = directoryClass(config.DirectoryService.params)
-
-        # Wait for the directory to become available
-        while not directory.isAvailable():
-            sleep(5)
-
-        #
-        # Configure Memcached Client Pool
-        #
-        memcachepool.installPools(
-            config.Memcached.Pools,
-            config.Memcached.MaxClients,
-        )
-
-        #
-        # Configure NotificationClient
-        #
-        if config.Notifications.Enabled:
-            installNotificationClient(
-                config.Notifications.InternalNotificationHost,
-                config.Notifications.InternalNotificationPort,
-            )
-
-        #
-        # Setup Resource hierarchy
-        #
-        self.log_info("Setting up document root at: %s"
-                      % (config.DocumentRoot,))
-        self.log_info("Setting up principal collection: %r"
-                      % (self.principalResourceClass,))
-
-        principalCollection = self.principalResourceClass(
-            "/principals/",
-            directory,
-        )
-
-        self.log_info("Setting up calendar collection: %r"
-                      % (self.calendarResourceClass,))
-
-        calendarCollection = self.calendarResourceClass(
-            os.path.join(config.DocumentRoot, "calendars"),
-            directory, "/calendars/",
-        )
-
-        self.log_info("Setting up root resource: %r"
-                      % (self.rootResourceClass,))
-
-        root = self.rootResourceClass(
-            config.DocumentRoot,
-            principalCollections=(principalCollection,),
-        )
-
-        root.putChild("principals", principalCollection)
-        root.putChild("calendars", calendarCollection)
-
-        service = CalDAVTaskService(root, directory)
+        service = CalDAVTaskService(rootResource)
 
         # Change log level back to what it was before
         setLogLevelForNamespace(None, oldLogLevel)
