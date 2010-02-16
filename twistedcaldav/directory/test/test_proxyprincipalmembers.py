@@ -30,7 +30,6 @@ import twistedcaldav.test.util
 from twistedcaldav.config import config
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
-import os
 
 class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     """

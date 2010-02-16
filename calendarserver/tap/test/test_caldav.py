@@ -36,7 +36,7 @@ from twisted.web2.log import LogWrapperResource
 from twext.python.plistlib import writePlist
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
-from twistedcaldav.config import config, ConfigDict, _mergeData
+from twistedcaldav.config import config, ConfigDict
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
