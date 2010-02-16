@@ -97,6 +97,7 @@ parse_options () {
       'p') do_get="false"; do_setup="false"; do_run="false"; print_path="true"; ;;
       'i') do_get="true" ; do_setup="true" ; do_run="false"; install="${OPTARG}"; install_flag="--root="; ;;
       'I') do_get="true" ; do_setup="true" ; do_run="false"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
+      'n') do_get="false" ; do_setup="false"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
