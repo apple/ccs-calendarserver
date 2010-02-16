@@ -35,6 +35,7 @@ from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 log = Logger()
 
 DEFAULT_CONFIG_FILE = "/etc/caldavd/caldavd.plist"
+DEFAULT_CARDDAV_CONFIG_FILE = "/etc/carddavd/carddavd.plist"
 
 DEFAULT_SERVICE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {

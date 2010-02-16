@@ -31,12 +31,13 @@ from twisted.application.service import IServiceMaker
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 
 from twistedcaldav.config import config
+from twistedcaldav.stdconfig import DEFAULT_CARDDAV_CONFIG_FILE
 from twistedcaldav.static import AddressBookHomeProvisioningFile, DirectoryBackedAddressBookFile
 from twext.log import Logger
 
 log = Logger()
 
-from calendarserver.tap.caldav import CalDAVServiceMaker
+from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -57,11 +58,23 @@ class RootResource (_ParentRootResource):
 
 
 
+class CardDAVOptions(CalDAVOptions):
+    """
+    The same as L{CalDAVOptions}, but with a different default config file.
+    """
+
+    optParameters = [[
+        "config", "f", DEFAULT_CARDDAV_CONFIG_FILE, "Path to configuration file."
+    ]]
+
+
+
 class CardDAVServiceMaker (CalDAVServiceMaker):
     implements(IPlugin, IServiceMaker)
 
     tapname = "carddav"
     description = "Darwin Contacts Server"
+    options = CardDAVOptions
 
     #
     # Default resource classes
