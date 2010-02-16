@@ -14,6 +14,8 @@
 # limitations under the License.
 ##
 
+from __future__ import with_statement
+
 from xml.etree.ElementTree import Element, ElementTree, SubElement, tostring
 from xml.parsers.expat import ExpatError
 
