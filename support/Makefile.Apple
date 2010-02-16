@@ -98,7 +98,7 @@ install:: build
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-partitioning-secondary.plist" "$(DSTROOT)$(ETCDIR)/caldavd/caldavd-partitioning-secondary.plist"
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/partitions.plist" "$(DSTROOT)$(ETCDIR)/caldavd/partitions.plist"
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/servertoserver.xml" "$(DSTROOT)$(ETCDIR)/caldavd/servertoserver.xml"
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(ETCDIR)/carddavd/carddavd.plist"
+	$(_v) $(INSTALL_FILE) "$(Sources)/conf/carddavd-apple.plist" "$(DSTROOT)$(ETCDIR)/carddavd/carddavd.plist"
 	$(_v) chmod -R ugo+r "$(DSTROOT)$(PY_HOME)"
 	$(_v) for f in $$(find "$(DSTROOT)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/servertoserver.dtd" "$(DSTROOT)$(ETCDIR)/caldavd/servertoserver.dtd"
