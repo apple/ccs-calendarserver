@@ -85,6 +85,30 @@ __all__ = [
 ]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# FIXME:
+# Temporarily ignore digest auth as it's broken for local accounts
+
+NS_XMPP_SASL = 'urn:ietf:params:xml:ns:xmpp-sasl'
+
+from twisted.words.protocols.jabber import sasl
+def get_mechanisms(xs):
+    """
+    Parse the SASL feature to extract the available mechanism names.
+    """
+    mechanisms = []
+    for element in xs.features[(NS_XMPP_SASL, 'mechanisms')].elements():
+        if element.name == 'mechanism':
+            mechanism = str(element)
+            if mechanism != "DIGEST-MD5":
+                mechanisms.append(str(element))
+
+    return mechanisms
+
+sasl.get_mechanisms = get_mechanisms
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Classes used within calendarserver itself
 #
 
@@ -1366,4 +1390,3 @@ class XMPPNotifierService(service.Service):
 
     def stopService(self):
         self.client.stopService()
-
