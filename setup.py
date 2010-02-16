@@ -117,7 +117,7 @@ if __name__ == "__main__":
                              "bin/carddavd",
                            ],
         data_files       = [ ("caldavd", ["conf/caldavd.plist"]),
-                             ("carddavd", ["conf/carddavd.plist.default" ])],
+                             ("carddavd", ["conf/carddavd.plist" ])],
         ext_modules      = extensions,
         py_modules       = ["kqreactor", "memcacheclient"],
     )
