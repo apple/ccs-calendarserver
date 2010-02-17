@@ -197,12 +197,17 @@ class BaseServiceMakerTests(TestCase):
         self.config = ConfigDict(DEFAULT_CONFIG)
 
         accountsFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/accounts.xml")
+        resourcesFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/resources.xml")
         augmentsFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/augments.xml")
         pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
 
         self.config["DirectoryService"] = {
             "params": {"xmlFile": accountsFile},
             "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService"
+        }
+
+        self.config["ResourceService"] = {
+            "params": {"xmlFile": resourcesFile},
         }
 
         self.config["AugmentService"] = {
