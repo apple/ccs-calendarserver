@@ -78,7 +78,7 @@
 
     <!-- Server root -->
     <key>ServerRoot</key>
-    <string>/Library/CalendarServer</string>
+    <string>/Library/AddressBookServer</string>
 
     <!-- Data root -->
     <key>DataRoot</key>
@@ -90,7 +90,7 @@
 
     <!-- Configuration root -->
     <key>ConfigRoot</key>
-    <string>/etc/caldavd</string>
+    <string>/etc/cardavd</string>
 
     <!-- Run root -->
     <key>RunRoot</key>
@@ -117,20 +117,6 @@
     <key>UserQuota</key>
     <integer>104857600</integer> <!-- 100Mb -->
 
-    <!-- Attachment size limit (in bytes) -->
-    <key>MaximumAttachmentSize</key>
-    <integer>1048576</integer> <!-- 1Mb -->
-
-    <!-- Maximum number of unique attendees per entire event -->
-    <!-- 0 for no limit -->
-    <key>MaxAttendeesPerInstance</key>
-    <integer>100</integer>
-
-    <!-- Maximum number of instances allowed for a single RRULE -->
-    <!-- 0 for no limit -->
-    <key>MaxInstancesForRRULE</key>
-    <integer>400</integer>
-
 
     <!--
         Directory service
@@ -140,6 +126,14 @@
 
         A variety of directory services are available for use.
       -->
+
+    <!-- Disable resource service. -->
+    <key>ResourceService</key>
+    <dict>
+      <key>Enabled</key>
+      <false/>
+    </dict>
+
 
     <!-- XML File Directory Service -->
     <key>DirectoryService</key>
@@ -171,7 +165,6 @@
     </dict>
      -->
 
-
     <!--
         Special principals
 
@@ -191,10 +184,6 @@
       <!-- <string>/principals/__uids__/983C8238-FB6B-4D92-9242-89C0A39E5F81/</string> -->
     </array>
 
-    <!-- Create "proxy access" principals -->
-    <key>EnableProxyPrincipals</key>
-    <true/>
-
 
     <!--
         Permissions
@@ -211,10 +200,6 @@
     <!-- Enables directory listings for principals -->
     <key>EnablePrincipalListings</key>
     <false/>
-
-    <!-- Render calendar collections as a monolithic iCalendar object -->
-    <key>EnableMonolithicCalendars</key>
-    <true/>
 
 
     <!--
@@ -260,7 +245,7 @@
 
     <!-- Log root -->
     <key>LogRoot</key>
-    <string>/var/log/caldavd</string>
+    <string>/var/log/cardavd</string>
 
     <!-- Apache-style access log -->
     <key>AccessLogFile</key>
@@ -276,13 +261,13 @@
     <key>DefaultLogLevel</key>
     <string>warn</string> <!-- debug, info, warn, error -->
 
-    <!-- Global server stats --> 
-    <key>GlobalStatsSocket</key> 
-    <string>caldavd-stats.sock</string> 
+    <!-- Global server stats -->
+    <key>GlobalStatsSocket</key>
+    <string>carddavd-stats.sock</string>
 
     <!-- Server process ID file -->
     <key>PIDFile</key>
-    <string>caldavd.pid</string>
+    <string>carddavd.pid</string>
 
 
     <!--
@@ -320,160 +305,6 @@
       <key>ProcessCount</key>
       <integer>0</integer> <!-- 0 = larger of: 4 or (2 * CPU count) -->
     </dict>
-
-
-    <!--
-        Notifications
-      -->
-
-    <key>Notifications</key>
-    <dict>
-      <!-- Time spent coalescing notifications before delivery -->
-      <key>CoalesceSeconds</key>
-      <integer>3</integer>
-
-      <key>Services</key>
-      <dict>
-        <key>XMPPNotifier</key>
-        <dict>
-          <!-- XMPP notification service -->
-          <key>Service</key>
-          <string>twistedcaldav.notify.XMPPNotifierService</string>
-          <key>Enabled</key>
-          <false/>
-
-          <!-- XMPP host and port to contact -->
-          <key>Host</key>
-          <string>xmpp.host.name</string>
-          <key>Port</key>
-          <integer>5222</integer>
-
-          <!-- Jabber ID and password for the server -->
-          <key>JID</key>
-          <string>jid@xmpp.host.name/resource</string>
-          <key>Password</key>
-          <string>password_goes_here</string>
-
-          <!-- PubSub service address -->
-          <key>ServiceAddress</key>
-          <string>pubsub.xmpp.host.name</string>
-        </dict>
-      </dict>
-    </dict>
-
-
-    <!--
-        Server-to-server protocol
-      -->
-
-    <key>Scheduling</key>
-    <dict>
-
-      <!-- CalDAV protocol options -->
-      <key>CalDAV</key>
-      <dict>
-        <key>EmailDomain</key>
-        <string></string>
-        <key>HTTPDomain</key>
-        <string></string>
-        <key>AddressPatterns</key>
-        <array>
-        </array>
-      </dict>
-
-      <!-- iSchedule protocol options -->
-      <key>iSchedule</key>
-      <dict>
-        <key>Enabled</key>
-        <false/>
-        <key>AddressPatterns</key>
-        <array>
-        </array>
-        <key>Servers</key>
-        <string>servertoserver.xml</string>
-      </dict>
-
-      <!-- iMIP protocol options -->
-      <key>iMIP</key>
-      <dict>
-        <key>Enabled</key>
-        <false/>
-        <key>MailGatewayServer</key>
-        <string>localhost</string>
-        <key>MailGatewayPort</key>
-        <integer>62310</integer>
-        <key>Sending</key>
-        <dict>
-          <key>Server</key>
-          <string></string>
-          <key>Port</key>
-          <integer>587</integer>
-          <key>UseSSL</key>
-          <true/>
-          <key>Username</key>
-          <string></string>
-          <key>Password</key>
-          <string></string>
-          <key>Address</key>
-          <string></string> <!-- Address email will be sent from -->
-        </dict>
-        <key>Receiving</key>
-        <dict>
-          <key>Server</key>
-          <string></string>
-          <key>Port</key>
-          <integer>995</integer>
-          <key>Type</key>
-          <string></string> <!-- Either "pop" or "imap" -->
-          <key>UseSSL</key>
-          <true/>
-          <key>Username</key>
-          <string></string>
-          <key>Password</key>
-          <string></string>
-          <key>PollingSeconds</key>
-          <integer>30</integer>
-        </dict>
-        <key>AddressPatterns</key>
-        <array>
-          <string>mailto:.*</string>
-        </array>
-      </dict>
-
-    </dict>
-
-
-    <!--
-        Free-busy URL protocol
-      -->
-
-    <key>FreeBusyURL</key>
-    <dict>
-      <key>Enabled</key>
-      <true/>
-      <key>TimePeriod</key>
-      <integer>14</integer>
-      <key>AnonymousAccess</key>
-      <false/>
-    </dict>
-
-
-    <!--
-        Non-standard CalDAV extensions
-      -->
-
-    <!-- Private Events -->
-    <key>EnablePrivateEvents</key>
-    <true/>
-
-
-    <!--
-        Miscellaneous items
-      -->
-
-    <!-- Web-based administration -->
-    <key>EnableWebAdmin</key>
-    <true/>
 
 
   </dict>

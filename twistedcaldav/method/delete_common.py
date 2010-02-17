@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.method.report_common import applyToAddressBookCollections
-from twistedcaldav.method.report_common import applyToCalendarCollections
 
 
 """
@@ -36,7 +34,7 @@ from twext.web2.dav.davxml import ErrorResponse
 from twistedcaldav.caldavxml import caldav_namespace, ScheduleTag
 from twistedcaldav.config import config
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
-from twistedcaldav.method.report_common import applyToCalendarCollections
+from twistedcaldav.method.report_common import applyToAddressBookCollections, applyToCalendarCollections
 from twistedcaldav.resource import isCalendarCollectionResource,\
     isPseudoCalendarCollectionResource, isAddressBookCollectionResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
@@ -270,28 +268,6 @@ class DeleteResource(object):
         response = errors.response()
 
         returnValue(response)
-        
-    @inlineCallbacks
-    def run(self):
-
-        if isCalendarCollectionResource(self.parent):
-            response = (yield self.deleteCalendarResource(self.resource, self.resource_uri, self.parent))
-            
-        elif isCalendarCollectionResource(self.resource):
-            response = (yield self.deleteCalendar(self.resource, self.resource_uri, self.parent))
-        elif isAddressBookCollectionResource(self.parent):
-            response = (yield self.deleteAddressBookResource(self.resource, self.resource_uri, self.parent))
-
-        elif isAddressBookCollectionResource(self.resource):
-            response = (yield self.deleteAddressBook(self.resource, self.resource_uri, self.parent))
-
-        elif self.resource.isCollection():
-            response = (yield self.deleteCollection())
-
-        else:
-            response = (yield self.deleteResource(self.resource, self.resource_uri, self.parent))
-
-        returnValue(response)
 
     @inlineCallbacks
     def deleteAddressBookResource(self, delresource, deluri, parent):
@@ -422,4 +398,25 @@ class DeleteResource(object):
         response = errors.response()
 
         returnValue(response)
-        
+
+    @inlineCallbacks
+    def run(self):
+
+        if isCalendarCollectionResource(self.parent):
+            response = (yield self.deleteCalendarResource(self.resource, self.resource_uri, self.parent))
+            
+        elif isCalendarCollectionResource(self.resource):
+            response = (yield self.deleteCalendar(self.resource, self.resource_uri, self.parent))
+        elif isAddressBookCollectionResource(self.parent):
+            response = (yield self.deleteAddressBookResource(self.resource, self.resource_uri, self.parent))
+
+        elif isAddressBookCollectionResource(self.resource):
+            response = (yield self.deleteAddressBook(self.resource, self.resource_uri, self.parent))
+
+        elif self.resource.isCollection():
+            response = (yield self.deleteCollection())
+
+        else:
+            response = (yield self.deleteResource(self.resource, self.resource_uri, self.parent))
+
+        returnValue(response)

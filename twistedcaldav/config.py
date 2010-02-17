@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -119,8 +119,8 @@ class Config(object):
             self._provider = ConfigProvider()
         else:
             self._provider = provider
-        self._preUpdateHooks = set()
-        self._postUpdateHooks = set()
+        self._preUpdateHooks = list()
+        self._postUpdateHooks = list()
         self.reset()
         
     def __setattr__(self, attr, value):
@@ -159,15 +159,15 @@ class Config(object):
 
     def addPreUpdateHook(self, hook):
         if isinstance(hook, list) or isinstance(hook, tuple):
-            self._preUpdateHooks.update(hook)
+            self._preUpdateHooks.extend(hook)
         else:
-            self._preUpdateHooks.add(hook)
+            self._preUpdateHooks.append(hook)
         
     def addPostUpdateHook(self, hook):
         if isinstance(hook, list) or isinstance(hook, tuple):
-            self._postUpdateHooks.update(hook)
+            self._postUpdateHooks.extend(hook)
         else:
-            self._postUpdateHooks.add(hook)
+            self._postUpdateHooks.append(hook)
 
     def getProvider(self):
         return self._provider
@@ -216,7 +216,6 @@ class Config(object):
     def reset(self):
         self._data = ConfigDict(copy.deepcopy(self._provider.getDefaults()))
 
-
 def _mergeData(oldData, newData):
     for key, value in newData.iteritems():
         if isinstance(value, (dict,)):
@@ -228,5 +227,11 @@ def _mergeData(oldData, newData):
             _mergeData(oldData[key], value)
         else:
             oldData[key] = value
+
+def fullServerPath(base, path):
+    if type(path) is str:
+        return os.path.join(base, path) if path and path[0] not in ('/', '.',) else path
+    else:
+        return path
 
 config = Config()

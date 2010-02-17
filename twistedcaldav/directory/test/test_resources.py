@@ -22,20 +22,19 @@ from calendarserver.tools.util import getDirectory
 class ResourcesTestCase(TestCase):
 
     def setUp(self):
-        testRoot = os.path.join(os.path.dirname(__file__), "resources")
-        configFileName = os.path.join(testRoot, "caldavd.plist")
-        config.load(configFileName)
+        super(ResourcesTestCase, self).setUp()
+
+        testRoot = os.path.join(".", os.path.dirname(__file__), "resources")
 
         xmlFile = os.path.join(testRoot, "users-groups.xml")
         config.DirectoryService.params.xmlFile = xmlFile
 
         xmlFile = os.path.join(testRoot, "resources-locations.xml")
         config.ResourceService.params.xmlFile = xmlFile
+        config.ResourceService.Enabled = True
 
         xmlFile = os.path.join(testRoot, "augments.xml")
         config.AugmentService.params.xmlFiles = (xmlFile,)
-
-        super(ResourcesTestCase, self).setUp()
 
 # Uh, what's this testing?
 #    def test_loadConfig(self):

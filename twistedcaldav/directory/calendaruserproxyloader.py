@@ -30,6 +30,7 @@ from twisted.internet.defer import inlineCallbacks
 
 from twext.log import Logger
 
+from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.directory import calendaruserproxy
 
 log = Logger()
@@ -54,7 +55,7 @@ class XMLCalendarUserProxyLoader(object):
     def __init__(self, xmlFile):
 
         self.items = []
-        self.xmlFile = xmlFile
+        self.xmlFile = fullServerPath(config.DataRoot, xmlFile)
 
         # Read in XML
         try:

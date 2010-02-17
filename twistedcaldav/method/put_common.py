@@ -982,8 +982,13 @@ class StoreCalendarObjectResource(object):
                         yield reservation.unreserve()
             
                     # Now forcibly delete the event
-                    deleter = DeleteResource(self.request, self.destination, self.destination_uri, self.destinationparent, "0", internal_request=True)
-                    yield deleter.run()
+                    if self.destination.exists():
+                        deleter = DeleteResource(self.request, self.destination, self.destination_uri, self.destinationparent, "0", internal_request=True)
+                        yield deleter.run()
+                    else:
+                        msg = "Attendee cannot create event for Organizer: %s" % (implicit_result,)
+                        log.err(msg)
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed"), description=msg))
 
                     returnValue(StatusResponse(responsecode.OK, "Resource modified but immediately deleted by the server."))
 

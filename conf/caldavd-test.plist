@@ -16,7 +16,7 @@
     limitations under the License.
   -->
 
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
 
@@ -43,9 +43,10 @@
     <key>SSLPort</key>
     <integer>8443</integer>
 
-    <!-- Redirect non-SSL ports to an SSL port -->
+    <!-- Redirect non-SSL ports to an SSL port (if configured for SSL) -->
     <key>RedirectHTTPToHTTPS</key>
     <false/>
+
 
     <!--
         Network address configuration information
@@ -73,13 +74,25 @@
         Data Store
       -->
 
+    <!-- Server root -->
+    <key>ServerRoot</key>
+    <string>./data</string>
+
     <!-- Data root -->
     <key>DataRoot</key>
-    <string>data/</string>
+    <string>Data</string>
 
     <!-- Document root -->
     <key>DocumentRoot</key>
-    <string>twistedcaldav/test/data/</string>
+    <string>Documents</string>
+
+    <!-- Configuration root -->
+    <key>ConfigRoot</key>
+    <string>./conf</string>
+
+    <!-- Run root -->
+    <key>RunRoot</key>
+    <string>Logs</string>
 
     <!-- Child aliases -->
     <key>Aliases</key>
@@ -93,7 +106,12 @@
        -->
     </dict>
 
-    <!-- User quota (in bytes) -->
+
+    <!--
+        Quotas and limits
+      -->
+
+    <!-- User quota (in bytes) [0 = no quota] -->
     <key>UserQuota</key>
     <integer>104857600</integer><!-- 100Mb -->
 
@@ -130,32 +148,7 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>conf/auth/accounts-test.xml</string>
-        <key>recordTypes</key>
-        <array>
-            <string>users</string>
-            <string>groups</string>
-        </array>
-      </dict>
-    </dict>
-    
-    <!-- Resource and Location Service -->
-    <key>ResourceService</key>
-    <dict>
-      <key>Enabled</key>
-      <true/>
-      <key>type</key>
-      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
-      
-      <key>params</key>
-      <dict>
-        <key>xmlFile</key>
-        <string>conf/auth/resources-test.xml</string>
-        <key>recordTypes</key>
-        <array>
-            <string>locations</string>
-            <string>resources</string>
-        </array>
+        <string>./conf/auth/accounts-test.xml</string>
       </dict>
     </dict>
     
@@ -176,14 +169,20 @@
     </dict>
     -->
 
-    <!--
-        Augment service
-
-        Augments for the directory service records to add calendar specific attributes.
-
-        A variety of augment services are available for use.
-        When using a partitioned server, a service that can be accessed from each host will be needed.
-      -->
+    <!-- Resource and Location Service -->
+    <key>ResourceService</key>
+    <dict>
+      <key>Enabled</key>
+      <true/>
+      <key>type</key>
+      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
+      
+      <key>params</key>
+      <dict>
+        <key>xmlFile</key>
+        <string>./conf/auth/resources-test.xml</string>
+      </dict>
+    </dict>
 
     <!-- XML File Augment Service -->
     <key>AugmentService</key>
@@ -195,11 +194,11 @@
       <dict>
         <key>xmlFiles</key>
         <array>
-	      <string>conf/auth/augments-test.xml</string>
+	      <string>./conf/auth/augments-test.xml</string>
         </array>
       </dict>
     </dict>
-    
+
     <!-- Sqlite Augment Service -->
     <!--
     <key>AugmentService</key>
@@ -210,7 +209,7 @@
       <key>params</key>
       <dict>
         <key>dbpath</key>
-        <string>/etc/caldavd/augments.sqlite</string>
+        <string>./conf/auth/augments.sqlite</string>
       </dict>
     </dict>
      -->
@@ -241,7 +240,7 @@
       <key>params</key>
       <dict>
         <key>dbpath</key>
-        <string>data/proxies.sqlite</string>
+        <string>proxies.sqlite</string>
       </dict>
     </dict>
 
@@ -262,8 +261,9 @@
     </dict>
      -->
 
-	<key>ProxyLoadFromFile</key>
-    <string>conf/auth/proxies-test.xml</string>
+    <key>ProxyLoadFromFile</key>
+    <string>./conf/auth/proxies-test.xml</string>
+
 
     <!--
         Special principals
@@ -286,7 +286,7 @@
 
     <!-- Principals that can pose as other principals -->
     <key>SudoersFile</key>
-    <string>conf/sudoers.plist</string>
+    <string>sudoers.plist</string>
 
     <!-- Create "proxy access" principals -->
     <key>EnableProxyPrincipals</key>
@@ -343,7 +343,7 @@
       <key>Kerberos</key>
       <dict>
         <key>Enabled</key>
-        <false/>
+        <true/>
         <key>ServicePrincipal</key>
         <string></string>
       </dict>
@@ -370,15 +370,19 @@
         Logging
       -->
 
+    <!-- Log root -->
+    <key>LogRoot</key>
+    <string>Logs</string>
+
     <!-- Apache-style access log -->
     <key>AccessLogFile</key>
-    <string>logs/access.log</string>
+    <string>access.log</string>
     <key>RotateAccessLog</key>
     <false/>
 
     <!-- Server activity log -->
     <key>ErrorLogFile</key>
-    <string>logs/error.log</string>
+    <string>error.log</string>
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
@@ -393,25 +397,9 @@
       -->
     </dict>
 
-    <!-- Global server stats --> 
-    <key>GlobalStatsSocket</key> 
-    <string>logs/caldavd-stats.sock</string> 
-
-    <!-- Global server stats logging period --> 
-    <key>GlobalStatsLoggingPeriod</key> 
-    <integer>60</integer> 
-
-    <!-- Global server stats logging frequency [0 = disable stats] --> 
-    <key>GlobalStatsLoggingFrequency</key> 
-    <integer>12</integer>
-
-    <!-- Server statistics file -->
-    <key>ServerStatsFile</key>
-    <string>logs/stats.plist</string>
-
     <!-- Server process ID file -->
     <key>PIDFile</key>
-    <string>logs/caldavd.pid</string>
+    <string>caldavd.pid</string>
 
 
     <!--
@@ -426,6 +414,7 @@
       <key>HTTP</key>
       <false/>
     </dict>
+
     <!-- Enable accounting for specific principals -->
     <key>AccountingPrincipals</key>
     <array>
@@ -585,7 +574,7 @@
         <array>
         </array>
         <key>Servers</key>
-        <string>conf/servertoserver-test.xml</string>
+        <string>servertoserver-test.xml</string>
       </dict>
 
       <!-- iMIP protocol options -->
@@ -635,16 +624,16 @@
         </array>
       </dict>
 
-	  <!-- General options for scheduling -->
-	  <key>Options</key>
-	  <dict>
+      <!-- General options for scheduling -->
+      <key>Options</key>
+      <dict>
         <key>AllowGroupAsOrganizer</key>
         <false/>
         <key>AllowLocationAsOrganizer</key>
         <false/>
         <key>AllowResourceAsOrganizer</key>
         <false/>
-       </dict>
+      </dict>
 
     </dict>
 
@@ -701,10 +690,9 @@
     <key>HTTPRetryAfter</key>
     <integer>180</integer>
 
-    <!-- A unix socket used for communication between the child and master processes.
-         An empty value tells the server to use a tcp socket instead. -->
+    <!-- For child-master IPC. [empty = use tcp] -->
     <key>ControlSocket</key>
-    <string>logs/caldavd.sock</string>
+    <string>caldavd.sock</string>
 
     <!-- Support for Memcached -->
     <key>Memcached</key>
@@ -715,7 +703,7 @@
       <string>memcached</string> <!-- Find in PATH -->
       <key>Options</key>
       <array>
-        <!--<string>-vv</string>-->
+        <!--<string>-vv</string>--> <!-- Be very verbose -->
       </array>
     </dict>
 

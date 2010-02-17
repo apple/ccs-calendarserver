@@ -13,14 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.config import config
 
 from twisted.internet.defer import inlineCallbacks
+from twistedcaldav.config import config
+from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB,\
     ProxyPostgreSQLDB
-import twistedcaldav.test.util
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
-from twistedcaldav.directory import calendaruserproxy
+import twistedcaldav.test.util
+
+import os
 
 class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
     """
@@ -73,7 +75,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
     def test_normalDB(self):
     
         # Get the DB
-        db_path = self.mktemp()
+        db_path = os.path.abspath(self.mktemp())
         db = ProxySqliteDB(db_path)
         yield db.setGroupMembers("A", ("B", "C", "D",))
         
@@ -87,7 +89,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
     def test_DBIndexed(self):
     
         # Get the DB
-        db_path = self.mktemp()
+        db_path = os.path.abspath(self.mktemp())
         db = ProxySqliteDB(db_path)
         self.assertEqual(set([row[1] for row in (yield db.query("PRAGMA index_list(GROUPS)"))]), set(("GROUPNAMES", "MEMBERS")))
 
@@ -95,7 +97,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
     def test_OldDB(self):
     
         # Get the DB
-        db_path = self.mktemp()
+        db_path = os.path.abspath(self.mktemp())
         db = self.old_ProxyDB(db_path)
         self.assertEqual(set([row[1] for row in (yield db.query("PRAGMA index_list(GROUPS)"))]), set())
 
@@ -103,7 +105,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
     def test_DBUpgrade(self):
     
         # Get the DB
-        db_path = self.mktemp()
+        db_path = os.path.abspath(self.mktemp())
         db = self.old_ProxyDB(db_path)
         yield db.setGroupMembers("A", ("B", "C", "D",))
 
@@ -131,7 +133,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
     def test_DBUpgradeNewer(self):
     
         # Get the DB
-        db_path = self.mktemp()
+        db_path = os.path.abspath(self.mktemp())
         db = self.old_ProxyDB(db_path)
         yield db.setGroupMembers("A", ("B", "C", "D",))
 
@@ -159,7 +161,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
     def test_DBNoUpgradeNewer(self):
     
         # Get the DB
-        db_path = self.mktemp()
+        db_path = os.path.abspath(self.mktemp())
         db = self.new_ProxyDB(db_path)
         yield db.setGroupMembers("A", ("B", "C", "D",))
 
@@ -190,7 +192,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             config.ProcessType = processType
 
             # Get the DB
-            db_path = self.mktemp()
+            db_path = os.path.abspath(self.mktemp())
             db = ProxySqliteDB(db_path)
             
             # Do one insert and check the result
@@ -230,7 +232,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             config.ProcessType = processType
 
             # Get the DB
-            db_path = self.mktemp()
+            db_path = os.path.abspath(self.mktemp())
             db = ProxySqliteDB(db_path)
             
             # Do one insert and check the result
@@ -271,7 +273,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             config.ProcessType = processType
 
             # Get the DB
-            db_path = self.mktemp()
+            db_path = os.path.abspath(self.mktemp())
             db = ProxySqliteDB(db_path)
             
             # Do one insert and check the result
@@ -304,7 +306,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             config.ProcessType = processType
 
             # Get the DB
-            db_path = self.mktemp()
+            db_path = os.path.abspath(self.mktemp())
             db = ProxySqliteDB(db_path)
             
             # Do one insert and check the result
@@ -345,7 +347,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             config.ProcessType = processType
 
             # Get the DB
-            db_path = self.mktemp()
+            db_path = os.path.abspath(self.mktemp())
             db = ProxySqliteDB(db_path)
             
             # Do one insert and check the result for the one we will remove

@@ -22,9 +22,12 @@ import xattr
 from twisted.python.failure import Failure
 from twisted.internet.defer import succeed, fail
 from twext.web2.http import HTTPError, StatusResponse
+from twisted.internet.error import ProcessDone
+from twisted.internet.protocol import ProcessProtocol
 
 from twistedcaldav import memcacher
 from twistedcaldav.config import config
+from twistedcaldav.stdconfig import _updateDataStore
 from twistedcaldav.static import CalDAVFile
 import memcacheclient
 
@@ -39,9 +42,20 @@ class TestCase(twext.web2.dav.test.util.TestCase):
     def setUp(self):
         super(TestCase, self).setUp()
 
-        dataroot = self.mktemp()
-        os.mkdir(dataroot)
-        config.DataRoot = dataroot
+        config.reset()
+        serverroot = self.mktemp()
+        os.mkdir(serverroot)
+        config.ServerRoot = serverroot
+        config.ConfigRoot = "config"
+        _updateDataStore(config)
+        
+        if not os.path.exists(config.DataRoot):
+            os.makedirs(config.DataRoot)
+        if not os.path.exists(config.DocumentRoot):
+            os.makedirs(config.DocumentRoot)
+        if not os.path.exists(config.ConfigRoot):
+            os.makedirs(config.ConfigRoot)
+
         config.Memcached.Pools.Default.ClientEnabled = False
         config.Memcached.Pools.Default.ServerEnabled = False
         memcacheclient.ClientFactory.allowTestCache = True
@@ -259,4 +273,77 @@ class InMemoryMemcacheProtocol(object):
 
         except:
             return succeed(False)
+
+
+
+
+
+class ErrorOutput(Exception):
+    """
+    The process produced some error output and exited with a non-zero exit
+    code.
+    """
+
+
+class CapturingProcessProtocol(ProcessProtocol):
+    """
+    A L{ProcessProtocol} that captures its output and error.
+
+    @ivar output: a C{list} of all C{str}s received to stderr.
+
+    @ivar error: a C{list} of all C{str}s received to stderr.
+    """
+
+    def __init__(self, deferred, inputData):
+        """
+        Initialize a L{CapturingProcessProtocol}.
+
+        @param deferred: the L{Deferred} to fire when the process is complete.
+
+        @param inputData: a C{str} to feed to the subprocess's stdin.
+        """
+        self.deferred = deferred
+        self.input = inputData
+        self.output = []
+        self.error = []
+
+
+    def connectionMade(self):
+        """
+        The process started; feed its input on stdin.
+        """
+        if self.input is not None:
+            self.transport.write(self.input)
+            self.transport.closeStdin()
+
+
+    def outReceived(self, data):
+        """
+        Some output was received on stdout.
+        """
+        self.output.append(data)
+
+
+    def errReceived(self, data):
+        """
+        Some output was received on stderr.
+        """
+        self.error.append(data)
+        # Attempt to exit promptly if a traceback is displayed, so we don't
+        # deal with timeouts.
+        lines = ''.join(self.error).split("\n")
+        if len(lines) > 1:
+            errorReportLine = lines[-2].split(": ", 1)
+            if len(errorReportLine) == 2 and ' ' not in errorReportLine[0] and '\t' not in errorReportLine[0]:
+                self.transport.signalProcess("TERM")
+
+
+    def processEnded(self, why):
+        """
+        The process is over, fire the Deferred with the output.
+        """
+        if why.check(ProcessDone) and not self.error:
+            self.deferred.callback(''.join(self.output))
+        else:
+            self.deferred.errback(ErrorOutput(''.join(self.error)))
 

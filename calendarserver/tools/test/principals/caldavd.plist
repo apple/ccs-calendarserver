@@ -73,13 +73,29 @@
         Data Store
       -->
 
+    <!-- Server root -->
+    <key>ServerRoot</key>
+    <string>%(ServerRoot)s</string>
+
     <!-- Data root -->
     <key>DataRoot</key>
-    <string>data/</string>
+    <string>Data</string>
 
     <!-- Document root -->
     <key>DocumentRoot</key>
-    <string>twistedcaldav/test/data/</string>
+    <string>Documents</string>
+
+    <!-- Configuration root -->
+    <key>ConfigRoot</key>
+    <string>/etc/caldavd</string>
+
+    <!-- Log root -->
+    <key>LogRoot</key>
+    <string>/var/log/caldavd</string>
+
+    <!-- Run root -->
+    <key>RunRoot</key>
+    <string>/var/run</string>
 
     <!-- Child aliases -->
     <key>Aliases</key>
@@ -130,7 +146,7 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>SET IN TEST</string>
+        <string>accounts.xml</string>
         <key>recordTypes</key>
         <array>
             <string>users</string>
@@ -150,12 +166,14 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>SET IN TEST</string>
+        <string>resources.xml</string>
         <key>recordTypes</key>
         <array>
             <string>resources</string>
             <string>locations</string>
         </array>
+        <key>cacheTimeout</key>
+        <integer>30</integer>
       </dict>
     </dict>
     
@@ -195,7 +213,7 @@
       <dict>
         <key>xmlFiles</key>
         <array>
-	      <string>SET IN TEST</string>
+	      <string>augments.xml</string>
         </array>
       </dict>
     </dict>
@@ -241,7 +259,7 @@
       <key>params</key>
       <dict>
         <key>dbpath</key>
-        <string>data/proxies.sqlite</string>
+        <string>proxies.sqlite</string>
       </dict>
     </dict>
 
@@ -404,10 +422,6 @@
     <!-- Global server stats logging frequency [0 = disable stats] --> 
     <key>GlobalStatsLoggingFrequency</key> 
     <integer>12</integer>
-
-    <!-- Server statistics file -->
-    <key>ServerStatsFile</key>
-    <string>logs/stats.plist</string>
 
     <!-- Server process ID file -->
     <key>PIDFile</key>
@@ -717,6 +731,16 @@
       <array>
         <!--<string>-vv</string>-->
       </array>
+      <key>Pools</key>
+        <dict>
+        <key>Default</key>
+            <dict>
+                <key>ClientEnabled</key>
+                <false/>
+                <key>ServerEnabled</key>
+                <false/>
+            </dict>
+        </dict>
     </dict>
 
     <!-- Response Caching -->

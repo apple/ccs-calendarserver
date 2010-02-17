@@ -25,7 +25,7 @@ cdt="${wd}/../CalDAVTester";
 
 verbose="";
 serverinfo="${cdt}/scripts/server/serverinfo.xml";
-documentroot="${wd}/twistedcaldav/test/data";
+documentroot="${wd}/data/Documents";
 
 usage ()
 {

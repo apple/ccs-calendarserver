@@ -21,13 +21,14 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twext.log import Logger
 
+from twistedcaldav.config import fullServerPath, config
 from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
     ADBAPIPostgreSQLMixin
-from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
-import os
 from twistedcaldav.directory import xmlaugmentsparser
+from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 from twistedcaldav.xmlutil import newElementTreeWithRoot, addSubElement,\
     writeXML, readXML
+import os
 
 
 log = Logger()
@@ -103,14 +104,12 @@ class AugmentDB(object):
         
         raise NotImplementedError("Child class must define this.")
 
-    def addAugmentRecords(self, records, update=False):
+    def addAugmentRecords(self, records):
         """
         Add an AugmentRecord to the DB.
 
         @param record: augment records to add
         @type record: C{list} of L{AugmentRecord}
-        @param update: C{True} if changing an existing record
-        @type update: C{bool}
         
         @return: L{Deferred}
         """
@@ -132,8 +131,20 @@ class AugmentDB(object):
     def refresh(self):
         """
         Refresh any cached data.
+        
+        @return: L{Deferred}
         """
-        pass
+
+        return succeed(None)
+    
+    def clean(self):
+        """
+        Remove all records.
+        
+        @return: L{Deferred}
+        """
+
+        raise NotImplementedError("Child class must define this.")
         
 AugmentService = AugmentDB()   # Global augment service
 
@@ -145,7 +156,7 @@ class AugmentXMLDB(AugmentDB):
     
     def __init__(self, xmlFiles, cacheTimeout=30):
         
-        self.xmlFiles = xmlFiles
+        self.xmlFiles = [fullServerPath(config.DataRoot, path) for path in xmlFiles]
         self.cacheTimeout = cacheTimeout * 60 # Value is mins we want secs
         self.lastCached = 0
         self.db = {}
@@ -207,7 +218,7 @@ class AugmentXMLDB(AugmentDB):
             
         return succeed(self.db.get(uid))
 
-    def addAugmentRecords(self, records, update=False):
+    def addAugmentRecords(self, records):
         """
         Add an AugmentRecord to the DB.
 
@@ -219,13 +230,22 @@ class AugmentXMLDB(AugmentDB):
         @return: L{Deferred}
         """
 
-        if update:
+        # Look at each record and determine whether it is new or a modify
+        new_records = list()
+        existing_records = list() 
+        for record in records:
+            (existing_records if record.uid in self.db else new_records).append(record)
+
+        if existing_records:
             # Now look at each file and modify the UIDs
             for xmlFile in self.xmlFiles:
-                self._doModifyInFile(xmlFile, records)
-        else:
+                self._doModifyInFile(xmlFile, existing_records)
+
+        if new_records:
             # Add to first file in list
-            self._doAddToFile(self.xmlFiles[0], records)
+            self._doAddToFile(self.xmlFiles[0], new_records)
+
+        return succeed(None)
 
     def _doAddToFile(self, xmlfile, records):
     
@@ -253,20 +273,22 @@ class AugmentXMLDB(AugmentDB):
 
         # Make sure UID is present
         changed = False
-        for child in augments_node.getchildren():
+        for record_node in augments_node.getchildren():
             
-            if child.tag != xmlaugmentsparser.ELEMENT_RECORD:
+            if record_node.tag != xmlaugmentsparser.ELEMENT_RECORD:
                 continue
     
-            uid = child.find(xmlaugmentsparser.ELEMENT_UID).text
+            uid = record_node.find(xmlaugmentsparser.ELEMENT_UID).text
             if uid in recordMap:
                 # Modify record
                 record = recordMap[uid]
-                child.find(xmlaugmentsparser.ELEMENT_ENABLE).text = "true" if record.enabled else "false"
-                child.find(xmlaugmentsparser.ELEMENT_HOSTEDAT).text = record.hostedAt
-                child.find(xmlaugmentsparser.ELEMENT_ENABLECALENDAR).text = "true" if record.enabledForCalendaring else "false"
-                child.find(xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK).text = "true" if record.enabledForAddressBooks else "false"
-                child.find(xmlaugmentsparser.ELEMENT_AUTOSCHEDULE).text = "true" if record.autoSchedule else "false"
+                del record_node.getchildren()[:]
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_UID, record.uid)
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_HOSTEDAT, record.hostedAt)
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true" if record.enabledForCalendaring else "false")
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true" if record.enabledForAddressBooks else "false")
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if record.autoSchedule else "false")
                 changed = True
         
         
@@ -326,6 +348,16 @@ class AugmentXMLDB(AugmentDB):
             log.error("Failed to parse XML augments file during cache refresh - ignoring")
         self.lastCached = time.time()
 
+        return succeed(None)
+
+    def clean(self):
+        """
+        Remove all records.
+        """
+
+        self.removeAugmentRecords(self.db.keys())
+        return succeed(None)
+        
     def _parseXML(self):
         
         # Do each file
@@ -394,40 +426,17 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
             returnValue(record)
 
     @inlineCallbacks
-    def addAugmentRecords(self, records, update=False):
+    def addAugmentRecords(self, records):
 
         for record in records:
-            partitionid = (yield self._getPartitionID(record.hostedAt))
             
+            results = (yield self.query("select UID from AUGMENTS where UID = :1", (record.uid,)))
+            update = len(results) > 0
+
             if update:
-                yield self.execute(
-                    """update AUGMENTS set
-                    (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE) =
-                    (:1, :2, :3, :4, :5, :6) where UID = :7""",
-                    (
-                        record.uid,
-                        "T" if record.enabled else "F",
-                        partitionid,
-                        "T" if record.enabledForCalendaring else "F",
-                        "T" if record.enabledForAddressBooks else "F",
-                        "T" if record.autoSchedule else "F",
-                        record.uid,
-                    )
-                )
+                yield self._modifyRecord(record)
             else:
-                yield self.execute(
-                    """insert into AUGMENTS
-                    (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
-                    values (:1, :2, :3, :4, :5, :6)""",
-                    (
-                        record.uid,
-                        "T" if record.enabled else "F",
-                        partitionid,
-                        "T" if record.enabledForCalendaring else "F",
-                        "T" if record.enabledForAddressBooks else "F",
-                        "T" if record.autoSchedule else "F",
-                    )
-                )
+                yield self._addRecord(record)
 
     @inlineCallbacks
     def removeAugmentRecords(self, uids):
@@ -435,6 +444,13 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
         for uid in uids:
             yield self.execute("delete from AUGMENTS where UID = :1", (uid,))
 
+    def clean(self):
+        """
+        Remove all records.
+        """
+
+        return self.execute("delete from AUGMENTS", ())
+        
     @inlineCallbacks
     def _getPartitionID(self, hostedat, createIfMissing=True):
         
@@ -520,7 +536,27 @@ class AugmentSqliteDB(ADBAPISqliteMixin, AugmentADAPI):
     def __init__(self, dbpath):
         
         ADBAPISqliteMixin.__init__(self)
-        AugmentADAPI.__init__(self, "Augments", "sqlite3", (dbpath,))
+        AugmentADAPI.__init__(self, "Augments", "sqlite3", (fullServerPath(config.DataRoot, dbpath),))
+
+    @inlineCallbacks
+    def _addRecord(self, record):
+        partitionid = (yield self._getPartitionID(record.hostedAt))
+        yield self.execute(
+            """insert or replace into AUGMENTS
+            (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
+            values (:1, :2, :3, :4, :5, :6)""",
+            (
+                record.uid,
+                "T" if record.enabled else "F",
+                partitionid,
+                "T" if record.enabledForCalendaring else "F",
+                "T" if record.enabledForAddressBooks else "F",
+                "T" if record.autoSchedule else "F",
+            )
+        )
+
+    def _modifyRecord(self, record):
+        return self._addRecord(record)
 
 class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
     """
@@ -532,3 +568,37 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
         ADBAPIPostgreSQLMixin.__init__(self)
         AugmentADAPI.__init__(self, "Augments", "pgdb", (), host=host, database=database, user=user, password=password,)
 
+    @inlineCallbacks
+    def _addRecord(self, record):
+        partitionid = (yield self._getPartitionID(record.hostedAt))
+        yield self.execute(
+            """insert into AUGMENTS
+            (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
+            values (:1, :2, :3, :4, :5, :6)""",
+            (
+                record.uid,
+                "T" if record.enabled else "F",
+                partitionid,
+                "T" if record.enabledForCalendaring else "F",
+                "T" if record.enabledForAddressBooks else "F",
+                "T" if record.autoSchedule else "F",
+            )
+        )
+
+    @inlineCallbacks
+    def _modifyRecord(self, record):
+        partitionid = (yield self._getPartitionID(record.hostedAt))
+        yield self.execute(
+            """update AUGMENTS set
+            (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE) =
+            (:1, :2, :3, :4, :5, :6) where UID = :7""",
+            (
+                record.uid,
+                "T" if record.enabled else "F",
+                partitionid,
+                "T" if record.enabledForCalendaring else "F",
+                "T" if record.enabledForAddressBooks else "F",
+                "T" if record.autoSchedule else "F",
+                record.uid,
+            )
+        )

@@ -37,31 +37,27 @@ from email.mime.text import MIMEText
 from zope.interface import implements
 
 from twisted.application import internet, service
-from twisted.cred.portal import Portal
 from twisted.internet import protocol, defer, ssl, reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
 from twisted.mail.smtp import messageid, rfc822date, ESMTPSenderFactory
 from twisted.plugin import IPlugin
-from twisted.python.reflect import namedClass
 from twisted.python.usage import Options, UsageError
 from twisted.web import client
 
 from twext.web2 import server, responsecode
 from twext.web2.channel.http import HTTPFactory
-from twext.web2.dav import auth
 from twext.web2.dav import davxml
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.http import Response, HTTPError
 from twext.web2.http_headers import MimeType
-from twext.web2.auth.basic import BasicCredentialFactory
+
 
 from twext.log import Logger, LoggingMixIn
 
 from twistedcaldav import ical, caldavxml
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.ical import Property
 from twistedcaldav.localization import translationTo
@@ -72,7 +68,7 @@ from twistedcaldav.static import CalDAVFile, deliverSchedulePrivilegeSet
 from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 
-from calendarserver.provision.root import RootResource
+from calendarserver.util import getRootResource
 
 
 __all__ = [
@@ -587,32 +583,13 @@ class IScheduleService(service.Service, LoggingMixIn):
         self.settings = settings
         self.mailer = mailer
 
-        directoryClass = namedClass(config.DirectoryService.type)
-        directory = directoryClass(config.DirectoryService.params)
-
-        principalCollection = DirectoryPrincipalProvisioningResource(
-            "/principals/",
-            directory,
-        )
-
-        root = RootResource(
-            config.DocumentRoot,
-            principalCollections=(principalCollection,),
-        )
-
-        # Authenticated /inbox
-        portal = Portal(auth.DavRealm())
-        portal.registerChecker(directory)
-        realm = directory.realmName or ""
-        root.putChild('inbox',
-            auth.AuthenticationWrapper(
-                IMIPInvitationInboxResource(root, mailer),
-                portal,
-                (BasicCredentialFactory(realm),),
-                (auth.IPrincipal,),
+        rootResource = getRootResource(config,
+            (
+                ("inbox", IMIPInvitationInboxResource, (mailer,), "basic"),
             )
         )
-        self.factory = HTTPFactory(server.Site(root))
+
+        self.factory = HTTPFactory(server.Site(rootResource))
         self.server = internet.TCPServer(settings['MailGatewayPort'],
             self.factory)
 

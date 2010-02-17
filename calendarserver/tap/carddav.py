@@ -18,42 +18,33 @@ __all__ = [
     "CardDAVServiceMaker",
 ]
 
-import errno
-import os
-
 from zope.interface import implements
 
-from twext.python.filepath import CachingFilePath as FilePath
 from twisted.plugin import IPlugin
-from twisted.internet.reactor import callLater
 from twisted.application.service import IServiceMaker
 
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-
-from twistedcaldav.config import config
-from twistedcaldav.static import AddressBookHomeProvisioningFile, DirectoryBackedAddressBookFile
+from twistedcaldav.stdconfig import DEFAULT_CARDDAV_CONFIG_FILE
 from twext.log import Logger
 
 log = Logger()
 
-from calendarserver.tap.caldav import CalDAVServiceMaker
+from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
 except ImportError:
     NegotiateCredentialFactory = None
 
-from calendarserver.provision.root import RootResource as _ParentRootResource
 
 
-
-class RootResource (_ParentRootResource):
+class CardDAVOptions(CalDAVOptions):
     """
-    A special root resource that contains support checking SACLs
-    as well as adding responseFilters.
+    The same as L{CalDAVOptions}, but with a different default config file.
     """
 
-    saclService = "addressbook"
+    optParameters = [[
+        "config", "f", DEFAULT_CARDDAV_CONFIG_FILE, "Path to configuration file."
+    ]]
 
 
 
@@ -62,53 +53,4 @@ class CardDAVServiceMaker (CalDAVServiceMaker):
 
     tapname = "carddav"
     description = "Darwin Contacts Server"
-
-    #
-    # Default resource classes
-    #
-    rootResourceClass            = RootResource
-    principalResourceClass       = DirectoryPrincipalProvisioningResource
-    addressBookResourceClass     = AddressBookHomeProvisioningFile
-    directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookFile
-
-    def makeService_Slave(self, options):
-        result = super(CardDAVServiceMaker, self).makeService_Slave(options)
-
-        directory = self.directory
-        principalCollection = self.principalCollection
-
-        if config.EnableCardDAV:
-            log.info("Setting up address book collection: %r" % (self.addressBookResourceClass,))
-    
-            addressBookCollection = self.addressBookResourceClass(
-                os.path.join(config.DocumentRoot, "addressbooks"),
-                directory, "/addressbooks/"
-            )
-            
-            directoryPath = os.path.join(config.DocumentRoot, "directory")
-            doBacking = config.DirectoryAddressBook and config.EnableSearchAddressBook
-            if doBacking:
-                log.info("Setting up directory address book: %r" % (self.directoryBackedAddressBookResourceClass,))
-    
-                directoryBackedAddressBookCollection = self.directoryBackedAddressBookResourceClass(
-                    directoryPath,
-                    principalCollections=(principalCollection,)
-                )
-                # do this after process is owned by carddav user, not root
-                callLater(1.0, directoryBackedAddressBookCollection.provisionDirectory)
-            else:
-                # remove /directory from previous runs that may have created it
-                try:
-                    FilePath(directoryPath).remove()
-                    self.log_info("Deleted: %s" %    directoryPath)
-                except (OSError, IOError), e:
-                    if e.errno != errno.ENOENT:
-                        self.log_error("Could not delete: %s : %r" %  (directoryPath, e,))
-            root = self.root
-
-            root.putChild('addressbooks', addressBookCollection)
-            if doBacking:
-                root.putChild('directory', directoryBackedAddressBookCollection)
-        return result
-
-    makeService_Single   = makeService_Slave
+    options = CardDAVOptions

@@ -49,8 +49,8 @@ class AggregateDirectoryService(DirectoryService):
 
             if service.realmName != realmName:
                 assert realmName is None, (
-                    "Aggregated directory services must have the same realm name: %r != %r"
-                    % (service.realmName, realmName)
+                    "Aggregated directory services must have the same realm name: %r != %r\nServices: %r"
+                    % (service.realmName, realmName, services)
                 )
                 realmName = service.realmName
 

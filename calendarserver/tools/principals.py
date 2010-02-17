@@ -329,7 +329,7 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
         return directory.principalCollection.principalForShortName(recordType, shortName)
 
     try:
-        guid = UUID(principalID)
+        UUID(principalID)
 
         if checkOnly:
             return None
@@ -453,7 +453,6 @@ def removeProxy(principal, proxyPrincipal, **kwargs):
         (yield subPrincipal.writeProperty(membersProperty, None))
 
 
-
 @inlineCallbacks
 def action_setAutoSchedule(principal, autoSchedule):
     if autoSchedule and principal.record.recordType in ("users", "groups"):
@@ -463,9 +462,8 @@ def action_setAutoSchedule(principal, autoSchedule):
             { True: "true", False: "false" }[autoSchedule],
             principal,
         )
-        principal.setAutoSchedule(autoSchedule)
+        (yield principal.setAutoSchedule(autoSchedule))
 
-@inlineCallbacks
 def action_getAutoSchedule(principal):
     autoSchedule = principal.getAutoSchedule()
     print "Autoschedule for %s is %s" % (

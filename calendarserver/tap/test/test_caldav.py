@@ -36,7 +36,7 @@ from twext.web2.log import LogWrapperResource
 from twext.python.plistlib import writePlist
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
-from twistedcaldav.config import config, ConfigDict, _mergeData
+from twistedcaldav.config import config, ConfigDict
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
@@ -197,6 +197,7 @@ class BaseServiceMakerTests(TestCase):
         self.config = ConfigDict(DEFAULT_CONFIG)
 
         accountsFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/accounts.xml")
+        resourcesFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/resources.xml")
         augmentsFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/augments.xml")
         pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
 
@@ -205,24 +206,29 @@ class BaseServiceMakerTests(TestCase):
             "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService"
         }
 
+        self.config["ResourceService"] = {
+            "params": {"xmlFile": resourcesFile},
+        }
+
         self.config["AugmentService"] = {
             "params": {"xmlFiles": [augmentsFile]},
             "type": "twistedcaldav.directory.augment.AugmentXMLDB"
         }
 
-        self.config.DocumentRoot   = self.mktemp()
-        self.config.DataRoot       = self.mktemp()
+        self.config.ServerRoot     = self.mktemp()
+        self.config.ConfigRoot     = "config"
         self.config.ProcessType    = "Slave"
         self.config.SSLPrivateKey  = pemFile
         self.config.SSLCertificate = pemFile
 
         self.config.SudoersFile = ""
 
-        if self.configOptions:
-            _mergeData(self.config, self.configOptions)
+        self.config.update(self.configOptions if self.configOptions else {})
 
-        os.mkdir(self.config.DocumentRoot)
-        os.mkdir(self.config.DataRoot)
+        os.mkdir(self.config.ServerRoot)
+        os.mkdir(os.path.join(self.config.ServerRoot, self.config.DocumentRoot))
+        os.mkdir(os.path.join(self.config.ServerRoot, self.config.DataRoot))
+        os.mkdir(os.path.join(self.config.ServerRoot, self.config.ConfigRoot))
 
         self.configFile = self.mktemp()
 
@@ -689,23 +695,27 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         Test that a sudo directory service is available if the
         SudoersFile is set and exists
         """
-        self.config.SudoersFile = self.mktemp()
-
+        self.config.SudoersFile = "sudoers.plist"
+        sudoersFilePath = os.path.join(
+            self.config.ServerRoot,
+            self.config.ConfigRoot,
+            self.config.SudoersFile
+        )
         self.writeConfig()
 
-        open(self.config.SudoersFile, "w").write(sudoersFile)
+        open(sudoersFilePath, "w").write(sudoersFile)
 
         site = self.getSite()
         principals = site.resource.resource.resource.getChild("principals")
         directory = principals.directory
 
-        self.failUnless(self.config.SudoersFile)
+        self.failUnless(sudoersFilePath)
 
         sudoService = directory.serviceForRecordType(SudoDirectoryService.recordType_sudoers)
 
         self.assertEquals(
             sudoService.plistFile.path,
-            os.path.abspath(self.config.SudoersFile)
+            os.path.abspath(sudoersFilePath)
         )
         self.failUnless(
             SudoDirectoryService.recordType_sudoers

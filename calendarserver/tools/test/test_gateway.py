@@ -21,133 +21,48 @@ import xml
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
-from twisted.internet.error import ProcessDone
-from twisted.internet.protocol import ProcessProtocol
 
 from twistedcaldav.config import config
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tools.util import getDirectory
 
-
-class ErrorOutput(Exception):
-    """
-    The process produced some error output and exited with a non-zero exit
-    code.
-    """
-
-
-class CapturingProcessProtocol(ProcessProtocol):
-    """
-    A L{ProcessProtocol} that captures its output and error.
-
-    @ivar output: a C{list} of all C{str}s received to stderr.
-
-    @ivar error: a C{list} of all C{str}s received to stderr.
-    """
-
-    def __init__(self, deferred, inputData):
-        """
-        Initialize a L{CapturingProcessProtocol}.
-
-        @param deferred: the L{Deferred} to fire when the process is complete.
-
-        @param inputData: a C{str} to feed to the subprocess's stdin.
-        """
-        self.deferred = deferred
-        self.input = inputData
-        self.output = []
-        self.error = []
-
-
-    def connectionMade(self):
-        """
-        The process started; feed its input on stdin.
-        """
-        self.transport.write(self.input)
-        self.transport.closeStdin()
-
-
-    def outReceived(self, data):
-        """
-        Some output was received on stdout.
-        """
-        self.output.append(data)
-
-
-    def errReceived(self, data):
-        """
-        Some output was received on stderr.
-        """
-        self.error.append(data)
-        # Attempt to exit promptly if a traceback is displayed, so we don't
-        # deal with timeouts.
-        lines = ''.join(self.error).split("\n")
-        if len(lines) > 1:
-            errorReportLine = lines[-2].split(": ", 1)
-            if len(errorReportLine) == 2 and ' ' not in errorReportLine[0] and '\t' not in errorReportLine[0]:
-                self.transport.signalProcess("TERM")
-
-
-    def processEnded(self, why):
-        """
-        The process is over, fire the Deferred with the output.
-        """
-        if why.check(ProcessDone) and not self.error:
-            self.deferred.callback(''.join(self.output))
-        else:
-            self.deferred.errback(ErrorOutput(''.join(self.error)))
+from twistedcaldav.directory import augment
 
 
 class GatewayTestCase(TestCase):
 
     def setUp(self):
+        super(GatewayTestCase, self).setUp()
+
         testRoot = os.path.join(os.path.dirname(__file__), "gateway")
         templateName = os.path.join(testRoot, "caldavd.plist")
         templateFile = open(templateName)
         template = templateFile.read()
         templateFile.close()
 
-        tmpDir = FilePath(self.mktemp())
-        tmpDir.makedirs()
-        dataRoot = tmpDir.child("data")
-        dataRoot.makedirs()
-        docRoot = tmpDir.child("documents")
-        docRoot.makedirs()
-
-        # Copy xml files to a temp directory because they may get modified
-
-        origUsersFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "users-groups.xml"))
-        copyUsersFile = tmpDir.child("users-groups.xml")
-        origUsersFile.copyTo(copyUsersFile)
-
-        origResourcesFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "resources-locations.xml"))
-        copyResourcesFile = tmpDir.child("resources-locations.xml")
-        origResourcesFile.copyTo(copyResourcesFile)
-
-        origAugmentFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "augments.xml"))
-        copyAugmentFile = tmpDir.child("augments.xml")
-        origAugmentFile.copyTo(copyAugmentFile)
-
-        proxyFile = tmpDir.child("proxies.sqlite")
-
         newConfig = template % {
-            'DataRoot' : dataRoot.path,
-            'DocumentRoot' : docRoot.path,
-            'DirectoryXMLFile' : copyUsersFile.path,
-            'ResourceXMLFile' : copyResourcesFile.path,
-            'AugmentXMLFile' : copyAugmentFile.path,
-            'ProxyDBFile' : proxyFile.path,
+            'ServerRoot' : os.path.abspath(config.ServerRoot),
         }
-        configFilePath = tmpDir.child("caldavd.plist")
+        configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
         configFilePath.setContent(newConfig)
 
         self.configFileName = configFilePath.path
         config.load(self.configFileName)
 
-        super(GatewayTestCase, self).setUp()
+        origUsersFile = FilePath(os.path.join(os.path.dirname(__file__),
+            "gateway", "users-groups.xml"))
+        copyUsersFile = FilePath(os.path.join(config.DataRoot, "accounts.xml"))
+        origUsersFile.copyTo(copyUsersFile)
+
+        origResourcesFile = FilePath(os.path.join(os.path.dirname(__file__),
+            "gateway", "resources-locations.xml"))
+        copyResourcesFile = FilePath(os.path.join(config.DataRoot, "resources.xml"))
+        origResourcesFile.copyTo(copyResourcesFile)
+
+        origAugmentFile = FilePath(os.path.join(os.path.dirname(__file__),
+            "gateway", "augments.xml"))
+        copyAugmentFile = FilePath(os.path.join(config.DataRoot, "augments.xml"))
+        origAugmentFile.copyTo(copyAugmentFile)
 
         # Make sure trial puts the reactor in the right state, by letting it
         # run one reactor iteration.  (Ignore me, please.)
@@ -156,7 +71,7 @@ class GatewayTestCase(TestCase):
         return d
 
     @inlineCallbacks
-    def runCommand(self, command):
+    def runCommand(self, command, error=False):
         """
         Run the given command by feeding it as standard input to
         calendarserver_command_gateway in a subprocess.
@@ -166,6 +81,9 @@ class GatewayTestCase(TestCase):
         gateway = os.path.join(sourceRoot, "bin", "calendarserver_command_gateway")
 
         args = [python, gateway, "-f", self.configFileName]
+        if error:
+            args.append("--error")
+
         cwd = sourceRoot
 
         deferred = Deferred()
@@ -199,6 +117,7 @@ class GatewayTestCase(TestCase):
         self.assertEquals(results['result']['Street'], "1 Infinite Loop")
         self.assertEquals(results['result']['RealName'], "Created Location 01")
         self.assertEquals(results['result']['Comment'], "Test Comment")
+        self.assertEquals(results['result']['AutoSchedule'], False)
 
     @inlineCallbacks
     def test_getResourceList(self):
@@ -243,6 +162,11 @@ class GatewayTestCase(TestCase):
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         yield self.runCommand(command_setLocationAttributes)
         directory.flushCaches()
+
+        # This appears to be necessary in order for record.autoSchedule to
+        # reflect the change
+        augment.AugmentService.refresh()
+
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
 
         self.assertEquals(record.extras['comment'], "Updated Test Comment")
@@ -255,6 +179,11 @@ class GatewayTestCase(TestCase):
         self.assertEquals(record.extras['zip'], "95015")
         self.assertEquals(record.extras['country'], "Updated USA")
         self.assertEquals(record.extras['phone'], "(408) 555-1213")
+        self.assertEquals(record.autoSchedule, True)
+
+        results = yield self.runCommand(command_getLocationAttributes)
+        self.assertEquals(results['result']['AutoSchedule'], True)
+
 
     @inlineCallbacks
     def test_destroyLocation(self):
@@ -466,7 +395,7 @@ command_listReadProxies = """<?xml version="1.0" encoding="UTF-8"?>
         <key>command</key>
         <string>listReadProxies</string>
         <key>Principal</key>
-        <string>locations:location01</string>
+        <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
 </dict>
 </plist>
 """
@@ -478,7 +407,7 @@ command_listWriteProxies = """<?xml version="1.0" encoding="UTF-8"?>
         <key>command</key>
         <string>listWriteProxies</string>
         <key>Principal</key>
-        <string>locations:location01</string>
+        <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
 </dict>
 </plist>
 """
@@ -518,7 +447,7 @@ command_setLocationAttributes = """<?xml version="1.0" encoding="UTF-8"?>
         <key>command</key>
         <string>setLocationAttributes</string>
         <key>AutoSchedule</key>
-        <false/>
+        <true/>
         <key>GeneratedUID</key>
         <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
         <key>RealName</key>
