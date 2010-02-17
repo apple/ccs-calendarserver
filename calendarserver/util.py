@@ -19,6 +19,7 @@ __all__ = [
     "getRootResource",
 ]
 
+import errno
 import os
 from time import sleep
 
@@ -28,6 +29,7 @@ from twisted.cred.portal import Portal
 from twisted.web2.dav import auth
 from twisted.web2.auth.basic import BasicCredentialFactory
 from twisted.web2.static import File as FileResource
+from twisted.python.filepath import FilePath
 
 from twext.log import Logger
 
@@ -46,6 +48,7 @@ from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
+from twistedcaldav.static import AddressBookHomeProvisioningFile, DirectoryBackedAddressBookFile
 from twistedcaldav.timezones import TimezoneCache
 
 try:
@@ -82,6 +85,8 @@ def getRootResource(config, resources=None):
     timezoneServiceResourceClass = TimezoneServiceFile
     webCalendarResourceClass     = WebCalendarResource
     webAdminResourceClass        = WebAdminResource
+    addressBookResourceClass     = AddressBookHomeProvisioningFile
+    directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookFile
 
     #
     # Setup the Directory
@@ -282,6 +287,43 @@ def getRootResource(config, resources=None):
         config.DocumentRoot,
         principalCollections=(principalCollection,),
     )
+
+    if config.EnableCardDAV:
+        root.saclService = "addressbook" # XXX this needs to be dealt with
+                                         # differently if caldav and carddav
+                                         # are going to be in the same process
+        log.info("Setting up address book collection: %r" % (addressBookResourceClass,))
+
+        addressBookCollection = addressBookResourceClass(
+            os.path.join(config.DocumentRoot, "addressbooks"),
+            directory, "/addressbooks/"
+        )
+
+        directoryPath = os.path.join(config.DocumentRoot, "directory")
+        doBacking = config.DirectoryAddressBook and config.EnableSearchAddressBook
+        if doBacking:
+            log.info("Setting up directory address book: %r" % (directoryBackedAddressBookResourceClass,))
+
+            directoryBackedAddressBookCollection = directoryBackedAddressBookResourceClass(
+                directoryPath,
+                principalCollections=(principalCollection,)
+            )
+            # do this after process is owned by carddav user, not root.  XXX
+            # this should be fixed to execute at a different stage of service
+            # startup entirely.
+            reactor.callLater(1.0, directoryBackedAddressBookCollection.provisionDirectory)
+        else:
+            # remove /directory from previous runs that may have created it
+            try:
+                FilePath(directoryPath).remove()
+                log.info("Deleted: %s" %    directoryPath)
+            except (OSError, IOError), e:
+                if e.errno != errno.ENOENT:
+                    log.error("Could not delete: %s : %r" %  (directoryPath, e,))
+
+        root.putChild('addressbooks', addressBookCollection)
+        if doBacking:
+            root.putChild('directory', directoryBackedAddressBookCollection)
 
     root.putChild("principals", principalCollection)
     root.putChild("calendars", calendarCollection)
