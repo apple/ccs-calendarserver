@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-    Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+    Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -36,13 +36,13 @@
 
     <!-- HTTP port [0 = disable HTTP] -->
     <key>HTTPPort</key>
-    <integer>8800</integer>
+    <integer>80</integer>
 
     <!-- SSL port [0 = disable HTTPS] -->
     <!-- (Must also configure SSLCertificate and SSLPrivateKey below) -->
     <!--
     <key>SSLPort</key>
-    <integer>8843</integer>
+    <integer>443</integer>
     -->
 
     <!-- Redirect non-SSL ports to an SSL port (if configured for SSL) -->
@@ -76,17 +76,47 @@
         Data Store
       -->
 
+    <!-- Server root -->
+    <key>ServerRoot</key>
+    <string>/Library/AddressBookServer</string>
+
     <!-- Data root -->
     <key>DataRoot</key>
-    <string>/Library/AddressBookServer/Data/</string>
+    <string>Data</string>
 
     <!-- Document root -->
     <key>DocumentRoot</key>
-    <string>/Library/AddressBookServer/Documents</string>
+    <string>Documents</string>
 
-    <!-- User quota (in bytes) -->
+    <!-- Configuration root -->
+    <key>ConfigRoot</key>
+    <string>/etc/cardavd</string>
+
+    <!-- Run root -->
+    <key>RunRoot</key>
+    <string>/var/run</string>
+
+    <!-- Child aliases -->
+    <key>Aliases</key>
+    <dict>
+      <!--
+      <key>foo</key>
+      <dict>
+        <key>path</key>
+        <string>/path/to/foo</string>
+      </dict>
+       -->
+    </dict>
+
+
+    <!--
+        Quotas and limits
+      -->
+
+    <!-- User quota (in bytes) [0 = no quota] -->
     <key>UserQuota</key>
-    <integer>104857600</integer><!-- 104857600 = 100Mb ; use 0 for no quota -->
+    <integer>104857600</integer> <!-- 100Mb -->
+
 
     <!--
         Directory service
@@ -106,7 +136,6 @@
 
 
     <!-- XML File Directory Service -->
-    <!--
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
@@ -115,12 +144,12 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>/etc/carddavd/accounts.xml</string>
+        <string>accounts.xml</string>
       </dict>
     </dict>
-    -->
     
-    <!-- Cache-on-Demand Open Directory Service (Mac OS X) -->
+    <!-- Open Directory Service (Mac OS X) -->
+    <!--
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
@@ -130,18 +159,11 @@
       <dict>
         <key>node</key>
         <string>/Search</string>
-        <key>maxAvailableWaitSeconds</key>
-        <integer>120</integer>			 <!-- Wait for all nodes to be available before starting server.  -1 to wait forever, 0 to not wait -->
-        <key>node</key>
-        <string>/Search</string>
-        <key>restrictEnabledRecords</key>
-        <false/>
-        <key>restrictToGroup</key>
-        <string></string>
         <key>cacheTimeout</key>
         <integer>30</integer>
       </dict>
     </dict>
+     -->
 
     <!--
         Special principals
@@ -162,9 +184,6 @@
       <!-- <string>/principals/__uids__/983C8238-FB6B-4D92-9242-89C0A39E5F81/</string> -->
     </array>
 
-    <!-- Principals that can pose as other principals -->
-    <key>SudoersFile</key>
-    <string></string>  <!-- empty to disable <string>/etc/carddavd/sudoers.plist</string> -->
 
     <!--
         Permissions
@@ -172,7 +191,7 @@
 
     <!-- Anonymous read access for root resource -->
     <key>EnableAnonymousReadRoot</key>
-    <false/>
+    <true/>
 
     <!-- Anonymous read access for resource hierarchy -->
     <key>EnableAnonymousReadNav</key>
@@ -224,47 +243,32 @@
         Logging
       -->
 
+    <!-- Log root -->
+    <key>LogRoot</key>
+    <string>/var/log/cardavd</string>
+
     <!-- Apache-style access log -->
     <key>AccessLogFile</key>
-    <string>/var/log/carddavd/access.log</string>
+    <string>access.log</string>
     <key>RotateAccessLog</key>
-    <false/>
+    <true/>
 
     <!-- Server activity log -->
     <key>ErrorLogFile</key>
-    <string>/var/log/carddavd/error.log</string>
+    <string>error.log</string>
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
     <string>warn</string> <!-- debug, info, warn, error -->
 
-    <!-- Server statistics file -->
-    <key>ServerStatsFile</key>
-    <string>/var/run/carddavd/stats.plist</string>
+    <!-- Global server stats -->
+    <key>GlobalStatsSocket</key>
+    <string>carddavd-stats.sock</string>
 
     <!-- Server process ID file -->
     <key>PIDFile</key>
-    <string>/var/run/carddavd.pid</string>
+    <string>carddavd.pid</string>
 
-
-    <!-- Global server stats -->
-    <key>GlobalStatsSocket</key>
-    <string>/var/run/carddavd-stats.sock</string>
-
-    <!--
-	To snapshot every five minutes over the last hour:
-	    GlobalStatsLoggingPeriod : 60
-	    GlobalStatsLoggingFrequency : 12
-	Set GlobalStatsLoggingFrequency to 0 to disable the stats
-      -->
-
-    <!-- Global server stats logging period -->
-    <key>GlobalStatsLoggingPeriod</key>
-    <integer>60</integer>
-
-    <!-- Global server stats logging frequency -->
-    <key>GlobalStatsLoggingFrequency</key>
-    <integer>12</integer>
 
     <!--
         SSL/TLS
@@ -272,6 +276,10 @@
 
     <!-- Public key -->
     <key>SSLCertificate</key>
+    <string></string>
+
+    <!-- SSL authority chain (for intermediate certs) -->
+    <key>SSLAuthorityChain</key>
     <string></string>
 
     <!-- Private key -->
@@ -284,10 +292,10 @@
       -->
 
     <key>UserName</key>
-    <string>_carddav</string>
+    <string>daemon</string>
 
     <key>GroupName</key>
-    <string>_carddav</string>
+    <string>daemon</string>
 
     <key>ProcessType</key>
     <string>Combined</string>
@@ -295,157 +303,9 @@
     <key>MultiProcess</key>
     <dict>
       <key>ProcessCount</key>
-      <integer>0</integer> <!-- 0 = larger of: 2 or CPU count -->
+      <integer>0</integer> <!-- 0 = larger of: 4 or (2 * CPU count) -->
     </dict>
 
 
-
-
-    <!--
-        Miscellaneous items
-      -->
-
-    <!-- Maximum results returned by addressbook-query report -->
-    <key>MaxAddressBookQueryResults</key>
-    <integer>1000</integer>
-
-    <!-- Maximum hrefs in addressbook-multiget report -->
-    <key>MaxAddressBookMultigetHrefs</key>
-    <integer>5000</integer>
-
-    <!-- Service ACLs (Mac OS X) -->
-    <key>EnableSACLs</key>
-    <true/>
-
-    <!-- Support for Content-Encoding compression options as specified in RFC2616 Section 3.5 -->
-    <key>ResponseCompression</key>
-    <true/>
-
-    <!--
-        Directory Address Book
-      -->
-    
-    <!--  Disable Directory Address Book-->
-    <!--
-      <key>DirectoryAddressBook</key>
-      <false/>
-    -->
-    
-    <!-- Open Directory-backed Directory Address Book -->
-    <key>DirectoryAddressBook</key>
-    <dict>
-        <key>type</key>
-        <string>twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService</string>
-      
-        <key>params</key>
-        <dict>
-     	  <!-- Search for people records -->
-          <key>queryPeopleRecords</key>
-          <true/>
-     	  <!-- Search for people records in this directory service node -->
-          <key>peopleNode</key>
-          <string>/Search/Contacts</string>
-     	  <!-- Search for user records -->
-          <key>queryUserRecords</key>
-          <true/>
-          <key>userNode</key>
-     	  <!-- Search for user records in this directory service node -->
-          <string>/Search</string>
-      	  <!-- query in directory service local node -->
-          <key>queryDSLocal</key>
-          <false/>
-      	  <!-- minutes to keep directory service local node in memory before refresh -->
-          <key>dsLocalCacheTimeout</key>
-          <integer>30</integer>
-     	  <!-- approx. maximum number of records returned from a directory service query -->
-          <key>maxDSQueryRecords</key>
-          <integer>150</integer> <!-- use 0 to have server calculate the maximum based on MaxAddressBookQueryResults, MaxAddressBookMultigetHrefs keys -->
-     	  <!-- ignore system records like "root" when creating vCards -->
-          <key>ignoreSystemRecords</key>
-          <true/>
-       	  <!-- True to use a directory service query for each addressBook-query to the directory address book -->
-          <key>liveQuery</key>
-          <true/>
-       	  	  <!-- fake the eTag.  If false all directory service attributes are used to calculate the eTag -->
-              <key>fakeETag</key>
-              <true/>
-          <!-- True to store the results on disk after a directory service query. True is usually much slower. -->
-          <key>cacheQuery</key>
-          <false/>
-           	  <!-- If cacheQuery is True and liveQuery is False, the minutes to keep the results from a complete directory service all record query. -->
-              <key>cacheTimeout</key>
-              <integer>30</integer>
-          <!-- add this key to use additional directory service attributes in queries.  Needed for some queries with directory service templates.
-          <key>additionalAttributes</key>
-          <array>
-             <string>dsAttrTypeNative:sampleAIMPreferred</string>
-             <string>dsAttrTypeNative:sampleManager</string>
-          </array>
-          -->
-          <!-- add this key to limit directory service attributes used to make vCard properties
-          		When using directory service templates, list should include only mapped attributes.
-          <key>allowedAttributes</key>
-          <array>
-            <string>dsAttrTypeStandard:AddressLine1</string>
-            <string>dsAttrTypeStandard:AddressLine2</string>
-            <string>dsAttrTypeStandard:AddressLine3</string>
-            <string>dsAttrTypeStandard:Birthday</string>
-            <string>dsAttrTypeStandard:Building</string>
-            <string>dsAttrTypeStandard:City</string>
-            <string>dsAttrTypeStandard:Comment</string>
-            <string>dsAttrTypeStandard:Company</string>
-            <string>dsAttrTypeStandard:Country</string>
-            <string>dsAttrTypeStandard:CreationTimestamp</string>
-            <string>dsAttrTypeStandard:Department</string>
-            <string>dsAttrTypeStandard:EMailAddress</string>
-            <string>dsAttrTypeStandard:EMailContacts</string>
-            <string>dsAttrTypeStandard:FAXNumber</string>
-            <string>dsAttrTypeStandard:FirstName</string>
-            <string>dsAttrTypeStandard:HomePhoneNumber</string>
-            <string>dsAttrTypeStandard:IMHandle</string>
-            <string>dsAttrTypeStandard:JPEGPhoto</string>
-            <string>dsAttrTypeStandard:JobTitle</string>
-            <string>dsAttrTypeStandard:LastName</string>
-            <string>dsAttrTypeStandard:MapCoordinates</string>
-            <string>dsAttrTypeStandard:MiddleName</string>
-            <string>dsAttrTypeStandard:MobileNumber</string>
-            <string>dsAttrTypeStandard:ModificationTimestamp</string>
-            <string>dsAttrTypeStandard:NamePrefix</string>
-            <string>dsAttrTypeStandard:NameSuffix</string>
-            <string>dsAttrTypeStandard:NickName</string>
-            <string>dsAttrTypeStandard:Note</string>
-            <string>dsAttrTypeStandard:OrganizationName</string>
-            <string>dsAttrTypeStandard:PGPPublicKey</string>
-            <string>dsAttrTypeStandard:PagerNumber</string>
-            <string>dsAttrTypeStandard:PhoneContacts</string>
-            <string>dsAttrTypeStandard:PhoneNumber</string>
-            <string>dsAttrTypeStandard:PostalAddress</string>
-            <string>dsAttrTypeStandard:PostalAddressContacts</string>
-            <string>dsAttrTypeStandard:PostalCode</string>
-            <string>dsAttrTypeStandard:Relationships</string>
-            <string>dsAttrTypeStandard:State</string>
-            <string>dsAttrTypeStandard:Street</string>
-            <string>dsAttrTypeStandard:URL</string>
-            <string>dsAttrTypeStandard:UserCertificate</string>
-            <string>dsAttrTypeStandard:UserPKCS12Data</string>
-            <string>dsAttrTypeStandard:UserSMIMECertificate</string>
-            <string>dsAttrTypeStandard:WeblogURI</string>
-          </array>
-          -->
-        </dict>
-    </dict>
-      
-    <!--  allow unauthenticated users to access the directory address book -->
-    <key>AnonymousDirectoryAddressBookAccess</key>
-    <false/>
-    
-    <!--  enable search address book in user's home -->
-    <key>EnableSearchAddressBook</key>
-    <false/>
-    
-    <!--  enable find share report -->
-    <key>EnableFindSharedReport</key>
-    <false/>
-
-    </dict>
+  </dict>
 </plist>
