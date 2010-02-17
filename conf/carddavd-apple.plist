@@ -161,6 +161,13 @@
         A variety of directory services are available for use.
       -->
 
+    <!-- Disable resource service. -->
+    <key>ResourceService</key>
+    <dict>
+      <key>Enabled</key>
+      <false/>
+    </dict>
+
     <!-- XML File Directory Service -->
     <!--
     <key>DirectoryService</key>
