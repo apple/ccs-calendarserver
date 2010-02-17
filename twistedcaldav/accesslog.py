@@ -391,6 +391,8 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         if self.protocol is not None:
             # XXX: Yeah we're not waiting for anything to happen here.
             #      but we will log an error.
+            if isinstance(message, unicode):
+                message = message.encode("utf-8")
             d = self.protocol.callRemote(LogMessage, message=message)
             d.addErrback(log.err)
         else:
