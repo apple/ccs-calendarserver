@@ -54,7 +54,6 @@ DEFAULT_RESOURCE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "resources.xml",
         "cacheTimeout": 30,
-        "realmName": "/Search",
         "recordTypes" : ("locations", "resources"),
     },
 }
