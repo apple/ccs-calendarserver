@@ -209,6 +209,8 @@ class SyncCollection (WebDAVElement):
                     raise ValueError("Only one of DAV:prop allowed")
                 self.property = child
 
+registerElement(SyncCollection)
+
 class SyncToken (WebDAVTextElement):
     """
     Synchronization token used in report and as a property.
@@ -217,5 +219,6 @@ class SyncToken (WebDAVTextElement):
     hidden = True
     protected = True
 
+registerElement(SyncToken)
 
 
