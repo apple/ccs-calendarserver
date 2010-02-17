@@ -239,7 +239,7 @@
       <key>params</key>
       <dict>
         <key>dbpath</key>
-        <string>data/proxies.sqlite</string>
+        <string>proxies.sqlite</string>
       </dict>
     </dict>
 
