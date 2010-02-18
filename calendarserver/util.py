@@ -395,7 +395,12 @@ def getRootResource(config, resources=None):
     overrides = { }
     if resources:
         for path, cls, args, scheme in resources:
+
+            # putChild doesn't want "/" starting the path
             root.putChild(path, cls(root, *args))
+
+            # overrides requires "/" prepended
+            path = "/" + path
 
             if scheme == "basic":
                 overrides[path] = (BasicCredentialFactory(realm),)
