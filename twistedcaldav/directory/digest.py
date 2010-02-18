@@ -16,12 +16,12 @@
 
 from twisted.cred import error
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.web2.auth.digest import DigestCredentialFactory
-from twisted.web2.auth.digest import DigestedCredentials
-from twisted.web2.http_headers import Token
-from twisted.web2.http_headers import parseKeyValue
-from twisted.web2.http_headers import split
-from twisted.web2.http_headers import tokenize
+from twext.web2.auth.digest import DigestCredentialFactory
+from twext.web2.auth.digest import DigestedCredentials
+from twext.web2.http_headers import Token
+from twext.web2.http_headers import parseKeyValue
+from twext.web2.http_headers import split
+from twext.web2.http_headers import tokenize
 
 from twext.log import Logger
 
@@ -34,7 +34,7 @@ import time
 log = Logger()
 
 """
-Overrides twisted.web2.auth.digest to allow specifying a qop value as a configuration parameter.
+Overrides twext.web2.auth.digest to allow specifying a qop value as a configuration parameter.
 Also adds an sqlite-based credentials cache that is multi-process safe.
 
 """
@@ -120,7 +120,7 @@ class DigestCredentialsMemcache(Memcacher):
 
 class QopDigestCredentialFactory(DigestCredentialFactory):
     """
-    See twisted.web2.auth.digest.DigestCredentialFactory
+    See twext.web2.auth.digest.DigestCredentialFactory
     """
 
     def __init__(self, algorithm, qop, realm, namespace="DIGESTCREDENTIALS"):
@@ -198,7 +198,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         @type response: C{str}
         @param response: A string of comma seperated key=value pairs
 
-        @type request: L{twisted.web2.server.Request}
+        @type request: L{twext.web2.server.Request}
         @param request: the request being processed
 
         @return: L{DigestedCredentials}
@@ -256,7 +256,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         @param auth:        the response parameters.
         @type auth:         C{dict}
         @param request:     the request being processed.
-        @type request:      L{twisted.web2.server.Request}
+        @type request:      L{twext.web2.server.Request}
         
         @return:            C{True} if validated.
         @raise LoginFailed: if validation fails.

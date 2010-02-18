@@ -21,7 +21,7 @@ from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 import cStringIO
 import os
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 
 xmlFile = os.path.join(os.path.dirname(__file__), "augments-test.xml")
 xmlFileDefault = os.path.join(os.path.dirname(__file__), "augments-test-default.xml")

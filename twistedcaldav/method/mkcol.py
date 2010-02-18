@@ -26,13 +26,13 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import log
 from twisted.python.failure import Failure
 
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.dav.http import ErrorResponse, MultiStatusResponse, PropertyStatusResponseQueue
-from twisted.web2.dav.util import davXMLFromStream
-from twisted.web2.dav.util import parentForURL
-from twisted.web2.http import HTTPError
-from twisted.web2.http import StatusResponse
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.dav.http import ErrorResponse, MultiStatusResponse, PropertyStatusResponseQueue
+from twext.web2.dav.util import davXMLFromStream
+from twext.web2.dav.util import parentForURL
+from twext.web2.http import HTTPError
+from twext.web2.http import StatusResponse
 
 from twistedcaldav import caldavxml, carddavxml, mkcolxml
 from twistedcaldav.config import config
@@ -95,7 +95,7 @@ def http_MKCOL(self, request):
         doc = (yield davXMLFromStream(request.stream))
     except ValueError, e:
         log.err("Error while handling MKCOL: %s" % (e,))
-        # TODO: twisted.web2.dav 'MKCOL' tests demand this particular response
+        # TODO: twext.web2.dav 'MKCOL' tests demand this particular response
         # code, but should we really be looking at the XML content or the
         # content-type header?  It seems to me like this ought to be considered
         # a BAD_REQUEST if it claims to be XML but isn't, but an

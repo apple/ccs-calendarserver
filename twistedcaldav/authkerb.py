@@ -42,9 +42,9 @@ import kerberos
 
 from twisted.cred import checkers, credentials, error
 from twisted.internet.defer import succeed
-from twisted.web2 import responsecode
-from twisted.web2.auth.interfaces import ICredentialFactory
-from twisted.web2.dav.auth import IPrincipalCredentials
+from twext.web2 import responsecode
+from twext.web2.auth.interfaces import ICredentialFactory
+from twext.web2.dav.auth import IPrincipalCredentials
 
 from twext.log import LoggingMixIn
 

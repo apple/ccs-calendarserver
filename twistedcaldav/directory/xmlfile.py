@@ -27,8 +27,8 @@ import types
 import os, pwd, grp
 
 from twisted.cred.credentials import UsernamePassword
-from twisted.web2.auth.digest import DigestedCredentials
-from twisted.python.filepath import FilePath
+from twext.web2.auth.digest import DigestedCredentials
+from twext.python.filepath import CachingFilePath as FilePath
 from twistedcaldav.config import config
 
 from twistedcaldav.config import fullServerPath

@@ -41,15 +41,15 @@ from vobject.icalendar import utc
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.dav.element.base import WebDAVElement
-from twisted.web2.dav.http import statusForFailure
-from twisted.web2.dav.method.propfind import propertyName
-from twisted.web2.dav.method.report import NumberOfMatchesWithinLimits
-from twisted.web2.dav.method.report import max_number_of_matches
-from twisted.web2.dav.resource import AccessDeniedError
-from twisted.web2.http import HTTPError
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.dav.element.base import WebDAVElement
+from twext.web2.dav.http import statusForFailure
+from twext.web2.dav.method.propfind import propertyName
+from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
+from twext.web2.dav.method.report import max_number_of_matches
+from twext.web2.dav.resource import AccessDeniedError
+from twext.web2.http import HTTPError
 
 from twext.log import Logger
 

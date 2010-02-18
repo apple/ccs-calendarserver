@@ -35,7 +35,7 @@ import xattr
 if getattr(xattr, "xattr", None) is None:
     raise ImportError("wrong xattr package imported")
 
-from twisted.web2.dav.davxml import WebDAVDocument
+from twext.web2.dav.davxml import WebDAVDocument
 
 from txdav.propertystore.base import AbstractPropertyStore, PropertyName
 from txdav.idav import PropertyStoreError

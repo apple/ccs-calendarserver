@@ -19,9 +19,9 @@ from twistedcaldav.directory.directory import DirectoryService
 
 import os
 
-from twisted.web2.dav import davxml
-from twisted.web2.dav.resource import AccessDeniedError
-from twisted.web2.test.test_server import SimpleRequest
+from twext.web2.dav import davxml
+from twext.web2.dav.resource import AccessDeniedError
+from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile

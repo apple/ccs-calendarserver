@@ -21,8 +21,8 @@ from twisted.trial.unittest import TestCase
 
 # XXX this should be public, but it isn't, since it's in a test_* module.  Need
 # to address this to use system twisted.
-from twisted.web2.test.test_server import SimpleRequest
-from twisted.web2.http import HTTPError
+from twext.web2.test.test_server import SimpleRequest
+from twext.web2.http import HTTPError
 
 from twistedcaldav.static import CalDAVFile
 from twistedcaldav.config import config

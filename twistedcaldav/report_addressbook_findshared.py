@@ -33,12 +33,12 @@ import dsattributes
 from plistlib import readPlist
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import log
-from twisted.python.filepath import FilePath
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.dav.http import MultiStatusResponse
-from twisted.web2.dav.util import joinURL
-from twisted.web2.http import HTTPError, StatusResponse
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.dav.http import MultiStatusResponse
+from twext.web2.dav.util import joinURL
+from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import customxml
 from twistedcaldav.carddavxml import addressbookserver_namespace, carddav_namespace

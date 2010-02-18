@@ -19,8 +19,8 @@ import os
 import copy
 import re
 
-from twisted.web2.dav import davxml
-from twisted.web2.dav.resource import TwistedACLInheritable
+from twext.web2.dav import davxml
+from twext.web2.dav.resource import TwistedACLInheritable
 
 from twext.python.plistlib import PlistParser
 from twext.log import Logger, InvalidLogLevelError

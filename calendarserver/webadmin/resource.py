@@ -32,10 +32,10 @@ from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.web2.http import Response
-from twisted.web2.http_headers import MimeType
-from twisted.web2.stream import MemoryStream
-from twisted.web2.dav import davxml
+from twext.web2.http import Response
+from twext.web2.http_headers import MimeType
+from twext.web2.stream import MemoryStream
+from twext.web2.dav import davxml
 
 
 class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):

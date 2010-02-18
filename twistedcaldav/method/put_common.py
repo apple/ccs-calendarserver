@@ -29,20 +29,20 @@ from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.defer import returnValue
 from twisted.python import failure
-from twisted.python.filepath import FilePath
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.dav.element.base import dav_namespace
-from twisted.web2.dav.element.base import PCDATAElement
-from twisted.web2.dav.fileop import delete
-from twisted.web2.dav.resource import TwistedGETContentMD5
-from twisted.web2.dav.stream import MD5StreamWrapper
-from twisted.web2.dav.util import joinURL, parentForURL
-from twisted.web2.http import HTTPError
-from twisted.web2.http import StatusResponse
-from twisted.web2.http_headers import generateContentType, MimeType
-from twisted.web2.iweb import IResponse
-from twisted.web2.stream import MemoryStream
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.dav.element.base import dav_namespace
+from twext.web2.dav.element.base import PCDATAElement
+from twext.web2.dav.fileop import delete
+from twext.web2.dav.resource import TwistedGETContentMD5
+from twext.web2.dav.stream import MD5StreamWrapper
+from twext.web2.dav.util import joinURL, parentForURL
+from twext.web2.http import HTTPError
+from twext.web2.http import StatusResponse
+from twext.web2.http_headers import generateContentType, MimeType
+from twext.web2.iweb import IResponse
+from twext.web2.stream import MemoryStream
 
 from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
@@ -214,7 +214,7 @@ class StoreCalendarObjectResource(object):
         """
         Function that does common PUT/COPY/MOVE behavior.
         
-        @param request:           the L{twisted.web2.server.Request} for the current HTTP request.
+        @param request:           the L{twext.web2.server.Request} for the current HTTP request.
         @param source:            the L{CalDAVFile} for the source resource to copy from, or None if source data
             is to be read from the request.
         @param source_uri:        the URI for the source resource.

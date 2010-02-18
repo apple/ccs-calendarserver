@@ -22,14 +22,14 @@ from twisted.cred import error
 from twisted.internet import address
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import failure
-from twisted.web2.auth import digest
-from twisted.web2.auth.wrapper import UnauthorizedResponse
-from twisted.web2.test.test_server import SimpleRequest
+from twext.web2.auth import digest
+from twext.web2.auth.wrapper import UnauthorizedResponse
+from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
-from twisted.web2.auth.digest import DigestCredentialFactory
+from twext.web2.auth.digest import DigestCredentialFactory
 
 class FakeDigestCredentialFactory(QopDigestCredentialFactory):
     """

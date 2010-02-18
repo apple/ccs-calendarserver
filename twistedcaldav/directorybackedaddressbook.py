@@ -27,10 +27,10 @@ __all__ = [
 from twext.log import Logger
 from twisted.internet.defer import succeed, inlineCallbacks, maybeDeferred, returnValue
 from twisted.python.reflect import namedClass
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.http import HTTPError, StatusResponse
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.dav.resource import TwistedACLInheritable
+from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.config import config
 from twistedcaldav.resource import CalDAVResource

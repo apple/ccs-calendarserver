@@ -18,9 +18,9 @@
 Various file utilities.
 """
 
-from twisted.web2.dav.fileop import copy
-from twisted.web2.dav.fileop import put
-from twisted.web2.dav.xattrprops import xattrPropertyStore
+from twext.web2.dav.fileop import copy
+from twext.web2.dav.fileop import put
+from twext.web2.dav.xattrprops import xattrPropertyStore
 
 # This class simulates a DAVFile with enough information for use with xattrPropertyStore.
 class FakeXAttrResource(object):

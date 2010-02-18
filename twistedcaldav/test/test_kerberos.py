@@ -17,7 +17,7 @@
 from twisted.cred.error import LoginFailed
 from twisted.cred.error import UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks
-from twisted.web2.test.test_server import SimpleRequest
+from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import authkerb
 import twistedcaldav.test.util

@@ -46,7 +46,7 @@ def find_modules():
 # Options
 #
 
-description = "CalDAV/CardDAV protocol extensions to twisted.web2.dav",
+description = "CalDAV/CardDAV protocol extensions to twext.web2.dav",
 long_description = """
 Extends twisted.web2.dav to implement CalDAV/CardDAV-aware resources and methods.
 """

@@ -16,7 +16,7 @@
 
 import os
 
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 

@@ -37,24 +37,24 @@ import time
 from twisted.internet.defer import succeed, DeferredList, inlineCallbacks, returnValue
 from twisted.internet.defer import maybeDeferred
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
-from twisted.web2 import responsecode
-from twisted.web2.auth.wrapper import UnauthorizedResponse
-from twisted.web2.http import HTTPError, Response, RedirectResponse
-from twisted.web2.http import StatusResponse
-from twisted.web2.http_headers import MimeType
-from twisted.web2.stream import FileStream
-from twisted.web2.static import MetaDataMixin
-from twisted.web2.dav import davxml
-from twisted.web2.dav.auth import PrincipalCredentials
-from twisted.web2.dav.davxml import dav_namespace
-from twisted.web2.dav.http import MultiStatusResponse
-from twisted.web2.dav.idav import IDAVPrincipalResource
-from twisted.web2.dav.static import DAVFile as SuperDAVFile
-from twisted.web2.dav.resource import DAVResource as SuperDAVResource
-from twisted.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
-from twisted.web2.dav.util import joinURL
-from twisted.web2.dav.method import prop_common
-from twisted.web2.dav.method.report import max_number_of_matches
+from twext.web2 import responsecode
+from twext.web2.auth.wrapper import UnauthorizedResponse
+from twext.web2.http import HTTPError, Response, RedirectResponse
+from twext.web2.http import StatusResponse
+from twext.web2.http_headers import MimeType
+from twext.web2.stream import FileStream
+from twext.web2.static import MetaDataMixin
+from twext.web2.dav import davxml
+from twext.web2.dav.auth import PrincipalCredentials
+from twext.web2.dav.davxml import dav_namespace
+from twext.web2.dav.http import MultiStatusResponse
+from twext.web2.dav.idav import IDAVPrincipalResource
+from twext.web2.dav.static import DAVFile as SuperDAVFile
+from twext.web2.dav.resource import DAVResource as SuperDAVResource
+from twext.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
+from twext.web2.dav.util import joinURL
+from twext.web2.dav.method import prop_common
+from twext.web2.dav.method.report import max_number_of_matches
 
 from twext.log import Logger, LoggingMixIn
 
@@ -70,7 +70,7 @@ log = Logger()
 #
 # Alter logger for some twisted stuff
 #
-import twisted
+import twext
 for m in (
     "web2.dav.fileop",
     "web2.dav.element.base",
@@ -96,7 +96,7 @@ for m in (
     "web2.dav.util",
     "web2.dav.xattrprops",
 ):
-    submodule(twisted, m).log = Logger("twisted." + m)
+    submodule(twext, m).log = Logger("twext." + m)
 del m
 
 class SudoSACLMixin (object):
@@ -482,7 +482,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
 class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoSACLMixin, SuperDAVResource, LoggingMixIn):
     """
-    Extended L{twisted.web2.dav.resource.DAVResource} implementation.
+    Extended L{twext.web2.dav.resource.DAVResource} implementation.
     """
     def renderHTTP(self, request):
         log.info("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
@@ -681,7 +681,7 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoSACLMixin, SuperDA
 
 class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrincipalResource, LoggingMixIn):
     """
-    Extended L{twisted.web2.dav.static.DAVFile} implementation.
+    Extended L{twext.web2.dav.static.DAVFile} implementation.
     """
 
     liveProperties = tuple(SuperDAVPrincipalResource.liveProperties) + (
@@ -760,7 +760,7 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
 
 class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
     """
-    Extended L{twisted.web2.dav.static.DAVFile} implementation.
+    Extended L{twext.web2.dav.static.DAVFile} implementation.
     """
     def readProperty(self, property, request):
         if type(property) is tuple:

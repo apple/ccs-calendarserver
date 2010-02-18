@@ -30,8 +30,8 @@ from twisted.internet.protocol import ServerFactory
 from twisted.application.service import IService
 from twisted.application import internet
 
-from twisted.web2.dav import auth
-from twisted.web2.log import LogWrapperResource
+from twext.web2.dav import auth
+from twext.web2.log import LogWrapperResource
 
 from twext.python.plistlib import writePlist
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer

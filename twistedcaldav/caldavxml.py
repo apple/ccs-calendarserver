@@ -29,7 +29,7 @@ import datetime
 
 from vobject.icalendar import utc, TimezoneComponent
 
-from twisted.web2.dav import davxml
+from twext.web2.dav import davxml
 
 from twext.log import Logger
 

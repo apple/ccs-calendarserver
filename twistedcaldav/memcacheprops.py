@@ -36,9 +36,9 @@ from memcacheclient import ClientFactory as MemcacheClientFactory, MemcacheError
 
 from twext.log import LoggingMixIn, Logger
 
-from twisted.python.filepath import FilePath
-from twisted.web2 import responsecode
-from twisted.web2.http import HTTPError, StatusResponse
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.web2 import responsecode
+from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.config import config
 

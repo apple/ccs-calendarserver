@@ -20,14 +20,14 @@ from xml.etree.cElementTree import XML# , tostring
 from twisted.trial.unittest import TestCase
 
 from twisted.internet.defer import inlineCallbacks
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 
 from twisted.web.microdom import parseString
-from twisted.web2.static import MetaDataMixin
+from twext.web2.static import MetaDataMixin
 
 from twistedcaldav.extensions import DAVFile
 
-from twisted.web2.dav.element.base import WebDAVElement
+from twext.web2.dav.element.base import WebDAVElement
 
 class UnicodeProperty(WebDAVElement):
     """

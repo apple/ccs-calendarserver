@@ -46,7 +46,10 @@ def accountingEnabledForCategory(category):
     """
     Determine if accounting is enabled for the given category.
     """
-    return config.AccountingCategories.get(category, False)
+    AccountingCategories = getattr(config, "AccountingCategories", None)
+    if AccountingCategories is None:
+        return False
+    return AccountingCategories.get(category, False)
 
 def accountingEnabledForPrincipal(principal):
     """

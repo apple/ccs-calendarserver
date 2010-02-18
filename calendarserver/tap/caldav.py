@@ -45,7 +45,7 @@ from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import Service, MultiService, IServiceMaker
 from twisted.scripts.mktap import getid
 from twisted.runner import procmon
-from twisted.web2.server import Site
+from twext.web2.server import Site
 
 from twext.log import Logger, LoggingMixIn
 from twext.log import logLevelForNamespace, setLogLevelForNamespace

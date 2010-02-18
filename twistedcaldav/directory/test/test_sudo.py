@@ -15,7 +15,7 @@
 ##
 import os
 
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory.sudo import SudoDirectoryService

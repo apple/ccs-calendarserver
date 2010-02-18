@@ -23,12 +23,12 @@ __all__ = ["http_COPY", "http_MOVE"]
 from urlparse import urlsplit
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.web2 import responsecode
-from twisted.web2.filter.location import addLocation
-from twisted.web2.dav import davxml
+from twext.web2 import responsecode
+from twext.web2.filter.location import addLocation
+from twext.web2.dav import davxml
 from twext.web2.dav.davxml import ErrorResponse
-from twisted.web2.dav.util import parentForURL
-from twisted.web2.http import StatusResponse, HTTPError
+from twext.web2.dav.util import parentForURL
+from twext.web2.http import StatusResponse, HTTPError
 
 from twext.log import Logger
 

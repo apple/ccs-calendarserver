@@ -30,11 +30,12 @@ from twisted.internet.address import IPv4Address
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.error import ConnectionLost, ConnectionDone, ConnectError
 from twisted.internet.protocol import ClientFactory
-from twisted.web2 import responsecode
-from twisted.web2.client.http import HTTPClientProtocol
-from twisted.web2.dav.util import allDataFromStream
-from twisted.web2.http import StatusResponse, HTTPError
-from twisted.web2.stream import MemoryStream
+from twext.web2 import responsecode
+from twext.web2.client.http import HTTPClientProtocol
+from twext.web2.http import StatusResponse, HTTPError
+from twext.web2.dav.util import allDataFromStream
+from twext.web2.stream import MemoryStream
+
 from twistedcaldav.config import config
 
 class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):

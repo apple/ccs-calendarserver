@@ -20,10 +20,10 @@ __all__ = [
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.http import HTTPError, StatusResponse
-from twisted.web2.auth.wrapper import UnauthorizedResponse
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.http import HTTPError, StatusResponse
+from twext.web2.auth.wrapper import UnauthorizedResponse
 from twisted.web.xmlrpc import Proxy
 
 from twext.log import Logger
@@ -70,7 +70,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             self.responseCache = DisabledCache()
 
         if config.ResponseCompression:
-            from twisted.web2.filter import gzip
+            from twext.web2.filter import gzip
             self.contentFilters.append((gzip.gzipfilter, True))
 
         if not config.EnableKeepAlive:

@@ -21,14 +21,14 @@ from twisted.internet.protocol import ClientCreator
 
 from twisted.python.failure import Failure
 
-from twisted.web2 import responsecode
-from twisted.web2.client.http import ClientRequest
-from twisted.web2.client.http import HTTPClientProtocol
-from twisted.web2.dav.util import davXMLFromStream, joinURL, allDataFromStream
-from twisted.web2.http import HTTPError
-from twisted.web2.http_headers import Headers
-from twisted.web2.http_headers import MimeType
-from twisted.web2.stream import MemoryStream
+from twext.web2 import responsecode
+from twext.web2.client.http import ClientRequest
+from twext.web2.client.http import HTTPClientProtocol
+from twext.web2.dav.util import davXMLFromStream, joinURL, allDataFromStream
+from twext.web2.http import HTTPError
+from twext.web2.http_headers import Headers
+from twext.web2.http_headers import MimeType
+from twext.web2.stream import MemoryStream
 
 from twext.log import Logger, logLevels
 from twext.internet.ssl import ChainingOpenSSLContextFactory

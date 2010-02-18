@@ -15,8 +15,8 @@
 ##
 
 from twext.web2.channel.http import HTTPLoggingChannelRequest
-from twisted.web2 import http_headers
-from twisted.web2.channel.http import HTTPChannel
+from twext.web2 import http_headers
+from twext.web2.channel.http import HTTPChannel
 from twistedcaldav.accounting import emitAccounting
 from twistedcaldav.config import config
 import twistedcaldav.test.util

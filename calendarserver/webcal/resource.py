@@ -28,12 +28,12 @@ from time import time
 from urlparse import urlparse
 from cgi import parse_qs
 
-from twisted.web2 import responsecode
-from twisted.web2.http import Response
-from twisted.web2.http_headers import MimeType
-from twisted.web2.stream import MemoryStream
-from twisted.web2.dav import davxml
-from twisted.web2.dav.resource import TwistedACLInheritable
+from twext.web2 import responsecode
+from twext.web2.http import Response
+from twext.web2.http_headers import MimeType
+from twext.web2.stream import MemoryStream
+from twext.web2.dav import davxml
+from twext.web2.dav.resource import TwistedACLInheritable
 
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn

@@ -18,7 +18,7 @@ import os
 import plistlib
 import xml
 
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 

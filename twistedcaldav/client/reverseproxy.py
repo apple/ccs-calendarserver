@@ -22,9 +22,9 @@ import urllib
 
 from zope.interface.declarations import implements
 
-from twisted.web2 import iweb
-from twisted.web2.client.http import ClientRequest
-from twisted.web2.resource import LeafResource
+from twext.web2 import iweb
+from twext.web2.client.http import ClientRequest
+from twext.web2.resource import LeafResource
 
 from twext.log import LoggingMixIn
 

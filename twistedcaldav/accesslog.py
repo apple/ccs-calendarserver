@@ -31,10 +31,10 @@ import time
 
 from twisted.internet import protocol
 from twisted.protocols import amp
-from twisted.web2 import iweb
-from twisted.web2.dav import davxml
-from twisted.web2.log import BaseCommonAccessLoggingObserver
-from twisted.web2.log import LogWrapperResource
+from twext.web2 import iweb
+from twext.web2.dav import davxml
+from twext.web2.log import BaseCommonAccessLoggingObserver
+from twext.web2.log import LogWrapperResource
 
 from twext.log import Logger
 
@@ -391,6 +391,8 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         if self.protocol is not None:
             # XXX: Yeah we're not waiting for anything to happen here.
             #      but we will log an error.
+            if isinstance(message, unicode):
+                message = message.encode("utf-8")
             d = self.protocol.callRemote(LogMessage, message=message)
             d.addErrback(log.err)
         else:

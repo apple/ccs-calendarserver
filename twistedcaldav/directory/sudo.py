@@ -23,7 +23,7 @@ __all__ = [
     "SudoDirectoryService",
 ]
 
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 from twisted.cred.credentials import IUsernamePassword, IUsernameHashedPassword
 from twisted.cred.error import UnauthorizedLogin
 

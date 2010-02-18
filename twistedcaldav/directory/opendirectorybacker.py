@@ -45,12 +45,12 @@ from socket import getfqdn
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, deferredGenerator
 from twisted.internet.threads import deferToThread
-from twisted.python.filepath import FilePath
-from twisted.web2.dav import davxml
-from twisted.web2.dav.element.base import twisted_dav_namespace, dav_namespace, parse_date, twisted_private_namespace
-from twisted.web2.dav.resource import DAVPropertyMixIn
-from twisted.web2.dav.util import joinURL
-from twisted.web2.http_headers import MimeType, generateContentType
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.web2.dav import davxml
+from twext.web2.dav.element.base import twisted_dav_namespace, dav_namespace, parse_date, twisted_private_namespace
+from twext.web2.dav.resource import DAVPropertyMixIn
+from twext.web2.dav.util import joinURL
+from twext.web2.http_headers import MimeType, generateContentType
 
 
 from twistedcaldav import customxml, carddavxml

@@ -26,10 +26,10 @@ from time import sleep
 from twisted.python.reflect import namedClass
 from twisted.internet import reactor
 from twisted.cred.portal import Portal
-from twisted.web2.dav import auth
-from twisted.web2.auth.basic import BasicCredentialFactory
-from twisted.web2.static import File as FileResource
-from twisted.python.filepath import FilePath
+from twext.web2.dav import auth
+from twext.web2.auth.basic import BasicCredentialFactory
+from twext.web2.static import File as FileResource
+from twext.python.filepath import CachingFilePath as FilePath
 
 from twext.log import Logger
 

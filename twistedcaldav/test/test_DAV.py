@@ -16,26 +16,26 @@
 
 from twistedcaldav.static import CalDAVFile as MyResource
 
-import twisted.web2.dav.test.test_acl
-import twisted.web2.dav.test.test_copy
-import twisted.web2.dav.test.test_delete
-import twisted.web2.dav.test.test_lock
-import twisted.web2.dav.test.test_mkcol
-import twisted.web2.dav.test.test_move
-import twisted.web2.dav.test.test_options
-import twisted.web2.dav.test.test_prop
-import twisted.web2.dav.test.test_put
-import twisted.web2.dav.test.test_report
-import twisted.web2.dav.test.test_report_expand
+import twext.web2.dav.test.test_acl
+import twext.web2.dav.test.test_copy
+import twext.web2.dav.test.test_delete
+import twext.web2.dav.test.test_lock
+import twext.web2.dav.test.test_mkcol
+import twext.web2.dav.test.test_move
+import twext.web2.dav.test.test_options
+import twext.web2.dav.test.test_prop
+import twext.web2.dav.test.test_put
+import twext.web2.dav.test.test_report
+import twext.web2.dav.test.test_report_expand
 
-class ACL           (twisted.web2.dav.test.test_acl.ACL                    ): resource_class = MyResource
-class COPY          (twisted.web2.dav.test.test_copy.COPY                  ): resource_class = MyResource
-class DELETE        (twisted.web2.dav.test.test_delete.DELETE              ): resource_class = MyResource
-class LOCK_UNLOCK   (twisted.web2.dav.test.test_lock.LOCK_UNLOCK           ): resource_class = MyResource
-class MKCOL         (twisted.web2.dav.test.test_mkcol.MKCOL                ): resource_class = MyResource
-class MOVE          (twisted.web2.dav.test.test_move.MOVE                  ): resource_class = MyResource
-class OPTIONS       (twisted.web2.dav.test.test_options.OPTIONS            ): resource_class = MyResource
-class PROP          (twisted.web2.dav.test.test_prop.PROP                  ): resource_class = MyResource
-class PUT           (twisted.web2.dav.test.test_put.PUT                    ): resource_class = MyResource
-class REPORT        (twisted.web2.dav.test.test_report.REPORT              ): resource_class = MyResource
-class REPORT_expand (twisted.web2.dav.test.test_report_expand.REPORT_expand): resource_class = MyResource
+class ACL           (twext.web2.dav.test.test_acl.ACL                    ): resource_class = MyResource
+class COPY          (twext.web2.dav.test.test_copy.COPY                  ): resource_class = MyResource
+class DELETE        (twext.web2.dav.test.test_delete.DELETE              ): resource_class = MyResource
+class LOCK_UNLOCK   (twext.web2.dav.test.test_lock.LOCK_UNLOCK           ): resource_class = MyResource
+class MKCOL         (twext.web2.dav.test.test_mkcol.MKCOL                ): resource_class = MyResource
+class MOVE          (twext.web2.dav.test.test_move.MOVE                  ): resource_class = MyResource
+class OPTIONS       (twext.web2.dav.test.test_options.OPTIONS            ): resource_class = MyResource
+class PROP          (twext.web2.dav.test.test_prop.PROP                  ): resource_class = MyResource
+class PUT           (twext.web2.dav.test.test_put.PUT                    ): resource_class = MyResource
+class REPORT        (twext.web2.dav.test.test_report.REPORT              ): resource_class = MyResource
+class REPORT_expand (twext.web2.dav.test.test_report_expand.REPORT_expand): resource_class = MyResource

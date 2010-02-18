@@ -49,17 +49,17 @@ from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
-from twisted.python.filepath import FilePath
-from twisted.web2 import responsecode, http, http_headers
-from twisted.web2.http import HTTPError, StatusResponse
-from twisted.web2.dav import davxml
-from twisted.web2.dav.element.base import dav_namespace
-from twisted.web2.dav.fileop import mkcollection, rmdir
-from twisted.web2.dav.idav import IDAVResource
-from twisted.web2.dav.noneprops import NonePropertyStore
-from twisted.web2.dav.resource import AccessDeniedError
-from twisted.web2.dav.resource import davPrivilegeSet
-from twisted.web2.dav.util import parentForURL, bindMethods, joinURL
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.web2 import responsecode, http, http_headers
+from twext.web2.http import HTTPError, StatusResponse
+from twext.web2.dav import davxml
+from twext.web2.dav.element.base import dav_namespace
+from twext.web2.dav.fileop import mkcollection, rmdir
+from twext.web2.dav.idav import IDAVResource
+from twext.web2.dav.noneprops import NonePropertyStore
+from twext.web2.dav.resource import AccessDeniedError
+from twext.web2.dav.resource import davPrivilegeSet
+from twext.web2.dav.util import parentForURL, bindMethods, joinURL
 
 from twistedcaldav import caldavxml
 from twistedcaldav import carddavxml
@@ -126,7 +126,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
             if self.exists() and self.hasDeadProperty(TwistedScheduleMatchETags):
                 etags = self.readDeadProperty(TwistedScheduleMatchETags).children
                 if len(etags) > 1:
-                    # This is almost verbatim from twisted.web2.static.checkPreconditions
+                    # This is almost verbatim from twext.web2.static.checkPreconditions
                     if request.method not in ("GET", "HEAD"):
                         
                         # Loop over each tag and succeed if any one matches, else re-raise last exception

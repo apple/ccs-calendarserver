@@ -15,7 +15,7 @@
 ##
 
 """
-WebDAV support for Twisted Web2.
+WebDAV support for Twext.Web2.
 
 See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
@@ -33,7 +33,7 @@ except ImportError:
 # Load in suitable file extension/content-type map from OS X
 #
 
-from twisted.web2.static import File, loadMimeTypes
+from twext.web2.static import File, loadMimeTypes
 
 File.contentTypes = loadMimeTypes(("/etc/apache2/mime.types", "/etc/httpd/mime.types",))
 
@@ -41,22 +41,22 @@ File.contentTypes = loadMimeTypes(("/etc/apache2/mime.types", "/etc/httpd/mime.t
 # Register additional WebDAV XML elements
 #
 
-import twisted.web2.dav.davxml
+import twext.web2.dav.davxml
 import twistedcaldav.caldavxml
 import twistedcaldav.carddavxml
 import twistedcaldav.mkcolxml
 import twistedcaldav.customxml
 
-twisted.web2.dav.davxml.registerElements(twistedcaldav.caldavxml)
-twisted.web2.dav.davxml.registerElements(twistedcaldav.customxml)
-twisted.web2.dav.davxml.registerElements(twistedcaldav.carddavxml)
-twisted.web2.dav.davxml.registerElements(twistedcaldav.mkcolxml)
+twext.web2.dav.davxml.registerElements(twistedcaldav.caldavxml)
+twext.web2.dav.davxml.registerElements(twistedcaldav.customxml)
+twext.web2.dav.davxml.registerElements(twistedcaldav.carddavxml)
+twext.web2.dav.davxml.registerElements(twistedcaldav.mkcolxml)
 
 #
 # DefaultHTTPHandler
 #
 
-from twisted.web2.http_headers import DefaultHTTPHandler, last, singleHeader
+from twext.web2.http_headers import DefaultHTTPHandler, last, singleHeader
 
 DefaultHTTPHandler.updateParsers({
     "If-Schedule-Tag-Match": (last, str),

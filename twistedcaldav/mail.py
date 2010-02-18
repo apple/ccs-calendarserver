@@ -44,12 +44,14 @@ from twisted.mail.smtp import messageid, rfc822date, ESMTPSenderFactory
 from twisted.plugin import IPlugin
 from twisted.python.usage import Options, UsageError
 from twisted.web import client
-from twisted.web2 import server, responsecode
-from twisted.web2.channel.http import HTTPFactory
-from twisted.web2.dav import davxml
-from twisted.web2.dav.noneprops import NonePropertyStore
-from twisted.web2.http import Response, HTTPError
-from twisted.web2.http_headers import MimeType
+
+from twext.web2 import server, responsecode
+from twext.web2.channel.http import HTTPFactory
+from twext.web2.dav import davxml
+from twext.web2.dav.noneprops import NonePropertyStore
+from twext.web2.http import Response, HTTPError
+from twext.web2.http_headers import MimeType
+
 
 from twext.log import Logger, LoggingMixIn
 
@@ -65,8 +67,6 @@ from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.static import CalDAVFile, deliverSchedulePrivilegeSet
 from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from twistedcaldav.sql import AbstractSQLDatabase
-from twistedcaldav.localization import translationTo
 
 from calendarserver.util import getRootResource
 

@@ -41,19 +41,19 @@ from twext.web2.dav.davxml import ErrorResponse, SyncCollection
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.dav.auth import AuthenticationWrapper as SuperAuthenticationWrapper
-from twisted.web2.dav.davxml import dav_namespace
-from twisted.web2.dav.idav import IDAVPrincipalCollectionResource
-from twisted.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource
-from twisted.web2.dav.resource import TwistedACLInheritable
-from twisted.web2.dav.util import joinURL, parentForURL, unimplemented, normalizeURL
-from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
-from twisted.web2.http_headers import MimeType
-from twisted.web2.iweb import IResponse
-from twisted.web2.stream import MemoryStream
-import twisted.web2.server
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.dav.auth import AuthenticationWrapper as SuperAuthenticationWrapper
+from twext.web2.dav.davxml import dav_namespace
+from twext.web2.dav.idav import IDAVPrincipalCollectionResource
+from twext.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource
+from twext.web2.dav.resource import TwistedACLInheritable
+from twext.web2.dav.util import joinURL, parentForURL, unimplemented, normalizeURL
+from twext.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
+from twext.web2.http_headers import MimeType
+from twext.web2.iweb import IResponse
+from twext.web2.stream import MemoryStream
+import twext.web2.server
 
 import twistedcaldav
 from twistedcaldav import caldavxml, customxml
@@ -72,9 +72,9 @@ from twistedcaldav.vcard import Component as vComponent
 
 
 if twistedcaldav.__version__:
-    serverVersion = twisted.web2.server.VERSION + " TwistedCardDAV/" + twistedcaldav.__version__
+    serverVersion = twext.web2.server.VERSION + " TwistedCardDAV/" + twistedcaldav.__version__
 else:
-    serverVersion = twisted.web2.server.VERSION + " TwistedCardDAV/?"
+    serverVersion = twext.web2.server.VERSION + " TwistedCardDAV/?"
 
 class CalDAVComplianceMixIn(object):
 

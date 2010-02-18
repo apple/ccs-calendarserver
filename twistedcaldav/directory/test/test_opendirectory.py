@@ -19,7 +19,7 @@ try:
 except ImportError:
     pass
 else:
-    import twisted.web2.auth.digest
+    import twext.web2.auth.digest
     import twistedcaldav.directory.test.util
     from twistedcaldav.directory import augment
     from twisted.internet.defer import inlineCallbacks
@@ -95,7 +95,7 @@ else:
             )
 
             digestFields = {}
-            digested = twisted.web2.auth.digest.DigestedCredentials("user", "GET", "example.com", digestFields, None)
+            digested = twext.web2.auth.digest.DigestedCredentials("user", "GET", "example.com", digestFields, None)
 
             self.assertFalse(record.verifyCredentials(digested))
 
@@ -134,7 +134,7 @@ else:
 
             record.digestcache = {}
             record.digestcache["/"] = response
-            digested = twisted.web2.auth.digest.DigestedCredentials("user", "GET", "example.com", digestFields, None)
+            digested = twext.web2.auth.digest.DigestedCredentials("user", "GET", "example.com", digestFields, None)
 
             self.assertTrue(record.verifyCredentials(digested))
 

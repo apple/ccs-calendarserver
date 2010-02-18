@@ -16,7 +16,7 @@
 
 import os
 
-from twisted.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory import augment

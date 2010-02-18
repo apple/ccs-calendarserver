@@ -15,9 +15,10 @@
 ##
 
 
-from twisted.web2.dav import davxml
+from twext.web2.dav import davxml
 
 from twistedcaldav.config import config
+# from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 #from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
 CalendarUserProxyDatabase = None
 from twistedcaldav.directory.xmlfile import XMLDirectoryService

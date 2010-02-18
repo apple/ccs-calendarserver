@@ -18,11 +18,11 @@ from twext.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.web2 import responsecode
-from twisted.web2.dav import davxml
-from twisted.web2.dav.util import joinURL
-from twisted.web2.dav.util import parentForURL
-from twisted.web2.http import HTTPError
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.dav.util import joinURL
+from twext.web2.dav.util import parentForURL
+from twext.web2.http import HTTPError
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
