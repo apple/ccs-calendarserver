@@ -86,7 +86,7 @@ class Logging (TestCase):
         Default namespace for classes using L{LoggingMixIn} is the class name.
         """
         object = LoggingEnabledObject()
-        self.assertEquals(object.logger.namespace, "twistedcaldav.test.test_log.LoggingEnabledObject")
+        self.assertEquals(object.logger.namespace, "twext.python.test.test_log.LoggingEnabledObject")
 
     def test_basic_Logger(self):
         """
