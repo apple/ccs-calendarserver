@@ -471,7 +471,7 @@ dependencies () {
 
   py_dependency "Twisted" "twisted" "Twisted" \
     "svn" "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-9.0.0" \
-    false true true false 27606;
+    false true false false 27606;
 
   py_dependency "dateutil" "dateutil" "python-dateutil-1.4.1" \
     "www" "http://www.labix.org/download/python-dateutil/python-dateutil-1.4.1.tar.gz" \
