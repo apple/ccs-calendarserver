@@ -22,8 +22,13 @@ __all__ = [
     "FreeBusyURLResource",
 ]
 
+import datetime
+
+from vobject.icalendar import utc
+
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python import log
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.http import ErrorResponse
@@ -45,9 +50,8 @@ from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
 from twistedcaldav.scheduling.scheduler import Scheduler
 
-from vobject.icalendar import utc
+log = Logger()
 
-import datetime
 
 class FreeBusyURLResource (CalDAVResource):
     """

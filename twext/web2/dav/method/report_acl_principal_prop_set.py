@@ -29,8 +29,9 @@ WebDAV acl-prinicpal-prop-set report
 
 __all__ = ["report_DAV__acl_principal_prop_set"]
 
-from twisted.python import log
 from twisted.internet.defer import deferredGenerator, waitForDeferred
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav import davxml
@@ -39,6 +40,9 @@ from twext.web2.dav.http import MultiStatusResponse
 from twext.web2.dav.method import prop_common
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twext.web2.dav.method.report import max_number_of_matches
+
+log = Logger()
+
 
 def report_DAV__acl_principal_prop_set(self, request, acl_prinicpal_prop_set):
     """

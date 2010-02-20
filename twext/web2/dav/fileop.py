@@ -42,14 +42,18 @@ import os
 import urllib
 from urlparse import urlsplit
 
-from twisted.python import log
-from twext.python.filepath import CachingFilePath as FilePath
 from twisted.python.failure import Failure
 from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
+
+from twext.python.log import Logger
+from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2 import responsecode
 from twext.web2.http import StatusResponse, HTTPError
 from twext.web2.stream import FileStream, readIntoFile
 from twext.web2.dav.http import ResponseQueue, statusForFailure
+
+log = Logger()
+
 
 def delete(uri, filepath, depth="infinity"):
     """

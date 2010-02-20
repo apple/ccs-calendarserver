@@ -1,12 +1,14 @@
 # Copyright (c) 2001-2007 Twisted Matrix Laboratories.
 # See LICENSE for details.
 
-from twext.web2 import log, resource, http
+from twisted.python.log import addObserver, removeObserver
+
+from twext.web2.log import BaseCommonAccessLoggingObserver, LogWrapperResource
+from twext.web2.http import Response
+from twext.web2.resource import Resource, WrapperResource
 from twext.web2.test.test_server import BaseCase, BaseTestResource
 
-from twisted.python import log as tlog
-
-class BufferingLogObserver(log.BaseCommonAccessLoggingObserver):
+class BufferingLogObserver(BaseCommonAccessLoggingObserver):
     """
     A web2 log observer that buffer messages.
     """
@@ -14,7 +16,7 @@ class BufferingLogObserver(log.BaseCommonAccessLoggingObserver):
     def logMessage(self, message):
         self.messages.append(message)
 
-class SetDateWrapperResource(resource.WrapperResource):
+class SetDateWrapperResource(WrapperResource):
     """
     A resource wrapper which sets the date header.
     """
@@ -26,33 +28,33 @@ class SetDateWrapperResource(resource.WrapperResource):
 
         req.addResponseFilter(_filter, atEnd=True)
 
-class NoneStreamResource(resource.Resource):
+class NoneStreamResource(Resource):
     """
     A basic empty resource.
     """
     def render(self, req):
-        return http.Response(200)
+        return Response(200)
 
 class TestLogging(BaseCase):
     def setUp(self):
         self.blo = BufferingLogObserver()
-        tlog.addObserver(self.blo.emit)
+        addObserver(self.blo.emit)
 
         # some default resource setup
         self.resrc = BaseTestResource()
         self.resrc.child_emptystream = NoneStreamResource()
 
-        self.root = SetDateWrapperResource(log.LogWrapperResource(self.resrc))
+        self.root = SetDateWrapperResource(LogWrapperResource(self.resrc))
 
     def tearDown(self):
-        tlog.removeObserver(self.blo.emit)
+        removeObserver(self.blo.emit)
 
     def assertLogged(self, **expected):
         """
         Check that logged messages matches expected format.
         """
         if 'date' not in expected:
-            epoch = log.BaseCommonAccessLoggingObserver().logDateString(0)
+            epoch = BaseCommonAccessLoggingObserver().logDateString(0)
             expected['date'] = epoch
 
         if 'user' not in expected:

@@ -28,10 +28,10 @@ from filecmp import dircmp as DirCompare
 from tempfile import mkdtemp
 from shutil import copy
 
-from twisted.python import log
 from twisted.trial import unittest
 from twisted.internet.defer import Deferred
 
+from twext.python.log import Logger
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
@@ -39,6 +39,9 @@ from twext.web2.dav.fileop import rmdir
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.static import DAVFile
 from twext.web2.dav.util import joinURL
+
+log = Logger()
+
 
 class InMemoryPropertyStore (object):
     """

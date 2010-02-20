@@ -36,9 +36,10 @@ except ImportError:
 from twisted.protocols.basic import LineReceiver
 from twisted.protocols.policies import TimeoutMixin
 from twisted.internet.defer import Deferred, fail, TimeoutError
-from twisted.python import log
 
+from twext.python.log import Logger
 
+log = Logger()
 
 DEFAULT_PORT = 11211
 

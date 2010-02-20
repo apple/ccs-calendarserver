@@ -30,8 +30,9 @@ WebDAV principal-match report
 
 __all__ = ["report_DAV__principal_match"]
 
-from twisted.python import log
 from twisted.internet.defer import deferredGenerator, waitForDeferred
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import StatusResponse, HTTPError
 from twext.web2.dav import davxml
@@ -41,6 +42,9 @@ from twext.web2.dav.method import prop_common
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twext.web2.dav.method.report import max_number_of_matches
 from twext.web2.dav.resource import isPrincipalResource
+
+log = Logger()
+
 
 def report_DAV__principal_match(self, request, principal_match):
     """

@@ -29,8 +29,9 @@ WebDAV COPY and MOVE methods.
 
 __all__ = ["http_COPY", "http_MOVE"]
 
-from twisted.python import log
 from twisted.internet.defer import waitForDeferred, deferredGenerator
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav.fileop import move
 from twext.web2.http import HTTPError, StatusResponse
@@ -42,6 +43,9 @@ from twext.web2.dav.util import parentForURL
 
 # FIXME: This is circular
 import twext.web2.dav.static
+
+log = Logger()
+
 
 def http_COPY(self, request):
     """

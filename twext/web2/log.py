@@ -26,7 +26,7 @@
 """Logging tools. This is still in flux (even moreso than the rest of web2)."""
 
 import time
-from twisted.python import log as tlog
+from twisted.python import log
 from twisted.internet import defer
 from twext.web2 import iweb, stream, resource
 from zope.interface import implements, Attribute, Interface
@@ -91,7 +91,7 @@ def logFilter(request, response, startTime=None):
         loginfo.responseCompleted=success
         loginfo.secondsTaken=time.time()-startTime
         
-        tlog.msg(interface=iweb.IRequest, request=request, response=response,
+        log.msg(interface=iweb.IRequest, request=request, response=response,
                  loginfo=loginfo)
         # Or just...
         # ILogger(ctx).log(...) ?
@@ -190,11 +190,11 @@ class BaseCommonAccessLoggingObserver(object):
 
     def start(self):
         """Start observing log events."""
-        tlog.addObserver(self.emit)
+        log.addObserver(self.emit)
 
     def stop(self):
         """Stop observing log events."""
-        tlog.removeObserver(self.emit)
+        log.removeObserver(self.emit)
 
 
 class FileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
@@ -219,4 +219,4 @@ class FileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
 class DefaultCommonAccessLoggingObserver(BaseCommonAccessLoggingObserver):
     """Log requests to default twisted logfile."""
     def logMessage(self, message):
-        tlog.msg(message)
+        log.msg(message)

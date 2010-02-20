@@ -45,12 +45,14 @@ import urllib
 from urlparse import urlsplit, urlunsplit
 import posixpath # Careful; this module is not documented as public API
 
-from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.internet.defer import succeed
-from twext.web2.stream import readStream
 
+from twext.python.log import Logger
+from twext.web2.stream import readStream
 from twext.web2.dav import davxml
+
+log = Logger()
 
 ##
 # Reading request body

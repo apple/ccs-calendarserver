@@ -21,9 +21,11 @@ CardDAV multiget report
 __all__ = ["report_urn_ietf_params_xml_ns_carddav_addressbook_multiget"]
 
 import time
+from urllib import unquote
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python import log
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
@@ -37,7 +39,7 @@ from twistedcaldav.config import config
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.method import report_common
 
-from urllib import unquote
+log = Logger()
 
 
 @inlineCallbacks

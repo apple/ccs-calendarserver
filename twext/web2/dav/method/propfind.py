@@ -32,15 +32,19 @@ __all__ = [
     "propertyName",
 ]
 
-from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.internet.defer import deferredGenerator, waitForDeferred
+
+from twext.python.log import Logger
 from twext.web2.http import HTTPError
 from twext.web2 import responsecode
 from twext.web2.http import StatusResponse
 from twext.web2.dav import davxml
 from twext.web2.dav.http import MultiStatusResponse, statusForFailure
 from twext.web2.dav.util import normalizeURL, davXMLFromStream
+
+log = Logger()
+
 
 def http_PROPFIND(self, request):
     """

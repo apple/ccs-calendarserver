@@ -28,19 +28,17 @@ This is a web-server which integrates with the twisted.internet
 infrastructure.
 """
 
-# System Imports
 import cgi, time, urlparse
 from urllib import quote, unquote
 from urlparse import urlsplit
-
 import weakref
 
 from zope.interface import implements
-# Twisted Imports
-from twisted.internet import defer
-from twisted.python import log, failure
 
-# Sibling Imports
+from twisted.internet import defer
+from twisted.python import failure
+
+from twext.python.log import Logger
 from twext.web2 import http, iweb, fileupload, responsecode
 from twext.web2 import http_headers
 from twext.web2.filter.range import rangefilter
@@ -51,6 +49,8 @@ from twisted import __version__ as twisted_version
 
 VERSION = "Twisted/%s TwistedWeb/%s" % (twisted_version, web2_version)
 _errorMarker = object()
+
+log = Logger()
 
 
 def defaultHeadersFilter(request, response):

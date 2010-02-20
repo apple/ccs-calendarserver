@@ -32,21 +32,22 @@ Maintainer: James Y Knight
 """
 #        import traceback; log.msg(''.join(traceback.format_stack()))
 
-# system imports
 import time
 import cgi
 
-# twisted imports
 from twisted.internet import interfaces, error
-from twisted.python import log, components
+from twisted.python import components
 from zope.interface import implements
 
-# sibling imports
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2 import http_headers
 from twext.web2 import iweb
 from twext.web2 import stream
 from twext.web2.stream import IByteStream, readAndDiscard
+
+log = Logger()
+
 
 defaultPortForScheme = {'http': 80, 'https':443, 'ftp':21}
 

@@ -29,13 +29,17 @@ WebDAV PUT method
 
 __all__ = ["preconditions_PUT", "http_PUT"]
 
-from twisted.python import log
 from twisted.internet.defer import deferredGenerator, waitForDeferred
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav import davxml
 from twext.web2.dav.method import put_common
 from twext.web2.dav.util import parentForURL
+
+log = Logger()
+
 
 def preconditions_PUT(self, request):
     #

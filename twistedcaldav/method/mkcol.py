@@ -21,11 +21,10 @@ Extended MKCOL method.
 
 __all__ = ["http_MKCOL"]
 
+from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from twisted.python import log
-from twisted.python.failure import Failure
-
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse, PropertyStatusResponseQueue
@@ -39,6 +38,9 @@ from twistedcaldav.config import config
 from twistedcaldav.resource import isAddressBookCollectionResource
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 from twistedcaldav.static import CalDAVFile
+
+log = Logger()
+
 
 @inlineCallbacks
 def http_MKCOL(self, request):

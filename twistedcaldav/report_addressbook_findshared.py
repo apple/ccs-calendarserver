@@ -26,13 +26,15 @@ __all__ = [
     "getWritersGroupForSharedAddressBookGroup",
 ]
 
+from plistlib import readPlist
 #import traceback
+
 import opendirectory
 import dsattributes
 
-from plistlib import readPlist
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python import log
+
+from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
@@ -50,7 +52,10 @@ from twistedcaldav.resource import isAddressBookCollectionResource
 
 from twistedcaldav.directory.directory import DirectoryService
 
+log = Logger()
+
 gLogLocal = 0       # Poor mans logging control for this file only
+
 
 class AddressBookAccessMode (davxml.WebDAVTextElement):
     """
@@ -119,8 +124,7 @@ def reloadRecordFromDS(record):
     if record == None:
         return
         
-    if gLogLocal:
-        log.msg("(Shared Address Book) Reloading record from DS: %s (%s)" % (record.shortNames[0], record.guid));
+    log.debug("(Shared Address Book) Reloading record from DS: %s (%s)" % (record.shortNames[0], record.guid));
     guid = record.guid
     service = record.service
     service.reloadCache(record.recordType, lookup=["guid", guid], logIt=False)
@@ -135,8 +139,7 @@ def reloadGroupMembersFromDS(groupRecord):
     if groupRecord == None:
         return
     
-    if gLogLocal:
-        log.msg("(Shared Address Book) Reloading members from DS for record: %s (%s)" % (groupRecord.shortNames[0], groupRecord.guid));
+    log.debug("(Shared Address Book) Reloading members from DS for record: %s (%s)" % (groupRecord.shortNames[0], groupRecord.guid));
     
     visitedGroups = []
     for m in groupRecord.members():
@@ -147,8 +150,7 @@ def reloadGroupMembersFromDS(groupRecord):
             m = reloadRecordFromDS(m)                   # refresh the member group
             reloadGroupMembersFromDS(m)                 # and any of it's children
 
-    if gLogLocal:
-        log.msg("(Shared Address Book) Completed reload of members from DS for record: %s (%s)" % (groupRecord.shortNames[0], groupRecord.guid));
+    log.debug("(Shared Address Book) Completed reload of members from DS for record: %s (%s)" % (groupRecord.shortNames[0], groupRecord.guid));
     
     
 def getSharedAddressBookSpecialGroup(service, wantGroupName):
@@ -157,8 +159,7 @@ def getSharedAddressBookSpecialGroup(service, wantGroupName):
     # Read these directory from DS because DSLocal recrods are not in principals
  
     # We now intentionally force the read to go to DS to make sure we don't have stale data (esp. between processes)
-    if gLogLocal:
-        log.msg("(Shared Address Book) Querying DS for provisioning group: %s" % wantGroupName);
+    log.debug("(Shared Address Book) Querying DS for provisioning group: %s" % wantGroupName);
 
     def _uniqueTupleFromAttribute(attribute):
         if attribute:
@@ -183,16 +184,17 @@ def getSharedAddressBookSpecialGroup(service, wantGroupName):
     try:
         localNodeDirectory = opendirectory.odInit("/Local/Default")
         
-        if gLogLocal:
-            log.msg("(Shared Address Book) opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
-            "/Local/Default",
-            dsattributes.kDSNAttrRecordName,
-            wantGroupName,
-            dsattributes.eDSExact,
-            False,
-            dsattributes.kDSStdRecordTypeGroups,
-            attrs,
-        ))
+        log.debug(
+            "(Shared Address Book) opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                "/Local/Default",
+                dsattributes.kDSNAttrRecordName,
+                wantGroupName,
+                dsattributes.eDSExact,
+                False,
+                dsattributes.kDSStdRecordTypeGroups,
+                attrs,
+            )
+        )
         results = opendirectory.queryRecordsWithAttribute_list(
             localNodeDirectory,
             dsattributes.kDSNAttrRecordName,
@@ -203,8 +205,7 @@ def getSharedAddressBookSpecialGroup(service, wantGroupName):
             attrs,
         )
     
-        if gLogLocal:
-            log.msg("(Shared Address Book) results= %r" % (results,))
+        log.debug("(Shared Address Book) results= %r" % (results,))
 
         if len(results) > 0:
 
@@ -247,8 +248,7 @@ def getSharedAddressBookSpecialGroup(service, wantGroupName):
         #traceback.print_exc()
         log.err("Exception while qerying DS for provisioning group: %s: r" % (wantGroupName, e,))
     
-    if gLogLocal:
-        log.msg("(Shared Address Book) record= %r" % (record,))
+    log.debug("(Shared Address Book) record= %r" % (record,))
     return record
     
                 
@@ -483,4 +483,3 @@ def http___addressbookserver_org_ns__addressbook_findshared(self, request, finds
             responses.append(xml_response)
 
     returnValue(MultiStatusResponse(responses))
-

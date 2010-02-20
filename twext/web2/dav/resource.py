@@ -44,21 +44,17 @@ __all__ = [
     "unauthenticatedPrincipal",
 ]
 
-import __builtin__
-if not hasattr(__builtin__, "set"):
-    import sets.Set as set
-if not hasattr(__builtin__, "frozenset"):
-    import sets.ImmutableSet as frozenset
-
 import urllib
 
 from zope.interface import implements
+
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
-from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
 from twisted.internet.defer import waitForDeferred, deferredGenerator
 from twisted.internet import reactor
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, RedirectResponse, StatusResponse
 from twext.web2.http_headers import generateContentType
@@ -75,6 +71,9 @@ from twext.web2.dav.http import NeedPrivilegesResponse
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.util import unimplemented, parentForURL, joinURL
 from twext.web2.dav.auth import PrincipalCredentials
+
+log = Logger()
+
 
 class DAVPropertyMixIn (MetaDataMixin):
     """

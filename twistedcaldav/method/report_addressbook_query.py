@@ -20,8 +20,12 @@ CardDAV addressbook-query report
 
 __all__ = ["report_urn_ietf_params_xml_ns_carddav_addressbook_query"]
 
+import urllib
+import time
+
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
-from twisted.python import log
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
@@ -34,8 +38,8 @@ from twistedcaldav.config import config
 from twistedcaldav.carddavxml import carddav_namespace, NResults
 from twistedcaldav.method import report_common
 
-import urllib
-import time
+log = Logger()
+
 
 @inlineCallbacks
 def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addressbook_query):

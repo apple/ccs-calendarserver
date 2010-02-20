@@ -30,11 +30,15 @@ WebDAV principal-search-property-set report
 __all__ = ["report_DAV__principal_search_property_set"]
 
 from twisted.internet.defer import deferredGenerator
-from twisted.python import log
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.http import HTTPError, Response, StatusResponse
 from twext.web2.stream import MemoryStream
+
+log = Logger()
+
 
 def report_DAV__principal_search_property_set(self, request, principal_search_property_set):
     """

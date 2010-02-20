@@ -29,13 +29,17 @@ WebDAV ACL method
 
 __all__ = ["http_ACL"]
 
-from twisted.python import log
 from twisted.internet.defer import deferredGenerator, waitForDeferred
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import StatusResponse, HTTPError
 from twext.web2.dav import davxml
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.util import davXMLFromStream
+
+log = Logger()
+
 
 def http_ACL(self, request):
     """

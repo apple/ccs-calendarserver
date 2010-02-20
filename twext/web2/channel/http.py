@@ -23,25 +23,28 @@
 #
 ##
 
+import time
 import warnings
 import socket
+from random import randint
 from cStringIO import StringIO
+
 from zope.interface import implements
 
-from twisted.python import log
 from twisted.internet import interfaces, protocol, reactor
 from twisted.protocols import policies, basic
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2 import http_headers
 from twext.web2 import http
-
-from random import randint
-
 from twext.web2.http import Request, RedirectResponse
-from twistedcaldav.config import config
 
+from twistedcaldav.config import config
 from twistedcaldav import accounting
-import time
+
+log = Logger()
+
 
 class OverloadedLoggingServerProtocol (protocol.Protocol):
     def __init__(self, retryAfter, outstandingRequests):

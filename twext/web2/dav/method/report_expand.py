@@ -28,8 +28,9 @@ WebDAV expand-property report
 __all__ = ["report_DAV__expand_property"]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python import log
 from twisted.python.failure import Failure
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.davxml import dav_namespace
@@ -39,6 +40,9 @@ from twext.web2.dav.method.propfind import propertyName
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.dav.util import parentForURL
 from twext.web2.http import HTTPError, StatusResponse
+
+log = Logger()
+
 
 @inlineCallbacks
 def report_DAV__expand_property(self, request, expand_property):

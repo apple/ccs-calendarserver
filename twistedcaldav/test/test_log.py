@@ -18,11 +18,16 @@ import logging
 
 from twisted.python import log as twistedLogging
 
-from twext.python.log import *
+from twext.python.log import logLevelsByNamespace, logLevelForNamespace
+from twext.python.log import setLogLevelForNamespace, clearLogLevels
+from twext.python.log import logLevels, cmpLogLevels
+from twext.python.log import pythonLogLevelForLevel, InvalidLogLevelError
+from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav.test.util import TestCase
 
 defaultLogLevel = logLevelsByNamespace[None]
+
 
 class TestLogger (Logger):
     def __init__(self, namespace=None):

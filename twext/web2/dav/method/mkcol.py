@@ -29,13 +29,17 @@ WebDAV MKCOL method
 
 __all__ = ["http_MKCOL"]
 
-from twisted.python import log
 from twisted.internet.defer import deferredGenerator, waitForDeferred
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav import davxml
 from twext.web2.dav.fileop import mkcollection
 from twext.web2.dav.util import noDataFromStream, parentForURL
+
+log = Logger()
+
 
 def http_MKCOL(self, request):
     """

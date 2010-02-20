@@ -388,10 +388,12 @@ parse_urlencoded = defer.deferredGenerator(parse_urlencoded)
 if __name__ == '__main__':
     d = parseMultipartFormData(
         FileStream(open("upload.txt")), "----------0xKhTmLbOuNdArY")
-    from twisted.python import log
+    from twext.python.log import Logger
+    log = Logger()
     d.addErrback(log.err)
     def pr(s):
         print s
     d.addCallback(pr)
+
 
 __all__ = ['parseMultipartFormData', 'parse_urlencoded', 'parse_urlencoded_stream', 'MultipartMimeStream', 'MimeFormatError']
