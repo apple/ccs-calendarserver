@@ -1,4 +1,5 @@
 #!/bin/sh
+# -*- sh-basic-offset: 2 -*-
 
 set -e
 set -u
