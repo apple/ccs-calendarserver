@@ -60,44 +60,13 @@ from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.util import submodule, Alternator, printTracebacks
+from twistedcaldav.util import Alternator, printTracebacks
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.method.report import http_REPORT
 
 log = Logger()
 
-#
-# Alter logger for some twisted stuff
-#
-import twext
-for m in (
-    "web2.dav.fileop",
-    "web2.dav.element.base",
-    "web2.dav.fileop",
-    "web2.dav.http",
-    "web2.dav.method.acl",
-    "web2.dav.method.copymove",
-    "web2.dav.method.delete",
-    "web2.dav.method.mkcol",
-    "web2.dav.method.prop_common",
-    "web2.dav.method.propfind",
-    "web2.dav.method.proppatch",
-    "web2.dav.method.put",
-    "web2.dav.method.put_common",
-    "web2.dav.method.report",
-    "web2.dav.method.report_acl_principal_prop_set",
-    "web2.dav.method.report_expand",
-    "web2.dav.method.report_principal_match",
-    "web2.dav.method.report_principal_property_search",
-    "web2.dav.method.report_principal_search_property_set",
-    "web2.dav.resource",
-    "web2.dav.static",
-    "web2.dav.util",
-    "web2.dav.xattrprops",
-):
-    submodule(twext, m).log = Logger("twext." + m)
-del m
 
 class SudoSACLMixin (object):
     """
