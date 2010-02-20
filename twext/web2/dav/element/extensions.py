@@ -28,9 +28,15 @@
 Implementation of draft-sanchez-webdav-current-principal-02.
 """
 
-__all__ = ['CurrentUserPrincipal']
+__all__ = [
+    "CurrentUserPrincipal",
+    "ErrorDescription",
+    "SyncCollection",
+    "SyncToken",
+]
 
-from twext.web2.dav.element.base import WebDAVElement, dav_namespace
+from twext.web2.dav.element.base import WebDAVElement, WebDAVTextElement
+from twext.web2.dav.element.base import dav_namespace, twisted_dav_namespace
 
 
 class CurrentUserPrincipal(WebDAVElement):
@@ -43,3 +49,54 @@ class CurrentUserPrincipal(WebDAVElement):
         (dav_namespace, "href" )                : (0, 1),
         (dav_namespace, "unauthenticated" )     : (0, 1),
     }
+
+class ErrorDescription(WebDAVTextElement):
+    """
+    The human-readable description of a failed precondition
+    """
+    namespace = twisted_dav_namespace
+    name = "error-description"
+    protected = True
+
+class SyncCollection (WebDAVElement):
+    """
+    DAV report used to retrieve specific calendar component items via their
+    URIs.
+    (CalDAV-access-09, section 9.9)
+    """
+    name = "sync-collection"
+
+    # To allow for an empty element in a supported-report-set property we need
+    # to relax the child restrictions
+    allowed_children = {
+        (dav_namespace, "sync-token"): (0, 1), # When used in the REPORT this is required
+        (dav_namespace, "prop"    ):   (0, 1),
+    }
+
+    def __init__(self, *children, **attributes):
+        super(SyncCollection, self).__init__(*children, **attributes)
+
+        self.property = None
+        self.sync_token = None
+
+        for child in self.children:
+            qname = child.qname()
+
+            if qname == (dav_namespace, "sync-token"):
+                
+                self.sync_token = str(child)
+
+            elif qname in (
+                (dav_namespace, "prop"    ),
+            ):
+                if self.property is not None:
+                    raise ValueError("Only one of DAV:prop allowed")
+                self.property = child
+
+class SyncToken (WebDAVTextElement):
+    """
+    Synchronization token used in report and as a property.
+    """
+    name = "sync-token"
+    hidden = True
+    protected = True

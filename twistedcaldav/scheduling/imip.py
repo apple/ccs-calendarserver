@@ -18,7 +18,7 @@ from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.python.log import Logger
-from twext.web2.dav.davxml import ErrorResponse
+from twext.web2.dav.http import ErrorResponse
 
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError

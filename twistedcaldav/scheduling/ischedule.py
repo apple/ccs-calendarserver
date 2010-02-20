@@ -32,7 +32,7 @@ from twext.web2.stream import MemoryStream
 
 from twext.python.log import Logger, logLevels
 from twext.internet.ssl import ChainingOpenSSLContextFactory
-from twext.web2.dav.davxml import ErrorResponse
+from twext.web2.dav.http import ErrorResponse
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace

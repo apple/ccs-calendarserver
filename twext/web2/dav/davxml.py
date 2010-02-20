@@ -72,18 +72,8 @@ __all__ = (
     [
         "sname2qname",
         "qname2sname",
-        "ErrorDescription",
-        "ErrorResponse",
-        "SyncCollection",
-        "SyncToken",
     ]
 )
-
-#from twext.web2.http import Response
-
-from twext.web2.dav._errorbase import ErrorResponse as SuperErrorResponse
-from twext.web2.dav.davxml import dav_namespace, twisted_dav_namespace, WebDAVElement, WebDAVTextElement
-from twext.web2.dav.davxml import WebDAVUnknownElement, Error
 
 
 def sname2qname(sname):
@@ -122,102 +112,4 @@ def qname2sname(qname):
         return "{%s}%s" % qname
     except TypeError:
         raise ValueError("Invalid qname: %r" % (qname,))
-
-
-
-
-
-class ErrorDescription(WebDAVTextElement):
-    """
-    The human-readable description of a failed precondition
-    """
-    namespace = twisted_dav_namespace
-    name = "error-description"
-    protected = True
-
-
-class ErrorResponse(SuperErrorResponse):
-    """
-    A L{Response} object which contains a status code and a L{davxml.Error}
-    element.
-    Renders itself as a DAV:error XML document.
-    """
-    error = None
-    unregistered = True     # base class is already registered
-
-    def __init__(self, code, error, description=None):
-        """
-        @param code: a response code.
-        @param error: an L{davxml.WebDAVElement} identifying the error, or a
-            tuple C{(namespace, name)} with which to create an empty element
-            denoting the error.  (The latter is useful in the case of
-            preconditions ans postconditions, not all of which have defined
-            XML element classes.)
-        @param description: an optional string that, if present, will get
-            wrapped in a (twisted_dav_namespace, error-description) element.
-        """
-        if type(error) is tuple:
-            xml_namespace, xml_name = error
-            error = WebDAVUnknownElement()
-            error.namespace = xml_namespace
-            error.name = xml_name
-
-        if description:
-            output = Error(error, ErrorDescription(description)).toxml()
-        else:
-            output = Error(error).toxml()
-
-        SuperErrorResponse.__init__(self, code=code, error=error, stream=output)
-
-
-    def __repr__(self):
-        return "<%s %s %s>" % (self.__class__.__name__, self.code, self.error.sname())
-
-class SyncCollection (WebDAVElement):
-    """
-    DAV report used to retrieve specific calendar component items via their
-    URIs.
-    (CalDAV-access-09, section 9.9)
-    """
-    name = "sync-collection"
-
-    # To allow for an empty element in a supported-report-set property we need
-    # to relax the child restrictions
-    allowed_children = {
-        (dav_namespace, "sync-token"): (0, 1), # When used in the REPORT this is required
-        (dav_namespace, "prop"    ):   (0, 1),
-    }
-
-    def __init__(self, *children, **attributes):
-        super(SyncCollection, self).__init__(*children, **attributes)
-
-        self.property = None
-        self.sync_token = None
-
-        for child in self.children:
-            qname = child.qname()
-
-            if qname == (dav_namespace, "sync-token"):
-                
-                self.sync_token = str(child)
-
-            elif qname in (
-                (dav_namespace, "prop"    ),
-            ):
-                if self.property is not None:
-                    raise ValueError("Only one of DAV:prop allowed")
-                self.property = child
-
-registerElement(SyncCollection)
-
-class SyncToken (WebDAVTextElement):
-    """
-    Synchronization token used in report and as a property.
-    """
-    name = "sync-token"
-    hidden = True
-    protected = True
-
-registerElement(SyncToken)
-
 

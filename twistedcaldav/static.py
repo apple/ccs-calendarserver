@@ -45,7 +45,7 @@ from urlparse import urlsplit
 from uuid import uuid4
 
 from twext.python.log import Logger
-from twext.web2.dav.davxml import ErrorResponse
+from twext.web2.dav.http import ErrorResponse
 
 from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure

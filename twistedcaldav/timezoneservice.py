@@ -22,7 +22,7 @@ __all__ = [
     "TimezoneServiceResource",
 ]
 
-from twext.web2.dav.davxml import ErrorResponse
+from twext.web2.dav.http import ErrorResponse
 
 from twext.web2 import responsecode
 from twext.web2.dav import davxml

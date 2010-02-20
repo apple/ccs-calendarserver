@@ -21,7 +21,7 @@ CalDAV freebusy report
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_free_busy_query"]
 
 from twext.python.log import Logger
-from twext.web2.dav.davxml import ErrorResponse
+from twext.web2.dav.http import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2 import responsecode

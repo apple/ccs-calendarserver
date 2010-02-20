@@ -45,7 +45,7 @@ from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 
 from twext.python.log import Logger
-from twext.web2.dav.davxml import ErrorResponse
+from twext.web2.dav.http import ErrorResponse
 
 from twistedcaldav.config import config
 from twistedcaldav.caldavxml import NoUIDConflict, ScheduleTag

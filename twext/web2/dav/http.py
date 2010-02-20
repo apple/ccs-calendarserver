@@ -49,7 +49,46 @@ from twext.web2.http_headers import MimeType
 from twext.web2.dav import davxml
 from twext.web2.dav.util import joinURL
 
-from twext.web2.dav._errorbase import ErrorResponse
+class ErrorResponse(Response):
+    """
+    A L{Response} object which contains a status code and a L{davxml.Error}
+    element.
+    Renders itself as a DAV:error XML document.
+    """
+    error = None
+    unregistered = True     # base class is already registered
+
+    def __init__(self, code, error, description=None):
+        """
+        @param code: a response code.
+        @param error: an L{davxml.WebDAVElement} identifying the error, or a
+            tuple C{(namespace, name)} with which to create an empty element
+            denoting the error.  (The latter is useful in the case of
+            preconditions ans postconditions, not all of which have defined
+            XML element classes.)
+        @param description: an optional string that, if present, will get
+            wrapped in a (twisted_dav_namespace, error-description) element.
+        """
+        if type(error) is tuple:
+            xml_namespace, xml_name = error
+            error = davxml.WebDAVUnknownElement()
+            error.namespace = xml_namespace
+            error.name = xml_name
+
+        if description:
+            output = davxml.Error(error, davxml.ErrorDescription(description)).toxml()
+        else:
+            output = davxml.Error(error).toxml()
+
+        Response.__init__(self, code=code, stream=output)
+
+        self.headers.setHeader("content-type", MimeType("text", "xml"))
+
+        self.error = error
+
+
+    def __repr__(self):
+        return "<%s %s %s>" % (self.__class__.__name__, self.code, self.error.sname())
 
 class NeedPrivilegesResponse (ErrorResponse):
     def __init__(self, base_uri, errors):
