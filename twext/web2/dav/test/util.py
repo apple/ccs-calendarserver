@@ -27,7 +27,6 @@ from urllib import quote as url_quote
 from filecmp import dircmp as DirCompare
 from tempfile import mkdtemp
 from shutil import copy
-from random import randrange, choice
 
 from twisted.python import log
 from twisted.trial import unittest

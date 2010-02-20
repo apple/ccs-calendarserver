@@ -77,7 +77,7 @@ class HTTP(twext.web2.dav.test.util.TestCase):
     def _check_exception(self, exception, result):
         try:
             raise exception
-        except Exception, e:
+        except Exception:
             failure = Failure()
             status = statusForFailure(failure)
             self.failUnless(

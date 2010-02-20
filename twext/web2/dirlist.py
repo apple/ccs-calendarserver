@@ -31,7 +31,7 @@ import stat
 import time
 
 # twisted imports
-from twext.web2 import iweb, resource, http, http_headers
+from twext.web2 import resource, http, http_headers
 
 def formatFileSize(size):
     if size < 1024:

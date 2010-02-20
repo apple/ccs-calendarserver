@@ -216,15 +216,15 @@ class FileStream(SimpleStream):
             self.f = None
             return None
 
-        if sendfile and length > SENDFILE_THRESHOLD:
-            # XXX: Yay using non-existent sendfile support!
-            # FIXME: if we return a SendfileBuffer, and then sendfile
-            #        fails, then what? Or, what if file is too short?
-            readSize = min(length, SENDFILE_LIMIT)
-            res = SendfileBuffer(self.f, self.start, readSize)
-            self.length -= readSize
-            self.start += readSize
-            return res
+        #if sendfile and length > SENDFILE_THRESHOLD:
+        #    # XXX: Yay using non-existent sendfile support!
+        #    # FIXME: if we return a SendfileBuffer, and then sendfile
+        #    #        fails, then what? Or, what if file is too short?
+        #    readSize = min(length, SENDFILE_LIMIT)
+        #    res = SendfileBuffer(self.f, self.start, readSize)
+        #    self.length -= readSize
+        #    self.start += readSize
+        #    return res
 
         if self.useMMap and length > MMAP_THRESHOLD:
             readSize = min(length, MMAP_LIMIT)

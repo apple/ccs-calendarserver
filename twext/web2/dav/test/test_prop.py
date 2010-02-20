@@ -21,18 +21,13 @@
 #
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
-from twext.web2.dav.element.rfc4331 import QuotaUsedBytes
-from twext.web2.dav.element.rfc4331 import QuotaAvailableBytes
-
 import random
 
-from twisted.trial.unittest import SkipTest
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 from twext.web2 import http_headers
 from twext.web2.dav import davxml
-from twext.web2.dav.resource import DAVResource
 from twext.web2.dav.davxml import dav_namespace, lookupElement
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.test.test_server import SimpleRequest
@@ -45,12 +40,6 @@ dynamicLiveProperties = (
     (dav_namespace, "quota-used-bytes"          ),
 )
 
-
-#
-# See whether dead properties are available
-#
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.dav.static import DeadPropertyStore
 
 class PROP(twext.web2.dav.test.util.TestCase):
     """

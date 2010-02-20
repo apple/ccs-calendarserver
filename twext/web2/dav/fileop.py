@@ -111,7 +111,6 @@ def delete(uri, filepath, depth="infinity"):
 
         # NOTE: len(uri_path) is wrong if os.sep is not one byte long... meh.
         request_basename = filepath.path[:-len(uri_path)]
-        request_basename_len = len(request_basename)
 
         errors = ResponseQueue(request_basename, "DELETE", responsecode.NO_CONTENT)
 

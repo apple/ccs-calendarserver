@@ -1,5 +1,4 @@
 from twext.web2.test.test_server import BaseCase
-import sys
 
 try:
     from twisted.web import resource
@@ -22,6 +21,7 @@ class OldWebCompat(BaseCase):
         import twisted.web
     except ImportError:
         skip = "can't run w/o twisted.web"
+    twisted.web
 
     def testOldWebResource(self):
         ow = OldWebResource('I am an OldWebResource')

@@ -61,7 +61,6 @@ def preconditions_PUT(self, request):
                 responsecode.FORBIDDEN,
                 "The requested resource exists but is not backed by a regular file."
             ))
-        resource_is_new = False
     else:
         if not self.fp.parent().isdir():
             log.err("No such directory: %s" % (self.fp.path,))
@@ -69,7 +68,6 @@ def preconditions_PUT(self, request):
                 responsecode.CONFLICT,
                 "Parent collection resource does not exist."
             ))
-        resource_is_new = True
 
     #
     # HTTP/1.1 (RFC 2068, section 9.6) requires that we respond with a Not

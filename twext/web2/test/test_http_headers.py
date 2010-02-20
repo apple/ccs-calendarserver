@@ -432,6 +432,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
                                                     http_headers.ETag('c3piozzzz')]),
             ('*', ['*']),
             )
+        self.runRoundtripTest("If-Match", table)
     def testIfModifiedSince(self):
         # Don't need major tests since the datetime parser has its own test
         # Just test stupid ; length= brokenness.

@@ -29,8 +29,6 @@ WebDAV COPY and MOVE methods.
 
 __all__ = ["http_COPY", "http_MOVE"]
 
-import urlparse
-
 from twisted.python import log
 from twisted.internet.defer import waitForDeferred, deferredGenerator
 from twext.web2 import responsecode

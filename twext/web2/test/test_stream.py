@@ -9,8 +9,8 @@ import tempfile, sys, os
 
 from zope.interface import implements
 
-# sibpath is *not* unused - the doctests use it.
 from twisted.python.util import sibpath
+sibpath # sibpath is *not* unused - the doctests use it.
 from twisted.internet import reactor, defer, interfaces
 from twisted.trial import unittest
 from twext.web2 import stream

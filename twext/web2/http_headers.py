@@ -100,8 +100,7 @@ class HeaderHandler(object):
                 header = p(header)
                 # if isinstance(h, types.GeneratorType):
                 #     h=list(h)
-        except ValueError,v:
-            # print v
+        except ValueError:
             header=None
 
         return header
@@ -270,7 +269,6 @@ def tokenize(header, foldCase=True):
     ctls=http_ctls
 
     string = ",".join(header)
-    list = []
     start = 0
     cur = 0
     quoted = False

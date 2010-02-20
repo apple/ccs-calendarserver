@@ -65,7 +65,6 @@ def gzipfilter(request, response):
         response.headers.setHeader('vary', vary+['accept-encoding'])
     
     ae = request.headers.getHeader('accept-encoding', {})
-    compressor = None
     # Always prefer gzip over deflate no matter what their q-values are.
     if ae.get('gzip', 0):
         response.stream = gzipStream(response.stream)

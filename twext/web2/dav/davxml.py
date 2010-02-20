@@ -47,7 +47,7 @@ from twext.web2.dav.element.rfc2518 import *
 from twext.web2.dav.element.rfc3253 import *
 from twext.web2.dav.element.rfc3744 import *
 from twext.web2.dav.element.rfc4331 import *
-from twext.web2.dav.element.extensions import CurrentUserPrincipal
+from twext.web2.dav.element.extensions import *
 
 #
 # Register all XML elements with the parser
@@ -84,7 +84,6 @@ __all__ = (
 from twext.web2.dav._errorbase import ErrorResponse as SuperErrorResponse
 from twext.web2.dav.davxml import dav_namespace, twisted_dav_namespace, WebDAVElement, WebDAVTextElement
 from twext.web2.dav.davxml import WebDAVUnknownElement, Error
-from twext.web2.http_headers import MimeType
 
 
 def sname2qname(sname):

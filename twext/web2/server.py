@@ -45,7 +45,6 @@ from twext.web2 import http, iweb, fileupload, responsecode
 from twext.web2 import http_headers
 from twext.web2.filter.range import rangefilter
 from twext.web2 import error
-from twext.web2.dav.util import joinURL
 
 from twext.web2 import __version__ as web2_version
 from twisted import __version__ as twisted_version
@@ -105,7 +104,6 @@ def parsePOSTData(request, maxMem=100*1024, maxFields=1024,
     if request.stream.length == 0:
         return defer.succeed(None)
 
-    parser = None
     ctype = request.headers.getHeader('content-type')
 
     if ctype is None:
@@ -246,7 +244,7 @@ class Request(http.Request):
         if port is None: port = self.port
         if path is None: path = self.path
         if params is None: params = self.params
-        if querystring is None: query = self.querystring
+        if querystring is None: querystring = self.querystring
         if fragment is None: fragment = ''
 
         if port == http.defaultPortForScheme.get(scheme, 0):
@@ -332,7 +330,7 @@ class Request(http.Request):
             self._fixupURLParts()
             self.remoteAddr = self.chanRequest.getRemoteHost()
         except:
-            failedDeferred = self._processingFailed(failure.Failure())
+            self._processingFailed(failure.Failure())
             return
 
         d = defer.Deferred()

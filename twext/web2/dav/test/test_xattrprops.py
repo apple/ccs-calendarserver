@@ -300,7 +300,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         self.addCleanup(self.resourcePath.parent().chmod, 0700)
 
         # Try to get a property from it - and fail.
-        document = self._makeValue()
+        self._makeValue()
         error = self.assertRaises(HTTPError, self.propertyStore.list)
 
         # Make sure that the status is FORBIDDEN, a roughly reasonable mapping

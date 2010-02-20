@@ -32,12 +32,11 @@ from twisted.internet.defer import succeed, deferredGenerator, waitForDeferred
 from twisted.python.filepath import InsecurePath
 from twisted.python import log
 from twext.web2 import http_headers
-from twext.web2 import responsecode, dirlist
-from twext.web2.dav import davxml
+from twext.web2 import responsecode
 from twext.web2.dav.resource import DAVResource, davPrivilegeSet
 from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.dav.util import bindMethods
-from twext.web2.http import HTTPError, StatusResponse, RedirectResponse
+from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.static import File
 
 try:

@@ -47,13 +47,12 @@ __all__ = [
 
 import string
 import cStringIO as StringIO
-import xml.dom.minidom
 
 import datetime
 
 from twisted.python import log
 from twext.web2.http_headers import parseDateTime
-from twext.web2.dav.element.util import PrintXML, decodeXMLName
+from twext.web2.dav.element.util import decodeXMLName
 
 ##
 # Base XML elements

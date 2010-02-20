@@ -6,7 +6,7 @@ import time, sys
 from zope.interface import implements
 
 from twisted.trial import unittest
-from twext.web2 import http, http_headers, responsecode, error, iweb, stream
+from twext.web2 import http, http_headers, responsecode, iweb, stream
 from twext.web2 import channel
 
 from twisted.internet import reactor, protocol, address, interfaces, utils
@@ -738,9 +738,6 @@ class CoreHTTPTestCase(HTTPTests):
 
     def testTimeout_inRequest(self):
         cxn = self.connect(inputTimeOut = 0.3)
-        cmds = [[]]
-        data = ""
-
         cxn.client.write("GET / HTTP/1.1\r\n")
         return deferLater(reactor, 0.5, self.assertDone, cxn)
 
