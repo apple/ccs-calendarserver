@@ -502,18 +502,7 @@ class XMLResponse (Response):
         self.headers.setHeader("content-type", http_headers.MimeType("text", "xml"))
 
     
-from twext.web2 import compat
-components.registerAdapter(compat.makeOldRequestAdapter, iweb.IRequest, iweb.IOldRequest)
-components.registerAdapter(compat.OldNevowResourceAdapter, iweb.IOldNevowResource, iweb.IResource)
 components.registerAdapter(Response, int, iweb.IResponse)
-
-try:
-    # If twisted.web is installed, add an adapter for it
-    from twisted.web import resource
-except:
-    pass
-else:
-    components.registerAdapter(compat.OldResourceAdapter, resource.IResource, iweb.IOldNevowResource)
 
 __all__ = ['HTTPError', 'NotModifiedResponse', 'Request', 'Response', 'StatusResponse', 'RedirectResponse', 'checkIfRange', 'checkPreconditions', 'defaultPortForScheme', 'parseVersion', 'splitHostPort', "XMLResponse"]
 

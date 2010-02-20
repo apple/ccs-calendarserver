@@ -9,7 +9,7 @@ from zope.interface import implements
 
 from twisted.python import components
 from twext.web2 import http, http_headers, iweb, server
-from twext.web2 import resource, stream, compat
+from twext.web2 import resource, stream
 from twisted.trial import unittest
 from twisted.internet import reactor, defer, address
 
@@ -111,28 +111,6 @@ class AdaptionTestCase(unittest.TestCase):
         """
         notResource = NotResource()
         self.failUnless(isinstance(iweb.IResource(notResource), ResourceAdapter))
-
-
-    def test_oldResources(self):
-        """
-        Test that providers of L{IOldNevowResource} can be adapted to
-        IResource automatically.
-        """
-        class OldResource(object):
-            implements(iweb.IOldNevowResource)
-        oldResource = OldResource()
-        resource = iweb.IResource(oldResource)
-        self.failUnless(isinstance(resource, compat.OldNevowResourceAdapter))
-
-
-    def test_transitive(self):
-        """
-        Test that a special-case transitive adaption from something to
-        IOldNevowResource to IResource is possible.
-        """
-        notResource = NotOldResource()
-        resource = iweb.IResource(notResource)
-        self.failUnless(isinstance(resource, compat.OldNevowResourceAdapter))
 
 
 
