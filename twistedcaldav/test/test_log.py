@@ -18,7 +18,7 @@ import logging
 
 from twisted.python import log as twistedLogging
 
-from twext.log import *
+from twext.python.log import *
 
 from twistedcaldav.test.util import TestCase
 

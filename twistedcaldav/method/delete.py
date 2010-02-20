@@ -20,7 +20,7 @@ CalDAV DELETE method.
 
 __all__ = ["http_DELETE"]
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2 import responsecode

@@ -53,7 +53,7 @@ from twext.web2.http import Response, HTTPError
 from twext.web2.http_headers import MimeType
 
 
-from twext.log import Logger, LoggingMixIn
+from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav import ical, caldavxml
 from twistedcaldav import memcachepool

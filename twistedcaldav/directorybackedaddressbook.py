@@ -24,7 +24,7 @@ __all__ = [
 
 
 
-from twext.log import Logger
+from twext.python.log import Logger
 from twisted.internet.defer import succeed, inlineCallbacks, maybeDeferred, returnValue
 from twisted.python.reflect import namedClass
 from twext.web2 import responsecode

@@ -45,7 +45,7 @@ from vobject.icalendar import TimezoneComponent, dateTimeToString, deltaToOffset
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.stream import IStream
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap,\
     normalizeStartEndDuration, toString, normalizeForIndex, differenceDateTime

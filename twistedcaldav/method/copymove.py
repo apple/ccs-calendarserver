@@ -30,7 +30,7 @@ from twext.web2.dav.davxml import ErrorResponse
 from twext.web2.dav.util import parentForURL
 from twext.web2.http import StatusResponse, HTTPError
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.method.put_common import StoreCalendarObjectResource

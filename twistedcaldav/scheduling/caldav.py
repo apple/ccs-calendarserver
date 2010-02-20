@@ -21,7 +21,7 @@ try:
 except ImportError:
     from md5 import new as md5
 
-from twext.log import Logger
+from twext.python.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue

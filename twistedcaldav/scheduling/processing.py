@@ -20,7 +20,7 @@ from hashlib import md5
 
 from vobject.icalendar import utc
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue

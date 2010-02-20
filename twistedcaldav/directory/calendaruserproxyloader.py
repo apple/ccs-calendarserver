@@ -28,7 +28,7 @@ from xml.parsers.expat import ExpatError
 
 from twisted.internet.defer import inlineCallbacks
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.directory import calendaruserproxy

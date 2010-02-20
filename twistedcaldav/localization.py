@@ -24,7 +24,7 @@ import array
 import codecs
 from locale import normalize
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.config import config
 

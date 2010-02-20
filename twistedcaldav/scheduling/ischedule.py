@@ -30,7 +30,7 @@ from twext.web2.http_headers import Headers
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
-from twext.log import Logger, logLevels
+from twext.python.log import Logger, logLevels
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.web2.dav.davxml import ErrorResponse
 

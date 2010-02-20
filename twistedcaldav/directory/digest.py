@@ -23,7 +23,7 @@ from twext.web2.http_headers import parseKeyValue
 from twext.web2.http_headers import split
 from twext.web2.http_headers import tokenize
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.memcacher import Memcacher
 

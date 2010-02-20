@@ -47,8 +47,8 @@ from twisted.scripts.mktap import getid
 from twisted.runner import procmon
 from twext.web2.server import Site
 
-from twext.log import Logger, LoggingMixIn
-from twext.log import logLevelForNamespace, setLogLevelForNamespace
+from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import logLevelForNamespace, setLogLevelForNamespace
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest

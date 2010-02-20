@@ -26,7 +26,7 @@ from xml.etree.ElementTree import ElementTree
 from xml.parsers.expat import ExpatError
 import types
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 log = Logger()
 

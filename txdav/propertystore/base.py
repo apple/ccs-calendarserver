@@ -24,7 +24,7 @@ __all__ = [
 
 from zope.interface import implements
 
-from twext.log import LoggingMixIn
+from twext.python.log import LoggingMixIn
 
 from txdav.idav import IPropertyStore, IPropertyName
 

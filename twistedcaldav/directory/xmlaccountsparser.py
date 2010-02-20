@@ -27,7 +27,7 @@ import xml.dom.minidom
 
 from twext.python.filepath import CachingFilePath as FilePath
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.directory.directory import DirectoryService
 

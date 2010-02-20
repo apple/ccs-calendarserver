@@ -35,7 +35,7 @@ import datetime
 from vobject.icalendar import utc
 from vobject.icalendar import dateTimeToString
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeToUTC, toString

@@ -26,7 +26,7 @@ from twext.web2.http import Response
 from twext.web2.iweb import IResource
 from twext.web2.stream import MemoryStream
 
-from twext.log import LoggingMixIn
+from twext.python.log import LoggingMixIn
 
 from twistedcaldav.memcachepool import CachePoolUserMixIn, defaultCachePool
 from twistedcaldav.config import config

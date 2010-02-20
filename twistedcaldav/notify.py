@@ -39,7 +39,7 @@ from fnmatch import fnmatch
 
 from zope.interface import Interface, implements
 
-from twext.log import LoggingMixIn
+from twext.python.log import LoggingMixIn
 
 from twisted.internet.protocol import ReconnectingClientFactory, ServerFactory
 from twisted.internet.ssl import ClientContextFactory

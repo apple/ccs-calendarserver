@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.log import Logger
+from twext.python.log import Logger
 from twext.python.plistlib import readPlist
 
 from twistedcaldav.client.pool import installPool

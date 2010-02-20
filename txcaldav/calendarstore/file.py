@@ -32,7 +32,7 @@ from zope.interface import implements
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet.defer import inlineCallbacks
 
-from twext.log import LoggingMixIn
+from twext.python.log import LoggingMixIn
 from twext.python.icalendar import Component as iComponent
 from twext.python.icalendar import InvalidICalendarDataError
 

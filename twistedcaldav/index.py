@@ -44,7 +44,7 @@ from vobject.icalendar import utc
 
 from twisted.internet.defer import maybeDeferred, succeed
 
-from twext.log import Logger, LoggingMixIn
+from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarquery

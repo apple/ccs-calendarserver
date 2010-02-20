@@ -26,7 +26,7 @@ from twext.web2 import iweb
 from twext.web2.client.http import ClientRequest
 from twext.web2.resource import LeafResource
 
-from twext.log import LoggingMixIn
+from twext.python.log import LoggingMixIn
 
 from twistedcaldav.client.pool import getHTTPClientPool
 from twistedcaldav.config import config

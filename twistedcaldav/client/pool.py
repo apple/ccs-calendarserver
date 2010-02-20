@@ -23,7 +23,7 @@ __all__ = [
 import OpenSSL
 import urlparse
 
-from twext.log import LoggingMixIn
+from twext.python.log import LoggingMixIn
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 
 from twisted.internet.address import IPv4Address

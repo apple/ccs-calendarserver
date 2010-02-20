@@ -43,7 +43,7 @@ from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
 from twistedcaldav.vcard import Component
 
-from twext.log import Logger, LoggingMixIn
+from twext.python.log import Logger, LoggingMixIn
 from twistedcaldav.config import config
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 

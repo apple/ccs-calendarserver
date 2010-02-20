@@ -50,7 +50,7 @@ from twistedcaldav.fileops import copyWithXAttrs
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.vcard import Component
 from twistedcaldav.vcardindex import ReservationError
-from twext.log import Logger
+from twext.python.log import Logger
 #from twistedcaldav.scheduling.implicit import ImplicitScheduler
 
 log = Logger()

@@ -33,8 +33,8 @@ from twisted.plugin import IPlugin
 from twisted.python.usage import Options, UsageError
 from twext.web2.http_headers import Headers
 
-from twext.log import Logger, LoggingMixIn
-from twext.log import logLevelForNamespace, setLogLevelForNamespace
+from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import logLevelForNamespace, setLogLevelForNamespace
 
 from twistedcaldav.config import config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE

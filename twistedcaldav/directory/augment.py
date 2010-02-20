@@ -19,7 +19,7 @@ import time
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.config import fullServerPath, config
 from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\

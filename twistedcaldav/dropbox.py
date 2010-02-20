@@ -28,7 +28,7 @@ from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.resource import DAVResource, TwistedACLInheritable
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.customxml import calendarserver_namespace
 

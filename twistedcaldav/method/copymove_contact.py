@@ -33,7 +33,7 @@ from twext.web2.http import StatusResponse, HTTPError
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
 from twistedcaldav.resource import isAddressBookCollectionResource
-from twext.log import Logger
+from twext.python.log import Logger
 
 log = Logger()
 

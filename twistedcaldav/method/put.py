@@ -25,7 +25,7 @@ from twext.web2 import responsecode
 from twext.web2.dav.util import allDataFromStream, parentForURL
 from twext.web2.http import HTTPError, StatusResponse
 
-from twext.log import Logger
+from twext.python.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twistedcaldav.caldavxml import caldav_namespace

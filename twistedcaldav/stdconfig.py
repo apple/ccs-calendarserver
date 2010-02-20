@@ -23,8 +23,8 @@ from twext.web2.dav import davxml
 from twext.web2.dav.resource import TwistedACLInheritable
 
 from twext.python.plistlib import PlistParser
-from twext.log import Logger, InvalidLogLevelError
-from twext.log import clearLogLevels, setLogLevelForNamespace
+from twext.python.log import Logger, InvalidLogLevelError
+from twext.python.log import clearLogLevels, setLogLevelForNamespace
 
 from twistedcaldav.config import ConfigProvider, ConfigurationError
 from twistedcaldav.config import config, _mergeData, fullServerPath

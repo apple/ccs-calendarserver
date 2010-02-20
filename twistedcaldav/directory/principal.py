@@ -50,7 +50,7 @@ from twext.web2.dav.noneprops import NonePropertyStore
 
 from twistedcaldav import carddavxml
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.authkerb import NegotiateCredentials
 from twistedcaldav.config import config

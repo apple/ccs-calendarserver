@@ -25,7 +25,7 @@ from hashlib import md5, sha1
 from twisted.internet import ssl, reactor
 from twisted.web import client
 from twisted.python import failure
-from twext.log import LoggingMixIn
+from twext.python.log import LoggingMixIn
 
 ##
 # getNCPU

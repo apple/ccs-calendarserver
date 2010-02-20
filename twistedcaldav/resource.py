@@ -35,7 +35,7 @@ from urlparse import urlsplit
 
 from zope.interface import implements
 
-from twext.log import LoggingMixIn
+from twext.python.log import LoggingMixIn
 from twext.web2.dav.davxml import ErrorResponse, SyncCollection
 
 from twisted.internet import reactor

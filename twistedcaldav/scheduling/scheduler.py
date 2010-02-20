@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.log import Logger, LoggingMixIn
+from twext.python.log import Logger, LoggingMixIn
 from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue

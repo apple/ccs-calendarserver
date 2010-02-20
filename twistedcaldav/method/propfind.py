@@ -36,7 +36,7 @@ from twext.web2.dav import davxml
 from twext.web2.dav.http import MultiStatusResponse, statusForFailure
 from twext.web2.dav.util import normalizeURL, davXMLFromStream
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 log = Logger()
 

@@ -23,7 +23,7 @@ from grp import getgrnam
 from pwd import getpwnam
 from sys import stdout, stderr
 
-from twext.log import setLogLevelForNamespace
+from twext.python.log import setLogLevelForNamespace
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks

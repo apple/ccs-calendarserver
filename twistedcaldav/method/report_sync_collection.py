@@ -20,7 +20,7 @@ DAV sync-collection report
 
 __all__ = ["report_DAV__sync_collection"]
 
-from twext.log import Logger
+from twext.python.log import Logger
 from twext.web2.dav.davxml import ErrorResponse, SyncToken
 
 from twisted.internet.defer import inlineCallbacks, returnValue

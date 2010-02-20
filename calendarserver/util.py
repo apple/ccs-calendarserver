@@ -31,7 +31,7 @@ from twext.web2.auth.basic import BasicCredentialFactory
 from twext.web2.static import File as FileResource
 from twext.python.filepath import CachingFilePath as FilePath
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav import memcachepool
 from twistedcaldav.accesslog import DirectoryLogWrapperResource

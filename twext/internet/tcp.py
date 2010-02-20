@@ -29,7 +29,7 @@ from OpenSSL import SSL
 from twisted.application import internet
 from twisted.internet import tcp, ssl
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 log = Logger()
 

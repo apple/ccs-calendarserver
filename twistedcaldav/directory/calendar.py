@@ -34,7 +34,7 @@ from twext.web2.http import HTTPError
 from twext.web2.dav.util import joinURL
 from twext.web2.dav.resource import TwistedACLInheritable
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config

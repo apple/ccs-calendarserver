@@ -20,7 +20,7 @@ import vobject
 from vobject.icalendar import getTzid
 from vobject.icalendar import registerTzid
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.ical import Component
 

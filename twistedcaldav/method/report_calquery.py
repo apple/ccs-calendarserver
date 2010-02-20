@@ -22,7 +22,7 @@ __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_query"]
 
 import urllib
 
-from twext.log import Logger
+from twext.python.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue

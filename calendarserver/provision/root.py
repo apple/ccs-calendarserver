@@ -26,7 +26,7 @@ from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.auth.wrapper import UnauthorizedResponse
 from twisted.web.xmlrpc import Proxy
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn

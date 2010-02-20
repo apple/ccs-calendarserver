@@ -50,7 +50,7 @@ import os
 import re
 import types
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.config import config
 

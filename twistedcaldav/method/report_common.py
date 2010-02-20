@@ -51,7 +51,7 @@ from twext.web2.dav.method.report import max_number_of_matches
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.http import HTTPError
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav import caldavxml
 from twistedcaldav import carddavxml

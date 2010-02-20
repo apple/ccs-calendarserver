@@ -44,7 +44,7 @@ from twext.web2.http_headers import generateContentType, MimeType
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 
-from twext.log import Logger
+from twext.python.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twistedcaldav.config import config

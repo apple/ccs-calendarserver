@@ -19,7 +19,7 @@ from twisted.internet.address import IPv4Address
 from twisted.internet.defer import Deferred, fail
 from twisted.internet.protocol import ReconnectingClientFactory
 
-from twext.log import LoggingMixIn
+from twext.python.log import LoggingMixIn
 from twext.protocols.memcache import MemCacheProtocol, NoSuchCommand
 
 class PooledMemCacheProtocol(MemCacheProtocol):

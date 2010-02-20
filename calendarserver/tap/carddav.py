@@ -24,7 +24,7 @@ from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
 
 from twistedcaldav.stdconfig import DEFAULT_CARDDAV_CONFIG_FILE
-from twext.log import Logger
+from twext.python.log import Logger
 
 log = Logger()
 

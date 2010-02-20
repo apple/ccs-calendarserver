@@ -26,7 +26,7 @@ import os
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from twext.log import LoggingMixIn
+from twext.python.log import LoggingMixIn
 
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix

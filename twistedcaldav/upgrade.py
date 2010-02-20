@@ -24,7 +24,7 @@ from cPickle import loads as unpickle, UnpicklingError
 from twext.web2.dav.fileop import rmdir
 from twext.web2.dav import davxml
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.directory.directory import DirectoryService
 #from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase

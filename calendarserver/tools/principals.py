@@ -29,7 +29,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twext.web2.dav import davxml
 
-from twext.log import setLogLevelForNamespace
+from twext.python.log import setLogLevelForNamespace
 from twext.python.log import StandardIOObserver
 from twext.web2.dav.davxml import sname2qname, qname2sname
 

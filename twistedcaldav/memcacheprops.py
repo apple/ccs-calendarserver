@@ -34,7 +34,7 @@ except ImportError:
 
 from memcacheclient import ClientFactory as MemcacheClientFactory, MemcacheError, TokenMismatchError
 
-from twext.log import LoggingMixIn, Logger
+from twext.python.log import LoggingMixIn, Logger
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2 import responsecode

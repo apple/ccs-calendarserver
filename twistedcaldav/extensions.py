@@ -56,7 +56,7 @@ from twext.web2.dav.util import joinURL
 from twext.web2.dav.method import prop_common
 from twext.web2.dav.method.report import max_number_of_matches
 
-from twext.log import Logger, LoggingMixIn
+from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace

@@ -27,7 +27,7 @@ __all__ = [
 import datetime
 import os
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.config import config
 

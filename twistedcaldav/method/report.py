@@ -35,7 +35,7 @@ from twext.web2.dav import davxml
 from twext.web2.dav.element.parser import lookupElement
 from twext.web2.dav.util import davXMLFromStream
 
-from twext.log import Logger
+from twext.python.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twistedcaldav import caldavxml

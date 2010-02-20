@@ -21,7 +21,7 @@ from calendarserver.tools.util import loadConfig, getDirectory,\
 from grp import getgrnam
 from optparse import OptionParser
 from pwd import getpwnam
-from twext.log import setLogLevelForNamespace
+from twext.python.log import setLogLevelForNamespace
 from twisted.internet import reactor
 from twisted.python.util import switchUID
 from twistedcaldav.config import config, ConfigurationError

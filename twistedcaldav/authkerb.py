@@ -46,7 +46,7 @@ from twext.web2 import responsecode
 from twext.web2.auth.interfaces import ICredentialFactory
 from twext.web2.dav.auth import IPrincipalCredentials
 
-from twext.log import LoggingMixIn
+from twext.python.log import LoggingMixIn
 
 class KerberosCredentialFactoryBase(LoggingMixIn):
     """

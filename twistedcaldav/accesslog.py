@@ -36,7 +36,7 @@ from twext.web2.dav import davxml
 from twext.web2.log import BaseCommonAccessLoggingObserver
 from twext.web2.log import LogWrapperResource
 
-from twext.log import Logger
+from twext.python.log import Logger
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService

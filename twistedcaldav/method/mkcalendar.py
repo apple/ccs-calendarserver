@@ -29,7 +29,7 @@ from twext.web2.dav.util import davXMLFromStream
 from twext.web2.dav.util import parentForURL
 from twext.web2.http import HTTPError, StatusResponse
 
-from twext.log import Logger
+from twext.python.log import Logger
 from twext.web2.dav.davxml import ErrorResponse
 
 from twistedcaldav import caldavxml
