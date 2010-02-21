@@ -457,7 +457,7 @@ dependencies () {
     "PyXML" "xml.dom.ext" "PyXML-0.8.4" \
     "http://internap.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz";
 
-  py_dependency \
+  py_dependency -v 0.9 \
     "PyOpenSSL" "OpenSSL" "pyOpenSSL-0.9" \
     "http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.9.tar.gz";
 
@@ -473,7 +473,7 @@ dependencies () {
       "${svn_uri_base}/PyOpenDirectory/trunk";
   fi;
 
-  py_dependency -r 1013 \
+  py_dependency -v 0.5 -r 1013 \
     "xattr" "xattr" "xattr" \
     "http://svn.red-bean.com/bob/xattr/releases/xattr-0.5";
 
@@ -483,7 +483,7 @@ dependencies () {
       "http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz";
   fi;
 
-  py_dependency \
+  py_dependency -v 4.0 \
     "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
     "ftp://ftp.pygresql.org/pub/distrib/PyGreSQL.tgz";
 
