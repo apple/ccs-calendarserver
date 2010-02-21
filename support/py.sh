@@ -91,14 +91,27 @@ py_have_module () {
   result=$?;
 
   if [ $result == 0 ] && [ -n "${version}" ]; then
-    module_version="$(PYTHONPATH="" "${python}" -c 'print __import__("'"${module}"'").__version__')";
+    for symbol in "xxxx" "__version__" "version"; do
+      if module_version="$(
+        PYTHONPATH="" "${python}" -c \
+        'print __import__("'"${module}"'").'"$symbol"';' \
+        2>/dev/null
+      )"; then
+        break;
+      fi;
+    done;
+
+    if [ -z "${module_version}" ]; then
+      echo "Unable to determine version for ${module}.";
+      result=1;
+    fi;
 
      v="${version}";
     mv="${module_version}";
 
     no_such_luck="A system version of ${module} exists, but version is ${module_version} (< ${version}).";
 
-    while true; do
+    while [ $result != 1 ]; do
        vh="${v%%.*}"; # Get highest-order segment
       mvh="${mv%%.*}";
 
