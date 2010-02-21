@@ -43,7 +43,6 @@ conf_read_key ()
 
 # Initialize all the global state required to use this library.
 init_build () {
-
         verbose="";
          do_get="true";
        do_setup="true";
@@ -222,14 +221,11 @@ svn_get () {
     if "${force_setup}"; then
       # Verify that we have a working copy checked out from the correct URI
       if [ "${wc_uri}" != "${uri}" ]; then
-        echo "";
         echo "Current working copy (${path}) is from the wrong URI: ${wc_uri} != ${uri}";
         rm -rf "${path}";
         svn_get "${name}" "${path}" "${uri}" "${revision}";
         return $?;
       fi;
-
-      echo "";
 
       echo "Reverting ${name}...";
       svn revert -R "${path}";
@@ -242,7 +238,6 @@ svn_get () {
       if ! "${print_path}"; then
         # Verify that we have a working copy checked out from the correct URI
         if [ "${wc_uri}" != "${uri}" ]; then
-          echo "";
           echo "Current working copy (${path}) is from the wrong URI: ${wc_uri} != ${uri}";
           echo "Performing repository switch for ${name}...";
           svn switch -r "${revision}" "${uri}" "${path}";
@@ -251,7 +246,6 @@ svn_get () {
         else
           local svnversion="$(svnversion "${path}")";
           if [ "${svnversion%%[M:]*}" != "${revision}" ]; then
-            echo "";
             echo "Updating ${name}...";
             svn update -r "${revision}" "${path}";
 
@@ -261,8 +255,6 @@ svn_get () {
       fi;
     fi;
   else
-    echo "";
-
     checkout () {
       echo "Checking out ${name}...";
       svn checkout -r "${revision}" "${uri}@${revision}" "${path}";
@@ -298,7 +290,6 @@ py_build () {
   local optional="$1"; shift;
 
   if "${do_setup}"; then
-    echo "";
     echo "Building ${name}...";
     cd "${path}";
     if ! "${python}" ./setup.py -q build --build-lib "build/${py_platform_libdir}" "$@"; then
@@ -331,27 +322,29 @@ py_install () {
 
 # Declare a dependency on a Python project.
 py_dependency () {
-         optional="false"; # Is this dependency optional?
-  override_system="false"; # Do I need to get this dependency even if
-                           # the system already has it?
-          inplace="false"; # Do development in-place; don't run
-                           # setup.py to build, and instead add the
-                           # source directory directly to sys.path.
-                           # twisted and vobject are developed often
-                           # enough that this is convenient.
-         skip_egg="false"; # Skip even the 'egg_info' step, because
-                           # nothing needs to be built.
-         revision="0";     # Revision (if svn)
-         get_type="www";   # Protocol to use
+  local optional="false"; # Is this dependency optional?
+  local override="false"; # Do I need to get this dependency even if
+                          # the system already has it?
+  local  inplace="false"; # Do development in-place; don't run
+                          # setup.py to build, and instead add the
+                          # source directory directly to sys.path.
+                          # twisted and vobject are developed often
+                          # enough that this is convenient.
+  local skip_egg="false"; # Skip even the 'egg_info' step, because
+                          # nothing needs to be built.
+  local revision="0";     # Revision (if svn)
+  local get_type="www";   # Protocol to use
+  local  version="";      # Minimum version required
 
   OPTIND=1;
-  while getopts "ofier:" option; do
+  while getopts "ofier:v:" option; do
     case "${option}" in
-      'o')        optional="true"; ;;
-      'f') override_system="true"; ;;
-      'i')         inplace="true"; ;;
-      'e')        skip_egg="true"; ;;
-      'r')        get_type="svn"; revision="${OPTARG}"; ;;
+      'o') optional="true"; ;;
+      'f') override="true"; ;;
+      'i')  inplace="true"; ;;
+      'e') skip_egg="true"; ;;
+      'r') get_type="svn"; revision="${OPTARG}"; ;;
+      'v')  version="-v ${OPTARG}"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -364,10 +357,11 @@ py_dependency () {
 
   local srcdir="${top}/${distribution}"
 
-  if "${override_system}" || ! py_have_module "${module}"; then
+  echo "";
+  if "${override}" || ! py_have_module ${version} "${module}"; then
     "${get_type}_get" "${name}" "${srcdir}" "${get_uri}" "${revision}"
     if "${inplace}"; then
-      if "${do_setup}" && "${override_system}" && ! "${skip_egg}"; then
+      if "${do_setup}" && "${override}" && ! "${skip_egg}"; then
         echo;
         if py_have_module setuptools; then
           echo "Building ${name}... [overrides system, building egg-info metadata only]";
@@ -381,14 +375,16 @@ py_dependency () {
       py_build "${name}" "${srcdir}" "${optional}";
     fi;
     py_install "${name}" "${srcdir}";
-  fi;
 
-  if "$inplace"; then
-    local add_path="${srcdir}";
+    if "$inplace"; then
+      local add_path="${srcdir}";
+    else
+      local add_path="${srcdir}/build/${py_platform_libdir}";
+    fi;
+    export PYTHONPATH="${PYTHONPATH}:${add_path}";
   else
-    local add_path="${srcdir}/build/${py_platform_libdir}";
+    echo "Using system version of ${name}.";
   fi;
-  export PYTHONPATH="${PYTHONPATH}:${add_path}";
 }
 
 
@@ -406,7 +402,6 @@ c_dependency () {
 
   if "${do_setup}" && (
       "${force_setup}" || [ ! -d "${srcdir}/_root" ]); then
-    echo "";
     echo "Building ${name}...";
     cd "${srcdir}";
     ./configure --prefix="${srcdir}/_root" "$@";
@@ -421,10 +416,13 @@ c_dependency () {
 }
 
 
-# Enumerate all the dependencies with c_dependency and py_dependency; depending
-# on options parsed by ../run:parse_options and on-disk state, this may do as
-# little as update the PATH, DYLD_LIBRARY_PATH, LD_LIBRARY_PATH and PYTHONPATH,
-# or, it may do as much as download and install all dependencies.
+#
+# Enumerate all the dependencies with c_dependency and py_dependency;
+# depending on options parsed by ../run:parse_options and on-disk
+# state, this may do as little as update the PATH, DYLD_LIBRARY_PATH,
+# LD_LIBRARY_PATH and PYTHONPATH, or, it may do as much as download
+# and install all dependencies.
+#
 dependencies () {
 
   #
