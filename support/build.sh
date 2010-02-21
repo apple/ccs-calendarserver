@@ -487,7 +487,7 @@ dependencies () {
     "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
     "ftp://ftp.pygresql.org/pub/distrib/PyGreSQL.tgz";
 
-  py_dependency -f -r 27606 \
+  py_dependency -v 10 -r 27606 \
     "Twisted" "twisted" "Twisted" \
     "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-9.0.0";
 
