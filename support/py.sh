@@ -75,9 +75,57 @@ detect_python_version () {
 
 # Detect if the given Python module is installed in the system Python configuration.
 py_have_module () {
+  local version=""; # Minimum version required
+
+  OPTIND=1;
+  while getopts "v:" option; do
+    case "${option}" in
+      'v') version="${OPTARG}"; ;;
+    esac;
+  done;
+  shift $((${OPTIND} - 1));
+
   local module="$1"; shift;
 
   PYTHONPATH="" "${python}" -c "import ${module}" > /dev/null 2>&1;
+  result=$?;
+
+  if [ $result == 0 ] && [ -n "${version}" ]; then
+    module_version="$(PYTHONPATH="" "${python}" -c 'print __import__("'"${module}"'").__version__')";
+
+     v="${version}";
+    mv="${module_version}";
+
+    no_such_luck="A system version of ${module} exists, but version is ${module_version} (< ${version}).";
+
+    while true; do
+       vh="${v%%.*}"; # Get highest-order segment
+      mvh="${mv%%.*}";
+
+      if [ "$vh" -gt "$mvh" ]; then
+        echo "${no_such_luck}";
+        result=1;
+        break;
+      fi;
+
+      if [ "${v}" == "${v#*.}" ]; then
+        # No dots left, so we're ok
+        break;
+      fi;
+
+      if [ "${mv}" == "${mv#*.}" ]; then
+        # No dots left, so we're not gonna match
+        echo "${no_such_luck}";
+        result=1;
+        break;
+      fi;
+
+       v="${v#*.}";
+      mv="${mv#*.}";
+    done;
+  fi;
+
+  return $result;
 }
 
 # Detect which python to use, and store it in the 'python' variable, as well as
