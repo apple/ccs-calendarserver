@@ -331,22 +331,36 @@ py_install () {
 
 # Declare a dependency on a Python project.
 py_dependency () {
+         optional="false"; # Is this dependency optional?
+  override_system="false"; # Do I need to get this dependency even if
+                           # the system already has it?
+          inplace="false"; # Do development in-place; don't run
+                           # setup.py to build, and instead add the
+                           # source directory directly to sys.path.
+                           # twisted and vobject are developed often
+                           # enough that this is convenient.
+         skip_egg="false"; # Skip even the 'egg_info' step, because
+                           # nothing needs to be built.
+         revision="0";     # Revision (if svn)
+         get_type="www";   # Protocol to use
+
+  OPTIND=1;
+  while getopts "ofier:" option; do
+    case "${option}" in
+      'o')        optional="true"; ;;
+      'f') override_system="true"; ;;
+      'i')         inplace="true"; ;;
+      'e')        skip_egg="true"; ;;
+      'r')        get_type="svn"; revision="${OPTARG}"; ;;
+    esac;
+  done;
+  shift $((${OPTIND} - 1));
+
   # args
-  local            name="$1"; shift; # the name of the package (for display)
-  local          module="$1"; shift; # the name of the python module.
-  local    distribution="$1"; shift; # the name of the directory to put the distribution into.
-  local        get_type="$1"; shift; # what protocol should be used?
-  local         get_uri="$1"; shift; # what URL should be fetched?
-  local        optional="$1"; shift; # is this dependency optional?
-  local override_system="$1"; shift; # do I need to get this dependency even if
-                                     # the system already has it?
-  local         inplace="$1"; shift; # do development in-place; don't run setup.py to
-                                     # build, and instead add the source directory
-                                     # directly to sys.path.  twisted and vobject are
-                                     # developed often enough that this is convenient.
-  local        skip_egg="$1"; shift; # skip even the 'egg_info' step, because nothing
-                                     # needs to be built.
-  local        revision="$1"; shift; # what revision to check out (for SVN dependencies)
+  local         name="$1"; shift; # the name of the package (for display)
+  local       module="$1"; shift; # the name of the python module.
+  local distribution="$1"; shift; # the name of the directory to put the distribution into.
+  local      get_uri="$1"; shift; # what URL should be fetched?
 
   local srcdir="${top}/${distribution}"
 
@@ -437,56 +451,61 @@ dependencies () {
   # Python dependencies
   #
 
-  py_dependency "Zope Interface" "zope.interface" "zope.interface-3.3.0" \
-    "www" "http://www.zope.org/Products/ZopeInterface/3.3.0/zope.interface-3.3.0.tar.gz" \
-    false false false false 0;
-  py_dependency "PyXML" "xml.dom.ext" "PyXML-0.8.4" \
-    "www" "http://internap.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz" \
-    false false false false 0;
-  py_dependency "PyOpenSSL" "OpenSSL" "pyOpenSSL-0.9" \
-    "www" "http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.9.tar.gz" \
-    false false false false 0;
+  py_dependency \
+    "Zope Interface" "zope.interface" "zope.interface-3.3.0" \
+    "http://www.zope.org/Products/ZopeInterface/3.3.0/zope.interface-3.3.0.tar.gz";
+
+  py_dependency \
+    "PyXML" "xml.dom.ext" "PyXML-0.8.4" \
+    "http://internap.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz";
+
+  py_dependency \
+    "PyOpenSSL" "OpenSSL" "pyOpenSSL-0.9" \
+    "http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.9.tar.gz";
+
   if type krb5-config > /dev/null 2>&1; then
-    py_dependency "PyKerberos" "kerberos" "PyKerberos" \
-      "svn" "${svn_uri_base}/PyKerberos/trunk" \
-      false false false false 4241;
+    py_dependency -r 4241 \
+      "PyKerberos" "kerberos" "PyKerberos" \
+      "${svn_uri_base}/PyKerberos/trunk";
   fi;
+
   if [ "$(uname -s)" == "Darwin" ]; then
-    py_dependency "PyOpenDirectory" "opendirectory" "PyOpenDirectory" \
-      "svn" "${svn_uri_base}/PyOpenDirectory/trunk" \
-      false false false false 4827;
+    py_dependency -r 4827 \
+      "PyOpenDirectory" "opendirectory" "PyOpenDirectory" \
+      "${svn_uri_base}/PyOpenDirectory/trunk";
   fi;
-  py_dependency "xattr" "xattr" "xattr" \
-    "svn" "http://svn.red-bean.com/bob/xattr/releases/xattr-0.5" \
-    false false false false 1013;
+
+  py_dependency -r 1013 \
+    "xattr" "xattr" "xattr" \
+    "http://svn.red-bean.com/bob/xattr/releases/xattr-0.5";
+
   if [ "${py_version}" != "${py_version##2.5}" ] && ! py_have_module select26; then
-    py_dependency "select26" "select26" "select26-0.1a3" \
-      "www" "http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz" \
-      true false false false 0;
+    py_dependency \
+      "select26" "select26" "select26-0.1a3" \
+      "http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz";
   fi;
 
-  py_dependency "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
-    "www" "ftp://ftp.pygresql.org/pub/distrib/PyGreSQL.tgz" \
-    false false false false 0;
+  py_dependency \
+    "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
+    "ftp://ftp.pygresql.org/pub/distrib/PyGreSQL.tgz";
 
-  py_dependency "Twisted" "twisted" "Twisted" \
-    "svn" "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-9.0.0" \
-    false true false false 27606;
+  py_dependency -f -r 27606 \
+    "Twisted" "twisted" "Twisted" \
+    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-9.0.0";
 
-  py_dependency "dateutil" "dateutil" "python-dateutil-1.4.1" \
-    "www" "http://www.labix.org/download/python-dateutil/python-dateutil-1.4.1.tar.gz" \
-    false false false false 0;
+  py_dependency \
+    "dateutil" "dateutil" "python-dateutil-1.4.1" \
+    "http://www.labix.org/download/python-dateutil/python-dateutil-1.4.1.tar.gz";
 
   # XXX actually vObject should be imported in-place.
-  py_dependency "vObject" "vobject" "vobject" \
-    "svn" "http://svn.osafoundation.org/vobject/trunk" \
-    false true true true 219;
+  py_dependency -fie -r 219 \
+    "vObject" "vobject" "vobject" \
+    "http://svn.osafoundation.org/vobject/trunk";
 
   # Tool dependencies.  The code itself doesn't depend on these, but you probably want them.
   svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
   svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes HEAD;
 }
-
 
 # Actually do the initialization, once all functions are defined.
 init_build;
