@@ -116,7 +116,9 @@ py_have_module () {
       mvh="${mv%%.*}";
 
       if [ "$vh" -gt "$mvh" ]; then
-        echo "${no_such_luck}";
+        if ! "${print_path}"; then
+          echo "${no_such_luck}";
+        fi;
         result=1;
         break;
       fi;
@@ -128,7 +130,9 @@ py_have_module () {
 
       if [ "${mv}" == "${mv#*.}" ]; then
         # No dots left, so we're not gonna match
-        echo "${no_such_luck}";
+        if ! "${print_path}"; then
+          echo "${no_such_luck}";
+        fi;
         result=1;
         break;
       fi;

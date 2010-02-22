@@ -357,7 +357,9 @@ py_dependency () {
 
   local srcdir="${top}/${distribution}"
 
-  echo "";
+  if ! "${print_path}"; then
+    echo "";
+  fi;
   if "${override}" || ! py_have_module ${version} "${module}"; then
     "${get_type}_get" "${name}" "${srcdir}" "${get_uri}" "${revision}"
     if "${inplace}"; then
@@ -383,7 +385,9 @@ py_dependency () {
     fi;
     export PYTHONPATH="${PYTHONPATH}:${add_path}";
   else
-    echo "Using system version of ${name}.";
+    if ! "${print_path}"; then
+      echo "Using system version of ${name}.";
+    fi;
   fi;
 }
 
