@@ -16,6 +16,13 @@
 
 from __future__ import with_statement
 
+__all__ = [
+    "featureUnimplemented",
+    "testUnimplemented",
+    "todo",
+    "TestCase",
+]
+
 import os
 import xattr
 
@@ -35,6 +42,14 @@ import twext.web2.dav.test.util
 
 from twisted.internet.base import DelayedCall
 DelayedCall.debug = True
+
+def _todo(f, why):
+    f.todo = why
+    return f
+
+featureUnimplemented = lambda f: _todo(f, "Feature unimplemented")
+testUnimplemented = lambda f: _todo(f, "Test unimplemented")
+todo = lambda why: lambda f: _todo(f, why)
 
 class TestCase(twext.web2.dav.test.util.TestCase):
     resource_class = CalDAVFile
