@@ -23,7 +23,7 @@ from zope.interface.verify import verifyObject, BrokenMethodImplementation
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.trial import unittest
 
-from twext.python.icalendar import Component as iComponent
+from twext.python.vcomponent import VComponent
 
 from txdav.idav import IPropertyStore
 
@@ -477,7 +477,7 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         """
         name = "4.ics"
         assert self.calendar1.calendarObjectWithName(name) is None
-        component = iComponent.fromString(event4_text)
+        component = VComponent.fromString(event4_text)
         self.calendar1.createCalendarObjectWithName(name, component)
 
         calendarObject = self.calendar1.calendarObjectWithName(name)
@@ -490,7 +490,7 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         self.assertRaises(
             CalendarObjectNameAlreadyExistsError,
             self.calendar1.createCalendarObjectWithName,
-            "1.ics", iComponent.fromString(event4_text)
+            "1.ics", VComponent.fromString(event4_text)
         )
 
     def test_createCalendarObjectWithName_dot(self):
@@ -502,7 +502,7 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         self.assertRaises(
             CalendarObjectNameNotAllowedError,
             self.calendar1.createCalendarObjectWithName,
-            ".foo", iComponent.fromString(event4_text)
+            ".foo", VComponent.fromString(event4_text)
         )
 
     @featureUnimplemented
@@ -513,7 +513,7 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         """
         name = "foo.ics"
         assert self.calendar1.calendarObjectWithName(name) is None
-        component = iComponent.fromString(event1modified_text)
+        component = VComponent.fromString(event1modified_text)
         self.assertRaises(
             CalendarObjectUIDAlreadyExistsError,
             self.calendar1.createCalendarObjectWithName,
@@ -528,7 +528,7 @@ class CalendarTest(unittest.TestCase, PropertiesTestMixin):
         self.assertRaises(
             InvalidCalendarComponentError,
             self.calendar1.createCalendarObjectWithName,
-            "new", iComponent.fromString(event4notCalDAV_text)
+            "new", VComponent.fromString(event4notCalDAV_text)
         )
 
     def test_removeCalendarObjectWithName_exists(self):
@@ -653,7 +653,7 @@ class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
         """
         Rewrite component.
         """
-        component = iComponent.fromString(event1modified_text)
+        component = VComponent.fromString(event1modified_text)
 
         calendarObject = self.calendar1.calendarObjectWithName("1.ics")
         oldComponent = calendarObject.component() # Trigger caching
@@ -666,7 +666,7 @@ class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
         self.assertEquals(calendarObject.component(), component)
 
     def test_setComponent_uidchanged(self):
-        component = iComponent.fromString(event4_text)
+        component = VComponent.fromString(event4_text)
 
         calendarObject = self.calendar1.calendarObjectWithName("1.ics")
         self.assertRaises(
@@ -679,7 +679,7 @@ class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
         self.assertRaises(
             InvalidCalendarComponentError,
             calendarObject.setComponent,
-            iComponent.fromString(event4notCalDAV_text)
+            VComponent.fromString(event4notCalDAV_text)
         )
 
     def test_component(self):
@@ -689,7 +689,7 @@ class CalendarObjectTest(unittest.TestCase, PropertiesTestMixin):
         component = self.object1.component()
 
         self.failUnless(
-            isinstance(component, iComponent),
+            isinstance(component, VComponent),
             component
         )
 
