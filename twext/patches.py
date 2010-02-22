@@ -18,8 +18,6 @@
 Patches for behavior in Twisted which calendarserver requires to be different.
 """
 
-__all__ = []
-
 from twisted.mail.imap4 import Command
 
 Command._1_RESPONSES += tuple(['BYE'])
