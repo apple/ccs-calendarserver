@@ -21,4 +21,6 @@ iCalendar utilities
 # FIXME: Move twistedcaldav.ical here, but that module needs some
 # cleanup first.  Perhaps after porting to libical?
 
-from twistedcaldav.ical import *
+from twistedcaldav.ical import InvalidICalendarDataError
+from twistedcaldav.ical import Component as VComponent
+from twistedcaldav.ical import Property as VProperty
