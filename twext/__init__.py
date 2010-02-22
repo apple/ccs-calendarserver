@@ -19,4 +19,4 @@ Extentions to the Twisted Framework.
 """
 
 from twext import patches
-patches                         # pacify pyflakes
+patches; del(patches)
