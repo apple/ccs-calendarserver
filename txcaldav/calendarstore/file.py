@@ -33,8 +33,8 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet.defer import inlineCallbacks
 
 from twext.python.log import LoggingMixIn
-from twext.python.vcomponent import VComponent
-from twext.python.vcomponent import InvalidICalendarDataError
+from twext.python.icalendar import Component as iComponent
+from twext.python.icalendar import InvalidICalendarDataError
 
 from txdav.propertystore.xattr import PropertyStore
 
@@ -272,8 +272,8 @@ class CalendarObject(LoggingMixIn):
         return self.path.basename()
 
     def setComponent(self, component):
-        if not isinstance(component, VComponent):
-            raise TypeError(VComponent)
+        if not isinstance(component, iComponent):
+            raise TypeError(iComponent)
 
         try:
             if component.resourceUID() != self.uid():
@@ -305,7 +305,7 @@ class CalendarObject(LoggingMixIn):
             text = self.iCalendarText()
 
             try:
-                component = VComponent.fromString(text)
+                component = iComponent.fromString(text)
             except InvalidICalendarDataError, e:
                 raise InternalDataStoreError(
                     "File corruption detected (%s) in file: %s"

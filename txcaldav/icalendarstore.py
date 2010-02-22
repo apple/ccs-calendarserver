@@ -47,7 +47,7 @@ __all__ = [
 from zope.interface import Interface #, Attribute
 
 from datetime import datetime, date, tzinfo
-from twext.python.vcomponent import VComponent
+from twext.python.icalendar import Component
 from txdav.idav import IPropertyStore
 
 #
@@ -231,7 +231,7 @@ class ICalendar(Interface):
             object with the same UID as the given C{component} already
             exists.
         @raise InvalidCalendarComponentError: if the given
-            C{component} is not a valid C{VCALENDAR} L{VComponent} for
+            C{component} is not a valid C{VCALENDAR} L{Component} for
             a calendar object.
         """
 
@@ -302,9 +302,9 @@ class ICalendarObject(Interface):
         C{component} must have the same UID and be of the same
         component type as this calendar object.
 
-        @param component: a C{VCALENDAR} L{VComponent}.
+        @param component: a C{VCALENDAR} L{Component}.
         @raise InvalidCalendarComponentError: if the given
-            C{component} is not a valid C{VCALENDAR} L{VComponent} for
+            C{component} is not a valid C{VCALENDAR} L{Component} for
             a calendar object.
         """
 
@@ -312,7 +312,7 @@ class ICalendarObject(Interface):
         """
         Retrieve the calendar component for this calendar object.
 
-        @return: a C{VCALENDAR} L{VComponent}.
+        @return: a C{VCALENDAR} L{Component}.
         """
 
     def iCalendarText():
