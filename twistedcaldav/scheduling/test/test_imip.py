@@ -34,34 +34,6 @@ class iMIPProcessing (twistedcaldav.test.util.TestCase):
             self.calendar = calendar
 
     @inlineCallbacks
-    def test_no_reply(self):
-        
-        data = """BEGIN:VCALENDAR
-VERSION:2.0
-METHOD:REPLY
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-END:VEVENT
-END:VCALENDAR
-"""
-
-        scheduler = iMIPProcessing.FakeSchedule(Component.fromString(data))
-        recipients = (RemoteCalendarUser("mailto:user1@example.com"),)
-        responses = ScheduleResponseQueue("REPLY", responsecode.OK)
-
-        delivery = ScheduleViaIMip(scheduler, recipients, responses, False)
-        yield delivery.generateSchedulingResponses()
-        
-        self.assertEqual(len(responses.responses), 1)
-        self.assertEqual(str(responses.responses[0].children[1]), iTIPRequestStatus.NO_USER_SUPPORT)
-
-    @inlineCallbacks
     def test_no_freebusy(self):
         
         data = """BEGIN:VCALENDAR

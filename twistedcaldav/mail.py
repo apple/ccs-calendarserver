@@ -768,28 +768,14 @@ class MailHandler(LoggingMixIn):
 
 
 
-    def outbound(self, organizer, attendee, calendar, language='en'):
+    def outbound(self, originator, recipient, calendar, language='en'):
         # create token, send email
 
         component = calendar.masterComponent()
         if component is None:
             component = calendar.mainComponent(True)
         icaluid = component.propertyValue("UID")
-
-        token = self.db.getToken(organizer, attendee, icaluid)
-        if token is None:
-            token = self.db.createToken(organizer, attendee, icaluid)
-            self.log_debug("Mail gateway created token %s for %s (organizer), %s (attendee) and %s (icaluid)" % (token, organizer, attendee, icaluid))
-            newInvitation = True
-        else:
-            self.log_debug("Mail gateway reusing token %s for %s (organizer), %s (attendee) and %s (icaluid)" % (token, organizer, attendee, icaluid))
-            newInvitation = False
-
-        settings = config.Scheduling['iMIP']['Sending']
-        fullServerAddress = settings['Address']
-        name, serverAddress = email.utils.parseaddr(fullServerAddress)
-        pre, post = serverAddress.split('@')
-        addressWithToken = "%s+%s@%s" % (pre, token, post)
+        method = calendar.propertyValue("METHOD")
 
         attendees = []
         for attendeeProp in calendar.getAllAttendeeProperties():
@@ -808,39 +794,73 @@ class MailHandler(LoggingMixIn):
                 if cn or mailto:
                     attendees.append( (cn, mailto) )
 
-        calendar.getOrganizerProperty().setValue("mailto:%s" %
-            (addressWithToken,))
+        toAddr = recipient
+        if not recipient.startswith("mailto:"):
+            raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (recipient,))
+        recipient = recipient[7:]
 
-        organizerAttendee = calendar.getAttendeeProperty([organizer])
-        if organizerAttendee is not None:
-            organizerAttendee.setValue("mailto:%s" % (addressWithToken,))
+        settings = config.Scheduling['iMIP']['Sending']
 
+        if method != "REPLY":
+            # Invites and cancellations:
 
-        # The email's From will include the organizer's real name email
-        # address if available.  Otherwise it will be the server's email
-        # address (without # + addressing)
-        if organizer.startswith("mailto:"):
-            orgEmail = fromAddr = organizer[7:]
-        else:
-            fromAddr = serverAddress
-            orgEmail = None
-        cn = calendar.getOrganizerProperty().params().get('CN', (None,))[0]
-        if cn is None:
-            cn = 'Calendar Server'
-            orgCN = orgEmail
-        else:
-            orgCN = cn
-        formattedFrom = "%s <%s>" % (cn, fromAddr)
+            # Reuse or generate a token based on originator, recipient, and
+            # event uid
+            token = self.db.getToken(originator, recipient, icaluid)
+            if token is None:
+                token = self.db.createToken(originator, recipient, icaluid)
+                self.log_debug("Mail gateway created token %s for %s (originator), %s (recipient) and %s (icaluid)" % (token, originator, recipient, icaluid))
+                inviteState = "new"
+            else:
+                self.log_debug("Mail gateway reusing token %s for %s (originator), %s (recipient) and %s (icaluid)" % (token, originator, recipient, icaluid))
+                inviteState = "update"
 
-        # Reply-to address will be the server+token address
+            fullServerAddress = settings['Address']
+            name, serverAddress = email.utils.parseaddr(fullServerAddress)
+            pre, post = serverAddress.split('@')
+            addressWithToken = "%s+%s@%s" % (pre, token, post)
 
-        toAddr = attendee
-        if not attendee.startswith("mailto:"):
-            raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (attendee,))
-        attendee = attendee[7:]
+            calendar.getOrganizerProperty().setValue("mailto:%s" %
+                (addressWithToken,))
 
-        msgId, message = self.generateEmail(newInvitation, calendar, orgEmail,
-            orgCN, attendees, formattedFrom, addressWithToken, attendee,
+            originatorAttendee = calendar.getAttendeeProperty([originator])
+            if originatorAttendee is not None:
+                originatorAttendee.setValue("mailto:%s" % (addressWithToken,))
+
+            # The email's From will include the originator's real name email
+            # address if available.  Otherwise it will be the server's email
+            # address (without # + addressing)
+            if originator.startswith("mailto:"):
+                orgEmail = fromAddr = originator[7:]
+            else:
+                fromAddr = serverAddress
+                orgEmail = None
+            cn = calendar.getOrganizerProperty().params().get('CN', (None,))[0]
+            if cn is None:
+                cn = 'Calendar Server'
+                orgCN = orgEmail
+            else:
+                orgCN = cn
+            formattedFrom = "%s <%s>" % (cn, fromAddr)
+
+            # Reply-to address will be the server+token address
+
+        else: # REPLY
+            inviteState = "reply"
+            if not originator.startswith("mailto:"):
+                raise ValueError("Originator address '%s' must be mailto: for REPLY." % (originator,))
+            formattedFrom = fromAddr = originator = originator[7:]
+
+            organizerMailto = str(calendar.getOrganizer())
+            if not organizerMailto.startswith("mailto:"):
+                raise ValueError("ORGANIZER address '%s' must be mailto: for REPLY." % (organizerMailto,))
+            orgEmail = organizerMailto[7:]
+
+            orgCN = calendar.getOrganizerProperty().params().get('CN', (None,))[0]
+            addressWithToken = formattedFrom
+
+        msgId, message = self.generateEmail(inviteState, calendar, orgEmail,
+            orgCN, attendees, formattedFrom, addressWithToken, recipient,
             language=language)
 
         self.log_debug("Sending: %s" % (message,))
@@ -899,7 +919,7 @@ class MailHandler(LoggingMixIn):
             return iconPath
 
 
-    def generateEmail(self, newInvitation, calendar, orgEmail, orgCN,
+    def generateEmail(self, inviteState, calendar, orgEmail, orgCN,
         attendees, fromAddress, replyToAddress, toAddress, language='en'):
 
         details = self.getEventDetails(calendar, language=language)
@@ -917,10 +937,12 @@ class MailHandler(LoggingMixIn):
 
             if canceled:
                 formatString = _("Event canceled: %(summary)s")
-            elif newInvitation:
+            elif inviteState == "new":
                 formatString = _("Event invitation: %(summary)s")
-            else:
+            elif inviteState == "update":
                 formatString = _("Event update: %(summary)s")
+            else:
+                formatString = _("Event reply: %(summary)s")
 
             details['subject'] = msg['Subject'] = formatString % {
                 'summary' : details['summary']
@@ -933,10 +955,12 @@ class MailHandler(LoggingMixIn):
             if canceled:
                 details['inviteLabel'] = _("Event Canceled")
             else:
-                if newInvitation:
+                if inviteState == "new":
                     details['inviteLabel'] = _("Event Invitation")
-                else:
+                if inviteState == "update":
                     details['inviteLabel'] = _("Event Update")
+                else:
+                    details['inviteLabel'] = _("Event Reply")
 
             details['dateLabel'] = _("Date")
             details['timeLabel'] = _("Time")

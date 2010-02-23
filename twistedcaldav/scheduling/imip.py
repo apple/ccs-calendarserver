@@ -59,6 +59,7 @@ class ScheduleViaIMip(DeliveryService):
             if method not in (
                 "PUBLISH",
                 "REQUEST",
+                "REPLY",
                 "ADD",
                 "CANCEL",
                 "DECLINE_COUNTER",
@@ -77,7 +78,7 @@ class ScheduleViaIMip(DeliveryService):
                     if not toAddr.startswith("mailto:"):
                         raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (toAddr,))
 
-                    fromAddr = str(self.scheduler.calendar.getOrganizer())
+                    fromAddr = self.scheduler.originator.cuaddr
 
                     log.debug("POSTing iMIP message to gateway...  To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, caldata,))
                     yield self.postToGateway(fromAddr, toAddr, caldata)

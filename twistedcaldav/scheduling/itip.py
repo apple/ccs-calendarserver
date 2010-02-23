@@ -641,6 +641,9 @@ class iTipGenerator(object):
             "ORGANIZER",
             "ATTENDEE",
             "X-CALENDARSERVER-PRIVATE-COMMENT",
+            "SUMMARY",
+            "LOCATION",
+            "DESCRIPTION",
         ))
         
         # Now set each ATTENDEE's PARTSTAT to DECLINED

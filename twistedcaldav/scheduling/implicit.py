@@ -37,6 +37,7 @@ from twistedcaldav.scheduling.icaldiff import iCalDiff
 from twistedcaldav.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler
 from twistedcaldav.scheduling.utils import getCalendarObjectForPrincipals
+from twistedcaldav.config import config
 
 __all__ = [
     "ImplicitScheduler",
@@ -853,6 +854,9 @@ class ImplicitScheduler(object):
 
         is_server = self.calendar.getOrganizerScheduleAgent()
         local_organizer = isinstance(self.organizerAddress, LocalCalendarUser)
+
+        if config.Scheduling.iMIP.Enabled and self.organizerAddress.cuaddr.startswith("mailto:"):
+            return True
 
         if local_organizer and not is_server:
             log.error("Attendee '%s' is not allowed to change SCHEDULE-AGENT on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
