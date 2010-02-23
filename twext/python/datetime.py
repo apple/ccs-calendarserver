@@ -24,7 +24,9 @@ __all__ = [
     "utc",
 ]
 
+date     = __import__("datetime").date
 datetime = __import__("datetime").datetime
+
 from vobject.icalendar import dateTimeToString, dateToString, utc
 
 
@@ -33,12 +35,17 @@ class dateordatetime(object):
         """
         @param dateOrDatetime: a L{date} or L{datetime}.
         """
+        assert dateOrDatetime is not None
+
         self._dateOrDatetime = dateOrDatetime
         if isinstance(dateOrDatetime, datetime):
             self._isDatetime = True
         else:
             self._isDatetime = False
         self.defaultTZ = defaultTZ
+
+    def __repr__(self):
+        return "dateordatetime(%r)" % (self._dateOrDatetime,)
 
     def _comparableDatetimes(self, other):
         if not isinstance(other, dateordatetime):
@@ -59,7 +66,15 @@ class dateordatetime(object):
 
         return dt1, dt2
 
+    def __eq__(self, other):
+        if isinstance(other, dateordatetime):
+            other = other.dateOrDatetime
+        return self._dateOrDatetime == other
+
     def __cmp__(self, other):
+        if not isinstance(other, (date, datetime, dateordatetime)):
+            return NotImplemented
+
         dt1, dt2 = self._comparableDatetimes(other)
 
         if dt1 == dt2:
@@ -70,6 +85,9 @@ class dateordatetime(object):
             return 1
 
     def __sub__(self, other):
+        if not isinstance(other, (date, datetime, dateordatetime)):
+            return NotImplemented
+
         dt1, dt2 = self._comparableDatetimes(other)
         return dt1 - dt2
 
@@ -119,7 +137,7 @@ class timerange(object):
         """
         assert end is None or duration is None
 
-        if isinstance(start, dateordatetime):
+        if start is None or isinstance(start, dateordatetime):
             self._start = start
         else:
             self._start = dateordatetime(start)
