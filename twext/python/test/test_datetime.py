@@ -57,12 +57,22 @@ class DatetimeTests(TestCase):
         dodt = dateordatetime(dt, defaultTZ=utc)
         self.assertEquals(dodt.datetime(), dt)
 
-    def test_compare_datetime(self):
-        now = datetime.now()
+    def test_compare_date_date(self):
+        return self._test_compare(date, date.today())
 
-        first  = dateordatetime(now + timedelta(seconds=8*0))
-        second = dateordatetime(now + timedelta(seconds=8*1))
-        third  = dateordatetime(now + timedelta(seconds=8*2))
+    def test_compare_date_datetime(self):
+        return self._test_compare(date, datetime.now())
+
+    def test_compare_datetime_date(self):
+        return self._test_compare(datetime, date.today())
+
+    def test_compare_datetime_datetime(self):
+        return self._test_compare(datetime, datetime.now())
+
+    def _test_compare(self, baseclass, now):
+        first  = dateordatetime(now + timedelta(days=0))
+        second = dateordatetime(now + timedelta(days=1))
+        third  = dateordatetime(now + timedelta(days=2))
 
         #
         # date & datetime's comparators do not correctly return
@@ -70,46 +80,46 @@ class DatetimeTests(TestCase):
         # operators if date/datetime is first.  Boo.  Seriously weak.
         #
 
-        self.assertTrue (first             == first.datetime() )
-       #self.assertTrue (first.datetime()  == first            ) # Bug in datetime
-        self.assertTrue (first             == first.datetime() )
-        self.assertTrue (first             != second.datetime())
-        self.assertTrue (first.datetime()  != second           )
-        self.assertTrue (first             != second           )
-        self.assertTrue (first             <  second           )
-        self.assertTrue (second            <  third            )
-        self.assertTrue (first             <  second.datetime())
-       #self.assertTrue (second.datetime() <  third            ) # Bug in datetime
-        self.assertTrue (first             <  second           )
-        self.assertTrue (second            <  third            )
-       #self.assertTrue (first.datetime()  <  second           )
-        self.assertTrue (second            <  third.datetime() ) # Bug in datetime
-        self.assertTrue (first             <= second           )
-        self.assertTrue (second            <= third            )
-        self.assertTrue (first             <= second.datetime())
-       #self.assertTrue (second.datetime() <= third            ) # Bug in datetime
-        self.assertTrue (first             <= second.datetime())
-       #self.assertTrue (second.datetime() <= third            ) # Bug in datetime
-        self.assertTrue (first             <= second           )
-        self.assertTrue (second            <= third            )
-       #self.assertTrue (first.datetime()  <= second           ) # Bug in datetime
-        self.assertTrue (second            <= third.datetime() )
-        self.assertFalse(first             >  second           )
-        self.assertFalse(second            >  third            )
-        self.assertFalse(first             >  second.datetime())
-       #self.assertFalse(second.datetime() >  third            ) # Bug in datetime
-        self.assertFalse(first             >  second           )
-        self.assertFalse(second            >  third            )
-       #self.assertFalse(first.datetime()  >  second           ) # Bug in datetime
-        self.assertFalse(second            >  third.datetime() )
-        self.assertFalse(first             >= second           )
-        self.assertFalse(second            >= third            )
-        self.assertFalse(first             >= second.datetime())
-       #self.assertFalse(second.datetime() >= third            ) # Bug in datetime
-        self.assertFalse(first             >= second           )
-        self.assertFalse(second            >= third            )
-       #self.assertFalse(first.datetime()  >= second           ) # Bug in datetime
-        self.assertFalse(second            >= third.datetime() )
+        self.assertTrue (first                   == first.dateOrDatetime() )
+       #self.assertTrue (first.dateOrDatetime()  == first                  ) # Bug in datetime
+        self.assertTrue (first                   == first.dateOrDatetime() )
+        self.assertTrue (first                   != second.dateOrDatetime())
+        self.assertTrue (first.dateOrDatetime()  != second                 )
+        self.assertTrue (first                   != second                 )
+        self.assertTrue (first                   <  second                 )
+        self.assertTrue (second                  <  third                  )
+        self.assertTrue (first                   <  second.dateOrDatetime())
+       #self.assertTrue (second.dateOrDatetime() <  third                  ) # Bug in datetime
+        self.assertTrue (first                   <  second                 )
+        self.assertTrue (second                  <  third                  )
+       #self.assertTrue (first.dateOrDatetime()  <  second                 )
+        self.assertTrue (second                  <  third.dateOrDatetime() ) # Bug in datetime
+        self.assertTrue (first                   <= second                 )
+        self.assertTrue (second                  <= third                  )
+        self.assertTrue (first                   <= second.dateOrDatetime())
+       #self.assertTrue (second.dateOrDatetime() <= third                  ) # Bug in datetime
+        self.assertTrue (first                   <= second.dateOrDatetime())
+       #self.assertTrue (second.dateOrDatetime() <= third                  ) # Bug in datetime
+        self.assertTrue (first                   <= second                 )
+        self.assertTrue (second                  <= third                  )
+       #self.assertTrue (first.dateOrDatetime()  <= second                 ) # Bug in datetime
+        self.assertTrue (second                  <= third.dateOrDatetime() )
+        self.assertFalse(first                   >  second                 )
+        self.assertFalse(second                  >  third                  )
+        self.assertFalse(first                   >  second.dateOrDatetime())
+       #self.assertFalse(second.dateOrDatetime() >  third                  ) # Bug in datetime
+        self.assertFalse(first                   >  second                 )
+        self.assertFalse(second                  >  third                  )
+       #self.assertFalse(first.dateOrDatetime()  >  second                 ) # Bug in datetime
+        self.assertFalse(second                  >  third.dateOrDatetime() )
+        self.assertFalse(first                   >= second                 )
+        self.assertFalse(second                  >= third                  )
+        self.assertFalse(first                   >= second.dateOrDatetime())
+       #self.assertFalse(second.dateOrDatetime() >= third                  ) # Bug in datetime
+        self.assertFalse(first                   >= second                 )
+        self.assertFalse(second                  >= third                  )
+       #self.assertFalse(first.dateOrDatetime()  >= second                 ) # Bug in datetime
+        self.assertFalse(second                  >= third.dateOrDatetime() )
 
     def test_date_iCalendarString(self):
         d = date(2010, 2, 22)
@@ -138,6 +148,7 @@ class DatetimeTests(TestCase):
     @testUnimplemented
     def test_asUTC(self):
         raise NotImplementedError()
+
 
 class TimerangeTests(TestCase):
     def test_start(self):
