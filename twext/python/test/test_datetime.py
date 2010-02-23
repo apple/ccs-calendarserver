@@ -21,7 +21,7 @@ from twext.python.datetime import dateordatetime, timerange, utc
 from twistedcaldav.test.util import TestCase, testUnimplemented
 
 
-class DateTimeTests(TestCase):
+class DatetimeTests(TestCase):
     def test_date_date(self):
         d = date.today()
         dodt = dateordatetime(d)
@@ -57,6 +57,60 @@ class DateTimeTests(TestCase):
         dodt = dateordatetime(dt, defaultTZ=utc)
         self.assertEquals(dodt.datetime(), dt)
 
+    def test_compare_datetime(self):
+        now = datetime.now()
+
+        first  = dateordatetime(now + timedelta(seconds=8*0))
+        second = dateordatetime(now + timedelta(seconds=8*1))
+        third  = dateordatetime(now + timedelta(seconds=8*2))
+
+        #
+        # date & datetime's comparators do not correctly return
+        # NotImplemented when they should, which breaks comparison
+        # operators if date/datetime is first.  Boo.  Seriously weak.
+        #
+
+        self.assertTrue (first             == first.datetime() )
+       #self.assertTrue (first.datetime()  == first            ) # Bug in datetime
+        self.assertTrue (first             == first.datetime() )
+        self.assertTrue (first             != second.datetime())
+        self.assertTrue (first.datetime()  != second           )
+        self.assertTrue (first             != second           )
+        self.assertTrue (first             <  second           )
+        self.assertTrue (second            <  third            )
+        self.assertTrue (first             <  second.datetime())
+       #self.assertTrue (second.datetime() <  third            ) # Bug in datetime
+        self.assertTrue (first             <  second           )
+        self.assertTrue (second            <  third            )
+       #self.assertTrue (first.datetime()  <  second           )
+        self.assertTrue (second            <  third.datetime() ) # Bug in datetime
+        self.assertTrue (first             <= second           )
+        self.assertTrue (second            <= third            )
+        self.assertTrue (first             <= second.datetime())
+       #self.assertTrue (second.datetime() <= third            ) # Bug in datetime
+        self.assertTrue (first             <= second.datetime())
+       #self.assertTrue (second.datetime() <= third            ) # Bug in datetime
+        self.assertTrue (first             <= second           )
+        self.assertTrue (second            <= third            )
+       #self.assertTrue (first.datetime()  <= second           ) # Bug in datetime
+        self.assertTrue (second            <= third.datetime() )
+        self.assertFalse(first             >  second           )
+        self.assertFalse(second            >  third            )
+        self.assertFalse(first             >  second.datetime())
+       #self.assertFalse(second.datetime() >  third            ) # Bug in datetime
+        self.assertFalse(first             >  second           )
+        self.assertFalse(second            >  third            )
+       #self.assertFalse(first.datetime()  >  second           ) # Bug in datetime
+        self.assertFalse(second            >  third.datetime() )
+        self.assertFalse(first             >= second           )
+        self.assertFalse(second            >= third            )
+        self.assertFalse(first             >= second.datetime())
+       #self.assertFalse(second.datetime() >= third            ) # Bug in datetime
+        self.assertFalse(first             >= second           )
+        self.assertFalse(second            >= third            )
+       #self.assertFalse(first.datetime()  >= second           ) # Bug in datetime
+        self.assertFalse(second            >= third.datetime() )
+
     def test_date_iCalendarString(self):
         d = date(2010, 2, 22)
         dodt = dateordatetime(d)
@@ -85,7 +139,7 @@ class DateTimeTests(TestCase):
     def test_asUTC(self):
         raise NotImplementedError()
 
-class TimeRangeTests(TestCase):
+class TimerangeTests(TestCase):
     def test_start(self):
         start = datetime.now()
         tr = timerange(start=start)
