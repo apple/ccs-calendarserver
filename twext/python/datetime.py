@@ -29,19 +29,22 @@ from vobject.icalendar import dateTimeToString, dateToString, utc
 
 
 class dateordatetime(object):
-    def __init__(self, dateOrDateTime, defaultTZ=None):
+    def __init__(self, dateOrDatetime, defaultTZ=None):
         """
-        @param dateOrDateTime: a L{date} or L{datetime}.
+        @param dateOrDatetime: a L{date} or L{datetime}.
         """
-        self._dateOrDateTime = dateOrDateTime
-        if isinstance(dateOrDateTime, datetime):
-            self._isDateTime = True
+        self._dateOrDatetime = dateOrDatetime
+        if isinstance(dateOrDatetime, datetime):
+            self._isDatetime = True
         else:
-            self._isDateTime = False
+            self._isDatetime = False
         self.defaultTZ = defaultTZ
 
-    def _comparableDateTimes(self, other):
-        dt1, dt2 = self.dateTime, other.dateTime
+    def _comparableDatetimes(self, other):
+        if not isinstance(other, dateordatetime):
+            other = dateordatetime(other)
+
+        dt1, dt2 = self.datetime(), other.datetime()
 
         def getTZInfo(tz):
             for defaultTZ in (self.defaultTZ, other.defaultTZ):
@@ -57,7 +60,7 @@ class dateordatetime(object):
         return dt1, dt2
 
     def __cmp__(self, other):
-        dt1, dt2 = self._comparableDateTimes(other)
+        dt1, dt2 = self._comparableDatetimes(other)
 
         if dt1 == dt2:
             return 0
@@ -67,31 +70,34 @@ class dateordatetime(object):
             return 1
 
     def __sub__(self, other):
-        dt1, dt2 = self._comparableDateTimes(other)
+        dt1, dt2 = self._comparableDatetimes(other)
         return dt1 - dt2
 
     def date(self):
-        if self._isDateTime:
-            return self._dateOrDateTime.date()
+        if self._isDatetime:
+            return self._dateOrDatetime.date()
         else:
-            return self._dateOrDateTime
+            return self._dateOrDatetime
 
     def datetime(self):
-        if self._isDateTime:
-            return self._dateOrDateTime
+        if self._isDatetime:
+            return self._dateOrDatetime
         else:
-            d = self._dateOrDateTime
+            d = self._dateOrDatetime
             return datetime(d.year, d.month, d.day, tzinfo=self.defaultTZ)
 
+    def dateOrDatetime(self):
+        return self._dateOrDatetime
+
     def iCalendarString(self):
-        if self._isDateTime:
-            return dateTimeToString(self._dateOrDateTime)
+        if self._isDatetime:
+            return dateTimeToString(self._dateOrDatetime)
         else:
-            return dateToString(self._dateOrDateTime)
+            return dateToString(self._dateOrDatetime)
 
     def asTimeZone(self, tzinfo):
-        if self._isDateTime:
-            d = self._dateOrDateTime
+        if self._isDatetime:
+            d = self._dateOrDatetime
             if d.tzinfo is None:
                 return self
             else:
@@ -100,22 +106,30 @@ class dateordatetime(object):
             return self
 
     def asUTC(self):
-        return self.asTimeZone(self, utc)
+        return self.asTimeZone(utc)
 
 
 class timerange(object):
     def __init__(self, start=None, end=None, duration=None):
         """
-        @param start: a L{dateordatetime}
-        @param end: a L{dateordatetime}
-        @param duration: a L{timedelta}
+        @param start: a L{dateordatetime}, L{date} or L{datetime}
+        @param end: a L{dateordatetime}, L{date} or L{datetime}
+        @param duration: a L{timedelta}, L{date} or L{datetime}
         @param tzinfo: a L{tzinfo}
         """
         assert end is None or duration is None
 
-        self._start = start
+        if isinstance(start, dateordatetime):
+            self._start = start
+        else:
+            self._start = dateordatetime(start)
+
         if end is not None:
-            self._end = end
+            if isinstance(end, dateordatetime):
+                self._end = end
+            else:
+                self._end = dateordatetime(end)
+
         if duration is not None:
             self._duration = duration
 
@@ -129,7 +143,7 @@ class timerange(object):
             if start is None or duration is None:
                 self._end = None
             else:
-                self._end = self._start + self._duration
+                self._end = dateordatetime(self._start.dateOrDatetime() + self._duration)
         return self._end
 
     def duration(self):
