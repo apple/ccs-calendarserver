@@ -71,12 +71,14 @@ class dateordatetime(object):
     def __eq__(self, other):
         if isinstance(other, dateordatetime):
             other = other.dateOrDatetime()
-        return self._dateOrDatetime == other
+        dt1, dt2 = self._comparableDatetimes(other)
+        return dt1 == dt2
 
     def __ne__(self, other):
         if isinstance(other, dateordatetime):
-            other = other.dateOrDatetime
-        return self._dateOrDatetime != other
+            other = other.dateOrDatetime()
+        dt1, dt2 = self._comparableDatetimes(other)
+        return dt1 != dt2
 
     def __lt__(self, other):
         if not isinstance(other, comparableTypes):
