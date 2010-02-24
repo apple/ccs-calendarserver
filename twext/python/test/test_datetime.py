@@ -15,15 +15,14 @@
 ##
 
 from datetime import date, datetime, timedelta
-from dateutil.tz import tzstr
 
 from twisted.internet.defer import DeferredList
 
-from twext.python.datetime import dateordatetime, timerange, utc
+from twext.python.datetime import dateordatetime, timerange, utc, tzWithID
 
 from twistedcaldav.test.util import TestCase, testUnimplemented
 
-edt = tzstr("EST5EDT")
+tzNYC = tzWithID("America/New_York")
 
 
 def timezones(f):
@@ -32,7 +31,7 @@ def timezones(f):
     """
     return lambda self: DeferredList([
         d for d in (
-            f(self, tz) for tz in (utc, edt)
+            f(self, tz) for tz in (utc, tzNYC)
         ) if d is not None
     ])
 
@@ -168,11 +167,10 @@ class DatetimeTests(TestCase):
         dodt = dateordatetime(dt)
         self.assertEquals(dodt.iCalendarString(), "20100222T174442Z")
 
-    @testUnimplemented
     def test_datetime_iCalendarString_tz(self):
-        dt = datetime(2010, 2, 22, 17, 44, 42, 98303, tzinfo=edt)
+        dt = datetime(2010, 2, 22, 17, 44, 42, 98303, tzinfo=tzNYC)
         dodt = dateordatetime(dt)
-        self.assertEquals(dodt.iCalendarString(), "20100222T174442XXXXXX")
+        self.assertEquals(dodt.iCalendarString(), "20100222T174442")
 
     @testUnimplemented
     def test_asTimeZone(self):

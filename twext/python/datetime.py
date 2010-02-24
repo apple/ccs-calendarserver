@@ -22,12 +22,14 @@ __all__ = [
     "dateordatetime",
     "timerange",
     "utc",
+    "tzWithID",
 ]
 
 date     = __import__("datetime").date
 datetime = __import__("datetime").datetime
 
-from vobject.icalendar import dateTimeToString, dateToString, utc
+from vobject.icalendar import dateTimeToString, dateToString
+from vobject.icalendar import utc, getTzid as tzWithID
 
 
 # FIXME, add constants for begining/end of time
