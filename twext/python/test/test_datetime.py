@@ -15,11 +15,26 @@
 ##
 
 from datetime import date, datetime, timedelta
+from dateutil.tz import tzstr
+
+from twisted.internet.defer import DeferredList
 
 from twext.python.datetime import dateordatetime, timerange, utc
 
 from twistedcaldav.test.util import TestCase, testUnimplemented
 
+edt = tzstr("EST5EDT")
+
+
+def timezones(f):
+    """
+    Decorator for a test to be called with multiple timezones.
+    """
+    return lambda self: DeferredList([
+        d for d in (
+            f(self, tz) for tz in (utc, edt)
+        ) if d is not None
+    ])
 
 class DatetimeTests(TestCase):
     def test_date_date(self):
@@ -27,9 +42,10 @@ class DatetimeTests(TestCase):
         dodt = dateordatetime(d)
         self.assertEquals(dodt.date(), d)
 
-    def test_date_date_tz(self):
+    @timezones
+    def test_date_date_tz(self, tz):
         d = date.today()
-        dodt = dateordatetime(d, defaultTZ=utc)
+        dodt = dateordatetime(d, defaultTZ=tz)
         self.assertEquals(dodt.date(), d)
 
     def test_date_datetime(self):
@@ -37,10 +53,11 @@ class DatetimeTests(TestCase):
         dodt = dateordatetime(d)
         self.assertEquals(dodt.datetime(), datetime(d.year, d.month, d.day))
 
-    def test_date_datetime_tz(self):
+    @timezones
+    def test_date_datetime_tz(self, tz):
         d = date.today()
-        dodt = dateordatetime(d, defaultTZ=utc)
-        self.assertEquals(dodt.datetime(), datetime(d.year, d.month, d.day, tzinfo=utc))
+        dodt = dateordatetime(d, defaultTZ=tz)
+        self.assertEquals(dodt.datetime(), datetime(d.year, d.month, d.day, tzinfo=tz))
 
     def test_datetime_date(self):
         dt = datetime.now()
@@ -52,9 +69,10 @@ class DatetimeTests(TestCase):
         dodt = dateordatetime(dt)
         self.assertEquals(dodt.datetime(), dt)
 
-    def test_datetime_datetime_tz(self):
+    @timezones
+    def test_datetime_datetime_tz(self, tz):
         dt = datetime.now()
-        dodt = dateordatetime(dt, defaultTZ=utc)
+        dodt = dateordatetime(dt, defaultTZ=tz)
         self.assertEquals(dodt.datetime(), dt)
 
     def test_compare_date_date(self):
@@ -63,8 +81,9 @@ class DatetimeTests(TestCase):
     def test_compare_date_datetime(self):
         return self._test_compare(date, datetime.now())
 
-    def test_compare_date_datetime_tz(self):
-        return self._test_compare(date, datetime.now(), tz=utc)
+    @timezones
+    def test_compare_date_datetime_tz(self, tz):
+        return self._test_compare(date, datetime.now(), tz=tz)
 
     def test_compare_datetime_date(self):
         return self._test_compare(datetime, date.today())
@@ -72,8 +91,9 @@ class DatetimeTests(TestCase):
     def test_compare_datetime_datetime(self):
         return self._test_compare(datetime, datetime.now())
 
-    def test_compare_datetime_datetime_tz(self):
-        return self._test_compare(datetime, datetime.now(), tz=utc)
+    @timezones
+    def test_compare_datetime_datetime_tz(self, tz):
+        return self._test_compare(datetime, datetime.now(), tz=tz)
 
     def _test_compare(self, baseclass, now, tz=None):
         first  = dateordatetime(now + timedelta(days=0))
@@ -150,8 +170,9 @@ class DatetimeTests(TestCase):
 
     @testUnimplemented
     def test_datetime_iCalendarString_tz(self):
-        # Need to test a non-UTC timezone also
-        raise NotImplementedError()
+        dt = datetime(2010, 2, 22, 17, 44, 42, 98303, tzinfo=edt)
+        dodt = dateordatetime(dt)
+        self.assertEquals(dodt.iCalendarString(), "20100222T174442XXXXXX")
 
     @testUnimplemented
     def test_asTimeZone(self):
