@@ -123,6 +123,8 @@ class WikiDirectoryRecord(DirectoryRecord):
             enabledForCalendaring=True,
             uid="%s%s" % (WikiDirectoryService.UIDPrefix, shortName),
         )
+        # Wiki enabling doesn't come from augments db, so enable here...
+        self.enabled = True
 
 
 
