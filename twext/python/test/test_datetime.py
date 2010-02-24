@@ -15,14 +15,16 @@
 ##
 
 from datetime import date, datetime, timedelta
+from dateutil.tz import tzstr
 
 from twisted.internet.defer import DeferredList
 
-from twext.python.datetime import dateordatetime, timerange, utc, tzWithID
+from twext.python.datetime import dateordatetime, timerange, utc
 
 from twistedcaldav.test.util import TestCase, testUnimplemented
 
-tzNYC = tzWithID("America/New_York")
+
+tzUSEastern = tzstr("EST5EDT")
 
 
 def timezones(f):
@@ -31,11 +33,13 @@ def timezones(f):
     """
     return lambda self: DeferredList([
         d for d in (
-            f(self, tz) for tz in (utc, tzNYC)
+            f(self, tz) for tz in (utc, tzUSEastern)
         ) if d is not None
     ])
 
 class DatetimeTests(TestCase):
+
+
     def test_date_date(self):
         d = date.today()
         dodt = dateordatetime(d)
@@ -168,18 +172,25 @@ class DatetimeTests(TestCase):
         self.assertEquals(dodt.iCalendarString(), "20100222T174442Z")
 
     def test_datetime_iCalendarString_tz(self):
-        dt = datetime(2010, 2, 22, 17, 44, 42, 98303, tzinfo=tzNYC)
+        dt = datetime(2010, 2, 22, 17, 44, 42, 98303, tzinfo=tzUSEastern)
         dodt = dateordatetime(dt)
         self.assertEquals(dodt.iCalendarString(), "20100222T174442")
 
-    @testUnimplemented
     def test_asTimeZone(self):
-        raise NotImplementedError()
+        dt = datetime(2010, 2, 22, 17, 44, 42, 98303, tzinfo=utc)
+        asUTC = dateordatetime(dt)
+        asEast = asUTC.asTimeZone(tzUSEastern)
+        self.assertEquals(asEast.datetime().tzinfo, tzUSEastern) # tz is changed
+        self.assertEquals(asEast.datetime().hour, 12)            # hour is changed
+        self.assertEquals(asUTC, asEast)                         # still equal
 
-    @testUnimplemented
     def test_asUTC(self):
-        raise NotImplementedError()
-
+        dt = datetime(2010, 2, 22, 17, 44, 42, 98303, tzinfo=tzUSEastern)
+        asEast = dateordatetime(dt)
+        asUTC = asEast.asTimeZone(utc)
+        self.assertEquals(asUTC.datetime().tzinfo, utc) # tz is changed
+        self.assertEquals(asUTC.datetime().hour, 22)    # hour is changed
+        self.assertEquals(asEast, asUTC)                # still equal
 
 class TimerangeTests(TestCase):
     def test_start(self):
