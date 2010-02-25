@@ -23,7 +23,9 @@ __all__ = [
     "tzWithID",
     "dateordatetime",
     "timerange",
+    "asTimeZone",
     "asUTC",
+    "iCalendarString",
 ]
 
 date     = __import__("datetime").date
@@ -231,5 +233,21 @@ class timerange(object):
 # Convenience functions
 ##
 
+def asTimeZone(dateOrDatetime, tzinfo):
+    """
+    Convert a L{date} or L{datetime} to the given time zone.
+    """
+    return dateordatetime(dateOrDatetime).asTimeZone(tzinfo).dateOrDatetime()
+
 def asUTC(dateOrDatetime):
+    """
+    Convert a L{date} or L{datetime} to UTC.
+    """
     return dateordatetime(dateOrDatetime).asUTC().dateOrDatetime()
+
+def iCalendarString(dateOrDatetime):
+    """
+    Convert a L{date} or L{datetime} to a string appropriate for use
+    in an iCalendar property.
+    """
+    return dateordatetime(dateOrDatetime).iCalendarString()
