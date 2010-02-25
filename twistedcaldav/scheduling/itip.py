@@ -39,7 +39,6 @@ from twext.python.log import Logger
 from twext.python.datetime import asUTC, iCalendarString
 
 from twistedcaldav.config import config
-from twistedcaldav.dateops import normalizeToUTC, toString
 from twistedcaldav.ical import Property, iCalendarProductID, Component
 
 log = Logger()
@@ -322,7 +321,7 @@ class iTipProcessing(object):
             if attendee:
                 attendees.add(attendee)
                 if rids is not None and (partstat or private_comment):
-                    rids.add((toString(rid), partstat, private_comment,))
+                    rids.add((iCalendarString(rid), partstat, private_comment,))
 
         # Check for an invalid instance by itself
         len_attendees = len(attendees)
