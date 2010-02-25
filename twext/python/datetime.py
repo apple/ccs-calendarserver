@@ -178,6 +178,9 @@ class timerange(object):
         if duration is not None:
             self._duration = duration
 
+    def __repr__(self):
+        return "timerange(%r, %s)" % (self.start(), self.end())
+
     def start(self):
         return self._start
 
