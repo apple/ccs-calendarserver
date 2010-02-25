@@ -26,7 +26,7 @@ __all__ = [
     "getWritersGroupForSharedAddressBookGroup",
 ]
 
-from plistlib import readPlist
+from twext.python.plistlib import readPlist
 #import traceback
 
 import opendirectory

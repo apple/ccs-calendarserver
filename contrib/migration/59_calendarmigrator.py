@@ -23,10 +23,10 @@ from __future__ import with_statement
 import datetime
 import optparse
 import os
-import plistlib
 import shutil
-import subprocess
 import sys
+
+from twext.python.plistlib import readPlist, writePlist
 
 LAUNCHD_KEY = "org.calendarserver.calendarserver"
 LOG = "/Library/Logs/Migration/calendarmigrator.log"
@@ -134,10 +134,10 @@ def migrateConfiguration(options):
                 if name == "caldavd.plist":
                     # Migrate certain settings from the old plist to new:
                     log("Parsing %s" % (oldPath,))
-                    oldPlist = plistlib.readPlist(oldPath)
+                    oldPlist = readPlist(oldPath)
                     if os.path.exists(newPath):
                         log("Parsing %s" % (newPath,))
-                        newPlist = plistlib.readPlist(newPath)
+                        newPlist = readPlist(newPath)
                         log("Removing %s" % (newPath,))
                         os.remove(newPath)
                     else:
@@ -145,7 +145,7 @@ def migrateConfiguration(options):
                     log("Processing %s" % (oldPath,))
                     mergePlist(oldPlist, newPlist)
                     log("Writing %s" % (newPath,))
-                    plistlib.writePlist(newPlist, newPath)
+                    writePlist(newPlist, newPath)
 
                 else:
                     # Copy the file over, overwriting copy in newConfigDir
@@ -208,7 +208,7 @@ def isServiceDisabled(source, service):
 
     overridesPath = os.path.join(source, LAUNCHD_OVERRIDES)
     if os.path.isfile(overridesPath):
-        overrides = plistlib.readPlist(overridesPath)
+        overrides = readPlist(overridesPath)
         try:
             return overrides[service]['Disabled']
         except KeyError:
@@ -217,7 +217,7 @@ def isServiceDisabled(source, service):
 
     prefsPath = os.path.join(source, LAUNCHD_PREFS_DIR, "%s.plist" % service)
     if os.path.isfile(prefsPath):
-        prefs = plistlib.readPlist(prefsPath)
+        prefs = readPlist(prefsPath)
         try:
             return prefs['Disabled']
         except KeyError:
@@ -238,11 +238,11 @@ def setServiceStateDisabled(target, service, disabled):
 
     overridesPath = os.path.join(target, LAUNCHD_OVERRIDES)
     if os.path.isfile(overridesPath):
-        overrides = plistlib.readPlist(overridesPath)
+        overrides = readPlist(overridesPath)
         if not overrides.has_key(service):
             overrides[service] = { }
         overrides[service]['Disabled'] = disabled
-        plistlib.writePlist(overrides, overridesPath)
+        writePlist(overrides, overridesPath)
 
 
 class ServiceStateError(Exception):

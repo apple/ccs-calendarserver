@@ -15,7 +15,7 @@
 ##
 
 import os
-import plistlib
+from twext.python.plistlib import readPlistFromString
 import xml
 
 from twext.python.filepath import CachingFilePath as FilePath
@@ -90,7 +90,7 @@ class GatewayTestCase(TestCase):
         reactor.spawnProcess(CapturingProcessProtocol(deferred, command), python, args, env=os.environ, path=cwd)
         output = yield deferred
         try:
-            plist = plistlib.readPlistFromString(output)
+            plist = readPlistFromString(output)
         except xml.parsers.expat.ExpatError, e:
             print "Error (%s) parsing (%s)" % (e, output)
             raise
