@@ -15,10 +15,9 @@
 ##
 
 from twext.python.log import Logger
-from twext.python.datetime import asUTC, iCalendarString
+from twext.python.datetime import timerange, asUTC, iCalendarString
 
 from twistedcaldav.config import config
-from twistedcaldav.dateops import normalizeStartEndDuration
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipGenerator
@@ -554,10 +553,10 @@ class iCalDiff(object):
             dtend = component.getProperty("DTEND")
             duration = component.getProperty("DURATION")
             
-            newdtstart, newdtend = normalizeStartEndDuration(
-                dtstart.value() if dtstart is not None else None,
-                dtend.value() if dtend is not None else None,
-                duration.value() if duration is not None else None,
+            timeRange = timerange(
+                start    = dtstart.value()  if dtstart  is not None else None,
+                end      = dtend.value()    if dtend    is not None else None,
+                duration = duration.value() if duration is not None else None,
             )
             newdue = None
             
@@ -566,13 +565,12 @@ class iCalDiff(object):
             duration = component.getProperty("DURATION")
             
             if dtstart or duration:
-                newdtstart, newdtend = normalizeStartEndDuration(
-                    dtstart.value() if dtstart is not None else None,
-                    None,
-                    duration.value() if duration is not None else None,
+                timeRange = timerange(
+                    start    = dtstart.value()  if dtstart  is not None else None,
+                    duration = duration.value() if duration is not None else None,
                 )
             else:
-                newdtstart = newdtend = None
+                timeRange = timerange()
 
             newdue = component.getProperty("DUE")
             if newdue is not None:
@@ -599,7 +597,7 @@ class iCalDiff(object):
         for exdate in exdates:
             newexdates.update([asUTC(value) for value in exdate.value()])
 
-        return newdtstart, newdtend, newdue, newrrules, newrdates, newexdates
+        return timeRange.start(), timeRange.end(), newdue, newrrules, newrdates, newexdates
 
     def _transferProperty(self, propName, serverComponent, clientComponent):
 
