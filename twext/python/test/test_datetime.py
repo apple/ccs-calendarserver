@@ -21,7 +21,7 @@ from twisted.internet.defer import DeferredList
 
 from twext.python.datetime import dateordatetime, timerange, utc
 
-from twistedcaldav.test.util import TestCase, featureUnimplemented
+from twistedcaldav.test.util import TestCase, featureUnimplemented, testUnimplemented
 
 
 tzUSEastern = tzstr("EST5EDT")
@@ -228,6 +228,10 @@ class TimerangeTests(TestCase):
         end = start + duration
         tr = timerange(start=start, end=end)
         self.assertEquals(tr.duration(), duration)
+
+    @testUnimplemented
+    def test_compare(self):
+        raise NotImplemented
 
     @featureUnimplemented
     def test_overlapsWith(self):

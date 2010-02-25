@@ -185,6 +185,51 @@ class timerange(object):
     def __repr__(self):
         return "timerange(%r, %s)" % (self.start(), self.end())
 
+    def __eq__(self, other):
+        if not isinstance(other, timerange):
+            return NotImplemented
+        if self.start() != other.start():
+            return False
+        return self.end() == other.end()
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        if not isinstance(other, timerange):
+            return NotImplemented
+        if self.start() == other.start():
+            return self.end() < other.end()
+        else:
+            return self.start() < other.start()
+
+    def __le__(self, other):
+        if not isinstance(other, timerange):
+            return NotImplemented
+        if self.start() == other.start():
+            return self.end() <= other.end()
+        else:
+            return self.start() <= other.start()
+
+    def __gt__(self, other):
+        if not isinstance(other, timerange):
+            return NotImplemented
+        if self.start() == other.start():
+            return self.end() > other.end()
+        else:
+            return self.start() > other.start()
+
+    def __ge__(self, other):
+        if not isinstance(other, timerange):
+            return NotImplemented
+        if self.start() == other.start():
+            return self.end() >= other.end()
+        else:
+            return self.start() >= other.start()
+
+    def __hash__(self, other):
+        return hash((self.start(), self.end()))
+
     def start(self):
         return self._start
 
