@@ -18,8 +18,7 @@ from twext.python.log import Logger
 from twext.python.datetime import asUTC, iCalendarString
 
 from twistedcaldav.config import config
-from twistedcaldav.dateops import normalizeToUTC, toString,\
-    normalizeStartEndDuration
+from twistedcaldav.dateops import normalizeStartEndDuration
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipGenerator
@@ -331,7 +330,7 @@ class iCalDiff(object):
                     # Mark Attendee as DECLINED in the server instance
                     if self._attendeeDecline(self.newCalendar.overriddenComponent(rid)):
                         changeCausesReply = True
-                        changedRids.append(toString(rid) if rid else "")
+                        changedRids.append(iCalendarString(rid) if rid else "")
                 else:
                     # We used to generate a 403 here - but instead we now ignore this error and let the server data
                     # override the client
@@ -407,7 +406,7 @@ class iCalDiff(object):
                 #return False, False, (), None
             changeCausesReply |= reply
             if reply:
-                changedRids.append(toString(rid) if rid else "")
+                changedRids.append(iCalendarString(rid) if rid else "")
 
         # We need to derive instances for any declined using an EXDATE
         for decline in sorted(declines):
@@ -418,7 +417,7 @@ class iCalDiff(object):
                     self.newCalendar.addComponent(overridden)
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
-                        changedRids.append(toString(decline) if decline else "")
+                        changedRids.append(iCalendarString(decline) if decline else "")
                 else:
                     self._logDiffError("attendeeMerge: Unable to override an instance to mark as DECLINED: %s" % (decline,))
                     return False, False, (), None
@@ -540,7 +539,7 @@ class iCalDiff(object):
             # Bad if EXDATEs have been removed
             missing = serverProps[-1] - clientProps[-1]
             if missing:
-                log.debug("EXDATEs missing: %s" % (", ".join([toString(exdate) for exdate in missing]),))
+                log.debug("EXDATEs missing: %s" % (", ".join([iCalendarString(exdate) for exdate in missing]),))
                 return False
             declines.extend(clientProps[-1] - serverProps[-1])
             return True
@@ -739,7 +738,7 @@ class iCalDiff(object):
         
         if addedChanges:
             rid = comp1.getRecurrenceIDUTC()
-            rids[toString(rid) if rid is not None else ""] = propsChanged
+            rids[iCalendarString(rid) if rid is not None else ""] = propsChanged
 
     def _logDiffError(self, title):
 
