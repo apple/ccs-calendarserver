@@ -19,10 +19,11 @@ Date/time Utilities
 """
 
 __all__ = [
-    "dateordatetime",
-    "timerange",
     "utc",
     "tzWithID",
+    "dateordatetime",
+    "timerange",
+    "asUTC",
 ]
 
 date     = __import__("datetime").date
@@ -45,6 +46,7 @@ class dateordatetime(object):
         if isinstance(dateOrDatetime, datetime):
             self._isDatetime = True
         else:
+            assert isinstance(dateOrDatetime, date)
             self._isDatetime = False
         self.defaultTZ = defaultTZ
 
@@ -223,3 +225,11 @@ class timerange(object):
             return self.end() < other.end() and self.end() > other.start()
         else:
             return False
+
+
+##
+# Convenience functions
+##
+
+def asUTC(dateOrDatetime):
+    return dateordatetime(dateOrDatetime).asUTC().dateOrDatetime()
