@@ -1848,7 +1848,7 @@ class Component (object):
                 remaining -= 1
                 continue
             rid = component.getRecurrenceIDUTC()
-            if (toString(rid) if rid else "") not in rids:
+            if (iCalendarString(rid) if rid else "") not in rids:
                 self.removeComponent(component)
                 remaining -= 1
                 
