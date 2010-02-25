@@ -46,6 +46,7 @@ from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.wiki import getWikiACL
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
+from twistedcaldav.notifications import NotificationCollectionResource
 
 log = Logger()
 
@@ -276,6 +277,10 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         if config.FreeBusyURL.Enabled:
             childlist += (
                 ("freebusy", FreeBusyURLResource),
+            )
+        if config.EnableSharing:
+            childlist += (
+                ("notification", NotificationCollectionResource),
             )
         for name, cls in childlist:
             child = self.provisionChild(name)

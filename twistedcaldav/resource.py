@@ -934,6 +934,14 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
             clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
 
     @classmethod
+    def enableSharing(clz, enable):
+        qname = (calendarserver_namespace, "notification-URL" )
+        if enable and qname not in clz.liveProperties:
+            clz.liveProperties += (qname,)
+        elif not enable and qname in clz.liveProperties:
+            clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
+
+    @classmethod
     def enableAddressBooks(clz, enable):
         qname = (carddav_namespace, "addressbook-home-set" )
         if enable and qname not in clz.liveProperties:
@@ -988,6 +996,13 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                     returnValue(None)
                 else:
                     returnValue(customxml.DropBoxHomeURL(davxml.HRef(url)))
+
+            elif name == "notification-URL" and config.EnableSharing:
+                url = yield self.notificationURL()
+                if url is None:
+                    returnValue(None)
+                else:
+                    returnValue(customxml.NotificationURL(davxml.HRef(url)))
 
             elif name == "calendar-proxy-read-for":
                 results = (yield self.proxyFor(False))
@@ -1085,6 +1100,13 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
             return str(inbox.children[0])
         else:
             return None
+
+    def notificationURL(self, request=None):
+        if self.hasDeadProperty((calendarserver_namespace, "notification-URL")):
+            notification = self.readDeadProperty((calendarserver_namespace, "notification-URL"))
+            return succeed(str(notification.children[0]))
+        else:
+            return succeed(None)
 
     def addressBookHomeURLs(self):
         if self.hasDeadProperty((carddav_namespace, "addressbook-home-set")):

@@ -571,6 +571,140 @@ class AutoSchedule (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "auto-schedule"
 
+class UID (davxml.WebDAVTextElement):
+    namespace = calendarserver_namespace
+    name = "uid"
+
+##
+# Notifications
+##
+
+class InviteAccess (davxml.WebDAVElement):
+    namespace = calendarserver_namespace
+    name = "access"
+
+    allowed_children = {
+        (calendarserver_namespace, "read" )      : (0, 1),
+        (calendarserver_namespace, "read-write" ): (0, 1),
+    }
+
+class InviteSummary (davxml.WebDAVTextElement):
+    namespace = calendarserver_namespace
+    name = "summary"
+
+class InviteStatusNoResponse (davxml.WebDAVEmptyElement):
+    namespace = calendarserver_namespace
+    name = "invite-noresponse"
+
+class InviteStatusDeleted (davxml.WebDAVEmptyElement):
+    namespace = calendarserver_namespace
+    name = "invite-deleted"
+
+class InviteStatusAccepted (davxml.WebDAVEmptyElement):
+    namespace = calendarserver_namespace
+    name = "invite-accepted"
+
+class InviteStatusDeclined (davxml.WebDAVEmptyElement):
+    namespace = calendarserver_namespace
+    name = "invite-declined"
+
+class HostURL (davxml.WebDAVElement):
+    """
+    The source for a shared calendar
+    """
+    namespace = calendarserver_namespace
+    name = "hosturl"
+
+    allowed_children = { (dav_namespace, "href"): (0, None) }
+
+class Organizer (davxml.WebDAVElement):
+    """
+    The organizer for a shared calendar
+    """
+    namespace = calendarserver_namespace
+    name = "organizer"
+
+    allowed_children = { (dav_namespace, "href"): (0, None) }
+
+class InviteNotification (davxml.WebDAVElement):
+    namespace = calendarserver_namespace
+    name = "invite-notification"
+
+    allowed_children = {
+        (dav_namespace, "href")          : (0, 1),
+        InviteStatusNoResponse.qname()   : (0, 1),
+        InviteStatusDeleted.qname()      : (0, 1),
+        InviteStatusAccepted.qname()     : (0, 1),
+        InviteStatusDeclined.qname()     : (0, 1),
+        InviteAccess.qname()             : (0, 1),
+        HostURL.qname()                  : (0, 1),
+        Organizer.qname()                : (0, 1),
+        InviteSummary.qname()            : (0, 1),
+        UID.qname()                      : (0, 1),
+    }
+
+class ResourceUpdateAdded(davxml.WebDAVEmptyElement):
+    namespace = calendarserver_namespace
+    name = "resource-added-notification"
+
+class ResourceUpdateUpdated(davxml.WebDAVEmptyElement):
+    namespace = calendarserver_namespace
+    name = "resource-updated-notification"
+
+class ResourceDeletedUpdated(davxml.WebDAVEmptyElement):
+    namespace = calendarserver_namespace
+    name = "resource-deleted-notification"
+
+class ResourceUpdateNotification (davxml.WebDAVElement):
+    namespace = calendarserver_namespace
+    name = "resource-update-notification"
+
+    allowed_children = {
+        (dav_namespace, "href")          : (0, 1),
+        UID.qname()                      : (0, 1),
+        ResourceUpdateAdded.qname()      : (0, 1),
+        ResourceUpdateUpdated.qname()    : (0, 1),
+        ResourceDeletedUpdated.qname()   : (0, 1),
+    }
+
+class SharedCalendarUpdateNotification (davxml.WebDAVElement):
+    namespace = calendarserver_namespace
+    name = "shared-update-notification"
+
+    allowed_children = {
+        HostURL.qname()                  : (0, 1), # The shared calendar url
+        (dav_namespace, "href")          : (0, 1), # Email userid that was invited
+        InviteStatusDeleted.qname()      : (0, 1), # What the user did...
+        InviteStatusAccepted.qname()     : (0, 1),
+        InviteStatusDeclined.qname()     : (0, 1),
+    }
+
+class Notification (davxml.WebDAVElement):
+    """
+    Denotes a notification collection, or a notification message.
+    """
+    namespace = calendarserver_namespace
+    name = "notification"
+
+    allowed_children = {
+        DTStamp.qname()                            : (0, None),
+        InviteNotification.qname()                 : (0, None),
+        ResourceUpdateNotification.qname()         : (0, None),
+        SharedCalendarUpdateNotification.qname()   : (0, None),
+    }
+
+class NotificationURL (davxml.WebDAVElement):
+    """
+    A principal property to indicate the notification collection for the principal.
+    """
+    namespace = calendarserver_namespace
+    name = "notification-URL"
+    hidden = True
+    protected = True
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
+
 ##
 # Extensions to davxml.ResourceType
 ##
@@ -582,3 +716,4 @@ davxml.ResourceType.calendarproxywrite = davxml.ResourceType(davxml.Principal(),
 davxml.ResourceType.timezones = davxml.ResourceType(Timezones())
 davxml.ResourceType.ischeduleinbox = davxml.ResourceType(IScheduleInbox())
 davxml.ResourceType.freebusyurl = davxml.ResourceType(FreeBusyURL())
+davxml.ResourceType.notification = davxml.ResourceType(davxml.Collection(), Notification())

@@ -32,6 +32,8 @@ __all__ = [
     "DropBoxCollectionFile",
     "DropBoxChildFile",
     "TimezoneServiceFile",
+    "NotificationCollectionFile",
+    "NotificationFile",
     "AddressBookHomeProvisioningFile",
     "AddressBookHomeUIDProvisioningFile",
     "AddressBookHomeFile",
@@ -97,6 +99,8 @@ from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.notify import getPubSubConfiguration, getPubSubXMPPURI
 from twistedcaldav.notify import getPubSubHeartbeatURI, getPubSubPath
 from twistedcaldav.notify import ClientNotifier, getNodeCacher
+from twistedcaldav.notifications import NotificationCollectionResource,\
+    NotificationResource
 
 log = Logger()
 
@@ -945,11 +949,17 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         else:
             FreeBusyURLFileClass = None
             
+        if config.EnableSharing:
+            NotificationCollectionFileClass = NotificationCollectionFile
+        else:
+            NotificationCollectionFileClass = None
+
         cls = {
             "inbox"        : ScheduleInboxFile,
             "outbox"       : ScheduleOutboxFile,
             "dropbox"      : DropBoxHomeFileClass,
             "freebusy"     : FreeBusyURLFileClass,
+            "notification" : NotificationCollectionFileClass,
         }.get(name, None)
 
         if cls is not None:
@@ -1286,6 +1296,41 @@ class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
 
     def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
         return succeed(None)
+
+class NotificationCollectionFile(AutoProvisioningFileMixIn, NotificationCollectionResource, CalDAVFile):
+    """
+    Notification collection resource.
+    """
+    def __init__(self, path, parent):
+        NotificationCollectionResource.__init__(self)
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+        self.parent = parent
+
+    def createSimilarFile(self, path):
+        if self.comparePath(path):
+            return self
+        else:
+            return NotificationFile(path, self)
+
+    def __repr__(self):
+        return "<%s (notification collection): %s>" % (self.__class__.__name__, self.fp.path)
+
+class NotificationFile(NotificationResource, CalDAVFile):
+
+    def __init__(self, path, parent):
+        NotificationResource.__init__(self, parent)
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+
+        assert self.fp.isfile() or not self.fp.exists()
+
+    def createSimilarFile(self, path):
+        if self.comparePath(path):
+            return self
+        else:
+            return responsecode.NOT_FOUND
+
+    def __repr__(self):
+        return "<%s (notification file): %s>" % (self.__class__.__name__, self.fp.path)
 
 class AddressBookHomeProvisioningFile (DirectoryAddressBookHomeProvisioningResource, DAVFile):
     """
