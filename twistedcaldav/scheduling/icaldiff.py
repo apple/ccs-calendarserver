@@ -15,6 +15,7 @@
 ##
 
 from twext.python.log import Logger
+from twext.python.datetime import asUTC, iCalendarString
 
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeToUTC, toString,\
@@ -281,7 +282,7 @@ class iCalDiff(object):
                 # Get all EXDATEs in UTC
                 exdates = set()
                 for exdate in master.properties("EXDATE"):
-                    exdates.update([normalizeToUTC(value) for value in exdate.value()])
+                    exdates.update([asUTC(value) for value in exdate.value()])
                
             return exdates, map, master
         
@@ -576,7 +577,7 @@ class iCalDiff(object):
 
             newdue = component.getProperty("DUE")
             if newdue is not None:
-                newdue = normalizeToUTC(newdue.value())
+                newdue = asUTC(newdue.value())
             
         # Recurrence rules - we need to normalize the order of the value parts
         newrrules = set()
@@ -591,13 +592,13 @@ class iCalDiff(object):
         newrdates = set()
         rdates = component.properties("RDATE")
         for rdate in rdates:
-            newrdates.update([normalizeToUTC(value) for value in rdate.value()])
+            newrdates.update([asUTC(value) for value in rdate.value()])
         
         # EXDATEs
         newexdates = set()
         exdates = component.properties("EXDATE")
         for exdate in exdates:
-            newexdates.update([normalizeToUTC(value) for value in exdate.value()])
+            newexdates.update([asUTC(value) for value in exdate.value()])
 
         return newdtstart, newdtend, newdue, newrrules, newrdates, newexdates
 

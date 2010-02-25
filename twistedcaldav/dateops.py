@@ -20,7 +20,6 @@ Date/time Utilities
 
 __all__ = [
     "normalizeStartEndDuration",
-    "normalizeToUTC",
     "normalizeForIndex",
     "floatoffset",
     "compareDateTime",

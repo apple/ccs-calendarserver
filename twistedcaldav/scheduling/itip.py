@@ -36,6 +36,7 @@ from vobject.icalendar import utc
 from vobject.icalendar import dateTimeToString
 
 from twext.python.log import Logger
+from twext.python.datetime import asUTC, iCalendarString
 
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeToUTC, toString
@@ -542,7 +543,7 @@ class iTipGenerator(object):
             comp.addProperty(Property("SEQUENCE", seq))
             comp.addProperty(instance.getOrganizerProperty())
             if instance_rid:
-                comp.addProperty(Property("RECURRENCE-ID", normalizeToUTC(instance_rid)))
+                comp.addProperty(Property("RECURRENCE-ID", asUTC(instance_rid)))
             
             def addProperties(propname):
                 for property in instance.properties(propname):
