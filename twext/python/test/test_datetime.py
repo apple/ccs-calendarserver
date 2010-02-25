@@ -21,7 +21,7 @@ from twisted.internet.defer import DeferredList
 
 from twext.python.datetime import dateordatetime, timerange, utc
 
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import TestCase, featureUnimplemented
 
 
 tzUSEastern = tzstr("EST5EDT")
@@ -229,6 +229,7 @@ class TimerangeTests(TestCase):
         tr = timerange(start=start, end=end)
         self.assertEquals(tr.duration(), duration)
 
+    @featureUnimplemented
     def test_overlapsWith(self):
         t1, t2, t3, t4 = timeSeries(4)
 
@@ -266,7 +267,7 @@ class TimerangeTests(TestCase):
             (d1, t3, t1, t2, True ),
             (d1, t3, t2, t3, True ),
 
-            (d2, t3, t1, t2, True ), # Different
+            (d2, t3, t1, t2, False),
             (d2, t3, t1, t3, True ),
             (d2, t3, t1, t4, True ),
 
@@ -296,7 +297,7 @@ class TimerangeTests(TestCase):
 
             (t1, t2, d1, t2, True ),
             (t1, t2, d1, t3, True ),
-            (t1, t2, d2, t3, True ), # Different
+            (t1, t2, d2, t3, False),
             (t1, t2, d3, t4, False),
 
             (t1, t3, d1, t2, True ),
@@ -338,7 +339,7 @@ class TimerangeTests(TestCase):
             (d1, d3, t1, t2, True ),
             (d1, d3, t2, t3, True ),
 
-            (d2, d3, t1, t2, True ), # Different
+            (d2, d3, t1, t2, False),
             (d2, d3, t1, t3, True ),
             (d2, d3, t1, t4, True ),
 
@@ -368,13 +369,13 @@ class TimerangeTests(TestCase):
 
             (d1, t2, d1, t2, True ),
             (d1, t2, d1, t3, True ),
-            (d1, t2, d2, t3, True ), # Different
+            (d1, t2, d2, t3, False),
             (d1, t2, d3, t4, False),
 
             (d1, t3, d1, t2, True ),
             (d1, t3, d2, t3, True ),
 
-            (d2, t3, d1, t2, True ), # Different
+            (d2, t3, d1, t2, False),
             (d2, t3, d1, t3, True ),
             (d2, t3, d1, t4, True ),
 
@@ -386,13 +387,13 @@ class TimerangeTests(TestCase):
 
             (t1, t2, d1, d2, True ),
             (t1, t2, d1, d3, True ),
-            (t1, t2, d2, d3, True ), # Different
+            (t1, t2, d2, d3, False),
             (t1, t2, d3, d4, False),
 
             (t1, t3, d1, d2, True ),
             (t1, t3, d2, d3, True ),
 
-            (t2, t3, d1, d2, False), # Not different?
+            (t2, t3, d1, d2, False),
             (t2, t3, d1, d3, True ),
             (t2, t3, d1, d4, True ),
 
