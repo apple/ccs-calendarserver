@@ -35,9 +35,6 @@ from vobject.icalendar import utc
 
 from twext.python.datetime import dateordatetime, timerange
 
-def toString(dt):
-    return dateordatetime(dt).iCalendarString()
-
 def normalizeStartEndDuration(dtstart, dtend=None, duration=None):
     def asUTC(dodt):
         if dodt is None:
