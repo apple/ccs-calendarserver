@@ -254,6 +254,8 @@ class TimerangeTests(TestCase):
 
             (t2, t4, t1, t3, True ),
 
+            (t3, t4, t1, t2, False),
+
             # D-T-T-T
 
             (d1, t2, t1, t2, True ),
@@ -270,7 +272,7 @@ class TimerangeTests(TestCase):
 
             (d2, t4, t1, t3, True ),
 
-            (d3, t4, t1, t2, False ), # Cuz 2-3, 1-2 is different
+            (d3, t4, t1, t2, False),
 
             # T-D-T-T
 
@@ -288,6 +290,8 @@ class TimerangeTests(TestCase):
 
             (t2, d4, t1, t3, True ),
 
+            (t3, d4, t1, t2, False),
+
             # T-T-D-T
 
             (t1, t2, d1, t2, True ),
@@ -303,6 +307,8 @@ class TimerangeTests(TestCase):
             (t2, t3, d1, t4, True ),
 
             (t2, t4, d1, t3, True ),
+
+            (t3, t4, d1, t2, False),
 
             # T-T-T-D
 
@@ -320,6 +326,8 @@ class TimerangeTests(TestCase):
 
             (t2, t4, t1, d3, True ),
 
+            (t3, t4, t1, d2, False),
+
             # D-D-T-T
 
             (d1, d2, t1, t2, True ),
@@ -336,7 +344,7 @@ class TimerangeTests(TestCase):
 
             (d2, d4, t1, t3, True ),
 
-            (d3, d4, t1, t2, False ), # Cuz 2-3, 1-2 is different
+            (d3, d4, t1, t2, False),
 
             # T-D-D-T
 
@@ -354,6 +362,8 @@ class TimerangeTests(TestCase):
 
             (t2, d4, d1, t3, True ),
 
+            (t3, d4, d1, t2, False),
+
             # D-T-D-T
 
             (d1, t2, d1, t2, True ),
@@ -369,6 +379,8 @@ class TimerangeTests(TestCase):
             (d2, t3, d1, t4, True ),
 
             (d2, t4, d1, t3, True ),
+
+            (d3, t4, d1, t2, False),
 
             # T-T-D-D
 
@@ -386,6 +398,8 @@ class TimerangeTests(TestCase):
 
             (t2, t4, d1, d3, True ),
 
+            (t3, t4, d1, d2, False),
+
             # D-D-D-D
 
             (d1, d2, d1, d2, True ),
@@ -401,6 +415,8 @@ class TimerangeTests(TestCase):
             (d2, d3, d1, d4, True ),
 
             (d2, d4, d1, d3, True ),
+
+            (d3, d4, d1, d2, False),
         ):
             #print start1.n, end1.n, start2.n, end2.n, overlaps
 
