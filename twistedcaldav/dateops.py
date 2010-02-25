@@ -47,9 +47,6 @@ def normalizeStartEndDuration(dtstart, dtend=None, duration=None):
     tr = timerange(dtstart, dtend, duration)
     return asUTC(tr.start()), asUTC(tr.end())
 
-def normalizeToUTC(dt):
-    return dateordatetime(dt).asUTC().dateOrDatetime()
-
 def normalizeForIndex(dt):
     """
     Normalize a L{datetime.date} or L{datetime.datetime} object for use in the Index.
