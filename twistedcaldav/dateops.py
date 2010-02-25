@@ -19,7 +19,6 @@ Date/time Utilities
 """
 
 __all__ = [
-    "normalizeStartEndDuration",
     "normalizeForIndex",
     "floatoffset",
     "compareDateTime",
@@ -33,16 +32,7 @@ __all__ = [
 import datetime
 from vobject.icalendar import utc
 
-from twext.python.datetime import dateordatetime, timerange
-
-def normalizeStartEndDuration(dtstart, dtend=None, duration=None):
-    def asUTC(dodt):
-        if dodt is None:
-            return None
-        return dodt.asUTC().dateOrDatetime()
-
-    tr = timerange(dtstart, dtend, duration)
-    return asUTC(tr.start()), asUTC(tr.end())
+from twext.python.datetime import dateordatetime
 
 def normalizeForIndex(dt):
     """
