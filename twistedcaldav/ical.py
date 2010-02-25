@@ -43,11 +43,11 @@ from vobject.base import Component as vComponent, ContentLine as vContentLine, P
 from vobject.icalendar import TimezoneComponent, dateTimeToString, deltaToOffset, getTransition, stringToDate, stringToDateTime, stringToDurations, utc
 
 from twext.python.log import Logger
-from twext.python.datetime import timerange, asUTC, iCalendarString
+from twext.python.datetime import dateordatetime, timerange, asUTC, iCalendarString
 from twext.web2.stream import IStream
 from twext.web2.dav.util import allDataFromStream
 
-from twistedcaldav.dateops import compareDateTime, timeRangesOverlap, normalizeForIndex, differenceDateTime
+from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
@@ -484,7 +484,7 @@ class Component (object):
             if component.name() == "VTIMEZONE":
                 continue
             rid = component.getRecurrenceIDUTC()
-            if rid and recurrence_id and compareDateTime(rid, recurrence_id) == 0:
+            if rid and recurrence_id and dateordatetime(rid) == recurrence_id:
                 return component
             elif rid is None and recurrence_id is None:
                 return component
