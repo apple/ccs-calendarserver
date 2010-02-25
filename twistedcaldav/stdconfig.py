@@ -330,6 +330,7 @@ DEFAULT_CONFIG = {
     "EnableDropBox"           : False, # Calendar Drop Box
     "EnablePrivateEvents"     : False, # Private Events
     "EnableTimezoneService"   : False, # Timezone service
+    "EnableSharing"           : False, # Sharing
 
     #
     # Web-based administration
@@ -898,6 +899,13 @@ def _updateScheduling(configDict):
                     log.info("iMIP %s password not found in keychain" %
                         (direction,))
 
+def _updateSharing(configDict):
+    #
+    # FIXME: Use the config object instead of doing this here
+    #
+    from twistedcaldav.resource import CalendarPrincipalResource
+    CalendarPrincipalResource.enableSharing(configDict.EnableSharing)
+
 def _updatePartitions(configDict):
     #
     # Partitions
@@ -927,6 +935,7 @@ POST_UPDATE_HOOKS = (
     _updateLogLevels,
     _updateNotifications,
     _updateScheduling,
+    _updateSharing,
     _updatePartitions,
     )
     

@@ -466,6 +466,10 @@
     <key>EnablePrivateEvents</key>
     <true/>
 
+    <!-- Shared Calendars -->
+    <key>EnableSharing</key>
+    <true/>
+
 
     <!--
         Miscellaneous items

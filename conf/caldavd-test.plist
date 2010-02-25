@@ -669,6 +669,10 @@
     <key>EnableTimezoneService</key>
     <true/>
 
+    <!-- Shared Calendars -->
+    <key>EnableSharing</key>
+    <true/>
+
 
     <!--
         Miscellaneous items
