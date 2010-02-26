@@ -17,7 +17,8 @@
 import os
 
 from twisted.cred.portal import Portal
-from twisted.internet.defer import inlineCallbacks, maybeDeferred
+from twisted.internet.defer import inlineCallbacks, maybeDeferred, returnValue
+
 from twext.web2 import http_headers
 from twext.web2 import responsecode
 from twext.web2 import server
@@ -34,6 +35,7 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
 
 from calendarserver.provision.root import RootResource
+from twistedcaldav.config import config
 from twistedcaldav.directory import augment
 
 class FakeCheckSACL(object):
@@ -53,6 +55,12 @@ class RootTests(TestCase):
 
     def setUp(self):
         super(RootTests, self).setUp()
+
+        # XXX make sure that the config hooks have been run, so that we get the
+        # default RootResourceACL key is set and traversal works.  This is not
+        # great, and the ACLs supported by the root resource should really be
+        # an _attribute_ on the root resource. -glyph
+        config.update({})
 
         self.docroot = self.mktemp()
         os.mkdir(self.docroot)
@@ -80,6 +88,41 @@ class RootTests(TestCase):
             loginInterfaces=(auth.IPrincipal,))
 
         self.site = server.Site(self.root)
+
+
+
+class ComplianceTests(RootTests):
+    """
+    Tests to verify CalDAV compliance of the root resource.
+    """
+
+    @inlineCallbacks
+    def issueRequest(self, segments, method='GET'):
+        """
+        Get a resource from a particular path from the root URI, and return a
+        Deferred which will fire with (something adaptable to) an HTTP response
+        object.
+        """
+        request = SimpleRequest(self.site, method, ('/'.join([''] + segments)))
+        rsrc = self.root
+        while segments:
+            rsrc, segments = (yield maybeDeferred(rsrc.locateChild, request, segments))
+
+        result = yield rsrc.renderHTTP(request)
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def test_optionsIncludeCalendar(self):
+        """
+        OPTIONS request should include a DAV header that mentions the
+        addressbook capability.
+        """
+        self.patch(config, 'EnableCardDAV', True)
+        response = yield self.issueRequest([''], 'OPTIONS')
+        self.assertIn('addressbook', response.headers.getHeader('DAV'))
+
+
 
 class SACLTests(RootTests):
     
