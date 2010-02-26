@@ -63,6 +63,10 @@ response include:
 
     Either ``reply`` or ``cancel`` depending on...???
 
+  ``fwd``
+
+    the value of the X-Forwarded-For header, if present
+
 In the following example, we see a ``CalDAV:calendar-multiget``
 ``REPORT`` for 32 resources in a user's calendar, which was handled by
 instance ``8459`` in 183.0ms, with one outstanding request (the one
