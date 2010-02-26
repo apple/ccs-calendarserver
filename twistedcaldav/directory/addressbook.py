@@ -36,7 +36,7 @@ from twext.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootPrope
 
 from twistedcaldav.config import config
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource
-from twistedcaldav.resource import CalDAVResource, SearchAddressBookResource, SearchAllAddressBookResource
+from twistedcaldav.resource import CalDAVResource, SearchAddressBookResource, SearchAllAddressBookResource, CalDAVComplianceMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 
@@ -51,6 +51,7 @@ uidsResourceName = "__uids__"
 class DirectoryAddressBookProvisioningResource (
     AutoProvisioningResourceMixIn,
     ReadOnlyResourceMixIn,
+    CalDAVComplianceMixIn,
     DAVResource,
 ):
     def defaultAccessControlList(self):

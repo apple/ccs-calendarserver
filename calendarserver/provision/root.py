@@ -1,3 +1,4 @@
+# -*- test-case-name: calendarserver.provision.test.test_root -*-
 ##
 # Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
@@ -28,6 +29,7 @@ from twisted.web.xmlrpc import Proxy
 
 from twext.python.log import Logger
 
+from twistedcaldav.resource import CalDAVComplianceMixIn
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
@@ -41,7 +43,7 @@ from twistedcaldav.directory.principal import DirectoryPrincipalResource
 log = Logger()
 
 
-class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn, DAVFile):
+class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn, CalDAVComplianceMixIn, DAVFile):
     """
     A special root resource that contains support checking SACLs
     as well as adding responseFilters.
