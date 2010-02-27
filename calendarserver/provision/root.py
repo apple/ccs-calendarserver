@@ -167,43 +167,47 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         # server for the corresponding record name.  If that maps to a
         # principal, assign that to authnuser.
 
-        wikiConfig = config.Authentication.Wiki
-        cookies = request.headers.getHeader("cookie")
-        if wikiConfig["Enabled"] and cookies is not None:
-            for cookie in cookies:
-                if cookie.name == wikiConfig["Cookie"]:
-                    token = cookie.value
-                    break
-            else:
-                token = None
+        if not hasattr(request, "checkedWiki"):
+            # Only do this once per request
+            request.checkedWiki = True
 
-            if token is not None and token != "unauthenticated":
-                log.debug("Wiki sessionID cookie value: %s" % (token,))
-                proxy = Proxy(wikiConfig["URL"])
-                try:
-                    username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
-                except Exception, e:
-                    log.error("Failed to look up wiki token (%s)" % (e,))
-                    username = None
+            wikiConfig = config.Authentication.Wiki
+            cookies = request.headers.getHeader("cookie")
+            if wikiConfig["Enabled"] and cookies is not None:
+                for cookie in cookies:
+                    if cookie.name == wikiConfig["Cookie"]:
+                        token = cookie.value
+                        break
+                else:
+                    token = None
 
-                if username is not None:
-                    log.debug("Wiki lookup returned user: %s" % (username,))
-                    principal = None
-                    directory = request.site.resource.getDirectory()
-                    record = directory.recordWithShortName("users", username)
-                    log.debug("Wiki user record for user %s : %s" % (username, record))
-                    if record:
-                        # Note: record will be None if it's a /Local/Default user
-                        for collection in self.principalCollections():
-                            principal = collection.principalForRecord(record)
-                            if principal is not None:
-                                break
+                if token is not None and token != "unauthenticated":
+                    log.debug("Wiki sessionID cookie value: %s" % (token,))
+                    proxy = Proxy(wikiConfig["URL"])
+                    try:
+                        username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
+                    except Exception, e:
+                        log.error("Failed to look up wiki token (%s)" % (e,))
+                        username = None
 
-                    if principal:
-                        log.debug("Found wiki principal and setting authnuser and authzuser")
-                        request.authzUser = request.authnUser = davxml.Principal(
-                            davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,))
-                        )
+                    if username is not None:
+                        log.debug("Wiki lookup returned user: %s" % (username,))
+                        principal = None
+                        directory = request.site.resource.getDirectory()
+                        record = directory.recordWithShortName("users", username)
+                        log.debug("Wiki user record for user %s : %s" % (username, record))
+                        if record:
+                            # Note: record will be None if it's a /Local/Default user
+                            for collection in self.principalCollections():
+                                principal = collection.principalForRecord(record)
+                                if principal is not None:
+                                    break
+
+                        if principal:
+                            log.debug("Wiki-authenticated principal %s being assigned to authnUser" % (record.guid,))
+                            request.authnUser = davxml.Principal(
+                                davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,))
+                            )
 
         # We don't want the /inbox resource to pay attention to SACLs because
         # we just want it to use the hard-coded ACL for the imip reply user.
@@ -225,6 +229,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             else:
                 wikiName = segments[2][5:]
             if wikiName:
+                log.debug("Wiki principal %s being assigned to authzUser" % (wikiName,))
                 request.authzUser = davxml.Principal(
                     davxml.HRef.fromString("/principals/wikis/%s/" % (wikiName,))
                 )

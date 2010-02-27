@@ -367,3 +367,18 @@ class SACLCacheTests(RootTests):
 
         d = self.send(request, gotResponse1)
         return d
+
+class WikiTests(RootTests):
+    
+    @inlineCallbacks
+    def test_oneTime(self):
+        """
+        Make sure wiki auth lookup is only done once per request;
+        request.checkedWiki will be set to True
+        """
+
+        request = SimpleRequest(self.site, "GET", "/principals/")
+
+        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
+        resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
+        self.assertTrue(request.checkedWiki)
