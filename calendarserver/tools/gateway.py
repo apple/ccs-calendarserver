@@ -20,9 +20,10 @@ from getopt import getopt, GetoptError
 from grp import getgrnam
 from pwd import getpwnam
 import os
-import plistlib
 import sys
 import xml
+
+from twext.python.plistlib import readPlistFromString, writePlistToString
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
@@ -115,7 +116,7 @@ def main():
     #
     rawInput = sys.stdin.read()
     try:
-        plist = plistlib.readPlistFromString(rawInput)
+        plist = readPlistFromString(rawInput)
     except xml.parsers.expat.ExpatError, e:
         respondWithError(str(e))
         return
@@ -438,10 +439,10 @@ def respondWithRecordsOfType(directory, command, recordType):
     respond(command, result)
 
 def respond(command, result):
-    sys.stdout.write(plistlib.writePlistToString( { 'command' : command['command'], 'result' : result } ) )
+    sys.stdout.write(writePlistToString( { 'command' : command['command'], 'result' : result } ) )
 
 def respondWithError(msg, status=1):
-    sys.stdout.write(plistlib.writePlistToString( { 'error' : msg, } ) )
+    sys.stdout.write(writePlistToString( { 'error' : msg, } ) )
     """
     try:
         reactor.stop()

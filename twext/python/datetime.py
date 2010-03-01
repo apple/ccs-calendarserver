@@ -19,28 +19,36 @@ Date/time Utilities
 """
 
 __all__ = [
+    "utc",
+    "tzWithID",
     "dateordatetime",
     "timerange",
-    "utc",
+    "asTimeZone",
+    "asUTC",
+    "iCalendarString",
 ]
 
 date     = __import__("datetime").date
 datetime = __import__("datetime").datetime
 
-from vobject.icalendar import dateTimeToString, dateToString, utc
+from vobject.icalendar import dateTimeToString, dateToString
+from vobject.icalendar import utc, getTzid as tzWithID
 
+
+# FIXME, add constants for begining/end of time
 
 class dateordatetime(object):
     def __init__(self, dateOrDatetime, defaultTZ=None):
         """
         @param dateOrDatetime: a L{date} or L{datetime}.
         """
-        assert dateOrDatetime is not None
+        assert dateOrDatetime is not None, "dateOrDatetime is None"
 
         self._dateOrDatetime = dateOrDatetime
         if isinstance(dateOrDatetime, datetime):
             self._isDatetime = True
         else:
+            assert isinstance(dateOrDatetime, date)
             self._isDatetime = False
         self.defaultTZ = defaultTZ
 
@@ -68,21 +76,42 @@ class dateordatetime(object):
 
     def __eq__(self, other):
         if isinstance(other, dateordatetime):
-            other = other.dateOrDatetime
-        return self._dateOrDatetime == other
-
-    def __cmp__(self, other):
-        if not isinstance(other, (date, datetime, dateordatetime)):
-            return NotImplemented
-
+            other = other.dateOrDatetime()
         dt1, dt2 = self._comparableDatetimes(other)
+        return dt1 == dt2
 
-        if dt1 == dt2:
-            return 0
-        elif dt1 < dt2:
-            return -1
-        else:
-            return 1
+    def __ne__(self, other):
+        if isinstance(other, dateordatetime):
+            other = other.dateOrDatetime()
+        dt1, dt2 = self._comparableDatetimes(other)
+        return dt1 != dt2
+
+    def __lt__(self, other):
+        if not isinstance(other, comparableTypes):
+            return NotImplemented
+        dt1, dt2 = self._comparableDatetimes(other)
+        return dt1 < dt2
+
+    def __le__(self, other):
+        if not isinstance(other, comparableTypes):
+            return NotImplemented
+        dt1, dt2 = self._comparableDatetimes(other)
+        return dt1 <= dt2
+
+    def __gt__(self, other):
+        if not isinstance(other, comparableTypes):
+            return NotImplemented
+        dt1, dt2 = self._comparableDatetimes(other)
+        return dt1 > dt2
+
+    def __ge__(self, other):
+        if not isinstance(other, comparableTypes):
+            return NotImplemented
+        dt1, dt2 = self._comparableDatetimes(other)
+        return dt1 >= dt2
+
+    def __hash__(self):
+        return self._dateOrDatetime.__hash__()
 
     def __sub__(self, other):
         if not isinstance(other, (date, datetime, dateordatetime)):
@@ -126,6 +155,8 @@ class dateordatetime(object):
     def asUTC(self):
         return self.asTimeZone(utc)
 
+comparableTypes = (date, datetime, dateordatetime)
+
 
 class timerange(object):
     def __init__(self, start=None, end=None, duration=None):
@@ -135,7 +166,7 @@ class timerange(object):
         @param duration: a L{timedelta}, L{date} or L{datetime}
         @param tzinfo: a L{tzinfo}
         """
-        assert end is None or duration is None
+        assert end is None or duration is None, "end or duration must be None"
 
         if start is None or isinstance(start, dateordatetime):
             self._start = start
@@ -150,6 +181,54 @@ class timerange(object):
 
         if duration is not None:
             self._duration = duration
+
+    def __repr__(self):
+        return "timerange(%r, %s)" % (self.start(), self.end())
+
+    def __eq__(self, other):
+        if not isinstance(other, timerange):
+            return NotImplemented
+        if self.start() != other.start():
+            return False
+        return self.end() == other.end()
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        if not isinstance(other, timerange):
+            return NotImplemented
+        if self.start() == other.start():
+            return self.end() < other.end()
+        else:
+            return self.start() < other.start()
+
+    def __le__(self, other):
+        if not isinstance(other, timerange):
+            return NotImplemented
+        if self.start() == other.start():
+            return self.end() <= other.end()
+        else:
+            return self.start() <= other.start()
+
+    def __gt__(self, other):
+        if not isinstance(other, timerange):
+            return NotImplemented
+        if self.start() == other.start():
+            return self.end() > other.end()
+        else:
+            return self.start() > other.start()
+
+    def __ge__(self, other):
+        if not isinstance(other, timerange):
+            return NotImplemented
+        if self.start() == other.start():
+            return self.end() >= other.end()
+        else:
+            return self.start() >= other.start()
+
+    def __hash__(self, other):
+        return hash((self.start(), self.end()))
 
     def start(self):
         return self._start
@@ -193,3 +272,27 @@ class timerange(object):
             return self.end() < other.end() and self.end() > other.start()
         else:
             return False
+
+
+##
+# Convenience functions
+##
+
+def asTimeZone(dateOrDatetime, tzinfo):
+    """
+    Convert a L{date} or L{datetime} to the given time zone.
+    """
+    return dateordatetime(dateOrDatetime).asTimeZone(tzinfo).dateOrDatetime()
+
+def asUTC(dateOrDatetime):
+    """
+    Convert a L{date} or L{datetime} to UTC.
+    """
+    return dateordatetime(dateOrDatetime).asUTC().dateOrDatetime()
+
+def iCalendarString(dateOrDatetime):
+    """
+    Convert a L{date} or L{datetime} to a string appropriate for use
+    in an iCalendar property.
+    """
+    return dateordatetime(dateOrDatetime).iCalendarString()

@@ -16,7 +16,6 @@
 # limitations under the License.
 ##
 
-from plistlib import readPlist
 import re
 import datetime
 import getopt
@@ -25,6 +24,8 @@ import os
 import sys
 import time
 import xattr
+
+from twext.python.plistlib import readPlist
 
 PLIST_FILE = "/etc/caldavd/caldavd.plist"
 SCAN_FILE = "problems.txt"

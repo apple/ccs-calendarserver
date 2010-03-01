@@ -15,47 +15,131 @@
 ##
 
 from datetime import date, datetime, timedelta
+from dateutil.tz import tzstr
+
+from twisted.internet.defer import DeferredList
 
 from twext.python.datetime import dateordatetime, timerange, utc
 
-from twistedcaldav.test.util import TestCase, testUnimplemented
+from twistedcaldav.test.util import TestCase, featureUnimplemented, testUnimplemented
 
 
-class DateTimeTests(TestCase):
-    def test_date_date(self):
+tzUSEastern = tzstr("EST5EDT")
+
+
+def timezones(f):
+    """
+    Decorator for a test to be called with multiple timezones.
+    """
+    return lambda self: DeferredList([
+        d for d in (
+            f(self, tz) for tz in (None, utc, tzUSEastern)
+        ) if d is not None
+    ])
+
+def timeSeries(n):
+    now = datetime.now()
+    for i in range(0, n):
+        dodt = dateordatetime(now + timedelta(days=i))
+        dodt.n = "t%d" %(i+1,)
+        yield dodt
+
+
+class DatetimeTests(TestCase):
+    @timezones
+    def test_date_date(self, tz):
         d = date.today()
-        dodt = dateordatetime(d)
+        dodt = dateordatetime(d, defaultTZ=tz)
         self.assertEquals(dodt.date(), d)
 
-    def test_date_date_tz(self):
+    @timezones
+    def test_date_datetime(self, tz):
         d = date.today()
-        dodt = dateordatetime(d, defaultTZ=utc)
-        self.assertEquals(dodt.date(), d)
-
-    def test_date_datetime(self):
-        d = date.today()
-        dodt = dateordatetime(d)
-        self.assertEquals(dodt.datetime(), datetime(d.year, d.month, d.day))
-
-    def test_date_datetime_tz(self):
-        d = date.today()
-        dodt = dateordatetime(d, defaultTZ=utc)
-        self.assertEquals(dodt.datetime(), datetime(d.year, d.month, d.day, tzinfo=utc))
+        dodt = dateordatetime(d, defaultTZ=tz)
+        self.assertEquals(dodt.datetime(), datetime(d.year, d.month, d.day, tzinfo=tz))
 
     def test_datetime_date(self):
         dt = datetime.now()
         dodt = dateordatetime(dt)
         self.assertEquals(dodt.date(), dt.date())
 
-    def test_datetime_datetime(self):
+    @timezones
+    def test_datetime_datetime(self, tz):
         dt = datetime.now()
-        dodt = dateordatetime(dt)
+        dodt = dateordatetime(dt, defaultTZ=tz)
         self.assertEquals(dodt.datetime(), dt)
 
-    def test_datetime_datetime_tz(self):
-        dt = datetime.now()
-        dodt = dateordatetime(dt, defaultTZ=utc)
-        self.assertEquals(dodt.datetime(), dt)
+    def test_compare_date_date(self):
+        return self._test_compare(date, date.today())
+
+    @timezones
+    def test_compare_date_datetime(self, tz):
+        return self._test_compare(date, datetime.now(), tz=tz)
+
+    def test_compare_datetime_date(self):
+        return self._test_compare(datetime, date.today())
+
+    @timezones
+    def test_compare_datetime_datetime(self, tz):
+        return self._test_compare(datetime, datetime.now(), tz=tz)
+
+    def _test_compare(self, baseclass, now, tz=None):
+        first  = dateordatetime(now + timedelta(days=0))
+        second = dateordatetime(now + timedelta(days=1))
+        third  = dateordatetime(now + timedelta(days=2))
+
+        def base(dodt):
+            if tz:
+                return dodt.dateOrDatetime().replace(tzinfo=tz)
+            else:
+                return dodt.dateOrDatetime()
+
+        #
+        # date & datetime's comparators do not correctly return
+        # NotImplemented when they should, which breaks comparison
+        # operators if date/datetime is first.  Boo.  Seriously weak.
+        #
+
+        self.assertTrue (first        == base(first) )
+       #self.assertTrue (base(first)  == first       ) # Bug in datetime
+        self.assertTrue (first        == base(first) )
+        self.assertTrue (first        != base(second))
+        self.assertTrue (base(first)  != second      )
+        self.assertTrue (first        != second      )
+        self.assertTrue (first        <  second      )
+        self.assertTrue (second       <  third       )
+        self.assertTrue (first        <  base(second))
+       #self.assertTrue (base(second) <  third       ) # Bug in datetime
+        self.assertTrue (first        <  second      )
+        self.assertTrue (second       <  third       )
+       #self.assertTrue (base(first)  <  second      )
+        self.assertTrue (second       <  base(third) ) # Bug in datetime
+        self.assertTrue (first        <= second      )
+        self.assertTrue (second       <= third       )
+        self.assertTrue (first        <= base(second))
+       #self.assertTrue (base(second) <= third       ) # Bug in datetime
+        self.assertTrue (first        <= base(second))
+       #self.assertTrue (base(second) <= third       ) # Bug in datetime
+        self.assertTrue (first        <= second      )
+        self.assertTrue (second       <= third       )
+       #self.assertTrue (base(first)  <= second      ) # Bug in datetime
+        self.assertTrue (second       <= base(third) )
+        self.assertFalse(first        >  second      )
+        self.assertFalse(second       >  third       )
+        self.assertFalse(first        >  base(second))
+       #self.assertFalse(base(second) >  third       ) # Bug in datetime
+        self.assertFalse(first        >  second      )
+        self.assertFalse(second       >  third       )
+       #self.assertFalse(base(first)  >  second      ) # Bug in datetime
+        self.assertFalse(second       >  base(third) )
+        self.assertFalse(first        >= second      )
+        self.assertFalse(second       >= third       )
+        self.assertFalse(first        >= base(second))
+       #self.assertFalse(base(second) >= third       ) # Bug in datetime
+        self.assertFalse(first        >= second      )
+        self.assertFalse(second       >= third       )
+       #self.assertFalse(base(first)  >= second      ) # Bug in datetime
+        self.assertFalse(second       >= base(third) )
 
     def test_date_iCalendarString(self):
         d = date(2010, 2, 22)
@@ -72,20 +156,29 @@ class DateTimeTests(TestCase):
         dodt = dateordatetime(dt)
         self.assertEquals(dodt.iCalendarString(), "20100222T174442Z")
 
-    @testUnimplemented
     def test_datetime_iCalendarString_tz(self):
-        # Need to test a non-UTC timezone also
-        raise NotImplementedError()
+        dt = datetime(2010, 2, 22, 17, 44, 42, 98303, tzinfo=tzUSEastern)
+        dodt = dateordatetime(dt)
+        self.assertEquals(dodt.iCalendarString(), "20100222T174442")
 
-    @testUnimplemented
     def test_asTimeZone(self):
-        raise NotImplementedError()
+        dt = datetime(2010, 2, 22, 17, 44, 42, 98303, tzinfo=utc)
+        asUTC = dateordatetime(dt)
+        asEast = asUTC.asTimeZone(tzUSEastern)
+        self.assertEquals(asEast.datetime().tzinfo, tzUSEastern) # tz is changed
+        self.assertEquals(asEast.datetime().hour, 12)            # hour is changed
+        self.assertEquals(asUTC, asEast)                         # still equal
 
-    @testUnimplemented
     def test_asUTC(self):
-        raise NotImplementedError()
+        dt = datetime(2010, 2, 22, 17, 44, 42, 98303, tzinfo=tzUSEastern)
+        asEast = dateordatetime(dt)
+        asUTC = asEast.asTimeZone(utc)
+        self.assertEquals(asUTC.datetime().tzinfo, utc) # tz is changed
+        self.assertEquals(asUTC.datetime().hour, 22)    # hour is changed
+        self.assertEquals(asEast, asUTC)                # still equal
 
-class TimeRangeTests(TestCase):
+
+class TimerangeTests(TestCase):
     def test_start(self):
         start = datetime.now()
         tr = timerange(start=start)
@@ -137,10 +230,212 @@ class TimeRangeTests(TestCase):
         self.assertEquals(tr.duration(), duration)
 
     @testUnimplemented
+    def test_compare(self):
+        raise NotImplemented
+
+    @featureUnimplemented
     def test_overlapsWith(self):
-        # Need a few tests; combinations of:
-        #  - start/end are None
-        #  - overlapping and not
-        #  - dates and datetimes
-        #  - timezones
-        raise NotImplementedError()
+        t1, t2, t3, t4 = timeSeries(4)
+
+        d1 = dateordatetime(t1.date()); d1.n = "d1"
+        d2 = dateordatetime(t2.date()); d2.n = "d2"
+        d3 = dateordatetime(t3.date()); d3.n = "d3"
+        d4 = dateordatetime(t4.date()); d4.n = "d4"
+
+        for start1, end1, start2, end2, overlaps in (
+            # T-T-T-T
+
+            (t1, t2, t1, t2, True ),
+            (t1, t2, t1, t3, True ),
+            (t1, t2, t2, t3, False),
+            (t1, t2, t3, t4, False),
+
+            (t1, t3, t1, t2, True ),
+            (t1, t3, t2, t3, True ),
+
+            (t2, t3, t1, t2, False),
+            (t2, t3, t1, t3, True ),
+            (t2, t3, t1, t4, True ),
+
+            (t2, t4, t1, t3, True ),
+
+            (t3, t4, t1, t2, False),
+
+            # D-T-T-T
+
+            (d1, t2, t1, t2, True ),
+            (d1, t2, t1, t3, True ),
+            (d1, t2, t2, t3, False),
+            (d1, t2, t3, t4, False),
+
+            (d1, t3, t1, t2, True ),
+            (d1, t3, t2, t3, True ),
+
+            (d2, t3, t1, t2, False),
+            (d2, t3, t1, t3, True ),
+            (d2, t3, t1, t4, True ),
+
+            (d2, t4, t1, t3, True ),
+
+            (d3, t4, t1, t2, False),
+
+            # T-D-T-T
+
+            (t1, d2, t1, t2, True ),
+            (t1, d2, t1, t3, True ),
+            (t1, d2, t2, t3, False),
+            (t1, d2, t3, t4, False),
+
+            (t1, d3, t1, t2, True ),
+            (t1, d3, t2, t3, True ),
+
+            (t2, d3, t1, t2, False),
+            (t2, d3, t1, t3, True ),
+            (t2, d3, t1, t4, True ),
+
+            (t2, d4, t1, t3, True ),
+
+            (t3, d4, t1, t2, False),
+
+            # T-T-D-T
+
+            (t1, t2, d1, t2, True ),
+            (t1, t2, d1, t3, True ),
+            (t1, t2, d2, t3, False),
+            (t1, t2, d3, t4, False),
+
+            (t1, t3, d1, t2, True ),
+            (t1, t3, d2, t3, True ),
+
+            (t2, t3, d1, t2, False),
+            (t2, t3, d1, t3, True ),
+            (t2, t3, d1, t4, True ),
+
+            (t2, t4, d1, t3, True ),
+
+            (t3, t4, d1, t2, False),
+
+            # T-T-T-D
+
+            (t1, t2, t1, d2, True ),
+            (t1, t2, t1, d3, True ),
+            (t1, t2, t2, d3, False),
+            (t1, t2, t3, d4, False),
+
+            (t1, t3, t1, d2, True ),
+            (t1, t3, t2, d3, True ),
+
+            (t2, t3, t1, d2, False),
+            (t2, t3, t1, d3, True ),
+            (t2, t3, t1, d4, True ),
+
+            (t2, t4, t1, d3, True ),
+
+            (t3, t4, t1, d2, False),
+
+            # D-D-T-T
+
+            (d1, d2, t1, t2, True ),
+            (d1, d2, t1, t3, True ),
+            (d1, d2, t2, t3, False),
+            (d1, d2, t3, t4, False),
+
+            (d1, d3, t1, t2, True ),
+            (d1, d3, t2, t3, True ),
+
+            (d2, d3, t1, t2, False),
+            (d2, d3, t1, t3, True ),
+            (d2, d3, t1, t4, True ),
+
+            (d2, d4, t1, t3, True ),
+
+            (d3, d4, t1, t2, False),
+
+            # T-D-D-T
+
+            (t1, d2, d1, t2, True ),
+            (t1, d2, d1, t3, True ),
+            (t1, d2, d2, t3, False),
+            (t1, d2, d3, t4, False),
+
+            (t1, d3, d1, t2, True ),
+            (t1, d3, d2, t3, True ),
+
+            (t2, d3, d1, t2, False),
+            (t2, d3, d1, t3, True ),
+            (t2, d3, d1, t4, True ),
+
+            (t2, d4, d1, t3, True ),
+
+            (t3, d4, d1, t2, False),
+
+            # D-T-D-T
+
+            (d1, t2, d1, t2, True ),
+            (d1, t2, d1, t3, True ),
+            (d1, t2, d2, t3, False),
+            (d1, t2, d3, t4, False),
+
+            (d1, t3, d1, t2, True ),
+            (d1, t3, d2, t3, True ),
+
+            (d2, t3, d1, t2, False),
+            (d2, t3, d1, t3, True ),
+            (d2, t3, d1, t4, True ),
+
+            (d2, t4, d1, t3, True ),
+
+            (d3, t4, d1, t2, False),
+
+            # T-T-D-D
+
+            (t1, t2, d1, d2, True ),
+            (t1, t2, d1, d3, True ),
+            (t1, t2, d2, d3, False),
+            (t1, t2, d3, d4, False),
+
+            (t1, t3, d1, d2, True ),
+            (t1, t3, d2, d3, True ),
+
+            (t2, t3, d1, d2, False),
+            (t2, t3, d1, d3, True ),
+            (t2, t3, d1, d4, True ),
+
+            (t2, t4, d1, d3, True ),
+
+            (t3, t4, d1, d2, False),
+
+            # D-D-D-D
+
+            (d1, d2, d1, d2, True ),
+            (d1, d2, d1, d3, True ),
+            (d1, d2, d2, d3, False),
+            (d1, d2, d3, d4, False),
+
+            (d1, d3, d1, d2, True ),
+            (d1, d3, d2, d3, True ),
+
+            (d2, d3, d1, d2, False),
+            (d2, d3, d1, d3, True ),
+            (d2, d3, d1, d4, True ),
+
+            (d2, d4, d1, d3, True ),
+
+            (d3, d4, d1, d2, False),
+        ):
+            #print start1.n, end1.n, start2.n, end2.n, overlaps
+
+            if overlaps:
+                test = self.assertTrue
+                error = "should overlap with"
+            else:
+                test = self.assertFalse
+                error = "should not overlap with"
+
+            tr1 = timerange(start1, end1)
+            tr2 = timerange(start2, end2)
+
+            test(
+                tr1.overlapsWith(tr2),
+                "%r (%s-%s) %s %r (%s-%s)" % (tr1, start1.n, end1.n, error, tr2, start2.n, end2.n)
+            )

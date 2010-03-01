@@ -15,10 +15,9 @@
 ##
 
 from twext.python.log import Logger
+from twext.python.datetime import timerange, asUTC, iCalendarString
 
 from twistedcaldav.config import config
-from twistedcaldav.dateops import normalizeToUTC, toString,\
-    normalizeStartEndDuration
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipGenerator
@@ -281,7 +280,7 @@ class iCalDiff(object):
                 # Get all EXDATEs in UTC
                 exdates = set()
                 for exdate in master.properties("EXDATE"):
-                    exdates.update([normalizeToUTC(value) for value in exdate.value()])
+                    exdates.update([asUTC(value) for value in exdate.value()])
                
             return exdates, map, master
         
@@ -330,7 +329,7 @@ class iCalDiff(object):
                     # Mark Attendee as DECLINED in the server instance
                     if self._attendeeDecline(self.newCalendar.overriddenComponent(rid)):
                         changeCausesReply = True
-                        changedRids.append(toString(rid) if rid else "")
+                        changedRids.append(iCalendarString(rid) if rid else "")
                 else:
                     # We used to generate a 403 here - but instead we now ignore this error and let the server data
                     # override the client
@@ -406,7 +405,7 @@ class iCalDiff(object):
                 #return False, False, (), None
             changeCausesReply |= reply
             if reply:
-                changedRids.append(toString(rid) if rid else "")
+                changedRids.append(iCalendarString(rid) if rid else "")
 
         # We need to derive instances for any declined using an EXDATE
         for decline in sorted(declines):
@@ -417,7 +416,7 @@ class iCalDiff(object):
                     self.newCalendar.addComponent(overridden)
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
-                        changedRids.append(toString(decline) if decline else "")
+                        changedRids.append(iCalendarString(decline) if decline else "")
                 else:
                     self._logDiffError("attendeeMerge: Unable to override an instance to mark as DECLINED: %s" % (decline,))
                     return False, False, (), None
@@ -539,7 +538,7 @@ class iCalDiff(object):
             # Bad if EXDATEs have been removed
             missing = serverProps[-1] - clientProps[-1]
             if missing:
-                log.debug("EXDATEs missing: %s" % (", ".join([toString(exdate) for exdate in missing]),))
+                log.debug("EXDATEs missing: %s" % (", ".join([iCalendarString(exdate) for exdate in missing]),))
                 return False
             declines.extend(clientProps[-1] - serverProps[-1])
             return True
@@ -554,10 +553,10 @@ class iCalDiff(object):
             dtend = component.getProperty("DTEND")
             duration = component.getProperty("DURATION")
             
-            newdtstart, newdtend = normalizeStartEndDuration(
-                dtstart.value() if dtstart is not None else None,
-                dtend.value() if dtend is not None else None,
-                duration.value() if duration is not None else None,
+            timeRange = timerange(
+                start    = dtstart.value()  if dtstart  is not None else None,
+                end      = dtend.value()    if dtend    is not None else None,
+                duration = duration.value() if duration is not None else None,
             )
             newdue = None
             
@@ -566,17 +565,16 @@ class iCalDiff(object):
             duration = component.getProperty("DURATION")
             
             if dtstart or duration:
-                newdtstart, newdtend = normalizeStartEndDuration(
-                    dtstart.value() if dtstart is not None else None,
-                    None,
-                    duration.value() if duration is not None else None,
+                timeRange = timerange(
+                    start    = dtstart.value()  if dtstart  is not None else None,
+                    duration = duration.value() if duration is not None else None,
                 )
             else:
-                newdtstart = newdtend = None
+                timeRange = timerange()
 
             newdue = component.getProperty("DUE")
             if newdue is not None:
-                newdue = normalizeToUTC(newdue.value())
+                newdue = asUTC(newdue.value())
             
         # Recurrence rules - we need to normalize the order of the value parts
         newrrules = set()
@@ -591,15 +589,15 @@ class iCalDiff(object):
         newrdates = set()
         rdates = component.properties("RDATE")
         for rdate in rdates:
-            newrdates.update([normalizeToUTC(value) for value in rdate.value()])
+            newrdates.update([asUTC(value) for value in rdate.value()])
         
         # EXDATEs
         newexdates = set()
         exdates = component.properties("EXDATE")
         for exdate in exdates:
-            newexdates.update([normalizeToUTC(value) for value in exdate.value()])
+            newexdates.update([asUTC(value) for value in exdate.value()])
 
-        return newdtstart, newdtend, newdue, newrrules, newrdates, newexdates
+        return timeRange.start(), timeRange.end(), newdue, newrrules, newrdates, newexdates
 
     def _transferProperty(self, propName, serverComponent, clientComponent):
 
@@ -738,7 +736,7 @@ class iCalDiff(object):
         
         if addedChanges:
             rid = comp1.getRecurrenceIDUTC()
-            rids[toString(rid) if rid is not None else ""] = propsChanged
+            rids[iCalendarString(rid) if rid is not None else ""] = propsChanged
 
     def _logDiffError(self, title):
 

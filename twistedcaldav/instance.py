@@ -20,9 +20,11 @@ iCalendar Recurrence Expansion Utilities
 
 import datetime
 
-from twistedcaldav.dateops import normalizeForIndex, compareDateTime, differenceDateTime, periodEnd
-
 from vobject.icalendar import utc
+
+from twext.python.datetime import dateordatetime
+
+from twistedcaldav.dateops import normalizeForIndex, differenceDateTime, periodEnd
 
 # The maximum number of instances we will expand out to.
 # Raise a TooManyInstancesError exception if we exceed this.
@@ -279,7 +281,7 @@ class InstanceList(object):
 
     def _addMasterComponent(self, component, limit, start, end, duration):
         # Always add first instance if included in range.
-        if compareDateTime(start, limit) < 0:
+        if dateordatetime(start) < limit:
             # dateutils does not do all-day - so convert to datetime.datetime
             start = normalizeForIndex(start)
             end = normalizeForIndex(end)
@@ -299,7 +301,7 @@ class InstanceList(object):
         recur = component.getRRuleSet(True)
         if recur is not None:
             for startDate in recur:
-                if compareDateTime(startDate, limit) >= 0:
+                if dateordatetime(startDate) >= limit:
                     self.limit = limit
                     break
                 endDate = startDate + duration
@@ -319,12 +321,12 @@ class InstanceList(object):
         rid = normalizeForIndex(rid)
 
         # Make sure start is within the limit
-        if compareDateTime(start, limit) > 0 and compareDateTime(rid, limit) > 0:
+        if dateordatetime(start) > limit and dateordatetime(rid) > limit:
             return
 
         # Make sure override RECURRENCE-ID is a valid instance of the master
         if got_master:
-            if str(rid) not in self.instances and compareDateTime(rid, limit) <= 0:
+            if str(rid) not in self.instances and dateordatetime(rid) <= limit:
                 if self.ignoreInvalidInstances:
                     return
                 else:
@@ -373,7 +375,7 @@ class InstanceList(object):
         """
 
         start = component.getStartDateUTC()
-        if start is not None and (compareDateTime(start, limit) >= 0):
+        if start is not None and dateordatetime(start) >= limit:
             # If the free busy is beyond the end of the range we want, ignore it
             return
 
@@ -387,7 +389,7 @@ class InstanceList(object):
             assert isinstance(fb.value(), list), "FREEBUSY property does not contain a list of values: %r" % (fb,)
             for period in fb.value():
                 # Ignore if period starts after limit
-                if compareDateTime(period[0], limit) >= 0:
+                if dateordatetime(period[0]) >= limit:
                     continue
                 start = normalizeForIndex(period[0])
                 end = normalizeForIndex(periodEnd(period))
@@ -405,7 +407,7 @@ class InstanceList(object):
         """
 
         start = component.getStartDateUTC()
-        if start is not None and (compareDateTime(start, limit) >= 0):
+        if start is not None and dateordatetime(start) >= limit:
             # If the free busy is beyond the end of the range we want, ignore it
             return
         if start is None:

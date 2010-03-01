@@ -42,13 +42,12 @@ from vobject import newFromBehavior, readComponents
 from vobject.base import Component as vComponent, ContentLine as vContentLine, ParseError as vParseError
 from vobject.icalendar import TimezoneComponent, dateTimeToString, deltaToOffset, getTransition, stringToDate, stringToDateTime, stringToDurations, utc
 
-from twext.web2.dav.util import allDataFromStream
-from twext.web2.stream import IStream
-
 from twext.python.log import Logger
+from twext.python.datetime import dateordatetime, timerange, asUTC, iCalendarString
+from twext.web2.stream import IStream
+from twext.web2.dav.util import allDataFromStream
 
-from twistedcaldav.dateops import compareDateTime, normalizeToUTC, timeRangesOverlap,\
-    normalizeStartEndDuration, toString, normalizeForIndex, differenceDateTime
+from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
@@ -485,7 +484,7 @@ class Component (object):
             if component.name() == "VTIMEZONE":
                 continue
             rid = component.getRecurrenceIDUTC()
-            if rid and recurrence_id and compareDateTime(rid, recurrence_id) == 0:
+            if rid and recurrence_id and dateordatetime(rid) == recurrence_id:
                 return component
             elif rid is None and recurrence_id is None:
                 return component
@@ -623,7 +622,7 @@ class Component (object):
         """
         dtstart = self.propertyNativeValue("DTSTART")
         if dtstart is not None:
-            return normalizeToUTC(dtstart)
+            return asUTC(dtstart)
         else:
             return None
  
@@ -643,7 +642,7 @@ class Component (object):
                 dtend = dtstart + duration
 
         if dtend is not None:
-            return normalizeToUTC(dtend)
+            return asUTC(dtend)
         else:
             return None
 
@@ -662,7 +661,7 @@ class Component (object):
                 due = dtstart + duration
 
         if due is not None:
-            return normalizeToUTC(due)
+            return asUTC(due)
         else:
             return None
  
@@ -675,7 +674,7 @@ class Component (object):
         rid = self.propertyNativeValue("RECURRENCE-ID")
 
         if rid is not None:
-            return normalizeToUTC(rid)
+            return asUTC(rid)
         else:
             return None
  
@@ -1104,7 +1103,7 @@ class Component (object):
         # Check whether recurrence-id matches an RDATE - if so it is OK
         rdates = set()
         for rdate in master.properties("RDATE"):
-            rdates.update([normalizeToUTC(item) for item in rdate.value()])
+            rdates.update([asUTC(item) for item in rdate.value()])
         if rid not in rdates:
             # Check whether we have a truncated RRULE
             rrules = master.properties("RRULE")
@@ -1847,7 +1846,7 @@ class Component (object):
                 remaining -= 1
                 continue
             rid = component.getRecurrenceIDUTC()
-            if (toString(rid) if rid else "") not in rids:
+            if (iCalendarString(rid) if rid else "") not in rids:
                 self.removeComponent(component)
                 remaining -= 1
                 
@@ -2012,28 +2011,28 @@ class Component (object):
             dtend = self.getProperty("DTEND")
             duration = self.getProperty("DURATION")
             
-            newdtstart, newdtend = normalizeStartEndDuration(
-                dtstart.value(),
-                dtend.value() if dtend is not None else None,
-                duration.value() if duration is not None else None,
+            timeRange = timerange(
+                start    = dtstart.value(),
+                end      = dtend.value()    if dtend is not None else None,
+                duration = duration.value() if duration is not None else None,
             )
-            
-            dtstart.setValue(newdtstart)
+
+            dtstart.setValue(timeRange.start().asUTC().dateOrDatetime())
             if "X-VOBJ-ORIGINAL-TZID" in dtstart.params():
                 dtstart.params()["ORIGINAL-TZID"] = dtstart.params()["X-VOBJ-ORIGINAL-TZID"]
                 del dtstart.params()["X-VOBJ-ORIGINAL-TZID"]
             if dtend is not None:
-                dtend.setValue(newdtend)
+                dtend.setValue(timeRange.end().asUTC().dateOrDatetime())
                 if "X-VOBJ-ORIGINAL-TZID" in dtend.params():
                     dtend.params()["ORIGINAL-TZID"] = dtend.params()["X-VOBJ-ORIGINAL-TZID"]
                     del dtend.params()["X-VOBJ-ORIGINAL-TZID"]
             elif duration is not None:
                 self.removeProperty(duration)
-                self.addProperty(Property("DTEND", newdtend))
+                self.addProperty(Property("DTEND", timeRange.end().asUTC().dateOrDatetime()))
 
             exdates = self.properties("EXDATE")
             for exdate in exdates:
-                exdate.setValue([normalizeToUTC(value) for value in exdate.value()])
+                exdate.setValue([asUTC(value) for value in exdate.value()])
                 try:
                     del exdate.params()["TZID"]
                 except KeyError:
@@ -2041,7 +2040,7 @@ class Component (object):
 
             rid = self.getProperty("RECURRENCE-ID")
             if rid is not None:
-                rid.setValue(normalizeToUTC(rid.value()))
+                rid.setValue(asUTC(rid.value()))
                 try:
                     del rid.params()["TZID"]
                 except KeyError:

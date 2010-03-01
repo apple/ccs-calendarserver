@@ -14,37 +14,40 @@
 # limitations under the License.
 ##
 
-from twext.python.log import Logger, LoggingMixIn
-from twext.web2.dav.http import ErrorResponse
-
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python.failure import Failure
-from twext.web2 import responsecode
-from twext.web2.dav import davxml
-from twext.web2.dav.http import errorForFailure, messageForFailure, statusForFailure
-from twext.web2.http import HTTPError, Response, StatusResponse
-from twext.web2.http_headers import MimeType
-
-from twistedcaldav import caldavxml, dateops
-from twistedcaldav.accounting import accountingEnabled, emitAccounting
-from twistedcaldav.caldavxml import caldav_namespace, TimeRange
-from twistedcaldav.config import config
-from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.ical import Component
-from twistedcaldav.scheduling import addressmapping
-from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
-from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
-    LocalCalendarUser, RemoteCalendarUser, EmailCalendarUser,\
-    PartitionedCalendarUser
-from twistedcaldav.scheduling.imip import ScheduleViaIMip
-from twistedcaldav.scheduling.ischedule import ScheduleViaISchedule
-from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
-from twistedcaldav.scheduling.itip import iTIPRequestStatus
-
 import itertools
 import re
 import socket
 import urlparse
+
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.failure import Failure
+
+from twext.python.log import Logger, LoggingMixIn
+from twext.python.datetime import iCalendarString
+from twext.web2 import responsecode
+from twext.web2.http import HTTPError, Response, StatusResponse
+from twext.web2.http_headers import MimeType
+from twext.web2.dav import davxml
+from twext.web2.dav.http import errorForFailure, messageForFailure, statusForFailure
+from twext.web2.dav.http import ErrorResponse
+
+from twistedcaldav import caldavxml
+from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.accounting import accountingEnabled, emitAccounting
+from twistedcaldav.config import config
+from twistedcaldav.ical import Component
+from twistedcaldav.scheduling import addressmapping
+from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
+from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser
+from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
+from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser
+from twistedcaldav.scheduling.cuaddress import EmailCalendarUser
+from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser
+from twistedcaldav.scheduling.imip import ScheduleViaIMip
+from twistedcaldav.scheduling.ischedule import ScheduleViaISchedule
+from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
+from twistedcaldav.scheduling.itip import iTIPRequestStatus
 
 """
 CalDAV/Server-to-Server scheduling behavior.
@@ -324,7 +327,7 @@ class Scheduler(object):
                     log.err("VFREEBUSY start or end not UTC: %s" % (self.calendar,))
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="VFREEBUSY start or end not UTC"))
 
-                self.timeRange = TimeRange(start=dateops.toString(dtstart), end=dateops.toString(dtend))
+                self.timeRange = caldavxml.TimeRange(start=iCalendarString(dtstart), end=iCalendarString(dtend))
                 self.timeRange.start = dtstart
                 self.timeRange.end = dtend
         

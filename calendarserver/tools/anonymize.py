@@ -23,7 +23,6 @@ from subprocess import Popen, PIPE, STDOUT
 import datetime
 import hashlib
 import os
-import plistlib
 import random
 import shutil
 import sys
@@ -32,6 +31,8 @@ import uuid
 import vobject
 import xattr
 import zlib
+
+from twext.python.plistlib import readPlistFromString
 
 COPY_CAL_XATTRS = (
     'WebDAV:{DAV:}resourcetype',
@@ -375,7 +376,7 @@ class DirectoryMap(object):
             if child.returncode:
                 raise DirectoryError(error)
             else:
-                records = plistlib.readPlistFromString(output)
+                records = readPlistFromString(output)
                 random.shuffle(records) # so we don't go alphabetically
 
                 for record in records:
