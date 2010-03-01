@@ -903,7 +903,8 @@ def _updateSharing(configDict):
     #
     # FIXME: Use the config object instead of doing this here
     #
-    from twistedcaldav.resource import CalendarPrincipalResource
+    from twistedcaldav.resource import CalDAVResource, CalendarPrincipalResource
+    CalDAVResource.enableSharing(configDict.EnableSharing)
     CalendarPrincipalResource.enableSharing(configDict.EnableSharing)
 
 def _updatePartitions(configDict):

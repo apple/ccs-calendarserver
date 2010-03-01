@@ -179,7 +179,12 @@ class BasicKerberosCredentialsChecker(LoggingMixIn):
                 self.log_error("%s" % (ex[0],))
                 raise error.UnauthorizedLogin("Bad credentials for: %s (%s: %s)" % (pcreds.authnURI, ex[0], ex[1],))
             else:
-                return succeed((pcreds.authnURI, pcreds.authzURI,))
+                return succeed((
+                    pcreds.authnPrincipal.principalURL(),
+                    pcreds.authzPrincipal.principalURL(),
+                    pcreds.authnPrincipal,
+                    pcreds.authzPrincipal,
+                ))
         
         raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
 
@@ -307,7 +312,12 @@ class NegotiateCredentialsChecker(object):
 
         creds = pcreds.credentials
         if isinstance(creds, NegotiateCredentials):
-            return succeed((pcreds.authnURI, pcreds.authzURI,))
+            return succeed((
+                pcreds.authnPrincipal.principalURL(),
+                pcreds.authzPrincipal.principalURL(),
+                pcreds.authnPrincipal,
+                pcreds.authzPrincipal,
+            ))
         
         raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
 
