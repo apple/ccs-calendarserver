@@ -196,24 +196,35 @@ class InMemoryPropertyStore(object):
         self._properties = {}
         self.resource = _FauxResource()
 
-    def get(self, qname):
-        data = self._properties.get(qname)
+    def get(self, qname, uid=None):
+        qnameuid = qname + (uid,)
+        data = self._properties.get(qnameuid)
         if data is None:
             raise HTTPError(StatusResponse(404, "No such property"))
         return data
 
-    def set(self, property):
-        self._properties[property.qname()] = property
+    def set(self, property, uid=None):
+        qnameuid = property.qname() + (uid,)
+        self._properties[qnameuid] = property
 
-    def delete(self, qname):
+    def delete(self, qname, uid=None):
         try:
-            del self._properties[qname]
+            qnameuid = qname + (uid,)
+            del self._properties[qnameuid]
         except KeyError:
             pass
 
 
-    def list(self):
-        return self._properties.iterkeys()
+    def list(self, uid=None, filterByUID=True):
+        results = self._properties.iterkeys()
+        if filterByUID:
+            return [ 
+                (namespace, name)
+                for namespace, name, propuid in results
+                if propuid == uid
+            ]
+        else:
+            return results
 
 
 class StubCacheChangeNotifier(object):
