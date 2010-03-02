@@ -214,6 +214,9 @@ class InMemoryPropertyStore(object):
         except KeyError:
             pass
 
+    def contains(self, qname, uid=None):
+        qnameuid = qname + (uid,)
+        return qnameuid in self._properties
 
     def list(self, uid=None, filterByUID=True):
         results = self._properties.iterkeys()

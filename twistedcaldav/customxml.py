@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ from twext.web2.dav.davxml import twisted_dav_namespace
 from twext.web2.dav.element.base import twisted_private_namespace
 from twext.web2.dav import davxml
 
+from twistedcaldav import caldavxml
 from twistedcaldav.ical import Component as iComponent
 
 from vobject.icalendar import utc
@@ -49,8 +50,12 @@ calendarserver_private_comments_compliance = (
     "calendarserver-private-comments",
 )
 
-calendarserver_principal_property_search = (
+calendarserver_principal_property_search_compliance = (
     "calendarserver-principal-property-search",
+)
+
+calendarserver_sharing_compliance = (
+    "calendarserver-sharing",
 )
 
 class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
@@ -806,3 +811,4 @@ davxml.ResourceType.timezones = davxml.ResourceType(Timezones())
 davxml.ResourceType.ischeduleinbox = davxml.ResourceType(IScheduleInbox())
 davxml.ResourceType.freebusyurl = davxml.ResourceType(FreeBusyURL())
 davxml.ResourceType.notification = davxml.ResourceType(davxml.Collection(), Notification())
+davxml.ResourceType.sharedcalendar = davxml.ResourceType(davxml.Collection(), caldavxml.Calendar(), SharedOwner())

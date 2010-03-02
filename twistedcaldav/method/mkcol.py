@@ -165,11 +165,10 @@ def http_MKCOL(self, request):
             # Now handle other properties
             for property in mkcol.children[0].children[0].children:
                 try:
-                    if rtype == "calendar":
-                        if property.qname() == (caldavxml.caldav_namespace, "supported-calendar-component-set"):
-                            self.writeDeadProperty(property)
-                        elif not isinstance(property, davxml.ResourceType):
-                            yield self.writeProperty(property, request)
+                    if rtype == "calendar" and property.qname() == (caldavxml.caldav_namespace, "supported-calendar-component-set"):
+                        self.writeDeadProperty(property)
+                    else:
+                        yield self.writeProperty(property, request)
                 except HTTPError:
                     errors.add(Failure(), property)
                     got_an_error = True

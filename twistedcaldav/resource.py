@@ -69,6 +69,7 @@ from twistedcaldav.ical import Component
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
+from twistedcaldav.sharing import SharingMixin
 from twistedcaldav.vcard import Component as vComponent
 
 
@@ -110,9 +111,11 @@ class CalDAVComplianceMixIn(object):
             extra_compliance += customxml.calendarserver_private_events_compliance
         if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
             extra_compliance += customxml.calendarserver_private_comments_compliance
-        extra_compliance += customxml.calendarserver_principal_property_search
+        extra_compliance += customxml.calendarserver_principal_property_search_compliance
         if config.EnableCardDAV:
             extra_compliance += carddavxml.carddav_compliance
+        if config.EnableSharing:
+            extra_compliance += customxml.calendarserver_sharing_compliance
         return tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) + extra_compliance
 
 
@@ -132,7 +135,7 @@ def updateCacheTokenOnCallback(f):
     return fun
 
 
-class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
+class CalDAVResource (CalDAVComplianceMixIn, SharingMixin, DAVResource, LoggingMixIn):
     """
     CalDAV resource.
 
@@ -277,7 +280,8 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         isvirt = (yield self.isVirtualShare(request))
         if self.isShadowableProperty(qname):
             if isvirt:
-                p = self.deadProperties().get(qname, uid=request.authzPrincipal.principalUID())
+                ownerPrincipal = (yield self.ownerPrincipal(request))
+                p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
                 if p is not None:
                     returnValue(p)
             else:
@@ -285,7 +289,8 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                 returnValue(res)
             
         elif (not self.isGlobalProperty(qname)) and isvirt:
-            p = self.deadProperties().get(qname, uid=request.authzPrincipal.principalUID())
+            ownerPrincipal = (yield self.ownerPrincipal(request))
+            p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
             if p is not None:
                 returnValue(p)
 
@@ -347,24 +352,8 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         elif namespace == calendarserver_namespace:
             if name == "invite":
                 shared = (yield self.isShared(request))
-                if shared:
-                    userlist = []
-                    accesses = (yield self.getInviteUsers(request))
-                    if accesses:
-                        for access in accesses:
-                            acl = access()
-                            for principal, metaData in accesses[access]:
-                                children = []
-                                mailtoemail = "mailto:" + metaData["email"]
-                                children.append(davxml.HRef(mailtoemail))
-                                children.append(customxml.InviteAccess(acl))
-                                if "inviteStatus" in metaData and metaData["inviteStatus"]:
-                                    children.append(shareAcceptStatesByXML[metaData["inviteStatus"]])
-                                else: 
-                                    children.append(customxml.InviteStatusNoResponse())
-                                userlist.append(customxml.InviteUser(*children))
-                    result = customxml.Invite(*userlist)
-                    returnValue(result)
+                if not shared:
+                    returnValue(None)
 
         result = (yield super(CalDAVResource, self).readProperty(property, request))
         returnValue(result)
@@ -378,7 +367,8 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         # Per-user Dav props currently only apply to a sharee's copy of a calendar
         isvirt = (yield self.isVirtualShare(request))
         if isvirt and (self.isShadowableProperty(property.qname()) or (not self.isGlobalProperty(property.qname()))):
-            p = (yield self.deadProperties().set(property, uid=request.authzPrincipal.principalUID()))
+            ownerPrincipal = (yield self.ownerPrincipal(request))
+            p = (yield self.deadProperties().set(property, uid=ownerPrincipal.principalUID()))
             returnValue(p)
  
         res = (yield self._writeGlobalProperty(property, request))
@@ -434,7 +424,14 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
                 inbox.processFreeBusyCalendar(myurl, property.children[0] == caldavxml.Opaque())
 
         elif property.qname() == (dav_namespace, "resourcetype"):
-            if self.isCalendarCollection() and config.EnableSharing:
+            if self.isCalendarCollection():
+                sawShare = [child for child in property.children if child.qname() == (calendarserver_namespace, "shared-owner")]
+                if not config.EnableSharing:
+                    raise HTTPError(StatusResponse(
+                        responsecode.FORBIDDEN,
+                        "Cannot create shared calendars on this server.",
+                    ))
+
                 # Check if adding or removing share
                 shared = (yield self.isShared(request))
                 sawShare = [child for child in property.children if child.qname() == (calendarserver_namespace, "shared-owner")]
@@ -963,46 +960,7 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         """
         Quota root only ever set on calendar homes.
         """
-        return None
-
-    ##
-    # Sharing operations
-    ##
-
-    def upgradeToShare(self, request):
-        """ Upgrade this collection to a shared state """
-        return succeed(True)
-    
-    def downgradeFromShare(self, request):
-        return succeed(True)
-
-    def addUserToShare(self, userid, request, ace):
-        """ Add a user to this shared calendar """
-        return succeed(True)
-
-    def removeUserFromShare(self, userid, request):
-        """ Remove a user from this shared calendar """
-        return succeed(True)
-
-    def isShared(self, request):
-        """ Return True if this is an owner shared calendar collection """
-        succeed(False)
-
-    def isVirtualShare(self, request):
-        """ Return True if this is a shared calendar collection """
-        succeed(False)
-
-    def removeVirtualShare(self, request):
-        """ As user of a shared calendar, unlink this calendar collection """
-        succeed(False) 
-
-    def getInviteUsers(self, request):
-        succeed(True)
-
-    def sendNotificationOnChange(self, icalendarComponent, request, state="added"):
-        """ Possibly send a push and or email notification on a change to a resource in a shared collection """
-        succeed(True)
- 
+        return None 
 
 class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDAVResource):
     """
