@@ -432,22 +432,21 @@ class ImplicitProcessor(object):
         lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
 
         try:
-            if lock:
-                yield lock.acquire()
+            yield lock.acquire()
 
             # Send out a reply
             log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
             from twistedcaldav.scheduling.implicit import ImplicitScheduler
             scheduler = ImplicitScheduler()
-            scheduler.sendAttendeeReply(self.request, resource, calendar, self.recipient)
+            yield scheduler.sendAttendeeReply(self.request, resource, calendar, self.recipient)
+
         except MemcacheLockTimeoutError:
             
             # Just try again to get the lock
             reactor.callLater(2.0, self.sendAttendeeAutoReply, *(calendar, resource, partstat))
     
         finally:
-            if lock:
-                yield lock.clean()
+            yield lock.clean()
 
     @inlineCallbacks
     def checkAttendeeAutoReply(self, calendar):
