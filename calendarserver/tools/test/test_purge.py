@@ -60,11 +60,14 @@ class PurgeOldEventsTestCase(TestCase):
                                     "oneshot.ics": {
                                         "@contents" : OLD_ICS,
                                     },
-                                    "repeating.ics": {
-                                        "@contents" : REPEATING_ICS,
+                                    "endless.ics": {
+                                        "@contents" : ENDLESS_ICS,
                                     },
                                     "awhile.ics": {
                                         "@contents" : REPEATING_AWHILE_ICS,
+                                    },
+                                    "straddling.ics": {
+                                        "@contents" : STRADDLING_ICS,
                                     },
                                     "recent.ics": {
                                         "@contents" : RECENT_ICS,
@@ -93,8 +96,11 @@ class PurgeOldEventsTestCase(TestCase):
                                     ".db.sqlite": {
                                         "@contents" : None, # ignore contents
                                     },
-                                    "repeating.ics": {
-                                        "@contents" : REPEATING_ICS,
+                                    "endless.ics": {
+                                        "@contents" : ENDLESS_ICS,
+                                    },
+                                    "straddling.ics": {
+                                        "@contents" : STRADDLING_ICS,
                                     },
                                     "recent.ics": {
                                         "@contents" : RECENT_ICS,
@@ -159,7 +165,7 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
-REPEATING_ICS = """BEGIN:VCALENDAR
+ENDLESS_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//iCal 4.0.1//EN
 CALSCALE:GREGORIAN
@@ -253,6 +259,41 @@ SUMMARY:Ancient Repeat Awhile
 DTSTART;TZID=US/Pacific:20000309T111500
 DTSTAMP:20100303T194747Z
 SEQUENCE:6
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+STRADDLING_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20100303T213643Z
+UID:1C219DAD-D374-4822-8C98-ADBA85E253AB
+DTEND;TZID=US/Pacific:20090508T121500
+RRULE:FREQ=MONTHLY;INTERVAL=1;UNTIL=20100509T065959Z
+TRANSP:OPAQUE
+SUMMARY:Straddling cut-off
+DTSTART;TZID=US/Pacific:20090508T111500
+DTSTAMP:20100303T213704Z
+SEQUENCE:5
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")

@@ -49,7 +49,7 @@ def purgeOldEvents(directory, root, date):
     filter =  caldavxml.Filter(
           caldavxml.ComponentFilter(
               caldavxml.ComponentFilter(
-                  TimeRange(end=date,),
+                  TimeRange(start=date,),
                   name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
               ),
               name="VCALENDAR",
@@ -67,21 +67,18 @@ def purgeOldEvents(directory, root, date):
         for collName in calendarHome.listChildren():
             collection = calendarHome.getChild(collName)
             if collection.isCalendarCollection():
-                # ...use their indexes to figure out which events to purge
+                # ...use their indexes to figure out which events to purge.
+
+                # First, get the list of all child resources...
+                resources = set(collection.listChildren())
+
+                # ...and ignore those that appear *after* the given cutoff
                 for name, uid, type in collection.index().indexedSearch(filter):
+                    if name in resources:
+                        resources.remove(name)
+
+                for name in resources:
                     resource = collection.getChild(name)
-
-                    # indexedSearch also returns endless repeating events, but
-                    # we don't want to purge those
-                    data = resource.iCalendarText()
-                    try:
-                        calendar = iComponent.fromString(data)
-                    except ValueError, e:
-                        log.error("Error parsing %s: %s" % (name, e))
-                        continue
-                    if calendar.isRecurringUnbounded():
-                        continue
-
                     uri = "/calendars/__uids__/%s/%s/%s" % (
                         record.uid,
                         collName,
