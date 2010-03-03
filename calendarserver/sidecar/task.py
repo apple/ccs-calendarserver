@@ -23,6 +23,7 @@ __all__ = [
 ]
 
 import os
+from datetime import date, timedelta
 
 from zope.interface import implements
 
@@ -31,7 +32,6 @@ from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
 from twisted.internet.reactor import callLater
 from twisted.plugin import IPlugin
 from twisted.python.usage import Options, UsageError
-from twext.web2.http_headers import Headers
 
 from twext.python.log import Logger, LoggingMixIn
 from twext.python.log import logLevelForNamespace, setLogLevelForNamespace
@@ -42,51 +42,10 @@ from twistedcaldav.ical import Component
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
 from twistedcaldav.scheduling.scheduler import DirectScheduler
 
-from calendarserver.util import getRootResource
+from calendarserver.util import getRootResource, FakeRequest
+from calendarserver.tools.purge import purgeOldEvents
 
 log = Logger()
-
-class FakeRequest(object):
-
-    def __init__(self, rootResource, method):
-        self.rootResource = rootResource
-        self.method = method
-        self._resourcesByURL = {}
-        self._urlsByResource = {}
-        self.headers = Headers()
-
-    @inlineCallbacks
-    def _getChild(self, resource, segments):
-        if not segments:
-            returnValue(resource)
-
-        child, remaining = (yield resource.locateChild(self, segments))
-        returnValue((yield self._getChild(child, remaining)))
-
-    @inlineCallbacks
-    def locateResource(self, url):
-        url = url.strip("/")
-        segments = url.split("/")
-        resource = (yield self._getChild(self.rootResource, segments))
-        if resource:
-            self._rememberResource(resource, url)
-        returnValue(resource)
-
-    def _rememberResource(self, resource, url):
-        self._resourcesByURL[url] = resource
-        self._urlsByResource[resource] = url
-        return resource
-
-    def urlForResource(self, resource):
-        url = self._urlsByResource.get(resource, None)
-        if url is None:
-            class NoURLForResourceError(RuntimeError):
-                pass
-            raise NoURLForResourceError(resource)
-        return url
-
-    def addResponseFilter(*args, **kwds):
-        pass
 
 @inlineCallbacks
 def processInboxItem(rootResource, directory, inboxFile, inboxItemFile, uuid):
@@ -192,13 +151,31 @@ class Task(object):
         os.remove(self.taskFile)
 
 
+    @inlineCallbacks
+    def task_purgeoldevents(self):
+
+        with open(self.taskFile) as input:
+            try:
+                value = input.read().strip()
+                days = int(value)
+            except ValueError:
+                log.error("Illegal value for purge days: %s" % (value,))
+            else:
+                cutoff = (date.today() -
+                    timedelta(days=days)).strftime("%Y%m%dT000000Z")
+                count = (yield purgeOldEvents(self.service.directory,
+                    self.service.root, cutoff))
+                log.info("Purged %d events" % (count,))
+
+        os.remove(self.taskFile)
+
 
 class CalDAVTaskService(Service):
 
     def __init__(self, root):
         self.root = root
         self.directory = root.directory
-        self.seconds = 30 # How often to check for new tasks in incomingDir
+        self.seconds = 5 # How often to check for new tasks in incomingDir
         self.taskDir = os.path.join(config.DataRoot, "tasks")
         # New task files are placed into "incoming"
         self.incomingDir = os.path.join(self.taskDir, "incoming")

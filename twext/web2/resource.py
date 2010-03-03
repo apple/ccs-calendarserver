@@ -312,5 +312,8 @@ class WrapperResource(object):
             return x.addCallback(lambda data: self.resource)
         return self.resource
 
+    def getChild(self, name):
+        return self.resource.getChild(name)
+
 
 __all__ = ['RenderMixin', 'Resource', 'PostableResource', 'LeafResource', 'WrapperResource']

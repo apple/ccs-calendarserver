@@ -43,7 +43,8 @@ log = Logger()
 
 class DeleteResource(object):
     
-    def __init__(self, request, resource, resource_uri, parent, depth, internal_request=False):
+    def __init__(self, request, resource, resource_uri, parent, depth,
+        internal_request=False, allowImplicitSchedule=True):
         
         self.request = request
         self.resource = resource
@@ -51,6 +52,7 @@ class DeleteResource(object):
         self.parent = parent
         self.depth = depth
         self.internal_request = internal_request
+        self.allowImplicitSchedule = allowImplicitSchedule
 
     def validIfScheduleMatch(self):
         """
@@ -139,7 +141,7 @@ class DeleteResource(object):
         
         scheduler = None
         lock = None
-        if not self.internal_request:
+        if not self.internal_request and self.allowImplicitSchedule:
             # Get data we need for implicit scheduling
             calendar = delresource.iCalendar()
             scheduler = ImplicitScheduler()
@@ -164,7 +166,7 @@ class DeleteResource(object):
                 index.deleteResource(delresource.fp.basename(), newrevision)
     
                 # Do scheduling
-                if scheduler and not self.internal_request:
+                if scheduler and not self.internal_request and self.allowImplicitSchedule:
                     yield scheduler.doImplicitScheduling()
     
         except MemcacheLockTimeoutError:
