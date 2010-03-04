@@ -84,7 +84,7 @@ from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.provision.root import RootResource
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
-from calendarserver.util import getRootResource
+from calendarserver.tap.util import getRootResource
 
 log = Logger()
 

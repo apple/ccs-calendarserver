@@ -68,7 +68,7 @@ from twistedcaldav.static import CalDAVFile, deliverSchedulePrivilegeSet
 from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 
-from calendarserver.util import getRootResource
+from calendarserver.tap.util import getRootResource
 
 
 __all__ = [

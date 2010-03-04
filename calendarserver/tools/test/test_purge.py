@@ -23,7 +23,7 @@ from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 
 from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase
-from calendarserver.util import getRootResource
+from calendarserver.tap.util import getRootResource
 from calendarserver.tools.purge import purgeOldEvents
 
 resourceAttr = "WebDAV:{DAV:}resourcetype"

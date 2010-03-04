@@ -42,7 +42,7 @@ from twistedcaldav.ical import Component
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
 from twistedcaldav.scheduling.scheduler import DirectScheduler
 
-from calendarserver.util import getRootResource, FakeRequest
+from calendarserver.tap.util import getRootResource, FakeRequest
 from calendarserver.tools.purge import purgeOldEvents
 
 log = Logger()

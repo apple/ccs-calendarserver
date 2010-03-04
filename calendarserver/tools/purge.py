@@ -22,7 +22,7 @@ from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.method.delete_common import DeleteResource
 from twisted.internet.defer import inlineCallbacks, returnValue
-from calendarserver.util import FakeRequest
+from calendarserver.tap.util import FakeRequest
 
 log = Logger()
 
