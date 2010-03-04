@@ -491,9 +491,9 @@ dependencies () {
     "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
     "ftp://ftp.pygresql.org/pub/distrib/PyGreSQL.tgz";
 
-  py_dependency -v 10 -r 27606 \
+  py_dependency -v 10 -r 28657 \
     "Twisted" "twisted" "Twisted" \
-    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-9.0.0";
+    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-10.0.0";
 
   py_dependency \
     "dateutil" "dateutil" "python-dateutil-1.4.1" \
