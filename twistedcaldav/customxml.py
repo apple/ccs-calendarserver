@@ -681,6 +681,7 @@ class InviteUser (davxml.WebDAVElement):
         (calendarserver_namespace, "invite-deleted" )    : (0, 1),
         (calendarserver_namespace, "invite-accepted" )   : (0, 1),
         (calendarserver_namespace, "invite-declined" )   : (0, 1),
+        (calendarserver_namespace, "invite-invalid" )    : (0, 1),
     }
 
 class InviteAccess (davxml.WebDAVElement):
@@ -719,6 +720,10 @@ class InviteStatusAccepted (davxml.WebDAVEmptyElement):
 class InviteStatusDeclined (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "invite-declined"
+
+class InviteStatusInvalid (davxml.WebDAVEmptyElement):
+    namespace = calendarserver_namespace
+    name = "invite-invalid"
 
 class HostURL (davxml.WebDAVElement):
     """

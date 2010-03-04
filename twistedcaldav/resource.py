@@ -114,7 +114,7 @@ class CalDAVComplianceMixIn(object):
         extra_compliance += customxml.calendarserver_principal_property_search_compliance
         if config.EnableCardDAV:
             extra_compliance += carddavxml.carddav_compliance
-        if config.EnableSharing:
+        if config.Sharing.Enabled:
             extra_compliance += customxml.calendarserver_sharing_compliance
         return tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) + extra_compliance
 
@@ -421,7 +421,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharingMixin, DAVResource, LoggingM
         elif property.qname() == (dav_namespace, "resourcetype"):
             if self.isCalendarCollection():
                 sawShare = [child for child in property.children if child.qname() == (calendarserver_namespace, "shared-owner")]
-                if not config.EnableSharing:
+                if not (config.Sharing.Enabled and config.Sharing.Calendars.Enabled):
                     raise HTTPError(StatusResponse(
                         responsecode.FORBIDDEN,
                         "Cannot create shared calendars on this server.",
@@ -1103,7 +1103,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                 else:
                     returnValue(customxml.DropBoxHomeURL(davxml.HRef(url)))
 
-            elif name == "notification-URL" and config.EnableSharing:
+            elif name == "notification-URL" and config.Sharing.Enabled:
                 url = yield self.notificationURL()
                 if url is None:
                     returnValue(None)

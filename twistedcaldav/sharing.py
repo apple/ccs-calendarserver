@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import succeed, inlineCallbacks, DeferredList
+from twisted.internet.defer import succeed, inlineCallbacks, DeferredList,\
+    returnValue
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, Response
-from twext.web2.dav.http import ErrorResponse
+from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.dav.element.base import PCDATAElement
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
@@ -48,7 +49,8 @@ class SharingMixin(object):
         
         # Build the CS:invite property from our DB
         def sharedOK(isShared):
-            if config.EnableSharing and isShared:
+            if config.Sharing.Enabled and isShared:
+                self.validateInvites()
                 return customxml.Invite(
                     *[record.makePropertyElement() for record in self.invitesDB().allRecords()]
                 )
@@ -98,6 +100,41 @@ class SharingMixin(object):
         """ Return True if this is a shared calendar collection """
         return succeed(self.isSpecialCollection(customxml.Shared))
 
+    def validUserIDForShare(self, userid):
+        """
+        Test the user id to see if it is a valid identifier for sharing and return a "normalized"
+        form for our own use (e.g. convert mailto: to urn:uuid).
+
+        @param userid: the userid to test
+        @type userid: C{str}
+        
+        @return: C{str} of normalized userid or C{None} if
+            userid is not allowed.
+        """
+        
+        # First try to resolve as a principal
+        principal = self.principalForCalendarUserAddress(userid)
+        if principal:
+            return principal.principalURL()
+        
+        # TODO: we do not support external users right now so this is being hard-coded
+        # off in spite of the config option.
+        #elif config.Sharing.AllowExternalUsers:
+        #    return userid
+        else:
+            return None
+
+    def validateInvites(self):
+        """
+        Make sure each userid in an invite is valid - if not re-write status.
+        """
+        
+        records = self.invitesDB().allRecords()
+        for record in records:
+            if self.validUserIDForShare(record.userid) is None and record.state != "INVALID":
+                record.state = "INVALID"
+                self.invitesDB().addOrUpdateRecord(record)
+                
     def removeVirtualShare(self, request):
         """ As user of a shared calendar, unlink this calendar collection """
         return succeed(False) 
@@ -114,6 +151,12 @@ class SharingMixin(object):
             @param userid: 
             @param ace: Must be one of customxml.ReadWriteAccess or customxml.ReadAccess
         """
+        
+        # Check for valid userid first
+        userid = self.validUserIDForShare(userid)
+        if userid is None:
+            return succeed(False)
+
         # TODO: Check if this collection is shared, and error out if it isn't
         hosturl = self.fp.path
         if type(userid) is not list:
@@ -122,17 +165,29 @@ class SharingMixin(object):
             commonName = [commonName]
         if type(shareName) is not list:
             shareName = [shareName]
+            
         dl = [self.inviteSingleUserToShare(user, ace, summary, hosturl, request, cn=cn, sn=sn) for user, cn, sn in zip(userid, commonName, shareName)]
-        return DeferredList(dl)
+        return DeferredList(dl).addCallback(lambda _:True)
 
     def uninviteUserToShare(self, userid, ace, request):
         """ Send out in uninvite first, and then remove this user from the share list."""
+        
+        # Do not validate the userid - we want to allow invalid users to be removed because they
+        # may have been valid when added, but no longer valid now. Clients should be able to clear out
+        # anything known to be invalid.
+
         # TODO: Check if this collection is shared, and error out if it isn't
         if type(userid) is not list:
             userid = [userid]
-        return DeferredList([self.uninviteSingleUserFromShare(user, ace, request) for user in userid])
+        return DeferredList([self.uninviteSingleUserFromShare(user, ace, request) for user in userid]).addCallback(lambda _:True)
 
     def inviteUserUpdateToShare(self, userid, aceOLD, aceNEW, summary, request, commonName="", shareName=""):
+
+        # Check for valid userid first
+        userid = self.validUserIDForShare(userid)
+        if userid is None:
+            return succeed(False)
+
         hosturl = self.fp.path
         if type(userid) is not list:
             userid = [userid]
@@ -141,7 +196,7 @@ class SharingMixin(object):
         if type(shareName) is not list:
             shareName = [shareName]
         dl = [self.inviteSingleUserUpdateToShare(user, aceOLD, aceNEW, summary, hosturl, request, commonName=cn, shareName=sn) for user, cn, sn in zip(userid, commonName, shareName)]
-        return DeferredList(dl)
+        return DeferredList(dl).addCallback(lambda _:True)
 
     def inviteSingleUserToShare(self, userid, ace, summary, hosturl, request, cn="", sn=""):
         
@@ -168,9 +223,6 @@ class SharingMixin(object):
         return self.inviteSingleUserToShare(userid, aceNEW, summary, hosturl, request, commonName, shareName) 
 
     def xmlPOSTNoAuth(self, encoding, request):
-        def _handleResponse(result):
-            return Response(code=responsecode.OK)
-
         def _handleErrorResponse(error):
             if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
                 return error.value.response
@@ -259,6 +311,8 @@ class SharingMixin(object):
                         removeDict[userid] = access
 
                 # Special case removing and adding the same user and treat that as an add
+                okusers = set()
+                badusers = set()
                 sameUseridInRemoveAndSet = [u for u in removeDict.keys() if u in setDict]
                 for u in sameUseridInRemoveAndSet:
                     removeACL = removeDict[u]
@@ -267,11 +321,37 @@ class SharingMixin(object):
                     del removeDict[u]
                     del setDict[u]
                 for userid, access in removeDict.iteritems():
-                    yield self.uninviteUserToShare(userid, access, request)
+                    result = (yield self.uninviteUserToShare(userid, access, request))
+                    (okusers if result else badusers).add(userid)
                 for userid, (access, summary) in setDict.iteritems():
-                    yield self.inviteUserToShare(userid, access, summary, request)
+                    result = (yield self.inviteUserToShare(userid, access, summary, request))
+                    (okusers if result else badusers).add(userid)
                 for userid, (removeACL, newACL, summary) in updateinviteDict.iteritems():
-                    yield self.inviteUserUpdateToShare(userid, removeACL, newACL, summary, request)
+                    result = (yield self.inviteUserUpdateToShare(userid, removeACL, newACL, summary, request))
+                    (okusers if result else badusers).add(userid)
+
+                # Do a final validation of the entire set of invites
+                self.validateInvites()
+                
+                # Create the multistatus response - only needed if some are bad
+                if badusers:
+                    xml_responses = []
+                    xml_responses.extend([
+                        davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(responsecode.OK))
+                        for userid in sorted(okusers)
+                    ])
+                    xml_responses.extend([
+                        davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(responsecode.FORBIDDEN))
+                        for userid in sorted(badusers)
+                    ])
+                
+                    #
+                    # Return response
+                    #
+                    returnValue(MultiStatusResponse(xml_responses))
+                else:
+                    returnValue(responsecode.OK)
+                    
 
             return self.isShared(request).addCallback(_autoShare, request).addCallback(_processInviteDoc, request)
 
@@ -287,7 +367,7 @@ class SharingMixin(object):
                 customxml.InviteShare: _handleInvite, 
             }
             if type(root) in xmlDocHanders:
-                return xmlDocHanders[type(root)](root).addCallbacks(_handleResponse, errback=_handleErrorResponse)
+                return xmlDocHanders[type(root)](root).addErrback(_handleErrorResponse)
             else:
                 self.log_error("Unsupported XML (%s)" % (root,))
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request-content")))
@@ -332,13 +412,14 @@ inviteAccessMapToXML = {
 }
 inviteAccessMapFromXML = dict([(v,k) for k,v in inviteAccessMapToXML.iteritems()])
 
-inviteAcceptMapToXML = {
+inviteStatusMapToXML = {
     "NEEDS-ACTION" : customxml.InviteStatusNoResponse,
     "ACCEPTED"     : customxml.InviteStatusAccepted,
     "DECLINED"     : customxml.InviteStatusDeclined,
     "DELETED"      : customxml.InviteStatusDeleted,
+    "INVALID"      : customxml.InviteStatusInvalid,
 }
-inviteAcceptMapFromXML = dict([(v,k) for k,v in inviteAcceptMapToXML.iteritems()])
+inviteStatusMapFromXML = dict([(v,k) for k,v in inviteStatusMapToXML.iteritems()])
 
 class Invite(object):
     
@@ -355,7 +436,7 @@ class Invite(object):
             customxml.UID.fromString(self.inviteuid),
             davxml.HRef.fromString(self.userid),
             customxml.InviteAccess(inviteAccessMapToXML[self.access]()),
-            inviteAcceptMapToXML[self.state](),
+            inviteStatusMapToXML[self.state](),
         )
 
 class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):

@@ -943,7 +943,7 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         else:
             FreeBusyURLFileClass = None
             
-        if config.EnableSharing:
+        if config.Sharing.Enabled:
             NotificationCollectionFileClass = NotificationCollectionFile
         else:
             NotificationCollectionFileClass = None

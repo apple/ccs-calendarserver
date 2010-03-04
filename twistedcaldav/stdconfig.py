@@ -330,7 +330,19 @@ DEFAULT_CONFIG = {
     "EnableDropBox"           : False, # Calendar Drop Box
     "EnablePrivateEvents"     : False, # Private Events
     "EnableTimezoneService"   : False, # Timezone service
-    "EnableSharing"           : False, # Sharing
+    
+    "Sharing": {
+        "Enabled"             : False, # Overall on/off switch
+        "AllowExternalUsers"  : False, # External (non-principal) sharees allowed
+
+        "Calendars" : {
+            "Enabled"         : False, # Calendar on/off switch
+            "AllowScheduling" : False, # Scheduling in shared calendars
+        },
+        "AddressBooks" : {
+            "Enabled"         : False, # Address Books on/off switch
+        }        
+    },
 
     #
     # Web-based administration
@@ -904,8 +916,8 @@ def _updateSharing(configDict):
     # FIXME: Use the config object instead of doing this here
     #
     from twistedcaldav.resource import CalDAVResource, CalendarPrincipalResource
-    CalDAVResource.enableSharing(configDict.EnableSharing)
-    CalendarPrincipalResource.enableSharing(configDict.EnableSharing)
+    CalDAVResource.enableSharing(configDict.Sharing.Enabled)
+    CalendarPrincipalResource.enableSharing(configDict.Sharing.Enabled)
 
 def _updatePartitions(configDict):
     #

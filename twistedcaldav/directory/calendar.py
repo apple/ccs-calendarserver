@@ -278,7 +278,7 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             childlist += (
                 ("freebusy", FreeBusyURLResource),
             )
-        if config.EnableSharing:
+        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
             childlist += (
                 ("notification", NotificationCollectionResource),
             )

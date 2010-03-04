@@ -15,39 +15,55 @@
 ##
 
 
+from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.http_headers import MimeType
+from twext.web2.stream import MemoryStream
+from twext.web2.test.test_server import SimpleRequest
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twistedcaldav import customxml
+from twistedcaldav.config import config
+from twistedcaldav.static import CalDAVFile
 from twistedcaldav.test.util import InMemoryPropertyStore
 from twistedcaldav.test.util import TestCase
-from twext.web2.dav import davxml
-from twistedcaldav.static import CalDAVFile
-from twistedcaldav import customxml
-from twisted.internet.defer import inlineCallbacks, returnValue
 import os
-from twistedcaldav.config import config
-from twext.web2.test.test_server import SimpleRequest
-from twext.web2.stream import MemoryStream
-from twext.web2.http_headers import MimeType
-from twext.web2 import responsecode
 
 
 class SharingTests(TestCase):
     def setUp(self):
-        TestCase.setUp(self)
-        config.EnableSharing = True
+        super(SharingTests, self).setUp()
+        config.Sharing.Enabled = True
+        config.Sharing.Calendars.Enabled = True
 
         collection = self.mktemp()
         os.mkdir(collection)
         self.resource = CalDAVFile(collection, self.site.resource)
         self.resource._dead_properties = InMemoryPropertyStore()
         self.site.resource.putChild("calendar", self.resource)
+        
+        self.resource.validUserIDForShare = self._fakeValidUserID
+        
+    def _fakeValidUserID(self, userid):
+        if userid.endswith("@example.com"):
+            return userid
+        else:
+            return None
+
+    def _fakeInvalidUserID(self, userid):
+        if userid.endswith("@example.net"):
+            return userid
+        else:
+            return None
 
     @inlineCallbacks
-    def _doPOST(self, body):
+    def _doPOST(self, body, resultcode = responsecode.OK):
         request = SimpleRequest(self.site, "POST", "/calendar/")
         request.headers.setHeader("content-type", MimeType("text", "xml"))
         request.stream = MemoryStream(body)
 
         response = (yield self.send(request, None))
-        self.assertEqual(response.code, responsecode.OK)
+        self.assertEqual(response.code, resultcode)
+        returnValue(response)
 
     def _clearUIDElementValue(self, xml):
         
@@ -359,3 +375,81 @@ class SharingTests(TestCase):
                 customxml.InviteStatusNoResponse(),
             ),
         ))
+
+    @inlineCallbacks
+    def test_POSTaddInvalidInvitee(self):
+        
+        yield self.resource.upgradeToShare(None)
+
+        response = (yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+    <CS:set>
+        <D:href>mailto:bogus@example.net</D:href>
+        <CS:summary>My Shared Calendar</CS:summary>
+        <CS:read-write/>
+    </CS:set>
+</CS:share>
+""",
+            responsecode.MULTI_STATUS
+        ))
+        
+        self.assertEqual(
+            str(response.stream.read()).replace("\r\n", "\n"),
+            """<?xml version='1.0' encoding='UTF-8'?><multistatus xmlns='DAV:'>
+  <response>
+    <href>mailto:bogus@example.net</href>
+    <status>HTTP/1.1 403 Forbidden</status>
+  </response>
+</multistatus>"""
+        )
+
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite())
+
+    @inlineCallbacks
+    def test_POSTremoveInvalidInvitee(self):
+        
+        yield self.resource.upgradeToShare(None)
+
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+    <CS:set>
+        <D:href>mailto:user01@example.com</D:href>
+        <CS:summary>My Shared Calendar</CS:summary>
+        <CS:read-write/>
+    </CS:set>
+</CS:share>
+""")
+
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
+            customxml.InviteUser(
+                customxml.UID.fromString(""),
+                davxml.HRef.fromString("mailto:user01@example.com"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusNoResponse(),
+            )
+        ))
+
+        self.resource.validUserIDForShare = self._fakeInvalidUserID
+
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
+            customxml.InviteUser(
+                customxml.UID.fromString(""),
+                davxml.HRef.fromString("mailto:user01@example.com"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusInvalid(),
+            )
+        ))
+        
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+    <CS:remove>
+        <D:href>mailto:user01@example.com</D:href>
+    </CS:remove>
+</CS:share>
+""")
+
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite())

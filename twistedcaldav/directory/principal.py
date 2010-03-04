@@ -895,7 +895,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
     def notificationCollection(self, request):
         
         notification = None
-        if config.EnableSharing:
+        if config.Sharing.Enabled:
             home = self.calendarHome()
             if home is not None:    
                 notification = home.getChild("notification")
@@ -919,7 +919,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return None
 
     def notificationURL(self):
-        if config.EnableSharing:
+        if config.Sharing.Enabled:
             return self._homeChildURL("notification/")
         else:
             return None
