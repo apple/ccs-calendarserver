@@ -36,7 +36,6 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
 
 from twistedcaldav import memcachepool
-from twistedcaldav.accesslog import DirectoryLogWrapperResource
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
@@ -60,6 +59,7 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
+from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource

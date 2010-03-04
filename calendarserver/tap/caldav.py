@@ -60,9 +60,6 @@ except ImportError:
     from version import version as getVersion
     version = "%s (%s)" % getVersion()
 
-from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
-from twistedcaldav.accesslog import AMPLoggingFactory
-from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
@@ -81,6 +78,9 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
+from calendarserver.accesslog import AMPCommonAccessLoggingObserver
+from calendarserver.accesslog import AMPLoggingFactory
+from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.provision.root import RootResource
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
