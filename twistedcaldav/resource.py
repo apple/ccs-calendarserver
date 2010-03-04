@@ -294,10 +294,6 @@ class CalDAVResource (CalDAVComplianceMixIn, SharingMixin, DAVResource, LoggingM
             if p is not None:
                 returnValue(p)
 
-        if qname == customxml.Invite.qname():
-            isShared = (yield self.isShared(request))
-            if not isShared:
-                returnValue(None)
         res = (yield self._readGlobalProperty(qname, property, request))
         returnValue(res)
 
@@ -351,9 +347,8 @@ class CalDAVResource (CalDAVComplianceMixIn, SharingMixin, DAVResource, LoggingM
 
         elif namespace == calendarserver_namespace:
             if name == "invite":
-                shared = (yield self.isShared(request))
-                if not shared:
-                    returnValue(None)
+                result = (yield self.inviteProperty(request))
+                returnValue(result)
 
         result = (yield super(CalDAVResource, self).readProperty(property, request))
         returnValue(result)

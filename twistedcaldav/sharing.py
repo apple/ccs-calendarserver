@@ -13,7 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, inlineCallbacks, DeferredList
+from twext.web2 import responsecode
+from twext.web2.http import HTTPError, Response
+from twext.web2.dav.http import ErrorResponse
+from twext.web2.dav.util import allDataFromStream
+from twext.web2.dav.element.base import PCDATAElement
+from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
+from twext.python.log import LoggingMixIn
+import os
+from twistedcaldav.config import config
+from uuid import uuid4
 
 __all__ = [
     "SharingMixin",
@@ -28,6 +38,24 @@ Sharing behavior
 
 class SharingMixin(object):
     
+    def invitesDB(self):
+        
+        if not hasattr(self, "_invitesDB"):
+            self._invitesDB = InvitesDatabase(self)
+        return self._invitesDB
+
+    def inviteProperty(self, request):
+        
+        # Build the CS:invite property from our DB
+        def sharedOK(isShared):
+            if config.EnableSharing and isShared:
+                return customxml.Invite(
+                    *[record.makePropertyElement() for record in self.invitesDB().allRecords()]
+                )
+            else:
+                return None
+        return self.isShared(request).addCallback(sharedOK)
+
     def upgradeToShare(self, request):
         """ Upgrade this collection to a shared state """
         
@@ -36,8 +64,8 @@ class SharingMixin(object):
         rtype = davxml.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
         self.writeDeadProperty(rtype)
         
-        # Create empty invite property
-        self.writeDeadProperty(customxml.Invite())
+        # Create invites database
+        self.invitesDB().create()
 
         return succeed(True)
     
@@ -50,17 +78,16 @@ class SharingMixin(object):
         
         # Remove all invitees
 
-        # Remove invite property
-        self.removeDeadProperty(customxml.Invite)
+        # Remove invites database
+        self.invitesDB().remove()
+        delattr(self, "_invitesDB")
     
         return succeed(True)
 
-    def addUserToShare(self, userid, request, ace):
-        """ Add a user to this shared calendar """
-        return succeed(True)
-
-    def removeUserFromShare(self, userid, request):
+    def removeUserFromInvite(self, userid, request):
         """ Remove a user from this shared calendar """
+        self.invitesDB().removeRecordForUserID(userid)            
+
         return succeed(True)
 
     def isShared(self, request):
@@ -81,3 +108,369 @@ class SharingMixin(object):
     def sendNotificationOnChange(self, icalendarComponent, request, state="added"):
         """ Possibly send a push and or email notification on a change to a resource in a shared collection """
         return succeed(True)
+
+    def inviteUserToShare(self, userid, ace, summary, request, commonName="", shareName="", add=True):
+        """ Send out in invite first, and then add this user to the share list
+            @param userid: 
+            @param ace: Must be one of customxml.ReadWriteAccess or customxml.ReadAccess
+        """
+        # TODO: Check if this collection is shared, and error out if it isn't
+        hosturl = self.fp.path
+        if type(userid) is not list:
+            userid = [userid]
+        if type(commonName) is not list:
+            commonName = [commonName]
+        if type(shareName) is not list:
+            shareName = [shareName]
+        dl = [self.inviteSingleUserToShare(user, ace, summary, hosturl, request, cn=cn, sn=sn) for user, cn, sn in zip(userid, commonName, shareName)]
+        return DeferredList(dl)
+
+    def uninviteUserToShare(self, userid, ace, request):
+        """ Send out in uninvite first, and then remove this user from the share list."""
+        # TODO: Check if this collection is shared, and error out if it isn't
+        if type(userid) is not list:
+            userid = [userid]
+        return DeferredList([self.uninviteSingleUserFromShare(user, ace, request) for user in userid])
+
+    def inviteUserUpdateToShare(self, userid, aceOLD, aceNEW, summary, request, commonName="", shareName=""):
+        hosturl = self.fp.path
+        if type(userid) is not list:
+            userid = [userid]
+        if type(commonName) is not list:
+            commonName = [commonName]
+        if type(shareName) is not list:
+            shareName = [shareName]
+        dl = [self.inviteSingleUserUpdateToShare(user, aceOLD, aceNEW, summary, hosturl, request, commonName=cn, shareName=sn) for user, cn, sn in zip(userid, commonName, shareName)]
+        return DeferredList(dl)
+
+    def inviteSingleUserToShare(self, userid, ace, summary, hosturl, request, cn="", sn=""):
+        
+        # Send invite
+        inviteuid = str(uuid4())
+        
+        # Add to database
+        self.invitesDB().addOrUpdateRecord(Invite(inviteuid, userid, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary))
+        
+        return succeed(True)            
+
+    def uninviteSingleUserFromShare(self, userid, aces, request):
+        
+        # Cancel invites
+
+        # Remove from database
+        self.invitesDB().removeRecordForUserID(userid)
+        
+        return succeed(True)            
+
+    def inviteSingleUserUpdateToShare(self, userid, acesOLD, aceNEW, summary, hosturl, request, commonName="", shareName=""):
+        
+        # Just update existing
+        return self.inviteSingleUserToShare(userid, aceNEW, summary, hosturl, request, commonName, shareName) 
+
+    def xmlPOSTNoAuth(self, encoding, request):
+        def _handleResponse(result):
+            return Response(code=responsecode.OK)
+
+        def _handleErrorResponse(error):
+            if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
+                return error.value.response
+            return Response(code=responsecode.BAD_REQUEST)
+
+        def _handleInvite(invitedoc):
+            def _handleInviteSet(inviteset):
+                userid = None
+                access = None
+                summary = None
+                for item in inviteset.children:
+                    if isinstance(item, davxml.HRef):
+                        for attendeeItem in item.children:
+                            if isinstance(attendeeItem, PCDATAElement):
+                                userid = attendeeItem.data
+                        continue
+                    if isinstance(item, customxml.InviteSummary):
+                        for summaryItem in item.children:
+                            if isinstance(summaryItem, PCDATAElement):
+                                summary = summaryItem.data
+                        continue
+                    if isinstance(item, customxml.ReadAccess) or isinstance(item, customxml.ReadWriteAccess):
+                        access = item
+                        continue
+                if userid and access and summary:
+                    return (userid, access, summary)
+                else:
+                    if userid is None:
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (customxml.calendarserver_namespace, "valid-request-content-type"),
+                            "missing href: %s" % (inviteset,),
+                        ))
+                    if access is None:
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (customxml.calendarserver_namespace, "valid-request-content-type"),
+                            "missing access: %s" % (inviteset,),
+                        ))
+                    if summary is None:
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (customxml.calendarserver_namespace, "valid-request-content-type"),
+                            "missing summary: %s" % (inviteset,),
+                        ))
+
+            def _handleInviteRemove(inviteremove):
+                userid = None
+                access = []
+                for item in inviteremove.children:
+                    if isinstance(item, davxml.HRef):
+                        for attendeeItem in item.children:
+                            if isinstance(attendeeItem, PCDATAElement):
+                                userid = attendeeItem.data
+                        continue
+                    if isinstance(item, customxml.ReadAccess) or isinstance(item, customxml.ReadWriteAccess):
+                        access.append(item)
+                        continue
+                if userid is None:
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (customxml.calendarserver_namespace, "valid-request-content-type"),
+                        "missing href: %s" % (inviteremove,),
+                    ))
+                if len(access) == 0:
+                    access = None
+                else:
+                    access = set(access)
+                return (userid, access)
+
+            def _autoShare(isShared, request):
+                if not isShared:
+                    return self.upgradeToShare(request)
+                else:
+                    return succeed(True)
+
+            @inlineCallbacks
+            def _processInviteDoc(_, request):
+                setDict, removeDict, updateinviteDict = {}, {}, {}
+                for item in invitedoc.children:
+                    if isinstance(item, customxml.InviteSet):
+                        userid, access, summary = _handleInviteSet(item)
+                        setDict[userid] = (access, summary)
+                    elif isinstance(item, customxml.InviteRemove):
+                        userid, access = _handleInviteRemove(item)
+                        removeDict[userid] = access
+
+                # Special case removing and adding the same user and treat that as an add
+                sameUseridInRemoveAndSet = [u for u in removeDict.keys() if u in setDict]
+                for u in sameUseridInRemoveAndSet:
+                    removeACL = removeDict[u]
+                    newACL, summary = setDict[u]
+                    updateinviteDict[u] = (removeACL, newACL, summary)
+                    del removeDict[u]
+                    del setDict[u]
+                for userid, access in removeDict.iteritems():
+                    yield self.uninviteUserToShare(userid, access, request)
+                for userid, (access, summary) in setDict.iteritems():
+                    yield self.inviteUserToShare(userid, access, summary, request)
+                for userid, (removeACL, newACL, summary) in updateinviteDict.iteritems():
+                    yield self.inviteUserUpdateToShare(userid, removeACL, newACL, summary, request)
+
+            return self.isShared(request).addCallback(_autoShare, request).addCallback(_processInviteDoc, request)
+
+        def _getData(data):
+            try:
+                doc = davxml.WebDAVDocument.fromString(data)
+            except ValueError, e:
+                self.log_error("Error parsing doc (%s) Doc:\n %s" % (str(e), data,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request-content")))
+
+            root = doc.root_element
+            xmlDocHanders = {
+                customxml.InviteShare: _handleInvite, 
+            }
+            if type(root) in xmlDocHanders:
+                return xmlDocHanders[type(root)](root).addCallbacks(_handleResponse, errback=_handleErrorResponse)
+            else:
+                self.log_error("Unsupported XML (%s)" % (root,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request-content")))
+
+        return allDataFromStream(request.stream).addCallback(_getData)
+
+    def xmlPOSTPreconditions(self, _, request):
+        if request.headers.hasHeader("Content-Type"):
+            mimetype = request.headers.getHeader("Content-Type")
+            if mimetype.mediaType in ("application", "text",) and mimetype.mediaSubtype == "xml":
+                encoding = mimetype.params["charset"] if "charset" in mimetype.params else "utf8"
+                return succeed(encoding)
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request-content-type")))
+
+    def xmlPOSTAuth(self, request):
+        d = self.authorize(request, (davxml.Read(), davxml.Write()))
+        d.addCallback(self.xmlPOSTPreconditions, request)
+        d.addCallback(self.xmlPOSTNoAuth, request)
+        return d
+    
+    def http_POST(self, request):
+        if self.isCollection():
+            contentType = request.headers.getHeader("content-type")
+            if contentType:
+                contentType = (contentType.mediaType, contentType.mediaSubtype)
+                if contentType in self._postHandlers:
+                    return self._postHandlers[contentType](self, request)
+                else:
+                    self.log_info("Get a POST of an unsupported content type on a collection type: %s" % (contentType,))
+            else:
+                self.log_info("Get a POST with no content type on a collection")
+        return responsecode.FORBIDDEN
+
+    _postHandlers = {
+        ("application", "xml") : xmlPOSTAuth,
+        ("text", "xml") : xmlPOSTAuth,
+    }
+
+inviteAccessMapToXML = {
+    "read-only"  : customxml.ReadAccess,
+    "read-write" : customxml.ReadWriteAccess,
+}
+inviteAccessMapFromXML = dict([(v,k) for k,v in inviteAccessMapToXML.iteritems()])
+
+inviteAcceptMapToXML = {
+    "NEEDS-ACTION" : customxml.InviteStatusNoResponse,
+    "ACCEPTED"     : customxml.InviteStatusAccepted,
+    "DECLINED"     : customxml.InviteStatusDeclined,
+    "DELETED"      : customxml.InviteStatusDeleted,
+}
+inviteAcceptMapFromXML = dict([(v,k) for k,v in inviteAcceptMapToXML.iteritems()])
+
+class Invite(object):
+    
+    def __init__(self, inviteuid, userid, access, state, summary):
+        self.inviteuid = inviteuid
+        self.userid = userid
+        self.access = access
+        self.state = state
+        self.summary = summary
+        
+    def makePropertyElement(self):
+        
+        return customxml.InviteUser(
+            customxml.UID.fromString(self.inviteuid),
+            davxml.HRef.fromString(self.userid),
+            customxml.InviteAccess(inviteAccessMapToXML[self.access]()),
+            inviteAcceptMapToXML[self.state](),
+        )
+
+class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
+    
+    db_basename = db_prefix + "invites"
+    schema_version = "1"
+    db_type = "invites"
+
+    def __init__(self, resource):
+        """
+        @param resource: the L{twistedcaldav.static.CalDAVFile} resource for
+            the shared collection. C{resource} must be a calendar/addressbook collection.)
+        """
+        self.resource = resource
+        db_filename = os.path.join(self.resource.fp.path, InvitesDatabase.db_basename)
+        super(InvitesDatabase, self).__init__(db_filename, True)
+
+    def create(self):
+        """
+        Create the index and initialize it.
+        """
+        self._db()
+
+    def allRecords(self):
+        
+        records = self._db_execute("select * from INVITE order by USERID")
+        return [self._makeRecord(row) for row in (records if records is not None else ())]
+    
+    def recordForUserID(self, userid):
+        
+        row = self._db_value_for_sql("select * from INVITE where USERID = :1", userid)
+        return self._makeRecord(row) if row else None
+    
+    def recordForInviteUID(self, inviteUID):
+
+        row = self._db_value_for_sql("select * from INVITE where INVITEUID = :1", inviteUID)
+        return self._makeRecord(row) if row else None
+    
+    def addOrUpdateRecord(self, record):
+
+        self._db_execute("""insert or replace into INVITE (USERID, INVITEUID, ACCESS, STATE, SUMMARY)
+            values (:1, :2, :3, :4, :5)
+            """, record.userid, record.inviteuid, record.access, record.state, record.summary,
+        )
+    
+    def removeRecordForUserID(self, userid):
+
+        self._db_execute("delete from INVITE where USERID = :1", userid)
+    
+    def removeRecordForInviteUID(self, inviteUID):
+
+        self._db_execute("delete from INVITE where INVITEUID = :1", inviteUID)
+    
+    def remove(self):
+        
+        self._db_close()
+        os.remove(self.dbpath)
+
+    def _db_version(self):
+        """
+        @return: the schema version assigned to this index.
+        """
+        return InvitesDatabase.schema_version
+
+    def _db_type(self):
+        """
+        @return: the collection type assigned to this index.
+        """
+        return InvitesDatabase.db_type
+
+    def _db_init_data_tables(self, q):
+        """
+        Initialise the underlying database tables.
+        @param q:           a database cursor to use.
+        """
+        #
+        # INVITE table is the primary table
+        #   NAME: identifier of invitee
+        #   INVITEUID: UID for this invite
+        #   ACCESS: Access mode for share
+        #   STATE: Invite response status
+        #   SUMMARY: Invite summary
+        #
+        q.execute(
+            """
+            create table INVITE (
+                INVITEUID      text unique,
+                USERID         text unique,
+                ACCESS         text,
+                STATE          text,
+                SUMMARY        text
+            )
+            """
+        )
+
+        q.execute(
+            """
+            create index USERID on INVITE (USERID)
+            """
+        )
+        q.execute(
+            """
+            create index INVITEUID on INVITE (INVITEUID)
+            """
+        )
+
+    def _db_upgrade_data_tables(self, q, old_version):
+        """
+        Upgrade the data from an older version of the DB.
+        """
+
+        # Nothing to do as we have not changed the schema
+        pass
+
+    def _makeRecord(self, row):
+        
+        return Invite(*row)
+

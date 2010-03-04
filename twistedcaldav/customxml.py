@@ -576,6 +576,20 @@ class AutoSchedule (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "auto-schedule"
 
+class ReadAccess (davxml.WebDAVEmptyElement):
+    """
+    Denotes read and update attendee partstat on a shared calendar.
+    """
+    namespace = calendarserver_namespace
+    name = "read"
+
+class ReadWriteAccess (davxml.WebDAVEmptyElement):
+    """
+    Denotes read and write access on a shared calendar.
+    """
+    namespace = calendarserver_namespace
+    name = "read-write"
+
 class UID (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "uid"
@@ -660,9 +674,13 @@ class InviteUser (davxml.WebDAVElement):
     name = "user"
 
     allowed_children = {
-        (calendarserver_namespace, "summary" )   : (0, 1),
-        (calendarserver_namespace, "attendee" )  : (1, 1),
-        (calendarserver_namespace, "access" )    : (0, 1),
+        (calendarserver_namespace, "href" )              : (1, 1),
+        (calendarserver_namespace, "access" )            : (0, 1),
+        (calendarserver_namespace, "summary" )           : (0, 1),
+        (calendarserver_namespace, "invite-noresponse" ) : (0, 1),
+        (calendarserver_namespace, "invite-deleted" )    : (0, 1),
+        (calendarserver_namespace, "invite-accepted" )   : (0, 1),
+        (calendarserver_namespace, "invite-declined" )   : (0, 1),
     }
 
 class InviteAccess (davxml.WebDAVElement):
