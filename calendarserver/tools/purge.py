@@ -45,10 +45,11 @@ def usage(e=None):
     print "  Remove old events from the calendar server"
     print ""
     print "options:"
-    print "  -h --help: print this help and exit"
     print "  -d --days <number>: specify how many days in the past to retain"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
-    print "  -n --noprompt: don't prompt for confirmation"
+    print "  -h --help: print this help and exit"
+    print "  -n --dry-run: only calculate how many events to purge"
+    print "  -q --quiet: don't prompt for confirmation"
     print "  -v --verbose: print progress information"
     print ""
 
@@ -62,11 +63,12 @@ def main():
 
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hd:f:nv", [
-                "help",
+            sys.argv[1:], "d:f:hnqv", [
                 "days=",
+                "dry-run",
                 "config=",
-                "noprompt",
+                "help",
+                "quiet",
                 "verbose",
             ],
         )
@@ -78,8 +80,9 @@ def main():
     #
     configFileName = None
     days = 365
-    verbose = False
+    dryrun = False
     prompt = True
+    verbose = False
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
@@ -95,7 +98,11 @@ def main():
         elif opt in ("-v", "--verbose"):
             verbose = True
 
-        elif opt in ("-n", "--noprompt"):
+        elif opt in ("-n", "--dry-run"):
+            dryrun = True
+            prompt = False
+
+        elif opt in ("-q", "--quiet"):
             prompt = False
 
         elif opt in ("-f", "--config"):
@@ -138,36 +145,38 @@ def main():
     #
     # Start the reactor
     #
-    reactor.callLater(0, purgeThenStop, directory, rootResource, cutoff,
-        verbose=verbose)
-
-    # In the case where there are no events to be purged, these two lines
-    # seem to be necessary for reactor.run( ) to actually exit when we call
-    # stop( ):
-    d = Deferred()
-    reactor.callLater(0, d.callback, True)
+    reactor.callLater(0.1, purgeThenStop, directory, rootResource, cutoff,
+        verbose=verbose, dryrun=dryrun)
 
     reactor.run()
 
 @inlineCallbacks
-def purgeThenStop(directory, rootResource, cutoff, verbose=False):
+def purgeThenStop(directory, rootResource, cutoff, verbose=False, dryrun=False):
+    exitCode = 0
     try:
         count = (yield purgeOldEvents(directory, rootResource, cutoff,
-            verbose=verbose))
-        print "Purged %d events" % (count,)
+            verbose=verbose, dryrun=dryrun))
+        if dryrun:
+            print "Would have purged %d events" % (count,)
+        else:
+            print "Purged %d events" % (count,)
+    except Exception, e:
+        print "Error: %s" % (e,)
     finally:
         reactor.stop()
 
 
-
 @inlineCallbacks
-def purgeOldEvents(directory, root, date, verbose=False):
+def purgeOldEvents(directory, root, date, verbose=False, dryrun=False):
 
     calendars = root.getChild("calendars")
     uidsFPath = calendars.fp.child("__uids__")
 
+    if dryrun:
+        print "Dry run"
+
     if verbose:
-        print " Scanning calendar homes ...",
+        print "Scanning calendar homes ...",
 
     records = []
     if uidsFPath.exists():
@@ -203,7 +212,7 @@ def purgeOldEvents(directory, root, date, verbose=False):
         calendarHome = principal.calendarHome()
 
         if verbose:
-            print " %s ..." % (record.uid,),
+            print "%s %-15s :" % (record.uid, record.shortNames[0]),
 
         homeEventCount = 0
         # For each collection in calendar home...
@@ -228,7 +237,8 @@ def purgeOldEvents(directory, root, date, verbose=False):
                         name
                     )
                     try:
-                        (yield deleteResource(root, collection, resource, uri))
+                        if not dryrun:
+                            (yield deleteResource(root, collection, resource, uri))
                         eventCount += 1
                         homeEventCount += 1
                     except Exception, e:
@@ -236,7 +246,7 @@ def purgeOldEvents(directory, root, date, verbose=False):
                             (uri, e))
 
         if verbose:
-            print "%d events purged" % (homeEventCount,)
+            print "%d events" % (homeEventCount,)
 
     returnValue(eventCount)
 
