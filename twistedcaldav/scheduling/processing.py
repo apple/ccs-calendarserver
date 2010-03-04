@@ -25,6 +25,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.log import Logger
+from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method import report_common
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipProcessing, iTIPRequestStatus
@@ -410,6 +411,7 @@ class ImplicitProcessor(object):
 
         returnValue(result)
 
+    @inlineCallbacks
     def sendAttendeeAutoReply(self, calendar, resource, partstat):
         """
         Auto-process the calendar option to generate automatic accept/decline status and
@@ -421,11 +423,27 @@ class ImplicitProcessor(object):
         @return: L{Component} for the new calendar data to write
         """
         
-        # Send out a reply
-        log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
-        from twistedcaldav.scheduling.implicit import ImplicitScheduler
-        scheduler = ImplicitScheduler()
-        scheduler.sendAttendeeReply(self.request, resource, calendar, self.recipient)
+        # We need to get the UID lock for implicit processing whilst we send the auto-reply
+        # as the Organizer processing will attempt to write out data to other attendees to
+        # refresh them. To prevent a race we need a lock.
+        lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
+
+        try:
+            yield lock.acquire()
+
+            # Send out a reply
+            log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
+            from twistedcaldav.scheduling.implicit import ImplicitScheduler
+            scheduler = ImplicitScheduler()
+            yield scheduler.sendAttendeeReply(self.request, resource, calendar, self.recipient)
+
+        except MemcacheLockTimeoutError:
+            
+            # Just try again to get the lock
+            reactor.callLater(2.0, self.sendAttendeeAutoReply, *(calendar, resource, partstat))
+    
+        finally:
+            yield lock.clean()
 
     @inlineCallbacks
     def checkAttendeeAutoReply(self, calendar):
