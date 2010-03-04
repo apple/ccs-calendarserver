@@ -16,13 +16,9 @@
 
 import os
 import zlib
-
-from twext.python.filepath import CachingFilePath as FilePath
-from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
-
 from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase
+from twisted.internet.defer import inlineCallbacks
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.purge import purgeOldEvents
 
