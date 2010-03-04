@@ -14,9 +14,9 @@
 # limitations under the License.
 ##
 from twisted.internet.defer import succeed, inlineCallbacks, DeferredList,\
-    returnValue
+    returnValue, fail
 from twext.web2 import responsecode
-from twext.web2.http import HTTPError, Response
+from twext.web2.http import HTTPError, Response, StatusResponse
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.dav.element.base import PCDATAElement
@@ -61,6 +61,10 @@ class SharingMixin(object):
     def upgradeToShare(self, request):
         """ Upgrade this collection to a shared state """
         
+        # For calendars we only allow upgrades is shared-scheduling is on
+        if request.method not in ("MKCALENDAR", "MKCOL") and self.isCalendarCollection() and not config.Sharing.Calendars.AllowScheduling:
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Cannot upgrade to shared calendar"))
+
         # Change resourcetype
         rtype = self.resourceType()
         rtype = davxml.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
@@ -295,9 +299,11 @@ class SharingMixin(object):
 
             def _autoShare(isShared, request):
                 if not isShared:
-                    return self.upgradeToShare(request)
+                    if not self.isCalendarCollection() or config.Sharing.Calendars.AllowScheduling:
+                        return self.upgradeToShare(request)
                 else:
                     return succeed(True)
+                return fail()
 
             @inlineCallbacks
             def _processInviteDoc(_, request):

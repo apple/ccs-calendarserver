@@ -27,6 +27,7 @@ from twistedcaldav.static import CalDAVFile
 from twistedcaldav.test.util import InMemoryPropertyStore
 from twistedcaldav.test.util import TestCase
 import os
+from twext.web2.http import HTTPError
 
 
 class SharingTests(TestCase):
@@ -39,6 +40,7 @@ class SharingTests(TestCase):
         os.mkdir(collection)
         self.resource = CalDAVFile(collection, self.site.resource)
         self.resource._dead_properties = InMemoryPropertyStore()
+        self.resource.writeDeadProperty(davxml.ResourceType.calendar)
         self.site.resource.putChild("calendar", self.resource)
         
         self.resource.validUserIDForShare = self._fakeValidUserID
@@ -74,21 +76,41 @@ class SharingTests(TestCase):
         return xml
 
     @inlineCallbacks
-    def test_upgradeToShare(self):
-        self.resource.writeDeadProperty(davxml.ResourceType.calendar)
+    def test_upgradeToShareOnCreate(self):
+        request = SimpleRequest(self.site, "MKCOL", "/calendar/")
+
         self.assertEquals(self.resource.resourceType(), davxml.ResourceType.calendar)
-        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        propInvite = (yield self.resource.readProperty(customxml.Invite, request))
         self.assertEquals(propInvite, None)
 
-        yield self.resource.upgradeToShare(None)
+        yield self.resource.upgradeToShare(request)
 
         self.assertEquals(self.resource.resourceType(), davxml.ResourceType.sharedcalendar)
-        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        propInvite = (yield self.resource.readProperty(customxml.Invite, request))
         self.assertEquals(propInvite, customxml.Invite())
         
-        isShared = (yield self.resource.isShared(None))
+        isShared = (yield self.resource.isShared(request))
         self.assertTrue(isShared)
-        isVShared = (yield self.resource.isVirtualShare(None))
+        isVShared = (yield self.resource.isVirtualShare(request))
+        self.assertFalse(isVShared)
+
+    @inlineCallbacks
+    def test_upgradeToShareAfterCreate(self):
+        request = SimpleRequest(self.site, "PROPPATCH", "/calendar/")
+
+        self.assertEquals(self.resource.resourceType(), davxml.ResourceType.calendar)
+        propInvite = (yield self.resource.readProperty(customxml.Invite, request))
+        self.assertEquals(propInvite, None)
+
+        self.assertRaises(HTTPError, self.resource.upgradeToShare, request)
+
+        self.assertEquals(self.resource.resourceType(), davxml.ResourceType.calendar)
+        propInvite = (yield self.resource.readProperty(customxml.Invite, request))
+        self.assertEquals(propInvite, None)
+        
+        isShared = (yield self.resource.isShared(request))
+        self.assertFalse(isShared)
+        isVShared = (yield self.resource.isVirtualShare(request))
         self.assertFalse(isVShared)
 
     @inlineCallbacks
@@ -113,7 +135,7 @@ class SharingTests(TestCase):
     @inlineCallbacks
     def test_POSTaddInviteeAlreadyShared(self):
         
-        yield self.resource.upgradeToShare(None)
+        yield self.resource.upgradeToShare(SimpleRequest(self.site, "MKCOL", "/calendar/"))
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
 <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -151,27 +173,22 @@ class SharingTests(TestCase):
         <CS:read-write/>
     </CS:set>
 </CS:share>
-""")
+""",
+            responsecode.BAD_REQUEST
+        )
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
-        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
-            customxml.InviteUser(
-                customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
-                customxml.InviteAccess(customxml.ReadWriteAccess()),
-                customxml.InviteStatusNoResponse(),
-            )
-        ))
+        self.assertEquals(propInvite, None)
         
         isShared = (yield self.resource.isShared(None))
-        self.assertTrue(isShared)
+        self.assertFalse(isShared)
         isVShared = (yield self.resource.isVirtualShare(None))
         self.assertFalse(isVShared)
 
     @inlineCallbacks
     def test_POSTupdateInvitee(self):
         
-        yield self.resource.upgradeToShare(None)
+        yield self.resource.upgradeToShare(SimpleRequest(self.site, "MKCOL", "/calendar/"))
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
 <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -206,7 +223,7 @@ class SharingTests(TestCase):
     @inlineCallbacks
     def test_POSTremoveInvitee(self):
         
-        yield self.resource.upgradeToShare(None)
+        yield self.resource.upgradeToShare(SimpleRequest(self.site, "MKCOL", "/calendar/"))
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
 <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -232,7 +249,7 @@ class SharingTests(TestCase):
     @inlineCallbacks
     def test_POSTaddMoreInvitees(self):
         
-        yield self.resource.upgradeToShare(None)
+        yield self.resource.upgradeToShare(SimpleRequest(self.site, "MKCOL", "/calendar/"))
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
 <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -283,7 +300,7 @@ class SharingTests(TestCase):
     @inlineCallbacks
     def test_POSTaddRemoveInvitees(self):
         
-        yield self.resource.upgradeToShare(None)
+        yield self.resource.upgradeToShare(SimpleRequest(self.site, "MKCOL", "/calendar/"))
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
 <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -331,7 +348,7 @@ class SharingTests(TestCase):
     @inlineCallbacks
     def test_POSTaddRemoveSameInvitee(self):
         
-        yield self.resource.upgradeToShare(None)
+        yield self.resource.upgradeToShare(SimpleRequest(self.site, "MKCOL", "/calendar/"))
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
 <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -379,7 +396,7 @@ class SharingTests(TestCase):
     @inlineCallbacks
     def test_POSTaddInvalidInvitee(self):
         
-        yield self.resource.upgradeToShare(None)
+        yield self.resource.upgradeToShare(SimpleRequest(self.site, "MKCOL", "/calendar/"))
 
         response = (yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
 <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -409,7 +426,7 @@ class SharingTests(TestCase):
     @inlineCallbacks
     def test_POSTremoveInvalidInvitee(self):
         
-        yield self.resource.upgradeToShare(None)
+        yield self.resource.upgradeToShare(SimpleRequest(self.site, "MKCOL", "/calendar/"))
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
 <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
