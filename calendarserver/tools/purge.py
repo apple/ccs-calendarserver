@@ -45,11 +45,10 @@ def usage(e=None):
     print "  Remove old events from the calendar server"
     print ""
     print "options:"
-    print "  -d --days <number>: specify how many days in the past to retain"
+    print "  -d --days <number>: specify how many days in the past to retain (default=365)"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -h --help: print this help and exit"
     print "  -n --dry-run: only calculate how many events to purge"
-    print "  -q --quiet: don't prompt for confirmation"
     print "  -v --verbose: print progress information"
     print ""
 
@@ -63,12 +62,11 @@ def main():
 
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "d:f:hnqv", [
+            sys.argv[1:], "d:f:hnv", [
                 "days=",
                 "dry-run",
                 "config=",
                 "help",
-                "quiet",
                 "verbose",
             ],
         )
@@ -81,7 +79,6 @@ def main():
     configFileName = None
     days = 365
     dryrun = False
-    prompt = True
     verbose = False
 
     for opt, arg in optargs:
@@ -100,10 +97,6 @@ def main():
 
         elif opt in ("-n", "--dry-run"):
             dryrun = True
-            prompt = False
-
-        elif opt in ("-q", "--quiet"):
-            prompt = False
 
         elif opt in ("-f", "--config"):
             configFileName = arg
@@ -135,12 +128,6 @@ def main():
         return
 
     cutoff = (date.today() - timedelta(days=days)).strftime("%Y%m%dT000000Z")
-
-    if prompt:
-        response = raw_input("Are you sure you want to delete all events older than %d days? (yes/no) " % (days,))
-        if response != "yes":
-            print "Not deleting events"
-            sys.exit(0)
 
     #
     # Start the reactor
