@@ -13,18 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import succeed, inlineCallbacks, DeferredList,\
-    returnValue, fail
+
+from twext.python.log import LoggingMixIn
 from twext.web2 import responsecode
-from twext.web2.http import HTTPError, Response, StatusResponse
+from twext.web2.dav.element.base import PCDATAElement
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.util import allDataFromStream
-from twext.web2.dav.element.base import PCDATAElement
-from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
-from twext.python.log import LoggingMixIn
-import os
+from twext.web2.http import HTTPError, Response, StatusResponse
+from twisted.internet.defer import succeed, inlineCallbacks, DeferredList,\
+    returnValue, fail
 from twistedcaldav.config import config
+from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 from uuid import uuid4
+from vobject.icalendar import dateTimeToString, utc
+import datetime
+import os
+import types
 
 __all__ = [
     "SharingMixin",
@@ -104,6 +108,18 @@ class SharingMixin(object):
         """ Return True if this is a shared calendar collection """
         return succeed(self.isSpecialCollection(customxml.Shared))
 
+    def sharedResourceType(self):
+        """
+        Return the DAV:resourcetype stripped of any shared elements.
+        """
+        
+        rtype = self.resourceType()
+        newchildren = [child for child in rtype.children if child.qname() not in (
+            customxml.SharedOwner.qname(),
+        )] if rtype.children else ()
+        rtype.children = newchildren if newchildren else None
+        return rtype
+
     def validUserIDForShare(self, userid):
         """
         Test the user id to see if it is a valid identifier for sharing and return a "normalized"
@@ -162,7 +178,6 @@ class SharingMixin(object):
             return succeed(False)
 
         # TODO: Check if this collection is shared, and error out if it isn't
-        hosturl = self.fp.path
         if type(userid) is not list:
             userid = [userid]
         if type(commonName) is not list:
@@ -170,7 +185,7 @@ class SharingMixin(object):
         if type(shareName) is not list:
             shareName = [shareName]
             
-        dl = [self.inviteSingleUserToShare(user, ace, summary, hosturl, request, cn=cn, sn=sn) for user, cn, sn in zip(userid, commonName, shareName)]
+        dl = [self.inviteSingleUserToShare(user, ace, summary, request, cn=cn, sn=sn) for user, cn, sn in zip(userid, commonName, shareName)]
         return DeferredList(dl).addCallback(lambda _:True)
 
     def uninviteUserToShare(self, userid, ace, request):
@@ -192,25 +207,34 @@ class SharingMixin(object):
         if userid is None:
             return succeed(False)
 
-        hosturl = self.fp.path
         if type(userid) is not list:
             userid = [userid]
         if type(commonName) is not list:
             commonName = [commonName]
         if type(shareName) is not list:
             shareName = [shareName]
-        dl = [self.inviteSingleUserUpdateToShare(user, aceOLD, aceNEW, summary, hosturl, request, commonName=cn, shareName=sn) for user, cn, sn in zip(userid, commonName, shareName)]
+        dl = [self.inviteSingleUserUpdateToShare(user, aceOLD, aceNEW, summary, request, commonName=cn, shareName=sn) for user, cn, sn in zip(userid, commonName, shareName)]
         return DeferredList(dl).addCallback(lambda _:True)
 
-    def inviteSingleUserToShare(self, userid, ace, summary, hosturl, request, cn="", sn=""):
+    @inlineCallbacks
+    def inviteSingleUserToShare(self, userid, ace, summary, request, cn="", sn=""):
+        
+        # Look for existing invite and update its fields or create new one
+        record = self.invitesDB().recordForUserID(userid)
+        if record:
+            record.sequence += 1
+            record.access = inviteAccessMapFromXML[type(ace)]
+            record.summary = summary
+        else:
+            record = Invite(str(uuid4()), 1, userid, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary)
         
         # Send invite
-        inviteuid = str(uuid4())
+        yield self.sendInvite(record, request)
         
         # Add to database
-        self.invitesDB().addOrUpdateRecord(Invite(inviteuid, userid, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary))
+        self.invitesDB().addOrUpdateRecord(record)
         
-        return succeed(True)            
+        returnValue(True)            
 
     def uninviteSingleUserFromShare(self, userid, aces, request):
         
@@ -221,10 +245,53 @@ class SharingMixin(object):
         
         return succeed(True)            
 
-    def inviteSingleUserUpdateToShare(self, userid, acesOLD, aceNEW, summary, hosturl, request, commonName="", shareName=""):
+    def inviteSingleUserUpdateToShare(self, userid, acesOLD, aceNEW, summary, request, commonName="", shareName=""):
         
         # Just update existing
-        return self.inviteSingleUserToShare(userid, aceNEW, summary, hosturl, request, commonName, shareName) 
+        return self.inviteSingleUserToShare(userid, aceNEW, summary, request, commonName, shareName) 
+
+    @inlineCallbacks
+    def sendInvite(self, record, request):
+        
+        owner = (yield self.ownerPrincipal(request))
+        owner = owner.principalURL()
+        hosturl = (yield self.canonicalURL(request))
+
+        # Locate notifications collection for user
+        sharee = self.principalForCalendarUserAddress(record.userid)
+        if sharee is None:
+            raise ValueError("sharee is None but userid was valid before")
+        notifications = (yield request.locateResource(sharee.notificationURL()))
+        
+        # Look for existing notification
+        oldnotification = (yield notifications.getNotifictionMessageByUID(request, record.inviteuid))
+        if oldnotification:
+            # TODO: rollup changes?
+            pass
+        
+        # Generate invite XML
+        xmltype = customxml.InviteNotification.name
+        xmldata = customxml.Notification(
+            customxml.DTStamp.fromString(dateTimeToString(datetime.datetime.now(tz=utc))),
+            customxml.InviteNotification(
+                davxml.HRef.fromString(record.userid),
+                inviteStatusMapToXML[record.state](),
+                customxml.InviteAccess(inviteAccessMapToXML[record.access]()),
+                customxml.HostURL(
+                    davxml.HRef.fromString(hosturl),
+                ),
+                self.sharedResourceType(),
+                customxml.Organizer(
+                    davxml.HRef.fromString(owner),
+                ),
+                customxml.InviteSummary.fromString(record.summary),
+                customxml.UID.fromString(record.inviteuid),
+                customxml.Sequence.fromString(str(record.sequence)),
+            ),
+        ).toxml()
+        
+        # Add to collections
+        yield notifications.addNotification(request, record.inviteuid, xmltype, xmldata)
 
     def xmlPOSTNoAuth(self, encoding, request):
         def _handleErrorResponse(error):
@@ -429,8 +496,9 @@ inviteStatusMapFromXML = dict([(v,k) for k,v in inviteStatusMapToXML.iteritems()
 
 class Invite(object):
     
-    def __init__(self, inviteuid, userid, access, state, summary):
+    def __init__(self, inviteuid, sequence, userid, access, state, summary):
         self.inviteuid = inviteuid
+        self.sequence = sequence
         self.userid = userid
         self.access = access
         self.state = state
@@ -458,7 +526,7 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         """
         self.resource = resource
         db_filename = os.path.join(self.resource.fp.path, InvitesDatabase.db_basename)
-        super(InvitesDatabase, self).__init__(db_filename, True)
+        super(InvitesDatabase, self).__init__(db_filename, True, autocommit=True)
 
     def create(self):
         """
@@ -473,19 +541,19 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
     
     def recordForUserID(self, userid):
         
-        row = self._db_value_for_sql("select * from INVITE where USERID = :1", userid)
-        return self._makeRecord(row) if row else None
+        row = self._db_execute("select * from INVITE where USERID = :1", userid)
+        return self._makeRecord(row[0]) if row else None
     
     def recordForInviteUID(self, inviteUID):
 
-        row = self._db_value_for_sql("select * from INVITE where INVITEUID = :1", inviteUID)
-        return self._makeRecord(row) if row else None
+        row = self._db_execute("select * from INVITE where INVITEUID = :1", inviteUID)
+        return self._makeRecord(row[0]) if row else None
     
     def addOrUpdateRecord(self, record):
 
-        self._db_execute("""insert or replace into INVITE (USERID, INVITEUID, ACCESS, STATE, SUMMARY)
-            values (:1, :2, :3, :4, :5)
-            """, record.userid, record.inviteuid, record.access, record.state, record.summary,
+        self._db_execute("""insert or replace into INVITE (INVITEUID, SEQUENCE, USERID, ACCESS, STATE, SUMMARY)
+            values (:1, :2, :3, :4, :5, :6)
+            """, record.inviteuid, record.sequence, record.userid, record.access, record.state, record.summary,
         )
     
     def removeRecordForUserID(self, userid):
@@ -520,8 +588,9 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         """
         #
         # INVITE table is the primary table
-        #   NAME: identifier of invitee
         #   INVITEUID: UID for this invite
+        #   SEQUENCE: sequence number for this invite
+        #   NAME: identifier of invitee
         #   ACCESS: Access mode for share
         #   STATE: Invite response status
         #   SUMMARY: Invite summary
@@ -530,6 +599,7 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
             """
             create table INVITE (
                 INVITEUID      text unique,
+                SEQUENCE       integer,
                 USERID         text unique,
                 ACCESS         text,
                 STATE          text,
@@ -559,5 +629,5 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
 
     def _makeRecord(self, row):
         
-        return Invite(*row)
+        return Invite(*[str(item) if type(item) == types.UnicodeType else item for item in row])
 

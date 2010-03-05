@@ -47,7 +47,6 @@ from urlparse import urlsplit
 from uuid import uuid4
 
 from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
 
 from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
@@ -57,11 +56,13 @@ from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
 from twext.web2.dav.fileop import mkcollection, rmdir
+from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.idav import IDAVResource
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.dav.resource import davPrivilegeSet
 from twext.web2.dav.util import parentForURL, bindMethods, joinURL
+from twext.web2.http_headers import generateContentType, MimeType
 
 from twistedcaldav import caldavxml
 from twistedcaldav import carddavxml
@@ -1309,6 +1310,13 @@ class NotificationCollectionFile(AutoProvisioningFileMixIn, NotificationCollecti
     def __repr__(self):
         return "<%s (notification collection): %s>" % (self.__class__.__name__, self.fp.path)
 
+    def _writeNotification(self, request, uid, rname, xmltype, xmldata):
+        
+        child = self.createSimilarFile(self.fp.child(rname).path)
+        child.fp.setContent(xmldata)
+        child.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset":"utf-8"}))))
+        child.writeDeadProperty(customxml.NotificationType.fromString(xmltype))
+
 class NotificationFile(NotificationResource, CalDAVFile):
 
     def __init__(self, path, parent):
@@ -1325,6 +1333,9 @@ class NotificationFile(NotificationResource, CalDAVFile):
 
     def __repr__(self):
         return "<%s (notification file): %s>" % (self.__class__.__name__, self.fp.path)
+        
+    def resourceName(self):
+        return self.fp.basename()
 
 class AddressBookHomeProvisioningFile (DirectoryAddressBookHomeProvisioningResource, DAVFile):
     """

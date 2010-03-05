@@ -20,7 +20,7 @@ from twext.web2.dav import davxml
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 from twext.web2.test.test_server import SimpleRequest
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.static import CalDAVFile
@@ -44,6 +44,7 @@ class SharingTests(TestCase):
         self.site.resource.putChild("calendar", self.resource)
         
         self.resource.validUserIDForShare = self._fakeValidUserID
+        self.resource.sendInvite = lambda record, request:succeed(True)
         
     def _fakeValidUserID(self, userid):
         if userid.endswith("@example.com"):

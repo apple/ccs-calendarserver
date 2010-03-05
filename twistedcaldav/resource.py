@@ -429,6 +429,22 @@ class CalDAVResource (CalDAVComplianceMixIn, SharingMixin, DAVResource, LoggingM
 
                 # Check if adding or removing share
                 shared = (yield self.isShared(request))
+                for child in property.children:
+                    if child.qname() == davxml.Collection.qname():
+                        break
+                else:
+                    raise HTTPError(StatusResponse(
+                        responsecode.FORBIDDEN,
+                        "Protected property %s may not be set." % (property.sname(),)
+                    ))
+                for child in property.children:
+                    if child.qname() == caldavxml.Calendar.qname():
+                        break
+                else:
+                    raise HTTPError(StatusResponse(
+                        responsecode.FORBIDDEN,
+                        "Protected property %s may not be set." % (property.sname(),)
+                    ))
                 sawShare = [child for child in property.children if child.qname() == (calendarserver_namespace, "shared-owner")]
                 if not shared and sawShare:
                     # Owner is trying to share a collection
@@ -936,8 +952,11 @@ class CalDAVResource (CalDAVComplianceMixIn, SharingMixin, DAVResource, LoggingM
             lastpath = path.split("/")[-1]
             
             parent = (yield request.locateResource(parentForURL(myurl)))
-            canonical_parent = (yield parent.canonicalURL(request))
-            self._canonical_url = joinURL(canonical_parent, lastpath)
+            if parent:
+                canonical_parent = (yield parent.canonicalURL(request))
+                self._canonical_url = joinURL(canonical_parent, lastpath)
+            else:
+                self._canonical_url = myurl
 
         returnValue(self._canonical_url)
 

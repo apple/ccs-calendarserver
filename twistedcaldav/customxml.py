@@ -594,6 +594,10 @@ class UID (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "uid"
 
+class Sequence (davxml.WebDAVTextElement):
+    namespace = calendarserver_namespace
+    name = "sequence"
+
 ##
 # Notifications
 ##
@@ -820,6 +824,15 @@ class NotificationURL (davxml.WebDAVElement):
     protected = True
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
+class NotificationType (davxml.WebDAVTextElement):
+    """
+    A property to indicate what type of notification the resource represents.
+    """
+    namespace = calendarserver_namespace
+    name = "notification-type"
+    hidden = True
+    protected = True
 
 
 ##
