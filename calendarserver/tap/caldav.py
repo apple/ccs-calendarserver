@@ -1101,7 +1101,7 @@ class DelayedStartupLineLogger(object):
     A line logger that can handle very long lines.
     """
 
-    MAX_LENGTH = 80
+    MAX_LENGTH = 1024
     tag = None
     exceeded = False            # Am I in the middle of parsing a long line?
     _buffer = ''
