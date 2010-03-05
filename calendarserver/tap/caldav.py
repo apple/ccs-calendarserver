@@ -1076,7 +1076,7 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
     def startProcess(self, name):
         if self.protocols.has_key(name):
             return
-        p = self.protocols[name] = procmon.LoggingProtocol()
+        p = self.protocols[name] = DelayedStartupLoggingProtocol()
         p.service = self
         p.name = name
         args, uid, gid, env = self.processes[name]
@@ -1094,6 +1094,74 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
 
         spawnProcess(p, args[0], args, uid=uid, gid=gid, env=env,
             childFDs=childFDs)
+
+
+class DelayedStartupLineLogger(object):
+    """
+    A line logger that can handle very long lines.
+    """
+
+    MAX_LENGTH = 80
+    tag = None
+    exceeded = False            # Am I in the middle of parsing a long line?
+    _buffer = ''
+
+    def makeConnection(self, transport):
+        """
+        Ignore this IProtocol method, since I don't need a transport.
+        """
+
+
+    def dataReceived(self, data):
+        lines = (self._buffer + data).split("\n")
+        while len(lines) > 1:
+            line = lines.pop(0)
+            if len(line) > self.MAX_LENGTH:
+                self.lineLengthExceeded(line)
+            elif self.exceeded:
+                self.lineLengthExceeded(line)
+                self.exceeded = False
+            else:
+                self.lineReceived(line)
+        lastLine = lines.pop(0)
+        if len(lastLine) > self.MAX_LENGTH:
+            self.lineLengthExceeded(lastLine)
+            self.exceeded = True
+            self._buffer = ''
+        else:
+            self._buffer = lastLine
+
+
+    def lineReceived(self, line):
+        from twisted.python.log import msg
+        msg('[%s] %s' % (self.tag, line))
+
+
+    def lineLengthExceeded(self, line):
+        """
+        A very long line is being received.  Log it immediately and forget
+        about buffering it.
+        """
+        for i in range(len(line)/self.MAX_LENGTH):
+            self.lineReceived(line[i*self.MAX_LENGTH:(i+1)*self.MAX_LENGTH]
+                              + " (truncated, continued)")
+
+
+
+class DelayedStartupLoggingProtocol(procmon.LoggingProtocol, object):
+    """
+    Logging protocol that handles lines which are too long.
+    """
+
+    def connectionMade(self):
+        """
+        Replace the superclass's output monitoring logic with one that can
+        handle lineLengthExceeded.
+        """
+        super(DelayedStartupLoggingProtocol, self).connectionMade()
+        self.output = DelayedStartupLineLogger()
+        self.output.tag = self.name
+
 
 
 def getSSLPassphrase(*ignored):

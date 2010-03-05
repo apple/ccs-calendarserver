@@ -14,6 +14,7 @@
 # limitations under the License.
 ##
 
+import sys
 import os
 import stat
 import grp
@@ -22,16 +23,21 @@ from os.path import dirname, abspath
 
 from twisted.trial.unittest import TestCase as BaseTestCase
 
+from twisted.python.threadable import isInIOThread
+from twisted.internet.reactor import callFromThread
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedAny
+from twisted.python import log
 
 from twisted.internet.protocol import ServerFactory
+from twisted.internet.defer import Deferred
 
 from twisted.application.service import IService
 from twisted.application import internet
 
 from twext.web2.dav import auth
 from twext.web2.log import LogWrapperResource
+from twext.python.filepath import CachingFilePath as FilePath
 
 from twext.python.plistlib import writePlist
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
@@ -45,7 +51,9 @@ from twistedcaldav.directory.directory import UnknownRecordTypeError
 from twistedcaldav.test.util import TestCase
 
 from calendarserver.tap.caldav import (CalDAVOptions, CalDAVServiceMaker,
-                                       CalDAVService, GroupOwnedUNIXServer)
+                                       CalDAVService, GroupOwnedUNIXServer,
+                                       DelayedStartupProcessMonitor,
+                                       DelayedStartupLineLogger)
 
 
 # Points to top of source tree.
@@ -775,3 +783,84 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         configuredDirectory = namedAny(self.config.DirectoryService.type)
 
         self.failUnless(isinstance(realDirectory, configuredDirectory))
+
+
+
+class DummyProcessObject(object):
+    """
+    Simple stub for the Process Object API that will run a test script.
+    """
+
+    def __init__(self, scriptname, *args):
+        self.scriptname = scriptname
+        self.args = list(args)
+
+
+    def getCommandLine(self):
+        """
+        Get the command line to invoke this script.
+        """
+        return [sys.executable, FilePath(__file__).sibling(self.scriptname).path] + self.args
+
+
+    def getName(self):
+        """
+        Get a dummy name.
+        """
+        return 'Dummy'
+
+
+
+class DelayedStartupProcessMonitorTests(TestCase):
+    """
+    Test cases for L{DelayedStartupProcessMonitor}.
+    """
+
+    def test_lineAfterLongLine(self):
+        """
+        A "long" line of output from a monitored process (longer than
+        L{LineReceiver.MAX_LENGTH}) should be logged in chunks rather than all
+        at once, to avoid resource exhaustion.
+        """
+        dspm = DelayedStartupProcessMonitor()
+        dspm.addProcessObject(DummyProcessObject(
+                'longlines.py', str(DelayedStartupLineLogger.MAX_LENGTH)),
+                          os.environ)
+        dspm.startService()
+        self.addCleanup(dspm.stopService)
+
+        logged = []
+
+        def tempObserver(event):
+            # Probably won't be a problem, but let's not have any intermittent
+            # test issues that stem from multi-threaded log messages randomly
+            # going off...
+            if not isInIOThread():
+                callFromThread(tempObserver, event)
+                return
+            if event.get('isError'):
+                d.errback()
+            m = event.get('message')[0]
+            if m.startswith('[Dummy] '):
+                logged.append(event)
+                if m == '[Dummy] z':
+                    d.callback("done")
+            
+        log.addObserver(tempObserver)
+        self.addCleanup(log.removeObserver, tempObserver)
+        d = Deferred()
+        def assertions(result):
+            self.assertEquals(["[Dummy] x",
+                               "[Dummy] y",
+                               "[Dummy] z"],
+                              [''.join(evt['message'])[:len('[Dummy]') + 2]
+                               for evt in logged])
+            self.assertEquals([" (truncated, continued)",
+                               " (truncated, continued)",
+                               "[Dummy] z"],
+                              [''.join(evt['message'])[-len(" (truncated, continued)"):]
+                               for evt in logged])
+        d.addCallback(assertions)
+        return d
+
+
