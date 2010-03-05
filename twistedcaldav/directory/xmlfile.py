@@ -407,6 +407,9 @@ class XMLDirectoryService(CachingDirectoryService):
 
         self._persistRecords(accountsElement)
 
+        # Force a cache update - both local and memcached
+        self.queryDirectory([recordType], self.INDEX_TYPE_GUID, guid)
+
 
 class XMLDirectoryRecord(CachingDirectoryRecord):
     """

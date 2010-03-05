@@ -53,7 +53,7 @@ DEFAULT_SERVICE_PARAMS = {
 DEFAULT_RESOURCE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "resources.xml",
-        "cacheTimeout": 30,
+        "cacheTimeout": 1,
         "recordTypes" : ("locations", "resources"),
     },
 }
