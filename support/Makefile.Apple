@@ -116,10 +116,10 @@ install::
 # Automatic Extract
 #
 
-#$(BuildDirectory)/$(Project):
-#	@echo "Copying source for $(Project)..."
-#	$(_v) $(MKDIR) -p "$@"
-#	$(_v) pax -rw bin conf Makefile lib-patches setup.py kqreactor.py memcacheclient.py calendarserver twistedcaldav twext txdav txcaldav txcarddav twisted support "$@/"
+$(BuildDirectory)/$(Project):
+	@echo "Copying source for $(Project)..."
+	$(_v) $(MKDIR) -p "$@"
+	$(_v) pax -rw bin conf Makefile lib-patches setup.py kqreactor.py memcacheclient.py calendarserver twistedcaldav twext txdav txcaldav txcarddav twisted support "$@/"
 
 $(BuildDirectory)/%: %.tgz
 	@echo "Extracting source for $(notdir $<)..."
