@@ -109,9 +109,9 @@ if __name__ == "__main__":
         scripts          = [
                              "bin/caldavd",
                              "bin/calendarserver_export",
-                             "bin/calendarserver_load_augmentdb",
-                             "bin/calendarserver_make_partition",
-                             "bin/calendarserver_manage_augments",
+                            #"bin/calendarserver_load_augmentdb",
+                            #"bin/calendarserver_make_partition",
+                            #"bin/calendarserver_manage_augments",
                              "bin/calendarserver_manage_principals",
                              "bin/calendarserver_command_gateway",
                              "bin/calendarserver_purge_events",
