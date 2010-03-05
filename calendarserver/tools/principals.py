@@ -374,7 +374,10 @@ def action_listProxies(principal, *proxyTypes):
 def action_addProxy(principal, proxyType, *proxyIDs):
     for proxyID in proxyIDs:
         proxyPrincipal = principalForPrincipalID(proxyID)
-        (yield action_addProxyPrincipal(principal, proxyType, proxyPrincipal))
+        if proxyPrincipal is None:
+            print "Invalid principal ID: %s" % (proxyID,)
+        else:
+            (yield action_addProxyPrincipal(principal, proxyType, proxyPrincipal))
 
 @inlineCallbacks
 def action_addProxyPrincipal(principal, proxyType, proxyPrincipal):
@@ -416,7 +419,10 @@ def addProxy(principal, proxyType, proxyPrincipal):
 def action_removeProxy(principal, *proxyIDs, **kwargs):
     for proxyID in proxyIDs:
         proxyPrincipal = principalForPrincipalID(proxyID)
-        (yield action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs))
+        if proxyPrincipal is None:
+            print "Invalid principal ID: %s" % (proxyID,)
+        else:
+            (yield action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs))
 
 @inlineCallbacks
 def action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs):
