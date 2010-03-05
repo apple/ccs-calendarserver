@@ -215,6 +215,9 @@ class Runner(object):
     def command_getLocationAttributes(self, command):
         guid = command['GeneratedUID']
         record = self.dir.recordWithGUID(guid)
+        if record is None:
+            respondWithError("Principal not found: %s" % (guid,))
+            return
         recordDict = recordToDict(record)
         principal = principalForPrincipalID(guid, directory=self.dir)
         if principal is None:
