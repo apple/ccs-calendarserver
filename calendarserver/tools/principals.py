@@ -227,7 +227,6 @@ def main():
             usage("Too many arguments")
 
         try:
-            print config.directory
             for record in config.directory.listRecords(listPrincipals):
                 print record
         except UnknownRecordTypeError, e:
@@ -469,6 +468,14 @@ def action_setAutoSchedule(principal, autoSchedule):
             principal,
         )
         (yield principal.setAutoSchedule(autoSchedule))
+
+        # Invalidate the directory cache by updating this record
+        config.directory.updateRecord(principal.record.recordType,
+            guid=principal.record.guid,
+            shortNames=principal.record.shortNames,
+            fullName=principal.record.fullName,
+            **principal.record.extras
+        )
 
 def action_getAutoSchedule(principal):
     autoSchedule = principal.getAutoSchedule()

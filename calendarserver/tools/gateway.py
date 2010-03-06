@@ -199,17 +199,29 @@ class Runner(object):
     def command_getLocationList(self, command):
         respondWithRecordsOfType(self.dir, command, "locations")
 
+    @inlineCallbacks
     def command_createLocation(self, command):
 
         kwargs = {}
         for key, info in attrMap.iteritems():
             if command.has_key(key):
                 kwargs[info['attr']] = command[key]
+
         try:
-            self.dir.createRecord("locations", **kwargs)
+            record = self.dir.createRecord("locations", **kwargs)
         except DirectoryError, e:
             respondWithError(str(e))
             return
+
+        principal = self.dir.principalCollection.principalForRecord(record)
+        (yield principal.setAutoSchedule(command.get('AutoSchedule', True)))
+
+        try:
+            self.dir.updateRecord("locations", **kwargs)
+        except DirectoryError, e:
+            respondWithError(str(e))
+            return
+
         respondWithRecordsOfType(self.dir, command, "locations")
 
     def command_getLocationAttributes(self, command):
@@ -229,6 +241,12 @@ class Runner(object):
     @inlineCallbacks
     def command_setLocationAttributes(self, command):
 
+        # Set autoSchedule prior to the updateRecord so that the right
+        # value ends up in memcached
+        principal = principalForPrincipalID(command['GeneratedUID'],
+            directory=self.dir)
+        (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
+
         kwargs = {}
         for key, info in attrMap.iteritems():
             if command.has_key(key):
@@ -238,10 +256,6 @@ class Runner(object):
         except DirectoryError, e:
             respondWithError(str(e))
             return
-
-        principal = principalForPrincipalID(command['GeneratedUID'],
-            directory=self.dir)
-        (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
 
         self.command_getLocationAttributes(command)
 
@@ -262,16 +276,28 @@ class Runner(object):
     def command_getResourceList(self, command):
         respondWithRecordsOfType(self.dir, command, "resources")
 
+    @inlineCallbacks
     def command_createResource(self, command):
         kwargs = {}
         for key, info in attrMap.iteritems():
             if command.has_key(key):
                 kwargs[info['attr']] = command[key]
+
         try:
-            self.dir.createRecord("resources", **kwargs)
+            record = self.dir.createRecord("resources", **kwargs)
         except DirectoryError, e:
             respondWithError(str(e))
             return
+
+        principal = self.dir.principalCollection.principalForRecord(record)
+        (yield principal.setAutoSchedule(command.get('AutoSchedule', True)))
+
+        try:
+            self.dir.updateRecord("resources", **kwargs)
+        except DirectoryError, e:
+            respondWithError(str(e))
+            return
+
         respondWithRecordsOfType(self.dir, command, "resources")
 
     def command_getResourceAttributes(self, command):
@@ -279,6 +305,12 @@ class Runner(object):
 
     @inlineCallbacks
     def command_setResourceAttributes(self, command):
+
+        # Set autoSchedule prior to the updateRecord so that the right
+        # value ends up in memcached
+        principal = principalForPrincipalID(command['GeneratedUID'],
+            directory=self.dir)
+        (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
 
         kwargs = {}
         for key, info in attrMap.iteritems():
@@ -289,10 +321,6 @@ class Runner(object):
         except DirectoryError, e:
             respondWithError(str(e))
             return
-
-        principal = principalForPrincipalID(command['GeneratedUID'],
-            directory=self.dir)
-        (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
 
         self.command_getResourceAttributes(command)
 
