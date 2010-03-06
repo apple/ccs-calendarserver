@@ -69,7 +69,7 @@ from twistedcaldav.ical import Component
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
-from twistedcaldav.sharing import SharingMixin
+from twistedcaldav.sharing import SharedCollectionMixin
 from twistedcaldav.vcard import Component as vComponent
 
 
@@ -135,7 +135,7 @@ def updateCacheTokenOnCallback(f):
     return fun
 
 
-class CalDAVResource (CalDAVComplianceMixIn, SharingMixin, DAVResource, LoggingMixIn):
+class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource, LoggingMixIn):
     """
     CalDAV resource.
 

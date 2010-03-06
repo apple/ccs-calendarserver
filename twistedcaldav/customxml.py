@@ -761,7 +761,6 @@ class InviteNotification (davxml.WebDAVElement):
         HostURL.qname()                  : (0, 1),
         Organizer.qname()                : (0, 1),
         InviteSummary.qname()            : (0, 1),
-        UID.qname()                      : (0, 1),
     }
 
 class ResourceUpdateAdded(davxml.WebDAVEmptyElement):
@@ -809,6 +808,8 @@ class Notification (davxml.WebDAVElement):
 
     allowed_children = {
         DTStamp.qname()                            : (0, None),
+        UID.qname()                                : (0, None),
+        Sequence.qname()                           : (0, None),
         InviteNotification.qname()                 : (0, None),
         ResourceUpdateNotification.qname()         : (0, None),
         SharedCalendarUpdateNotification.qname()   : (0, None),

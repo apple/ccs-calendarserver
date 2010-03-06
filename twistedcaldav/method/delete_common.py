@@ -212,6 +212,12 @@ class DeleteResource(object):
                 errors.add(childurl, responsecode.BAD_REQUEST)
 
         # Now do normal delete
+
+        # Handle sharing
+        wasShared = (yield delresource.isShared(self.request))
+        if wasShared:
+            yield delresource.downgradeFromShare(self.request)
+
         # Change CTag
         yield delresource.bumpSyncToken()
         more_responses = (yield self.deleteResource(delresource, deluri, parent))
@@ -346,6 +352,12 @@ class DeleteResource(object):
                 errors.add(childurl, responsecode.BAD_REQUEST)
 
         # Now do normal delete
+
+        # Handle sharing
+        wasShared = (yield delresource.isShared(self.request))
+        if wasShared:
+            yield delresource.downgradeFromShare(self.request)
+
         yield delresource.updateCTag()
         more_responses = (yield self.deleteResource(delresource, deluri, parent))
         

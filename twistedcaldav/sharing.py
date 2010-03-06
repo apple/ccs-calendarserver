@@ -31,7 +31,7 @@ import os
 import types
 
 __all__ = [
-    "SharingMixin",
+    "SharedCollectionMixin",
 ]
 
 from twistedcaldav import customxml
@@ -41,7 +41,7 @@ from twext.web2.dav import davxml
 Sharing behavior
 """
 
-class SharingMixin(object):
+class SharedCollectionMixin(object):
     
     def invitesDB(self):
         
@@ -79,20 +79,24 @@ class SharingMixin(object):
 
         return succeed(True)
     
+    @inlineCallbacks
     def downgradeFromShare(self, request):
         
-        # Change resource type
+        # Change resource type (note this might be called after deleting a resource
+        # so we have to cope with that)
         rtype = self.resourceType()
         rtype = davxml.ResourceType(*([child for child in rtype.children if child != customxml.SharedOwner()]))
         self.writeDeadProperty(rtype)
         
         # Remove all invitees
+        records = self.invitesDB().allRecords()
+        yield self.uninviteUserToShare([record.userid for record in records], None, request)
 
         # Remove invites database
         self.invitesDB().remove()
         delattr(self, "_invitesDB")
     
-        return succeed(True)
+        returnValue(True)
 
     def removeUserFromInvite(self, userid, request):
         """ Remove a user from this shared calendar """
@@ -236,14 +240,28 @@ class SharingMixin(object):
         
         returnValue(True)            
 
+    @inlineCallbacks
     def uninviteSingleUserFromShare(self, userid, aces, request):
         
+        newuserid = self.validUserIDForShare(userid)
+        if newuserid:
+            userid = newuserid
+
         # Cancel invites
+        record = self.invitesDB().recordForUserID(userid)
+        
+        # If current user state is accepted then we send an invite with the new state, otherwise
+        # we cancel any existing invites for the user
+        if record and record.state != "ACCEPTED":
+            yield self.removeInvite(record, request)
+        elif record:
+            record.state = "DELETED"
+            yield self.sendInvite(record, request)
 
         # Remove from database
         self.invitesDB().removeRecordForUserID(userid)
         
-        return succeed(True)            
+        returnValue(True)            
 
     def inviteSingleUserUpdateToShare(self, userid, acesOLD, aceNEW, summary, request, commonName="", shareName=""):
         
@@ -273,6 +291,8 @@ class SharingMixin(object):
         xmltype = customxml.InviteNotification.name
         xmldata = customxml.Notification(
             customxml.DTStamp.fromString(dateTimeToString(datetime.datetime.now(tz=utc))),
+            customxml.UID.fromString(record.inviteuid),
+            customxml.Sequence.fromString(str(record.sequence)),
             customxml.InviteNotification(
                 davxml.HRef.fromString(record.userid),
                 inviteStatusMapToXML[record.state](),
@@ -285,13 +305,23 @@ class SharingMixin(object):
                     davxml.HRef.fromString(owner),
                 ),
                 customxml.InviteSummary.fromString(record.summary),
-                customxml.UID.fromString(record.inviteuid),
-                customxml.Sequence.fromString(str(record.sequence)),
             ),
         ).toxml()
         
         # Add to collections
         yield notifications.addNotification(request, record.inviteuid, xmltype, xmldata)
+
+    @inlineCallbacks
+    def removeInvite(self, record, request):
+        
+        # Locate notifications collection for user
+        sharee = self.principalForCalendarUserAddress(record.userid)
+        if sharee is None:
+            raise ValueError("sharee is None but userid was valid before")
+        notifications = (yield request.locateResource(sharee.notificationURL()))
+        
+        # Add to collections
+        yield notifications.deleteNotifictionMessageByUID(request, record.inviteuid)
 
     def xmlPOSTNoAuth(self, encoding, request):
         def _handleErrorResponse(error):
@@ -478,6 +508,94 @@ class SharingMixin(object):
         ("application", "xml") : xmlPOSTAuth,
         ("text", "xml") : xmlPOSTAuth,
     }
+
+class SharedHomeMixin(object):
+    """
+    A mix-in for calendar/addressbook homes that defines the operations for manipulating a sharee's
+    set of shared calendfars.
+    """
+    
+    def acceptShare(self, request, hostUrl, displayname=None):
+        """ Accept an invite to a shared calendar """
+        return succeed(True)
+
+    def wouldAcceptShare(self, hostUrl, request):
+        return succeed(True)
+
+    def removeShare(self, hostUrl, resourceName, request):
+        """ Remove a shared calendar named in resourceName """
+        return succeed(True)
+
+    def declineShare(self, hostUrl, request):
+        return succeed(True)
+
+    def xmlPOSTNoAuth(self, encoding, request):
+        def _handleResponse(result):
+            response = Response(code=responsecode.OK)
+            return response
+
+        def _handleErrorResponse(error):
+            if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
+                return error.value.response
+            return Response(code=responsecode.BAD_REQUEST)
+
+        def _handleInviteUpdate(inviteupdatedoc):
+            """ Handle a user accepting or declining a sharing invite """
+            hostUrl = None
+            accepted = None
+            summary = None
+            for item in inviteupdatedoc.children:
+                if isinstance(item, customxml.InviteStatusAccepted):
+                    accepted = True
+                elif isinstance(item, customxml.InviteStatusDeclined):
+                    accepted = False
+                elif isinstance(item, customxml.InviteSummary):
+                    for summaryitem in item.children:
+                        if isinstance(summaryitem, PCDATAElement):
+                            summary = summaryitem.data
+                elif isinstance(item, customxml.HostURL):
+                    for hosturlItem in item.children:
+                        if isinstance(hosturlItem, davxml.HRef):
+                            for hrefItem in hosturlItem.children:
+                                if isinstance(hrefItem, PCDATAElement):
+                                    hostUrl = hrefItem.data
+            
+            if accepted is not None:
+                if hostUrl:
+                    if accepted:
+                        return self.acceptShare(request, hostUrl, displayname=summary)
+                    else:
+                        return self.declineShare(hostUrl, request)
+                else:
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (customxml.calendarserver_namespace, "valid-request-content"),
+                        "missing hosturl",
+                    ))
+            else:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (customxml.calendarserver_namespace, "valid-request-content"),
+                    "missing invite status",
+                ))
+
+        def _getData(data):
+            try:
+                doc = davxml.WebDAVDocument.fromString(data)
+            except ValueError, e:
+                print "Error parsing doc (%s) Doc:\n %s" % (str(e), data,)
+                raise
+
+            root = doc.root_element
+            xmlDocHanders = {
+                customxml.InviteNotification: _handleInviteUpdate,          
+            }
+            if type(root) in xmlDocHanders:
+                return xmlDocHanders[type(root)](root).addCallbacks(_handleResponse, errback=_handleErrorResponse)
+            else:
+                return fail(True)
+
+        return allDataFromStream(request.stream).addCallback(_getData)
 
 inviteAccessMapToXML = {
     "read-only"  : customxml.ReadAccess,

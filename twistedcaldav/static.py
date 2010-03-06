@@ -55,7 +55,7 @@ from twext.web2 import responsecode, http, http_headers
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
-from twext.web2.dav.fileop import mkcollection, rmdir
+from twext.web2.dav.fileop import mkcollection, rmdir, delete
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.idav import IDAVResource
 from twext.web2.dav.noneprops import NonePropertyStore
@@ -1312,10 +1312,19 @@ class NotificationCollectionFile(AutoProvisioningFileMixIn, NotificationCollecti
 
     def _writeNotification(self, request, uid, rname, xmltype, xmldata):
         
+        # TODO: use the generic StoreObject api so that quota, sync-token etc all get changed properly
         child = self.createSimilarFile(self.fp.child(rname).path)
         child.fp.setContent(xmldata)
         child.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset":"utf-8"}))))
         child.writeDeadProperty(customxml.NotificationType.fromString(xmltype))
+        
+        return succeed(True)
+
+    def _deleteNotification(self, request, rname):
+        
+        # TODO: use the generic DeleteResource api so that quota, sync-token etc all get changed properly
+        childfp = self.fp.child(rname)
+        return delete("", childfp)
 
 class NotificationFile(NotificationResource, CalDAVFile):
 

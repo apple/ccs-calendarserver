@@ -59,7 +59,7 @@ class NotificationResource(DAVResource):
         
         response = (yield super(NotificationResource, self).http_DELETE(request))
         if response == responsecode.NO_CONTENT:
-            self._parent.deleteNotifictionMessageByName(request, self.resourceName())
+            yield self._parent.removedNotifictionMessage(request, self.resourceName())
         returnValue(response)
 
 class NotificationCollectionResource(DAVResource):
@@ -76,16 +76,15 @@ class NotificationCollectionResource(DAVResource):
     def resourceType(self):
         return davxml.ResourceType.notification
 
+    @inlineCallbacks
     def addNotification(self, request, uid, xmltype, xmldata):
         
         # Write data to file
         rname = uid + ".xml"
-        self._writeNotification(request, uid, rname, xmltype, xmldata)
+        yield self._writeNotification(request, uid, rname, xmltype, xmldata)
 
         # Update database
         self.notificationsDB().addOrUpdateRecord(NotificationRecord(uid, rname, xmltype))
-
-        return succeed(None)
 
     def _writeNotification(self, request, uid, rname, xmltype, xmldata):
         raise NotImplementedError
@@ -96,12 +95,29 @@ class NotificationCollectionResource(DAVResource):
     def getNotifictionMessageByUID(self, request, uid):
         return succeed(self.notificationsDB().recordForUID(uid))
 
+    @inlineCallbacks
     def deleteNotifictionMessageByUID(self, request, uid):
-        return succeed(self.notificationsDB().removeRecordForUID(uid))
+        
+        # See if it exists and delete the resource
+        record = self.notificationsDB().recordForUID(uid)
+        if record:
+            yield self._deleteNotification(request, record.name)
+            self.notificationsDB().removeRecordForUID(record.uid)
 
     def deleteNotifictionMessageByName(self, request, rname):
-        return succeed(self.notificationsDB().removeRecordForName(rname))
 
+        # See if it exists and delete the resource
+        record = self.notificationsDB().recordForName(rname)
+        if record:
+            self._deleteNotification(request, record.name)
+            self.notificationsDB().removeRecordForUID(record.uid)
+        
+        return succeed(None)
+
+    def removedNotifictionMessage(self, request, rname):
+        self.notificationsDB().removeRecordForName(rname)
+        return succeed(None)
+        
 class NotificationRecord(object):
     
     def __init__(self, uid, name, xmltype):
