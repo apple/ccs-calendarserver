@@ -340,7 +340,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         self.config["ProcessType"] = "Combined"
         self.writeConfig()
         svc = self.makeService()
-        for serviceName in ["logging", "stats"]:
+        for serviceName in ["logging"]:
             socketService = svc.getServiceNamed(serviceName)
             self.assertIsInstance(socketService, GroupOwnedUNIXServer)
             m = socketService.kwargs.get("mode", 0666)
@@ -349,6 +349,16 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
                 "Wrong mode on %s: %s" % (serviceName, oct(m))
             )
             self.assertEquals(socketService.gid, alternateGroup)
+        for serviceName in ["stats"]:
+            socketService = svc.getServiceNamed(serviceName)
+            self.assertIsInstance(socketService, GroupOwnedUNIXServer)
+            m = socketService.kwargs.get("mode", 0444)
+            self.assertEquals(
+                m, int("440", 8),
+                "Wrong mode on %s: %s" % (serviceName, oct(m))
+            )
+            self.assertEquals(socketService.gid, alternateGroup)
+
 
 
 

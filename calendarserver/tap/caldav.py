@@ -881,7 +881,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         stats = CalDAVStatisticsServer(logger) 
         statsService = GroupOwnedUNIXServer(
-            gid, config.GlobalStatsSocket, stats, mode=0660
+            gid, config.GlobalStatsSocket, stats, mode=0440
         )
         statsService.setName("stats")
         statsService.setServiceParent(s)
