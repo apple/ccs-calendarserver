@@ -425,7 +425,8 @@ class DirectoryRecord(LoggingMixIn):
                 self.enabledForCalendaring = False
 
         else:
-            self.enabled = False
+            # Groups are by default always enabled
+            self.enabled = (self.recordType == self.service.recordType_groups)
             self.hostedAt = ""
             self.enabledForCalendaring = False
 
