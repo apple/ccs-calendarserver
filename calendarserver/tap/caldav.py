@@ -784,7 +784,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         for p in xrange(0, config.MultiProcess.ProcessCount):
             process = TwistdSlaveProcess(
-                config.Twisted.twistd,
+                sys.argv[0],
                 self.tapname,
                 options["config"],
                 p,
@@ -825,7 +825,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             notificationsArgv = [
                 sys.executable,
-                config.Twisted.twistd,
+                sys.argv[0],
             ]
             if config.UserName:
                 notificationsArgv.extend(("-u", config.UserName))
@@ -847,7 +847,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             mailGatewayArgv = [
                 sys.executable,
-                config.Twisted.twistd,
+                sys.argv[0],
             ]
             if config.UserName:
                 mailGatewayArgv.extend(("-u", config.UserName))
@@ -864,7 +864,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("Adding task service")
         taskArgv = [
             sys.executable,
-            config.Twisted.twistd,
+            sys.argv[0],
         ]
         if config.UserName:
             taskArgv.extend(("-u", config.UserName))

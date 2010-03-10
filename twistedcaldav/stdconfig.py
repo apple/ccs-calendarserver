@@ -476,7 +476,6 @@ DEFAULT_CONFIG = {
 
     # Twisted
     "Twisted": {
-        "twistd": "/usr/share/caldavd/bin/twistd",
         "reactor": "select",
     },
 
