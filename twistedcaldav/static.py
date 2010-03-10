@@ -94,6 +94,7 @@ from twistedcaldav.directory.calendar import DirectoryCalendarHomeTypeProvisioni
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeUIDProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
+from twistedcaldav.sharing import SharedHomeMixin
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.vcardindex import AddressBookIndex
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
@@ -912,7 +913,7 @@ class CalendarHomeReverseProxyFile(ReverseProxyResource):
     def url(self):
         return joinURL(self.parent.url(), self.record.uid)
 
-class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
+class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, SharedHomeMixin, DirectoryCalendarHomeResource, CalDAVFile):
     """
     Calendar home collection resource.
     """

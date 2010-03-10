@@ -104,6 +104,32 @@ class SharedCollectionMixin(object):
 
         return succeed(True)
 
+    @inlineCallbacks
+    def changeUserInviteState(self, request, inviteUID, userid, state, summary=None):
+        
+        shared = (yield self.isShared(request))
+        if not shared:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (customxml.calendarserver_namespace, "valid-request"),
+                "invalid share",
+            ))
+            
+        record = self.invitesDB().recordForInviteUID(inviteUID)
+        if record is None or record.userid != userid:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (customxml.calendarserver_namespace, "valid-request"),
+                "invalid invitation uid: %s" % (inviteUID,),
+            ))
+        
+        # Only certain states are sharer controlled
+        if record.state in ("NEEDS-ACTION", "ACCEPTED", "DECLINED",):
+            record.state = state
+            if summary is not None:
+                record.summary = summary
+            self.invitesDB().addOrUpdateRecord(record)
+
     def isShared(self, request):
         """ Return True if this is an owner shared calendar collection """
         return succeed(self.isSpecialCollection(customxml.SharedOwner))
@@ -354,19 +380,19 @@ class SharedCollectionMixin(object):
                     if userid is None:
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
-                            (customxml.calendarserver_namespace, "valid-request-content-type"),
+                            (customxml.calendarserver_namespace, "valid-request"),
                             "missing href: %s" % (inviteset,),
                         ))
                     if access is None:
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
-                            (customxml.calendarserver_namespace, "valid-request-content-type"),
+                            (customxml.calendarserver_namespace, "valid-request"),
                             "missing access: %s" % (inviteset,),
                         ))
                     if summary is None:
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
-                            (customxml.calendarserver_namespace, "valid-request-content-type"),
+                            (customxml.calendarserver_namespace, "valid-request"),
                             "missing summary: %s" % (inviteset,),
                         ))
 
@@ -385,7 +411,7 @@ class SharedCollectionMixin(object):
                 if userid is None:
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (customxml.calendarserver_namespace, "valid-request-content-type"),
+                        (customxml.calendarserver_namespace, "valid-request"),
                         "missing href: %s" % (inviteremove,),
                     ))
                 if len(access) == 0:
@@ -463,7 +489,7 @@ class SharedCollectionMixin(object):
                 doc = davxml.WebDAVDocument.fromString(data)
             except ValueError, e:
                 self.log_error("Error parsing doc (%s) Doc:\n %s" % (str(e), data,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request-content")))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request")))
 
             root = doc.root_element
             xmlDocHanders = {
@@ -473,7 +499,7 @@ class SharedCollectionMixin(object):
                 return xmlDocHanders[type(root)](root).addErrback(_handleErrorResponse)
             else:
                 self.log_error("Unsupported XML (%s)" % (root,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request-content")))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request")))
 
         return allDataFromStream(request.stream).addCallback(_getData)
 
@@ -483,7 +509,7 @@ class SharedCollectionMixin(object):
             if mimetype.mediaType in ("application", "text",) and mimetype.mediaSubtype == "xml":
                 encoding = mimetype.params["charset"] if "charset" in mimetype.params else "utf8"
                 return succeed(encoding)
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request-content-type")))
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request")))
 
     def xmlPOSTAuth(self, request):
         d = self.authorize(request, (davxml.Read(), davxml.Write()))
@@ -515,19 +541,37 @@ class SharedHomeMixin(object):
     set of shared calendfars.
     """
     
-    def acceptShare(self, request, hostUrl, displayname=None):
-        """ Accept an invite to a shared calendar """
-        return succeed(True)
+    def acceptShare(self, request, hostUrl, inviteUID, displayname=None):
+        return self._changeShare(request, "ACCEPTED", hostUrl, inviteUID, displayname)
 
     def wouldAcceptShare(self, hostUrl, request):
         return succeed(True)
 
-    def removeShare(self, hostUrl, resourceName, request):
+    def removeShare(self, request, hostUrl, resourceName):
         """ Remove a shared calendar named in resourceName """
         return succeed(True)
 
-    def declineShare(self, hostUrl, request):
-        return succeed(True)
+    def declineShare(self, request, hostUrl, inviteUID):
+        return self._changeShare(request, "DECLINED", hostUrl, inviteUID)
+
+    @inlineCallbacks
+    def _changeShare(self, request, state, hostUrl, inviteUID, displayname=None):
+        """ Accept an invite to a shared calendar """
+        
+        # Change state in sharer invite
+        owner = (yield self.ownerPrincipal(request))
+        owner = owner.principalURL()
+        sharedCalendar = (yield request.locateResource(hostUrl))
+        if sharedCalendar is None:
+            # Original shared calendar is gone - nothing we can do except ignore it
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (customxml.calendarserver_namespace, "valid-request"),
+                "invalid shared calendar",
+            ))
+            
+        # Change the record
+        yield sharedCalendar.changeUserInviteState(request, inviteUID, owner, state, displayname)
 
     def xmlPOSTNoAuth(self, encoding, request):
         def _handleResponse(result):
@@ -544,6 +588,7 @@ class SharedHomeMixin(object):
             hostUrl = None
             accepted = None
             summary = None
+            inviteUID = None
             for item in inviteupdatedoc.children:
                 if isinstance(item, customxml.InviteStatusAccepted):
                     accepted = True
@@ -559,25 +604,19 @@ class SharedHomeMixin(object):
                             for hrefItem in hosturlItem.children:
                                 if isinstance(hrefItem, PCDATAElement):
                                     hostUrl = hrefItem.data
+                elif isinstance(item, customxml.UID):
+                    inviteUID = str(item)
             
-            if accepted is not None:
-                if hostUrl:
-                    if accepted:
-                        return self.acceptShare(request, hostUrl, displayname=summary)
-                    else:
-                        return self.declineShare(hostUrl, request)
-                else:
-                    raise HTTPError(ErrorResponse(
-                        responsecode.FORBIDDEN,
-                        (customxml.calendarserver_namespace, "valid-request-content"),
-                        "missing hosturl",
-                    ))
-            else:
+            if accepted is None or hostUrl is None or inviteUID is None:
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (customxml.calendarserver_namespace, "valid-request-content"),
-                    "missing invite status",
+                    (customxml.calendarserver_namespace, "valid-request"),
+                    "missing required XML elements",
                 ))
+            if accepted:
+                return self.acceptShare(request, hostUrl, inviteUID, displayname=summary)
+            else:
+                return self.declineShare(request, hostUrl, inviteUID)
 
         def _getData(data):
             try:
