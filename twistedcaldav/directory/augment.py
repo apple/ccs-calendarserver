@@ -192,13 +192,13 @@ class AugmentXMLDB(AugmentDB):
                     try:
                         uid = pwd.getpwnam(config.UserName).pw_uid
                     except KeyError:
-                        self.log_error("User not found: %s" % (config.UserName,))
+                        log.error("User not found: %s" % (config.UserName,))
                 gid = -1
                 if config.GroupName:
                     try:
                         gid = grp.getgrnam(config.GroupName).gr_gid
                     except KeyError:
-                        self.log_error("Group not found: %s" % (config.GroupName,))
+                        log.error("Group not found: %s" % (config.GroupName,))
                 if uid != -1 and gid != -1:
                     os.chown(missedFile, uid, gid)
             
