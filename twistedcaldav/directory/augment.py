@@ -15,6 +15,9 @@
 ##
 
 import copy
+import grp
+import os
+import pwd
 import time
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
@@ -28,7 +31,6 @@ from twistedcaldav.directory import xmlaugmentsparser
 from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 from twistedcaldav.xmlutil import newElementTreeWithRoot, addSubElement,\
     writeXML, readXML
-import os
 
 
 log = Logger()
@@ -183,6 +185,22 @@ class AugmentXMLDB(AugmentDB):
                     addSubElement(record, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true")
                     doDefault = False
                 writeXML(missedFile, root)
+
+                # Set permissions
+                uid = -1
+                if config.UserName:
+                    try:
+                        uid = pwd.getpwnam(config.UserName).pw_uid
+                    except KeyError:
+                        self.log_error("User not found: %s" % (config.UserName,))
+                gid = -1
+                if config.GroupName:
+                    try:
+                        gid = grp.getgrnam(config.GroupName).gr_gid
+                    except KeyError:
+                        self.log_error("Group not found: %s" % (config.GroupName,))
+                if uid != -1 and gid != -1:
+                    os.chown(missedFile, uid, gid)
             
         try:
             self.db = self._parseXML()
