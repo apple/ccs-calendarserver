@@ -84,12 +84,6 @@ def usage(e=None):
         sys.exit(0)
 
 def main():
-    #
-    # Send logging output to stdout
-    #
-    observer = StandardIOObserver()
-    observer.start()
-
     try:
         (optargs, args) = getopt(
             sys.argv[1:], "hf:P:", [
@@ -192,6 +186,13 @@ def main():
     try:
         loadConfig(configFileName)
         setLogLevelForNamespace(None, "warn")
+
+        #
+        # Send logging output to stdout
+        #
+        observer = StandardIOObserver()
+        observer.start()
+
 
         # Shed privileges
         if config.UserName and config.GroupName and os.getuid() == 0:
