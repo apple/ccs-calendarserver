@@ -38,7 +38,8 @@ from twext.python.vcomponent import InvalidICalendarDataError
 
 from txdav.propertystore.xattr import PropertyStore
 
-from txcaldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject
+from txcaldav.icalendarstore import ICalendarStore, ICalendarHome
+from txcaldav.icalendarstore import ICalendar, ICalendarObject
 from txcaldav.icalendarstore import CalendarNameNotAllowedError
 from txcaldav.icalendarstore import CalendarObjectNameNotAllowedError
 from txcaldav.icalendarstore import CalendarAlreadyExistsError
@@ -54,7 +55,7 @@ from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 
 
 class CalendarStore(LoggingMixIn):
-    # FIXME: Do we need an interface?
+    implements(ICalendarStore)
 
     calendarHomeClass = property(lambda _: CalendarHome)
 
@@ -67,23 +68,27 @@ class CalendarStore(LoggingMixIn):
         self.path = path
 
         if not path.isdir():
-            # FIXME: If we add a CalendarStore interface, this should
-            # be CalendarStoreNotFoundError.
+            # FIXME: Add CalendarStoreNotFoundError?
             raise NotFoundError("No such calendar store")
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self.path.path)
 
-    def calendarHomeWithUID(self, uid):
+    def calendarHomeWithUID(self, uid, create=False):
         if uid.startswith("."):
             return None
 
-        childPath = self.path.child(uid)
+        assert len(uid) >= 4
 
-        if childPath.isdir():
-            return CalendarHome(childPath, self)
-        else:
-            return None
+        childPath = self.path.child(uid[0:2]).child(uid[2:4]).child(uid)
+
+        if not childPath.isdir():
+            if create:
+                childPath.makedirs()
+            else:
+                return None
+
+        return CalendarHome(childPath, self)
 
 
 class CalendarHome(LoggingMixIn):
@@ -369,6 +374,7 @@ class CalendarObject(LoggingMixIn):
         if not hasattr(self, "_properties"):
             self._properties = PropertyStore(self.path)
         return self._properties
+
 
 class Index (object):
     #

@@ -152,14 +152,17 @@ def setUpCalendarStore(test):
     storePath.copyTo(calendarPath)
 
     test.calendarStore = CalendarStore(calendarPath)
+    assert test.calendarStore is not None, "No calendar store?"
 
 def setUpHome1(test):
     setUpCalendarStore(test)
     test.home1 = test.calendarStore.calendarHomeWithUID("home1")
+    assert test.home1 is not None, "No calendar home?"
 
 def setUpCalendar1(test):
     setUpHome1(test)
     test.calendar1 = test.home1.calendarWithName("calendar_1")
+    assert test.calendar1 is not None, "No calendar?"
 
 
 class CalendarStoreTest(unittest.TestCase):
