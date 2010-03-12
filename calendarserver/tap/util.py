@@ -38,7 +38,6 @@ from twext.python.log import Logger
 from twistedcaldav import memcachepool
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
-from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.sudo import SudoDirectoryService
@@ -178,16 +177,6 @@ def getRootResource(config, resources=None):
     except IOError:
         log.error("Could not start proxydb service")
         raise
-
-    #
-    # Make sure proxies get initialized
-    #
-    if config.ProxyLoadFromFile:
-        def _doProxyUpdate():
-            loader = XMLCalendarUserProxyLoader(config.ProxyLoadFromFile)
-            return loader.updateProxyDB()
-
-        reactor.addSystemEventTrigger("after", "startup", _doProxyUpdate)
 
     #
     # Configure Memcached Client Pool

@@ -38,7 +38,7 @@ from zope.interface import implements
 from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
 from twisted.plugin import IPlugin
-from twisted.internet.reactor import callLater, spawnProcess
+from twisted.internet.reactor import callLater, spawnProcess, addSystemEventTrigger
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.application.internet import TCPServer, UNIXServer
@@ -63,6 +63,7 @@ except ImportError:
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.static import CalendarHomeProvisioningFile
@@ -426,16 +427,27 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             if config.ProcessType in ('Combined', 'Single'):
 
+                # Memcached is not needed for this process
+                config.Memcached.Pools.Default.ClientEnabled = False
+
+                # Note: if the master process ever needs access to memcached
+                # we'll either have to start memcached prior to the
+                # updateProxyDB call below, or disable memcached
+                # client config only while updateProxyDB is running.
+
                 # Process localization string files
                 processLocalizationFiles(config.Localization)
 
                 # Now do any on disk upgrades we might need.
-                # Memcache isn't running at this point, so temporarily change
-                # the config so nobody tries to talk to it while upgrading
-                memcacheSetting = config.Memcached.Pools.Default.ClientEnabled
-                config.Memcached.Pools.Default.ClientEnabled = False
                 upgradeData(config)
-                config.Memcached.Pools.Default.ClientEnabled = memcacheSetting
+
+                # Make sure proxies get initialized
+                if config.ProxyLoadFromFile:
+                    def _doProxyUpdate():
+                        loader = XMLCalendarUserProxyLoader(config.ProxyLoadFromFile)
+                        return loader.updateProxyDB()
+                    addSystemEventTrigger("after", "startup", _doProxyUpdate)
+
 
 
             service = serviceMethod(options)
