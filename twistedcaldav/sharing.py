@@ -16,7 +16,6 @@
 
 from twext.python.log import LoggingMixIn
 from twext.web2 import responsecode
-from twext.web2.dav.element.base import PCDATAElement
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.http import HTTPError, Response, StatusResponse
@@ -143,12 +142,12 @@ class SharedCollectionMixin(object):
         Return the DAV:resourcetype stripped of any shared elements.
         """
         
-        rtype = self.resourceType()
-        newchildren = [child for child in rtype.children if child.qname() not in (
-            customxml.SharedOwner.qname(),
-        )] if rtype.children else ()
-        rtype.children = newchildren if newchildren else None
-        return rtype
+        if self.isCalendarCollection():
+            return "calendar"
+        elif self.isAddressBookCollection():
+            return "addressbook"
+        else:
+            return ""
 
     def validUserIDForShare(self, userid):
         """
@@ -252,11 +251,10 @@ class SharedCollectionMixin(object):
         # Look for existing invite and update its fields or create new one
         record = self.invitesDB().recordForUserID(userid)
         if record:
-            record.sequence += 1
             record.access = inviteAccessMapFromXML[type(ace)]
             record.summary = summary
         else:
-            record = Invite(str(uuid4()), 1, userid, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary)
+            record = Invite(str(uuid4()), userid, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary)
         
         # Send invite
         yield self.sendInvite(record, request)
@@ -314,11 +312,11 @@ class SharedCollectionMixin(object):
             pass
         
         # Generate invite XML
-        xmltype = customxml.InviteNotification.name
+        typeAttr = {'shared-type':self.sharedResourceType()}
+        xmltype = customxml.InviteNotification(**typeAttr)
         xmldata = customxml.Notification(
             customxml.DTStamp.fromString(dateTimeToString(datetime.datetime.now(tz=utc))),
             customxml.UID.fromString(record.inviteuid),
-            customxml.Sequence.fromString(str(record.sequence)),
             customxml.InviteNotification(
                 davxml.HRef.fromString(record.userid),
                 inviteStatusMapToXML[record.state](),
@@ -326,11 +324,11 @@ class SharedCollectionMixin(object):
                 customxml.HostURL(
                     davxml.HRef.fromString(hosturl),
                 ),
-                self.sharedResourceType(),
                 customxml.Organizer(
                     davxml.HRef.fromString(owner),
                 ),
                 customxml.InviteSummary.fromString(record.summary),
+                **typeAttr
             ),
         ).toxml()
         
@@ -362,14 +360,10 @@ class SharedCollectionMixin(object):
                 summary = None
                 for item in inviteset.children:
                     if isinstance(item, davxml.HRef):
-                        for attendeeItem in item.children:
-                            if isinstance(attendeeItem, PCDATAElement):
-                                userid = attendeeItem.data
+                        userid = str(item)
                         continue
                     if isinstance(item, customxml.InviteSummary):
-                        for summaryItem in item.children:
-                            if isinstance(summaryItem, PCDATAElement):
-                                summary = summaryItem.data
+                        summary = str(item)
                         continue
                     if isinstance(item, customxml.ReadAccess) or isinstance(item, customxml.ReadWriteAccess):
                         access = item
@@ -401,9 +395,7 @@ class SharedCollectionMixin(object):
                 access = []
                 for item in inviteremove.children:
                     if isinstance(item, davxml.HRef):
-                        for attendeeItem in item.children:
-                            if isinstance(attendeeItem, PCDATAElement):
-                                userid = attendeeItem.data
+                        userid = str(item)
                         continue
                     if isinstance(item, customxml.ReadAccess) or isinstance(item, customxml.ReadWriteAccess):
                         access.append(item)
@@ -541,8 +533,8 @@ class SharedHomeMixin(object):
     set of shared calendfars.
     """
     
-    def acceptShare(self, request, hostUrl, inviteUID, displayname=None):
-        return self._changeShare(request, "ACCEPTED", hostUrl, inviteUID, displayname)
+    def acceptShare(self, request, hostUrl, replytoUID, displayname=None):
+        return self._changeShare(request, "ACCEPTED", hostUrl, replytoUID, displayname)
 
     def wouldAcceptShare(self, hostUrl, request):
         return succeed(True)
@@ -551,11 +543,11 @@ class SharedHomeMixin(object):
         """ Remove a shared calendar named in resourceName """
         return succeed(True)
 
-    def declineShare(self, request, hostUrl, inviteUID):
-        return self._changeShare(request, "DECLINED", hostUrl, inviteUID)
+    def declineShare(self, request, hostUrl, replytoUID):
+        return self._changeShare(request, "DECLINED", hostUrl, replytoUID)
 
     @inlineCallbacks
-    def _changeShare(self, request, state, hostUrl, inviteUID, displayname=None):
+    def _changeShare(self, request, state, hostUrl, replytoUID, displayname=None):
         """ Accept an invite to a shared calendar """
         
         # Change state in sharer invite
@@ -571,7 +563,40 @@ class SharedHomeMixin(object):
             ))
             
         # Change the record
-        yield sharedCalendar.changeUserInviteState(request, inviteUID, owner, state, displayname)
+        yield sharedCalendar.changeUserInviteState(request, replytoUID, owner, state, displayname)
+
+        yield self.sendReply(request, owner, sharedCalendar, state, hostUrl, replytoUID, displayname)
+
+    @inlineCallbacks
+    def sendReply(self, request, sharee, sharedCalendar, state, hostUrl, replytoUID, displayname=None):
+        
+
+        # Locate notifications collection for sharer
+        sharer = (yield sharedCalendar.ownerPrincipal(request))
+        notifications = (yield request.locateResource(sharer.notificationURL()))
+        
+        # Generate invite XML
+        notificationUID = "%s-reply" % (replytoUID,)
+        xmltype = customxml.InviteReply()
+        xmldata = customxml.Notification(
+            customxml.DTStamp.fromString(dateTimeToString(datetime.datetime.now(tz=utc))),
+            customxml.UID.fromString(notificationUID),
+            customxml.InviteReply(
+                *(
+                    (
+                        davxml.HRef.fromString(sharee),
+                        inviteStatusMapToXML[state](),
+                        customxml.HostURL(
+                            davxml.HRef.fromString(hostUrl),
+                        ),
+                        customxml.InReplyTo.fromString(replytoUID),
+                    ) + ((customxml.InviteSummary.fromString(displayname),) if displayname is not None else ())
+                )
+            ),
+        ).toxml()
+        
+        # Add to collections
+        yield notifications.addNotification(request, notificationUID, xmltype, xmldata)
 
     def xmlPOSTNoAuth(self, encoding, request):
         def _handleResponse(result):
@@ -583,40 +608,36 @@ class SharedHomeMixin(object):
                 return error.value.response
             return Response(code=responsecode.BAD_REQUEST)
 
-        def _handleInviteUpdate(inviteupdatedoc):
+        def _handleInviteReply(invitereplydoc):
             """ Handle a user accepting or declining a sharing invite """
             hostUrl = None
             accepted = None
             summary = None
-            inviteUID = None
-            for item in inviteupdatedoc.children:
+            replytoUID = None
+            for item in invitereplydoc.children:
                 if isinstance(item, customxml.InviteStatusAccepted):
                     accepted = True
                 elif isinstance(item, customxml.InviteStatusDeclined):
                     accepted = False
                 elif isinstance(item, customxml.InviteSummary):
-                    for summaryitem in item.children:
-                        if isinstance(summaryitem, PCDATAElement):
-                            summary = summaryitem.data
+                    summary = str(item)
                 elif isinstance(item, customxml.HostURL):
                     for hosturlItem in item.children:
                         if isinstance(hosturlItem, davxml.HRef):
-                            for hrefItem in hosturlItem.children:
-                                if isinstance(hrefItem, PCDATAElement):
-                                    hostUrl = hrefItem.data
-                elif isinstance(item, customxml.UID):
-                    inviteUID = str(item)
+                            hostUrl = str(hosturlItem)
+                elif isinstance(item, customxml.InReplyTo):
+                    replytoUID = str(item)
             
-            if accepted is None or hostUrl is None or inviteUID is None:
+            if accepted is None or hostUrl is None or replytoUID is None:
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (customxml.calendarserver_namespace, "valid-request"),
                     "missing required XML elements",
                 ))
             if accepted:
-                return self.acceptShare(request, hostUrl, inviteUID, displayname=summary)
+                return self.acceptShare(request, hostUrl, replytoUID, displayname=summary)
             else:
-                return self.declineShare(request, hostUrl, inviteUID)
+                return self.declineShare(request, hostUrl, replytoUID)
 
         def _getData(data):
             try:
@@ -627,7 +648,7 @@ class SharedHomeMixin(object):
 
             root = doc.root_element
             xmlDocHanders = {
-                customxml.InviteNotification: _handleInviteUpdate,          
+                customxml.InviteReply: _handleInviteReply,          
             }
             if type(root) in xmlDocHanders:
                 return xmlDocHanders[type(root)](root).addCallbacks(_handleResponse, errback=_handleErrorResponse)
@@ -637,8 +658,9 @@ class SharedHomeMixin(object):
         return allDataFromStream(request.stream).addCallback(_getData)
 
 inviteAccessMapToXML = {
-    "read-only"  : customxml.ReadAccess,
-    "read-write" : customxml.ReadWriteAccess,
+    "read-only"           : customxml.ReadAccess,
+    "read-write"          : customxml.ReadWriteAccess,
+    "read-write-schedule" : customxml.ReadWriteScheduleAccess,
 }
 inviteAccessMapFromXML = dict([(v,k) for k,v in inviteAccessMapToXML.iteritems()])
 
@@ -653,9 +675,8 @@ inviteStatusMapFromXML = dict([(v,k) for k,v in inviteStatusMapToXML.iteritems()
 
 class Invite(object):
     
-    def __init__(self, inviteuid, sequence, userid, access, state, summary):
+    def __init__(self, inviteuid, userid, access, state, summary):
         self.inviteuid = inviteuid
-        self.sequence = sequence
         self.userid = userid
         self.access = access
         self.state = state
@@ -708,9 +729,9 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
     
     def addOrUpdateRecord(self, record):
 
-        self._db_execute("""insert or replace into INVITE (INVITEUID, SEQUENCE, USERID, ACCESS, STATE, SUMMARY)
-            values (:1, :2, :3, :4, :5, :6)
-            """, record.inviteuid, record.sequence, record.userid, record.access, record.state, record.summary,
+        self._db_execute("""insert or replace into INVITE (INVITEUID, USERID, ACCESS, STATE, SUMMARY)
+            values (:1, :2, :3, :4, :5)
+            """, record.inviteuid, record.userid, record.access, record.state, record.summary,
         )
     
     def removeRecordForUserID(self, userid):
@@ -746,7 +767,6 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         #
         # INVITE table is the primary table
         #   INVITEUID: UID for this invite
-        #   SEQUENCE: sequence number for this invite
         #   NAME: identifier of invitee
         #   ACCESS: Access mode for share
         #   STATE: Invite response status
@@ -756,7 +776,6 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
             """
             create table INVITE (
                 INVITEUID      text unique,
-                SEQUENCE       integer,
                 USERID         text unique,
                 ACCESS         text,
                 STATE          text,

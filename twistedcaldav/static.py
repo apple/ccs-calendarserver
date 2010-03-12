@@ -1317,7 +1317,7 @@ class NotificationCollectionFile(AutoProvisioningFileMixIn, NotificationCollecti
         child = self.createSimilarFile(self.fp.child(rname).path)
         child.fp.setContent(xmldata)
         child.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset":"utf-8"}))))
-        child.writeDeadProperty(customxml.NotificationType.fromString(xmltype))
+        child.writeDeadProperty(customxml.NotificationType(xmltype))
         
         return succeed(True)
 

@@ -45,6 +45,7 @@ class SharingTests(TestCase):
         
         self.resource.validUserIDForShare = self._fakeValidUserID
         self.resource.sendInvite = lambda record, request:succeed(True)
+        self.resource.removeInvite = lambda record, request:succeed(True)
         
     def _fakeValidUserID(self, userid):
         if userid.endswith("@example.com"):

@@ -590,13 +590,20 @@ class ReadWriteAccess (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "read-write"
 
+class ReadWriteScheduleAccess (davxml.WebDAVEmptyElement):
+    """
+    Denotes read and write and schedule access on a shared calendar.
+    """
+    namespace = calendarserver_namespace
+    name = "read-write-schedule"
+
 class UID (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "uid"
 
-class Sequence (davxml.WebDAVTextElement):
+class InReplyTo (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
-    name = "sequence"
+    name = "in-reply-to"
 
 ##
 # Notifications
@@ -649,7 +656,8 @@ class InviteShare (davxml.WebDAVElement):
     name = "share"
 
     allowed_children = {
-        (calendarserver_namespace, "set" )   : (0, None),
+        (calendarserver_namespace, "set" )    : (0, None),
+        (calendarserver_namespace, "remove" ) : (0, None),
     }
 
 class InviteSet (davxml.WebDAVElement):
@@ -657,10 +665,11 @@ class InviteSet (davxml.WebDAVElement):
     name = "set"
 
     allowed_children = {
-        (calendarserver_namespace, "summary" )   : (0, 1),
-        (calendarserver_namespace, "attendee" )  : (1, 1),
-        (calendarserver_namespace, "read" )      : (0, 1),
-        (calendarserver_namespace, "read-write" ): (0, 1),
+        (dav_namespace,            "href" )                : (1, 1),
+        (calendarserver_namespace, "summary" )             : (0, 1),
+        (calendarserver_namespace, "read" )                : (0, 1),
+        (calendarserver_namespace, "read-write" )          : (0, 1),
+        (calendarserver_namespace, "read-write-schedule" ) : (0, 1),
     }
 
 class InviteRemove (davxml.WebDAVElement):
@@ -668,9 +677,10 @@ class InviteRemove (davxml.WebDAVElement):
     name = "remove"
 
     allowed_children = {
-        (calendarserver_namespace, "attendee" )  : (1, 1),
-        (calendarserver_namespace, "read" )      : (0, 1),
-        (calendarserver_namespace, "read-write" ): (0, 1),
+        (dav_namespace,            "href" )                : (1, 1),
+        (calendarserver_namespace, "read" )                : (0, 1),
+        (calendarserver_namespace, "read-write" )          : (0, 1),
+        (calendarserver_namespace, "read-write-schedule" ) : (0, 1),
     }
 
 class InviteUser (davxml.WebDAVElement):
@@ -679,13 +689,13 @@ class InviteUser (davxml.WebDAVElement):
 
     allowed_children = {
         (calendarserver_namespace, "href" )              : (1, 1),
-        (calendarserver_namespace, "access" )            : (0, 1),
-        (calendarserver_namespace, "summary" )           : (0, 1),
         (calendarserver_namespace, "invite-noresponse" ) : (0, 1),
         (calendarserver_namespace, "invite-deleted" )    : (0, 1),
         (calendarserver_namespace, "invite-accepted" )   : (0, 1),
         (calendarserver_namespace, "invite-declined" )   : (0, 1),
         (calendarserver_namespace, "invite-invalid" )    : (0, 1),
+        (calendarserver_namespace, "access" )            : (1, 1),
+        (calendarserver_namespace, "summary" )           : (0, 1),
     }
 
 class InviteAccess (davxml.WebDAVElement):
@@ -693,8 +703,9 @@ class InviteAccess (davxml.WebDAVElement):
     name = "access"
 
     allowed_children = {
-        (calendarserver_namespace, "read" )      : (0, 1),
-        (calendarserver_namespace, "read-write" ): (0, 1),
+        (calendarserver_namespace, "read" )               : (0, 1),
+        (calendarserver_namespace, "read-write" )         : (0, 1),
+        (calendarserver_namespace, "read-write-schedule" ): (0, 1),
     }
 
 class Invite (davxml.WebDAVElement):
@@ -763,6 +774,23 @@ class InviteNotification (davxml.WebDAVElement):
         InviteSummary.qname()            : (0, 1),
     }
 
+    allowed_attributes = {
+        "shared-type" : True,
+    }
+
+class InviteReply (davxml.WebDAVElement):
+    namespace = calendarserver_namespace
+    name = "invite-reply"
+
+    allowed_children = {
+        (dav_namespace, "href")          : (0, 1),
+        InviteStatusAccepted.qname()     : (0, 1),
+        InviteStatusDeclined.qname()     : (0, 1),
+        HostURL.qname()                  : (0, 1),
+        InReplyTo.qname()                : (0, 1),
+        InviteSummary.qname()            : (0, 1),
+    }
+
 class ResourceUpdateAdded(davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "resource-added-notification"
@@ -809,8 +837,8 @@ class Notification (davxml.WebDAVElement):
     allowed_children = {
         DTStamp.qname()                            : (0, None),
         UID.qname()                                : (0, None),
-        Sequence.qname()                           : (0, None),
         InviteNotification.qname()                 : (0, None),
+        InviteReply.qname()                        : (0, None),
         ResourceUpdateNotification.qname()         : (0, None),
         SharedCalendarUpdateNotification.qname()   : (0, None),
     }
@@ -826,7 +854,7 @@ class NotificationURL (davxml.WebDAVElement):
 
     allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
-class NotificationType (davxml.WebDAVTextElement):
+class NotificationType (davxml.WebDAVElement):
     """
     A property to indicate what type of notification the resource represents.
     """
@@ -835,6 +863,10 @@ class NotificationType (davxml.WebDAVTextElement):
     hidden = True
     protected = True
 
+    allowed_children = {
+        InviteNotification.qname()                 : (0, None),
+        InviteReply.qname()                        : (0, None),
+    }
 
 ##
 # Extensions to davxml.ResourceType

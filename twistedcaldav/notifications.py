@@ -84,7 +84,7 @@ class NotificationCollectionResource(DAVResource):
         yield self._writeNotification(request, uid, rname, xmltype, xmldata)
 
         # Update database
-        self.notificationsDB().addOrUpdateRecord(NotificationRecord(uid, rname, xmltype))
+        self.notificationsDB().addOrUpdateRecord(NotificationRecord(uid, rname, xmltype.name))
 
     def _writeNotification(self, request, uid, rname, xmltype, xmldata):
         raise NotImplementedError
