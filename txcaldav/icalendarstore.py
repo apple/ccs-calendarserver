@@ -50,6 +50,7 @@ from datetime import datetime, date, tzinfo
 from twext.python.vcomponent import VComponent
 from txdav.idav import IPropertyStore
 
+
 #
 # Exceptions
 #
@@ -119,6 +120,7 @@ class InternalDataStoreError(CalendarStoreError):
     Uh, oh.
     """
 
+
 #
 # Interfaces
 #
@@ -126,6 +128,11 @@ class InternalDataStoreError(CalendarStoreError):
 class ICalendarHome(Interface):
     """
     Calendar home
+
+    A calendar home belongs to a specific principal and contains the
+    calendars which that principal has direct access to.  This
+    includes both calendars owned by the principal as well as
+    calendars that have been shared with and accepts by the principal.
     """
     def uid():
         """
@@ -178,9 +185,15 @@ class ICalendarHome(Interface):
         @return: an L{IPropertyStore}.
         """
 
+
 class ICalendar(Interface):
     """
     Calendar
+
+    A calendar is a container for calendar objects (events, to-dos,
+    etc.).  A calendar belongs to a specific principal but may be
+    shared with other principals, granting them read-only or
+    read/write access.
     """
     def ownerCalendarHome():
         """
@@ -292,9 +305,13 @@ class ICalendar(Interface):
         @return: an L{IPropertyStore}.
         """
 
+
 class ICalendarObject(Interface):
     """
-    Calendar object (event, to-do, etc.).
+    Calendar object
+
+    A calendar object decribes an event, to-do, or other iCalendar
+    object.
     """
     def setComponent(component):
         """
