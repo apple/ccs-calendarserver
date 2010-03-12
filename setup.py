@@ -120,7 +120,7 @@ if __name__ == "__main__":
         data_files       = [ ("caldavd", ["conf/caldavd.plist"]),
                              ("carddavd", ["conf/carddavd.plist" ])],
         ext_modules      = extensions,
-        py_modules       = ["kqreactor", "memcacheclient"],
+        py_modules       = ["memcacheclient"],
     )
 
     if "install" in dist.commands:
