@@ -35,7 +35,7 @@ set -u;
 
 wd="$(cd "$(dirname "$0")" && pwd)";
 
-. support/build.sh;
+. "${wd}/support/build.sh";
 
 DAVD="cal"
 

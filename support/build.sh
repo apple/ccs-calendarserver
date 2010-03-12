@@ -17,7 +17,7 @@
 # limitations under the License.
 ##
 
-. support/py.sh;
+. "${wd}/support/py.sh";
 
 # Provide a default value: if the variable named by the first argument is
 # empty, set it to the default in the second argument.
