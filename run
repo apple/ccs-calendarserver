@@ -35,7 +35,7 @@ set -u;
 
 wd="$(cd "$(dirname "$0")" && pwd)";
 
-. support/build.sh;
+. "${wd}/support/build.sh";
 
 DAVD="cal"
 
@@ -67,6 +67,7 @@ usage () {
   echo "	-S  Write a pstats object for each process to the given directory when the server is stopped.";
   echo "	-P  Select the twistd plugin name [${plugin_name}]";
   echo "	-R  Twisted Reactor plugin to execute [${reactor}]";
+  echo "	-a  Start in CardDAV mode";
 
   if [ "${1-}" == "-" ]; then
     return 0;

@@ -84,12 +84,6 @@ def usage(e=None):
         sys.exit(0)
 
 def main():
-    #
-    # Send logging output to stdout
-    #
-    observer = StandardIOObserver()
-    observer.start()
-
     try:
         (optargs, args) = getopt(
             sys.argv[1:], "hf:P:", [
@@ -193,6 +187,13 @@ def main():
         loadConfig(configFileName)
         setLogLevelForNamespace(None, "warn")
 
+        #
+        # Send logging output to stdout
+        #
+        observer = StandardIOObserver()
+        observer.start()
+
+
         # Shed privileges
         if config.UserName and config.GroupName and os.getuid() == 0:
             uid = getpwnam(config.UserName).pw_uid
@@ -227,7 +228,6 @@ def main():
             usage("Too many arguments")
 
         try:
-            print config.directory
             for record in config.directory.listRecords(listPrincipals):
                 print record
         except UnknownRecordTypeError, e:
@@ -374,7 +374,10 @@ def action_listProxies(principal, *proxyTypes):
 def action_addProxy(principal, proxyType, *proxyIDs):
     for proxyID in proxyIDs:
         proxyPrincipal = principalForPrincipalID(proxyID)
-        (yield action_addProxyPrincipal(principal, proxyType, proxyPrincipal))
+        if proxyPrincipal is None:
+            print "Invalid principal ID: %s" % (proxyID,)
+        else:
+            (yield action_addProxyPrincipal(principal, proxyType, proxyPrincipal))
 
 @inlineCallbacks
 def action_addProxyPrincipal(principal, proxyType, proxyPrincipal):
@@ -416,7 +419,10 @@ def addProxy(principal, proxyType, proxyPrincipal):
 def action_removeProxy(principal, *proxyIDs, **kwargs):
     for proxyID in proxyIDs:
         proxyPrincipal = principalForPrincipalID(proxyID)
-        (yield action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs))
+        if proxyPrincipal is None:
+            print "Invalid principal ID: %s" % (proxyID,)
+        else:
+            (yield action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs))
 
 @inlineCallbacks
 def action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs):
@@ -464,6 +470,14 @@ def action_setAutoSchedule(principal, autoSchedule):
         )
         (yield principal.setAutoSchedule(autoSchedule))
 
+        # Invalidate the directory cache by updating this record
+        config.directory.updateRecord(principal.record.recordType,
+            guid=principal.record.guid,
+            shortNames=principal.record.shortNames,
+            fullName=principal.record.fullName,
+            **principal.record.extras
+        )
+
 def action_getAutoSchedule(principal):
     autoSchedule = principal.getAutoSchedule()
     print "Autoschedule for %s is %s" % (
@@ -473,6 +487,8 @@ def action_getAutoSchedule(principal):
 
 @inlineCallbacks
 def _run(directory, root, optargs, principalIDs):
+
+    print sys.path
 
     print ""
 

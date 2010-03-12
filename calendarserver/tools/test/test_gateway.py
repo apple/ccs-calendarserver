@@ -117,7 +117,7 @@ class GatewayTestCase(TestCase):
         self.assertEquals(results['result']['Street'], "1 Infinite Loop")
         self.assertEquals(results['result']['RealName'], "Created Location 01")
         self.assertEquals(results['result']['Comment'], "Test Comment")
-        self.assertEquals(results['result']['AutoSchedule'], False)
+        self.assertEquals(results['result']['AutoSchedule'], True)
 
     @inlineCallbacks
     def test_getResourceList(self):
@@ -140,8 +140,15 @@ class GatewayTestCase(TestCase):
         yield self.runCommand(command_createLocation)
 
         directory.flushCaches()
+
+        # This appears to be necessary in order for record.autoSchedule to
+        # reflect the change prior to the directory record expiration
+        augment.AugmentService.refresh()
+
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
+
         self.assertNotEquals(record, None)
+        self.assertEquals(record.autoSchedule, True)
 
         self.assertEquals(record.extras['comment'], "Test Comment")
         self.assertEquals(record.extras['building'], "Test Building")

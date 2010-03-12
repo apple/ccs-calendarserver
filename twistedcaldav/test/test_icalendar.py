@@ -23,7 +23,7 @@ import itertools
 from twisted.trial.unittest import SkipTest
 
 from twistedcaldav.ical import Component, parse_date, parse_datetime,\
-    parse_date_or_datetime, parse_duration, Property
+    parse_date_or_datetime, parse_duration, Property, InvalidICalendarDataError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 import twistedcaldav.test.util
 
@@ -3123,3 +3123,100 @@ END:VCALENDAR
                     self.assertEqual(str(ical1), str(ical2), "Failed comparison: %s\n%s" % (title, diff,))
             elif changed:
                 self.fail("Truncation happened when not expected: %s" % (title,))
+
+    def test_mismatched_until(self):
+        invalid = (
+            """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iCal 3.0//EN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:FB81D520-ED27-4DBA-8894-45B7612A7621
+DTSTART;TZID=US/Pacific:20090705T100000
+DTEND;TZID=US/Pacific:20090730T103000
+CREATED:20090604T225706Z
+DTSTAMP:20090604T230500Z
+RRULE:FREQ=DAILY;INTERVAL=1;UNTIL=20090706
+SEQUENCE:1
+SUMMARY:TEST
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:FB81D520-ED27-4DBA-8894-45B7612A7621
+RECURRENCE-ID;TZID=US/Pacific:20090705T100000
+DTSTART;TZID=US/Pacific:20090705T114500
+DTEND;TZID=US/Pacific:20090705T121500
+CREATED:20090604T225706Z
+DTSTAMP:20090604T230504Z
+SEQUENCE:2
+SUMMARY:TEST
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+""",
+            """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.2//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100311T234221Z
+UID:D0151FAD-4739-4B61-96EB-9289FF1F7716
+DTEND;VALUE=DATE:20100316
+RRULE:FREQ=WEEKLY;INTERVAL=1;UNTIL=20110604T225706Z
+TRANSP:TRANSPARENT
+SUMMARY:ALL DAY
+DTSTART;VALUE=DATE:20100315
+DTSTAMP:20100312T002640Z
+SEQUENCE:5
+END:VEVENT
+END:VCALENDAR
+""",
+        )
+
+        valid = (
+            """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.2//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100311T234221Z
+UID:D0151FAD-4739-4B61-96EB-9289FF1F7716
+DTEND;VALUE=DATE:20100316
+RRULE:FREQ=WEEKLY;INTERVAL=1;UNTIL=20110316
+TRANSP:TRANSPARENT
+SUMMARY:ALL DAY
+DTSTART;VALUE=DATE:20100315
+DTSTAMP:20100312T002640Z
+SEQUENCE:5
+END:VEVENT
+END:VCALENDAR
+""",
+        )
+
+
+        for text in invalid:
+            calendar = Component.fromString(text)
+            self.assertRaises(InvalidICalendarDataError, calendar.validateForCalDAV)
+        for text in valid:
+            calendar = Component.fromString(text)
+            try:
+                calendar.validateForCalDAV()
+            except:
+                self.fail("Valid calendar should validate")

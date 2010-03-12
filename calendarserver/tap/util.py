@@ -17,6 +17,7 @@
 
 __all__ = [
     "getRootResource",
+    "FakeRequest",
 ]
 
 import errno
@@ -26,6 +27,7 @@ from time import sleep
 from twisted.python.reflect import namedClass
 from twisted.internet import reactor
 from twisted.cred.portal import Portal
+from twext.web2.http_headers import Headers
 from twext.web2.dav import auth
 from twext.web2.auth.basic import BasicCredentialFactory
 from twext.web2.static import File as FileResource
@@ -34,7 +36,6 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
 
 from twistedcaldav import memcachepool
-from twistedcaldav.accesslog import DirectoryLogWrapperResource
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
@@ -50,6 +51,7 @@ from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.static import AddressBookHomeProvisioningFile, DirectoryBackedAddressBookFile
 from twistedcaldav.timezones import TimezoneCache
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -57,6 +59,7 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
+from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
@@ -428,4 +431,50 @@ def getRootResource(config, resources=None):
     )
 
     return logWrapper
+
+
+
+
+class FakeRequest(object):
+
+    def __init__(self, rootResource, method, path):
+        self.rootResource = rootResource
+        self.method = method
+        self.path = path
+        self._resourcesByURL = {}
+        self._urlsByResource = {}
+        self.headers = Headers()
+
+    @inlineCallbacks
+    def _getChild(self, resource, segments):
+        if not segments:
+            returnValue(resource)
+
+        child, remaining = (yield resource.locateChild(self, segments))
+        returnValue((yield self._getChild(child, remaining)))
+
+    @inlineCallbacks
+    def locateResource(self, url):
+        url = url.strip("/")
+        segments = url.split("/")
+        resource = (yield self._getChild(self.rootResource, segments))
+        if resource:
+            self._rememberResource(resource, url)
+        returnValue(resource)
+
+    def _rememberResource(self, resource, url):
+        self._resourcesByURL[url] = resource
+        self._urlsByResource[resource] = url
+        return resource
+
+    def urlForResource(self, resource):
+        url = self._urlsByResource.get(resource, None)
+        if url is None:
+            class NoURLForResourceError(RuntimeError):
+                pass
+            raise NoURLForResourceError(resource)
+        return url
+
+    def addResponseFilter(*args, **kwds):
+        pass
 

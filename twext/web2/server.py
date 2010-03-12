@@ -489,14 +489,6 @@ class Request(http.Request):
                 "URL may not contain a query or fragment: %s" % (url,)
             ))
 
-        # The caller shouldn't be asking a request on one server to lookup a
-        # resource on some other server.
-        if (scheme and scheme != self.scheme) or (host and host != self.headers.getHeader("host")):
-            raise http.HTTPError(http.StatusResponse(
-                responsecode.BAD_GATEWAY,
-                "URL is not on this site (%s://%s/): %s" % (scheme, self.headers.getHeader("host"), url)
-            ))
-
         # Look for cached value
         cached = self._resourcesByURL.get(path, None)
         if cached is not None:

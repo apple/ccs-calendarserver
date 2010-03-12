@@ -60,9 +60,6 @@ except ImportError:
     from version import version as getVersion
     version = "%s (%s)" % getVersion()
 
-from twistedcaldav.accesslog import AMPCommonAccessLoggingObserver
-from twistedcaldav.accesslog import AMPLoggingFactory
-from twistedcaldav.accesslog import RotatingFileAccessLoggingObserver
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
@@ -81,10 +78,13 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
+from calendarserver.accesslog import AMPCommonAccessLoggingObserver
+from calendarserver.accesslog import AMPLoggingFactory
+from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.provision.root import RootResource
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
-from calendarserver.util import getRootResource
+from calendarserver.tap.util import getRootResource
 
 log = Logger()
 
@@ -784,7 +784,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         for p in xrange(0, config.MultiProcess.ProcessCount):
             process = TwistdSlaveProcess(
-                config.Twisted.twistd,
+                sys.argv[0],
                 self.tapname,
                 options["config"],
                 p,
@@ -825,7 +825,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             notificationsArgv = [
                 sys.executable,
-                config.Twisted.twistd,
+                sys.argv[0],
             ]
             if config.UserName:
                 notificationsArgv.extend(("-u", config.UserName))
@@ -847,7 +847,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             mailGatewayArgv = [
                 sys.executable,
-                config.Twisted.twistd,
+                sys.argv[0],
             ]
             if config.UserName:
                 mailGatewayArgv.extend(("-u", config.UserName))
@@ -864,7 +864,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("Adding task service")
         taskArgv = [
             sys.executable,
-            config.Twisted.twistd,
+            sys.argv[0],
         ]
         if config.UserName:
             taskArgv.extend(("-u", config.UserName))
@@ -881,7 +881,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         stats = CalDAVStatisticsServer(logger) 
         statsService = GroupOwnedUNIXServer(
-            gid, config.GlobalStatsSocket, stats, mode=0660
+            gid, config.GlobalStatsSocket, stats, mode=0440
         )
         statsService.setName("stats")
         statsService.setServiceParent(s)
@@ -1076,7 +1076,7 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
     def startProcess(self, name):
         if self.protocols.has_key(name):
             return
-        p = self.protocols[name] = procmon.LoggingProtocol()
+        p = self.protocols[name] = DelayedStartupLoggingProtocol()
         p.service = self
         p.name = name
         args, uid, gid, env = self.processes[name]
@@ -1094,6 +1094,74 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
 
         spawnProcess(p, args[0], args, uid=uid, gid=gid, env=env,
             childFDs=childFDs)
+
+
+class DelayedStartupLineLogger(object):
+    """
+    A line logger that can handle very long lines.
+    """
+
+    MAX_LENGTH = 1024
+    tag = None
+    exceeded = False            # Am I in the middle of parsing a long line?
+    _buffer = ''
+
+    def makeConnection(self, transport):
+        """
+        Ignore this IProtocol method, since I don't need a transport.
+        """
+
+
+    def dataReceived(self, data):
+        lines = (self._buffer + data).split("\n")
+        while len(lines) > 1:
+            line = lines.pop(0)
+            if len(line) > self.MAX_LENGTH:
+                self.lineLengthExceeded(line)
+            elif self.exceeded:
+                self.lineLengthExceeded(line)
+                self.exceeded = False
+            else:
+                self.lineReceived(line)
+        lastLine = lines.pop(0)
+        if len(lastLine) > self.MAX_LENGTH:
+            self.lineLengthExceeded(lastLine)
+            self.exceeded = True
+            self._buffer = ''
+        else:
+            self._buffer = lastLine
+
+
+    def lineReceived(self, line):
+        from twisted.python.log import msg
+        msg('[%s] %s' % (self.tag, line))
+
+
+    def lineLengthExceeded(self, line):
+        """
+        A very long line is being received.  Log it immediately and forget
+        about buffering it.
+        """
+        for i in range(len(line)/self.MAX_LENGTH):
+            self.lineReceived(line[i*self.MAX_LENGTH:(i+1)*self.MAX_LENGTH]
+                              + " (truncated, continued)")
+
+
+
+class DelayedStartupLoggingProtocol(procmon.LoggingProtocol, object):
+    """
+    Logging protocol that handles lines which are too long.
+    """
+
+    def connectionMade(self):
+        """
+        Replace the superclass's output monitoring logic with one that can
+        handle lineLengthExceeded.
+        """
+        super(DelayedStartupLoggingProtocol, self).connectionMade()
+        self.output = DelayedStartupLineLogger()
+        self.output.tag = self.name
+
 
 
 def getSSLPassphrase(*ignored):

@@ -351,6 +351,8 @@ class XMLDirectoryService(CachingDirectoryService):
 
         self._persistRecords(accountsElement)
 
+        return self.recordWithGUID(guid)
+
 
     def destroyRecord(self, recordType, guid=None):
         """
@@ -407,6 +409,12 @@ class XMLDirectoryService(CachingDirectoryService):
 
         self._persistRecords(accountsElement)
 
+        # Force a cache update - both local and memcached
+        self.queryDirectory([recordType], self.INDEX_TYPE_GUID, guid)
+        for shortName in shortNames:
+            self.queryDirectory([recordType], self.INDEX_TYPE_SHORTNAME, shortName)
+
+        return self.recordWithGUID(guid)
 
 class XMLDirectoryRecord(CachingDirectoryRecord):
     """

@@ -17,7 +17,7 @@
 # limitations under the License.
 ##
 
-. support/py.sh;
+. "${wd}/support/py.sh";
 
 # Provide a default value: if the variable named by the first argument is
 # empty, set it to the default in the second argument.
@@ -491,9 +491,9 @@ dependencies () {
     "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
     "ftp://ftp.pygresql.org/pub/distrib/PyGreSQL.tgz";
 
-  py_dependency -v 10 -r 27606 \
+  py_dependency -v 10 -r 28657 \
     "Twisted" "twisted" "Twisted" \
-    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-9.0.0";
+    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-10.0.0";
 
   py_dependency \
     "dateutil" "dateutil" "python-dateutil-1.4.1" \

@@ -53,7 +53,7 @@ DEFAULT_SERVICE_PARAMS = {
 DEFAULT_RESOURCE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "resources.xml",
-        "cacheTimeout": 30,
+        "cacheTimeout": 1,
         "recordTypes" : ("locations", "resources"),
     },
 }
@@ -489,7 +489,6 @@ DEFAULT_CONFIG = {
 
     # Twisted
     "Twisted": {
-        "twistd": "/usr/share/caldavd/bin/twistd",
         "reactor": "select",
     },
 

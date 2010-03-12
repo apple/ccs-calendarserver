@@ -162,6 +162,16 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 "outstandingRequests" : request.chanRequest.channel.factory.outstandingRequests,
                 "fwd"                 : forwardedFor,
             }
+
+            # sanitize output to mitigate log injection
+            for k,v in formatArgs.items():
+                if not isinstance(v, basestring):
+                    continue
+                v = v.replace("\r", "\\r")
+                v = v.replace("\n", "\\n")
+                v = v.replace("\"", "\\\"")
+                formatArgs[k] = v
+
             self.logMessage(format % formatArgs)
 
         elif "overloaded" in eventDict:
