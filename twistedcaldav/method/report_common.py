@@ -478,6 +478,8 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
 
         # Short-cut - if an fbtype exists we can use that
         if type == "VEVENT" and aggregated_resources[key][0][3] != '?':
+
+            matchedResource = False
             
             # Look at each instance
             for float, start, end, fbtype in aggregated_resources[key]:
@@ -516,7 +518,14 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
 
                 # Double check for overlap
                 if clipped:
+                    matchedResource = True
                     fbinfo[fbtype_index_mapper.get(fbtype, 0)].append(clipped)
+
+            if matchedResource:
+                # Check size of results is within limit
+                matchtotal += 1
+                if matchtotal > max_number_of_matches:
+                    raise NumberOfMatchesWithinLimits(max_number_of_matches)
                 
         else:
             calendar = calresource.iCalendar(name)
