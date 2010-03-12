@@ -27,20 +27,20 @@ import os
 import xattr
 
 from twisted.python.failure import Failure
+from twisted.internet.base import DelayedCall
 from twisted.internet.defer import succeed, fail
-from twext.web2.http import HTTPError, StatusResponse
 from twisted.internet.error import ProcessDone
 from twisted.internet.protocol import ProcessProtocol
+
+from twext.python.memcacheclient import ClientFactory
+import twext.web2.dav.test.util
+from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import memcacher
 from twistedcaldav.config import config
 from twistedcaldav.stdconfig import _updateDataStore
 from twistedcaldav.static import CalDAVFile
-import memcacheclient
 
-import twext.web2.dav.test.util
-
-from twisted.internet.base import DelayedCall
 DelayedCall.debug = True
 
 def _todo(f, why):
@@ -73,7 +73,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
 
         config.Memcached.Pools.Default.ClientEnabled = False
         config.Memcached.Pools.Default.ServerEnabled = False
-        memcacheclient.ClientFactory.allowTestCache = True
+        ClientFactory.allowTestCache = True
         memcacher.Memcacher.allowTestCache = True
 
     def createHierarchy(self, structure, root=None):
