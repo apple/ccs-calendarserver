@@ -1320,6 +1320,23 @@ class Component (object):
                 else:
                     component_rids.add(rid)
 
+                # Check for mismatch in DTSTART and UNTIL value type
+                # If they're not both date or both date-time, raise error
+                if (subcomponent.hasProperty("DTSTART") and
+                    subcomponent.hasProperty("RRULE")):
+                    dtType = type(subcomponent.getProperty("DTSTART").value())
+                    for rrule in subcomponent.properties("RRULE"):
+                        indexedTokens = {}
+                        indexedTokens.update([valuePart.split("=")
+                            for valuePart in rrule.value().split(";")])
+                        until = indexedTokens.get('UNTIL', None)
+                        if until:
+                            untilType = datetime.date if len(until) == 8 else datetime.datetime
+                            if untilType is not dtType:
+                                msg = "Calendar resources must have matching type for DTSTART and UNTIL"
+                                log.debug(msg)
+                                raise InvalidICalendarDataError(msg)
+
                 timezone_refs.update(subcomponent.timezoneIDs())
         
         #
