@@ -27,7 +27,7 @@ from datetime import date, timedelta
 from getopt import getopt, GetoptError
 from twext.python.log import Logger
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config, ConfigurationError
@@ -139,7 +139,6 @@ def main():
 
 @inlineCallbacks
 def purgeThenStop(directory, rootResource, cutoff, verbose=False, dryrun=False):
-    exitCode = 0
     try:
         count = (yield purgeOldEvents(directory, rootResource, cutoff,
             verbose=verbose, dryrun=dryrun))
