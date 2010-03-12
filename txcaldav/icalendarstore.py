@@ -39,6 +39,7 @@ __all__ = [
     "InternalDataStoreError",
 
     # Classes
+    "ICalendarStore",
     "ICalendarHome",
     "ICalendar",
     "ICalendarObject",
@@ -125,6 +126,23 @@ class InternalDataStoreError(CalendarStoreError):
 # Interfaces
 #
 
+class ICalendarStore(Interface):
+    """
+    Calendar store
+    """
+    def calendarHomeWithUID(uid, create=False):
+        """
+        Retrieve the calendar home for the principal with the given
+        C{uid}.
+
+        If C{create} is true, create the calendar home if it doesn't
+        already exist.
+
+        @return: an L{ICalendarHome} or C{None} if no such calendar
+        home exists.
+        """
+
+
 class ICalendarHome(Interface):
     """
     Calendar home
@@ -134,6 +152,14 @@ class ICalendarHome(Interface):
     includes both calendars owned by the principal as well as
     calendars that have been shared with and accepts by the principal.
     """
+    # FIXME: We need a principal interface somewhere, possibly part of
+    # an idirectory rework.  IDirectoryRecord may be close...
+    #def owner():
+    #    """
+    #    Retrieve the owner principal for this calendar home.
+    #    @return: a ???
+    #    """
+
     def uid():
         """
         Retrieve the unique identifier for this calendar home.
