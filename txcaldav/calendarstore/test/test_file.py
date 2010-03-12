@@ -27,7 +27,8 @@ from twext.python.vcomponent import VComponent
 
 from txdav.idav import IPropertyStore
 
-from txcaldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject
+from txcaldav.icalendarstore import ICalendarStore, ICalendarHome
+from txcaldav.icalendarstore import ICalendar, ICalendarObject
 from txcaldav.icalendarstore import CalendarNameNotAllowedError
 from txcaldav.icalendarstore import CalendarObjectNameNotAllowedError
 from txcaldav.icalendarstore import CalendarAlreadyExistsError
@@ -169,15 +170,14 @@ class CalendarStoreTest(unittest.TestCase):
     def setUp(self):
         setUpCalendarStore(self)
 
-    # FIXME: If we define an interface
-    #def test_interface(self):
-    #    """
-    #    Interface is completed and conforming.
-    #    """
-    #    try:
-    #        verifyObject(ICalendarStore, self.calendarstore)
-    #    except BrokenMethodImplementation, e:
-    #        self.fail(e)
+    def test_interface(self):
+        """
+        Interface is completed and conforming.
+        """
+        try:
+            verifyObject(ICalendarStore, self.calendarStore)
+        except BrokenMethodImplementation, e:
+            self.fail(e)
 
     def test_init(self):
         """
