@@ -205,6 +205,26 @@ class CalendarStoreTest(unittest.TestCase):
             None
         )
 
+    def test_calendarHomeWithUID_create(self):
+        """
+        Create missing calendar home.
+        """
+        calendarHome = self.calendarStore.calendarHomeWithUID(
+            "xyzzy",
+            create=True
+        )
+
+        self.failUnless(isinstance(calendarHome, CalendarHome))
+        self.failUnless(calendarHome.path.isdir())
+
+    def test_calendarHomeWithUID_create_exists(self):
+        """
+        Create missing calendar home.
+        """
+        calendarHome = self.calendarStore.calendarHomeWithUID("home1")
+
+        self.failUnless(isinstance(calendarHome, CalendarHome))
+
     def test_calendarHomeWithUID_dot(self):
         """
         Filenames starting with "." are reserved by this
