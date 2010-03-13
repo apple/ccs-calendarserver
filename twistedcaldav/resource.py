@@ -280,7 +280,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         isvirt = (yield self.isVirtualShare(request))
         if self.isShadowableProperty(qname):
             if isvirt:
-                ownerPrincipal = (yield self.ownerPrincipal(request))
+                ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
                 p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
                 if p is not None:
                     returnValue(p)
@@ -289,7 +289,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                 returnValue(res)
             
         elif (not self.isGlobalProperty(qname)) and isvirt:
-            ownerPrincipal = (yield self.ownerPrincipal(request))
+            ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
             p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
             if p is not None:
                 returnValue(p)
@@ -339,7 +339,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                 # it and default to the old free-busy-set value.
                 if self.isCalendarCollection() and not self.hasDeadProperty(property):
                     # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-                    principal = (yield self.ownerPrincipal(request))
+                    principal = (yield self.resourceOwnerPrincipal(request))
                     fbset = (yield principal.calendarFreeBusyURIs(request))
                     url = (yield self.canonicalURL(request))
                     opaque = url in fbset
@@ -362,7 +362,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         # Per-user Dav props currently only apply to a sharee's copy of a calendar
         isvirt = (yield self.isVirtualShare(request))
         if isvirt and (self.isShadowableProperty(property.qname()) or (not self.isGlobalProperty(property.qname()))):
-            ownerPrincipal = (yield self.ownerPrincipal(request))
+            ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
             p = (yield self.deadProperties().set(property, uid=ownerPrincipal.principalUID()))
             returnValue(p)
  
@@ -409,7 +409,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                 ))
 
             # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-            principal = (yield self.ownerPrincipal(request))
+            principal = (yield self.resourceOwnerPrincipal(request))
             
             # Map owner to their inbox
             inboxURL = principal.scheduleInboxURL()
@@ -539,6 +539,14 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         d = self.locateParent(request, request.urlForResource(self))
         d.addCallback(_gotParent)
         return d
+
+    def resourceOwnerPrincipal(self, request):
+        """
+        This is the owner of the resource based on the URI used to access it. For a shared
+        collection it will be the sharee, whereas the ownerPrincipal for a shared collection
+        will be the sharer.
+        """
+        return self.ownerPrincipal(request)
 
     def isOwner(self, request, adminprincipals=False, readprincipals=False):
         """
@@ -696,7 +704,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         """
         
         # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-        principal = (yield self.ownerPrincipal(request))
+        principal = (yield self.resourceOwnerPrincipal(request))
         inboxURL = principal.scheduleInboxURL()
         if inboxURL:
             inbox = (yield request.locateResource(inboxURL))
@@ -709,7 +717,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         """
         
         # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-        principal = (yield self.ownerPrincipal(request))
+        principal = (yield self.resourceOwnerPrincipal(request))
         inboxURL = principal.scheduleInboxURL()
         if inboxURL:
             (_ignore_scheme, _ignore_host, destination_path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(destination_uri))
@@ -738,7 +746,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         assert self.isCalendarCollection()
         
         # Not allowed to delete the default calendar
-        principal = (yield self.ownerPrincipal(request))
+        principal = (yield self.resourceOwnerPrincipal(request))
         inboxURL = principal.scheduleInboxURL()
         if inboxURL:
             inbox = (yield request.locateResource(inboxURL))
