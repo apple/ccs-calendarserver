@@ -27,7 +27,7 @@ except ImportError:
 
 from zope.interface import implements
 
-from twisted.python import log, failure
+from twisted.python import log
 from twisted.internet import main, posixbase
 from twisted.internet.interfaces import IReactorFDSet
 

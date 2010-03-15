@@ -385,7 +385,6 @@ class Client(local):
         for server in dead_servers:
             del server_keys[server]
 
-        notstored = [] # original keys.
         for server, keys in server_keys.iteritems():
             try:
                 for key in keys:
