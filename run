@@ -121,7 +121,7 @@ run () {
       echo "Missing config file: ${config}";
       echo "You might want to start by copying the test configuration:";
       echo "";
-      echo "  cp conf/${DAVD}davd-test.plist conf/caldavd-dev.plist";
+      echo "  cp conf/${DAVD}davd-test.plist conf/${DAVD}davd-dev.plist";
       echo "";
       exit 1;
     fi;
