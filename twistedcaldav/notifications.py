@@ -73,8 +73,8 @@ class NotificationCollectionResource(DAVResource):
     def isCollection(self):
         return True
 
-    def resourceType(self):
-        return davxml.ResourceType.notification
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.notification)
 
     @inlineCallbacks
     def addNotification(self, request, uid, xmltype, xmldata):

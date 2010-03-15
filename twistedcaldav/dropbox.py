@@ -32,14 +32,16 @@ from twext.python.log import Logger
 
 from twistedcaldav.customxml import calendarserver_namespace
 
+from twisted.internet.defer import succeed
+
 log = Logger()
 
 class DropBoxHomeResource (DAVResource):
     """
     Drop box collection resource.
     """
-    def resourceType(self):
-        return davxml.ResourceType.dropboxhome
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.dropboxhome)
 
     def isCollection(self):
         return True
@@ -51,8 +53,8 @@ class DropBoxCollectionResource (DAVResource):
     """
     Drop box resource.
     """
-    def resourceType(self):
-        return davxml.ResourceType.dropbox
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.dropbox)
 
     def isCollection(self):
         return True

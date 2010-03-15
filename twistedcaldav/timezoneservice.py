@@ -28,10 +28,11 @@ from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.http import HTTPError
 from twext.web2.http import Response
+from twext.web2.http import XMLResponse
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
-from twext.web2.http import XMLResponse
+from twisted.internet.defer import succeed
 
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
@@ -72,8 +73,8 @@ class TimezoneServiceResource (CalDAVResource):
             ),
         )
 
-    def resourceType(self):
-        return davxml.ResourceType.timezones
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.timezones)
 
     def isCollection(self):
         return False

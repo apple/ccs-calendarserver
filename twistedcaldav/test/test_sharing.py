@@ -81,13 +81,15 @@ class SharingTests(TestCase):
     def test_upgradeToShareOnCreate(self):
         request = SimpleRequest(self.site, "MKCOL", "/calendar/")
 
-        self.assertEquals(self.resource.resourceType(), davxml.ResourceType.calendar)
+        rtype = (yield self.resource.resourceType(request))
+        self.assertEquals(rtype, davxml.ResourceType.calendar)
         propInvite = (yield self.resource.readProperty(customxml.Invite, request))
         self.assertEquals(propInvite, None)
 
         yield self.resource.upgradeToShare(request)
 
-        self.assertEquals(self.resource.resourceType(), davxml.ResourceType.sharedcalendar)
+        rtype = (yield self.resource.resourceType(request))
+        self.assertEquals(rtype, davxml.ResourceType.sharedcalendar)
         propInvite = (yield self.resource.readProperty(customxml.Invite, request))
         self.assertEquals(propInvite, customxml.Invite())
         
@@ -100,13 +102,15 @@ class SharingTests(TestCase):
     def test_upgradeToShareAfterCreate(self):
         request = SimpleRequest(self.site, "PROPPATCH", "/calendar/")
 
-        self.assertEquals(self.resource.resourceType(), davxml.ResourceType.calendar)
+        rtype = (yield self.resource.resourceType(request))
+        self.assertEquals(rtype, davxml.ResourceType.calendar)
         propInvite = (yield self.resource.readProperty(customxml.Invite, request))
         self.assertEquals(propInvite, None)
 
         self.assertRaises(HTTPError, self.resource.upgradeToShare, request)
 
-        self.assertEquals(self.resource.resourceType(), davxml.ResourceType.calendar)
+        rtype = (yield self.resource.resourceType(request))
+        self.assertEquals(rtype, davxml.ResourceType.calendar)
         propInvite = (yield self.resource.readProperty(customxml.Invite, request))
         self.assertEquals(propInvite, None)
         
@@ -117,15 +121,19 @@ class SharingTests(TestCase):
 
     @inlineCallbacks
     def test_downgradeFromShare(self):
+        request = SimpleRequest(self.site, "PROPPATCH", "/calendar/")
+
         self.resource.writeDeadProperty(davxml.ResourceType.sharedcalendar)
         self.resource.writeDeadProperty(customxml.Invite())
-        self.assertEquals(self.resource.resourceType(), davxml.ResourceType.sharedcalendar)
+        rtype = (yield self.resource.resourceType(request))
+        self.assertEquals(rtype, davxml.ResourceType.sharedcalendar)
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(propInvite, customxml.Invite())
 
         yield self.resource.downgradeFromShare(None)
 
-        self.assertEquals(self.resource.resourceType(), davxml.ResourceType.calendar)
+        rtype = (yield self.resource.resourceType(request))
+        self.assertEquals(rtype, davxml.ResourceType.calendar)
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(propInvite, None)
         

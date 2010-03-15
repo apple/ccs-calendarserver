@@ -266,6 +266,19 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         """
         if qname == (u'DAV:', u'displayname'): return False # XXX HACK
         if qname in self.liveProperties:
+            if qname in (
+                davxml.DisplayName.qname(),
+                customxml.Invite.qname(),
+            ):
+                return False
+            else:
+                return True
+        elif qname in (
+            customxml.GETCTag.qname(),
+            caldavxml.MaxResourceSize.qname(),
+            caldavxml.MaxAttendeesPerInstance.qname(),
+            caldavxml.ScheduleCalendarTransp.qname(),
+        ):
             return True
         else:
             return False
@@ -291,8 +304,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         elif (not self.isGlobalProperty(qname)) and isvirt:
             ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
             p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
-            if p is not None:
-                returnValue(p)
+            returnValue(p)
 
         res = (yield self._readGlobalProperty(qname, property, request))
         returnValue(res)
@@ -469,7 +481,12 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
     # FIXME: Perhaps this is better done in authorize() instead.
     @inlineCallbacks
     def accessControlList(self, request, *args, **kwargs):
-        acls = (yield super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
+
+        isvirt = (yield self.isVirtualShare(request))
+        if isvirt:
+            acls = self.shareeAccessControlList()
+        else:
+            acls = (yield super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
 
         # Look for private events access classification
         if self.hasDeadProperty(TwistedCalendarAccessProperty):
@@ -515,30 +532,38 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
  
         returnValue(acls)
 
+    @inlineCallbacks
     def owner(self, request):
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
         
-        def _gotParent(parent):
-            if parent and isinstance(parent, CalDAVResource):
-                return parent.owner(request)
+        isVirt = (yield self.isVirtualShare(request))
+        if isVirt:
+            parent = (yield self.locateParent(request, self._share.hosturl))
+        else:
+            parent = (yield self.locateParent(request, request.urlForResource(self)))
+        if parent and isinstance(parent, CalDAVResource):
+            result = (yield parent.owner(request))
+            returnValue(result)
+        else:
+            returnValue(None)
 
-        d = self.locateParent(request, request.urlForResource(self))
-        d.addCallback(_gotParent)
-        return d
-
+    @inlineCallbacks
     def ownerPrincipal(self, request):
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        def _gotParent(parent):
-            if parent and isinstance(parent, CalDAVResource):
-                return parent.ownerPrincipal(request)
-
-        d = self.locateParent(request, request.urlForResource(self))
-        d.addCallback(_gotParent)
-        return d
+        isVirt = (yield self.isVirtualShare(request))
+        if isVirt:
+            parent = (yield self.locateParent(request, self._share.hosturl))
+        else:
+            parent = (yield self.locateParent(request, request.urlForResource(self)))
+        if parent and isinstance(parent, CalDAVResource):
+            result = (yield parent.ownerPrincipal(request))
+            returnValue(result)
+        else:
+            returnValue(None)
 
     def resourceOwnerPrincipal(self, request):
         """
@@ -1282,8 +1307,8 @@ class SearchAddressBookResource (CalDAVResource):
 
         self.parent = parent
 
-    def resourceType(self):
-        return davxml.ResourceType.searchaddressbook #@UndefinedVariable
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.searchaddressbook)
 
     def renderHTTP(self, request):
         return RedirectResponse(request.unparseURL(path="/directory/"))
@@ -1303,8 +1328,8 @@ class SearchAllAddressBookResource (CalDAVResource):
 
         self.parent = parent
 
-    def resourceType(self):
-        return davxml.ResourceType.searchalladdressbook #@UndefinedVariable
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.searchalladdressbook)
 
     def renderHTTP(self, request):
         

@@ -13,28 +13,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-
-from twext.python.log import LoggingMixIn
-from twext.web2 import responsecode
-from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
-from twext.web2.dav.util import allDataFromStream
-from twext.web2.http import HTTPError, Response, StatusResponse
-from twisted.internet.defer import succeed, inlineCallbacks, DeferredList,\
-    returnValue, fail
-from twistedcaldav.config import config
-from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
-from uuid import uuid4
-from vobject.icalendar import dateTimeToString, utc
-import datetime
-import os
-import types
+from twext.web2.dav.resource import TwistedACLInheritable
 
 __all__ = [
     "SharedCollectionMixin",
 ]
 
-from twistedcaldav import customxml
+from twext.python.log import LoggingMixIn
+from twext.web2 import responsecode
 from twext.web2.dav import davxml
+from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
+from twext.web2.dav.util import allDataFromStream, joinURL
+from twext.web2.http import HTTPError, Response, StatusResponse
+
+from twisted.internet.defer import succeed, inlineCallbacks, DeferredList,\
+    returnValue, fail
+
+from twistedcaldav import customxml, caldavxml
+from twistedcaldav.config import config
+from twistedcaldav.extensions import updateCacheTokenOnCallback
+from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
+
+from uuid import uuid4
+
+from vobject.icalendar import dateTimeToString, utc
+
+import datetime
+import os
+import types
 
 """
 Sharing behavior
@@ -61,6 +67,7 @@ class SharedCollectionMixin(object):
                 return None
         return self.isShared(request).addCallback(sharedOK)
 
+    @inlineCallbacks
     def upgradeToShare(self, request):
         """ Upgrade this collection to a shared state """
         
@@ -69,21 +76,21 @@ class SharedCollectionMixin(object):
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Cannot upgrade to shared calendar"))
 
         # Change resourcetype
-        rtype = self.resourceType()
+        rtype = (yield self.resourceType(request))
         rtype = davxml.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
         self.writeDeadProperty(rtype)
         
         # Create invites database
         self.invitesDB().create()
 
-        return succeed(True)
+        returnValue(True)
     
     @inlineCallbacks
     def downgradeFromShare(self, request):
         
         # Change resource type (note this might be called after deleting a resource
         # so we have to cope with that)
-        rtype = self.resourceType()
+        rtype = (yield self.resourceType(request))
         rtype = davxml.ResourceType(*([child for child in rtype.children if child != customxml.SharedOwner()]))
         self.writeDeadProperty(rtype)
         
@@ -133,10 +140,36 @@ class SharedCollectionMixin(object):
         """ Return True if this is an owner shared calendar collection """
         return succeed(self.isSpecialCollection(customxml.SharedOwner))
 
+    def setVirtualShare(self, shareePrincipal, share):
+        self._isVirtualShare = True
+        self._shareePrincipal = shareePrincipal
+        self._share = share
+
     def isVirtualShare(self, request):
         """ Return True if this is a shared calendar collection """
-        return succeed(self.isSpecialCollection(customxml.Shared))
+        return succeed(hasattr(self, "_isVirtualShare"))
 
+    def removeVirtualShare(self, request):
+        """ Return True if this is a shared calendar collection """
+        
+        # Remove from sharee's calendar home
+        shareeHome = self._shareePrincipal.calendarHome()
+        return shareeHome.removeShare(request, self._share)
+
+    @inlineCallbacks
+    def resourceType(self, request):
+        
+        rtype = (yield super(SharedCollectionMixin, self).resourceType(request))
+        isVirt = (yield self.isVirtualShare(request))
+        if isVirt:
+            rtype = davxml.ResourceType(
+                *(
+                    tuple([child for child in rtype.children if child.qname() != customxml.SharedOwner.qname()]) +
+                    (customxml.Shared(),)
+                )
+            )
+        returnValue(rtype)
+        
     def sharedResourceType(self):
         """
         Return the DAV:resourcetype stripped of any shared elements.
@@ -148,6 +181,73 @@ class SharedCollectionMixin(object):
             return "addressbook"
         else:
             return ""
+
+    def shareeAccessControlList(self):
+
+        assert self._isVirtualShare, "Only call this fort a virtual share"
+
+        # Get the invite for this sharee
+        invite = self.invitesDB().recordForInviteUID(self._share.inviteuid)
+        if invite is None:
+            return davxml.ACL()
+        
+        userprivs = [
+        ]
+        if invite.access in ("read-only", "read-write", "read-write-schedule",):
+            userprivs.append(davxml.Privilege(davxml.Read()))
+            userprivs.append(davxml.Privilege(davxml.ReadACL()))
+            userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
+        if invite.access in ("read-write", "read-write-schedule",):
+            userprivs.append(davxml.Privilege(davxml.Write()))
+        proxyprivs = list(userprivs)
+        proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
+
+        aces = (
+            # Inheritable DAV:all access for the resource's associated principal.
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(self._shareePrincipal.principalURL())),
+                davxml.Grant(*userprivs),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ),
+            # Inheritable CALDAV:read-free-busy access for authenticated users.
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
+                TwistedACLInheritable(),
+            ),
+        )
+
+        # Give read access to config.ReadPrincipals
+        aces += config.ReadACEs
+
+        # Give all access to config.AdminPrincipals
+        aces += config.AdminACEs
+        
+        if config.EnableProxyPrincipals:
+            aces += (
+                # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(self._shareePrincipal.principalURL(), "calendar-proxy-read/"))),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                    ),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ),
+                # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(self._shareePrincipal.principalURL(), "calendar-proxy-write/"))),
+                    davxml.Grant(
+                        davxml.Privilege(*proxyprivs),
+                    ),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ),
+            )
+
+        return davxml.ACL(*aces)
 
     def validUserIDForShare(self, userid):
         """
@@ -184,10 +284,6 @@ class SharedCollectionMixin(object):
                 record.state = "INVALID"
                 self.invitesDB().addOrUpdateRecord(record)
                 
-    def removeVirtualShare(self, request):
-        """ As user of a shared calendar, unlink this calendar collection """
-        return succeed(False) 
-
     def getInviteUsers(self, request):
         return succeed(True)
 
@@ -527,136 +623,6 @@ class SharedCollectionMixin(object):
         ("text", "xml") : xmlPOSTAuth,
     }
 
-class SharedHomeMixin(object):
-    """
-    A mix-in for calendar/addressbook homes that defines the operations for manipulating a sharee's
-    set of shared calendfars.
-    """
-    
-    def acceptShare(self, request, hostUrl, replytoUID, displayname=None):
-        return self._changeShare(request, "ACCEPTED", hostUrl, replytoUID, displayname)
-
-    def wouldAcceptShare(self, hostUrl, request):
-        return succeed(True)
-
-    def removeShare(self, request, hostUrl, resourceName):
-        """ Remove a shared calendar named in resourceName """
-        return succeed(True)
-
-    def declineShare(self, request, hostUrl, replytoUID):
-        return self._changeShare(request, "DECLINED", hostUrl, replytoUID)
-
-    @inlineCallbacks
-    def _changeShare(self, request, state, hostUrl, replytoUID, displayname=None):
-        """ Accept an invite to a shared calendar """
-        
-        # Change state in sharer invite
-        owner = (yield self.ownerPrincipal(request))
-        owner = owner.principalURL()
-        sharedCalendar = (yield request.locateResource(hostUrl))
-        if sharedCalendar is None:
-            # Original shared calendar is gone - nothing we can do except ignore it
-            raise HTTPError(ErrorResponse(
-                responsecode.FORBIDDEN,
-                (customxml.calendarserver_namespace, "valid-request"),
-                "invalid shared calendar",
-            ))
-            
-        # Change the record
-        yield sharedCalendar.changeUserInviteState(request, replytoUID, owner, state, displayname)
-
-        yield self.sendReply(request, owner, sharedCalendar, state, hostUrl, replytoUID, displayname)
-
-    @inlineCallbacks
-    def sendReply(self, request, sharee, sharedCalendar, state, hostUrl, replytoUID, displayname=None):
-        
-
-        # Locate notifications collection for sharer
-        sharer = (yield sharedCalendar.ownerPrincipal(request))
-        notifications = (yield request.locateResource(sharer.notificationURL()))
-        
-        # Generate invite XML
-        notificationUID = "%s-reply" % (replytoUID,)
-        xmltype = customxml.InviteReply()
-        xmldata = customxml.Notification(
-            customxml.DTStamp.fromString(dateTimeToString(datetime.datetime.now(tz=utc))),
-            customxml.UID.fromString(notificationUID),
-            customxml.InviteReply(
-                *(
-                    (
-                        davxml.HRef.fromString(sharee),
-                        inviteStatusMapToXML[state](),
-                        customxml.HostURL(
-                            davxml.HRef.fromString(hostUrl),
-                        ),
-                        customxml.InReplyTo.fromString(replytoUID),
-                    ) + ((customxml.InviteSummary.fromString(displayname),) if displayname is not None else ())
-                )
-            ),
-        ).toxml()
-        
-        # Add to collections
-        yield notifications.addNotification(request, notificationUID, xmltype, xmldata)
-
-    def xmlPOSTNoAuth(self, encoding, request):
-        def _handleResponse(result):
-            response = Response(code=responsecode.OK)
-            return response
-
-        def _handleErrorResponse(error):
-            if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
-                return error.value.response
-            return Response(code=responsecode.BAD_REQUEST)
-
-        def _handleInviteReply(invitereplydoc):
-            """ Handle a user accepting or declining a sharing invite """
-            hostUrl = None
-            accepted = None
-            summary = None
-            replytoUID = None
-            for item in invitereplydoc.children:
-                if isinstance(item, customxml.InviteStatusAccepted):
-                    accepted = True
-                elif isinstance(item, customxml.InviteStatusDeclined):
-                    accepted = False
-                elif isinstance(item, customxml.InviteSummary):
-                    summary = str(item)
-                elif isinstance(item, customxml.HostURL):
-                    for hosturlItem in item.children:
-                        if isinstance(hosturlItem, davxml.HRef):
-                            hostUrl = str(hosturlItem)
-                elif isinstance(item, customxml.InReplyTo):
-                    replytoUID = str(item)
-            
-            if accepted is None or hostUrl is None or replytoUID is None:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    (customxml.calendarserver_namespace, "valid-request"),
-                    "missing required XML elements",
-                ))
-            if accepted:
-                return self.acceptShare(request, hostUrl, replytoUID, displayname=summary)
-            else:
-                return self.declineShare(request, hostUrl, replytoUID)
-
-        def _getData(data):
-            try:
-                doc = davxml.WebDAVDocument.fromString(data)
-            except ValueError, e:
-                print "Error parsing doc (%s) Doc:\n %s" % (str(e), data,)
-                raise
-
-            root = doc.root_element
-            xmlDocHanders = {
-                customxml.InviteReply: _handleInviteReply,          
-            }
-            if type(root) in xmlDocHanders:
-                return xmlDocHanders[type(root)](root).addCallbacks(_handleResponse, errback=_handleErrorResponse)
-            else:
-                return fail(True)
-
-        return allDataFromStream(request.stream).addCallback(_getData)
-
 inviteAccessMapToXML = {
     "read-only"           : customxml.ReadAccess,
     "read-write"          : customxml.ReadWriteAccess,
@@ -807,3 +773,288 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         
         return Invite(*[str(item) if type(item) == types.UnicodeType else item for item in row])
 
+class SharedHomeMixin(object):
+    """
+    A mix-in for calendar/addressbook homes that defines the operations for manipulating a sharee's
+    set of shared calendfars.
+    """
+    
+    def sharesDB(self):
+        
+        if not hasattr(self, "_sharesDB"):
+            self._sharesDB = SharedCalendarsDatabase(self)
+        return self._sharesDB
+
+    def provisionShares(self):
+        
+        if not hasattr(self, "_provisionedShares"):
+            from twistedcaldav.sharedcalendar import SharedCalendarResource
+            for share in self.sharesDB().allRecords():
+                child = SharedCalendarResource(self, share)
+                self.putChild(share.localname, child)
+            self._provisionedShares = True
+
+    @updateCacheTokenOnCallback
+    def acceptShare(self, request, hostUrl, inviteUID, displayname=None):
+        
+        # Add or update in DB
+        oldShare = self.sharesDB().recordForInviteUID(inviteUID)
+        if not oldShare:
+            share = SharedCalendarRecord(inviteUID, hostUrl, str(uuid4()), displayname)
+            self.sharesDB().addOrUpdateRecord(share)
+
+        return self._changeShare(request, "ACCEPTED", hostUrl, inviteUID, displayname)
+
+    def wouldAcceptShare(self, hostUrl, request):
+        return succeed(True)
+
+    def removeShare(self, request, share):
+        """ Remove a shared calendar named in resourceName """
+        return self.declineShare(request, share.hosturl, share.inviteuid)
+
+    @updateCacheTokenOnCallback
+    def declineShare(self, request, hostUrl, inviteUID):
+
+        # Remove it if its in the DB
+        self.sharesDB().removeRecordForInviteUID(inviteUID)
+
+        return self._changeShare(request, "DECLINED", hostUrl, inviteUID)
+
+    @inlineCallbacks
+    def _changeShare(self, request, state, hostUrl, replytoUID, displayname=None):
+        """ Accept an invite to a shared calendar """
+        
+        # Change state in sharer invite
+        owner = (yield self.ownerPrincipal(request))
+        owner = owner.principalURL()
+        sharedCalendar = (yield request.locateResource(hostUrl))
+        if sharedCalendar is None:
+            # Original shared calendar is gone - nothing we can do except ignore it
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (customxml.calendarserver_namespace, "valid-request"),
+                "invalid shared calendar",
+            ))
+            
+        # Change the record
+        yield sharedCalendar.changeUserInviteState(request, replytoUID, owner, state, displayname)
+
+        yield self.sendReply(request, owner, sharedCalendar, state, hostUrl, replytoUID, displayname)
+
+    @inlineCallbacks
+    def sendReply(self, request, sharee, sharedCalendar, state, hostUrl, replytoUID, displayname=None):
+        
+
+        # Locate notifications collection for sharer
+        sharer = (yield sharedCalendar.ownerPrincipal(request))
+        notifications = (yield request.locateResource(sharer.notificationURL()))
+        
+        # Generate invite XML
+        notificationUID = "%s-reply" % (replytoUID,)
+        xmltype = customxml.InviteReply()
+        xmldata = customxml.Notification(
+            customxml.DTStamp.fromString(dateTimeToString(datetime.datetime.now(tz=utc))),
+            customxml.UID.fromString(notificationUID),
+            customxml.InviteReply(
+                *(
+                    (
+                        davxml.HRef.fromString(sharee),
+                        inviteStatusMapToXML[state](),
+                        customxml.HostURL(
+                            davxml.HRef.fromString(hostUrl),
+                        ),
+                        customxml.InReplyTo.fromString(replytoUID),
+                    ) + ((customxml.InviteSummary.fromString(displayname),) if displayname is not None else ())
+                )
+            ),
+        ).toxml()
+        
+        # Add to collections
+        yield notifications.addNotification(request, notificationUID, xmltype, xmldata)
+
+    @updateCacheTokenOnCallback
+    def xmlPOSTNoAuth(self, encoding, request):
+        def _handleResponse(result):
+            response = Response(code=responsecode.OK)
+            return response
+
+        def _handleErrorResponse(error):
+            if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
+                return error.value.response
+            return Response(code=responsecode.BAD_REQUEST)
+
+        def _handleInviteReply(invitereplydoc):
+            """ Handle a user accepting or declining a sharing invite """
+            hostUrl = None
+            accepted = None
+            summary = None
+            replytoUID = None
+            for item in invitereplydoc.children:
+                if isinstance(item, customxml.InviteStatusAccepted):
+                    accepted = True
+                elif isinstance(item, customxml.InviteStatusDeclined):
+                    accepted = False
+                elif isinstance(item, customxml.InviteSummary):
+                    summary = str(item)
+                elif isinstance(item, customxml.HostURL):
+                    for hosturlItem in item.children:
+                        if isinstance(hosturlItem, davxml.HRef):
+                            hostUrl = str(hosturlItem)
+                elif isinstance(item, customxml.InReplyTo):
+                    replytoUID = str(item)
+            
+            if accepted is None or hostUrl is None or replytoUID is None:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (customxml.calendarserver_namespace, "valid-request"),
+                    "missing required XML elements",
+                ))
+            if accepted:
+                return self.acceptShare(request, hostUrl, replytoUID, displayname=summary)
+            else:
+                return self.declineShare(request, hostUrl, replytoUID)
+
+        def _getData(data):
+            try:
+                doc = davxml.WebDAVDocument.fromString(data)
+            except ValueError, e:
+                print "Error parsing doc (%s) Doc:\n %s" % (str(e), data,)
+                raise
+
+            root = doc.root_element
+            xmlDocHanders = {
+                customxml.InviteReply: _handleInviteReply,          
+            }
+            if type(root) in xmlDocHanders:
+                return xmlDocHanders[type(root)](root).addCallbacks(_handleResponse, errback=_handleErrorResponse)
+            else:
+                return fail(True)
+
+        return allDataFromStream(request.stream).addCallback(_getData)
+
+class SharedCalendarRecord(object):
+    
+    def __init__(self, inviteuid, hosturl, localname, summary):
+        self.inviteuid = inviteuid
+        self.hosturl = hosturl
+        self.localname = localname
+        self.summary = summary
+
+class SharedCalendarsDatabase(AbstractSQLDatabase, LoggingMixIn):
+    
+    db_basename = db_prefix + "shares"
+    schema_version = "1"
+    db_type = "shares"
+
+    def __init__(self, resource):
+        """
+        @param resource: the L{twistedcaldav.static.CalDAVFile} resource for
+            the shared collection. C{resource} must be a calendar/addressbook home collection.)
+        """
+        self.resource = resource
+        db_filename = os.path.join(self.resource.fp.path, SharedCalendarsDatabase.db_basename)
+        super(SharedCalendarsDatabase, self).__init__(db_filename, True, autocommit=True)
+
+    def create(self):
+        """
+        Create the index and initialize it.
+        """
+        self._db()
+
+    def allRecords(self):
+        
+        records = self._db_execute("select * from SHARES order by LOCALNAME")
+        return [self._makeRecord(row) for row in (records if records is not None else ())]
+    
+    def recordForLocalName(self, localname):
+        
+        row = self._db_execute("select * from SHARES where LOCALNAME = :1", localname)
+        return self._makeRecord(row[0]) if row else None
+    
+    def recordForInviteUID(self, inviteUID):
+
+        row = self._db_execute("select * from SHARES where INVITEUID = :1", inviteUID)
+        return self._makeRecord(row[0]) if row else None
+    
+    def addOrUpdateRecord(self, record):
+
+        self._db_execute("""insert or replace into SHARES (INVITEUID, HOSTURL, LOCALNAME, SUMMARY)
+            values (:1, :2, :3, :4)
+            """, record.inviteuid, record.hosturl, record.localname, record.summary,
+        )
+    
+    def removeRecordForLocalName(self, localname):
+
+        self._db_execute("delete from SHARES where LOCALNAME = :1", localname)
+    
+    def removeRecordForInviteUID(self, inviteUID):
+
+        self._db_execute("delete from SHARES where INVITEUID = :1", inviteUID)
+    
+    def remove(self):
+        
+        self._db_close()
+        os.remove(self.dbpath)
+
+    def _db_version(self):
+        """
+        @return: the schema version assigned to this index.
+        """
+        return SharedCalendarsDatabase.schema_version
+
+    def _db_type(self):
+        """
+        @return: the collection type assigned to this index.
+        """
+        return SharedCalendarsDatabase.db_type
+
+    def _db_init_data_tables(self, q):
+        """
+        Initialise the underlying database tables.
+        @param q:           a database cursor to use.
+        """
+        #
+        # SHARES table is the primary table
+        #   INVITEUID: UID for this invite
+        #   HOSTURL: URL for data source
+        #   LOCALNAME: local path name
+        #   SUMMARY: Invite summary
+        #
+        q.execute(
+            """
+            create table SHARES (
+                INVITEUID      text unique,
+                HOSTURL        text,
+                LOCALNAME      text,
+                SUMMARY        text
+            )
+            """
+        )
+
+        q.execute(
+            """
+            create index INVITEUID on SHARES (INVITEUID)
+            """
+        )
+        q.execute(
+            """
+            create index HOSTURL on SHARES (HOSTURL)
+            """
+        )
+        q.execute(
+            """
+            create index LOCALNAME on SHARES (LOCALNAME)
+            """
+        )
+
+    def _db_upgrade_data_tables(self, q, old_version):
+        """
+        Upgrade the data from an older version of the DB.
+        """
+
+        # Nothing to do as we have not changed the schema
+        pass
+
+    def _makeRecord(self, row):
+        
+        return SharedCalendarRecord(*[str(item) if type(item) == types.UnicodeType else item for item in row])

@@ -215,6 +215,12 @@ class DeleteResource(object):
 
         # Now do normal delete
 
+        # Check virtual share first
+        isVirtual = yield delresource.isVirtualShare(self.request)
+        if isVirtual:
+            yield delresource.removeVirtualShare(self.request)
+            returnValue(responsecode.NO_CONTENT)
+
         # Handle sharing
         wasShared = (yield delresource.isShared(self.request))
         if wasShared:

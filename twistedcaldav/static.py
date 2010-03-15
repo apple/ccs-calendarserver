@@ -934,6 +934,12 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, SharedHom
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
 
+    def provision(self):
+        result = super(CalendarHomeFile, self).provision()
+        if config.Sharing.Enabled:
+            self.provisionShares()
+        return result
+
     def provisionChild(self, name):
         if config.EnableDropBox:
             DropBoxHomeFileClass = DropBoxHomeFile
@@ -963,7 +969,6 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, SharedHom
             child.cacheNotifier = self.cacheNotifier
             child.clientNotifier = self.clientNotifier
             return child
-
         return self.createSimilarFile(self.fp.child(name).path)
 
     def createSimilarFile(self, path):
