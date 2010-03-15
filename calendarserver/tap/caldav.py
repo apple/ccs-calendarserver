@@ -454,7 +454,11 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
 
-            service = serviceMethod(options)
+            try:
+                service = serviceMethod(options)
+            except ConfigurationError, e:
+                sys.stderr.write("Configuration error: %s\n" % (e,))
+                sys.exit(1)
 
             #
             # Note: if there is a stopped process in the same session
@@ -698,7 +702,10 @@ class CalDAVServiceMaker (LoggingMixIn):
             RotatingFileAccessLoggingObserver(config.AccessLogFile)
         )
         if config.GroupName:
-            gid = getgrnam(config.GroupName).gr_gid
+            try:
+                gid = getgrnam(config.GroupName).gr_gid
+            except KeyError, e:
+                raise ConfigurationError("Invalid group name: %s" % (config.GroupName,))
         else:
             gid = os.getgid()
         if config.ControlSocket:
