@@ -35,8 +35,6 @@ set -u;
 
 wd="$(cd "$(dirname "$0")" && pwd)";
 
-. "${wd}/support/build.sh";
-
 DAVD="cal"
 
 # Echo the usage for the main 'run' script, then exit with an error.
@@ -108,6 +106,7 @@ parse_options () {
   fi;
 }
 
+. "${wd}/support/build.sh";
 
 # Actually run the server.  (Or, exit, if things aren't sufficiently set up in
 # order to do that.)
