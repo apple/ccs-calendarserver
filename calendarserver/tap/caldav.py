@@ -37,6 +37,7 @@ from zope.interface import implements
 
 from twisted.python.log import FileLogObserver
 from twisted.python.usage import Options, UsageError
+from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
 from twisted.internet.reactor import callLater, spawnProcess, addSystemEventTrigger
 from twisted.internet.process import ProcessExitedAlready
@@ -63,6 +64,7 @@ except ImportError:
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
@@ -444,6 +446,8 @@ class CalDAVServiceMaker (LoggingMixIn):
                 # Make sure proxies get initialized
                 if config.ProxyLoadFromFile:
                     def _doProxyUpdate():
+                        proxydbClass = namedClass(config.ProxyDBService.type)
+                        calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
                         loader = XMLCalendarUserProxyLoader(config.ProxyLoadFromFile)
                         return loader.updateProxyDB()
                     addSystemEventTrigger("after", "startup", _doProxyUpdate)
