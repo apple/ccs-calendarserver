@@ -175,7 +175,7 @@ class CalDAVTaskService(Service):
     def __init__(self, root):
         self.root = root
         self.directory = root.directory
-        self.seconds = 5 # How often to check for new tasks in incomingDir
+        self.seconds = 30 # How often to check for new tasks in incomingDir
         self.taskDir = os.path.join(config.DataRoot, "tasks")
         # New task files are placed into "incoming"
         self.incomingDir = os.path.join(self.taskDir, "incoming")
@@ -196,7 +196,7 @@ class CalDAVTaskService(Service):
 
 
     def periodic(self, first=False):
-        log.debug("Checking for tasks")
+        # log.debug("Checking for tasks")
 
         deferreds = []
 
