@@ -35,7 +35,6 @@ import cgi
 import time
 
 from twisted.internet.defer import succeed, DeferredList, inlineCallbacks, returnValue
-from twisted.internet.defer import maybeDeferred
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twext.web2 import responsecode
 from twext.web2.auth.wrapper import UnauthorizedResponse
