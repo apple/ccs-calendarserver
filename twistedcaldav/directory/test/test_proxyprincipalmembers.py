@@ -22,7 +22,6 @@ from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile,\
     proxiesFile
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 

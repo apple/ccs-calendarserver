@@ -192,9 +192,6 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
             principals.append(principal)
             newUIDs.add(principal.principalUID())
 
-        # Get the old set of UIDs
-        oldUIDs = (yield self._index().getMembers(self.uid))
-
         # Change membership
         yield self.setGroupMemberSetPrincipals(principals)
 
