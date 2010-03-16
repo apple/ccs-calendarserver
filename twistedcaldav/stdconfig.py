@@ -26,6 +26,7 @@ from twext.python.plistlib import PlistParser
 from twext.python.log import Logger, InvalidLogLevelError
 from twext.python.log import clearLogLevels, setLogLevelForNamespace
 
+from twistedcaldav import caldavxml, customxml, carddavxml
 from twistedcaldav.config import ConfigProvider, ConfigurationError
 from twistedcaldav.config import config, _mergeData, fullServerPath
 from twistedcaldav.partitions import partitions
@@ -810,10 +811,6 @@ def _updateLogLevels(configDict):
         raise ConfigurationError("Invalid log level: %s" % (e.level))
 
 def _updateNotifications(configDict):
-    #
-    # Notifications
-    #
-
     # Reloading not supported -- requires process running as root
     if getattr(configDict, "_reloading", False):
         return
@@ -897,10 +894,6 @@ def _updateScheduling(configDict):
                         (direction,))
 
 def _updatePartitions(configDict):
-    #
-    # Partitions
-    #
-
     if configDict.Partitioning.Enabled:
         partitions.setSelfPartition(configDict.Partitioning.ServerPartitionID)
         partitions.setMaxClients(configDict.Partitioning.MaxClients)
@@ -908,6 +901,26 @@ def _updatePartitions(configDict):
         partitions.installReverseProxies()
     else:
         partitions.clear()
+
+def _updateCompliance(configDict):
+        if configDict.Scheduling.CalDAV.OldDraftCompatibility:
+            compliance = caldavxml.caldav_full_compliance
+        else:
+            compliance = caldavxml.caldav_implicit_compliance
+
+        if configDict.EnableProxyPrincipals:
+            compliance += customxml.calendarserver_proxy_compliance
+        if configDict.EnablePrivateEvents:
+            compliance += customxml.calendarserver_private_events_compliance
+        if configDict.Scheduling.CalDAV.get("EnablePrivateComments", True):
+            compliance += customxml.calendarserver_private_comments_compliance
+        if configDict.EnableCardDAV:
+            compliance += carddavxml.carddav_compliance
+
+        compliance += customxml.calendarserver_principal_property_search
+
+        configDict.CalDAVComplianceClasses = compliance
+
 
 PRE_UPDATE_HOOKS = (
     _preUpdateDirectoryService,
@@ -926,6 +939,7 @@ POST_UPDATE_HOOKS = (
     _updateNotifications,
     _updateScheduling,
     _updatePartitions,
+    _updateCompliance,
     )
     
 def _cleanup(configDict, defaultDict):
