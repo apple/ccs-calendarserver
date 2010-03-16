@@ -637,6 +637,17 @@ class SharedURL (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "shared-url"
 
+class SharedCalendar (davxml.WebDAVElement):
+    """
+    The url for a shared calendar.
+    """
+    namespace = calendarserver_namespace
+    name = "shared-calendar"
+
+    allowed_children = {
+        davxml.HRef.qname()    : (1, 1),
+    }
+
 class SharedAcceptEmailNotification (davxml.WebDAVTextElement):
     """
     The accept email flag for a shared calendar.

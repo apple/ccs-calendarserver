@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twext.web2.dav.resource import TwistedACLInheritable
 
 __all__ = [
     "SharedCollectionMixin",
@@ -23,21 +22,18 @@ from twext.python.log import LoggingMixIn
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
+from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.util import allDataFromStream, joinURL
-from twext.web2.http import HTTPError, Response, StatusResponse
-
+from twext.web2.http import HTTPError, Response, StatusResponse, XMLResponse
 from twisted.internet.defer import succeed, inlineCallbacks, DeferredList,\
-    returnValue, fail
-
+    returnValue
 from twistedcaldav import customxml, caldavxml
 from twistedcaldav.config import config
+from twistedcaldav.customxml import SharedCalendar
 from twistedcaldav.extensions import updateCacheTokenOnCallback
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
-
 from uuid import uuid4
-
 from vobject.icalendar import dateTimeToString, utc
-
 import datetime
 import os
 import types
@@ -801,36 +797,47 @@ class SharedHomeMixin(object):
                 self.putChild(share.localname, child)
             self._provisionedShares = True
 
-    @updateCacheTokenOnCallback
+    @inlineCallbacks
     def acceptShare(self, request, hostUrl, inviteUID, displayname=None):
         
+        # Do this first to make sure we have a valid share
+        yield self._changeShare(request, "ACCEPTED", hostUrl, inviteUID, displayname)
+
         # Add or update in DB
         oldShare = self.sharesDB().recordForInviteUID(inviteUID)
         if not oldShare:
-            share = SharedCalendarRecord(inviteUID, hostUrl, str(uuid4()), displayname)
+            oldShare = share = SharedCalendarRecord(inviteUID, hostUrl, str(uuid4()), displayname)
             self.sharesDB().addOrUpdateRecord(share)
-
-        return self._changeShare(request, "ACCEPTED", hostUrl, inviteUID, displayname)
+        
+        # Return the URL of the shared calendar
+        returnValue(XMLResponse(
+            code = responsecode.OK,
+            element = SharedCalendar(
+                davxml.HRef.fromString(joinURL(self.url(), oldShare.localname))
+            )
+        ))
 
     def wouldAcceptShare(self, hostUrl, request):
         return succeed(True)
 
     def removeShare(self, request, share):
-        """ Remove a shared calendar named in resourceName """
+        """ Remove a shared calendar named in resourceName and send a decline """
         return self.declineShare(request, share.hosturl, share.inviteuid)
 
     def removeShareByUID(self, request, inviteuid):
-        """ Remove a shared calendar named in resourceName """
-        share = self.sharesDB().recordForInviteUID(inviteuid)
-        return self.removeShare(request, share) if share else succeed(None)
+        """ Remove a shared calendar but do not send a decline back """
+        self.sharesDB().removeRecordForInviteUID(inviteuid)
+        return succeed(True)
 
-    @updateCacheTokenOnCallback
+    @inlineCallbacks
     def declineShare(self, request, hostUrl, inviteUID):
 
         # Remove it if its in the DB
         self.sharesDB().removeRecordForInviteUID(inviteUID)
 
-        return self._changeShare(request, "DECLINED", hostUrl, inviteUID)
+        yield self._changeShare(request, "DECLINED", hostUrl, inviteUID)
+        
+        returnValue(Response(code=responsecode.NO_CONTENT))
 
     @inlineCallbacks
     def _changeShare(self, request, state, hostUrl, replytoUID, displayname=None):
@@ -885,9 +892,6 @@ class SharedHomeMixin(object):
 
     @updateCacheTokenOnCallback
     def xmlPOSTNoAuth(self, encoding, request):
-        def _handleResponse(result):
-            response = Response(code=responsecode.OK)
-            return response
 
         def _handleErrorResponse(error):
             if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
@@ -937,9 +941,10 @@ class SharedHomeMixin(object):
                 customxml.InviteReply: _handleInviteReply,          
             }
             if type(root) in xmlDocHanders:
-                return xmlDocHanders[type(root)](root).addCallbacks(_handleResponse, errback=_handleErrorResponse)
+                return xmlDocHanders[type(root)](root).addErrback(_handleErrorResponse)
             else:
-                return fail(True)
+                self.log_error("Unsupported XML (%s)" % (root,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request")))
 
         return allDataFromStream(request.stream).addCallback(_getData)
 

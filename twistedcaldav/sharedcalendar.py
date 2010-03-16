@@ -31,6 +31,9 @@ Sharing behavior
 """
 
 class SharedCalendarResource(CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource, LoggingMixIn):
+    """
+    This is similar to a WrapperResource except that we locate our shared calendar resource dynamically. 
+    """
     
     def __init__(self, parent, share):
         self.parent = parent
@@ -49,33 +52,16 @@ class SharedCalendarResource(CalDAVComplianceMixIn, SharedCollectionMixin, DAVRe
     def isCollection(self):
         return True
 
-    @inlineCallbacks
     def locateChild(self, request, segments):
-        hosted = (yield self.hostedResource(request))
-        result = (yield hosted.locateChild(request, segments))
-        returnValue(result)
+        
+        def _defer(result):
+            return (result, segments)
+        d = self.hostedResource(request)
+        d.addCallback(_defer)
+        return d
 
     def renderHTTP(self, request):
         return self.hostedResource(request)
 
-    @inlineCallbacks
     def getChild(self, name):
         return self._hostedResource.getChild(name)
-
-    @inlineCallbacks
-    def hasProperty(self, property, request):
-        hosted = (yield self.hostedResource(request))
-        result = (yield hosted.hasProperty(property, request))
-        returnValue(result)
-
-    @inlineCallbacks
-    def readProperty(self, property, request):
-        hosted = (yield self.hostedResource(request))
-        result = (yield hosted.readProperty(property, request))
-        returnValue(result)
-
-    @inlineCallbacks
-    def writeProperty(self, property, request):
-        hosted = (yield self.hostedResource(request))
-        result = (yield hosted.writeProperty(property, request))
-        returnValue(result)
