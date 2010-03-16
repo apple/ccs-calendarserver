@@ -29,7 +29,6 @@ between notification server and a remote consumer.
 
 The icalserver tap creates a NotificationClient object at startup;
 it deals with passing along notifications to the notification server.
-These notifications originate from cache.py:MemcacheChangeNotifier.changed().
 """
 
 # TODO: add CalDAVTester test for examining new xmpp-uri property

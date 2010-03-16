@@ -34,9 +34,6 @@ from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.config import config
-from twistedcaldav.cache import _CachedResponseResource
-from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
-from twistedcaldav.cache import DisabledCache
 from twistedcaldav.static import CalendarHomeFile
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 
@@ -62,14 +59,6 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 log.warn("SACLs are enabled, but SACLs are not supported.")
 
         self.contentFilters = []
-
-        if config.Memcached.Pools.Default.ClientEnabled:
-            self.responseCache = MemcacheResponseCache(self.fp)
-
-            CalendarHomeFile.cacheNotifierFactory = MemcacheChangeNotifier
-            DirectoryPrincipalResource.cacheNotifierFactory = MemcacheChangeNotifier
-        else:
-            self.responseCache = DisabledCache()
 
         if config.ResponseCompression:
             from twext.web2.filter import gzip
@@ -259,30 +248,6 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 if not hasattr(request, "extendedLogItems"):
                     request.extendedLogItems = {}
                 request.extendedLogItems["xff"] = remote_ip[0]
-
-        if request.method == "PROPFIND" and not getattr(request, "notInCache", False) and len(segments) > 1:
-            try:
-                authnUser, authzUser = (yield self.authenticate(request))
-                request.authnUser = authnUser
-                request.authzUser = authzUser
-            except (UnauthorizedLogin, LoginFailed):
-                response = (yield UnauthorizedResponse.makeResponse(
-                    request.credentialFactories,
-                    request.remoteAddr
-                ))
-                raise HTTPError(response)
-
-            try:
-                if not getattr(request, "checkingCache", False):
-                    request.checkingCache = True
-                    response = (yield self.responseCache.getResponseForRequest(request))
-                    if response is None:
-                        request.notInCache = True
-                        raise KeyError("Not found in cache.")
-        
-                    returnValue((_CachedResponseResource(response), []))
-            except KeyError:
-                pass
 
         child = (yield super(RootResource, self).locateChild(request, segments))
         returnValue(child)

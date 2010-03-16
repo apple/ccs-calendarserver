@@ -96,22 +96,6 @@ class CalDAVComplianceMixIn(object):
         return tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) + extra_compliance
 
 
-def updateCacheTokenOnCallback(f):
-    def fun(self, *args, **kwargs):
-        def _updateToken(response):
-            return self.cacheNotifier.changed().addCallback(
-                lambda _: response)
-
-        d = maybeDeferred(f, self, *args, **kwargs)
-
-        if hasattr(self, 'cacheNotifier'):
-            d.addCallback(_updateToken)
-
-        return d
-
-    return fun
-
-
 class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
     """
     CalDAV resource.
@@ -178,18 +162,6 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
         response.addCallback(setHeaders)
 
         return response
-
-    @updateCacheTokenOnCallback
-    def http_PROPPATCH(self, request):
-        return super(CalDAVResource, self).http_PROPPATCH(request)
-
-    @updateCacheTokenOnCallback
-    def http_DELETE(self, request):
-        return super(CalDAVResource, self).http_DELETE(request)
-
-    @updateCacheTokenOnCallback
-    def http_ACL(self, request):
-        return super(CalDAVResource, self).http_ACL(request)
 
 
     ##

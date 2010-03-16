@@ -743,11 +743,6 @@
         </dict>
     </dict>
 
-    <!-- Response Caching -->
-    <key>ResponseCacheTimeout</key>
-    <integer>30</integer> <!-- in minutes -->
-
-
     <!--
         Twisted
       -->

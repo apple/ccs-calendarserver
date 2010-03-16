@@ -93,7 +93,6 @@ from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.vcardindex import AddressBookIndex
-from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.notify import getPubSubConfiguration, getPubSubXMPPURI
 from twistedcaldav.notify import getPubSubHeartbeatURI, getPubSubPath
 from twistedcaldav.notify import ClientNotifier, getNodeCacher
@@ -562,12 +561,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
             log.debug("%r does not have a clientNotifier but the CTag changed"
                       % (self,))
 
-        if hasattr(self, 'cacheNotifier'):
-            return self.cacheNotifier.changed()
-        else:
-            log.debug("%r does not have a cacheNotifier but the CTag changed"
-                      % (self,))
-
         return succeed(True)
 
     ##
@@ -913,12 +906,10 @@ class CalendarHomeReverseProxyFile(ReverseProxyResource):
     def url(self):
         return joinURL(self.parent.url(), self.record.uid)
 
-class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
+class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
     """
     Calendar home collection resource.
     """
-    cacheNotifierFactory = DisabledCacheNotifier
-
     liveProperties = CalDAVFile.liveProperties + (
         (customxml.calendarserver_namespace, "xmpp-uri"),
         (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
@@ -929,7 +920,6 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
         """
         @param path: the path to the file which will back the resource.
         """
-        self.cacheNotifier = self.cacheNotifierFactory(self)
         self.clientNotifier = ClientNotifier(self)
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
@@ -954,7 +944,6 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
 
         if cls is not None:
             child = cls(self.fp.child(name).path, self)
-            child.cacheNotifier = self.cacheNotifier
             child.clientNotifier = self.clientNotifier
             return child
 
@@ -965,7 +954,6 @@ class CalendarHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Directory
             return self
         else:
             similar = CalDAVFile(path, principalCollections=self.principalCollections())
-            similar.cacheNotifier = self.cacheNotifier
             similar.clientNotifier = self.clientNotifier
             return similar
 
@@ -1417,12 +1405,10 @@ class AddressBookHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryAd
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
-class AddressBookHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, DirectoryAddressBookHomeResource, CalDAVFile):
+class AddressBookHomeFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeResource, CalDAVFile):
     """
     Address book home collection resource.
     """
-    cacheNotifierFactory = DisabledCacheNotifier
-
     liveProperties = CalDAVFile.liveProperties + (
         (customxml.calendarserver_namespace, "xmpp-uri"),
     )
@@ -1431,7 +1417,6 @@ class AddressBookHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Direct
         """
         @param path: the path to the file which will back the resource.
         """
-        self.cacheNotifier = self.cacheNotifierFactory(self)
         self.clientNotifier = ClientNotifier(self)
         CalDAVFile.__init__(self, path)
         DirectoryAddressBookHomeResource.__init__(self, parent, record)
@@ -1452,7 +1437,6 @@ class AddressBookHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Direct
 
         if cls is not None:
             child = cls(self.fp.child(name).path, self)
-            child.cacheNotifier = self.cacheNotifier
             child.clientNotifier = self.clientNotifier
             return child
 
@@ -1463,7 +1447,6 @@ class AddressBookHomeFile (PropfindCacheMixin, AutoProvisioningFileMixIn, Direct
             return self
         else:
             similar = CalDAVFile(path, principalCollections=self.principalCollections())
-            similar.cacheNotifier = self.cacheNotifier
             similar.clientNotifier = self.clientNotifier
             return similar
 

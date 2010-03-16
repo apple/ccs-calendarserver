@@ -299,36 +299,6 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             set(["5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1",
                  "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0"]))
 
-    @inlineCallbacks
-    def test_setGroupMemberSetNotifiesPrincipalCaches(self):
-        class StubCacheNotifier(object):
-            changedCount = 0
-            def changed(self):
-                self.changedCount += 1
-                return succeed(None)
-
-        user = self._getPrincipalByShortName(self.directoryService.recordType_users, "cdaboo")
-
-        proxyGroup = user.getChild("calendar-proxy-write")
-
-        notifier = StubCacheNotifier()
-
-        oldCacheNotifier = DirectoryPrincipalResource.cacheNotifierFactory
-
-        try:
-            DirectoryPrincipalResource.cacheNotifierFactory = (lambda _1, _2, **kwargs: notifier)
-
-            self.assertEquals(notifier.changedCount, 0)
-
-            yield proxyGroup.setGroupMemberSet(
-                davxml.GroupMemberSet(
-                    davxml.HRef.fromString(
-                        "/XMLDirectoryService/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/")),
-                None)
-
-            self.assertEquals(notifier.changedCount, 1)
-        finally:
-            DirectoryPrincipalResource.cacheNotifierFactory = oldCacheNotifier
 
     def test_proxyFor(self):
 

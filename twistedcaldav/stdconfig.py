@@ -532,7 +532,6 @@ DEFAULT_CONFIG = {
     },
 
     "EnableKeepAlive": True,
-    "ResponseCacheTimeout": 30, # Minutes
     
     "Includes": [],     # Other plists to parse after this one
 }
