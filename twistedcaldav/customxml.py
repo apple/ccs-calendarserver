@@ -763,6 +763,7 @@ class InviteNotification (davxml.WebDAVElement):
     name = "invite-notification"
 
     allowed_children = {
+        UID.qname()                      : (0, 1),
         (dav_namespace, "href")          : (0, 1),
         InviteStatusNoResponse.qname()   : (0, 1),
         InviteStatusDeleted.qname()      : (0, 1),
@@ -836,7 +837,6 @@ class Notification (davxml.WebDAVElement):
 
     allowed_children = {
         DTStamp.qname()                            : (0, None),
-        UID.qname()                                : (0, None),
         InviteNotification.qname()                 : (0, None),
         InviteReply.qname()                        : (0, None),
         ResourceUpdateNotification.qname()         : (0, None),

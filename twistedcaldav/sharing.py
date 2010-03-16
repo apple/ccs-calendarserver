@@ -370,6 +370,13 @@ class SharedCollectionMixin(object):
         # Cancel invites
         record = self.invitesDB().recordForUserID(userid)
         
+        # Remove any shared calendar
+        sharee = self.principalForCalendarUserAddress(record.userid)
+        if sharee is None:
+            raise ValueError("sharee is None but userid was valid before")
+        shareeHome = sharee.calendarHome()
+        yield shareeHome.removeShareByUID(request, record.inviteuid)
+
         # If current user state is accepted then we send an invite with the new state, otherwise
         # we cancel any existing invites for the user
         if record and record.state != "ACCEPTED":
@@ -412,8 +419,8 @@ class SharedCollectionMixin(object):
         xmltype = customxml.InviteNotification(**typeAttr)
         xmldata = customxml.Notification(
             customxml.DTStamp.fromString(dateTimeToString(datetime.datetime.now(tz=utc))),
-            customxml.UID.fromString(record.inviteuid),
             customxml.InviteNotification(
+                customxml.UID.fromString(record.inviteuid),
                 davxml.HRef.fromString(record.userid),
                 inviteStatusMapToXML[record.state](),
                 customxml.InviteAccess(inviteAccessMapToXML[record.access]()),
@@ -514,7 +521,7 @@ class SharedCollectionMixin(object):
                         return self.upgradeToShare(request)
                 else:
                     return succeed(True)
-                return fail()
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Cannot upgrade to shared calendar"))
 
             @inlineCallbacks
             def _processInviteDoc(_, request):
@@ -812,6 +819,11 @@ class SharedHomeMixin(object):
         """ Remove a shared calendar named in resourceName """
         return self.declineShare(request, share.hosturl, share.inviteuid)
 
+    def removeShareByUID(self, request, inviteuid):
+        """ Remove a shared calendar named in resourceName """
+        share = self.sharesDB().recordForInviteUID(inviteuid)
+        return self.removeShare(request, share) if share else succeed(None)
+
     @updateCacheTokenOnCallback
     def declineShare(self, request, hostUrl, inviteUID):
 
@@ -854,7 +866,6 @@ class SharedHomeMixin(object):
         xmltype = customxml.InviteReply()
         xmldata = customxml.Notification(
             customxml.DTStamp.fromString(dateTimeToString(datetime.datetime.now(tz=utc))),
-            customxml.UID.fromString(notificationUID),
             customxml.InviteReply(
                 *(
                     (
