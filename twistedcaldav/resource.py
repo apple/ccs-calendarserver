@@ -77,23 +77,13 @@ if twistedcaldav.__version__:
 else:
     serverVersion = twext.web2.server.VERSION + " TwistedCardDAV/?"
 
-class CalDAVComplianceMixIn(object):
 
+class CalDAVComplianceMixIn(object):
     def davComplianceClasses(self):
-        if config.Scheduling.CalDAV.OldDraftCompatibility:
-            extra_compliance = caldavxml.caldav_full_compliance
-        else:
-            extra_compliance = caldavxml.caldav_implicit_compliance
-        if config.EnableProxyPrincipals:
-            extra_compliance += customxml.calendarserver_proxy_compliance
-        if config.EnablePrivateEvents:
-            extra_compliance += customxml.calendarserver_private_events_compliance
-        if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
-            extra_compliance += customxml.calendarserver_private_comments_compliance
-        extra_compliance += customxml.calendarserver_principal_property_search
-        if config.EnableCardDAV:
-            extra_compliance += carddavxml.carddav_compliance
-        return tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) + extra_compliance
+        return (
+            tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses())
+            + config.CalDAVComplianceClasses
+        )
 
 
 class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
