@@ -220,7 +220,7 @@ class WebDAVElement (object):
 
 
     def writeXML(self, output):
-        output.write("<?xml version='1.0' encoding='UTF-8'?>")
+        output.write("<?xml version='1.0' encoding='UTF-8'?>\n")
         self.writeToStream(output, "", 0, True)
 
     
