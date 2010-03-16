@@ -83,9 +83,8 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         old_timeout = config.UIDReservationTimeOut
         config.UIDReservationTimeOut = 1
 
-        def _finally(result):
+        def _finally():
             config.UIDReservationTimeOut = old_timeout
-            return result
 
         d = self.db.isReservedUID(uid)
         d.addCallback(self.assertFalse)
@@ -95,7 +94,7 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         d.addCallback(lambda _: deferLater(reactor, 2, lambda: None))
         d.addCallback(lambda _: self.db.isReservedUID(uid))
         d.addCallback(self.assertFalse)
-        d.addBoth(_finally)
+        self.addCleanup(_finally)
 
         return d
 
