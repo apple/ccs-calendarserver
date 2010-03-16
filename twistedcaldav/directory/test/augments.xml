@@ -139,4 +139,19 @@ limitations under the License.
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
   </record>
+  <record>
+    <uid>7423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+  </record>
+  <record>
+    <uid>8A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+  </record>
+  <record>
+    <uid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+  </record>
 </augments>

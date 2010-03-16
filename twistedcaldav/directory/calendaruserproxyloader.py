@@ -134,7 +134,5 @@ class XMLCalendarUserProxyLoader(object):
         db = calendaruserproxy.ProxyDBService
         for item in self.items:
             guid, write_proxies, read_proxies = item
-            for proxy in write_proxies:
-                yield db.setGroupMembers("%s#%s" % (guid, "calendar-proxy-write"), (proxy,))
-            for proxy in read_proxies:
-                yield db.setGroupMembers("%s#%s" % (guid, "calendar-proxy-read"), (proxy,))
+            yield db.setGroupMembers("%s#%s" % (guid, "calendar-proxy-write"), write_proxies)
+            yield db.setGroupMembers("%s#%s" % (guid, "calendar-proxy-read"), read_proxies)

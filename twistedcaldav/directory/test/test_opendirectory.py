@@ -248,15 +248,41 @@ else:
             def lookupMethod(obj, compound, casei, recordType, attributes, count=0):
                 if dsattributes.kDSStdRecordTypeUsers in recordType:
                     return [
-                        ('morgen', {'dsAttrTypeStandard:RecordType': 'dsRecTypeStandard:Users', 'dsAttrTypeStandard:AppleMetaNodeLocation': '/LDAPv3/127.0.0.1', 'dsAttrTypeStandard:RecordName': ['morgen', 'Morgen Sagen'], 'dsAttrTypeStandard:FirstName': 'Morgen', 'dsAttrTypeStandard:GeneratedUID': '83479230-821E-11DE-B6B0-DBB02C6D659D', 'dsAttrTypeStandard:LastName': 'Sagen', 'dsAttrTypeStandard:EMailAddress': 'morgen@example.com', 'dsAttrTypeStandard:RealName': 'Morgen Sagen'}),
-                        ('morehouse', {'dsAttrTypeStandard:RecordType': 'dsRecTypeStandard:Users', 'dsAttrTypeStandard:AppleMetaNodeLocation': '/LDAPv3/127.0.0.1', 'dsAttrTypeStandard:RecordName': ['morehouse', 'Joe Morehouse'], 'dsAttrTypeStandard:FirstName': 'Joe', 'dsAttrTypeStandard:GeneratedUID': '98342930-90DC-11DE-A842-A29601FB13E8', 'dsAttrTypeStandard:LastName': 'Morehouse', 'dsAttrTypeStandard:EMailAddress': 'morehouse@example.com', 'dsAttrTypeStandard:RealName': 'Joe Morehouse'}),
+                        ('morgen',
+                        {
+                            'dsAttrTypeStandard:RecordType': 'dsRecTypeStandard:Users',
+                            'dsAttrTypeStandard:AppleMetaNodeLocation': '/LDAPv3/127.0.0.1',
+                            'dsAttrTypeStandard:RecordName': ['morgen', 'Morgen Sagen'],
+                            'dsAttrTypeStandard:FirstName': 'Morgen',
+                            'dsAttrTypeStandard:GeneratedUID': '83479230-821E-11DE-B6B0-DBB02C6D659D',
+                            'dsAttrTypeStandard:LastName': 'Sagen',
+                            'dsAttrTypeStandard:EMailAddress': 'morgen@example.com',
+                            'dsAttrTypeStandard:RealName': 'Morgen Sagen'
+                        }),
+                        ('morehouse',
+                        {
+                            'dsAttrTypeStandard:RecordType': 'dsRecTypeStandard:Users',
+                            'dsAttrTypeStandard:AppleMetaNodeLocation': '/LDAPv3/127.0.0.1',
+                            'dsAttrTypeStandard:RecordName': ['morehouse', 'Joe Morehouse'],
+                            'dsAttrTypeStandard:FirstName': 'Joe',
+                            'dsAttrTypeStandard:GeneratedUID': '98342930-90DC-11DE-A842-A29601FB13E8',
+                            'dsAttrTypeStandard:LastName': 'Morehouse',
+                            'dsAttrTypeStandard:EMailAddress': 'morehouse@example.com',
+                            'dsAttrTypeStandard:RealName': 'Joe Morehouse'
+                        }),
                     ]
                 else:
                     return []
 
-            fields = [('fullName', 'mor', True, u'starts-with'), ('emailAddresses', 'mor', True, u'starts-with'), ('firstName', 'mor', True, u'starts-with'), ('lastName', 'mor', True, u'starts-with')]
+            fields = [
+                ('fullName', 'mor', True, u'starts-with'),
+                ('emailAddresses', 'mor', True, u'starts-with'),
+                ('firstName', 'mor', True, u'starts-with'),
+                ('lastName', 'mor', True, u'starts-with')
+            ]
 
-            results = (yield self.service().recordsMatchingFields(fields, lookupMethod=lookupMethod))
+            results = (yield self.service().recordsMatchingFields(fields,
+                lookupMethod=lookupMethod))
             results = list(results)
             self.assertEquals(len(results), 2)
             for record in results:

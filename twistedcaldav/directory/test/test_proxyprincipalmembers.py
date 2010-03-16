@@ -131,6 +131,19 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         proxies = sorted([principal.displayName() for principal in proxies])
         self.assertEquals(proxies, sorted(expectedProxies))
 
+    @inlineCallbacks
+    def test_multipleProxyAssignmentsAtOnce(self):
+        yield self._proxyForTest(
+            DirectoryService.recordType_users, "userb",
+            ('a',),
+            True
+        )
+        yield self._proxyForTest(
+            DirectoryService.recordType_users, "userc",
+            ('a',),
+            True
+        )
+
     def test_groupMembersRegular(self):
         """
         DirectoryPrincipalResource.expandedGroupMembers()
@@ -321,7 +334,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
         return self._proxyForTest(
             DirectoryService.recordType_users, "wsanchez", 
-            ("Mecury Seven", "Gemini Twelve", "Apollo Eleven", "Orion", ),
+            ("Mercury Seven", "Gemini Twelve", "Apollo Eleven", "Orion", ),
             True
         )
 
@@ -336,7 +349,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
         yield self._proxyForTest(
             DirectoryService.recordType_users, "wsanchez", 
-            ("Mecury Seven", "Gemini Twelve", "Apollo Eleven", "Orion", ),
+            ("Mercury Seven", "Gemini Twelve", "Apollo Eleven", "Orion", ),
             True
         )
 
