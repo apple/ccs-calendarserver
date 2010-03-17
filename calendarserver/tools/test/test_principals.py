@@ -36,13 +36,15 @@ class MangePrincipalsTestCase(TestCase):
         templateFile.close()
 
         newConfig = template % {
-            'ServerRoot' : os.path.abspath(config.ServerRoot),
+            "ServerRoot" : os.path.abspath(config.ServerRoot),
         }
         configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
         configFilePath.setContent(newConfig)
 
         self.configFileName = configFilePath.path
         config.load(self.configFileName)
+
+        os.makedirs(config.DataRoot)
 
         origUsersFile = FilePath(os.path.join(os.path.dirname(__file__),
             "principals", "users-groups.xml"))

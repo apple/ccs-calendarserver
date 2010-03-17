@@ -49,6 +49,8 @@ class GatewayTestCase(TestCase):
         self.configFileName = configFilePath.path
         config.load(self.configFileName)
 
+        os.makedirs(config.DataRoot)
+
         origUsersFile = FilePath(os.path.join(os.path.dirname(__file__),
             "gateway", "users-groups.xml"))
         copyUsersFile = FilePath(os.path.join(config.DataRoot, "accounts.xml"))
