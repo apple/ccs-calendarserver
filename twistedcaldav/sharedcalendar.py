@@ -65,3 +65,21 @@ class SharedCalendarResource(CalDAVComplianceMixIn, SharedCollectionMixin, DAVRe
 
     def getChild(self, name):
         return self._hostedResource.getChild(name)
+
+    @inlineCallbacks
+    def hasProperty(self, property, request):
+        hosted = (yield self.hostedResource(request))
+        result = (yield hosted.hasProperty(property, request))
+        returnValue(result)
+
+    @inlineCallbacks
+    def readProperty(self, property, request):
+        hosted = (yield self.hostedResource(request))
+        result = (yield hosted.readProperty(property, request))
+        returnValue(result)
+
+    @inlineCallbacks
+    def writeProperty(self, property, request):
+        hosted = (yield self.hostedResource(request))
+        result = (yield hosted.writeProperty(property, request))
+        returnValue(result)
