@@ -59,7 +59,7 @@ class ConfigTests(TestCase):
     def tearDown(self):
         config.setDefaults(DEFAULT_CONFIG)
         config.reset()
-        config.update(None) # Make sure the update hooks get called
+        config.update()
 
     def testDefaults(self):
         for key, value in DEFAULT_CONFIG.iteritems():
@@ -113,6 +113,7 @@ class ConfigTests(TestCase):
         self.assertNotIn("BindAddresses", config.__dict__)
 
         config.BindAddresses = ["127.0.0.1"]
+        config.update()
 
         self.assertNotIn("BindAddresses", config.__dict__)
 
@@ -220,9 +221,11 @@ class ConfigTests(TestCase):
         resource = CalDAVFile("/")
         
         config.EnableProxyPrincipals = True
+        config.update()
         self.assertTrue("calendar-proxy" in resource.davComplianceClasses())
         
         config.EnableProxyPrincipals = False
+        config.update()
         self.assertTrue("calendar-proxy" not in resource.davComplianceClasses())
 
     def test_logging(self):

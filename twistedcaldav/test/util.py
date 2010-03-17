@@ -62,7 +62,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         os.mkdir(serverroot)
         config.ServerRoot = serverroot
         config.ConfigRoot = "config"
-        _updateDataStore(config)
+        config.update()
         
         if not os.path.exists(config.DataRoot):
             os.makedirs(config.DataRoot)
@@ -75,6 +75,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         config.Memcached.Pools.Default.ServerEnabled = False
         ClientFactory.allowTestCache = True
         memcacher.Memcacher.allowTestCache = True
+        config.update()
 
     def createHierarchy(self, structure, root=None):
         if root is None:
