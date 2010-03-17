@@ -196,7 +196,7 @@ class xattrPropertyStore (object):
         @param property: A L{WebDAVElement} to store.
         """
         key = self._encode(property.qname(), uid)
-        value = compress(property.toxml())
+        value = compress(property.toxml(pretty=False))
         untilConcludes(setitem, self.attrs, key, value)
 
         # Update the resource because we've modified it
