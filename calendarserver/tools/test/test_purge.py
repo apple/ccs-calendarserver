@@ -83,6 +83,7 @@ class PurgeOldEventsTestCase(TestCase):
         self.assertEquals(count, 2)
 
         after = {
+            "addressbooks" : {}, # FIXME
             "calendars" : {
                 "__uids__" : {
                     "64" : {
