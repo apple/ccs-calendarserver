@@ -41,7 +41,7 @@ class GatewayTestCase(TestCase):
         templateFile.close()
 
         newConfig = template % {
-            'ServerRoot' : os.path.abspath(config.ServerRoot),
+            "ServerRoot" : os.path.abspath(config.ServerRoot),
         }
         configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
         configFilePath.setContent(newConfig)
@@ -100,35 +100,35 @@ class GatewayTestCase(TestCase):
     @inlineCallbacks
     def test_getLocationList(self):
         results = yield self.runCommand(command_getLocationList)
-        self.assertEquals(len(results['result']), 10)
+        self.assertEquals(len(results["result"]), 10)
 
     @inlineCallbacks
     def test_getLocationAttributes(self):
         results = yield self.runCommand(command_createLocation)
         results = yield self.runCommand(command_getLocationAttributes)
-        self.assertEquals(results['result']['Building'], "Test Building")
-        self.assertEquals(results['result']['City'], "Cupertino")
-        self.assertEquals(results['result']['Capacity'], "40")
-        self.assertEquals(results['result']['Description'], "Test Description")
-        self.assertEquals(results['result']['ZIP'], "95014")
-        self.assertEquals(results['result']['Floor'], "First")
-        self.assertEquals(results['result']['RecordName'], ['createdlocation01'])
-        self.assertEquals(results['result']['State'], "CA")
-        self.assertEquals(results['result']['Street'], "1 Infinite Loop")
-        self.assertEquals(results['result']['RealName'], "Created Location 01")
-        self.assertEquals(results['result']['Comment'], "Test Comment")
-        self.assertEquals(results['result']['AutoSchedule'], True)
+        self.assertEquals(results["result"]["Building"], "Test Building")
+        self.assertEquals(results["result"]["City"], "Cupertino")
+        self.assertEquals(results["result"]["Capacity"], "40")
+        self.assertEquals(results["result"]["Description"], "Test Description")
+        self.assertEquals(results["result"]["ZIP"], "95014")
+        self.assertEquals(results["result"]["Floor"], "First")
+        self.assertEquals(results["result"]["RecordName"], ["createdlocation01"])
+        self.assertEquals(results["result"]["State"], "CA")
+        self.assertEquals(results["result"]["Street"], "1 Infinite Loop")
+        self.assertEquals(results["result"]["RealName"], "Created Location 01")
+        self.assertEquals(results["result"]["Comment"], "Test Comment")
+        self.assertEquals(results["result"]["AutoSchedule"], True)
 
     @inlineCallbacks
     def test_getResourceList(self):
         results = yield self.runCommand(command_getResourceList)
-        self.assertEquals(len(results['result']), 10)
+        self.assertEquals(len(results["result"]), 10)
 
     @inlineCallbacks
     def test_getResourceAttributes(self):
         results = yield self.runCommand(command_createResource)
         results = yield self.runCommand(command_getResourceAttributes)
-        self.assertEquals(results['result']['Comment'], "Test Comment")
+        self.assertEquals(results["result"]["Comment"], "Test Comment")
 
     @inlineCallbacks
     def test_createLocation(self):
@@ -150,16 +150,16 @@ class GatewayTestCase(TestCase):
         self.assertNotEquals(record, None)
         self.assertEquals(record.autoSchedule, True)
 
-        self.assertEquals(record.extras['comment'], "Test Comment")
-        self.assertEquals(record.extras['building'], "Test Building")
-        self.assertEquals(record.extras['floor'], "First")
-        self.assertEquals(record.extras['capacity'], "40")
-        self.assertEquals(record.extras['street'], "1 Infinite Loop")
-        self.assertEquals(record.extras['city'], "Cupertino")
-        self.assertEquals(record.extras['state'], "CA")
-        self.assertEquals(record.extras['zip'], "95014")
-        self.assertEquals(record.extras['country'], "USA")
-        self.assertEquals(record.extras['phone'], "(408) 555-1212")
+        self.assertEquals(record.extras["comment"], "Test Comment")
+        self.assertEquals(record.extras["building"], "Test Building")
+        self.assertEquals(record.extras["floor"], "First")
+        self.assertEquals(record.extras["capacity"], "40")
+        self.assertEquals(record.extras["street"], "1 Infinite Loop")
+        self.assertEquals(record.extras["city"], "Cupertino")
+        self.assertEquals(record.extras["state"], "CA")
+        self.assertEquals(record.extras["zip"], "95014")
+        self.assertEquals(record.extras["country"], "USA")
+        self.assertEquals(record.extras["phone"], "(408) 555-1212")
 
     @inlineCallbacks
     def test_setLocationAttributes(self):
@@ -176,20 +176,20 @@ class GatewayTestCase(TestCase):
 
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
 
-        self.assertEquals(record.extras['comment'], "Updated Test Comment")
-        self.assertEquals(record.extras['building'], "Updated Test Building")
-        self.assertEquals(record.extras['floor'], "Second")
-        self.assertEquals(record.extras['capacity'], "41")
-        self.assertEquals(record.extras['street'], "2 Infinite Loop")
-        self.assertEquals(record.extras['city'], "Updated Cupertino")
-        self.assertEquals(record.extras['state'], "Updated CA")
-        self.assertEquals(record.extras['zip'], "95015")
-        self.assertEquals(record.extras['country'], "Updated USA")
-        self.assertEquals(record.extras['phone'], "(408) 555-1213")
+        self.assertEquals(record.extras["comment"], "Updated Test Comment")
+        self.assertEquals(record.extras["building"], "Updated Test Building")
+        self.assertEquals(record.extras["floor"], "Second")
+        self.assertEquals(record.extras["capacity"], "41")
+        self.assertEquals(record.extras["street"], "2 Infinite Loop")
+        self.assertEquals(record.extras["city"], "Updated Cupertino")
+        self.assertEquals(record.extras["state"], "Updated CA")
+        self.assertEquals(record.extras["zip"], "95015")
+        self.assertEquals(record.extras["country"], "Updated USA")
+        self.assertEquals(record.extras["phone"], "(408) 555-1213")
         self.assertEquals(record.autoSchedule, True)
 
         results = yield self.runCommand(command_getLocationAttributes)
-        self.assertEquals(results['result']['AutoSchedule'], True)
+        self.assertEquals(results["result"]["AutoSchedule"], True)
 
 
     @inlineCallbacks
@@ -248,13 +248,13 @@ class GatewayTestCase(TestCase):
     @inlineCallbacks
     def test_addWriteProxy(self):
         results = yield self.runCommand(command_addWriteProxy)
-        self.assertEquals(len(results['result']['Proxies']), 1)
+        self.assertEquals(len(results["result"]["Proxies"]), 1)
 
     @inlineCallbacks
     def test_removeWriteProxy(self):
         results = yield self.runCommand(command_addWriteProxy)
         results = yield self.runCommand(command_removeWriteProxy)
-        self.assertEquals(len(results['result']['Proxies']), 0)
+        self.assertEquals(len(results["result"]["Proxies"]), 0)
 
 
 
