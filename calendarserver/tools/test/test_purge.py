@@ -83,25 +83,22 @@ class PurgeOldEventsTestCase(TestCase):
         self.assertEquals(count, 2)
 
         after = {
-            "addressbooks" : {}, # FIXME
-            "calendars" : {
-                "__uids__" : {
-                    "64" : {
-                        "23" : {
-                            "6423F94A-6B76-4A3A-815B-D52CFD77935D" : {
-                                "calendar": {
-                                    ".db.sqlite": {
-                                        "@contents" : None, # ignore contents
-                                    },
-                                    "endless.ics": {
-                                        "@contents" : ENDLESS_ICS,
-                                    },
-                                    "straddling.ics": {
-                                        "@contents" : STRADDLING_ICS,
-                                    },
-                                    "recent.ics": {
-                                        "@contents" : RECENT_ICS,
-                                    },
+            "__uids__" : {
+                "64" : {
+                    "23" : {
+                        "6423F94A-6B76-4A3A-815B-D52CFD77935D" : {
+                            "calendar": {
+                                ".db.sqlite": {
+                                    "@contents" : None, # ignore contents
+                                },
+                                "endless.ics": {
+                                    "@contents" : ENDLESS_ICS,
+                                },
+                                "straddling.ics": {
+                                    "@contents" : STRADDLING_ICS,
+                                },
+                                "recent.ics": {
+                                    "@contents" : RECENT_ICS,
                                 },
                             },
                         },
@@ -109,7 +106,10 @@ class PurgeOldEventsTestCase(TestCase):
                 },
             },
         }
-        self.assertTrue(self.verifyHierarchy(config.DocumentRoot, after))
+        self.assertTrue(self.verifyHierarchy(
+            os.path.join(config.DocumentRoot, "calendars"),
+            after)
+        )
 
 
 
