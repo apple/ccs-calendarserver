@@ -35,6 +35,7 @@ from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 
 log = Logger()
 
+
 DEFAULT_CONFIG_FILE = "/etc/caldavd/caldavd.plist"
 DEFAULT_CARDDAV_CONFIG_FILE = "/etc/carddavd/carddavd.plist"
 
@@ -124,11 +125,11 @@ DEFAULT_CONFIG = {
     #    default.  For example, it may be the address of a load balancer or
     #    proxy which forwards connections to the server.
     #
-    "ServerHostName": "", # Network host name.
-    "HTTPPort": 0,        # HTTP port (0 to disable HTTP)
-    "SSLPort" : 0,        # SSL port (0 to disable HTTPS)
+    "ServerHostName": "",          # Network host name.
+    "HTTPPort": 0,                 # HTTP port (0 to disable HTTP)
+    "SSLPort" : 0,                 # SSL port (0 to disable HTTPS)
     "RedirectHTTPToHTTPS" : False, # If True, all nonSSL requests redirected to an SSL Port
-    "SSLMethod" : "SSLv3_METHOD", # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
+    "SSLMethod" : "SSLv3_METHOD",  # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
 
     #
     # Network address configuration information
@@ -138,14 +139,14 @@ DEFAULT_CONFIG = {
     "BindAddresses": [],   # List of IP addresses to bind to [empty = all]
     "BindHTTPPorts": [],   # List of port numbers to bind to for HTTP [empty = same as "Port"]
     "BindSSLPorts" : [],   # List of port numbers to bind to for SSL [empty = same as "SSLPort"]
-    "InheritFDs": [],   # File descriptors to inherit for HTTP requests (empty = don't inherit)
+    "InheritFDs"   : [],   # File descriptors to inherit for HTTP requests (empty = don't inherit)
     "InheritSSLFDs": [],   # File descriptors to inherit for HTTPS requests (empty = don't inherit)
 
     #
     # Types of service provided
     #
     "EnableCalDAV"  : True,  # Enable CalDAV service
-    "EnableCardDAV" : False,  # Enable CardDAV service
+    "EnableCardDAV" : True,  # Enable CardDAV service
 
     # XXX CardDAV
     "DirectoryAddressBook": {
@@ -439,10 +440,10 @@ DEFAULT_CONFIG = {
     # Partitioning
     #
     "Partitioning" : {
-        "Enabled":             False,   # Partitioning enabled or not
-        "ServerPartitionID":   "",      # Unique ID for this server's partition instance.
+        "Enabled": False,                          # Partitioning enabled or not
+        "ServerPartitionID": "",                   # Unique ID for this server's partition instance.
         "PartitionConfigFile": "partitions.plist", # File path for partition information
-        "MaxClients":          5,       # Pool size for connections to each partition
+        "MaxClients": 5,                           # Pool size for connections to each partition
     },
 
     #
@@ -903,23 +904,23 @@ def _updatePartitions(configDict):
         partitions.clear()
 
 def _updateCompliance(configDict):
-        if configDict.Scheduling.CalDAV.OldDraftCompatibility:
-            compliance = caldavxml.caldav_full_compliance
-        else:
-            compliance = caldavxml.caldav_implicit_compliance
+    if configDict.Scheduling.CalDAV.OldDraftCompatibility:
+        compliance = caldavxml.caldav_full_compliance
+    else:
+        compliance = caldavxml.caldav_implicit_compliance
 
-        if configDict.EnableProxyPrincipals:
-            compliance += customxml.calendarserver_proxy_compliance
-        if configDict.EnablePrivateEvents:
-            compliance += customxml.calendarserver_private_events_compliance
-        if configDict.Scheduling.CalDAV.get("EnablePrivateComments", True):
-            compliance += customxml.calendarserver_private_comments_compliance
-        if configDict.EnableCardDAV:
-            compliance += carddavxml.carddav_compliance
+    if configDict.EnableProxyPrincipals:
+        compliance += customxml.calendarserver_proxy_compliance
+    if configDict.EnablePrivateEvents:
+        compliance += customxml.calendarserver_private_events_compliance
+    if configDict.Scheduling.CalDAV.EnablePrivateComments:
+        compliance += customxml.calendarserver_private_comments_compliance
+    if configDict.EnableCardDAV:
+        compliance += carddavxml.carddav_compliance
 
-        compliance += customxml.calendarserver_principal_property_search
+    compliance += customxml.calendarserver_principal_property_search
 
-        configDict.CalDAVComplianceClasses = compliance
+    configDict.CalDAVComplianceClasses = compliance
 
 
 PRE_UPDATE_HOOKS = (
@@ -984,5 +985,5 @@ def _cleanup(configDict, defaultDict):
     return cleanDict
 
 config.setProvider(PListConfigProvider(DEFAULT_CONFIG))
-config.addPreUpdateHook(PRE_UPDATE_HOOKS)
-config.addPostUpdateHook(POST_UPDATE_HOOKS)
+config.addPreUpdateHooks(PRE_UPDATE_HOOKS)
+config.addPostUpdateHooks(POST_UPDATE_HOOKS)
