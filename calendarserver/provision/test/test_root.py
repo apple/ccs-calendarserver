@@ -56,12 +56,6 @@ class RootTests(TestCase):
     def setUp(self):
         super(RootTests, self).setUp()
 
-        # XXX make sure that the config hooks have been run, so that we get the
-        # default RootResourceACL key is set and traversal works.  This is not
-        # great, and the ACLs supported by the root resource should really be
-        # an _attribute_ on the root resource. -glyph
-        config.update({})
-
         self.docroot = self.mktemp()
         os.mkdir(self.docroot)
 

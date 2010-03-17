@@ -59,11 +59,18 @@ class ConfigTests(TestCase):
     def tearDown(self):
         config.setDefaults(DEFAULT_CONFIG)
         config.reset()
-        config.update()
 
     def testDefaults(self):
         for key, value in DEFAULT_CONFIG.iteritems():
-            self.assertEquals(getattr(config, key), value)
+            if key in ("ServerHostName",):
+                # Value is calculated and may vary
+                continue
+
+            self.assertEquals(
+                getattr(config, key), value,
+                "config[%r] == %r, expected %r"
+                % (key, getattr(config, key), value)
+            )
 
     def testLoadConfig(self):
         self.assertEquals(config.ResponseCompression, True)
@@ -113,7 +120,6 @@ class ConfigTests(TestCase):
         self.assertNotIn("BindAddresses", config.__dict__)
 
         config.BindAddresses = ["127.0.0.1"]
-        config.update()
 
         self.assertNotIn("BindAddresses", config.__dict__)
 
@@ -221,11 +227,9 @@ class ConfigTests(TestCase):
         resource = CalDAVFile("/")
         
         config.EnableProxyPrincipals = True
-        config.update()
         self.assertTrue("calendar-proxy" in resource.davComplianceClasses())
         
         config.EnableProxyPrincipals = False
-        config.update()
         self.assertTrue("calendar-proxy" not in resource.davComplianceClasses())
 
     def test_logging(self):

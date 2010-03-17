@@ -233,7 +233,8 @@ class BaseServiceMakerTests(TestCase):
 
         self.config.SudoersFile = ""
 
-        self.config.update(self.configOptions if self.configOptions else {})
+        if self.configOptions:
+            self.config.update(self.configOptions)
 
         os.mkdir(self.config.ServerRoot)
         os.mkdir(os.path.join(self.config.ServerRoot, self.config.DocumentRoot))
