@@ -124,7 +124,6 @@ class ComplianceTests(RootTests):
         OPTIONS request should include a DAV header that mentions the
         addressbook capability.
         """
-        config.update({"EnableCardDAV": True})
         response = yield self.issueRequest([""], "OPTIONS")
         self.assertIn("addressbook", response.headers.getHeader("DAV"))
 
