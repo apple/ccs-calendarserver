@@ -65,17 +65,21 @@ class RootTests(TestCase):
         self.docroot = self.mktemp()
         os.mkdir(self.docroot)
 
-        RootResource.CheckSACL = FakeCheckSACL(sacls={
-                'calendar': ['dreid']})
+        RootResource.CheckSACL = FakeCheckSACL(sacls={"calendar": ["dreid"]})
 
-        directory = XMLDirectoryService({'xmlFile' : xmlFile})
-        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
+        directory = XMLDirectoryService({"xmlFile" : xmlFile})
+        augment.AugmentService = augment.AugmentXMLDB(
+            xmlFiles=(augmentsFile.path,)
+        )
 
-        principals = DirectoryPrincipalProvisioningResource('/principals/', directory)
+        principals = DirectoryPrincipalProvisioningResource(
+            "/principals/",
+            directory
+        )
 
         root = RootResource(self.docroot, principalCollections=[principals])
 
-        root.putChild('principals',
+        root.putChild("principals",
                       principals)
 
         portal = Portal(auth.DavRealm())
@@ -97,16 +101,18 @@ class ComplianceTests(RootTests):
     """
 
     @inlineCallbacks
-    def issueRequest(self, segments, method='GET'):
+    def issueRequest(self, segments, method="GET"):
         """
         Get a resource from a particular path from the root URI, and return a
         Deferred which will fire with (something adaptable to) an HTTP response
         object.
         """
-        request = SimpleRequest(self.site, method, ('/'.join([''] + segments)))
+        request = SimpleRequest(self.site, method, ("/".join([""] + segments)))
         rsrc = self.root
         while segments:
-            rsrc, segments = (yield maybeDeferred(rsrc.locateChild, request, segments))
+            rsrc, segments = (yield maybeDeferred(
+                rsrc.locateChild, request, segments
+            ))
 
         result = yield rsrc.renderHTTP(request)
         returnValue(result)
@@ -139,13 +145,18 @@ class SACLTests(RootTests):
                                 "GET",
                                 "/principals/")
 
-        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
+        resrc, segments = (yield maybeDeferred(
+            self.root.locateChild, request, ["principals"]
+        ))
 
-        resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
+        resrc, segments = (yield maybeDeferred(
+            resrc.locateChild, request, ["principals"]
+        ))
 
         self.failUnless(
             isinstance(resrc, DirectoryPrincipalProvisioningResource),
-            "Did not get a DirectoryPrincipalProvisioningResource: %s" % (resrc,)
+            "Did not get a DirectoryPrincipalProvisioningResource: %s"
+            % (resrc,)
         )
 
         self.assertEquals(segments, [])
@@ -165,23 +176,38 @@ class SACLTests(RootTests):
             "GET",
             "/principals/",
             headers=http_headers.Headers({
-                    'Authorization': ['basic', '%s' % (
-                            'dreid:dierd'.encode('base64'),)]}))
+                "Authorization": [
+                    "basic",
+                    "%s" % ("dreid:dierd".encode("base64"),)
+                ]
+            })
+        )
 
-        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
+        resrc, segments = (yield maybeDeferred(
+            self.root.locateChild, request, ["principals"]
+        ))
 
-        resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
+        resrc, segments = (yield maybeDeferred(
+            resrc.locateChild, request, ["principals"]
+        ))
 
         self.failUnless(
             isinstance(resrc, DirectoryPrincipalProvisioningResource),
-            "Did not get a DirectoryPrincipalProvisioningResource: %s" % (resrc,)
+            "Did not get a DirectoryPrincipalProvisioningResource: %s"
+            % (resrc,)
         )
 
         self.assertEquals(segments, [])
 
-        self.assertEquals(request.authzUser,
-                          davxml.Principal(
-                davxml.HRef('/principals/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/')))
+        self.assertEquals(
+            request.authzUser,
+            davxml.Principal(
+                davxml.HRef(
+                    "/principals/__uids__/"
+                    "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/"
+                )
+            )
+        )
 
     @inlineCallbacks
     def test_notInSacls(self):
@@ -198,13 +224,21 @@ class SACLTests(RootTests):
             "GET",
             "/principals/",
             headers=http_headers.Headers({
-                    'Authorization': ['basic', '%s' % (
-                            'wsanchez:zehcnasw'.encode('base64'),)]}))
+                "Authorization": [
+                    "basic",
+                    "%s" % ("wsanchez:zehcnasw".encode("base64"),)
+                ]
+            })
+        )
 
-        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
+        resrc, segments = (yield maybeDeferred(
+            self.root.locateChild, request, ["principals"]
+        ))
 
         try:
-            resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
+            resrc, segments = (yield maybeDeferred(
+                resrc.locateChild, request, ["principals"]
+            ))
         except HTTPError, e:
             self.assertEquals(e.response.code, 403)
 
@@ -218,15 +252,23 @@ class SACLTests(RootTests):
         """
 
         self.root.resource.useSacls = True
-        request = SimpleRequest(self.site,
-                                "GET",
-                                "/principals/")
+        request = SimpleRequest(
+            self.site,
+            "GET",
+            "/principals/"
+        )
 
-        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
+        resrc, segments = (yield maybeDeferred(
+            self.root.locateChild, request, ["principals"]
+        ))
 
         try:
-            resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
-            raise AssertionError(("RootResource.locateChild did not return an error"))
+            resrc, segments = (yield maybeDeferred(
+                resrc.locateChild, request, ["principals"]
+            ))
+            raise AssertionError(
+                "RootResource.locateChild did not return an error"
+            )
         except HTTPError, e:
             self.assertEquals(e.response.code, 401)
 
@@ -245,13 +287,17 @@ class SACLTests(RootTests):
             "GET",
             "/principals/",
             headers=http_headers.Headers({
-                    'Authorization': ['basic', '%s' % (
-                            'dreid:dreid'.encode('base64'),)]}))
+                    "Authorization": ["basic", "%s" % (
+                            "dreid:dreid".encode("base64"),)]}))
 
-        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
+        resrc, segments = (yield maybeDeferred(
+            self.root.locateChild, request, ["principals"]
+        ))
 
         try:
-            resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
+            resrc, segments = (yield maybeDeferred(
+                resrc.locateChild, request, ["principals"]
+            ))
         except HTTPError, e:
             self.assertEquals(e.response.code, 401)
 
@@ -260,7 +306,8 @@ class SACLTests(RootTests):
             response = IResponse(response)
 
             if response.code != responsecode.FORBIDDEN:
-                self.fail("Incorrect response for DELETE /: %s" % (response.code,))
+                self.fail("Incorrect response for DELETE /: %s"
+                          % (response.code,))
 
         request = SimpleRequest(self.site, "DELETE", "/")
         return self.send(request, do_test)
@@ -270,7 +317,8 @@ class SACLTests(RootTests):
             response = IResponse(response)
 
             if response.code != responsecode.FORBIDDEN:
-                self.fail("Incorrect response for COPY /: %s" % (response.code,))
+                self.fail("Incorrect response for COPY /: %s"
+                          % (response.code,))
 
         request = SimpleRequest(
             self.site,
@@ -285,7 +333,8 @@ class SACLTests(RootTests):
             response = IResponse(response)
 
             if response.code != responsecode.FORBIDDEN:
-                self.fail("Incorrect response for MOVE /: %s" % (response.code,))
+                self.fail("Incorrect response for MOVE /: %s"
+                          % (response.code,))
 
         request = SimpleRequest(
             self.site,
@@ -307,6 +356,10 @@ class WikiTests(RootTests):
 
         request = SimpleRequest(self.site, "GET", "/principals/")
 
-        resrc, segments = (yield maybeDeferred(self.root.locateChild, request, ['principals']))
-        resrc, segments = (yield maybeDeferred(resrc.locateChild, request, ['principals']))
+        resrc, segments = (yield maybeDeferred(
+            self.root.locateChild, request, ["principals"]
+        ))
+        resrc, segments = (yield maybeDeferred(
+            resrc.locateChild, request, ["principals"]
+        ))
         self.assertTrue(request.checkedWiki)
