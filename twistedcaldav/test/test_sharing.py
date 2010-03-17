@@ -47,6 +47,19 @@ class SharingTests(TestCase):
         self.resource.sendInvite = lambda record, request:succeed(True)
         self.resource.removeInvite = lambda record, request:succeed(True)
         
+        class FakePrincipal(object):
+            
+            def __init__(self, cuaddr):
+                self.path = "/principals/__uids__/%s" % (cuaddr[7:].split('@')[0],)
+                self.homepath = "/calendars/__uids__/%s" % (cuaddr[7:].split('@')[0],)
+
+            def calendarHome(self):
+                class FakeHome(object):
+                    def removeShareByUID(self, request, uid):pass
+                return FakeHome()
+            
+        self.resource.principalForCalendarUserAddress = lambda cuaddr: FakePrincipal(cuaddr)
+        
     def _fakeValidUserID(self, userid):
         if userid.endswith("@example.com"):
             return userid
@@ -107,15 +120,15 @@ class SharingTests(TestCase):
         propInvite = (yield self.resource.readProperty(customxml.Invite, request))
         self.assertEquals(propInvite, None)
 
-        self.assertRaises(HTTPError, self.resource.upgradeToShare, request)
+        yield self.resource.upgradeToShare(request)
 
         rtype = (yield self.resource.resourceType(request))
-        self.assertEquals(rtype, davxml.ResourceType.calendar)
+        self.assertEquals(rtype, davxml.ResourceType.sharedcalendar)
         propInvite = (yield self.resource.readProperty(customxml.Invite, request))
-        self.assertEquals(propInvite, None)
+        self.assertEquals(propInvite, customxml.Invite())
         
         isShared = (yield self.resource.isShared(request))
-        self.assertFalse(isShared)
+        self.assertTrue(isShared)
         isVShared = (yield self.resource.isVirtualShare(request))
         self.assertFalse(isVShared)
 
@@ -183,15 +196,21 @@ class SharingTests(TestCase):
         <CS:read-write/>
     </CS:set>
 </CS:share>
-""",
-            responsecode.BAD_REQUEST
+"""
         )
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
-        self.assertEquals(propInvite, None)
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
+            customxml.InviteUser(
+                customxml.UID.fromString(""),
+                davxml.HRef.fromString("mailto:user02@example.com"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusNoResponse(),
+            )
+        ))
         
         isShared = (yield self.resource.isShared(None))
-        self.assertFalse(isShared)
+        self.assertTrue(isShared)
         isVShared = (yield self.resource.isVirtualShare(None))
         self.assertFalse(isVShared)
 
@@ -422,7 +441,8 @@ class SharingTests(TestCase):
         
         self.assertEqual(
             str(response.stream.read()).replace("\r\n", "\n"),
-            """<?xml version='1.0' encoding='UTF-8'?><multistatus xmlns='DAV:'>
+            """<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
   <response>
     <href>mailto:bogus@example.net</href>
     <status>HTTP/1.1 403 Forbidden</status>

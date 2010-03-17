@@ -64,7 +64,8 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.extensions import DAVResource, DAVPrincipalResource
+from twistedcaldav.extensions import DAVResource, DAVPrincipalResource,\
+    PropertyNotFoundError
 from twistedcaldav.ical import Component
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import allowedComponents
@@ -220,9 +221,9 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
     ##
 
     liveProperties = DAVResource.liveProperties + (
-        (dav_namespace,    "owner"),               # Private Events needs this but it is also OK to return empty
-        (caldav_namespace, "supported-calendar-component-set"),
-        (caldav_namespace, "supported-calendar-data"         ),
+        davxml.Owner.qname(),               # Private Events needs this but it is also OK to return empty
+        caldavxml.SupportedCalendarComponentSet.qname(),
+        caldavxml.SupportedCalendarData.qname(),
     )
 
     supportedCalendarComponentSet = caldavxml.SupportedCalendarComponentSet(
@@ -237,34 +238,20 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         elif not enable and qname in clz.liveProperties:
             clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
 
-    def hasProperty(self, property, request):
-        """
-        Need to special case schedule-calendar-transp for backwards compatability.
-        """
-        
-        if type(property) is tuple:
-            qname = property
-        else:
-            qname = property.qname()
-
-        # Force calendar collections to always appear to have the property
-        if qname == (caldav_namespace, "schedule-calendar-transp") and self.isCalendarCollection():
-            return succeed(True)
-        else:
-            return super(CalDAVResource, self).hasProperty(property, request)
-
     def isShadowableProperty(self, qname):
         """
         Shadowable properties are ones on shared resources where a "default" exists until
         a user overrides with their own value.
         """
-        return False
+        return qname in (
+            caldavxml.CalendarDescription.qname(),
+            caldavxml.CalendarTimeZone.qname(),
+        )
 
     def isGlobalProperty(self, qname):
         """
         A global property is one that is the same for all users.
         """
-        if qname == (u'DAV:', u'displayname'): return False # XXX HACK
         if qname in self.liveProperties:
             if qname in (
                 davxml.DisplayName.qname(),
@@ -277,11 +264,53 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
             customxml.GETCTag.qname(),
             caldavxml.MaxResourceSize.qname(),
             caldavxml.MaxAttendeesPerInstance.qname(),
-            caldavxml.ScheduleCalendarTransp.qname(),
         ):
             return True
         else:
             return False
+
+    @inlineCallbacks
+    def hasProperty(self, property, request):
+        """
+        Need to special case schedule-calendar-transp for backwards compatability.
+        """
+        
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        isvirt = (yield self.isVirtualShare(request))
+        if isvirt:
+            if self.isShadowableProperty(qname):
+                ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
+                p = self.deadProperties().contains(qname, uid=ownerPrincipal.principalUID())
+                if p:
+                    returnValue(p)
+                
+            elif (not self.isGlobalProperty(qname)):
+                ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
+                p = self.deadProperties().contains(qname, uid=ownerPrincipal.principalUID())
+                returnValue(p)
+
+        res = (yield self._hasGlobalProperty(property, request))
+        returnValue(res)
+
+    def _hasGlobalProperty(self, property, request):
+        """
+        Need to special case schedule-calendar-transp for backwards compatability.
+        """
+        
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        # Force calendar collections to always appear to have the property
+        if qname == caldavxml.ScheduleCalendarTransp.qname() and self.isCalendarCollection():
+            return succeed(True)
+        else:
+            return super(CalDAVResource, self).hasProperty(property, request)
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -291,76 +320,73 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
             qname = property.qname()
 
         isvirt = (yield self.isVirtualShare(request))
-        if self.isShadowableProperty(qname):
-            if isvirt:
+        if isvirt:
+            if self.isShadowableProperty(qname):
+                ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
+                try:
+                    p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
+                    returnValue(p)
+                except PropertyNotFoundError:
+                    pass
+                
+            elif (not self.isGlobalProperty(qname)):
                 ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
                 p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
-                if p is not None:
-                    returnValue(p)
-            else:
-                res = (yield self._readGlobalProperty(qname, property, request))
-                returnValue(res)
-            
-        elif (not self.isGlobalProperty(qname)) and isvirt:
-            ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
-            p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
-            returnValue(p)
+                returnValue(p)
 
         res = (yield self._readGlobalProperty(qname, property, request))
         returnValue(res)
 
     @inlineCallbacks
     def _readGlobalProperty(self, qname, property, request):
-        namespace, name = qname
 
-        if namespace == dav_namespace:
-            if name == "owner":
-                owner = (yield self.owner(request))
-                returnValue(davxml.Owner(owner))
+        if qname == davxml.Owner.qname():
+            owner = (yield self.owner(request))
+            returnValue(davxml.Owner(owner))
 
-        elif namespace == caldav_namespace:
-            if name == "supported-calendar-component-set":
-                # CalDAV-access-09, section 5.2.3
-                if self.hasDeadProperty(qname):
-                    returnValue(self.readDeadProperty(qname))
-                returnValue(self.supportedCalendarComponentSet)
-            elif name == "supported-calendar-data":
-                # CalDAV-access-09, section 5.2.4
-                returnValue(caldavxml.SupportedCalendarData(
-                    caldavxml.CalendarData(**{
-                        "content-type": "text/calendar",
-                        "version"     : "2.0",
-                    }),
+        elif qname == caldavxml.SupportedCalendarComponentSet.qname():
+            # CalDAV-access-09, section 5.2.3
+            if self.hasDeadProperty(qname):
+                returnValue(self.readDeadProperty(qname))
+            returnValue(self.supportedCalendarComponentSet)
+
+        elif qname == caldavxml.SupportedCalendarData.qname():
+            # CalDAV-access-09, section 5.2.4
+            returnValue(caldavxml.SupportedCalendarData(
+                caldavxml.CalendarData(**{
+                    "content-type": "text/calendar",
+                    "version"     : "2.0",
+                }),
+            ))
+
+        elif qname == caldavxml.MaxResourceSize.qname():
+            # CalDAV-access-15, section 5.2.5
+            if config.MaximumAttachmentSize:
+                returnValue(caldavxml.MaxResourceSize.fromString(
+                    str(config.MaximumAttachmentSize)
                 ))
-            elif name == "max-resource-size":
-                # CalDAV-access-15, section 5.2.5
-                if config.MaximumAttachmentSize:
-                    returnValue(caldavxml.MaxResourceSize.fromString(
-                        str(config.MaximumAttachmentSize)
-                    ))
 
-            elif name == "max-attendees-per-instance":
-                # CalDAV-access-15, section 5.2.9
-                if config.MaxAttendeesPerInstance:
-                    returnValue(caldavxml.MaxAttendeesPerInstance.fromString(
-                        str(config.MaxAttendeesPerInstance)
-                    ))
+        elif qname == caldavxml.MaxAttendeesPerInstance.qname():
+            # CalDAV-access-15, section 5.2.9
+            if config.MaxAttendeesPerInstance:
+                returnValue(caldavxml.MaxAttendeesPerInstance.fromString(
+                    str(config.MaxAttendeesPerInstance)
+                ))
 
-            elif name == "schedule-calendar-transp":
-                # For backwards compatibility, if the property does not exist we need to create
-                # it and default to the old free-busy-set value.
-                if self.isCalendarCollection() and not self.hasDeadProperty(property):
-                    # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-                    principal = (yield self.resourceOwnerPrincipal(request))
-                    fbset = (yield principal.calendarFreeBusyURIs(request))
-                    url = (yield self.canonicalURL(request))
-                    opaque = url in fbset
-                    self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
+        elif qname == caldavxml.ScheduleCalendarTransp.qname():
+            # For backwards compatibility, if the property does not exist we need to create
+            # it and default to the old free-busy-set value.
+            if self.isCalendarCollection() and not self.hasDeadProperty(property):
+                # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
+                principal = (yield self.resourceOwnerPrincipal(request))
+                fbset = (yield principal.calendarFreeBusyURIs(request))
+                url = (yield self.canonicalURL(request))
+                opaque = url in fbset
+                self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
 
-        elif namespace == calendarserver_namespace:
-            if name == "invite":
-                result = (yield self.inviteProperty(request))
-                returnValue(result)
+        elif qname == customxml.Invite.qname():
+            result = (yield self.inviteProperty(request))
+            returnValue(result)
 
         result = (yield super(CalDAVResource, self).readProperty(property, request))
         returnValue(result)
@@ -375,7 +401,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         isvirt = (yield self.isVirtualShare(request))
         if isvirt and (self.isShadowableProperty(property.qname()) or (not self.isGlobalProperty(property.qname()))):
             ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
-            p = (yield self.deadProperties().set(property, uid=ownerPrincipal.principalUID()))
+            p = self.deadProperties().set(property, uid=ownerPrincipal.principalUID())
             returnValue(p)
  
         res = (yield self._writeGlobalProperty(property, request))
@@ -383,7 +409,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
 
     @inlineCallbacks
     def _writeGlobalProperty(self, property, request):
-        if property.qname() == (caldav_namespace, "supported-calendar-component-set"):
+        if property.qname() == caldavxml.SupportedCalendarComponentSet.qname():
             if not self.isPseudoCalendarCollection():
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
@@ -400,7 +426,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         # server enforces what can be stored, however it need not actually
         # exist so we cannot list it in liveProperties on this resource, since its
         # its presence there means that hasProperty will always return True for it.
-        elif property.qname() == (caldav_namespace, "calendar-timezone"):
+        elif property.qname() == caldavxml.CalendarTimeZone.qname():
             if not self.isCalendarCollection():
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
@@ -413,7 +439,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                     description="Invalid property"
                 ))
 
-        elif property.qname() == (caldav_namespace, "schedule-calendar-transp"):
+        elif property.qname() == caldavxml.ScheduleCalendarTransp.qname():
             if not self.isCalendarCollection():
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
@@ -430,7 +456,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                 myurl = (yield self.canonicalURL(request))
                 inbox.processFreeBusyCalendar(myurl, property.children[0] == caldavxml.Opaque())
 
-        elif property.qname() == (dav_namespace, "resourcetype"):
+        elif property.qname() == davxml.ResourceType.qname():
             if self.isCalendarCollection():
                 sawShare = [child for child in property.children if child.qname() == (calendarserver_namespace, "shared-owner")]
                 if not (config.Sharing.Enabled and config.Sharing.Calendars.Enabled):
@@ -468,11 +494,6 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
 
         result = (yield super(CalDAVResource, self).writeProperty(property, request))
         returnValue(result)
-
-    def writeDeadProperty(self, property):
-        val = super(CalDAVResource, self).writeDeadProperty(property)
-        return val
-
 
     ##
     # ACL
@@ -568,10 +589,15 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
     def resourceOwnerPrincipal(self, request):
         """
         This is the owner of the resource based on the URI used to access it. For a shared
-        collection it will be the sharee, whereas the ownerPrincipal for a shared collection
-        will be the sharer.
+        collection it will be the sharee, otherwise it will be the regular the ownerPrincipal.
         """
-        return self.ownerPrincipal(request)
+
+        def _defer(isVirt):
+            return self._shareePrincipal if isVirt else self.ownerPrincipal(request)
+
+        d = self.isVirtualShare(request)
+        d.addCallback(_defer)
+        return d
 
     def isOwner(self, request, adminprincipals=False, readprincipals=False):
         """
