@@ -75,10 +75,14 @@ class ConfigDict(dict):
             dict.__delattr__(self, attr)
 
 class ConfigProvider(object):
-    """Configuration provider, abstraction for config storage/format/defaults"""
+    """
+    Configuration provider, abstraction for config storage/format/defaults.
+    """
 
     def __init__(self, defaults=None):
-        """Create configuration provider with given defaults"""
+        """
+        Create configuration provider with given defaults.
+        """
         self._configFileName = None
         if defaults is None:
             self._defaults = ConfigDict()
@@ -86,34 +90,45 @@ class ConfigProvider(object):
             self._defaults = ConfigDict(copy.deepcopy(defaults))
             
     def getDefaults(self):
-        """Return defaults"""
+        """
+        Return defaults.
+        """
         return self._defaults
     
     def setDefaults(self, defaults):
-        """Change defaults"""
+        """
+        Change defaults.
+        """
         self._defaults = ConfigDict(copy.deepcopy(defaults))
     
     def getConfigFileName(self):
-        """Return current configuration file path+name"""
+        """
+        Return current configuration file path and name.
+        """
         return self._configFileName
     
     def setConfigFileName(self, configFileName):
-        """Change configuration file path+name for next load operations"""
+        """
+        Change configuration file path and name for next load operations.
+        """
         self._configFileName = configFileName
         if self._configFileName:
             self._configFileName = os.path.abspath(configFileName)
     
     def hasErrors(self):
-        """Return true if last load operation encountered any errors"""
+        """
+        Return true if last load operation encountered any errors.
+        """
         return False
             
     def loadConfig(self):
-        """Load the configuration, return a dictionary of settings"""
+        """
+        Load the configuration, return a dictionary of settings.
+        """
         return self._defaults
     
 
 class Config(object):
-
     def __init__(self, provider=None):
         if not provider:
             self._provider = ConfigProvider()
@@ -122,6 +137,7 @@ class Config(object):
         self._preUpdateHooks = list()
         self._postUpdateHooks = list()
         self.reset()
+        self.update()
         
     def __setattr__(self, attr, value):
         if "_data" in self.__dict__ and attr in self.__dict__["_data"]:
@@ -157,17 +173,11 @@ class Config(object):
     def getInt(self, attr, defaultValue):
         return int(self.get(attr, defaultValue))
 
-    def addPreUpdateHook(self, hook):
-        if isinstance(hook, list) or isinstance(hook, tuple):
-            self._preUpdateHooks.extend(hook)
-        else:
-            self._preUpdateHooks.append(hook)
+    def addPreUpdateHooks(self, hooks):
+        self._preUpdateHooks.extend(hooks)
         
-    def addPostUpdateHook(self, hook):
-        if isinstance(hook, list) or isinstance(hook, tuple):
-            self._postUpdateHooks.extend(hook)
-        else:
-            self._postUpdateHooks.append(hook)
+    def addPostUpdateHooks(self, hooks):
+        self._postUpdateHooks.extend(hooks)
 
     def getProvider(self):
         return self._provider
@@ -184,7 +194,7 @@ class Config(object):
         _mergeData(self._provider.getDefaults(), items)
         self.update(items)
 
-    def update(self, items):
+    def update(self, items=None):
         if not isinstance(items, ConfigDict):
             items = ConfigDict(items)
         # Call hooks
@@ -201,7 +211,7 @@ class Config(object):
             self.update(configDict)
         else:
             raise ConfigurationError("Invalid configuration in %s"
-                % (self._provider.getConfigFileName(), ))
+                                     % (self._provider.getConfigFileName(),))
 
     def reload(self):
         configDict = ConfigDict(self._provider.loadConfig())

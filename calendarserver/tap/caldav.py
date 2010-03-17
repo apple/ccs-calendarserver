@@ -569,7 +569,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 redirectFactory.maxRequests = configDict.MaxRequests
                 redirectFactory.maxAccepts = configDict.MaxAccepts
 
-        config.addPostUpdateHook(updateFactory)
+        config.addPostUpdateHooks(updateFactory)
 
         if config.InheritFDs or config.InheritSSLFDs:
 
