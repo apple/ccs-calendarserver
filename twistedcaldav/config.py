@@ -134,18 +134,22 @@ class Config(object):
             self._provider = ConfigProvider()
         else:
             self._provider = provider
-        self._preUpdateHooks = list()
-        self._postUpdateHooks = list()
+        self._updating = False
+        self._preUpdateHooks = []
+        self._postUpdateHooks = []
         self.reset()
-        self.update()
         
     def __setattr__(self, attr, value):
         if "_data" in self.__dict__ and attr in self.__dict__["_data"]:
             self._data[attr] = value
         else:
             self.__dict__[attr] = value
+        self.__dict__["_dirty"] = True
 
     def __getattr__(self, attr):
+        if self._dirty:
+            self.update()
+
         if attr in self._data:
             return self._data[attr]
         raise AttributeError(attr)
@@ -164,14 +168,12 @@ class Config(object):
                 lastDict[attr] = ConfigDict()
             lastDict = lastDict.__getattr__(part)
         configItem = parts[-1]
+
         if configItem in lastDict:
             return lastDict[configItem]
         else:
             lastDict[configItem] = defaultValue
             return defaultValue
-
-    def getInt(self, attr, defaultValue):
-        return int(self.get(attr, defaultValue))
 
     def addPreUpdateHooks(self, hooks):
         self._preUpdateHooks.extend(hooks)
@@ -195,14 +197,22 @@ class Config(object):
         self.update(items)
 
     def update(self, items=None):
+        if self._updating:
+            return
+        self._updating = True
+
         if not isinstance(items, ConfigDict):
             items = ConfigDict(items)
+
         # Call hooks
         for hook in self._preUpdateHooks:
             hook(self._data, items)
         _mergeData(self._data, items)
         for hook in self._postUpdateHooks:
             hook(self._data)
+
+        self._updating = False
+        self._dirty = False
 
     def load(self, configFile):
         self._provider.setConfigFileName(configFile)
@@ -225,6 +235,7 @@ class Config(object):
 
     def reset(self):
         self._data = ConfigDict(copy.deepcopy(self._provider.getDefaults()))
+        self._dirty = True
 
 def _mergeData(oldData, newData):
     for key, value in newData.iteritems():
