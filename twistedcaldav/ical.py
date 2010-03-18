@@ -423,7 +423,7 @@ class Component (object):
         
         mtype = None
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() == "VTIMEZONE" or component.name().startswith("X-"):
                 continue
             elif mtype and (mtype != component.name()):
                 raise InvalidICalendarDataError("Component contains more than one type of primary type: %r" % (self,))
@@ -442,7 +442,7 @@ class Component (object):
         
         result = None
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() == "VTIMEZONE" or component.name().startswith("X-"):
                 continue
             elif not allow_multiple and (result is not None):
                 raise InvalidICalendarDataError("Calendar contains more than one primary component: %r" % (self,))
@@ -462,7 +462,7 @@ class Component (object):
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
         
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() == "VTIMEZONE" or component.name().startswith("X-"):
                 continue
             if not component.hasProperty("RECURRENCE-ID"):
                 return component
@@ -481,7 +481,7 @@ class Component (object):
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
         
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() == "VTIMEZONE" or component.name().startswith("X-"):
                 continue
             rid = component.getRecurrenceIDUTC()
             if rid and recurrence_id and dateordatetime(rid) == recurrence_id:
@@ -1023,7 +1023,7 @@ class Component (object):
         if self.name() == "VCALENDAR":
             result = ()
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE":
+                if component.name() != "VTIMEZONE" and not component.name().startswith("X-"):
                     result += component.getComponentInstances()
             return result
         else:
@@ -1038,7 +1038,7 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE" and component.isRecurring():
+                if component.name() != "VTIMEZONE" and not component.name().startswith("X-") and component.isRecurring():
                     return True
         else:
             for propname in ("RRULE", "RDATE", "EXDATE", "RECURRENCE-ID",):
@@ -1158,6 +1158,51 @@ class Component (object):
 
         return newcomp
         
+    def validInstances(self, rids):
+        """
+        Test whether the specified recurrence-ids are valid instances in this event.
+
+        @param rid: recurrence-id values
+        @type rid: iterable
+        
+        @return: C{set} of valid rids
+        """
+        
+        valid = set()
+        non_master_rids = [rid for rid in rids if rid is not None]
+        if non_master_rids:
+            highest_rid = max(non_master_rids)
+            self.cacheExpandedTimeRanges(highest_rid + datetime.timedelta(days=1))
+        for rid in rids:
+            if self.validInstance(rid, clear_cache=False):
+                valid.add(rid)
+        return valid
+
+    def validInstance(self, rid, clear_cache=True):
+        """
+        Test whether the specified recurrence-id is a valid instance in this event.
+
+        @param rid: recurrence-id value
+        @type rid: L{datetime.datetime}
+        
+        @return: C{bool}
+        """
+        
+        # First check overridden instances already in this component
+        if not hasattr(self, "cachedComponentInstances") or clear_cache:
+            self.cachedComponentInstances = set(self.getComponentInstances())
+        if rid in self.cachedComponentInstances:
+            return True
+            
+        # Must have a master component
+        if self.masterComponent() is None:
+            return False
+
+        # Get expansion
+        instances = self.cacheExpandedTimeRanges(rid + datetime.timedelta(days=1))
+        new_rids = set([instances[key].rid for key in instances])
+        return rid in new_rids
+
     def resourceUID(self):
         """
         @return: the UID of the subcomponents in this component.
@@ -1166,7 +1211,7 @@ class Component (object):
 
         if not hasattr(self, "_resource_uid"):
             for subcomponent in self.subcomponents():
-                if subcomponent.name() != "VTIMEZONE":
+                if subcomponent.name() != "VTIMEZONE" and not subcomponent.name().startswith("X-"):
                     self._resource_uid = subcomponent.propertyValue("UID")
                     break
             else:
@@ -1188,6 +1233,8 @@ class Component (object):
                 name = subcomponent.name()
                 if name == "VTIMEZONE":
                     has_timezone = True
+                elif subcomponent.name().startswith("X-"):
+                    continue
                 else:
                     self._resource_type = name
                     break

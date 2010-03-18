@@ -18,7 +18,7 @@ import datetime
 import time
 from hashlib import md5
 
-from vobject.icalendar import utc
+from vobject.icalendar import dateTimeToString, utc
 
 from twext.python.log import Logger
 
@@ -504,9 +504,10 @@ class ImplicitProcessor(object):
                                 dt = dt.replace(tzinfo=tzinfo).astimezone(utc)
                             return dt
                         
-                        tr = caldavxml.TimeRange(start="20000101", end="20000101")
-                        tr.start = makeTimedUTC(instance.start)
-                        tr.end = makeTimedUTC(instance.end)
+                        tr = caldavxml.TimeRange(
+                            start=dateTimeToString(makeTimedUTC(instance.start)),
+                            end=dateTimeToString(makeTimedUTC(instance.end)),
+                        )
 
                         yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid, servertoserver=True)
                         

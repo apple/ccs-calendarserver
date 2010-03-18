@@ -47,10 +47,9 @@ from twisted.internet.defer import maybeDeferred, succeed
 from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav.ical import Component
-from twistedcaldav.query import calendarquery
+from twistedcaldav.query import calendarquery, queryfilter
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
-from twistedcaldav import caldavxml
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.config import config
 from twistedcaldav.memcachepool import CachePoolUserMixIn
@@ -310,7 +309,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
 
         # Make sure we have a proper Filter element and get the partial SQL
         # statement to use.
-        if isinstance(filter, caldavxml.Filter):
+        if isinstance(filter, queryfilter.Filter):
             qualifiers = calendarquery.sqlcalendarquery(filter)
             if qualifiers is not None:
                 # Determine how far we need to extend the current expansion of

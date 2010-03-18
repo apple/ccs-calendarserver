@@ -27,10 +27,9 @@ from twext.web2.http import Response
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
-from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import ScheduleTag
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
-from twistedcaldav.ical import Component
+from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 
 @inlineCallbacks
 def http_GET(self, request):
@@ -42,7 +41,7 @@ def http_GET(self, request):
         except HTTPError:
             access = None
             
-        if access in (Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED):
+        if access:
     
             # Check authorization first
             yield self.authorize(request, (davxml.Read(),))
@@ -50,15 +49,13 @@ def http_GET(self, request):
             # Non DAV:owner's have limited access to the data
             isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
             
-            if not isowner:
-                # Now "filter" the resource calendar data through the CALDAV:calendar-data element and apply
-                # access restrictions to the data.
-                caldata = caldavxml.CalendarData().elementFromResourceWithAccessRestrictions(self, access).calendarData()
+            # Now "filter" the resource calendar data
+            caldata = PrivateEventFilter(access, isowner).filter(self.iCalendarText())
 
-                response = Response()
-                response.stream = MemoryStream(caldata)
-                response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
-                returnValue(response)
+            response = Response()
+            response.stream = MemoryStream(str(caldata))
+            response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
+            returnValue(response)
 
 
     # Do normal GET behavior

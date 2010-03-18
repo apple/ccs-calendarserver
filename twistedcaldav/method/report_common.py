@@ -55,12 +55,15 @@ from twext.python.log import Logger
 
 from twistedcaldav import caldavxml
 from twistedcaldav import carddavxml
-from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.caldavxml import caldav_namespace, CalendarData
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
+from twistedcaldav.datafilters.calendardata import CalendarDataFilter
+from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.index import IndexedSearchException
+from twistedcaldav.query import queryfilter
 
 log = Logger()
 
@@ -335,20 +338,16 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
     for property in props:
         if isinstance(property, caldavxml.CalendarData):
             # Handle private events access restrictions
-            if not isowner:
-                try:
-                    access = resource.readDeadProperty(TwistedCalendarAccessProperty)
-                except HTTPError:
-                    access = None
-            else:
+            try:
+                access = resource.readDeadProperty(TwistedCalendarAccessProperty)
+            except HTTPError:
                 access = None
 
-            if calendar:
-                propvalue = property.elementFromCalendarWithAccessRestrictions(calendar, access, timezone)
-            else:
-                propvalue = property.elementFromResourceWithAccessRestrictions(resource, access, timezone)
-            if propvalue is None:
-                raise ValueError("Invalid CalDAV:calendar-data for request: %r" % (property,))
+            if calendar is None:
+                calendar = resource.iCalendarText()
+            filtered = PrivateEventFilter(access, isowner).filter(calendar)
+            filtered = CalendarDataFilter(property, timezone).filter(filtered)
+            propvalue = CalendarData().fromCalendar(filtered)
             properties_by_status[responsecode.OK].append(propvalue)
             continue
     
@@ -438,6 +437,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                       name="VCALENDAR",
                    )
               )
+    filter = queryfilter.Filter(filter)
 
     # Get the timezone property from the collection, and store in the query filter
     # for use during the query itself.

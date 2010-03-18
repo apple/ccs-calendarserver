@@ -3124,6 +3124,245 @@ END:VCALENDAR
             elif changed:
                 self.fail("Truncation happened when not expected: %s" % (title,))
 
+    def test_valid_recurrence(self):
+        
+        data = (
+            (
+                "1.1 - no recurrence",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.2 - rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RDATE:20091004T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 5, 0, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.3 - rrule no overrides",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.4 - rrule no overrides + rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+RDATE:20091004T010000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 2, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.5 - rrule no overrides + rdate + exdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+RDATE:20091004T010000Z
+EXDATE:20091003T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 2, 0, 0, tzinfo=tzutc()), False),
+                    (datetime.datetime(2009, 10, 3, 0, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.6 - rrule with override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 1, 0, 0, tzinfo=tzutc()), False),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.7 - rrule + rdate with override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+RDATE:20071115T010000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T010000Z
+DTSTART:20071115T020000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 1, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 2, 0, 0, tzinfo=tzutc()), False),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.8 - override only",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, False),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), False),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.9 - no recurrence one test master",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                )
+            ),
+            (
+                "1.10 - no recurrence one test master",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                )
+            ),
+            (
+                "1.11 - no recurrence one test missing",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+        )
+        
+        for clear_cache in (True, False):
+            for title, calendar, tests in data:
+                ical = Component.fromString(calendar)
+                for ctr, item in enumerate(tests):
+                    rid, result = item
+                    self.assertEqual(ical.validInstance(rid, clear_cache=clear_cache), result, "Failed comparison: %s #%d" % (title, ctr+1,))
+
+        for title, calendar, tests in data:
+            ical = Component.fromString(calendar)
+            rids = set([rid for rid, result in tests])
+            expected_results = set([rid for rid, result in tests if result==True])
+            actual_results = ical.validInstances(rids)
+            self.assertEqual(actual_results, expected_results, "Failed comparison: %s %s" % (title, actual_results,))
+
     def test_mismatched_until(self):
         invalid = (
             """BEGIN:VCALENDAR

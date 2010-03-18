@@ -27,11 +27,12 @@ from datetime import date, timedelta
 from getopt import getopt, GetoptError
 from twext.python.log import Logger
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.method.delete_common import DeleteResource
+from twistedcaldav.query import queryfilter
 import os
 import sys
 
@@ -182,14 +183,15 @@ def purgeOldEvents(directory, root, date, verbose=False, dryrun=False):
     log.info("Purging events from %d calendar homes" % (len(records),))
 
     filter =  caldavxml.Filter(
-          caldavxml.ComponentFilter(
-              caldavxml.ComponentFilter(
-                  TimeRange(start=date,),
-                  name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
-              ),
-              name="VCALENDAR",
-           )
-      )
+        caldavxml.ComponentFilter(
+            caldavxml.ComponentFilter(
+                TimeRange(start=date,),
+                name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+            ),
+            name="VCALENDAR",
+        )
+    )
+    filter = queryfilter.Filter(filter)
 
     eventCount = 0
     for record in records:

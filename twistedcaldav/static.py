@@ -81,6 +81,7 @@ from twistedcaldav.index import Index, IndexSchedule, SyncTokenValidException
 from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
 from twistedcaldav.resource import isAddressBookCollectionResource, SearchAddressBookResource, SearchAllAddressBookResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource, IScheduleInboxResource
+from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.directory.addressbook import uidsResourceName as uidsResourceNameAddressBook
@@ -320,14 +321,10 @@ class CalDAVFile (CalDAVResource, DAVFile):
         except HTTPError:
             access = None
 
-        if access in (iComponent.ACCESS_CONFIDENTIAL, iComponent.ACCESS_RESTRICTED):
+        # Now "filter" the resource calendar data
+        caldata = PrivateEventFilter(access, isowner).filter(self.iCalendarText())
 
-            if not isowner:
-                # Now "filter" the resource calendar data through the CALDAV:calendar-data element and apply
-                # access restrictions to the data.
-                return caldavxml.CalendarData().elementFromResourceWithAccessRestrictions(self, access).calendarData()
-
-        return self.iCalendarText()
+        return str(caldata)
 
     def iCalendarText(self, name=None):
         if self.isPseudoCalendarCollection():
