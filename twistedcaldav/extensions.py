@@ -20,7 +20,6 @@ Extensions to web2.dav
 """
 
 __all__ = [
-    "SudoSACLMixin",
     "DAVResource",
     "DAVPrincipalResource",
     "DAVFile",
@@ -82,7 +81,7 @@ else:
     )
 
 
-class SudoSACLMixin (object):
+class SudoersMixin (object):
     """
     Mixin class to let DAVResource, and DAVFile subclasses know about
     sudoer principals and how to find their AuthID.
@@ -187,7 +186,7 @@ class SudoSACLMixin (object):
         Check for sudo users before regular users.
         """
         if type(creds) is str:
-            return super(SudoSACLMixin, self).findPrincipalForAuthID(creds)
+            return super(SudoersMixin, self).findPrincipalForAuthID(creds)
 
         for collection in self.principalCollections():
             principal = collection.principalForShortName(
@@ -270,7 +269,7 @@ class SudoSACLMixin (object):
             raise HTTPError(responsecode.FORBIDDEN)
         else:
             # No proxy - do default behavior
-            result = (yield super(SudoSACLMixin, self).authorizationPrincipal(request, authID, authnPrincipal))
+            result = (yield super(SudoersMixin, self).authorizationPrincipal(request, authID, authnPrincipal))
             returnValue(result)
 
 
@@ -444,7 +443,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         returnValue(MultiStatusResponse(responses))
 
 
-class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoSACLMixin, SuperDAVResource, LoggingMixIn):
+class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoersMixin, SuperDAVResource, LoggingMixIn):
     """
     Extended L{twext.web2.dav.resource.DAVResource} implementation.
     """
@@ -708,7 +707,7 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
             return davxml.ResourceType(davxml.Principal())
 
 
-class DAVFile (SudoSACLMixin, SuperDAVFile, LoggingMixIn):
+class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn):
     """
     Extended L{twext.web2.dav.static.DAVFile} implementation.
     """
