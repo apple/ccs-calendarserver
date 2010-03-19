@@ -82,49 +82,53 @@ class DAVPropertyMixIn (MetaDataMixin):
     Mix-in class which implements the DAV property access API in
     L{IDAVResource}.
 
-    There are three categories of DAV properties, for the purposes of how this
-    class manages them.  A X{property} is either a X{live property} or a
-    X{dead property}, and live properties are split into two categories:
+    There are three categories of DAV properties, for the purposes of
+    how this class manages them.  A X{property} is either a X{live
+    property} or a X{dead property}, and live properties are split
+    into two categories:
 
-     1. Dead properties.  There are properties that the server simply stores as
-        opaque data.  These are store in the X{dead property store}, which is
-        provided by subclasses via the L{deadProperties} method.
+     1. Dead properties.  There are properties that the server simply
+        stores as opaque data.  These are store in the X{dead property
+        store}, which is provided by subclasses via the
+        L{deadProperties} method.
 
-     2. Live properties which are always computed.  These properties aren't
-        stored anywhere (by this class) but instead are derived from the resource
-        state or from data that is persisted elsewhere.  These are listed in the
-        L{liveProperties} attribute and are handled explicitly by the
-        L{readProperty} method.
+     2. Live properties which are always computed.  These properties
+        aren't stored anywhere (by this class) but instead are derived
+        from the resource state or from data that is persisted
+        elsewhere.  These are listed in the L{liveProperties}
+        attribute and are handled explicitly by the L{readProperty}
+        method.
 
-     3. Live properties may be acted on specially and are stored in the X{dead
-        property store}.  These are not listed in the L{liveProperties} attribute,
-        but may be handled specially by the property access methods.  For
-        example, L{writeProperty} might validate the data and refuse to write
-        data it deems inappropriate for a given property.
+     3. Live properties may be acted on specially and are stored in
+        the X{dead property store}.  These are not listed in the
+        L{liveProperties} attribute, but may be handled specially by
+        the property access methods.  For example, L{writeProperty}
+        might validate the data and refuse to write data it deems
+        inappropriate for a given property.
 
     There are two sets of property access methods.  The first group
     (L{hasProperty}, etc.) provides access to all properties.  They
-    automatically figure out which category a property falls into and act
-    accordingly.
+    automatically figure out which category a property falls into and
+    act accordingly.
 
-    The second group (L{hasDeadProperty}, etc.) accesses the dead property store
-    directly and bypasses any live property logic that exists in the first group
-    of methods.  These methods are used by the first group of methods, and there
-    are cases where they may be needed by other methods.  I{Accessing dead
-    properties directly should be done with caution.}  Bypassing the live
-    property logic means that values may not be the correct ones for use in
-    DAV requests such as PROPFIND, and may be bypassing security checks.  In
-    general, one should never bypass the live property logic as part of a client
-    request for property data.
+    The second group (L{hasDeadProperty}, etc.) accesses the dead
+    property store directly and bypasses any live property logic that
+    exists in the first group of methods.  These methods are used by
+    the first group of methods, and there are cases where they may be
+    needed by other methods.  I{Accessing dead properties directly
+    should be done with caution.}  Bypassing the live property logic
+    means that values may not be the correct ones for use in DAV
+    requests such as PROPFIND, and may be bypassing security checks.
+    In general, one should never bypass the live property logic as
+    part of a client request for property data.
 
-    Properties in the L{twisted_private_namespace} namespace are internal to the
-    server and should not be exposed to clients.  They can only be accessed via
-    the dead property store.
+    Properties in the L{twisted_private_namespace} namespace are
+    internal to the server and should not be exposed to clients.  They
+    can only be accessed via the dead property store.
     """
-    # Note:
-    #  The DAV:owner and DAV:group live properties are only meaningful if you
-    # are using ACL semantics (ie. Unix-like) which use them.  This (generic)
-    # class does not.
+    # Note: The DAV:owner and DAV:group live properties are only
+    # meaningful if you are using ACL semantics (ie. Unix-like) which
+    # use them.  This (generic) class does not.
 
     liveProperties = (
         (dav_namespace, "resourcetype"              ),
@@ -153,18 +157,21 @@ class DAVPropertyMixIn (MetaDataMixin):
 
     def deadProperties(self):
         """
-        Provides internal access to the WebDAV dead property store.  You
-        probably shouldn't be calling this directly if you can use the property
-        accessors in the L{IDAVResource} API instead.  However, a subclass must
-        override this method to provide it's own dead property store.
+        Provides internal access to the WebDAV dead property store.
+        You probably shouldn't be calling this directly if you can use
+        the property accessors in the L{IDAVResource} API instead.
+        However, a subclass must override this method to provide it's
+        own dead property store.
 
-        This implementation returns an instance of L{NonePropertyStore}, which
-        cannot store dead properties.  Subclasses must override this method if
-        they wish to store dead properties.
+        This implementation returns an instance of
+        L{NonePropertyStore}, which cannot store dead properties.
+        Subclasses must override this method if they wish to store
+        dead properties.
 
-        @return: a dict-like object from which one can read and to which one can
-            write dead properties.  Keys are qname tuples (ie. C{(namespace, name)})
-            as returned by L{davxml.WebDAVElement.qname()} and values are
+        @return: a dict-like object from which one can read and to
+            which one can write dead properties.  Keys are qname
+            tuples (ie. C{(namespace, name)}) as returned by
+            L{davxml.WebDAVElement.qname()} and values are
             L{davxml.WebDAVElement} instances.
         """
         if not hasattr(self, "_dead_properties"):
@@ -191,7 +198,10 @@ class DAVPropertyMixIn (MetaDataMixin):
                 d.addCallback(lambda result: result)
                 return d
         
-        return succeed(qname in self.liveProperties or self.deadProperties().contains(qname))
+        return succeed(
+            qname in self.liveProperties or
+            self.deadProperties().contains(qname)
+        )
 
     def readProperty(self, property, request):
         """
@@ -258,8 +268,14 @@ class DAVPropertyMixIn (MetaDataMixin):
 
                 if name == "supportedlock":
                     return davxml.SupportedLock(
-                        davxml.LockEntry(davxml.LockScope.exclusive, davxml.LockType.write),
-                        davxml.LockEntry(davxml.LockScope.shared   , davxml.LockType.write),
+                        davxml.LockEntry(
+                            davxml.LockScope.exclusive,
+                            davxml.LockType.write
+                        ),
+                        davxml.LockEntry(
+                            davxml.LockScope.shared,
+                            davxml.LockType.write
+                        ),
                     )
 
                 if name == "supported-report-set":
@@ -279,7 +295,9 @@ class DAVPropertyMixIn (MetaDataMixin):
 
                 if name == "principal-collection-set":
                     return davxml.PrincipalCollectionSet(*[
-                        davxml.HRef(principalCollection.principalCollectionURL())
+                        davxml.HRef(
+                            principalCollection.principalCollectionURL()
+                        )
                         for principalCollection in self.principalCollections()
                     ])
 
@@ -289,7 +307,8 @@ class DAVPropertyMixIn (MetaDataMixin):
                         
                         raise HTTPError(StatusResponse(
                             responsecode.UNAUTHORIZED,
-                            "Access denied while reading property %s." % (sname,)
+                            "Access denied while reading property %s."
+                            % (sname,)
                         ))
 
                     d = self.checkPrivileges(request, privileges)
@@ -299,9 +318,15 @@ class DAVPropertyMixIn (MetaDataMixin):
                 if name == "current-user-privilege-set":
                     def callback():
                         d = self.currentPrivileges(request)
-                        d.addCallback(lambda privs: davxml.CurrentUserPrivilegeSet(*privs))
+                        d.addCallback(
+                            lambda privs:
+                                davxml.CurrentUserPrivilegeSet(*privs)
+                        )
                         return d
-                    return ifAllowed((davxml.ReadCurrentUserPrivilegeSet(),), callback)
+                    return ifAllowed(
+                        (davxml.ReadCurrentUserPrivilegeSet(),),
+                        callback
+                    )
 
                 if name == "acl":
                     def callback():
@@ -315,7 +340,9 @@ class DAVPropertyMixIn (MetaDataMixin):
                     return ifAllowed((davxml.ReadACL(),), callback)
                 
                 if name == "current-user-principal":
-                    return davxml.CurrentUserPrincipal(self.currentPrincipal(request).children[0])
+                    return davxml.CurrentUserPrincipal(
+                        self.currentPrincipal(request).children[0]
+                    )
 
                 if name == "quota-available-bytes":
                     def callback(qvalue):
@@ -354,7 +381,8 @@ class DAVPropertyMixIn (MetaDataMixin):
             elif namespace == twisted_private_namespace:
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
-                    "Properties in the %s namespace are private to the server." % (sname,)
+                    "Properties in the %s namespace are private to the server."
+                    % (sname,)
                 ))
 
             return self.deadProperties().get(qname)
@@ -365,19 +393,23 @@ class DAVPropertyMixIn (MetaDataMixin):
         """
         See L{IDAVResource.writeProperty}.
         """
-        assert isinstance(property, davxml.WebDAVElement), "Not a property: %r" % (property,)
+        assert isinstance(property, davxml.WebDAVElement), (
+            "Not a property: %r" % (property,)
+        )
 
         def defer():
             if property.protected:
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
-                    "Protected property %s may not be set." % (property.sname(),)
+                    "Protected property %s may not be set."
+                    % (property.sname(),)
                 ))
 
             if property.namespace == twisted_private_namespace:
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
-                    "Properties in the %s namespace are private to the server." % (property.sname(),)
+                    "Properties in the %s namespace are private to the server."
+                    % (property.sname(),)
                 ))
 
             return self.deadProperties().set(property)
@@ -405,7 +437,8 @@ class DAVPropertyMixIn (MetaDataMixin):
             if qname[0] == twisted_private_namespace:
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
-                    "Properties in the %s namespace are private to the server." % (qname[0],)
+                    "Properties in the %s namespace are private to the server."
+                    % (qname[0],)
                 ))
 
             return self.deadProperties().delete(qname)
@@ -420,8 +453,8 @@ class DAVPropertyMixIn (MetaDataMixin):
 
         # Add dynamic live properties that exist
         dynamicLiveProperties = (
-            (dav_namespace, "quota-available-bytes"     ),
-            (dav_namespace, "quota-used-bytes"          ),
+            (dav_namespace, "quota-available-bytes"),
+            (dav_namespace, "quota-used-bytes"     ),
         )
         for dqname in dynamicLiveProperties:
             has = waitForDeferred(self.hasProperty(dqname, request))
@@ -431,7 +464,10 @@ class DAVPropertyMixIn (MetaDataMixin):
                 qnames.remove(dqname)
 
         for qname in self.deadProperties().list():
-            if (qname not in qnames) and (qname[0] != twisted_private_namespace):
+            if (
+                qname not in qnames and
+                qname[0] != twisted_private_namespace
+            ):
                 qnames.add(qname)
 
         yield qnames
@@ -440,12 +476,15 @@ class DAVPropertyMixIn (MetaDataMixin):
 
     def listAllprop(self, request):
         """
-        Some DAV properties should not be returned to a C{DAV:allprop} query.
-        RFC 3253 defines several such properties.  This method computes a subset
-        of the property qnames returned by L{listProperties} by filtering out
-        elements whose class have the C{.hidden} attribute set to C{True}.
-        @return: a list of qnames of properties which are defined and are
-            appropriate for use in response to a C{DAV:allprop} query.   
+        Some DAV properties should not be returned to a C{DAV:allprop}
+        query.  RFC 3253 defines several such properties.  This method
+        computes a subset of the property qnames returned by
+        L{listProperties} by filtering out elements whose class have
+        the C{.hidden} attribute set to C{True}.
+
+        @return: a list of qnames of properties which are defined and
+            are appropriate for use in response to a C{DAV:allprop}
+            query.
         """
         def doList(qnames):
             result = []
@@ -466,8 +505,8 @@ class DAVPropertyMixIn (MetaDataMixin):
 
     def hasDeadProperty(self, property):
         """
-        Same as L{hasProperty}, but bypasses the live property store and checks
-        directly from the dead property store.
+        Same as L{hasProperty}, but bypasses the live property store
+        and checks directly from the dead property store.
         """
         if type(property) is tuple:
             qname = property
@@ -478,8 +517,8 @@ class DAVPropertyMixIn (MetaDataMixin):
 
     def readDeadProperty(self, property):
         """
-        Same as L{readProperty}, but bypasses the live property store and reads
-        directly from the dead property store.
+        Same as L{readProperty}, but bypasses the live property store
+        and reads directly from the dead property store.
         """
         if type(property) is tuple:
             qname = property
@@ -490,21 +529,21 @@ class DAVPropertyMixIn (MetaDataMixin):
 
     def writeDeadProperty(self, property):
         """
-        Same as L{writeProperty}, but bypasses the live property store and
-        writes directly to the dead property store.
-        Note that this should not be used unless you know that you are writing
-        to an overrideable live property, as this bypasses the logic which
-        protects protected properties.  The result of writing to a
-        non-overrideable live property with this method is undefined; the value
-        in the dead property store may or may not be ignored when reading the
-        property with L{readProperty}.
+        Same as L{writeProperty}, but bypasses the live property store
+        and writes directly to the dead property store.  Note that
+        this should not be used unless you know that you are writing
+        to an overrideable live property, as this bypasses the logic
+        which protects protected properties.  The result of writing to
+        a non-overrideable live property with this method is
+        undefined; the value in the dead property store may or may not
+        be ignored when reading the property with L{readProperty}.
         """
         self.deadProperties().set(property)
 
     def removeDeadProperty(self, property):
         """
-        Same as L{removeProperty}, but bypasses the live property store and acts
-        directly on the dead property store.
+        Same as L{removeProperty}, but bypasses the live property
+        store and acts directly on the dead property store.
         """
         if self.hasDeadProperty(property):
             if type(property) is tuple:
@@ -520,13 +559,17 @@ class DAVPropertyMixIn (MetaDataMixin):
     #
     def contentType(self):
         if self.hasDeadProperty((davxml.dav_namespace, "getcontenttype")):
-            return self.readDeadProperty((davxml.dav_namespace, "getcontenttype")).mimeType()
+            return self.readDeadProperty(
+                (davxml.dav_namespace, "getcontenttype")
+            ).mimeType()
         else:
             return super(DAVPropertyMixIn, self).contentType()
 
     def displayName(self):
         if self.hasDeadProperty((davxml.dav_namespace, "displayname")):
-            return str(self.readDeadProperty((davxml.dav_namespace, "displayname")))
+            return str(self.readDeadProperty(
+                (davxml.dav_namespace, "displayname")
+            ))
         else:
             return super(DAVPropertyMixIn, self).displayName()
 
@@ -538,8 +581,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def __init__(self, principalCollections=None):
         """
-        @param principalCollections: an iterable of L{IDAVPrincipalCollectionResource}s
-            which contain principals to be used in ACLs for this resource.
+        @param principalCollections: an iterable of
+            L{IDAVPrincipalCollectionResource}s which contain
+            principals to be used in ACLs for this resource.
         """
         if principalCollections is not None:
             self._principalCollections = frozenset([
@@ -554,8 +598,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     def davComplianceClasses(self):
         """
         This implementation raises L{NotImplementedError}.
-        @return: a sequence of strings denoting WebDAV compliance classes.  For
-            example, a DAV level 2 server might return ("1", "2").
+        @return: a sequence of strings denoting WebDAV compliance
+            classes.  For example, a DAV level 2 server might return
+            ("1", "2").
         """
         unimplemented(self)
 
@@ -563,8 +608,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         See L{IDAVResource.isCollection}.
 
-        This implementation raises L{NotImplementedError}; a subclass must
-        override this method.
+        This implementation raises L{NotImplementedError}; a subclass
+        must override this method.
         """
         unimplemented(self)
 
@@ -572,8 +617,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         See L{IDAVResource.findChildren}.
 
-        This implementation works for C{depth} values of C{"0"}, C{"1"}, 
-        and C{"infinity"}.  As long as C{self.listChildren} is implemented
+        This implementation works for C{depth} values of C{"0"},
+        C{"1"}, and C{"infinity"}.  As long as C{self.listChildren} is
+        implemented
         """
         assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
 
@@ -595,7 +641,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             if privileges is None:
                 return child
    
-            d = child.checkPrivileges(request, privileges, inherited_aces=inherited_aces)
+            d = child.checkPrivileges(
+                request, privileges,
+                inherited_aces=inherited_aces
+            )
             d.addCallback(lambda _: child)
             return d
 
@@ -606,7 +655,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 if child.isCollection():
                     callback(child, childpath + "/")
                     if depth == "infinity":
-                        d = child.findChildren(depth, request, callback, privileges)
+                        d = child.findChildren(
+                            depth, request,
+                            callback, privileges
+                        )
                         d.addCallback(lambda x: reactor.callLater(0, getChild))
                         return d
                 else:
@@ -631,23 +683,32 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         return completionDeferred
 
     @inlineCallbacks
-    def findChildrenFaster(self, depth, request, okcallback, badcallback, names, privileges, inherited_aces):
+    def findChildrenFaster(
+        self, depth, request, okcallback, badcallback,
+        names, privileges, inherited_aces
+    ):
         """
         See L{IDAVResource.findChildren}.
 
-        This implementation works for C{depth} values of C{"0"}, C{"1"}, 
-        and C{"infinity"}.  As long as C{self.listChildren} is implemented
+        This implementation works for C{depth} values of C{"0"},
+        C{"1"}, and C{"infinity"}.  As long as C{self.listChildren} is
+        implemented
         
-        @param depth: a C{str} for the depth: "0", "1" and "infinity" only allowed.
-        @param request: the L{Request} for the current request in progress
-        @param okcallback: a callback function used on all resources that pass the privilege check,
-            or C{None}
-        @param badcallback: a callback function used on all resources that fail the privilege check,
-            or C{None}
-        @param names: a C{list} of C{str}'s containing the names of the child resources to lookup. If
-            empty or C{None} all children will be examined, otherwise only the ones in the list.
+        @param depth: a C{str} for the depth: "0", "1" and "infinity"
+        only allowed.
+        @param request: the L{Request} for the current request in
+        progress
+        @param okcallback: a callback function used on all resources
+            that pass the privilege check, or C{None}
+        @param badcallback: a callback function used on all resources
+            that fail the privilege check, or C{None}
+        @param names: a C{list} of C{str}'s containing the names of
+            the child resources to lookup. If empty or C{None} all
+            children will be examined, otherwise only the ones in the
+            list.
         @param privileges: a list of privileges to check.
-        @param inherited_aces: the list of parent ACEs that are inherited by all children.
+        @param inherited_aces: the list of parent ACEs that are
+            inherited by all children.
         """
         assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
 
@@ -677,15 +738,22 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # Generate (acl,supported_privs) map
         aclmap = {}
         for resource, url in children:
-            acl = (yield resource.accessControlList(request, inheritance=False, inherited_aces=inherited_aces))
+            acl = (yield resource.accessControlList(
+                request, inheritance=False, inherited_aces=inherited_aces
+            ))
             supportedPrivs = (yield resource.supportedPrivileges(request))
-            aclmap.setdefault((pickle.dumps(acl), supportedPrivs), (acl, supportedPrivs, []))[2].append((resource, url))           
+            aclmap.setdefault(
+                (pickle.dumps(acl), supportedPrivs),
+                (acl, supportedPrivs, [])
+            )[2].append((resource, url))
 
         # Now determine whether each ace satisfies privileges
         #print aclmap
         allowed_collections = []
         for items in aclmap.itervalues():
-            checked = (yield self.checkACLPrivilege(request, items[0], items[1], privileges, inherited_aces))
+            checked = (yield self.checkACLPrivilege(
+                request, items[0], items[1], privileges, inherited_aces
+            ))
             if checked:
                 for resource, url in items[2]:
                     if okcallback:
@@ -700,13 +768,21 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # TODO: Depth: infinity support
         if depth == "infinity":
             for collection, url in allowed_collections:
-                collection_inherited_aces = (yield collection.inheritedACEsforChildren(request))
-                yield collection.findChildrenFaster(depth, request, okcallback, badcallback, names, privileges, inherited_aces=collection_inherited_aces)
+                collection_inherited_aces = (
+                    yield collection.inheritedACEsforChildren(request)
+                )
+                yield collection.findChildrenFaster(
+                    depth, request, okcallback, badcallback,
+                    names, privileges,
+                    inherited_aces=collection_inherited_aces
+                )
                 
         returnValue(None)
 
     @inlineCallbacks
-    def checkACLPrivilege(self, request, acl, privyset, privileges, inherited_aces):
+    def checkACLPrivilege(
+        self, request, acl, privyset, privileges, inherited_aces
+    ):
         
         if acl is None:
             returnValue(False)
@@ -714,8 +790,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         principal = self.currentPrincipal(request)
 
         # Other principal types don't make sense as actors.
-        assert principal.children[0].name in ("unauthenticated", "href"), \
+        assert principal.children[0].name in ("unauthenticated", "href"), (
             "Principal is not an actor: %r" % (principal,)
+        )
 
         acl = self.fullAccessControlList(acl, inherited_aces)
 
@@ -724,10 +801,14 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         for ace in acl.children:
             for privilege in tuple(pending):
-                if not self.matchPrivilege(davxml.Privilege(privilege), ace.privileges, privyset):
+                if not self.matchPrivilege(
+                    davxml.Privilege(privilege), ace.privileges, privyset
+                ):
                     continue
 
-                match = (yield self.matchPrincipal(principal, ace.principal, request))
+                match = (yield self.matchPrincipal(
+                    principal, ace.principal, request
+                ))
 
                 if match:
                     if ace.invert:
@@ -783,7 +864,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     def supportedReports(self):
         """
         See L{IDAVResource.supportedReports}.
-        This implementation lists the three main ACL reports and expand-property.
+
+        This implementation lists the three main ACL reports and
+        expand-property.
         """
         result = []
         result.append(davxml.Report(davxml.ACLPrincipalPropSet(),))
@@ -1619,18 +1702,18 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
 
         if isinstance(principal, davxml.Property):
-            # raise NotImplementedError("Property principals are not implemented.")
+            # NotImplementedError("Property principals are not implemented.")
             #
-            # We can't raise here without potentially crippling the server in a way
-            # that can't be fixed over the wire, so let's refuse the match and log
-            # an error instead.
+            # We can't raise here without potentially crippling the
+            # server in a way that can't be fixed over the wire, so
+            # let's refuse the match and log an error instead.
             #
             # Note: When fixing this, also fix validPrincipal()
             #
-            log.err("Encountered a property principal (%s), but handling is not implemented; invalid for ACL use."
+            log.err("Encountered a property principal (%s), "
+                    "but handling is not implemented; invalid for ACL use."
                     % (principal,))
-            yield None
-            return
+            return succeed(None)
 
             #
             # FIXME: I think this is wrong - we need to get the
@@ -1639,51 +1722,53 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             namespace = principal.attributes.get(["namespace"], dav_namespace)
             name = principal.attributes["name"]
 
-            principal = waitForDeferred(self.readProperty((namespace, name), request))
-            yield principal
-            try:
-                principal = principal.getResult()
-            except HTTPError, e:
-                assert e.response.code == responsecode.NOT_FOUND, (
-                    "Expected %s response from readProperty() exception, not %s"
-                    % (responsecode.NOT_FOUND, e.response.code)
-                )
-                yield None
-                return
+            def gotPrincipal(principal):
+                try:
+                    principal = principal.getResult()
+                except HTTPError, e:
+                    assert e.response.code == responsecode.NOT_FOUND, (
+                        "%s (!= %s) status from readProperty() exception"
+                        % (e.response.code, responsecode.NOT_FOUND)
+                    )
+                    return None
 
-            if not isinstance(principal, davxml.Principal):
-                log.err("Non-principal value in property {%s}%s referenced by property principal."
-                        % (namespace, name))
-                yield None
-                return
+                if not isinstance(principal, davxml.Principal):
+                    log.err("Non-principal value in property {%s}%s "
+                            "referenced by property principal."
+                            % (namespace, name))
+                    return None
 
-            if len(principal.children) != 1:
-                yield None
-                return
+                if len(principal.children) != 1:
+                    return None
 
-            # The interesting part of a principal is it's one child
-            principal = principal.children[0]
+                # The interesting part of a principal is it's one child
+                principal = principal.children[0]
+
+                # XXXXXX FIXME XXXXXX
+
+            d = self.readProperty((namespace, name), request)
+            d.addCallback(gotPrincipal)
+            return d
 
         elif isinstance(principal, davxml.Self):
             try:
                 self = IDAVPrincipalResource(self)
             except TypeError:
-                log.err("DAV:self ACE is set on non-principal resource %r" % (self,))
-                yield None
-                return
+                log.err("DAV:self ACE is set on non-principal resource %r"
+                        % (self,))
+                return succeed(None)
             principal = davxml.HRef(self.principalURL())
 
         if isinstance(principal, davxml.HRef):
-            yield principal
-            return
-        else:
-            yield None
+            return succeed(principal)
 
-        assert isinstance(principal, (davxml.All, davxml.Authenticated, davxml.Unauthenticated)), (
-            "Not a meta-principal: %r" % (principal,)
-        )
+        assert isinstance(principal, (
+            davxml.All,
+            davxml.Authenticated,
+            davxml.Unauthenticated
+        )), "Not a meta-principal: %r" % (principal,)
 
-    resolvePrincipal = deferredGenerator(resolvePrincipal)
+        return succeed(None)
 
     def privilegesForPrincipal(self, principal, request):
         """
@@ -1760,32 +1845,35 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     ##
     
     """
-    The basic policy here is to define a private 'quota-root' property on a collection.
-    That property will contain the maximum allowed bytes for the collections and all
-    its contents.
+    The basic policy here is to define a private 'quota-root' property
+    on a collection.  That property will contain the maximum allowed
+    bytes for the collections and all its contents.
     
-    In order to determine the quota property values on a resource, the server must look
-    for the private property on that resource and any of its parents. If found on a parent,
-    then that parent should be queried for quota information. If not found, no quota
-    exists for the resource.
+    In order to determine the quota property values on a resource, the
+    server must look for the private property on that resource and any
+    of its parents. If found on a parent, then that parent should be
+    queried for quota information. If not found, no quota exists for
+    the resource.
     
-    To determine tha actual quota in use we will cache the used byte count on the quota-root
-    collection in another private property. It is the servers responsibility to
-    keep that property up to date by adjusting it after every PUT, DELETE, COPY,
-    MOVE, MKCOL, PROPPATCH, ACL, POST or any other method that may affect the size of
-    stored data. If the private property is not present, the server will fall back to
-    getting the size by iterating over all resources (this is done in static.py).
-    
+    To determine tha actual quota in use we will cache the used byte
+    count on the quota-root collection in another private property. It
+    is the servers responsibility to keep that property up to date by
+    adjusting it after every PUT, DELETE, COPY, MOVE, MKCOL,
+    PROPPATCH, ACL, POST or any other method that may affect the size
+    of stored data. If the private property is not present, the server
+    will fall back to getting the size by iterating over all resources
+    (this is done in static.py).
     """
 
     def quota(self, request):
         """
-        Get current available & used quota values for this resource's quota root
-        collection.
+        Get current available & used quota values for this resource's
+        quota root collection.
 
-        @return: an L{Defered} with result C{tuple} containing two C{int}'s the first is 
-            quota-available-bytes, the second is quota-used-bytes, or
-            C{None} if quota is not defined on the resource.
+        @return: an L{Defered} with result C{tuple} containing two
+            C{int}'s the first is quota-available-bytes, the second is
+            quota-used-bytes, or C{None} if quota is not defined on
+            the resource.
         """
         
         # See if already cached
@@ -1828,8 +1916,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def hasQuota(self, request):
         """
-        Check whether this resource is undre quota control by checking each parent to see if
-        it has a quota root.
+        Check whether this resource is undre quota control by checking
+        each parent to see if it has a quota root.
         
         @return: C{True} if under quota control, C{False} if not.
         """
@@ -1864,8 +1952,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     
     def quotaRoot(self, request):
         """
-        @return: a C{int} containing the maximum allowed bytes if this collection
-            is quota-controlled, or C{None} if not quota controlled.
+        @return: a C{int} containing the maximum allowed bytes if this
+            collection is quota-controlled, or C{None} if not quota
+            controlled.
         """
         if self.hasDeadProperty(TwistedQuotaRootProperty):
             return int(str(self.readDeadProperty(TwistedQuotaRootProperty)))
@@ -1896,8 +1985,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         
     def setQuotaRoot(self, request, maxsize):
         """
-        @param maxsize: a C{int} containing the maximum allowed bytes for the contents
-            of this collection, or C{None} tp remove quota restriction.
+        @param maxsize: a C{int} containing the maximum allowed bytes
+            for the contents of this collection, or C{None} tp remove
+            quota restriction.
         """
         assert self.isCollection(), "Only collections can have a quota root"
         assert maxsize is None or isinstance(maxsize, int), "maxsize must be an int or None"
@@ -1911,8 +2001,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     
     def quotaSize(self, request):
         """
-        Get the size of this resource (if its a collection get total for all children as well).
-        TODO: Take into account size of dead-properties.
+        Get the size of this resource (if its a collection get total
+        for all children as well).  TODO: Take into account size of
+        dead-properties.
 
         @return: a C{int} containing the size of the resource.
         """
@@ -1920,13 +2011,14 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def checkQuota(self, request, available):
         """
-        Check to see whether all quota roots have sufficient available bytes.
-        We currently do not use hierarchical quota checks - i.e. only the most
-        immediate quota root parent is checked for quota.
+        Check to see whether all quota roots have sufficient available
+        bytes.  We currently do not use hierarchical quota checks -
+        i.e. only the most immediate quota root parent is checked for
+        quota.
         
         @param available: a C{int} containing the additional quota required.
-        @return: C{True} if there is sufficient quota remaining on all quota roots,
-            C{False} otherwise.
+        @return: C{True} if there is sufficient quota remaining on all
+            quota roots, C{False} otherwise.
         """
         
         quotaroot = self
@@ -1949,10 +2041,12 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def quotaSizeAdjust(self, request, adjust):
         """
-        Update the quota used value on all quota root parents of this resource.
+        Update the quota used value on all quota root parents of this
+        resource.
 
-        @param adjust: a C{int} containing the number of bytes added (positive) or
-            removed (negative) that should be used to adjust the cached total.
+        @param adjust: a C{int} containing the number of bytes added
+            (positive) or removed (negative) that should be used to
+            adjust the cached total.
         """
         
         # Check this resource first
