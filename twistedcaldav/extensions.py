@@ -34,8 +34,11 @@ import urllib
 import cgi
 import time
 
-from twisted.internet.defer import succeed, DeferredList, inlineCallbacks, returnValue
+from twisted.internet.defer import succeed, DeferredList
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
+
+import twext.web2.server
 from twext.web2 import responsecode
 from twext.web2.auth.wrapper import UnauthorizedResponse
 from twext.web2.http import HTTPError, Response, RedirectResponse
@@ -57,6 +60,7 @@ from twext.web2.dav.method.report import max_number_of_matches
 
 from twext.python.log import Logger, LoggingMixIn
 
+import twistedcaldav
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.util import Alternator, printTracebacks
@@ -65,6 +69,17 @@ from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.method.report import http_REPORT
 
 log = Logger()
+
+
+if twistedcaldav.__version__:
+    twext.web2.server.VERSION = "CalendarServer/%s %s" % (
+        twistedcaldav.__version__.replace(" ", ""),
+        twext.web2.server.VERSION,
+    )
+else:
+    twext.web2.server.VERSION = "CalendarServer/? %s" % (
+        twext.web2.server.VERSION,
+    )
 
 
 class SudoSACLMixin (object):
@@ -436,6 +451,7 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoSACLMixin, SuperDA
     def renderHTTP(self, request):
         log.info("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
         return super(DAVResource, self).renderHTTP(request)
+
 
     http_REPORT = http_REPORT
 

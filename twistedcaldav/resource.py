@@ -40,7 +40,7 @@ from twext.web2.dav.davxml import SyncCollection
 from twext.web2.dav.http import ErrorResponse
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, maybeDeferred, succeed
+from twisted.internet.defer import Deferred, succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
@@ -52,11 +52,8 @@ from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.util import joinURL, parentForURL, unimplemented, normalizeURL
 from twext.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
 from twext.web2.http_headers import MimeType
-from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
-import twext.web2.server
 
-import twistedcaldav
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav import carddavxml
 from twistedcaldav.carddavxml import carddav_namespace
@@ -70,12 +67,6 @@ from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.vcard import Component as vComponent
-
-
-if twistedcaldav.__version__:
-    serverVersion = twext.web2.server.VERSION + " TwistedCardDAV/" + twistedcaldav.__version__
-else:
-    serverVersion = twext.web2.server.VERSION + " TwistedCardDAV/?"
 
 
 class CalDAVComplianceMixIn(object):
@@ -139,19 +130,6 @@ class CalDAVResource (CalDAVComplianceMixIn, DAVResource, LoggingMixIn):
             return d
 
         return super(CalDAVResource, self).render(request)
-
-    def renderHTTP(self, request):
-        response = maybeDeferred(super(CalDAVResource, self).renderHTTP, request)
-
-        def setHeaders(response):
-            response = IResponse(response)
-            response.headers.setHeader("server", serverVersion)
-
-            return response
-
-        response.addCallback(setHeaders)
-
-        return response
 
 
     ##
