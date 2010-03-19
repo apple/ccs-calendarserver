@@ -42,12 +42,6 @@ limitations under the License.
 
   <key>ThrottleInterval</key>
   <integer>60</integer>
-  
-  <key>StandardOutPath</key>
-  <string>/var/log/caldavd/error.log</string>
-
-  <key>StandardErrorPath</key>
-  <string>/var/log/caldavd/error.log</string>
 
   <key>HardResourceLimits</key>
   <dict>

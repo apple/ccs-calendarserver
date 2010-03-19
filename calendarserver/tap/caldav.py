@@ -35,7 +35,8 @@ import OpenSSL
 
 from zope.interface import implements
 
-from twisted.python.log import FileLogObserver
+from twisted.python.log import FileLogObserver, ILogObserver
+from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
@@ -106,9 +107,30 @@ class CalDAVStatisticsServer (Factory):
     def __init__(self, logObserver): 
         self.logger = logObserver 
 
-class CalDAVService (MultiService):
+
+class ErrorLoggingMultiService(MultiService):
+    """ Registers a rotating file logger for error logging, iff
+        config.ErrorLogEnabled is True. """
+
+    def setServiceParent(self, app):
+        MultiService.setServiceParent(self, app)
+
+        if config.ErrorLogEnabled:
+            errorLogFile = LogFile.fromFullPath(
+                config.ErrorLogFile,
+                rotateLength=config.ErrorLogRotateMB * 1024 * 1024,
+                maxRotatedFiles=config.ErrorLogMaxRotatedFiles
+            )
+            errorLogObserver = FileLogObserver(errorLogFile).emit
+
+            # Registering ILogObserver with the Application object
+            # gets our observer picked up within AppLogger.start( )
+            app.setComponent(ILogObserver, errorLogObserver)
+
+
+class CalDAVService (ErrorLoggingMultiService):
     def __init__(self, logObserver):
-        self.logObserver = logObserver
+        self.logObserver = logObserver # accesslog observer
         MultiService.__init__(self)
 
     def privilegedStartService(self):
@@ -239,14 +261,6 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         if gid and gid != os.getgid():
             gottaBeRoot()
-
-        #
-        # Ignore the logfile parameter if not daemonized and log to stdout.
-        #
-        if self.parent["nodaemon"]:
-            self.parent["logfile"] = None
-        else:
-            self.parent["logfile"] = config.ErrorLogFile
 
         self.parent["pidfile"] = config.PIDFile
 
@@ -540,7 +554,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 config.AccessLogFile,
             )
 
-        self.log_info("Configuring log observer: %s" % (logObserver,))
+        self.log_info("Configuring access log observer: %s" % (logObserver,))
 
         service = CalDAVService(logObserver)
 
@@ -690,7 +704,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     makeService_Single   = makeService_Slave
 
     def makeService_Combined(self, options):
-        s = MultiService()
+        s = ErrorLoggingMultiService()
 
         # Make sure no old socket files are lying around.
         self.deleteStaleSocketFiles()
@@ -988,6 +1002,7 @@ class TwistdSlaveProcess(object):
             "-o", "BindAddresses=%s" % (",".join(self.interfaces),),
             "-o", "PIDFile=None",
             "-o", "ErrorLogFile=None",
+            "-o", "ErrorLogEnabled=False",
             "-o", "LogID=%s" % (self.id,),
             "-o", "MultiProcess/ProcessCount=%d"
                   % (config.MultiProcess.ProcessCount,),

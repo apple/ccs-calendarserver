@@ -51,7 +51,7 @@ init_build () {
   disable_setup="false";
      print_path="false";
         install="";
-      daemonize="-X";
+      daemonize="-X -L";
            kill="false";
         restart="false";
     plugin_name="caldav";

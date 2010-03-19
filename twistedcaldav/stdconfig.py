@@ -271,6 +271,9 @@ DEFAULT_CONFIG = {
     #
     "AccessLogFile"  : "access.log",  # Apache-style access log
     "ErrorLogFile"   : "error.log",   # Server activity log
+    "ErrorLogEnabled"   : True,       # True = use log file, False = stdout
+    "ErrorLogRotateMB"  : 10,         # Rotate error log after so many megabytes
+    "ErrorLogMaxRotatedFiles"  : 5,   # Retain this many error log files
     "PIDFile"        : "caldavd.pid",
     "RotateAccessLog"   : False,
     "EnableExtendedAccessLog": True,

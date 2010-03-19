@@ -136,13 +136,11 @@ class CalDAVOptionsTest (TestCase):
 
         argv = [
             "-f", myConfigFile,
-            "-o", "ErrorLogFile=/dev/null",
             "-o", "PIDFile=/dev/null",
         ]
 
         self.config.parseOptions(argv)
 
-        self.assertEquals(self.config.parent["logfile"], "/dev/null")
         self.assertEquals(self.config.parent["pidfile"], "/dev/null")
 
     def test_specifyConfigFile(self):

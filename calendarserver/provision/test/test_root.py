@@ -35,7 +35,6 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
 
 from calendarserver.provision.root import RootResource
-from twistedcaldav.config import config
 from twistedcaldav.directory import augment
 
 class FakeCheckSACL(object):
