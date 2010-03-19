@@ -613,7 +613,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         unimplemented(self)
 
-    def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
+    def findChildren(
+        self, depth, request, callback,
+        privileges=None, inherited_aces=None
+    ):
         """
         See L{IDAVResource.findChildren}.
 
@@ -883,22 +886,25 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         See L{IDAVResource.authorize}.
         """
-        d = self.authenticate(request)
         def whenAuthenticated(result):
             privilegeCheck = self.checkPrivileges(request, privileges, recurse)
             return privilegeCheck.addErrback(whenAccessDenied)
+
         def whenAccessDenied(f):
             f.trap(AccessDeniedError)
 
-            # If we were unauthenticated to start with (no Authorization header
-            # from client) then we should return an unauthorized response
-            # instead to force the client to login if it can.
+            # If we were unauthenticated to start with (no
+            # Authorization header from client) then we should return
+            # an unauthorized response instead to force the client to
+            # login if it can.
 
-            # We're not adding the headers here because this response class is
-            # supposed to be a FORBIDDEN status code and "Authorization will
-            # not help" according to RFC2616
+            # We're not adding the headers here because this response
+            # class is supposed to be a FORBIDDEN status code and
+            # "Authorization will not help" according to RFC2616
+
             def translateError(response):
                 return Failure(HTTPError(response))
+
             if request.authnUser == davxml.Principal(davxml.Unauthenticated()):
                 return UnauthorizedResponse.makeResponse(
                     request.credentialFactories,
@@ -906,33 +912,36 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             else:
                 return translateError(
                     NeedPrivilegesResponse(request.uri, f.value.errors))
+
+        d = self.authenticate(request)
         d.addCallback(whenAuthenticated)
         return d
 
-
     def authenticate(self, request):
         """
-        Authenticate the given request against the portal, setting both
-        C{request.authzUser} (a C{str}, the username for the purposes of
-        authorization) and C{request.authnUser} (a C{str}, the username for the
-        purposes of authentication) when it has been authenticated.
+        Authenticate the given request against the portal, setting
+        both C{request.authzUser} (a C{str}, the username for the
+        purposes of authorization) and C{request.authnUser} (a C{str},
+        the username for the purposes of authentication) when it has
+        been authenticated.
 
-        In order to authenticate, the request must have been previously
-        prepared by L{twext.web2.dav.auth.AuthenticationWrapper.hook} to have
-        the necessary authentication metadata.
+        In order to authenticate, the request must have been
+        previously prepared by
+        L{twext.web2.dav.auth.AuthenticationWrapper.hook} to have the
+        necessary authentication metadata.
 
         If the request was not thusly prepared, both C{authzUser} and
         C{authnUser} will be L{davxml.Unauthenticated}.
 
         @param request: the request which may contain authentication
-            information and a reference to a portal to authenticate against.
-
+            information and a reference to a portal to authenticate
+            against.
         @type request: L{twext.web2.iweb.IRequest}.
-
-        @return: a L{Deferred} which fires with a 2-tuple of C{(authnUser,
-            authzUser)} if either the request is unauthenticated OR contains
-            valid credentials to authenticate as a principal, or errbacks with
-            L{HTTPError} if the authentication scheme is unsupported, or the
+        @return: a L{Deferred} which fires with a 2-tuple of
+            C{(authnUser, authzUser)} if either the request is
+            unauthenticated OR contains valid credentials to
+            authenticate as a principal, or errbacks with L{HTTPError}
+            if the authentication scheme is unsupported, or the
             credentials provided by the request are not valid.
         """
         if not (hasattr(request, 'portal') and
@@ -946,28 +955,32 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         if authHeader is not None:
             if authHeader[0] not in request.credentialFactories:
-                log.err("Client authentication scheme %s is not provided by server %s"
+                log.err("Client authentication scheme %s is not "
+                        "provided by server %s"
                         % (authHeader[0], request.credentialFactories.keys()))
                 d = UnauthorizedResponse.makeResponse(
                     request.credentialFactories,
-                    request.remoteAddr)
+                    request.remoteAddr
+                )
                 def _fail(response):
                     return Failure(HTTPError(response))
                 return d.addCallback(_fail)
             else:
                 factory = request.credentialFactories[authHeader[0]]
 
-                d = factory.decode(authHeader[1], request)
-
                 def gotCreds(creds):
                     return self.principalsForAuthID(
                         request, creds.username
                         ).addCallback(gotDetails, creds)
-                # Try to match principals in each principal collection on the resource
+
+                # Try to match principals in each principal collection
+                # on the resource
                 def gotDetails(details, creds):
                     authnPrincipal = IDAVPrincipalResource(details[0])
                     authzPrincipal = IDAVPrincipalResource(details[1])
-                    return PrincipalCredentials(authnPrincipal, authzPrincipal, creds)
+                    return PrincipalCredentials(
+                        authnPrincipal, authzPrincipal, creds
+                    )
 
                 def login(pcreds):
                     return request.portal.login(
@@ -976,14 +989,22 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     request.authnUser = result[1]
                     request.authzUser = result[2]
                     return (request.authnUser, request.authzUser)
+
                 def translateUnauthenticated(f):
                     f.trap(UnauthorizedLogin, LoginFailed)
                     log.msg("Authentication failed: %s" % (f.value,))
-                    return UnauthorizedResponse.makeResponse(
-                        request.credentialFactories, request.remoteAddr).addCallback(
-                        lambda response: Failure(HTTPError(response)))
-                d.addCallback(gotCreds).addCallback(login).addCallbacks(
-                    gotAuth, translateUnauthenticated)
+                    d = UnauthorizedResponse.makeResponse(
+                        request.credentialFactories, request.remoteAddr
+                    )
+                    d.addCallback(
+                        lambda response: Failure(HTTPError(response))
+                    )
+                    return d
+
+                d = factory.decode(authHeader[1], request)
+                d.addCallback(gotCreds)
+                d.addCallback(login)
+                d.addCallbacks(gotAuth, translateUnauthenticated)
                 return d
         else:
             request.authnUser = davxml.Principal(davxml.Unauthenticated())
@@ -997,7 +1018,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     def currentPrincipal(self, request):
         """
         @param request: the request being processed.
-        @return: the current authorized principal, as derived from the given request.
+        @return: the current authorized principal, as derived from the
+            given request.
         """
         if hasattr(request, "authzUser"):
             return request.authzUser
@@ -1015,8 +1037,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def defaultRootAccessControlList(self):
         """
-        @return: the L{davxml.ACL} element containing the default access control
-            list for this resource.
+        @return: the L{davxml.ACL} element containing the default
+            access control list for this resource.
         """
         #
         # The default behaviour is to allow GET access to everything
@@ -1027,8 +1049,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def defaultAccessControlList(self):
         """
-        @return: the L{davxml.ACL} element containing the default access control
-            list for this resource.
+        @return: the L{davxml.ACL} element containing the default
+            access control list for this resource.
         """
         #
         # The default behaviour is no ACL; we should inherrit from the parent
@@ -1047,15 +1069,17 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def mergeAccessControlList(self, new_acl, request):
         """
-        Merges the supplied access control list with the one on this resource.
-        Merging means change all the non-inherited and non-protected ace's in
-        the original, and do not allow the new one to specify an inherited or
-        protected access control entry. This is the behaviour required by the
-        C{ACL} request. (RFC 3744, section 8.1).
+        Merges the supplied access control list with the one on this
+        resource.  Merging means change all the non-inherited and
+        non-protected ace's in the original, and do not allow the new
+        one to specify an inherited or protected access control
+        entry. This is the behaviour required by the C{ACL}
+        request. (RFC 3744, section 8.1).
+
         @param new_acl:  an L{davxml.ACL} element
         @param request: the request being processed.
-        @return: a tuple of the C{DAV:error} precondition element if an error
-            occurred, C{None} otherwise.
+        @return: a tuple of the C{DAV:error} precondition element if
+            an error occurred, C{None} otherwise.
 
         This implementation stores the ACL in the private property
         """
@@ -1066,7 +1090,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         #  2. Check that ace's on incoming do not match an inherited ace
         #  3. Check that ace's on incoming all have deny before grant
         #  4. Check that ace's on incoming do not use abstract privilege
-        #  5. Check that ace's on incoming are supported (and are not inherited themselves)
+        #  5. Check that ace's on incoming are supported
+        #     (and are not inherited themselves)
         #  6. Check that ace's on incoming have valid principals
         #  7. Copy the original
         #  8. Remove all non-inherited and non-protected - and also inherited
@@ -1074,9 +1099,13 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # 10. Verify that new acl is not in conflict with itself
         # 11. Update acl on the resource
 
-        # Get the current access control list, preserving any private properties on the ACEs as
-        # we will need to keep those when we change the ACL.
-        old_acl = waitForDeferred(self.accessControlList(request, expanding=True))
+        # Get the current access control list, preserving any private
+        # properties on the ACEs as we will need to keep those when we
+        # change the ACL.
+
+        old_acl = waitForDeferred(
+            self.accessControlList(request, expanding=True)
+        )
         yield old_acl
         old_acl = old_acl.getResult()
 
@@ -1102,7 +1131,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         yield supportedPrivs
         supportedPrivs = supportedPrivs.getResult()
         for item in supportedPrivs.children:
-            assert isinstance(item, davxml.SupportedPrivilege), "Not a SupportedPrivilege: %r" % (item,)
+            assert isinstance(item, davxml.SupportedPrivilege), (
+                "Not a SupportedPrivilege: %r" % (item,)
+            )
             addSupportedPrivilege(item)
 
         # Steps 1 - 6
@@ -1112,64 +1143,87 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 if (ace.principal == old_ace.principal):
                     # Step 1
                     if old_ace.protected:
-                        log.err("Attempt to overwrite protected ace %r on resource %r" % (old_ace, self))
-                        yield (davxml.dav_namespace, "no-protected-ace-conflict")
+                        log.err("Attempt to overwrite protected ace %r "
+                                "on resource %r"
+                                % (old_ace, self))
+                        yield (
+                            davxml.dav_namespace,
+                            "no-protected-ace-conflict"
+                        )
                         return
 
                     # Step 2
                     #
-                    # RFC3744 says that we either enforce the inherited ace
-                    # conflict or we ignore it but use access control evaluation
-                    # to determine whether there is any impact. Given that we
-                    # have the "inheritable" behavior it does not make sense to
-                    # disallow overrides of inherited ACEs since "inheritable"
-                    # cannot itself be controlled via protocol.
+                    # RFC3744 says that we either enforce the
+                    # inherited ace conflict or we ignore it but use
+                    # access control evaluation to determine whether
+                    # there is any impact. Given that we have the
+                    # "inheritable" behavior it does not make sense to
+                    # disallow overrides of inherited ACEs since
+                    # "inheritable" cannot itself be controlled via
+                    # protocol.
                     #
                     # Otherwise, we'd use this logic:
                     #
                     #elif old_ace.inherited:
-                    #    log.err("Attempt to overwrite inherited ace %r on resource %r" % (old_ace, self))
-                    #    yield (davxml.dav_namespace, "no-inherited-ace-conflict")
+                    #    log.err("Attempt to overwrite inherited ace %r "
+                    #            "on resource %r" % (old_ace, self))
+                    #    yield (
+                    #        davxml.dav_namespace,
+                    #        "no-inherited-ace-conflict"
+                    #    )
                     #    return
 
             # Step 3
             if ace.allow and got_deny:
-                log.err("Attempt to set grant ace %r after deny ace on resource %r" % (ace, self))
+                log.err("Attempt to set grant ace %r after deny ace "
+                        "on resource %r"
+                        % (ace, self))
                 yield (davxml.dav_namespace, "deny-before-grant")
                 return
             got_deny = not ace.allow
 
-            # Step 4: ignore as this server has no abstract privileges (FIXME: none yet?)
+            # Step 4: ignore as this server has no abstract privileges
+            # (FIXME: none yet?)
 
             # Step 5
             for privilege in ace.privileges:
                 if privilege.children[0] not in supported:
-                    log.err("Attempt to use unsupported privilege %r in ace %r on resource %r" % (privilege.children[0], ace, self))
+                    log.err("Attempt to use unsupported privilege %r "
+                            "in ace %r on resource %r"
+                            % (privilege.children[0], ace, self))
                     yield (davxml.dav_namespace, "not-supported-privilege")
                     return
             if ace.protected:
-                log.err("Attempt to create protected ace %r on resource %r" % (ace, self))
+                log.err("Attempt to create protected ace %r on resource %r"
+                        % (ace, self))
                 yield (davxml.dav_namespace, "no-ace-conflict")
                 return
             if ace.inherited:
-                log.err("Attempt to create inherited ace %r on resource %r" % (ace, self))
+                log.err("Attempt to create inherited ace %r on resource %r"
+                        % (ace, self))
                 yield (davxml.dav_namespace, "no-ace-conflict")
                 return
 
             # Step 6
-            valid = waitForDeferred(self.validPrincipal(ace.principal, request))
+            valid = waitForDeferred(
+                self.validPrincipal(ace.principal, request)
+            )
             yield valid
             valid = valid.getResult()
 
             if not valid:
-                log.err("Attempt to use unrecognized principal %r in ace %r on resource %r" % (ace.principal, ace, self))
+                log.err("Attempt to use unrecognized principal %r "
+                        "in ace %r on resource %r"
+                        % (ace.principal, ace, self))
                 yield (davxml.dav_namespace, "recognized-principal")
                 return
 
         # Step 8 & 9
         #
-        # Iterate through the old ones and replace any that are in the new set, or remove
-        # the non-inherited/non-protected not in the new set
+        # Iterate through the old ones and replace any that are in the
+        # new set, or remove the non-inherited/non-protected not in
+        # the new set
         #
         new_aces = [ace for ace in new_acl.children]
         new_set = []
@@ -1195,38 +1249,46 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         
     def writeNewACEs(self, new_aces):
         """
-        Write a new ACL to the resource's property store.
-        This is a separate method so that it can be overridden by
-        resources that need to do extra processing of ACLs being set
-        via the ACL command.
+        Write a new ACL to the resource's property store.  This is a
+        separate method so that it can be overridden by resources that
+        need to do extra processing of ACLs being set via the ACL
+        command.
         @param new_aces: C{list} of L{ACE} for ACL being set.
         """
         self.setAccessControlList(davxml.ACL(*new_aces))
 
     def matchPrivilege(self, privilege, ace_privileges, supportedPrivileges):
         for ace_privilege in ace_privileges:
-            if privilege == ace_privilege or ace_privilege.isAggregateOf(privilege, supportedPrivileges):
+            if (
+                privilege == ace_privilege or
+                ace_privilege.isAggregateOf(privilege, supportedPrivileges)
+            ):
                 return True
 
         return False
 
-    def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
+    def checkPrivileges(
+        self, request, privileges, recurse=False,
+        principal=None, inherited_aces=None
+    ):
         """
         Check whether the given principal has the given privileges.
         (RFC 3744, section 5.5)
+
         @param request: the request being processed.
-        @param privileges: an iterable of L{davxml.WebDAVElement} elements
-            denoting access control privileges.
+        @param privileges: an iterable of L{davxml.WebDAVElement}
+            elements denoting access control privileges.
         @param recurse: C{True} if a recursive check on all child
             resources of this resource should be performed as well,
             C{False} otherwise.
         @param principal: the L{davxml.Principal} to check privileges
             for.  If C{None}, it is deduced from C{request} by calling
             L{currentPrincipal}.
-        @param inherited_aces: a list of L{davxml.ACE}s corresponding to the precomputed
-            inheritable aces from the parent resource hierarchy.
-        @return: a L{Deferred} that callbacks with C{None} or errbacks with an
-            L{AccessDeniedError}
+        @param inherited_aces: a list of L{davxml.ACE}s corresponding
+            to the precomputed inheritable aces from the parent
+            resource hierarchy.
+        @return: a L{Deferred} that callbacks with C{None} or errbacks
+            with an L{AccessDeniedError}
         """
         if principal is None:
             principal = self.currentPrincipal(request)
@@ -1245,13 +1307,21 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         resources = [(self, None)]
 
         if recurse:
-            x = self.findChildren("infinity", request, lambda x, y: resources.append((x,y)))
+            x = self.findChildren(
+                "infinity", request,
+                lambda x, y: resources.append((x,y))
+            )
             x = waitForDeferred(x)
             yield x
             x.getResult()
 
         for resource, uri in resources:
-            acl = waitForDeferred(resource.accessControlList(request, inherited_aces=inherited_aces))
+            acl = waitForDeferred(
+                resource.accessControlList(
+                    request,
+                    inherited_aces=inherited_aces
+                )
+            )
             yield acl
             acl = acl.getResult()
 
@@ -1265,10 +1335,15 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
             for ace in acl.children:
                 for privilege in tuple(pending):
-                    if not self.matchPrivilege(davxml.Privilege(privilege), ace.privileges, supportedPrivs):
+                    if not self.matchPrivilege(
+                        davxml.Privilege(privilege),
+                        ace.privileges, supportedPrivs
+                    ):
                         continue
 
-                    match = waitForDeferred(self.matchPrincipal(principal, ace.principal, request))
+                    match = waitForDeferred(
+                        self.matchPrincipal(principal, ace.principal, request)
+                    )
                     yield match
                     match = match.getResult()
 
@@ -1300,8 +1375,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         See L{IDAVResource.supportedPrivileges}.
 
-        This implementation returns a supported privilege set containing only
-        the DAV:all privilege.
+        This implementation returns a supported privilege set
+        containing only the DAV:all privilege.
         """
         return succeed(allPrivilegeSet)
 
@@ -1309,36 +1384,40 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         See L{IDAVResource.currentPrivileges}.
 
-        This implementation returns a current privilege set containing only
-        the DAV:all privilege.
+        This implementation returns a current privilege set containing
+        only the DAV:all privilege.
         """
         current = self.currentPrincipal(request)
         return self.privilegesForPrincipal(current, request)
 
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+    def accessControlList(
+        self, request, inheritance=True,
+        expanding=False, inherited_aces=None
+    ):
         """
         See L{IDAVResource.accessControlList}.
 
         This implementation looks up the ACL in the private property
-        C{(L{twisted_private_namespace}, "acl")}.
-        If no ACL has been stored for this resource, it returns the value
-        returned by C{defaultAccessControlList}.
-        If access is disabled it will return C{None}.
+        C{(L{twisted_private_namespace}, "acl")}.  If no ACL has been
+        stored for this resource, it returns the value returned by
+        C{defaultAccessControlList}.  If access is disabled it will
+        return C{None}.
         """
         #
         # Inheritance is problematic. Here is what we do:
         #
-        # 1. A private element <Twisted:inheritable> is defined for use inside
-        #    of a <DAV:ace>. This private element is removed when the ACE is
-        #    exposed via WebDAV.
+        # 1. A private element <Twisted:inheritable> is defined for
+        #    use inside of a <DAV:ace>. This private element is
+        #    removed when the ACE is exposed via WebDAV.
         #
-        # 2. When checking ACLs with inheritance resolution, the server must
-        #    examine all parent resources of the current one looking for any
-        #    <Twisted:inheritable> elements.
+        # 2. When checking ACLs with inheritance resolution, the
+        #    server must examine all parent resources of the current
+        #    one looking for any <Twisted:inheritable> elements.
         #
         # If those are defined, the relevant ace is applied to the ACL on the
         # current resource.
         #
+
         myURL = None
 
         def getMyURL():
@@ -1354,7 +1433,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             acl = self.readDeadProperty(davxml.ACL)
         except HTTPError, e:
             assert e.response.code == responsecode.NOT_FOUND, (
-                "Expected %s response from readDeadProperty() exception, not %s"
+                "Expected %s response from readDeadProperty() exception, "
+                "not %s"
                 % (responsecode.NOT_FOUND, e.response.code)
             )
 
@@ -1385,7 +1465,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     
                     if parent:
                         parent_acl = waitForDeferred(
-                            parent.accessControlList(request, inheritance=True, expanding=True)
+                            parent.accessControlList(
+                                request, inheritance=True, expanding=True
+                            )
                         )
                         yield parent_acl
                         parent_acl = parent_acl.getResult()
@@ -1402,7 +1484,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                                 # Adjust ACE for inherit on this resource
                                 children = list(ace.children)
                                 children.remove(TwistedACLInheritable())
-                                children.append(davxml.Inherited(davxml.HRef(parentURL)))
+                                children.append(
+                                    davxml.Inherited(davxml.HRef(parentURL))
+                                )
                                 aces.append(davxml.ACE(*children))
             else:
                 aces.extend(inherited_aces)
@@ -1427,21 +1511,25 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def inheritedACEsforChildren(self, request):
         """
-        Do some optimisation of access control calculation by determining any inherited ACLs outside of
-        the child resource loop and supply those to the checkPrivileges on each child.
+        Do some optimisation of access control calculation by
+        determining any inherited ACLs outside of the child resource
+        loop and supply those to the checkPrivileges on each child.
 
         @param request: the L{IRequest} for the request in progress.
-        @return:        a C{list} of L{Ace}s that child resources of this one will inherit.
+        @return: a C{list} of L{Ace}s that child resources of this one
+            will inherit.
         """
         
-        # Get the parent ACLs with inheritance and preserve the <inheritable> element.
+        # Get the parent ACLs with inheritance and preserve the
+        # <inheritable> element.
 
         def gotACL(parent_acl):
             # Check disabled
             if parent_acl is None:
                 return None
 
-            # Filter out those that are not inheritable (and remove the inheritable element from those that are)
+            # Filter out those that are not inheritable (and remove
+            # the inheritable element from those that are)
             aces = []
             for ace in parent_acl.children:
                 if ace.inherited:
@@ -1450,7 +1538,11 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     # Adjust ACE for inherit on this resource
                     children = list(ace.children)
                     children.remove(TwistedACLInheritable())
-                    children.append(davxml.Inherited(davxml.HRef(request.urlForResource(self))))
+                    children.append(
+                        davxml.Inherited(
+                            davxml.HRef(request.urlForResource(self))
+                        )
+                    )
                     aces.append(davxml.ACE(*children))
             return aces
 
@@ -1460,7 +1552,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def inheritedACLSet(self):
         """
-        @return: a sequence of L{davxml.HRef}s from which ACLs are inherited.
+        @return: a sequence of L{davxml.HRef}s from which ACLs are
+        inherited.
 
         This implementation returns an empty set.
         """
@@ -1468,26 +1561,28 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def principalsForAuthID(self, request, authid):
         """
-        Return authentication and authorization prinicipal identifiers for the
-        authentication identifer passed in. In this implementation authn and authz
-        principals are the same.
+        Return authentication and authorization prinicipal identifiers
+        for the authentication identifer passed in. In this
+        implementation authn and authz principals are the same.
 
         @param request: the L{IRequest} for the request in progress.
         @param authid: a string containing the
             authentication/authorization identifier for the principal
             to lookup.
         @return: a deferred tuple of two tuples. Each tuple is
-            C{(principal, principalURI)} where: C{principal} is the L{Principal}
-            that is found; {principalURI} is the C{str} URI of the principal.
-            The first tuple corresponds to authentication identifiers,
-            the second to authorization identifiers.
-            It will errback with an HTTPError(responsecode.FORBIDDEN) if
-            the principal isn't found.
+            C{(principal, principalURI)} where: C{principal} is the
+            L{Principal} that is found; {principalURI} is the C{str}
+            URI of the principal.  The first tuple corresponds to
+            authentication identifiers, the second to authorization
+            identifiers.  It will errback with an
+            HTTPError(responsecode.FORBIDDEN) if the principal isn't
+            found.
         """
         authnPrincipal = self.findPrincipalForAuthID(authid)
 
         if authnPrincipal is None:
-            log.msg("Could not find the principal resource for user id: %s" % (authid,))
+            log.msg("Could not find the principal resource for user id: %s"
+                    % (authid,))
             raise HTTPError(responsecode.FORBIDDEN)
 
         d = self.authorizationPrincipal(request, authid, authnPrincipal)
@@ -1496,16 +1591,17 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def findPrincipalForAuthID(self, authid):
         """
-        Return authentication and authorization principal identifiers for the
-        authentication identifer passed in. In this implementation authn and
-        authz principals are the same.
+        Return authentication and authorization principal identifiers
+        for the authentication identifer passed in. In this
+        implementation authn and authz principals are the same.
 
         @param authid: a string containing the
             authentication/authorization identifier for the principal
             to lookup.
-        @return: a tuple of C{(principal, principalURI)} where: C{principal} is the L{Principal}
-            that is found; {principalURI} is the C{str} URI of the principal.
-            If not found return None.
+        @return: a tuple of C{(principal, principalURI)} where:
+            C{principal} is the L{Principal} that is found;
+            {principalURI} is the C{str} URI of the principal.  If not
+            found return None.
         """
         for collection in self.principalCollections():
             principal = collection.principalForUser(authid)
@@ -1515,15 +1611,19 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def authorizationPrincipal(self, request, authid, authnPrincipal):
         """
-        Determine the authorization principal for the given request and authentication principal.
-        This implementation simply uses aht authentication principalk as the authoization principal.
+        Determine the authorization principal for the given request
+        and authentication principal.  This implementation simply uses
+        aht authentication principalk as the authoization principal.
         
         @param request: the L{IRequest} for the request in progress.
-        @param authid: a string containing the uthentication/authorization identifier
-            for the principal to lookup.
-        @param authnPrincipal: the L{IDAVPrincipal} for the authenticated principal
-         @return: a deferred result C{tuple} of (L{IDAVPrincipal}, C{str}) containing the authorization principal
-            resource and URI respectively.
+        @param authid: a string containing the
+            authentication/authorization identifier for the principal
+            to lookup.
+        @param authnPrincipal: the L{IDAVPrincipal} for the
+            authenticated principal
+        @return: a deferred result C{tuple} of (L{IDAVPrincipal},
+            C{str}) containing the authorization principal resource
+            and URI respectively.
         """
         return succeed(authnPrincipal)
         
@@ -1531,6 +1631,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         Check whether the two prinicpals are exactly the same in terms of
         elements and data.
+
         @param principal1: a L{Principal} to test.
         @param principal2: a L{Principal} to test.
         @return: C{True} if they are the same, C{False} otherwise.
@@ -1542,9 +1643,15 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         if type(principal1) == type(principal2):
             if isinstance(principal1, davxml.Property):
-                return type(principal1.children[0]) == type(principal2.children[0])
+                return (
+                    type(principal1.children[0]) ==
+                    type(principal2.children[0])
+                )
             elif isinstance(principal1, davxml.HRef):
-                return str(principal1.children[0]) == str(principal2.children[0])
+                return (
+                    str(principal1.children[0]) ==
+                    str(principal2.children[0])
+                )
             else:
                 return True
         else:
@@ -1552,10 +1659,12 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 
     def matchPrincipal(self, principal1, principal2, request):
         """
-        Check whether the principal1 is a principal in the set defined by
-        principal2.
-        @param principal1: a L{Principal} to test. C{principal1} must contain
-            a L{davxml.HRef} or L{davxml.Unauthenticated} element.
+        Check whether the principal1 is a principal in the set defined
+        by principal2.
+
+        @param principal1: a L{Principal} to test. C{principal1} must
+            contain a L{davxml.HRef} or L{davxml.Unauthenticated}
+            element.
         @param principal2: a L{Principal} to test.
         @param request: the request being processed.
         @return: C{True} if they match, C{False} otherwise.
@@ -1587,7 +1696,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         elif isinstance(principal1, davxml.Unauthenticated):
             return succeed(False)
 
-        assert isinstance(principal1, davxml.HRef), "Not an HRef: %r" % (principal1,)
+        assert isinstance(principal1, davxml.HRef), (
+            "Not an HRef: %r" % (principal1,)
+        )
 
         def resolved(principal2):
             assert principal2 is not None, "principal2 is None"
@@ -1596,7 +1707,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             if principal1 == principal2:
                 return True
 
-            return self.principalIsGroupMember(str(principal1), str(principal2), request)
+            return self.principalIsGroupMember(
+                str(principal1), str(principal2), request
+            )
 
         d = self.resolvePrincipal(principal2, request)
         d.addCallback(resolved)
@@ -1607,9 +1720,11 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         Check whether one principal is a group member of another.
         
         @param principal1: C{str} principalURL for principal to test.
-        @param principal2: C{str} principalURL for possible group principal to test against.
+        @param principal2: C{str} principalURL for possible group
+            principal to test against.
         @param request: the request being processed.
-        @return: L{Deferred} with result C{True} if principal1 is a member of principal2, C{False} otherwise
+        @return: L{Deferred} with result C{True} if principal1 is a
+            member of principal2, C{False} otherwise
         """
         def gotGroup(group):
             # Get principal resource for principal2
@@ -1637,8 +1752,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         @param request: the request being processed.
         @return C{True} if C{ace_principal} is valid, C{False} otherwise.
 
-        This implementation tests for a valid element type and checks for an
-        href principal that exists inside of a principal collection.
+        This implementation tests for a valid element type and checks
+        for an href principal that exists inside of a principal
+        collection.
         """
         def defer():
             #
@@ -1648,8 +1764,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             real_principal = ace_principal.children[0]
 
             if isinstance(real_principal, davxml.Property):
-                # See comments in matchPrincipal().  We probably need some common code.
-                log.err("Encountered a property principal (%s), but handling is not implemented.  Invalid for ACL use."
+                # See comments in matchPrincipal().  We probably need
+                # some common code.
+                log.err("Encountered a property principal (%s), "
+                        "but handling is not implemented."
                         % (real_principal,))
                 return False
 
@@ -1664,18 +1782,24 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         Check whether the supplied principal (in the form of an Href)
         is valid for this resource.
+
         @param href_principal: the L{Href} element to test
         @param request: the request being processed.
-        @return C{True} if C{href_principal} is valid, C{False} otherwise.
+        @return C{True} if C{href_principal} is valid, C{False}
+            otherwise.
 
-        This implementation tests for a href element that corresponds to
-        a principal resource and matches the principal-URL.
+        This implementation tests for a href element that corresponds
+        to a principal resource and matches the principal-URL.
         """
 
-        # Must have the principal resource type and must match the principal-URL
+        # Must have the principal resource type and must match the
+        # principal-URL
         
         def _matchPrincipalURL(resource):
-            return isPrincipalResource(resource) and resource.principalURL() == str(href_principal)
+            return (
+                isPrincipalResource(resource) and
+                resource.principalURL() == str(href_principal)
+            )
 
         d = request.locateResource(str(href_principal))
         d.addCallback(_matchPrincipalURL)
@@ -1683,20 +1807,22 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def resolvePrincipal(self, principal, request):
         """
-        Resolves a L{davxml.Principal} element into a L{davxml.HRef} element
-        if possible.  Specifically, the given C{principal}'s contained
-        element is resolved.
+        Resolves a L{davxml.Principal} element into a L{davxml.HRef}
+        element if possible.  Specifically, the given C{principal}'s
+        contained element is resolved.
 
-        L{davxml.Property} is resolved to the URI in the contained property.
+        L{davxml.Property} is resolved to the URI in the contained
+        property.
 
         L{davxml.Self} is resolved to the URI of this resource.
 
         L{davxml.HRef} elements are returned as-is.
 
-        All other principals, including meta-principals (eg. L{davxml.All}),
-        resolve to C{None}.
+        All other principals, including meta-principals
+        (eg. L{davxml.All}), resolve to C{None}.
 
-        @param principal: the L{davxml.Principal} child element to resolve.
+        @param principal: the L{davxml.Principal} child element to
+        resolve.
         @param request: the request being processed.
         @return: a deferred L{davxml.HRef} element or C{None}.
         """
@@ -1787,17 +1913,21 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         granted = []
         denied = []
         for ace in acl.children:
-            # First see if the ace's principal affects the principal being tested.
-            # FIXME: support the DAV:invert operation
+            # First see if the ace's principal affects the principal
+            # being tested.  FIXME: support the DAV:invert operation
 
-            match = waitForDeferred(self.matchPrincipal(principal, ace.principal, request))
+            match = waitForDeferred(
+                self.matchPrincipal(principal, ace.principal, request)
+            )
             yield match
             match = match.getResult()
 
             if match:
                 # Expand aggregate privileges
                 ps = []
-                supportedPrivs = waitForDeferred(self.supportedPrivileges(request))
+                supportedPrivs = waitForDeferred(
+                    self.supportedPrivileges(request)
+                )
                 yield supportedPrivs
                 supportedPrivs = supportedPrivs.getResult()
                 for p in ace.privileges:
@@ -1931,7 +2061,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         try:
             url = request.urlForResource(self)
             if url != "/":
-                parent = waitForDeferred(request.locateResource(parentForURL(url)))
+                parent = waitForDeferred(
+                    request.locateResource(parentForURL(url))
+                )
                 yield parent
                 parent = parent.getResult()
                 d = waitForDeferred(parent.hasQuota(request))
@@ -1990,7 +2122,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             quota restriction.
         """
         assert self.isCollection(), "Only collections can have a quota root"
-        assert maxsize is None or isinstance(maxsize, int), "maxsize must be an int or None"
+        assert maxsize is None or isinstance(maxsize, int), (
+            "maxsize must be an int or None"
+        )
         
         if maxsize is not None:
             self.writeDeadProperty(TwistedQuotaRootProperty(str(maxsize)))
@@ -2016,7 +2150,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         i.e. only the most immediate quota root parent is checked for
         quota.
         
-        @param available: a C{int} containing the additional quota required.
+        @param available: a C{int} containing the additional quota
+            required.
         @return: C{True} if there is sufficient quota remaining on all
             quota roots, C{False} otherwise.
         """
@@ -2074,20 +2209,26 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def currentQuotaUse(self, request):
         """
-        Get the cached quota use value, or if not present (or invalid) determine
-        quota use by brute force.
+        Get the cached quota use value, or if not present (or invalid)
+        determine quota use by brute force.
 
-        @return: an L{Deferred} with a C{int} result containing the current used byte if this collection
-            is quota-controlled, or C{None} if not quota controlled.
+        @return: an L{Deferred} with a C{int} result containing the
+            current used byte if this collection is quota-controlled,
+            or C{None} if not quota controlled.
         """
         assert self.isCollection(), "Only collections can have a quota root"
-        assert self.hasQuotaRoot(request), "Quota use only on quota root collection"
+        assert self.hasQuotaRoot(request), (
+            "Quota use only on quota root collection"
+        )
         
         # Try to get the cached value property
         if self.hasDeadProperty(TwistedQuotaUsedProperty):
-            return succeed(int(str(self.readDeadProperty(TwistedQuotaUsedProperty))))
+            return succeed(
+                int(str(self.readDeadProperty(TwistedQuotaUsedProperty)))
+            )
         else:
-            # Do brute force size determination and cache the result in the private property
+            # Do brute force size determination and cache the result
+            # in the private property
             def _defer(result):
                 self.writeDeadProperty(TwistedQuotaUsedProperty(str(result)))
                 return result
@@ -2099,10 +2240,12 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         Update the quota used value on this resource.
 
-        @param adjust: a C{int} containing the number of bytes added (positive) or
-        removed (negative) that should be used to adjust the cached total.
-        @return: an L{Deferred} with a C{int} result containing the current used byte if this collection
-            is quota-controlled, or C{None} if not quota controlled.
+        @param adjust: a C{int} containing the number of bytes added
+            (positive) or removed (negative) that should be used to
+            adjust the cached total.
+        @return: an L{Deferred} with a C{int} result containing the
+            current used byte if this collection is quota-controlled,
+            or C{None} if not quota controlled.
         """
         assert self.isCollection(), "Only collections can have a quota root"
         
@@ -2114,8 +2257,11 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             if size >= 0:
                 self.writeDeadProperty(TwistedQuotaUsedProperty(str(size)))
             else:
-                # Remove the dead property and re-read to do brute force quota calc
-                log.msg("Attempt to set quota used to a negative value: %s (adjustment: %s)" % (size, adjust,))
+                # Remove the dead property and re-read to do brute
+                # force quota calc
+                log.msg("Attempt to set quota used to a negative value: %s "
+                        "(adjustment: %s)"
+                        % (size, adjust,))
                 self.removeDeadProperty(TwistedQuotaUsedProperty)
                 return self.currentQuotaUse(request)
 
@@ -2136,7 +2282,13 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # If this is a collection and the URI doesn't end in "/", redirect.
         #
         if self.isCollection() and request.path[-1:] != "/":
-            return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/'))
+            return RedirectResponse(
+                request.unparseURL(
+                    path=urllib.quote(
+                        urllib.unquote(request.path),
+                        safe=':/')+'/'
+                )
+            )
 
         def setHeaders(response):
             response = IResponse(response)
@@ -2144,19 +2296,21 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             response.headers.setHeader("dav", self.davComplianceClasses())
 
             #
-            # If this is a collection and the URI doesn't end in "/", add a
-            # Content-Location header.  This is needed even if we redirect such
-            # requests (as above) in the event that this resource was created or
-            # modified by the request.
+            # If this is a collection and the URI doesn't end in "/",
+            # add a Content-Location header.  This is needed even if
+            # we redirect such requests (as above) in the event that
+            # this resource was created or modified by the request.
             #
             if self.isCollection() and request.uri[-1:] != "/":
-                response.headers.setHeader("content-location", request.uri + "/")
+                response.headers.setHeader(
+                    "content-location", request.uri + "/"
+                )
 
             return response
 
         def onError(f):
-            # If we get an HTTPError, run its response through setHeaders() as
-            # well.
+            # If we get an HTTPError, run its response through
+            # setHeaders() as well.
             f.trap(HTTPError)
             return setHeaders(f.value.response)
 
@@ -2167,7 +2321,10 @@ class DAVLeafResource (DAVResource, LeafResource):
     """
     DAV resource with no children.
     """
-    def findChildren(self, depth, request, callback, privileges=None, inherited_aces=None):
+    def findChildren(
+        self, depth, request, callback,
+        privileges=None, inherited_aces=None
+    ):
         return succeed(None)
 
 class DAVPrincipalResource (DAVResource):
@@ -2204,14 +2361,21 @@ class DAVPrincipalResource (DAVResource):
 
             if namespace == dav_namespace:
                 if name == "alternate-URI-set":
-                    return davxml.AlternateURISet(*[davxml.HRef(u) for u in self.alternateURIs()])
+                    return davxml.AlternateURISet(*[
+                        davxml.HRef(u) for u in self.alternateURIs()
+                    ])
 
                 if name == "principal-URL":
-                    return davxml.PrincipalURL(davxml.HRef(self.principalURL()))
+                    return davxml.PrincipalURL(
+                        davxml.HRef(self.principalURL())
+                    )
 
                 if name == "group-member-set":
                     def callback(members):
-                        return davxml.GroupMemberSet(*[davxml.HRef(p.principalURL()) for p in members])
+                        return davxml.GroupMemberSet(*[
+                            davxml.HRef(p.principalURL())
+                            for p in members
+                        ])
                     
                     d = self.groupMembers()
                     d.addCallback(callback)
@@ -2219,7 +2383,10 @@ class DAVPrincipalResource (DAVResource):
 
                 if name == "group-membership":
                     def callback(memberships):
-                        return davxml.GroupMembership(*[davxml.HRef(g.principalURL()) for g in memberships])
+                        return davxml.GroupMembership(*[
+                            davxml.HRef(g.principalURL())
+                            for g in memberships
+                        ])
                     
                     d = self.groupMemberships()
                     d.addCallback(callback)
@@ -2227,11 +2394,16 @@ class DAVPrincipalResource (DAVResource):
 
                 if name == "resourcetype":
                     if self.isCollection():
-                        return davxml.ResourceType(davxml.Collection(), davxml.Principal())
+                        return davxml.ResourceType(
+                            davxml.Collection(),
+                            davxml.Principal()
+                        )
                     else:
                         return davxml.ResourceType(davxml.Principal())
 
-            return super(DAVPrincipalResource, self).readProperty(qname, request)
+            return super(DAVPrincipalResource, self).readProperty(
+                qname, request
+            )
 
         return maybeDeferred(defer)
 
@@ -2243,8 +2415,9 @@ class DAVPrincipalResource (DAVResource):
         """
         See L{IDAVPrincipalResource.alternateURIs}.
 
-        This implementation returns C{()}.  Subclasses should override this
-        method to provide alternate URIs for this resource if appropriate.
+        This implementation returns C{()}.  Subclasses should override
+        this method to provide alternate URIs for this resource if
+        appropriate.
         """
         return ()
 
@@ -2252,29 +2425,29 @@ class DAVPrincipalResource (DAVResource):
         """
         See L{IDAVPrincipalResource.principalURL}.
 
-        This implementation raises L{NotImplementedError}.  Subclasses must
-        override this method to provide the principal URL for this resource.
+        This implementation raises L{NotImplementedError}.  Subclasses
+        must override this method to provide the principal URL for
+        this resource.
         """
         unimplemented(self)
 
-
     def groupMembers(self):
         """
-        This implementation returns a Deferred which fires with C{()}, which is
-        appropriate for non-group principals.  Subclasses should override this
-        method to provide member URLs for this resource if appropriate.
+        This implementation returns a Deferred which fires with C{()},
+        which is appropriate for non-group principals.  Subclasses
+        should override this method to provide member URLs for this
+        resource if appropriate.
 
         @see: L{IDAVPrincipalResource.groupMembers}.
         """
         return succeed(())
 
-
     def expandedGroupMembers(self):
         """
-        This implementation returns a Deferred which fires with C{()}, which is
-        appropriate for non-group principals.  Subclasses should override this
-        method to provide expanded member URLs for this resource if
-        appropriate.
+        This implementation returns a Deferred which fires with C{()},
+        which is appropriate for non-group principals.  Subclasses
+        should override this method to provide expanded member URLs
+        for this resource if appropriate.
 
         @see: L{IDAVPrincipalResource.expandedGroupMembers}
         """
@@ -2285,18 +2458,19 @@ class DAVPrincipalResource (DAVResource):
         """
         See L{IDAVPrincipalResource.groupMemberships}.
 
-        This implementation raises L{NotImplementedError}.  Subclasses must
-        override this method to provide the group URLs for this resource.
+        This implementation raises L{NotImplementedError}.  Subclasses
+        must override this method to provide the group URLs for this
+        resource.
         """
         unimplemented(self)
 
     @deferredGenerator
     def principalMatch(self, href):
         """
-        Check whether the supplied principal matches this principal or is a
-        member of this principal resource.
+        Check whether the supplied principal matches this principal or
+        is a member of this principal resource.
         @param href: the L{HRef} to test.
-        @return:     True if there is a match, False otherwise
+        @return: True if there is a match, False otherwise.
         """
         uri = str(href)
         if self.principalURL() == uri:
@@ -2309,12 +2483,13 @@ class DAVPrincipalResource (DAVResource):
             member_uris = [member.principalURL() for member in members]
             yield uri in member_uris
 
+
 class DAVPrincipalCollectionResource (DAVResource):
     """
     WebDAV principal collection resource.  (RFC 3744, section 5.8)
 
-    This is an abstract class; subclasses must implement C{principalForUser} in
-    order to properly implement it.
+    This is an abstract class; subclasses must implement
+    C{principalForUser} in order to properly implement it.
     """
 
     implements(IDAVPrincipalCollectionResource)
@@ -2345,24 +2520,25 @@ class DAVPrincipalCollectionResource (DAVResource):
         @raise: L{NotImplementedError}
         """
         raise NotImplementedError(
-            "%s did not implement principalForUser" % (self.__class__))
-
+            "%s did not implement principalForUser" % (self.__class__)
+        )
 
 
 class AccessDeniedError(Exception):
     def __init__(self, errors):
         """ 
-        An error to be raised when some request fails to meet sufficient access 
-        privileges for a resource.
+        An error to be raised when some request fails to meet
+        sufficient access privileges for a resource.
 
-        @param errors: sequence of tuples, one for each resource for which one or
-            more of the given privileges are not granted, in the form
-            C{(uri, privileges)}, where uri is a URL path relative to
-            resource or C{None} if the error was in this resource,
-            privileges is a sequence of the privileges which are not
-            granted a subset thereof.
+        @param errors: sequence of tuples, one for each resource for
+            which one or more of the given privileges are not granted,
+            in the form C{(uri, privileges)}, where uri is a URL path
+            relative to resource or C{None} if the error was in this
+            resource, privileges is a sequence of the privileges which
+            are not granted a subset thereof.
         """
-        Exception.__init__(self, "Access denied for some resources: %r" % (errors,))
+        Exception.__init__(self, "Access denied for some resources: %r"
+                           % (errors,))
         self.errors = errors
 
 ##
@@ -2379,8 +2555,9 @@ def isPrincipalResource(resource):
 
 class TwistedACLInheritable (davxml.WebDAVEmptyElement):
     """
-    When set on an ACE, this indicates that the ACE privileges should be inherited by
-    all child resources within the resource with this ACE.
+    When set on an ACE, this indicates that the ACE privileges should
+    be inherited by all child resources within the resource with this
+    ACE.
     """
     namespace = twisted_dav_namespace
     name = "inheritable"
@@ -2397,23 +2574,27 @@ class TwistedGETContentMD5 (davxml.WebDAVTextElement):
 
 davxml.registerElement(TwistedGETContentMD5)
 
-"""
-When set on a collection, this property indicates that the collection has a quota limit for
-the size of all resources stored in the collection (and any associate meta-data such as properties).
-The value is a number - the maximum size in bytes allowed.
-"""
+
 class TwistedQuotaRootProperty (davxml.WebDAVTextElement):
+    """
+    When set on a collection, this property indicates that the
+    collection has a quota limit for the size of all resources stored
+    in the collection (and any associate meta-data such as
+    properties).  The value is a number - the maximum size in bytes
+    allowed.
+    """
     namespace = twisted_private_namespace
     name = "quota-root"
 
 davxml.registerElement(TwistedQuotaRootProperty)
 
-"""
-When set on a collection, this property contains the cached running total of the size of all
-resources stored in the collection (and any associate meta-data such as properties).
-The value is a number - the size in bytes used.
-"""
 class TwistedQuotaUsedProperty (davxml.WebDAVTextElement):
+    """
+    When set on a collection, this property contains the cached
+    running total of the size of all resources stored in the
+    collection (and any associate meta-data such as properties).  The
+    value is a number - the size in bytes used.
+    """
     namespace = twisted_private_namespace
     name = "quota-used"
 
@@ -2451,46 +2632,79 @@ allPrivilegeSet = davxml.SupportedPrivilegeSet(
 davPrivilegeSet = davxml.SupportedPrivilegeSet(
     davxml.SupportedPrivilege(
         davxml.Privilege(davxml.All()),
-        davxml.Description("all privileges", **{"xml:lang": "en"}),
+        davxml.Description(
+            "all privileges",
+            **{"xml:lang": "en"}
+        ),
         davxml.SupportedPrivilege(
             davxml.Privilege(davxml.Read()),
-            davxml.Description("read resource", **{"xml:lang": "en"}),
+            davxml.Description(
+                "read resource",
+                **{"xml:lang": "en"}
+            ),
         ),
         davxml.SupportedPrivilege(
             davxml.Privilege(davxml.Write()),
-            davxml.Description("write resource", **{"xml:lang": "en"}),
+            davxml.Description(
+                "write resource",
+                **{"xml:lang": "en"}
+            ),
             davxml.SupportedPrivilege(
                 davxml.Privilege(davxml.WriteProperties()),
-                davxml.Description("write resource properties", **{"xml:lang": "en"}),
+                davxml.Description(
+                    "write resource properties",
+                    **{"xml:lang": "en"}
+                ),
             ),
             davxml.SupportedPrivilege(
                 davxml.Privilege(davxml.WriteContent()),
-                davxml.Description("write resource content", **{"xml:lang": "en"}),
+                davxml.Description(
+                    "write resource content",
+                    **{"xml:lang": "en"}
+                ),
             ),
             davxml.SupportedPrivilege(
                 davxml.Privilege(davxml.Bind()),
-                davxml.Description("add child resource", **{"xml:lang": "en"}),
+                davxml.Description(
+                    "add child resource",
+                    **{"xml:lang": "en"}
+                ),
             ),
             davxml.SupportedPrivilege(
                 davxml.Privilege(davxml.Unbind()),
-                davxml.Description("remove child resource", **{"xml:lang": "en"}),
+                davxml.Description(
+                    "remove child resource",
+                    **{"xml:lang": "en"}
+                ),
             ),
         ),
         davxml.SupportedPrivilege(
             davxml.Privilege(davxml.Unlock()),
-            davxml.Description("unlock resource without ownership of lock", **{"xml:lang": "en"}),
+            davxml.Description(
+                "unlock resource without ownership of lock",
+                **{"xml:lang": "en"}
+            ),
         ),
         davxml.SupportedPrivilege(
             davxml.Privilege(davxml.ReadACL()),
-            davxml.Description("read resource access control list", **{"xml:lang": "en"}),
+            davxml.Description(
+                "read resource access control list",
+                **{"xml:lang": "en"}
+            ),
         ),
         davxml.SupportedPrivilege(
             davxml.Privilege(davxml.WriteACL()),
-            davxml.Description("write resource access control list", **{"xml:lang": "en"}),
+            davxml.Description(
+                "write resource access control list",
+                **{"xml:lang": "en"}
+            ),
         ),
         davxml.SupportedPrivilege(
             davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-            davxml.Description("read privileges for current principal", **{"xml:lang": "en"}),
+            davxml.Description(
+                "read privileges for current principal",
+                **{"xml:lang": "en"}
+            ),
         ),
     ),
 )
