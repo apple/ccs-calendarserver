@@ -38,7 +38,6 @@ from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import memcacher
 from twistedcaldav.config import config
-from twistedcaldav.stdconfig import _updateDataStore
 from twistedcaldav.static import CalDAVFile
 
 DelayedCall.debug = True
