@@ -44,6 +44,7 @@ __all__ = [
     "unauthenticatedPrincipal",
 ]
 
+import cPickle as pickle
 import urllib
 
 from zope.interface import implements
@@ -52,6 +53,7 @@ from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
 from twisted.internet.defer import waitForDeferred, deferredGenerator
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet import reactor
 
 from twext.python.log import Logger
@@ -628,6 +630,156 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         return completionDeferred
 
+    @inlineCallbacks
+    def findChildrenFaster(self, depth, request, okcallback, badcallback, names, privileges, inherited_aces):
+        """
+        See L{IDAVResource.findChildren}.
+
+        This implementation works for C{depth} values of C{"0"}, C{"1"}, 
+        and C{"infinity"}.  As long as C{self.listChildren} is implemented
+        
+        @param depth: a C{str} for the depth: "0", "1" and "infinity" only allowed.
+        @param request: the L{Request} for the current request in progress
+        @param okcallback: a callback function used on all resources that pass the privilege check,
+            or C{None}
+        @param badcallback: a callback function used on all resources that fail the privilege check,
+            or C{None}
+        @param names: a C{list} of C{str}'s containing the names of the child resources to lookup. If
+            empty or C{None} all children will be examined, otherwise only the ones in the list.
+        @param privileges: a list of privileges to check.
+        @param inherited_aces: the list of parent ACEs that are inherited by all children.
+        """
+        assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
+
+        if depth == "0" or not self.isCollection():
+            returnValue(None)
+
+        # First find all depth 1 children
+        #children = []
+        #yield self.findChildren("1", request, lambda x, y: children.append((x, y)), privileges=None, inherited_aces=None)
+
+        children = []
+        basepath = request.urlForResource(self)
+        childnames = list(self.listChildren())
+        for childname in childnames:
+            if names and childname not in names:
+                continue
+            childpath = joinURL(basepath, childname)
+            child = (yield request.locateChildResource(self, childname))
+            if child is None:
+                children.append((None, childpath + "/"))
+            else:
+                if child.isCollection():
+                    children.append((child, childpath + "/"))
+                else:
+                    children.append((child, childpath))
+
+        # Generate (acl,supported_privs) map
+        aclmap = {}
+        for resource, url in children:
+            acl = (yield resource.accessControlList(request, inheritance=False, inherited_aces=inherited_aces))
+            supportedPrivs = (yield resource.supportedPrivileges(request))
+            aclmap.setdefault((pickle.dumps(acl), supportedPrivs), (acl, supportedPrivs, []))[2].append((resource, url))           
+
+        # Now determine whether each ace satisfies privileges
+        #print aclmap
+        allowed_collections = []
+        for items in aclmap.itervalues():
+            checked = (yield self.checkACLPrivilege(request, items[0], items[1], privileges, inherited_aces))
+            if checked:
+                for resource, url in items[2]:
+                    if okcallback:
+                        okcallback(resource, url)
+                    if resource.isCollection():
+                        allowed_collections.append((resource, url))
+            else:
+                if badcallback:
+                    for resource, url in items[2]:
+                        badcallback(resource, url)
+
+        # TODO: Depth: infinity support
+        if depth == "infinity":
+            for collection, url in allowed_collections:
+                collection_inherited_aces = (yield collection.inheritedACEsforChildren(request))
+                yield collection.findChildrenFaster(depth, request, okcallback, badcallback, names, privileges, inherited_aces=collection_inherited_aces)
+                
+        returnValue(None)
+
+    @inlineCallbacks
+    def checkACLPrivilege(self, request, acl, privyset, privileges, inherited_aces):
+        
+        if acl is None:
+            returnValue(False)
+
+        principal = self.currentPrincipal(request)
+
+        # Other principal types don't make sense as actors.
+        assert principal.children[0].name in ("unauthenticated", "href"), \
+            "Principal is not an actor: %r" % (principal,)
+
+        acl = self.fullAccessControlList(acl, inherited_aces)
+
+        pending = list(privileges)
+        denied = []
+
+        for ace in acl.children:
+            for privilege in tuple(pending):
+                if not self.matchPrivilege(davxml.Privilege(privilege), ace.privileges, privyset):
+                    continue
+
+                match = (yield self.matchPrincipal(principal, ace.principal, request))
+
+                if match:
+                    if ace.invert:
+                        continue
+                else:
+                    if not ace.invert:
+                        continue
+
+                pending.remove(privilege)
+
+                if not ace.allow:
+                    denied.append(privilege)
+
+        returnValue(len(denied) + len(pending) == 0)
+
+    def fullAccessControlList(self, acl, inherited_aces):
+        """
+        See L{IDAVResource.accessControlList}.
+
+        This implementation looks up the ACL in the private property
+        C{(L{twisted_private_namespace}, "acl")}.
+        If no ACL has been stored for this resource, it returns the value
+        returned by C{defaultAccessControlList}.
+        If access is disabled it will return C{None}.
+        """
+        #
+        # Inheritance is problematic. Here is what we do:
+        #
+        # 1. A private element <Twisted:inheritable> is defined for use inside
+        #    of a <DAV:ace>. This private element is removed when the ACE is
+        #    exposed via WebDAV.
+        #
+        # 2. When checking ACLs with inheritance resolution, the server must
+        #    examine all parent resources of the current one looking for any
+        #    <Twisted:inheritable> elements.
+        #
+        # If those are defined, the relevant ace is applied to the ACL on the
+        # current resource.
+        #
+
+        # Dynamically update privileges for those ace's that are inherited.
+        if acl:
+            aces = list(acl.children)
+        else:
+            aces = []
+
+        aces.extend(inherited_aces)
+
+        acl = davxml.ACL(*aces)
+
+        return acl
+    
     def supportedReports(self):
         """
         See L{IDAVResource.supportedReports}.
