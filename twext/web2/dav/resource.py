@@ -1486,56 +1486,40 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         principal1, principal2 = [p.children[0] for p in principals]
 
         if isinstance(principal2, davxml.All):
-            yield True
-            return
+            return succeed(True)
 
         elif isinstance(principal2, davxml.Authenticated):
             if isinstance(principal1, davxml.Unauthenticated):
-                yield False
-                return
+                return succeed(False)
             elif isinstance(principal1, davxml.All):
-                yield False
-                return
+                return succeed(False)
             else:
-                yield True
-                return
+                return succeed(True)
 
         elif isinstance(principal2, davxml.Unauthenticated):
             if isinstance(principal1, davxml.Unauthenticated):
-                yield True
-                return
+                return succeed(True)
             else:
-                yield False
-                return
+                return succeed(False)
 
         elif isinstance(principal1, davxml.Unauthenticated):
-            yield False
-            return
+            return succeed(False)
 
         assert isinstance(principal1, davxml.HRef), "Not an HRef: %r" % (principal1,)
 
-        principal2 = waitForDeferred(self.resolvePrincipal(principal2, request))
-        yield principal2
-        principal2 = principal2.getResult()
+        def resolved(principal2):
+            assert principal2 is not None, "principal2 is None"
 
-        assert principal2 is not None, "principal2 is None"
+            # Compare two HRefs and do group membership test as well
+            if principal1 == principal2:
+                return True
 
-        # Compare two HRefs and do group membership test as well
-        if principal1 == principal2:
-            yield True
-            return
-         
-        ismember = waitForDeferred(self.principalIsGroupMember(str(principal1), str(principal2), request))
-        yield ismember
-        ismember = ismember.getResult()
+            return self.principalIsGroupMember(str(principal1), str(principal2), request)
 
-        if ismember:
-            yield True
-            return
-  
-        yield False
+        d = self.resolvePrincipal(principal2, request)
+        d.addCallback(resolved)
+        return d
 
-    matchPrincipal = deferredGenerator(matchPrincipal)
 
     @deferredGenerator
     def principalIsGroupMember(self, principal1, principal2, request):
