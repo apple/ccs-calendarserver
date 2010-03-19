@@ -1352,29 +1352,28 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         
         # Get the parent ACLs with inheritance and preserve the <inheritable> element.
-        parent_acl = waitForDeferred(self.accessControlList(request, inheritance=True, expanding=True))
-        yield parent_acl
-        parent_acl = parent_acl.getResult()
-        
-        # Check disabled
-        if parent_acl is None:
-            yield None
-            return
 
-        # Filter out those that are not inheritable (and remove the inheritable element from those that are)
-        aces = []
-        for ace in parent_acl.children:
-            if ace.inherited:
-                aces.append(ace)
-            elif TwistedACLInheritable() in ace.children:
-                # Adjust ACE for inherit on this resource
-                children = list(ace.children)
-                children.remove(TwistedACLInheritable())
-                children.append(davxml.Inherited(davxml.HRef(request.urlForResource(self))))
-                aces.append(davxml.ACE(*children))
-        yield aces
+        def gotACL(parent_acl):
+            # Check disabled
+            if parent_acl is None:
+                return None
 
-    inheritedACEsforChildren = deferredGenerator(inheritedACEsforChildren)
+            # Filter out those that are not inheritable (and remove the inheritable element from those that are)
+            aces = []
+            for ace in parent_acl.children:
+                if ace.inherited:
+                    aces.append(ace)
+                elif TwistedACLInheritable() in ace.children:
+                    # Adjust ACE for inherit on this resource
+                    children = list(ace.children)
+                    children.remove(TwistedACLInheritable())
+                    children.append(davxml.Inherited(davxml.HRef(request.urlForResource(self))))
+                    aces.append(davxml.ACE(*children))
+            return aces
+
+        d = self.accessControlList(request, inheritance=True, expanding=True)
+        d.addCallback(gotACL)
+        return d
 
     def inheritedACLSet(self):
         """
@@ -1520,8 +1519,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d.addCallback(resolved)
         return d
 
-
-    @deferredGenerator
     def principalIsGroupMember(self, principal1, principal2, request):
         """
         Check whether one principal is a group member of another.
@@ -1531,22 +1528,24 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         @param request: the request being processed.
         @return: L{Deferred} with result C{True} if principal1 is a member of principal2, C{False} otherwise
         """
-        
-        d = waitForDeferred(request.locateResource(principal2))
-        yield d
-        group = d.getResult()
+        def gotGroup(group):
+            # Get principal resource for principal2
+            if group and isinstance(group, DAVPrincipalResource):
+                def gotMembers(members):
+                    for member in members:
+                        if member.principalURL() == principal1:
+                            return True
+                    return False
 
-        # Get principal resource for principal2
-        if group and isinstance(group, DAVPrincipalResource):
-            d = waitForDeferred(group.expandedGroupMembers())
-            yield d
-            members = d.getResult()
-            for member in members:
-                if member.principalURL() == principal1:
-                    yield True
-                    return
-            
-        yield False
+                d = group.expandedGroupMembers()
+                d.addCallback(gotMembers)
+                return d
+
+            return False
+        
+        d = request.locateResource(principal2)
+        d.addCallback(gotGroup)
+        return d
         
     def validPrincipal(self, ace_principal, request):
         """
