@@ -68,7 +68,10 @@ version_file.close()
 
 from distutils.core import Extension
 
-extensions = []
+extensions = [
+    Extension("twext.python.sendmsg",
+              sources=["twext/python/sendmsg.c"])
+]
 
 if sys.platform == "darwin":
     extensions.append(
