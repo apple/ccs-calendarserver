@@ -293,6 +293,16 @@ static PyObject *sendmsg_recvmsg(PyObject *self, PyObject *args, PyObject *keywd
          control_message = CMSG_NXTHDR(&message_header,
                                        control_message)) {
         PyObject *entry;
+
+        /* Some platforms apparently always fill out the ancillary data
+           structure with a single bogus value if none is provided; ignore it,
+           if that is the case. */
+
+        if ((!(control_message->cmsg_level)) &&
+            (!(control_message->cmsg_type))) {
+            continue;
+        }
+
         entry = Py_BuildValue(
             "(iis#)",
             control_message->cmsg_level,
