@@ -507,6 +507,12 @@ dependencies () {
   # Tool dependencies.  The code itself doesn't depend on these, but you probably want them.
   svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
   svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes HEAD;
+
+  if "${do_setup}"; then
+    cd "${caldav}";
+    echo "Building our own extension modules...";
+    python setup.py build_ext --inplace;
+  fi;
 }
 
 # Actually do the initialization, once all functions are defined.
