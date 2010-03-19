@@ -56,6 +56,10 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
         yield XMLCalendarUserProxyLoader(proxiesFile.path).updateProxyDB()
 
+    def tearDown(self):
+        """ Empty the proxy db between tests """
+        return calendaruserproxy.ProxyDBService.clean()
+
     def _getPrincipalByShortName(self, type, name):
         provisioningResource = self.principalRootResources[self.directoryService.__class__.__name__]
         return provisioningResource.principalForShortName(type, name)
