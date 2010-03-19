@@ -19,6 +19,8 @@
 #include <membership.h>
 
 int mbr_check_service_membership(const uuid_t user, const char* servicename, int* ismember);
+int mbr_user_name_to_uuid(const char* name, uuid_t uu);
+int mbr_group_name_to_uuid(const char* name, uuid_t uu);
 
 /*
     CheckSACL(userOrGroupName, service)
