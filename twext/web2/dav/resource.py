@@ -445,6 +445,7 @@ class DAVPropertyMixIn (MetaDataMixin):
 
         return maybeDeferred(defer)
 
+    @inlineCallbacks
     def listProperties(self, request):
         """
         See L{IDAVResource.listProperties}.
@@ -457,9 +458,7 @@ class DAVPropertyMixIn (MetaDataMixin):
             (dav_namespace, "quota-used-bytes"     ),
         )
         for dqname in dynamicLiveProperties:
-            has = waitForDeferred(self.hasProperty(dqname, request))
-            yield has
-            has = has.getResult()
+            has = (yield self.hasProperty(dqname, request))
             if not has:
                 qnames.remove(dqname)
 
@@ -470,9 +469,7 @@ class DAVPropertyMixIn (MetaDataMixin):
             ):
                 qnames.add(qname)
 
-        yield qnames
-
-    listProperties = deferredGenerator(listProperties)
+        returnValue(qnames)
 
     def listAllprop(self, request):
         """
@@ -1067,6 +1064,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         self.writeDeadProperty(acl)
 
+    @inlineCallbacks
     def mergeAccessControlList(self, new_acl, request):
         """
         Merges the supplied access control list with the one on this
@@ -1103,16 +1101,11 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # properties on the ACEs as we will need to keep those when we
         # change the ACL.
 
-        old_acl = waitForDeferred(
-            self.accessControlList(request, expanding=True)
-        )
-        yield old_acl
-        old_acl = old_acl.getResult()
+        old_acl = (yield self.accessControlList(request, expanding=True))
 
         # Check disabled
         if old_acl is None:
-            yield None
-            return
+            returnValue(None)
 
         # Need to get list of supported privileges
         supported = []
@@ -1127,9 +1120,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 elif isinstance(item, davxml.SupportedPrivilege):
                     addSupportedPrivilege(item)
 
-        supportedPrivs = waitForDeferred(self.supportedPrivileges(request))
-        yield supportedPrivs
-        supportedPrivs = supportedPrivs.getResult()
+        supportedPrivs = (yield self.supportedPrivileges(request))
         for item in supportedPrivs.children:
             assert isinstance(item, davxml.SupportedPrivilege), (
                 "Not a SupportedPrivilege: %r" % (item,)
@@ -1146,11 +1137,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                         log.err("Attempt to overwrite protected ace %r "
                                 "on resource %r"
                                 % (old_ace, self))
-                        yield (
+                        returnValue((
                             davxml.dav_namespace,
                             "no-protected-ace-conflict"
-                        )
-                        return
+                        ))
 
                     # Step 2
                     #
@@ -1168,19 +1158,17 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     #elif old_ace.inherited:
                     #    log.err("Attempt to overwrite inherited ace %r "
                     #            "on resource %r" % (old_ace, self))
-                    #    yield (
+                    #    returnValue((
                     #        davxml.dav_namespace,
                     #        "no-inherited-ace-conflict"
-                    #    )
-                    #    return
+                    #    ))
 
             # Step 3
             if ace.allow and got_deny:
                 log.err("Attempt to set grant ace %r after deny ace "
                         "on resource %r"
                         % (ace, self))
-                yield (davxml.dav_namespace, "deny-before-grant")
-                return
+                returnValue((davxml.dav_namespace, "deny-before-grant"))
             got_deny = not ace.allow
 
             # Step 4: ignore as this server has no abstract privileges
@@ -1192,32 +1180,29 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     log.err("Attempt to use unsupported privilege %r "
                             "in ace %r on resource %r"
                             % (privilege.children[0], ace, self))
-                    yield (davxml.dav_namespace, "not-supported-privilege")
-                    return
+                    returnValue((
+                        davxml.dav_namespace,
+                        "not-supported-privilege"
+                    ))
+
             if ace.protected:
                 log.err("Attempt to create protected ace %r on resource %r"
                         % (ace, self))
-                yield (davxml.dav_namespace, "no-ace-conflict")
-                return
+                returnValue((davxml.dav_namespace, "no-ace-conflict"))
+
             if ace.inherited:
                 log.err("Attempt to create inherited ace %r on resource %r"
                         % (ace, self))
-                yield (davxml.dav_namespace, "no-ace-conflict")
-                return
+                returnValue((davxml.dav_namespace, "no-ace-conflict"))
 
             # Step 6
-            valid = waitForDeferred(
-                self.validPrincipal(ace.principal, request)
-            )
-            yield valid
-            valid = valid.getResult()
+            valid = (yield self.validPrincipal(ace.principal, request))
 
             if not valid:
                 log.err("Attempt to use unrecognized principal %r "
                         "in ace %r on resource %r"
                         % (ace.principal, ace, self))
-                yield (davxml.dav_namespace, "recognized-principal")
-                return
+                returnValue((davxml.dav_namespace, "recognized-principal"))
 
         # Step 8 & 9
         #
@@ -1243,9 +1228,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         # Step 11
         self.writeNewACEs(new_set)
-        yield None
-
-    mergeAccessControlList = deferredGenerator(mergeAccessControlList)
+        returnValue(None)
         
     def writeNewACEs(self, new_aces):
         """
@@ -1267,6 +1250,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         return False
 
+    @inlineCallbacks
     def checkPrivileges(
         self, request, privileges, recurse=False,
         principal=None, inherited_aces=None
@@ -1293,9 +1277,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         if principal is None:
             principal = self.currentPrincipal(request)
 
-        supportedPrivs = waitForDeferred(self.supportedPrivileges(request))
-        yield supportedPrivs
-        supportedPrivs = supportedPrivs.getResult()
+        supportedPrivs = (yield self.supportedPrivileges(request))
 
         # Other principals types don't make sense as actors.
         assert principal.children[0].name in ("unauthenticated", "href"), (
@@ -1307,23 +1289,18 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         resources = [(self, None)]
 
         if recurse:
-            x = self.findChildren(
+            yield self.findChildren(
                 "infinity", request,
                 lambda x, y: resources.append((x,y))
             )
-            x = waitForDeferred(x)
-            yield x
-            x.getResult()
 
         for resource, uri in resources:
-            acl = waitForDeferred(
+            acl = (yield
                 resource.accessControlList(
                     request,
                     inherited_aces=inherited_aces
                 )
             )
-            yield acl
-            acl = acl.getResult()
 
             # Check for disabled
             if acl is None:
@@ -1341,11 +1318,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     ):
                         continue
 
-                    match = waitForDeferred(
+                    match = (yield
                         self.matchPrincipal(principal, ace.principal, request)
                     )
-                    yield match
-                    match = match.getResult()
 
                     if match:
                         if ace.invert:
@@ -1367,9 +1342,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         if errors:
             raise AccessDeniedError(errors,)
         
-        yield None
-
-    checkPrivileges = deferredGenerator(checkPrivileges)
+        returnValue(None)
 
     def supportedPrivileges(self, request):
         """
@@ -1390,6 +1363,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         current = self.currentPrincipal(request)
         return self.privilegesForPrincipal(current, request)
 
+    @inlineCallbacks
     def accessControlList(
         self, request, inheritance=True,
         expanding=False, inherited_aces=None
@@ -1459,23 +1433,18 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 if myURL != "/":
                     parentURL = parentForURL(myURL)
     
-                    parent = waitForDeferred(request.locateResource(parentURL))
-                    yield parent
-                    parent = parent.getResult()
+                    parent = (yield request.locateResource(parentURL))
     
                     if parent:
-                        parent_acl = waitForDeferred(
+                        parent_acl = (yield
                             parent.accessControlList(
                                 request, inheritance=True, expanding=True
                             )
                         )
-                        yield parent_acl
-                        parent_acl = parent_acl.getResult()
     
                         # Check disabled
                         if parent_acl is None:
-                            yield None
-                            return
+                            returnValue(None)
     
                         for ace in parent_acl.children:
                             if ace.inherited:
@@ -1505,9 +1474,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
             acl = davxml.ACL(*aces)
 
-        yield acl
-
-    accessControlList = deferredGenerator(accessControlList)
+        returnValue(acl)
 
     def inheritedACEsforChildren(self, request):
         """
@@ -1896,19 +1863,18 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         return succeed(None)
 
+    @inlineCallbacks
     def privilegesForPrincipal(self, principal, request):
         """
         See L{IDAVResource.privilegesForPrincipal}.
         """
         # NB Return aggregate privileges expanded.
 
-        acl = waitForDeferred(self.accessControlList(request))
-        yield acl
-        acl = acl.getResult()
+        acl = (yield self.accessControlList(request))
 
         # Check disabled
         if acl is None:
-            yield []
+            returnValue(())
 
         granted = []
         denied = []
@@ -1916,20 +1882,16 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             # First see if the ace's principal affects the principal
             # being tested.  FIXME: support the DAV:invert operation
 
-            match = waitForDeferred(
+            match = (yield
                 self.matchPrincipal(principal, ace.principal, request)
             )
-            yield match
-            match = match.getResult()
 
             if match:
                 # Expand aggregate privileges
                 ps = []
-                supportedPrivs = waitForDeferred(
+                supportedPrivs = (yield
                     self.supportedPrivileges(request)
                 )
-                yield supportedPrivs
-                supportedPrivs = supportedPrivs.getResult()
                 for p in ace.privileges:
                     ps.extend(p.expandAggregate(supportedPrivs))
 
@@ -1940,11 +1902,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     denied.extend([p for p in ps if p not in denied])
 
         # Subtract denied from granted
-        allowed = [p for p in granted if p not in denied]
+        allowed = tuple(p for p in granted if p not in denied)
 
-        yield allowed
-
-    privilegesForPrincipal = deferredGenerator(privilegesForPrincipal)
+        returnValue(allowed)
 
     def matchACEinACL(self, acl, ace):
         """
