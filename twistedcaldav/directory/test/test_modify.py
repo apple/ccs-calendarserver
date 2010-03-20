@@ -129,3 +129,25 @@ class ModificationTestCase(TestCase):
 
         directory.createRecord("resources", guid="resource01", shortNames=("resource01",), uid="resource01")
         self.assertRaises(DirectoryError, directory.createRecord, "resources", guid="resource01", shortNames=("resource01",), uid="resource01")
+
+    def test_missingShortNames(self):
+        directory = getDirectory()
+
+        directory.createRecord("resources", guid="resource01")
+
+        record = directory.recordWithUID("resource01")
+        self.assertEquals(record.shortNames[0], "resource01")
+
+        directory.updateRecord("resources", guid="resource01",
+            fullName="Resource #1")
+
+        record = directory.recordWithUID("resource01")
+        self.assertEquals(record.shortNames[0], "resource01")
+        self.assertEquals(record.fullName, "Resource #1")
+
+    def test_missingGUID(self):
+        directory = getDirectory()
+
+        record = directory.createRecord("resources")
+
+        self.assertEquals(record.shortNames[0], record.guid)

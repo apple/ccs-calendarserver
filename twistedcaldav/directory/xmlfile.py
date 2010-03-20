@@ -327,6 +327,9 @@ class XMLDirectoryService(CachingDirectoryService):
         if guid is None:
             guid = str(uuid4())
 
+        if not shortNames:
+            shortNames = (guid,)
+
         # Make sure latest XML records are read in
         self._lastCheck = 0
         accounts = self._accounts()

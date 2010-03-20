@@ -263,6 +263,9 @@ class AugmentXMLDB(AugmentDB):
             # Add to first file in list
             self._doAddToFile(self.xmlFiles[0], new_records)
 
+        # This is required to invalidate self.db
+        self.lastCached = 0
+
         return succeed(None)
 
     def _doAddToFile(self, xmlfile, records):

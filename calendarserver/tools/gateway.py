@@ -213,6 +213,8 @@ class Runner(object):
             respondWithError(str(e))
             return
 
+        kwargs['guid'] = record.guid
+
         principal = self.dir.principalCollection.principalForRecord(record)
         (yield principal.setAutoSchedule(command.get('AutoSchedule', True)))
 
@@ -288,6 +290,8 @@ class Runner(object):
         except DirectoryError, e:
             respondWithError(str(e))
             return
+
+        kwargs['guid'] = record.guid
 
         principal = self.dir.principalCollection.principalForRecord(record)
         (yield principal.setAutoSchedule(command.get('AutoSchedule', True)))
