@@ -2131,16 +2131,13 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # Check this resource first
         if self.isCollection():
             if self.hasQuotaRoot(request):
-                d = self.updateQuotaUse(request, adjust)
-                d.addCallback(lambda _: None) # FIXME: do we need this?
-                return d
+                return self.updateQuotaUse(request, adjust)
         
         # Check the next parent
         url = request.urlForResource(self)
         if url != "/":
             d = request.locateResource(parentForURL(url))
             d.addCallback(lambda p: p.quotaSizeAdjust(request, adjust))
-            d.addCallback(lambda _: None) # FIXME: do we need this?
             return d
 
         return succeed(None)
