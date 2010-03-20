@@ -52,7 +52,6 @@ from zope.interface import implements
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred, maybeDeferred, succeed
-from twisted.internet.defer import waitForDeferred, deferredGenerator
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet import reactor
 
