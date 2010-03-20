@@ -2014,28 +2014,20 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         
         # Check this one first
         if self.hasQuotaRoot(request):
-            yield True
-            return
+            return succeed(True)
         
         # Look at each parent
         try:
             url = request.urlForResource(self)
             if url != "/":
-                parent = waitForDeferred(
-                    request.locateResource(parentForURL(url))
-                )
-                yield parent
-                parent = parent.getResult()
-                d = waitForDeferred(parent.hasQuota(request))
-                yield d
-                yield d.getResult()
+                d = request.locateResource(parentForURL(url))
+                d.addCallback(lambda p: p.hasQuota(request))
+                return d
             else:
-                yield False
+                return succeed(False)
         except NoURLForResourceError:
-            yield False
-    
-    hasQuota = deferredGenerator(hasQuota)
-        
+            return succeed(False)
+
     def hasQuotaRoot(self, request):
         """
         @return: a C{True} if this resource has quota root, C{False} otherwise.
@@ -2053,6 +2045,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         else:
             return None
     
+    @inlineCallbacks
     def quotaRootParent(self, request):
         """
         Return the next quota root above this resource.
@@ -2064,16 +2057,11 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         url = request.urlForResource(self)
         while (url != "/"):
             url = parentForURL(url)
-            parent = waitForDeferred(request.locateResource(url))
-            yield parent
-            parent = parent.getResult()
+            parent = (yield request.locateResource(url))
             if parent.hasQuotaRoot(request):
-                yield parent
-                return
+                returnValue(parent)
 
-        yield None
-    
-    quotaRootParent = deferredGenerator(quotaRootParent)
+        returnValue(None)
         
     def setQuotaRoot(self, request, maxsize):
         """
@@ -2103,6 +2091,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         unimplemented(self)
 
+    @inlineCallbacks
     def checkQuota(self, request, available):
         """
         Check to see whether all quota roots have sufficient available
@@ -2122,17 +2111,12 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             quota = quotaroot.quotaRoot(request)
             if quota is not None:
                 if available > quota[0]:
-                    yield False
-                    return
+                    returnValue(False)
 
             # Check the next parent with a quota root
-            quotaroot = waitForDeferred(quotaroot.quotaRootParent(request))
-            yield quotaroot
-            quotaroot = quotaroot.getResult()
+            quotaroot = (yield quotaroot.quotaRootParent(request))
 
-        yield True
-
-    checkQuota = deferredGenerator(checkQuota)
+        returnValue(True)
 
     def quotaSizeAdjust(self, request, adjust):
         """
@@ -2147,25 +2131,19 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # Check this resource first
         if self.isCollection():
             if self.hasQuotaRoot(request):
-                d = waitForDeferred(self.updateQuotaUse(request, adjust))
-                yield d
-                d.getResult()
-                yield None
-                return
+                d = self.updateQuotaUse(request, adjust)
+                d.addCallback(lambda _: None) # FIXME: do we need this?
+                return d
         
         # Check the next parent
         url = request.urlForResource(self)
         if url != "/":
-            parent = waitForDeferred(request.locateResource(parentForURL(url)))
-            yield parent
-            parent = parent.getResult()
-            d = waitForDeferred(parent.quotaSizeAdjust(request, adjust))
-            yield d
-            d.getResult()
+            d = request.locateResource(parentForURL(url))
+            d.addCallback(lambda p: p.quotaSizeAdjust(request, adjust))
+            d.addCallback(lambda _: None) # FIXME: do we need this?
+            return d
 
-        yield None
-
-    quotaSizeAdjust = deferredGenerator(quotaSizeAdjust)
+        return succeed(None)
 
     def currentQuotaUse(self, request):
         """
@@ -2424,7 +2402,6 @@ class DAVPrincipalResource (DAVResource):
         """
         unimplemented(self)
 
-    @deferredGenerator
     def principalMatch(self, href):
         """
         Check whether the supplied principal matches this principal or
@@ -2434,14 +2411,14 @@ class DAVPrincipalResource (DAVResource):
         """
         uri = str(href)
         if self.principalURL() == uri:
-            yield True
-            return
+            return succeed(True)
         else:
-            d = waitForDeferred(self.expandedGroupMembers())
-            yield d
-            members = d.getResult()
-            member_uris = [member.principalURL() for member in members]
-            yield uri in member_uris
+            d = self.expandedGroupMembers()
+            d.addCallback(
+                lambda members:
+                    uri in [member.principalURL() for member in members]
+            )
+            return d
 
 
 class DAVPrincipalCollectionResource (DAVResource):
