@@ -1967,43 +1967,43 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         
         # See if already cached
-        if not hasattr(request, "quota"):
+        if hasattr(request, "quota"):
+            if request.quota.has_key(self):
+                return succeed(request.quota[self])
+        else:
             request.quota = {}
-        if request.quota.has_key(self):
-            yield request.quota[self]
-            return
 
         # Check this resource first
         if self.isCollection():
             qroot = self.quotaRoot(request)
             if qroot is not None:
-                used = waitForDeferred(self.currentQuotaUse(request))
-                yield used
-                used = used.getResult()
-                available = qroot - used
-                if available < 0:
-                    available = 0
-                request.quota[self] = (available, used)
-                yield request.quota[self]
-                return
+                def gotUsage(used):
+                    available = qroot - used
+                    if available < 0:
+                        available = 0
+                    request.quota[self] = (available, used)
+                    return (available, used)
+
+                d = self.currentQuotaUse(request)
+                d.addCallback(gotUsage)
+                return d
         
         # Check the next parent
         url = request.urlForResource(self)
         if url != "/":
-            parent = waitForDeferred(request.locateResource(parentForURL(url)))
-            yield parent
-            parent = parent.getResult()
-            d = waitForDeferred(parent.quota(request))
-            yield d
-            request.quota[self] = d.getResult()
+            def gotQuota(quota):
+                request.quota[self] = quota
+                return quota
+
+            d = request.locateResource(parentForURL(url))
+            d.addCallback(lambda p: p.quota(request))
+            d.addCallback(gotQuota)
+            return d
         else:
             request.quota[self] = None
 
-        yield request.quota[self]
-        return
+        return succeed(request.quota[self])
     
-    quota = deferredGenerator(quota)
-
     def hasQuota(self, request):
         """
         Check whether this resource is undre quota control by checking
