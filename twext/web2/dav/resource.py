@@ -1638,48 +1638,65 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         # See RFC 3744, section 5.5.1
 
-        principals = (principal1, principal2)
-
         # The interesting part of a principal is it's one child
-        principal1, principal2 = [p.children[0] for p in principals]
+        principal1 = principal1.children[0]
+        principal2 = principal2.children[0]
 
-        if isinstance(principal2, davxml.All):
-            return succeed(True)
+        if not hasattr(request, "matchPrincipals"):
+            request.matchPrincipals = {}
 
-        elif isinstance(principal2, davxml.Authenticated):
-            if isinstance(principal1, davxml.Unauthenticated):
-                return succeed(False)
-            elif isinstance(principal1, davxml.All):
-                return succeed(False)
-            else:
+        cache_key = (str(principal1), str(principal2))
+
+        match = request.matchPrincipals.get(cache_key, None)
+        if match is not None:
+            return succeed(match)
+
+        def doMatch():
+            if isinstance(principal2, davxml.All):
                 return succeed(True)
 
-        elif isinstance(principal2, davxml.Unauthenticated):
-            if isinstance(principal1, davxml.Unauthenticated):
-                return succeed(True)
-            else:
+            elif isinstance(principal2, davxml.Authenticated):
+                if isinstance(principal1, davxml.Unauthenticated):
+                    return succeed(False)
+                elif isinstance(principal1, davxml.All):
+                    return succeed(False)
+                else:
+                    return succeed(True)
+
+            elif isinstance(principal2, davxml.Unauthenticated):
+                if isinstance(principal1, davxml.Unauthenticated):
+                    return succeed(True)
+                else:
+                    return succeed(False)
+
+            elif isinstance(principal1, davxml.Unauthenticated):
                 return succeed(False)
 
-        elif isinstance(principal1, davxml.Unauthenticated):
-            return succeed(False)
-
-        assert isinstance(principal1, davxml.HRef), (
-            "Not an HRef: %r" % (principal1,)
-        )
-
-        def resolved(principal2):
-            assert principal2 is not None, "principal2 is None"
-
-            # Compare two HRefs and do group membership test as well
-            if principal1 == principal2:
-                return True
-
-            return self.principalIsGroupMember(
-                str(principal1), str(principal2), request
+            assert isinstance(principal1, davxml.HRef), (
+                "Not an HRef: %r" % (principal1,)
             )
 
-        d = self.resolvePrincipal(principal2, request)
-        d.addCallback(resolved)
+            def resolved(principal2):
+                assert principal2 is not None, "principal2 is None"
+
+                # Compare two HRefs and do group membership test as well
+                if principal1 == principal2:
+                    return True
+
+                return self.principalIsGroupMember(
+                    str(principal1), str(principal2), request
+                )
+
+            d = self.resolvePrincipal(principal2, request)
+            d.addCallback(resolved)
+            return d
+
+        def cache(match):
+            request.matchPrincipals[cache_key] = match
+            return match
+
+        d = doMatch()
+        d.addCallback(cache)
         return d
 
     def principalIsGroupMember(self, principal1, principal2, request):

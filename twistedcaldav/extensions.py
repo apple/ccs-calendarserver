@@ -448,29 +448,6 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoersMixin, SuperDAV
     http_REPORT = http_REPORT
 
 
-    @inlineCallbacks
-    def matchPrincipal(self, principal1, principal2, request):
-        """
-        Implementation of DAVResource.matchPrincipal that caches the principal match
-        for the duration of a request. This avoids having to do repeated group membership
-        tests when privileges on multiple resources are determined.
-        """
-        
-        if not hasattr(request, "matchPrincipalCache"):
-            request.matchPrincipalCache = {}
-
-        # The interesting part of a principal is it's one child
-        principals = (principal1, principal2)
-        cache_key = tuple([str(p.children[0]) for p in principals])
-
-        match = request.matchPrincipalCache.get(cache_key, None)
-        if match is None:
-            match = (yield super(DAVResource, self).matchPrincipal(principal1, principal2, request))
-            request.matchPrincipalCache[cache_key] = match
-            
-        returnValue(match)
-
-
 class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrincipalResource, LoggingMixIn):
     """
     Extended L{twext.web2.dav.static.DAVFile} implementation.
