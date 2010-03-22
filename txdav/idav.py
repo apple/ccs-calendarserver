@@ -58,12 +58,12 @@ class IPropertyStore(IMapping):
     are not persisted until C{flush()} is called, and can be undone
     using C{abort()}.
     """
-    def flush(self):
+    def flush():
         """
         Write out any pending changes.
         """
 
-    def abort(self):
+    def abort():
         """
         Abort any pending changes.
         """
