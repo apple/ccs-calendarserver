@@ -29,11 +29,7 @@ import errno
 import urllib
 from zlib import compress, decompress, error as ZlibError
 from cPickle import UnpicklingError, loads as unpickle
-
-import xattr
-
-if getattr(xattr, "xattr", None) is None:
-    raise ImportError("wrong xattr package imported")
+from xattr import xattr
 
 from twext.web2.dav.davxml import WebDAVDocument
 
@@ -88,7 +84,7 @@ class PropertyStore(AbstractPropertyStore):
 
     def __init__(self, path):
         self.path = path
-        self.attrs = xattr.xattr(path.path)
+        self.attrs = xattr(path.path)
         self.removed = set()
         self.modified = {}
 
@@ -102,6 +98,9 @@ class PropertyStore(AbstractPropertyStore):
     def __delitem__(self, key):
         if key in self.modified:
             del self.modified[key]
+        elif self._encodeKey(key) not in self.attrs:
+            raise KeyError(key)
+
         self.removed.add(key)
 
     def __getitem__(self, key):
