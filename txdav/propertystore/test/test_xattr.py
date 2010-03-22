@@ -20,33 +20,80 @@ Property store tests.
 
 from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
-#from twext.python.filepath import CachingFilePath as FilePath
 from twisted.trial import unittest
 
+from twext.python.filepath import FilePath
+from twext.web2.dav import davxml
+
 from txdav.idav import IPropertyStore
-from txdav.propertystore.xattr import PropertyStore
+
+try:
+    from txdav.propertystore.xattr import PropertyStore, PropertyName
+    from xattr import xattr
+except ImportError, e:
+    PropertyStore = None
+    importErrorMessage = str(e)
 
 
 class PropertyStoreTest(unittest.TestCase):
+    def setUp(self):
+        tempDir = FilePath(self.mktemp())
+        tempDir.makedirs()
+        tempFile = tempDir.child("test")
+        tempFile.touch()
+        self.propertyStore = PropertyStore(tempFile)
+
     def test_interface(self):
-        raise NotImplementedError()
-
-        store = PropertyStore()
-
         try:
-            verifyObject(IPropertyStore, store)
+            verifyObject(IPropertyStore, self.propertyStore)
         except BrokenMethodImplementation, e:
             self.fail(e)
-    test_interface.todo = "Unimplemented"
 
     def test_init(self):
-        raise NotImplementedError()
-    test_init.todo = "Unimplemented"
+        store = self.propertyStore
+        self.failUnless(isinstance(store.attrs, xattr))
+        self.assertEquals(store.removed, set())
+        self.assertEquals(store.modified, {})
 
     def test_flush(self):
-        raise NotImplementedError()
-    test_flush.todo = "Unimplemented"
+        store = self.propertyStore
+
+        name = propertyName("test")
+        value = davxml.ResponseDescription("Hello, World!")
+
+        store[name] = value
+
+        store.flush()
+        store.abort()
+
+        self.assertEquals(store.get(name, None), value)
+
+        del store[name]
+
+        store.flush()
+        store.abort()
+
+        self.assertEquals(store.get(name, None), None)
+
 
     def test_abort(self):
-        raise NotImplementedError()
-    test_abort.todo = "Unimplemented"
+        store = self.propertyStore
+
+        name = propertyName("test")
+        value = davxml.ResponseDescription("Hello, World!")
+
+        store[name] = value
+
+        store.abort()
+
+        self.assertEquals(store.get(name, None), None)
+        self.assertEquals(store.removed, set())
+        self.assertEquals(store.modified, {})
+
+
+if PropertyStore is None:
+    PropertyStoreTest.skip = importErrorMessage
+
+
+def propertyName(name):
+    return PropertyName("http://calendarserver.org/ns/test/", name)
