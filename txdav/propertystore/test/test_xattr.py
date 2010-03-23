@@ -18,15 +18,12 @@
 Property store tests.
 """
 
-from zope.interface.verify import verifyObject, BrokenMethodImplementation
-
-from twisted.trial import unittest
-
 from twext.python.filepath import FilePath
-from twext.web2.dav import davxml
 
-from txdav.idav import IPropertyStore
 from txdav.propertystore.base import PropertyName
+from txdav.propertystore.test.base import propertyName
+
+from txdav.propertystore.test import base
 
 try:
     from txdav.propertystore.xattr import PropertyStore
@@ -36,7 +33,7 @@ except ImportError, e:
     importErrorMessage = str(e)
 
 
-class PropertyStoreTest(unittest.TestCase):
+class PropertyStoreTest(base.PropertyStoreTest):
     def setUp(self):
         tempDir = FilePath(self.mktemp())
         tempDir.makedirs()
@@ -44,50 +41,15 @@ class PropertyStoreTest(unittest.TestCase):
         tempFile.touch()
         self.propertyStore = PropertyStore(tempFile)
 
-    def test_interface(self):
-        try:
-            verifyObject(IPropertyStore, self.propertyStore)
-        except BrokenMethodImplementation, e:
-            self.fail(e)
-
     def test_init(self):
         store = self.propertyStore
         self.failUnless(isinstance(store.attrs, xattr))
         self.assertEquals(store.removed, set())
         self.assertEquals(store.modified, {})
 
-    def test_flush(self):
-        store = self.propertyStore
-
-        name = propertyName("test")
-        value = davxml.ResponseDescription("Hello, World!")
-
-        store[name] = value
-
-        store.flush()
-        store.abort()
-
-        self.assertEquals(store.get(name, None), value)
-
-        del store[name]
-
-        store.flush()
-        store.abort()
-
-        self.assertEquals(store.get(name, None), None)
-
-
     def test_abort(self):
+        super(PropertyStoreTest, self).test_abort()
         store = self.propertyStore
-
-        name = propertyName("test")
-        value = davxml.ResponseDescription("Hello, World!")
-
-        store[name] = value
-
-        store.abort()
-
-        self.assertEquals(store.get(name, None), None)
         self.assertEquals(store.removed, set())
         self.assertEquals(store.modified, {})
 

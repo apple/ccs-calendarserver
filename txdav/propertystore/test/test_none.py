@@ -18,26 +18,16 @@
 Property store tests.
 """
 
-from zope.interface.verify import verifyObject, BrokenMethodImplementation
-
-from twisted.trial import unittest
-
-from twext.web2.dav import davxml
-
-from txdav.idav import IPropertyStore, PropertyChangeNotAllowedError
-from txdav.propertystore.base import PropertyName
+from txdav.idav import PropertyChangeNotAllowedError
 from txdav.propertystore.none import PropertyStore
+from txdav.propertystore.test.base import propertyName, propertyValue
+
+from txdav.propertystore.test import base
 
 
-class PropertyStoreTest(unittest.TestCase):
+class PropertyStoreTest(base.PropertyStoreTest):
     def setUp(self):
         self.propertyStore = PropertyStore()
-
-    def test_interface(self):
-        try:
-            verifyObject(IPropertyStore, self.propertyStore)
-        except BrokenMethodImplementation, e:
-            self.fail(e)
 
     def test_flush(self):
         store = self.propertyStore
@@ -46,7 +36,7 @@ class PropertyStoreTest(unittest.TestCase):
         store.flush()
 
         name = propertyName("test")
-        value = davxml.ResponseDescription("Hello, World!")
+        value = propertyValue("Hello, World!")
 
         store[name] = value
 
@@ -62,20 +52,6 @@ class PropertyStoreTest(unittest.TestCase):
 
         self.assertEquals(store.get(name, None), None)
 
-
     def test_abort(self):
-        store = self.propertyStore
-
-        name = propertyName("test")
-        value = davxml.ResponseDescription("Hello, World!")
-
-        store[name] = value
-
-        store.abort()
-
-        self.assertEquals(store.get(name, None), None)
-        self.assertEquals(store.modified, {})
-
-
-def propertyName(name):
-    return PropertyName("http://calendarserver.org/ns/test/", name)
+        super(PropertyStoreTest, self).test_abort()
+        self.assertEquals(self.propertyStore.modified, {})
