@@ -49,6 +49,10 @@ class CalDAVResource(DAVResource, LoggingMixIn):
             + config.CalDAVComplianceClasses
         )
 
+    supportedCalendarComponentSet = caldavxml.SupportedCalendarComponentSet(
+        *[caldavxml.CalendarComponent(name=item) for item in allowedComponents]
+    )
+
 
 class CalendarHomeResource(CalDAVResource):
     """
@@ -64,6 +68,10 @@ class CalendarCollectionResource(CalDAVResource):
 
     This resource is backed by an L{ICalendar} implementation.
     """
+    #
+    # HTTP
+    #
+
     def render(self, request):
         if config.EnableMonolithicCalendars:
             #
@@ -105,6 +113,18 @@ class CalendarCollectionResource(CalDAVResource):
             return d
 
         return super(CalDAVResource, self).render(request)
+
+    #
+    # WebDAV
+    #
+
+    liveProperties = DAVResource.liveProperties + (
+        (dav_namespace,    "owner"),               # Private Events needs this but it is also OK to return empty
+        (caldav_namespace, "supported-calendar-component-set"),
+        (caldav_namespace, "supported-calendar-data"         ),
+    )
+
+
 
 
 class CalendarObjectResource(CalDAVResource):

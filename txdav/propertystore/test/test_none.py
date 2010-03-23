@@ -18,40 +18,40 @@
 Property store tests.
 """
 
-from txdav.idav import PropertyChangeNotAllowedError
-from txdav.propertystore.none import PropertyStore
-from txdav.propertystore.test.base import propertyName, propertyValue
+# from txdav.idav import PropertyChangeNotAllowedError
+# from txdav.propertystore.none import PropertyStore
+# from txdav.propertystore.test.base import propertyName, propertyValue
 
-from txdav.propertystore.test import base
+# from txdav.propertystore.test import base
 
 
-class PropertyStoreTest(base.PropertyStoreTest):
-    def setUp(self):
-        self.propertyStore = PropertyStore()
+# class PropertyStoreTest(base.PropertyStoreTest):
+#     def setUp(self):
+#         self.propertyStore = PropertyStore()
 
-    def test_flush(self):
-        store = self.propertyStore
+#     def test_flush(self):
+#         store = self.propertyStore
 
-        # Flushing no changes is ok
-        store.flush()
+#         # Flushing no changes is ok
+#         store.flush()
 
-        name = propertyName("test")
-        value = propertyValue("Hello, World!")
+#         name = propertyName("test")
+#         value = propertyValue("Hello, World!")
 
-        store[name] = value
+#         store[name] = value
 
-        # Flushing changes isn't allowed
-        self.assertRaises(PropertyChangeNotAllowedError, store.flush)
+#         # Flushing changes isn't allowed
+#         self.assertRaises(PropertyChangeNotAllowedError, store.flush)
 
-        # Changes are still here
-        self.assertEquals(store.get(name, None), value)
+#         # Changes are still here
+#         self.assertEquals(store.get(name, None), value)
 
-        # Flushing no changes is ok
-        del store[name]
-        store.flush()
+#         # Flushing no changes is ok
+#         del store[name]
+#         store.flush()
 
-        self.assertEquals(store.get(name, None), None)
+#         self.assertEquals(store.get(name, None), None)
 
-    def test_abort(self):
-        super(PropertyStoreTest, self).test_abort()
-        self.assertEquals(self.propertyStore.modified, {})
+#     def test_abort(self):
+#         super(PropertyStoreTest, self).test_abort()
+#         self.assertEquals(self.propertyStore.modified, {})

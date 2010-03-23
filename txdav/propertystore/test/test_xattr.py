@@ -18,45 +18,44 @@
 Property store tests.
 """
 
-from twext.python.filepath import FilePath
+# from twext.python.filepath import FilePath
 
-from txdav.propertystore.base import PropertyName
-from txdav.propertystore.test.base import propertyName
+# from txdav.propertystore.base import PropertyName
+# from txdav.propertystore.test.base import propertyName
 
-from txdav.propertystore.test import base
+# from txdav.propertystore.test import base
 
-try:
-    from txdav.propertystore.xattr import PropertyStore
-    from xattr import xattr
-except ImportError, e:
-    PropertyStore = None
-    importErrorMessage = str(e)
-
-
-class PropertyStoreTest(base.PropertyStoreTest):
-    def setUp(self):
-        tempDir = FilePath(self.mktemp())
-        tempDir.makedirs()
-        tempFile = tempDir.child("test")
-        tempFile.touch()
-        self.propertyStore = PropertyStore(tempFile)
-
-    def test_init(self):
-        store = self.propertyStore
-        self.failUnless(isinstance(store.attrs, xattr))
-        self.assertEquals(store.removed, set())
-        self.assertEquals(store.modified, {})
-
-    def test_abort(self):
-        super(PropertyStoreTest, self).test_abort()
-        store = self.propertyStore
-        self.assertEquals(store.removed, set())
-        self.assertEquals(store.modified, {})
+# try:
+#     from txdav.propertystore.xattr import PropertyStore
+#     from xattr import xattr
+# except ImportError, e:
+#     PropertyStore = None
+#     importErrorMessage = str(e)
 
 
-if PropertyStore is None:
-    PropertyStoreTest.skip = importErrorMessage
+# class PropertyStoreTest(base.PropertyStoreTest):
+#     def setUp(self):
+#         tempDir = FilePath(self.mktemp())
+#         tempDir.makedirs()
+#         tempFile = tempDir.child("test")
+#         tempFile.touch()
+#         self.propertyStore = PropertyStore(tempFile)
+
+#     def test_init(self):
+#         store = self.propertyStore
+#         self.failUnless(isinstance(store.attrs, xattr))
+#         self.assertEquals(store.removed, set())
+#         self.assertEquals(store.modified, {})
+
+#     def test_abort(self):
+#         super(PropertyStoreTest, self).test_abort()
+#         store = self.propertyStore
+#         self.assertEquals(store.removed, set())
+#         self.assertEquals(store.modified, {})
 
 
-def propertyName(name):
-    return PropertyName("http://calendarserver.org/ns/test/", name)
+# if PropertyStore is None:
+#     PropertyStoreTest.skip = importErrorMessage
+
+# def propertyName(name):
+#     return PropertyName("http://calendarserver.org/ns/test/", name)
