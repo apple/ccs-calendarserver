@@ -26,7 +26,7 @@ import os
 import shutil
 import sys
 
-from twext.python.plistlib import readPlist, writePlist
+from plistlib import readPlist, writePlist
 
 LAUNCHD_KEY = "org.calendarserver.calendarserver"
 LOG = "/Library/Logs/Migration/calendarmigrator.log"
