@@ -22,7 +22,6 @@ from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
 from twisted.trial import unittest
 
-from twext.python.filepath import FilePath
 from twext.web2.dav import davxml
 
 from txdav.idav import IPropertyStore, PropertyChangeNotAllowedError
@@ -76,10 +75,6 @@ class PropertyStoreTest(unittest.TestCase):
 
         self.assertEquals(store.get(name, None), None)
         self.assertEquals(store.modified, {})
-
-
-if PropertyStore is None:
-    PropertyStoreTest.skip = importErrorMessage
 
 
 def propertyName(name):

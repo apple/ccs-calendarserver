@@ -24,15 +24,7 @@ __all__ = [
     "PropertyStore",
 ]
 
-import sys
-import errno
-import urllib
-from zlib import compress, decompress, error as ZlibError
-from cPickle import UnpicklingError, loads as unpickle
-
-from twext.web2.dav.davxml import WebDAVDocument
-
-from txdav.propertystore.base import AbstractPropertyStore, PropertyName
+from txdav.propertystore.base import AbstractPropertyStore
 from txdav.idav import PropertyChangeNotAllowedError
 
 
