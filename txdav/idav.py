@@ -20,6 +20,7 @@ WebDAV interfaces
 
 __all__ = [
     "PropertyStoreError",
+    "PropertyChangeNotAllowedError",
     "IPropertyName",
     "IPropertyStore",
 ]
@@ -29,11 +30,27 @@ from zope.interface import Attribute, Interface
 from zope.interface.common.mapping import IMapping
 
 
+#
+# Exceptions
+#
+
 class PropertyStoreError(RuntimeError):
     """
     Property store error.
     """
 
+class PropertyChangeNotAllowedError(PropertyStoreError):
+    """
+    Property cannot be edited.
+    """
+    def __init__(self, message, keys):
+        PropertyStoreError.__init__(self, message)
+        self.keys = keys
+
+
+#
+# Interfaces
+#
 
 class IPropertyName(Interface):
     """
