@@ -344,7 +344,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
                 access = None
 
             if calendar is None:
-                calendar = resource.iCalendarText()
+                calendar = (yield resource.iCalendarForUser(request))
             filtered = PrivateEventFilter(access, isowner).filter(calendar)
             filtered = CalendarDataFilter(property, timezone).filter(filtered)
             propvalue = CalendarData().fromCalendar(filtered)
@@ -453,13 +453,17 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
     try:
-        resources = calresource.index().indexedSearch(filter, fbtype=True)
+        useruid = (yield calresource.resourceOwnerPrincipal(request))
+        useruid = useruid.principalUID() if useruid else ""
+        resources = calresource.index().indexedSearch(filter, useruid=useruid, fbtype=True)
     except IndexedSearchException:
         resources = calresource.index().bruteForceSearch()
 
     # We care about separate instances for VEVENTs only
     aggregated_resources = {}
-    for name, uid, type, test_organizer, float, start, end, fbtype in resources:
+    for name, uid, type, test_organizer, float, start, end, fbtype, transp in resources:
+        if transp == 'T' and fbtype != '?':
+            fbtype = 'F'
         aggregated_resources.setdefault((name, uid, type, test_organizer,), []).append((float, start, end, fbtype,))
 
     for key in aggregated_resources.iterkeys():
@@ -519,7 +523,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                     fbinfo[fbtype_index_mapper.get(fbtype, 0)].append(clipped)
                 
         else:
-            calendar = calresource.iCalendar(name)
+            calendar = (yield calresource.iCalendarForUser(request, name))
             
             # The calendar may come back as None if the resource is being changed, or was deleted
             # between our initial index query and getting here. For now we will ignore this error, but in

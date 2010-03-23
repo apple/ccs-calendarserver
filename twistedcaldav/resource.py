@@ -64,6 +64,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.extensions import DAVResource, DAVPrincipalResource,\
     PropertyNotFoundError
 from twistedcaldav.ical import Component
@@ -829,6 +830,19 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         except ValueError:
             return None
 
+    @inlineCallbacks
+    def iCalendarForUser(self, request, name=None):
+        
+        caldata = self.iCalendar(name)
+        
+        accessUID = (yield self.resourceOwnerPrincipal(request))
+        if accessUID is None:
+            accessUID = ""
+        else:
+            accessUID = accessUID.principalUID()
+
+        returnValue(PerUserDataFilter(accessUID).filter(caldata))
+
     def iCalendarRolledup(self, request):
         """
         See L{ICalDAVResource.iCalendarRolledup}.
@@ -851,14 +865,6 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         methods.
         """
         return str(self.iCalendar(name))
-
-    def iCalendarXML(self, name=None):
-        """
-        See L{ICalDAVResource.iCalendarXML}.
-        This implementation returns an XML element constructed from the object
-        returned by L{iCalendar} when given the same arguments.
-        """
-        return caldavxml.CalendarData.fromCalendar(self.iCalendar(name))
 
     def iCalendarAddressDoNormalization(self, ical):
         """

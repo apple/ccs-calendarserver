@@ -143,7 +143,7 @@ class DeleteResource(object):
         lock = None
         if not self.internal_request and self.allowImplicitSchedule:
             # Get data we need for implicit scheduling
-            calendar = delresource.iCalendar()
+            calendar = (yield delresource.iCalendarForUser(self.request))
             scheduler = ImplicitScheduler()
             do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(self.request, delresource, calendar))
             if do_implicit_action:

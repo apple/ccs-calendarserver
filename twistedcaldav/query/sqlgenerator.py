@@ -30,23 +30,26 @@ import cStringIO as StringIO
 
 class sqlgenerator(object):
     
-    FROM          =" from "
-    WHERE         =" where "
-    RESOURCEDB    = "RESOURCE"
-    TIMESPANDB    = "TIMESPAN"
-    NOTOP         = "NOT "
-    ANDOP         = " AND "
-    OROP          = " OR "
-    CONTAINSOP    = " GLOB "
-    NOTCONTAINSOP = " NOT GLOB "
-    ISOP          = " == "
-    ISNOTOP       = " != "
-    INOP          = " IN "
-    NOTINOP       = " NOT IN "
+    FROM           =" from "
+    WHERE          =" where "
+    RESOURCEDB     = "RESOURCE"
+    TIMESPANDB     = "TIMESPAN"
+    TRANSPARENCYDB = "TRANSPARENCY"
+    PERUSERDB      = "PERUSER"
+    NOTOP          = "NOT "
+    ANDOP          = " AND "
+    OROP           = " OR "
+    CONTAINSOP     = " GLOB "
+    NOTCONTAINSOP  = " NOT GLOB "
+    ISOP           = " == "
+    ISNOTOP        = " != "
+    INOP           = " IN "
+    NOTINOP        = " NOT IN "
 
-    TIMESPANTEST         = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s AND TIMESPAN.END > %s)) AND TIMESPAN.NAME == RESOURCE.NAME"
-    TIMESPANTEST_NOEND   = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.END > %s)) AND TIMESPAN.NAME == RESOURCE.NAME"
-    TIMESPANTEST_NOSTART = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s)) AND TIMESPAN.NAME == RESOURCE.NAME"
+    TIMESPANTEST         = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s AND TIMESPAN.END > %s))"
+    TIMESPANTEST_NOEND   = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.END > %s))"
+    TIMESPANTEST_NOSTART = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s))"
+    TIMESPANTEST_TAIL_PIECE = " AND TIMESPAN.RESOURCEID == RESOURCE.RESOURCEID AND TIMESPAN.INSTANCEID == TRANSPARENCY.INSTANCEID"
 
     def __init__(self, expr):
         self.expression = expr
@@ -72,7 +75,7 @@ class sqlgenerator(object):
         # Prefix with ' from ...' partial statement
         select = self.FROM + self.RESOURCEDB
         if self.usedtimespan:
-            select += ", " + self.TIMESPANDB
+            select += ", %s, %s, %s" % (self.TIMESPANDB, self.TRANSPARENCYDB, self.PERUSERDB,)
         select += self.sout.getvalue()
         return select, self.arguments
         
@@ -134,6 +137,7 @@ class sqlgenerator(object):
                 arg1 = self.setArgument(expr.end)
                 arg2 = self.setArgument(expr.endfloat)
                 test = self.TIMESPANTEST_NOSTART % (arg1, arg2)
+            test += self.TIMESPANTEST_TAIL_PIECE
             self.sout.write(test)
             self.usedtimespan = True
         

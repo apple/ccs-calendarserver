@@ -327,6 +327,7 @@ class AbstractSQLDatabase (object):
         q = self._db().cursor()
         try:
             q.execute(sql, query_params)
+            self.lastrowid = q.lastrowid
             return q.fetchall()
         except DatabaseError:
             log.err("Exception while executing SQL on DB %s: %r %r" % (self, sql, query_params))

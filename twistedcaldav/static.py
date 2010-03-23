@@ -71,6 +71,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.client.reverseproxy import ReverseProxyResource
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty, TwistedScheduleMatchETags
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.memcacheprops import MemcachePropertyCollection
@@ -277,6 +278,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
             tzids = set()
             isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+            accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
             for name, uid, type in self.index().bruteForceSearch(): #@UnusedVariable
                 try:
@@ -293,7 +295,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                         continue
 
                     # Get the access filtered view of the data
-                    caldata = child.iCalendarTextFiltered(isowner)
+                    caldata = child.iCalendarTextFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
                     try:
                         subcalendar = iComponent.fromString(caldata)
                     except ValueError:
@@ -315,7 +317,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
         raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST))
 
-    def iCalendarTextFiltered(self, isowner):
+    def iCalendarTextFiltered(self, isowner, accessUID=None):
         try:
             access = self.readDeadProperty(TwistedCalendarAccessProperty)
         except HTTPError:
@@ -323,7 +325,8 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
         # Now "filter" the resource calendar data
         caldata = PrivateEventFilter(access, isowner).filter(self.iCalendarText())
-
+        if accessUID:
+            caldata = PerUserDataFilter(accessUID).filter(caldata)
         return str(caldata)
 
     def iCalendarText(self, name=None):
@@ -353,9 +356,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
             calendar_file.close()
 
         return calendar_data
-
-    def iCalendarXML(self, name=None):
-        return caldavxml.CalendarData.fromCalendar(self.iCalendarText(name))
 
     def createAddressBook(self, request):
         #
