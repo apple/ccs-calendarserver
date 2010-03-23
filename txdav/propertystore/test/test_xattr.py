@@ -26,9 +26,10 @@ from twext.python.filepath import FilePath
 from twext.web2.dav import davxml
 
 from txdav.idav import IPropertyStore
+from txdav.propertystore.base import PropertyName
 
 try:
-    from txdav.propertystore.xattr import PropertyStore, PropertyName
+    from txdav.propertystore.xattr import PropertyStore
     from xattr import xattr
 except ImportError, e:
     PropertyStore = None
