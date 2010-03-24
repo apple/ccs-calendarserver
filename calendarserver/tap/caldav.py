@@ -40,7 +40,7 @@ from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
-from twisted.internet.reactor import callLater, spawnProcess, addSystemEventTrigger
+from twisted.internet.reactor import callLater, addSystemEventTrigger
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.application.internet import TCPServer, UNIXServer
@@ -516,6 +516,20 @@ class CalDAVServiceMaker (LoggingMixIn):
             return service
 
 
+    def createContextFactory(self):
+        """
+        Create an SSL context factory for use with any SSL socket talking to
+        this server.
+        """
+        return ChainingOpenSSLContextFactory(
+            config.SSLPrivateKey,
+            config.SSLCertificate,
+            certificateChainFile=config.SSLAuthorityChain,
+            passwdCallback=getSSLPassphrase,
+            sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
+        )
+
+
     def makeService_Slave(self, options):
         #
         # Change default log level to "info" as its useful to have
@@ -585,19 +599,14 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         config.addPostUpdateHooks((updateFactory,))
 
-        if config.InheritFDs or config.InheritSSLFDs:
+        if config.InheritSSLFDs or config.InheritFDs:
+            # Inherit sockets to call accept() on them individually.
 
             for fd in config.InheritSSLFDs:
                 fd = int(fd)
 
                 try:
-                    contextFactory = ChainingOpenSSLContextFactory(
-                        config.SSLPrivateKey,
-                        config.SSLCertificate,
-                        certificateChainFile=config.SSLAuthorityChain,
-                        passwdCallback=getSSLPassphrase,
-                        sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
-                    )
+                    contextFactory = self.createContextFactory()
                 except SSLError, e:
                     log.error("Unable to set up SSL context factory: %s" % (e,))
                 else:
@@ -623,6 +632,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                     inherit=True
                 ).setServiceParent(service)
 
+        elif config.MetaFD:
+            fd = int(config.MetaFD)
+
+            # XXX sendmsg()-FD case
 
         else: # Not inheriting, therefore we open our own:
 
@@ -651,13 +664,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                                   % (bindAddress, port))
 
                     try:
-                        contextFactory = ChainingOpenSSLContextFactory(
-                            config.SSLPrivateKey,
-                            config.SSLCertificate,
-                            certificateChainFile=config.SSLAuthorityChain,
-                            passwdCallback=getSSLPassphrase,
-                            sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
-                        )
+                        contextFactory = self.createContextFactory()
                     except SSLError, e:
                         self.log_error("Unable to set up SSL context factory: %s"
                                        % (e,))
@@ -957,10 +964,23 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
 class TwistdSlaveProcess(object):
+    """
+    A L{TwistdSlaveProcess} is information about how to start a slave process
+    running a C{twistd} plugin, to be used by
+    L{DelayedStartupProcessMonitor.addProcessObject}.
+
+    @ivar inheritFDs: File descriptors to be inherited for calling accept() on
+        in the subprocess.
+    @type inheritFDs: C{list} of C{int}
+
+    @ivar inheritSSLFDs: File descriptors to be inherited for calling accept()
+        on in the subprocess, and speaking TLS on the resulting sockets.
+    @type inheritSSLFDs: C{list} of C{int}
+    """
     prefix = "caldav"
 
     def __init__(self, twistd, tapname, configFile, id, interfaces,
-            inheritFDs=None, inheritSSLFDs=None):
+                 inheritFDs=None, inheritSSLFDs=None, metaFD=None):
 
         self.twistd = twistd
 
@@ -969,16 +989,42 @@ class TwistdSlaveProcess(object):
         self.configFile = configFile
 
         self.id = id
-
-        self.inheritFDs = inheritFDs
-        self.inheritSSLFDs = inheritSSLFDs
+        def emptyIfNone(x):
+            if x is None:
+                return []
+            else:
+                return x
+        self.inheritFDs = emptyIfNone(inheritFDs)
+        self.inheritSSLFDs = emptyIfNone(inheritSSLFDs)
+        self.metaFD = metaFD
 
         self.interfaces = interfaces
 
     def getName(self):
         return '%s-%s' % (self.prefix, self.id)
 
+
+    def getFileDescriptors(self):
+        """
+        @return: a mapping of file descriptor numbers for the new (child)
+            process to file descriptor numbers in the current (master) process.
+        """
+        fds = {}
+        maybeMetaFD = []
+        if self.metaFD:
+            maybeMetaFD.append(self.metaFD)
+        for fd in self.inheritSSLFDs + self.inheritFDs + maybeMetaFD:
+            fds[fd] = fd
+        return fds
+
+
     def getCommandLine(self):
+        """
+        @return: a list of command-line arguments, including the executable to
+            be used to start this subprocess.
+
+        @rtype: C{list} of C{str}
+        """
         args = [sys.executable, self.twistd]
 
         if config.UserName:
@@ -1020,6 +1066,11 @@ class TwistdSlaveProcess(object):
                 "-o", "InheritSSLFDs=%s" % (",".join(map(str, self.inheritSSLFDs)),)
             ])
 
+        if self.metaFD:
+            args.extend([
+                    "-o", "MetaFD=%s" % (self.metaFD,)
+                ])
+
         return args
 
 
@@ -1034,6 +1085,24 @@ class ControlPortTCPServer(TCPServer):
         config.ControlPort = self._port.getHost().port
 
 class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
+    """
+    A L{DelayedStartupProcessMonitor} is a L{procmon.ProcessMonitor} that
+    defers building its command lines until the service is actually ready to
+    start.  It also specializes process-starting to allow for process objects
+    to
+
+    @ivar processObjects: a list of L{TwistdSlaveProcess} to add using
+        C{self.addProcess} when this service starts up.
+
+    @ivar _extraFDs: a mapping from process names to extra file-descriptor
+        maps.  (By default, all processes will have the standard stdio mapping,
+        so all file descriptors here should be >2.)  This is updated during
+        L{DelayedStartupProcessMonitor.startService}, by inspecting
+        L{TwistdSlaveProcess.getFileDescriptors}.
+
+    @ivar reactor: an L{IReactorProcess} for spawning processes, defaulting to
+        the global reactor.
+    """
 
     def __init__(self, *args, **kwargs):
         procmon.ProcessMonitor.__init__(self, *args, **kwargs)
@@ -1041,9 +1110,22 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         # processObjects stores TwistdSlaveProcesses which need to have their
         # command-lines determined just in time
         self.processObjects = []
+        self._extraFDs = {}
+        from twisted.internet import reactor
+        self.reactor = reactor
+
 
     def addProcessObject(self, process, env):
+        """
+        Add a process object to be run when this service is started.
+
+        @param env: a dictionary of environment variables.
+
+        @param process: a L{TwistdSlaveProcesses} object to be started upon
+            service startup.
+        """
         self.processObjects.append((process, env))
+
 
     def startService(self):
         Service.startService(self)
@@ -1057,19 +1139,21 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
                 processObject.getCommandLine(),
                 env=env
             )
+            self._extraFDs[
+                processObject.getName()] = processObject.getFileDescriptors()
 
         self.active = 1
         delay = 0
 
         if config.MultiProcess.StaggeredStartup.Enabled:
-            delay_interval = config.MultiProcess.StaggeredStartup.Interval
+            interval = config.MultiProcess.StaggeredStartup.Interval
         else:
-            delay_interval = 0
+            interval = 0
 
         for name in self.processes.keys():
             if name.startswith("caldav"):
                 when = delay
-                delay += delay_interval
+                delay += interval
             else:
                 when = 0
             callLater(when, self.startProcess, name)
@@ -1122,16 +1206,12 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
 
         childFDs = { 0 : "w", 1 : "r", 2 : "r" }
 
-        # Examine args for -o InheritFDs= and -o InheritSSLFDs=
-        # Add any file descriptors listed in those args to the childFDs
-        # dictionary so those don't get closed across the spawn.
-        for i in xrange(len(args)-1):
-            if args[i] == "-o" and args[i+1].startswith("Inherit"):
-                for fd in map(int, args[i+1].split("=")[1].split(",")):
-                    childFDs[fd] = fd
+        childFDs.update(self._extraFDs.get(name, {}))
 
-        spawnProcess(p, args[0], args, uid=uid, gid=gid, env=env,
-            childFDs=childFDs)
+        self.reactor.spawnProcess(
+            p, args[0], args, uid=uid, gid=gid, env=env,
+            childFDs=childFDs
+        )
 
 
 class DelayedStartupLineLogger(object):
