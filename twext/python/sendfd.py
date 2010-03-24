@@ -20,7 +20,7 @@ from socket import SOL_SOCKET
 
 from twext.python.sendmsg import sendmsg, recvmsg, SCM_RIGHTS
 
-def sendfd(socketfd, fd):
+def sendfd(socketfd, fd, description):
     """
     Send the given FD to another process via L{sendmsg} on the given C{AF_UNIX}
     socket.
@@ -33,9 +33,14 @@ def sendfd(socketfd, fd):
     @param fd: A file descriptor to be sent to the other process.
 
     @type fd: C{int}
+
+    @param description: a string describing the socket that was passed.
+
+    @type description: C{str}
     """
-    args = (socketfd, "", 0, [(SOL_SOCKET, SCM_RIGHTS, pack("i", fd))])
-    sendmsg(*args)
+    sendmsg(
+        socketfd, description, 0, [(SOL_SOCKET, SCM_RIGHTS, pack("i", fd))]
+    )
 
 
 def recvfd(socketfd):
@@ -48,9 +53,9 @@ def recvfd(socketfd):
 
     @param fd: C{int}
 
-    @return: a new file descriptor.
+    @return: a 2-tuple of (new file descriptor, description).
 
-    @rtype: C{int}
+    @rtype: 2-tuple of (C{int}, C{str})
     """
     data, flags, ancillary = recvmsg(socketfd)
     [(cmsg_level, cmsg_type, packedFD)] = ancillary
@@ -58,4 +63,4 @@ def recvfd(socketfd):
     # since those are the *only* standard values, there's not much point in
     # checking.
     [unpackedFD] = unpack("i", packedFD)
-    return unpackedFD
+    return (unpackedFD, data)
