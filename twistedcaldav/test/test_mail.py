@@ -16,6 +16,10 @@
 
 from twistedcaldav.mail import *
 from twistedcaldav.test.util import TestCase
+from twistedcaldav.ical import Component
+from twistedcaldav.config import config
+
+from twisted.internet.defer import inlineCallbacks
 import email
 import os
 
@@ -105,6 +109,139 @@ class MailHandlerTests(TestCase):
         organizer, attendee, calendar, msgId = self.handler.processReply(msg,
             echo)
         self.assertEquals(organizer, "mailto:user01@example.com")
+
+
+    @inlineCallbacks
+    def test_outbound(self):
+        """
+        Make sure outbound( ) stores tokens properly so they can be looked up
+        """
+
+        config.Scheduling.iMIP.Sending.Address = "server@example.com"
+
+        data = (
+            # Initial invite
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:CFDD5E46-4F74-478A-9311-B3FF905449C3
+DTSTART:20100325T154500Z
+DTEND:20100325T164500Z
+ATTENDEE;CN=The Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:attendee@example.com
+ATTENDEE;CN=The Organizer;CUTYPE=INDIVIDUAL;EMAIL=organizer@example.com;PARTSTAT=ACCEPTED:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
+ORGANIZER;CN=The Organizer;EMAIL=organizer@example.com:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
+SUMMARY:testing outbound( )
+END:VEVENT
+END:VCALENDAR
+""",
+                "CFDD5E46-4F74-478A-9311-B3FF905449C3",
+                "mailto:organizer@example.com",
+                "mailto:attendee@example.com",
+                "new",
+                "organizer@example.com",
+                "The Organizer",
+                [
+                    (u'The Attendee', u'attendee@example.com'),
+                    (u'The Organizer', None)
+                ],
+                "The Organizer <organizer@example.com>",
+                "attendee@example.com",
+            ),
+
+            # Update
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:CFDD5E46-4F74-478A-9311-B3FF905449C3
+DTSTART:20100325T154500Z
+DTEND:20100325T164500Z
+ATTENDEE;CN=The Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:attendee@example.com
+ATTENDEE;CN=The Organizer;CUTYPE=INDIVIDUAL;EMAIL=organizer@example.com;PARTSTAT=ACCEPTED:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
+ORGANIZER;CN=The Organizer;EMAIL=organizer@example.com:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
+SUMMARY:testing outbound( ) *update*
+END:VEVENT
+END:VCALENDAR
+""",
+                "CFDD5E46-4F74-478A-9311-B3FF905449C3",
+                "mailto:organizer@example.com",
+                "mailto:attendee@example.com",
+                "update",
+                "organizer@example.com",
+                "The Organizer",
+                [
+                    (u'The Attendee', u'attendee@example.com'),
+                    (u'The Organizer', None)
+                ],
+                "The Organizer <organizer@example.com>",
+                "attendee@example.com",
+            ),
+
+            # Reply
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REPLY
+BEGIN:VEVENT
+UID:DFDD5E46-4F74-478A-9311-B3FF905449C4
+DTSTART:20100325T154500Z
+DTEND:20100325T164500Z
+ATTENDEE;CN=The Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:attendee@example.com
+ORGANIZER;CN=The Organizer;EMAIL=organizer@example.com:mailto:organizer@example.com
+SUMMARY:testing outbound( ) *reply*
+END:VEVENT
+END:VCALENDAR
+""",
+                None,
+                "mailto:attendee@example.com",
+                "mailto:organizer@example.com",
+                "reply",
+                "organizer@example.com",
+                "The Organizer",
+                [
+                    (u'The Attendee', u'attendee@example.com'),
+                ],
+                "attendee@example.com",
+                "organizer@example.com",
+            ),
+
+        )
+        for (inputCalendar, UID, inputOriginator, inputRecipient, inviteState,
+            outputOrganizerEmail, outputOrganizerName, outputAttendeeList,
+            outputFrom, outputRecipient) in data:
+
+            (actualInviteState, actualCalendar, actualOrganizerEmail,
+                actualOrganizerName, actualAttendeeList, actualFrom,
+                actualRecipient, actualReplyTo) = (yield self.handler.outbound(
+                    inputOriginator,
+                    inputRecipient,
+                    Component.fromString(inputCalendar.replace("\n", "\r\n")),
+                    send=False)
+                )
+
+            self.assertEquals(actualInviteState, inviteState)
+            self.assertEquals(actualOrganizerEmail, outputOrganizerEmail)
+            self.assertEquals(actualOrganizerName, outputOrganizerName)
+            self.assertEquals(actualAttendeeList, outputAttendeeList)
+            self.assertEquals(actualFrom, outputFrom)
+            self.assertEquals(actualRecipient, outputRecipient)
+
+            if UID: # The organizer is local, and server is sending to remote
+                    # attendee
+
+                token = self.handler.db.getToken(inputOriginator,
+                    inputRecipient, UID)
+                self.assertNotEquals(token, None)
+                self.assertEquals(actualReplyTo,
+                    "server+%s@example.com" % (token,))
+
+            else: # Reply only -- the attendee is local, and server is sending
+                  # reply to remote organizer
+
+                self.assertEquals(actualReplyTo, actualFrom)
 
 
 class MailGatewayTokensDatabaseTests(TestCase):
