@@ -24,6 +24,8 @@
 .Nm
 .Op Fl -config Ar file
 .Op Fl -read-property Ar property
+.Op Fl -list-principal-types
+.Op Fl -list-principals Ar type
 .Op Fl -list-read-proxies
 .Op Fl -list-write-proxies
 .Op Fl -list-proxies
@@ -83,6 +85,10 @@ must be a fully qualified XML element name in the form
 .Ar {namespace}name ,
 for example:
 .Ar {DAV:}displayname .
+.It Fl -list-principal-types
+List all of the known principals types.
+.It Fl -list-principals Ar type
+List all of the principals of the given type.
 .It Fl -list-read-proxies
 List the read proxies.
 .It Fl -list-write-proxies

@@ -51,7 +51,7 @@ def usage(e=None):
     name = os.path.basename(sys.argv[0])
     print "usage: %s [options] action_flags principal [principal ...]" % (name,)
     print "       %s [options] --list-principal-types" % (name,)
-   #print "       %s [options] --list-principals type" % (name,)
+    print "       %s [options] --list-principals type" % (name,)
     print ""
     print "  Performs the given actions against the giving principals."
     print ""
@@ -67,7 +67,7 @@ def usage(e=None):
     print "actions:"
    #print "  --search <search-string>: search for matching resources"
     print "  --list-principal-types: list all of the known principal types"
-   #print "  --list-principals=type: list all principals of the given type"
+    print "  --list-principals type: list all principals of the given type"
     print "  --read-property=property: read DAV property (eg.: {DAV:}group-member-set)"
     print "  --list-read-proxies: list proxies with read-only access"
     print "  --list-write-proxies: list proxies with read-write access"
@@ -228,8 +228,10 @@ def main():
             usage("Too many arguments")
 
         try:
-            for record in config.directory.listRecords(listPrincipals):
-                print record
+            results = [(record.fullName, record.guid) for record in config.directory.listRecords(listPrincipals)]
+            results.sort()
+            for name, guid in results:
+                print '%s %s' % (name, guid)
         except UnknownRecordTypeError, e:
             usage(e)
 
