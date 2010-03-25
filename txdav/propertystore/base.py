@@ -43,7 +43,7 @@ class PropertyName(LoggingMixIn):
         if (index is -1 or not len(sname) > index or not sname[0] == "{"):
             raise TypeError("Invalid sname: %r" % (sname,))
 
-        return (sname[1:index], sname[index+1:])
+        return PropertyName(sname[1:index], sname[index+1:])
 
     def __init__(self, namespace, name):
         self.namespace = namespace
