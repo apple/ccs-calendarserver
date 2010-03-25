@@ -181,7 +181,11 @@ class PropertyStore(AbstractPropertyStore):
                 yield key
 
     def __len__(self):
-        return len(self.attrs)
+        keys = (
+            set(self.attrs.keys()) |
+            set(self._encodeKey(key) for key in self.modified)
+        )
+        return len(keys)
 
     #
     # I/O
