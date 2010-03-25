@@ -170,6 +170,7 @@ class AbstractPropertyStore(LoggingMixIn):
         raise NotImplementedError()
 
 
+# FIXME: Actually, we should replace this with calls to IPropertyName()
 def validKey(key):
     # Used by implementations to verify that keys are valid
     if not isinstance(key, PropertyName):
