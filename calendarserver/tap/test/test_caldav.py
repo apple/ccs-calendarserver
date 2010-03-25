@@ -987,6 +987,9 @@ class DelayedStartupProcessMonitorTests(TestCase):
         """
         dspm         = DelayedStartupProcessMonitor()
         dspm.reactor = InMemoryProcessSpawner()
+        class FakeFD:
+            def fileno(self):
+                return 4
 
         # Most arguments here will be ignored, so these are bogus values.
         slave = TwistdSlaveProcess(
@@ -995,19 +998,19 @@ class DelayedStartupProcessMonitorTests(TestCase):
             configFile    = "/does/not/exist",
             id            = 10,
             interfaces    = '127.0.0.1',
-            metaFD        = 4
+            metaFD        = FakeFD()
         )
 
         dspm.addProcessObject(slave, {})
         dspm.startService()
         self.addCleanup(dspm.consistency.cancel)
         oneProcessTransport = yield dspm.reactor.waitForOneProcess()
-        self.assertEquals(oneProcessTransport.childFDs,
-                          {0: 'w', 1: 'r', 2: 'r',
-                           4: 4})
         self.assertIn("MetaFD=4", oneProcessTransport.args)
         self.assertEquals(
             oneProcessTransport.args[oneProcessTransport.args.index("MetaFD=4")-1],
             '-o',
             "MetaFD argument was not passed as an option"
         )
+        self.assertEquals(oneProcessTransport.childFDs,
+                          {0: 'w', 1: 'r', 2: 'r',
+                           4: 4})

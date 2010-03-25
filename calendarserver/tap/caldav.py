@@ -53,7 +53,11 @@ from twext.python.log import Logger, LoggingMixIn
 from twext.python.log import logLevelForNamespace, setLogLevelForNamespace
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
-from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
+from twext.internet.sendfdport import (
+    InheritedSocketDispatcher, InheritingProtocolFactory)
+
+from twext.web2.channel.http import (
+    LimitingHTTPFactory, SSLRedirectRequest, ReportingHTTPFactory)
 
 try:
     from twistedcaldav.version import version
@@ -635,7 +639,30 @@ class CalDAVServiceMaker (LoggingMixIn):
         elif config.MetaFD:
             fd = int(config.MetaFD)
 
-            # XXX sendmsg()-FD case
+            def myTransportFactory(skt, data, protocol):
+                from twisted.internet.tcp import Server
+                from twisted.internet import reactor
+                transport = Server(skt, protocol,
+                                   skt.getpeername(), skt.getsockname(),
+                                   4321, reactor)
+                if data == 'SSL':
+                    transport.startTLS(self.createContextFactory())
+                transport.startReading()
+                return transport
+
+            from twext.internet.sendfdport import InheritedPort
+            # Unlike other 'factory' constructions, config.MaxRequests and
+            # config.MaxAccepts are dealt with in the master process, so we
+            # don't need to propagate them here.
+            reportingFactory = ReportingHTTPFactory(site, vary=True)
+
+            reportingFactory.inheritedPort = InheritedPort(
+                fd, myTransportFactory, reportingFactory
+            )
+
+            # XXX for correctness, we need a service here, not just a Port;
+            # this should be in startService.
+            reportingFactory.inheritedPort.startReading()
 
         else: # Not inheriting, therefore we open our own:
 
@@ -790,6 +817,17 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         s._inheritedSockets = [] # keep a reference to these so they don't close
 
+        if config.UseMetaFD:
+            def sortAsInts(x):
+                # "int" by itself isn't quite good enough, unfortunately,
+                # because it can't handle None...
+                if x is None:
+                    return 0
+                else:
+                    return int(x)
+                                
+            dispatcher = InheritedSocketDispatcher(sortAsInts)
+
         for bindAddress in config.BindAddresses:
             if config.BindHTTPPorts:
                 if config.HTTPPort == 0:
@@ -807,36 +845,53 @@ class CalDAVServiceMaker (LoggingMixIn):
             elif config.SSLPort != 0:
                 config.BindSSLPorts = [config.SSLPort]
 
-            def _openSocket(addr, port):
-                log.info("Opening socket for inheritance at %s:%d" % (addr, port))
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.setblocking(0)
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                sock.bind((addr, port))
-                sock.listen(config.ListenBacklog)
-                s._inheritedSockets.append(sock)
-                return sock
+            if config.UseMetaFD:
+                # XXX no automated tests for this whole block.  How to test it?
 
-            for portNum in config.BindHTTPPorts:
-                sock = _openSocket(bindAddress, int(portNum))
-                inheritFDs.append(sock.fileno())
+                for ports, description in [(config.BindSSLPorts, "SSL"),
+                                           (config.BindHTTPPorts, "TCP")]:
+                    for port in ports:
+                        TCPServer(
+                            port, InheritingProtocolFactory(dispatcher, description),
+                            interface=bindAddress,
+                            backlog=config.ListenBacklog
+                        ).setServiceParent(s)
+                # Okay, now for each subprocess I need to add a thing to the dispatcher
+            else:
+                def _openSocket(addr, port):
+                    log.info("Opening socket for inheritance at %s:%d" % (addr, port))
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.setblocking(0)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    sock.bind((addr, port))
+                    sock.listen(config.ListenBacklog)
+                    s._inheritedSockets.append(sock)
+                    return sock
 
-            for portNum in config.BindSSLPorts:
-                sock = _openSocket(bindAddress, int(portNum))
-                inheritSSLFDs.append(sock.fileno())
+                for portNum in config.BindHTTPPorts:
+                    sock = _openSocket(bindAddress, int(portNum))
+                    inheritFDs.append(sock.fileno())
+
+                for portNum in config.BindSSLPorts:
+                    sock = _openSocket(bindAddress, int(portNum))
+                    inheritSSLFDs.append(sock.fileno())
+
 
 
         for p in xrange(0, config.MultiProcess.ProcessCount):
+            if config.UseMetaFD:
+                extraArgs = dict(metaFD=dispatcher.addSocket())
+            else:
+                extraArgs = dict(inheritFDs=inheritFDs,
+                                 inheritSSLFDs=inheritSSLFDs)
             process = TwistdSlaveProcess(
                 sys.argv[0],
                 self.tapname,
                 options["config"],
                 p,
                 config.BindAddresses,
-                inheritFDs=inheritFDs,
-                inheritSSLFDs=inheritSSLFDs
+                **extraArgs
             )
-
             monitor.addProcessObject(process, parentEnv)
 
 
@@ -971,11 +1026,16 @@ class TwistdSlaveProcess(object):
 
     @ivar inheritFDs: File descriptors to be inherited for calling accept() on
         in the subprocess.
-    @type inheritFDs: C{list} of C{int}
+    @type inheritFDs: C{list} of C{int}, or C{None}
 
     @ivar inheritSSLFDs: File descriptors to be inherited for calling accept()
         on in the subprocess, and speaking TLS on the resulting sockets.
-    @type inheritSSLFDs: C{list} of C{int}
+    @type inheritSSLFDs: C{list} of C{int}, or C{None}
+
+    @ivar metaFD: a UNIX socket which will be used to send file descriptors
+        down to the slave process.
+
+    @type metaFD: L{socket.socket}, or C{None}
     """
     prefix = "caldav"
 
@@ -1012,7 +1072,7 @@ class TwistdSlaveProcess(object):
         fds = {}
         maybeMetaFD = []
         if self.metaFD:
-            maybeMetaFD.append(self.metaFD)
+            maybeMetaFD.append(self.metaFD.fileno())
         for fd in self.inheritSSLFDs + self.inheritFDs + maybeMetaFD:
             fds[fd] = fd
         return fds
@@ -1067,8 +1127,10 @@ class TwistdSlaveProcess(object):
             ])
 
         if self.metaFD:
+            # XXX this FD is never closed in the parent.  should it be?
+            # (should they *all* be?) -glyph
             args.extend([
-                    "-o", "MetaFD=%s" % (self.metaFD,)
+                    "-o", "MetaFD=%s" % (self.metaFD.fileno(),)
                 ])
 
         return args
@@ -1091,7 +1153,7 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
     start.  It also specializes process-starting to allow for process objects
     to
 
-    @ivar processObjects: a list of L{TwistdSlaveProcess} to add using
+    @ivar processObjects: a C{list} of L{TwistdSlaveProcess} to add using
         C{self.addProcess} when this service starts up.
 
     @ivar _extraFDs: a mapping from process names to extra file-descriptor
@@ -1106,9 +1168,6 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
 
     def __init__(self, *args, **kwargs):
         procmon.ProcessMonitor.__init__(self, *args, **kwargs)
-
-        # processObjects stores TwistdSlaveProcesses which need to have their
-        # command-lines determined just in time
         self.processObjects = []
         self._extraFDs = {}
         from twisted.internet import reactor
@@ -1212,6 +1271,7 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
             p, args[0], args, uid=uid, gid=gid, env=env,
             childFDs=childFDs
         )
+
 
 
 class DelayedStartupLineLogger(object):
