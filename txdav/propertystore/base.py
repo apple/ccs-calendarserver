@@ -20,6 +20,7 @@ Base property store.
 
 __all__ = [
     "AbstractPropertyStore",
+    "PropertyName",
 ]
 
 from zope.interface import implements
@@ -167,3 +168,9 @@ class AbstractPropertyStore(LoggingMixIn):
     def update(other=None):
         # FIXME
         raise NotImplementedError()
+
+
+def validKey(key):
+    # Used by implementations to verify that keys are valid
+    if not isinstance(key, PropertyName):
+        raise TypeError("Not a PropertyName: %r" % (key,))

@@ -24,7 +24,7 @@ __all__ = [
     "PropertyStore",
 ]
 
-from txdav.propertystore.base import AbstractPropertyStore
+from txdav.propertystore.base import AbstractPropertyStore, validKey
 from txdav.idav import PropertyChangeNotAllowedError
 
 
@@ -43,21 +43,29 @@ class PropertyStore(AbstractPropertyStore):
     #
 
     def __delitem__(self, key):
+        validKey(key)
+
         if key in self.modified:
             del self.modified[key]
         else:
             raise KeyError(key)
 
     def __getitem__(self, key):
+        validKey(key)
+
         if key in self.modified:
             return self.modified[key]
         else:
             raise KeyError(key)
 
     def __contains__(self, key):
+        validKey(key)
+
         return key in self.modified
 
     def __setitem__(self, key, value):
+        validKey(key)
+
         self.modified[key] = value
 
     def __iter__(self):

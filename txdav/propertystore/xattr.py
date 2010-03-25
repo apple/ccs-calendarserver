@@ -33,7 +33,7 @@ from xattr import xattr
 
 from twext.web2.dav.davxml import WebDAVDocument
 
-from txdav.propertystore.base import AbstractPropertyStore, PropertyName
+from txdav.propertystore.base import AbstractPropertyStore, PropertyName, validKey
 from txdav.idav import PropertyStoreError
 
 
@@ -96,6 +96,8 @@ class PropertyStore(AbstractPropertyStore):
     #
 
     def __delitem__(self, key):
+        validKey(key)
+
         if key in self.modified:
             del self.modified[key]
         elif self._encodeKey(key) not in self.attrs:
@@ -104,6 +106,8 @@ class PropertyStore(AbstractPropertyStore):
         self.removed.add(key)
 
     def __getitem__(self, key):
+        validKey(key)
+
         if key in self.modified:
             return self.modified[key]
 
@@ -156,6 +160,8 @@ class PropertyStore(AbstractPropertyStore):
         return doc.root_element
 
     def __contains__(self, key):
+        validKey(key)
+
         if key in self.modified:
             return True
         if key in self.removed:
@@ -163,6 +169,8 @@ class PropertyStore(AbstractPropertyStore):
         return self._encodeKey(key) in self.attrs
 
     def __setitem__(self, key, value):
+        validKey(key)
+
         if key in self.removed:
             self.removed.remove(key)
         self.modified[key] = value

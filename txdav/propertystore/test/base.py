@@ -78,9 +78,31 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEquals(set(store.keys()), names)
         self.assertEquals(len(store), len(names))
 
-        # FIXME: Not done here
+    def test_delete_none(self):
+        def doDelete():
+            del self.propertyStore[propertyName("xyzzy")]
 
+        self.assertRaises(KeyError, doDelete)
 
+    def test_keyInPropertyName(self):
+        store = self.propertyStore
+
+        def doGet():
+            store["xyzzy"]
+
+        def doSet():
+            store["xyzzy"] = propertyValue("Hello, World!")
+
+        def doDelete():
+            del store["xyzzy"]
+
+        def doContains():
+            "xyzzy" in store
+
+        self.assertRaises(TypeError, doGet)
+        self.assertRaises(TypeError, doSet)
+        self.assertRaises(TypeError, doDelete)
+        self.assertRaises(TypeError, doContains)
 
     def test_flush(self):
         store = self.propertyStore
