@@ -105,6 +105,13 @@ class MangePrincipalsTestCase(TestCase):
             self.assertTrue("user%02d" % (i,) in results)
 
     @inlineCallbacks
+    def test_search(self):
+        results = yield self.runCommand("--search=user")
+        self.assertTrue("10 matches found" in results)
+        for i in xrange(1, 10):
+            self.assertTrue("user%02d" % (i,) in results)
+
+    @inlineCallbacks
     def test_modifyWriteProxies(self):
         results = yield self.runCommand("--add-write-proxy=users:user01",
             "locations:location01")

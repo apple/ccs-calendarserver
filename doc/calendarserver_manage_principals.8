@@ -26,6 +26,7 @@
 .Op Fl -read-property Ar property
 .Op Fl -list-principal-types
 .Op Fl -list-principals Ar type
+.Op Fl -search Ar search-string
 .Op Fl -list-read-proxies
 .Op Fl -list-write-proxies
 .Op Fl -list-proxies
@@ -89,6 +90,8 @@ for example:
 List all of the known principals types.
 .It Fl -list-principals Ar type
 List all of the principals of the given type.
+.It Fl -search Ar search-string
+Search for principals whose name or email address contains the search string.
 .It Fl -list-read-proxies
 List the read proxies.
 .It Fl -list-write-proxies
@@ -124,6 +127,10 @@ Add a group of room admins as write proxy for a couple of rooms:
 Turn on auto-scheduling for a resource, and confirm the setting:
 .Pp
 .Dl "calendarserver_manage_principals --set-auto-schedule true --get-auto-schedule resources:projector"
+.Pp
+Search for all principals named Joe:
+.Pp
+.Dl "calendarserver_manage_principals --search joe"
 .Pp
 .Sh FILES
 .Bl -tag -width flag
