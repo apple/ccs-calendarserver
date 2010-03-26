@@ -642,8 +642,16 @@ class CalDAVServiceMaker (LoggingMixIn):
             def myTransportFactory(skt, data, protocol):
                 from twisted.internet.tcp import Server
                 from twisted.internet import reactor
+
+                class JustEnoughLikeAPort(object):
+                    """
+                    Fake out just enough of L{tcp.Port} to be acceptable to
+                    L{tcp.Server}...
+                    """
+                    _realPortNumber = 'inherited'
+
                 transport = Server(skt, protocol,
-                                   skt.getpeername(), skt.getsockname(),
+                                   skt.getpeername(), JustEnoughLikeAPort,
                                    4321, reactor)
                 if data == 'SSL':
                     transport.startTLS(self.createContextFactory())
