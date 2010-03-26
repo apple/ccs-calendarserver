@@ -143,8 +143,8 @@ DEFAULT_CONFIG = {
     "InheritSSLFDs": [],   # File descriptors to inherit for HTTPS requests (empty = don't inherit)
     "MetaFD": 0,        # Inherited file descriptor to call recvmsg() on to recive sockets (none = don't inherit)
 
-    "UseMetaFD": False,         # Use a 'meta' FD, i.e. an FD to transmit other
-                                # FDs to slave processes.
+    "UseMetaFD": True,         # Use a 'meta' FD, i.e. an FD to transmit other
+                               # FDs to slave processes.
 
     #
     # Types of service provided
