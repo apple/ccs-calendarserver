@@ -401,6 +401,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         # Per-user Dav props currently only apply to a sharee's copy of a calendar
         isvirt = (yield self.isVirtualShare(request))
         if isvirt and (self.isShadowableProperty(property.qname()) or (not self.isGlobalProperty(property.qname()))):
+            yield self._preProcessWriteProperty(property, request)
             ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
             p = self.deadProperties().set(property, uid=ownerPrincipal.principalUID())
             returnValue(p)
@@ -409,7 +410,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         returnValue(res)
 
     @inlineCallbacks
-    def _writeGlobalProperty(self, property, request):
+    def _preProcessWriteProperty(self, property, request):
         if property.qname() == caldavxml.SupportedCalendarComponentSet.qname():
             if not self.isPseudoCalendarCollection():
                 raise HTTPError(StatusResponse(
@@ -457,7 +458,12 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                 myurl = (yield self.canonicalURL(request))
                 inbox.processFreeBusyCalendar(myurl, property.children[0] == caldavxml.Opaque())
 
-        elif property.qname() == davxml.ResourceType.qname():
+    @inlineCallbacks
+    def _writeGlobalProperty(self, property, request):
+
+        yield self._preProcessWriteProperty(property, request)
+
+        if property.qname() == davxml.ResourceType.qname():
             if self.isCalendarCollection():
                 sawShare = [child for child in property.children if child.qname() == (calendarserver_namespace, "shared-owner")]
                 if not (config.Sharing.Enabled and config.Sharing.Calendars.Enabled):
@@ -587,18 +593,23 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         else:
             returnValue(None)
 
+    @inlineCallbacks
     def resourceOwnerPrincipal(self, request):
         """
         This is the owner of the resource based on the URI used to access it. For a shared
         collection it will be the sharee, otherwise it will be the regular the ownerPrincipal.
         """
 
-        def _defer(isVirt):
-            return self._shareePrincipal if isVirt else self.ownerPrincipal(request)
-
-        d = self.isVirtualShare(request)
-        d.addCallback(_defer)
-        return d
+        isVirt = (yield self.isVirtualShare(request))
+        if isVirt:
+            returnValue(self._shareePrincipal)
+        else:
+            parent = (yield self.locateParent(request, request.urlForResource(self)))
+        if parent and isinstance(parent, CalDAVResource):
+            result = (yield parent.resourceOwnerPrincipal(request))
+            returnValue(result)
+        else:
+            returnValue(None)
 
     def isOwner(self, request, adminprincipals=False, readprincipals=False):
         """

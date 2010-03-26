@@ -194,13 +194,15 @@ class SharedCollectionMixin(object):
             userprivs.append(davxml.Privilege(davxml.Read()))
             userprivs.append(davxml.Privilege(davxml.ReadACL()))
             userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
+        if invite.access in ("read-only",):
+            userprivs.append(davxml.Privilege(davxml.WriteProperties()))
         if invite.access in ("read-write", "read-write-schedule",):
             userprivs.append(davxml.Privilege(davxml.Write()))
         proxyprivs = list(userprivs)
         proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
 
         aces = (
-            # Inheritable DAV:all access for the resource's associated principal.
+            # Inheritable specific access for the resource's associated principal.
             davxml.ACE(
                 davxml.Principal(davxml.HRef(self._shareePrincipal.principalURL())),
                 davxml.Grant(*userprivs),
@@ -825,10 +827,24 @@ class SharedHomeMixin(object):
         """ Remove a shared calendar named in resourceName and send a decline """
         return self.declineShare(request, share.hosturl, share.inviteuid)
 
+    @inlineCallbacks
     def removeShareByUID(self, request, inviteuid):
         """ Remove a shared calendar but do not send a decline back """
-        self.sharesDB().removeRecordForInviteUID(inviteuid)
-        return succeed(True)
+
+        record = self.sharesDB().recordForInviteUID(inviteuid)
+        if record:
+            shareURL = joinURL(self.url(), record.localname)
+    
+            # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
+            principal = (yield self.resourceOwnerPrincipal(request))
+            inboxURL = principal.scheduleInboxURL()
+            if inboxURL:
+                inbox = (yield request.locateResource(inboxURL))
+                inbox.processFreeBusyCalendar(shareURL, False)
+    
+            self.sharesDB().removeRecordForInviteUID(inviteuid)
+
+        returnValue(True)
 
     @inlineCallbacks
     def declineShare(self, request, hostUrl, inviteUID):

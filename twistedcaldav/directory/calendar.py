@@ -365,6 +365,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
     def ownerPrincipal(self, request):
         return succeed(self.principalForRecord())
 
+    def resourceOwnerPrincipal(self, request):
+        return succeed(self.principalForRecord())
+
     def defaultAccessControlList(self):
         myPrincipal = self.principalForRecord()
 

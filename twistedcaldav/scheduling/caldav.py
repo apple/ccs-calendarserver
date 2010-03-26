@@ -249,6 +249,8 @@ class ScheduleViaCalDAV(DeliveryService):
         # Now process free-busy set calendars
         matchtotal = 0
         for calendarResourceURL in fbset:
+            if not calendarResourceURL.endswith('/'):
+                calendarResourceURL += '/'
             calendarResource = (yield self.scheduler.request.locateResource(calendarResourceURL))
             if calendarResource is None or not calendarResource.exists() or not isCalendarCollectionResource(calendarResource):
                 # We will ignore missing calendars. If the recipient has failed to
