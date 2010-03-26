@@ -183,6 +183,7 @@ class InheritedSocketDispatcher(object):
         """
         self.availableConnections.sort(key=lambda conn:
                                            self.fitnessFunction(conn.status))
+        self.availableConnections[0].sendSocketToPeer(skt, description)
 
 
     def addSocket(self):
@@ -226,6 +227,7 @@ class InheritedPort(FileDescriptor, object):
         self.fd = fd
         self.transportFactory = transportFactory
         self.protocolFactory = protocolFactory
+        self.statusQueue = []
 
 
     def fileno(self):
