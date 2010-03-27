@@ -14,13 +14,18 @@
 # limitations under the License.
 ##
 
-import os
-import zlib
-from twistedcaldav.config import config
-from twistedcaldav.test.util import TestCase
-from twisted.internet.defer import inlineCallbacks
 from calendarserver.tap.util import getRootResource
-from calendarserver.tools.purge import purgeOldEvents
+from calendarserver.tools.purge import purgeOldEvents, purgeGUID
+from datetime import datetime, timedelta
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.python.plistlib import readPlistFromString
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
+from twistedcaldav.config import config
+from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
+import os
+import xml
+import zlib
 
 resourceAttr = "WebDAV:{DAV:}resourcetype"
 collectionType = zlib.compress("""<?xml version='1.0' encoding='UTF-8'?>
@@ -41,7 +46,7 @@ class PurgeOldEventsTestCase(TestCase):
         self.directory = self.rootResource.getDirectory()
 
     @inlineCallbacks
-    def test_purge(self):
+    def test_purgeOldEvents(self):
         before = {
             "calendars" : {
                 "__uids__" : {
@@ -328,4 +333,241 @@ SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
+
+
+
+
+class DeprovisionTestCase(TestCase):
+
+    def setUp(self):
+        super(DeprovisionTestCase, self).setUp()
+
+        testRoot = os.path.join(os.path.dirname(__file__), "deprovision")
+        templateName = os.path.join(testRoot, "caldavd.plist")
+        templateFile = open(templateName)
+        template = templateFile.read()
+        templateFile.close()
+
+        newConfig = template % {
+            "ServerRoot" : os.path.abspath(config.ServerRoot),
+        }
+        configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
+        configFilePath.setContent(newConfig)
+
+        self.configFileName = configFilePath.path
+        config.load(self.configFileName)
+
+        os.makedirs(config.DataRoot)
+        os.makedirs(config.DocumentRoot)
+
+        origUsersFile = FilePath(os.path.join(os.path.dirname(__file__),
+            "deprovision", "users-groups.xml"))
+        copyUsersFile = FilePath(os.path.join(config.DataRoot, "accounts.xml"))
+        origUsersFile.copyTo(copyUsersFile)
+
+        origResourcesFile = FilePath(os.path.join(os.path.dirname(__file__),
+            "deprovision", "resources-locations.xml"))
+        copyResourcesFile = FilePath(os.path.join(config.DataRoot, "resources.xml"))
+        origResourcesFile.copyTo(copyResourcesFile)
+
+        origAugmentFile = FilePath(os.path.join(os.path.dirname(__file__),
+            "deprovision", "augments.xml"))
+        copyAugmentFile = FilePath(os.path.join(config.DataRoot, "augments.xml"))
+        origAugmentFile.copyTo(copyAugmentFile)
+
+        self.rootResource = getRootResource(config)
+        self.directory = self.rootResource.getDirectory()
+
+        # Make sure trial puts the reactor in the right state, by letting it
+        # run one reactor iteration.  (Ignore me, please.)
+        d = Deferred()
+        reactor.callLater(0, d.callback, True)
+        return d
+
+    @inlineCallbacks
+    def runCommand(self, command, error=False):
+        """
+        Run the given command by feeding it as standard input to
+        calendarserver_deprovision in a subprocess.
+        """
+        sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        python = os.path.join(sourceRoot, "python")
+        script = os.path.join(sourceRoot, "bin", "calendarserver_purge_guid")
+
+        args = [python, script, "-f", self.configFileName]
+        if error:
+            args.append("--error")
+
+        cwd = sourceRoot
+
+        deferred = Deferred()
+        reactor.spawnProcess(CapturingProcessProtocol(deferred, command), python, args, env=os.environ, path=cwd)
+        output = yield deferred
+        try:
+            plist = readPlistFromString(output)
+        except xml.parsers.expat.ExpatError, e:
+            print "Error (%s) parsing (%s)" % (e, output)
+            raise
+
+        returnValue(plist)
+
+    @inlineCallbacks
+    def test_purgeGUID(self):
+        # deprovision, add an event
+
+        # Deprovisioned user is E9E78C86-4829-4520-A35D-70DDADAB2092
+        # Keeper user is        291C2C29-B663-4342-8EA1-A055E6A04D65
+
+        before = {
+            "calendars" : {
+                "__uids__" : {
+                    "E9" : {
+                        "E7" : {
+                            "E9E78C86-4829-4520-A35D-70DDADAB2092" : {
+                                "calendar": {
+                                    "@xattrs" :
+                                    {
+                                        resourceAttr : collectionType,
+                                    },
+                                    "noninvite.ics": {
+                                        "@contents" : NON_INVITE_ICS,
+                                    },
+                                    "organizer.ics": {
+                                        "@contents" : ORGANIZER_ICS,
+                                    },
+                                    "attendee.ics": {
+                                        "@contents" : ATTENDEE_ICS,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "29" : {
+                        "1C" : {
+                            "291C2C29-B663-4342-8EA1-A055E6A04D65" : {
+                                "calendar": {
+                                    "@xattrs" :
+                                    {
+                                        resourceAttr : collectionType,
+                                    },
+                                    "organizer.ics": {
+                                        "@contents" : ORGANIZER_ICS,
+                                    },
+                                    "attendee.ics": {
+                                        "@contents" : ATTENDEE_ICS,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+        self.createHierarchy(before, config.DocumentRoot)
+        count = (yield purgeGUID("E9E78C86-4829-4520-A35D-70DDADAB2092",
+            self.directory, self.rootResource))
+
+        # print config.DocumentRoot
+        # import pdb; pdb.set_trace()
+        self.assertEquals(count, 3)
+
+        after = {
+            "__uids__" : {
+                "E9" : {
+                    "E7" : {
+                        "E9E78C86-4829-4520-A35D-70DDADAB2092" : {
+                            "calendar": {
+                                ".db.sqlite": {
+                                    "@contents" : None, # ignore contents
+                                },
+                            },
+                        },
+                    },
+                },
+                "29" : {
+                    "1C" : {
+                        "291C2C29-B663-4342-8EA1-A055E6A04D65" : {
+                            "inbox": {
+                                ".db.sqlite": {
+                                    "@contents" : None, # ignore contents
+                                },
+                                "*.ics/UID:7ED97931-9A19-4596-9D4D-52B36D6AB803": {
+                                    "@contents" : (
+                                        "METHOD:CANCEL",
+                                        ),
+                                },
+                                "*.ics/UID:1974603C-B2C0-4623-92A0-2436DEAB07EF": {
+                                    "@contents" : (
+                                        "METHOD:REPLY",
+                                        "ATTENDEE;CN=Deprovisioned User;CUTYPE=INDIVIDUAL;PARTSTAT=DECLINED:urn:uui\r\n d:E9E78C86-4829-4520-A35D-70DDADAB2092",
+                                        ),
+                                },
+                            },
+                            "calendar": {
+                                ".db.sqlite": {
+                                    "@contents" : None, # ignore contents
+                                },
+                                "organizer.ics": {
+                                    "@contents" : (
+                                        "STATUS:CANCELLED",
+                                    ),
+                                },
+                                "attendee.ics": {
+                                    "@contents" : (
+                                        "ATTENDEE;CN=Deprovisioned User;CUTYPE=INDIVIDUAL;PARTSTAT=DECLINED;SCHEDUL\r\n E-STATUS=2.0:urn:uuid:E9E78C86-4829-4520-A35D-70DDADAB2092",
+                                        ),
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+        self.assertTrue(self.verifyHierarchy(
+            os.path.join(config.DocumentRoot, "calendars"),
+            after)
+        )
+
+
+future = (datetime.utcnow() + timedelta(days=1)).strftime("%Y%m%dT%H%M%SZ")
+past = (datetime.utcnow() - timedelta(days=1)).strftime("%Y%m%dT%H%M%SZ")
+
+NON_INVITE_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:151AFC76-6036-40EF-952B-97D1840760BF
+SUMMARY:Non Invitation
+DTSTART:%s
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % (past,)
+
+ORGANIZER_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:7ED97931-9A19-4596-9D4D-52B36D6AB803
+SUMMARY:Organizer
+DTSTART:%s
+DURATION:PT1H
+ORGANIZER:urn:uuid:E9E78C86-4829-4520-A35D-70DDADAB2092
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:E9E78C86-4829-4520-A35D-70DDADAB2092
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % (future,)
+
+ATTENDEE_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:1974603C-B2C0-4623-92A0-2436DEAB07EF
+SUMMARY:Attendee
+DTSTART:%s
+DURATION:PT1H
+ORGANIZER:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:E9E78C86-4829-4520-A35D-70DDADAB2092
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % (future,)
 

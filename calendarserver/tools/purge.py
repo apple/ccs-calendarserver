@@ -16,28 +16,29 @@
 # limitations under the License.
 ##
 
-from pwd import getpwnam
-from twisted.python.util import switchUID
-from twistedcaldav.directory.directory import DirectoryError
-from grp import getgrnam
 from calendarserver.tap.util import FakeRequest
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.util import loadConfig, setupMemcached, setupNotifications
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from getopt import getopt, GetoptError
+from grp import getgrnam
+from pwd import getpwnam
 from twext.python.log import Logger
+from twext.web2.dav import davxml
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.util import switchUID
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.directory.directory import DirectoryError
 from twistedcaldav.method.delete_common import DeleteResource
 import os
 import sys
 
 log = Logger()
 
-def usage(e=None):
+def usage_purge(e=None):
 
     name = os.path.basename(sys.argv[0])
     print "usage: %s [options]" % (name,)
@@ -58,7 +59,7 @@ def usage(e=None):
         sys.exit(0)
 
 
-def main():
+def main_purge():
 
     try:
         (optargs, args) = getopt(
@@ -71,7 +72,7 @@ def main():
             ],
         )
     except GetoptError, e:
-        usage(e)
+        usage_purge(e)
 
     #
     # Get configuration
@@ -83,14 +84,14 @@ def main():
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
-            usage()
+            usage_purge()
 
         elif opt in ("-d", "--days"):
             try:
                 days = int(arg)
             except ValueError, e:
                 print "Invalid value for --days: %s" % (arg,)
-                usage(e)
+                usage_purge(e)
 
         elif opt in ("-v", "--verbose"):
             verbose = True
@@ -103,6 +104,8 @@ def main():
 
         else:
             raise NotImplementedError(opt)
+
+    cutoff = (date.today()-timedelta(days=days)).strftime("%Y%m%dT000000Z")
 
     try:
         loadConfig(configFileName)
@@ -127,22 +130,20 @@ def main():
         print "Error: %s" % (e,)
         return
 
-    cutoff = (date.today() - timedelta(days=days)).strftime("%Y%m%dT000000Z")
 
     #
     # Start the reactor
     #
-    reactor.callLater(0.1, purgeThenStop, directory, rootResource, cutoff,
-        verbose=verbose, dryrun=dryrun)
+    reactor.callLater(0.1, callThenStop, purgeOldEvents, directory,
+        rootResource, cutoff, verbose=verbose, dryrun=dryrun)
 
     reactor.run()
 
 @inlineCallbacks
-def purgeThenStop(directory, rootResource, cutoff, verbose=False, dryrun=False):
+def callThenStop(method, *args, **kwds):
     try:
-        count = (yield purgeOldEvents(directory, rootResource, cutoff,
-            verbose=verbose, dryrun=dryrun))
-        if dryrun:
+        count = (yield method(*args, **kwds))
+        if kwds.get("dryrun", False):
             print "Would have purged %d events" % (count,)
         else:
             print "Purged %d events" % (count,)
@@ -165,6 +166,9 @@ def purgeOldEvents(directory, root, date, verbose=False, dryrun=False):
         print "Scanning calendar homes ...",
 
     records = []
+    calendars = root.getChild("calendars")
+    uidsFPath = calendars.fp.child("__uids__")
+
     if uidsFPath.exists():
         for firstFPath in uidsFPath.children():
             if len(firstFPath.basename()) == 2:
@@ -175,6 +179,7 @@ def purgeOldEvents(directory, root, date, verbose=False, dryrun=False):
                             record = directory.recordWithUID(uid)
                             if record is not None:
                                 records.append(record)
+
     if verbose:
         print "%d calendar homes found" % (len(records),)
 
@@ -224,7 +229,8 @@ def purgeOldEvents(directory, root, date, verbose=False, dryrun=False):
                     )
                     try:
                         if not dryrun:
-                            (yield deleteResource(root, collection, resource, uri))
+                            (yield deleteResource(root, collection, resource,
+                                uri, record.guid))
                         eventCount += 1
                         homeEventCount += 1
                     except Exception, e:
@@ -237,12 +243,74 @@ def purgeOldEvents(directory, root, date, verbose=False, dryrun=False):
     returnValue(eventCount)
 
 
-def deleteResource(root, collection, resource, uri):
+def deleteResource(root, collection, resource, uri, guid, implicit=False):
     request = FakeRequest(root, "DELETE", uri)
+    request.authnUser = request.authzUser = davxml.Principal(
+        davxml.HRef.fromString("/principals/__uids__/%s/" % (guid,))
+    )
 
     # TODO: this seems hacky, even for a stub request:
     request._rememberResource(resource, uri)
 
     deleter = DeleteResource(request, resource, uri,
-        collection, "infinity", allowImplicitSchedule=False)
+        collection, "infinity", allowImplicitSchedule=implicit)
     return deleter.run()
+
+
+@inlineCallbacks
+def purgeGUID(guid, directory, root):
+
+    # Does the record exist?
+    record = directory.recordWithGUID(guid)
+    if record is None:
+        # The user has already been removed from the directory service.  We
+        # need to fashion a temporary, fake record
+        # FIXME: implement the fake record
+        pass
+
+    principalCollection = directory.principalCollection
+    principal = principalCollection.principalForRecord(record)
+    calendarHome = principal.calendarHome()
+
+    # Anything in the past should be deleted without implicit scheduling
+    now = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    filter =  caldavxml.Filter(
+          caldavxml.ComponentFilter(
+              caldavxml.ComponentFilter(
+                  TimeRange(start=now,),
+                  name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+              ),
+              name="VCALENDAR",
+           )
+      )
+
+    count = 0
+
+    for collName in calendarHome.listChildren():
+        collection = calendarHome.getChild(collName)
+        if collection.isCalendarCollection():
+
+            # To compute past and ongoing events...
+
+            # ...first start with all events...
+            allEvents = set(collection.listChildren())
+
+            ongoingEvents = set()
+
+            # ...and find those that appear *after* the given cutoff
+            for name, uid, type in collection.index().indexedSearch(filter):
+                ongoingEvents.add(name)
+
+            for name in allEvents:
+                resource = collection.getChild(name)
+                uri = "/calendars/__uids__/%s/%s/%s" % (
+                    record.uid,
+                    collName,
+                    name
+                )
+
+                (yield deleteResource(root, collection, resource,
+                    uri, guid, implicit=(name in ongoingEvents)))
+                count += 1
+
+    returnValue(count)

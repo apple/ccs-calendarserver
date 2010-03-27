@@ -119,16 +119,32 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                     actual.remove(childName)
 
                 if childName.startswith("*"):
+                    if "/" in childName:
+                        childName, matching = childName.split("/")
+                    else:
+                        matching = False
                     ext = childName.split(".")[1]
                     found = False
                     for actualFile in actual:
                         if actualFile.endswith(ext):
-                            actual.remove(actualFile)
-                            found = True
-                            break
+                            matches = True
+                            if matching:
+                                matches = False
+                                # We want to target only the wildcard file containing
+                                # the matching string
+                                actualPath = os.path.join(parent, actualFile)
+                                with open(actualPath) as child:
+                                    contents = child.read()
+                                    if matching in contents:
+                                        matches = True
+
+                            if matches:
+                                actual.remove(actualFile)
+                                found = True
+                                break
                     if found:
-                        continue
-                    
+                        # continue
+                        childName = actualFile
 
                 childPath = os.path.join(parent, childName)
 
@@ -138,9 +154,18 @@ class TestCase(twext.web2.dav.test.util.TestCase):
 
                 if childStructure.has_key("@contents"):
                     # This is a file
-                    if childStructure["@contents"] is None:
+                    expectedContents = childStructure["@contents"]
+                    if expectedContents is None:
                         # We don't care about the contents
                         pass
+                    elif isinstance(expectedContents, tuple):
+                        with open(childPath) as child:
+                            contents = child.read()
+                            for str in expectedContents:
+                                if str not in contents:
+                                    print "Contents mismatch:", childPath
+                                    print "Expecting match:\n%s\n\nActual:\n%s\n" % (str, contents)
+                                    return False
                     else:
                         with open(childPath) as child:
                             contents = child.read()
