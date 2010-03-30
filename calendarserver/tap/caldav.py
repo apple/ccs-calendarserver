@@ -57,7 +57,7 @@ from twext.internet.sendfdport import (
     InheritedSocketDispatcher, InheritingProtocolFactory)
 
 from twext.web2.channel.http import (
-    LimitingHTTPFactory, SSLRedirectRequest, ReportingHTTPFactory)
+    LimitingHTTPFactory, SSLRedirectRequest, HTTPFactory)
 
 try:
     from twistedcaldav.version import version
@@ -826,15 +826,9 @@ class CalDAVServiceMaker (LoggingMixIn):
         s._inheritedSockets = [] # keep a reference to these so they don't close
 
         if config.UseMetaFD:
-            def sortAsInts(x):
-                # "int" by itself isn't quite good enough, unfortunately,
-                # because it can't handle None...
-                if x is None:
-                    return 0
-                else:
-                    return int(x)
-                                
-            dispatcher = InheritedSocketDispatcher(sortAsInts)
+            cl = ConnectionLimiter(config.MaxAccepts,
+                                   (config.MaxRequests *
+                                    config.MultiProcess.ProcessCount))
 
         for bindAddress in config.BindAddresses:
             if config.BindHTTPPorts:
@@ -854,17 +848,14 @@ class CalDAVServiceMaker (LoggingMixIn):
                 config.BindSSLPorts = [config.SSLPort]
 
             if config.UseMetaFD:
-                # XXX no automated tests for this whole block.  How to test it?
-
                 for ports, description in [(config.BindSSLPorts, "SSL"),
                                            (config.BindHTTPPorts, "TCP")]:
                     for port in ports:
-                        TCPServer(
-                            port, InheritingProtocolFactory(dispatcher, description),
+                        MaxAcceptTCPServer(
+                            port, cl.createFactory(description),
                             interface=bindAddress,
                             backlog=config.ListenBacklog
                         ).setServiceParent(s)
-                # Okay, now for each subprocess I need to add a thing to the dispatcher
             else:
                 def _openSocket(addr, port):
                     log.info("Opening socket for inheritance at %s:%d" % (addr, port))
@@ -884,11 +875,9 @@ class CalDAVServiceMaker (LoggingMixIn):
                     sock = _openSocket(bindAddress, int(portNum))
                     inheritSSLFDs.append(sock.fileno())
 
-
-
         for p in xrange(0, config.MultiProcess.ProcessCount):
             if config.UseMetaFD:
-                extraArgs = dict(metaFD=dispatcher.addSocket())
+                extraArgs = dict(metaFD=cl.dispatcher.addSocket())
             else:
                 extraArgs = dict(inheritFDs=inheritFDs,
                                  inheritSSLFDs=inheritSSLFDs)
@@ -901,8 +890,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                 **extraArgs
             )
             monitor.addProcessObject(process, parentEnv)
-
-
 
         for name, pool in config.Memcached.Pools.items():
             if pool.ServerEnabled:
@@ -1023,6 +1010,161 @@ class CalDAVServiceMaker (LoggingMixIn):
                     if numConnectFailures == len(testPorts):
                         self.log_warn("Deleting stale socket file (not accepting connections): %s" % checkSocket)
                         os.remove(checkSocket)
+
+
+
+
+
+class ReportingHTTPFactory(HTTPFactory):
+    """
+    An L{HTTPFactory} which reports its status to a
+    L{twext.internet.sendfdport.InheritedPort}.
+
+    @ivar inheritedPort: an L{InheritedPort} to report status (the current
+        number of outstanding connections) to.  Since this - the
+        L{ReportingHTTPFactory} - needs to be instantiated to be passed to
+        L{InheritedPort}'s constructor, this attribute must be set afterwards
+        but before any connections have occurred.
+    """
+
+    def _report(self, message):
+        """
+        Report a status message to the parent.
+        """
+        self.inheritedPort.reportStatus(message)
+
+
+    def addConnectedChannel(self, channel):
+        """
+        Add the connected channel, and report the current number of open
+        channels to the listening socket in the parent process.
+        """
+        HTTPFactory.addConnectedChannel(self, channel)
+        self._report("+")
+
+
+    def removeConnectedChannel(self, channel):
+        """
+        Remove the connected channel, and report the current number of open
+        channels to the listening socket in the parent process.
+        """
+        HTTPFactory.removeConnectedChannel(self, channel)
+        self._report("-")
+
+
+
+class ConnectionLimiter(object):
+    """
+    Connection limiter for use with L{InheritedSocketDispatcher}.
+
+    This depends on statuses being reported by L{ReportingHTTPFactory}
+    """
+
+    def __init__(self, maxAccepts, maxRequests):
+        """
+        Create a L{ConnectionLimiter} with an associated dispatcher and
+        list of factories.
+        """
+        self.factories = []
+        self.dispatcher = InheritedSocketDispatcher(self)
+        self.maxAccepts = maxAccepts
+        self.maxRequests = maxRequests
+
+
+    # implementation of implicit statusWatcher interface required by
+    # InheritedSocketDispatcher
+
+    def statusFromMessage(self, previousStatus, message):
+        """
+        Determine a subprocess socket's status from its previous status and a
+        status message.
+        """
+        if message == '-':
+            result = self.intWithNoneAsZero(previousStatus) - 1
+            # A connection has gone away in a subprocess; we should start
+            # accepting connections again if we paused (see
+            # newConnectionStatus)
+            for f in self.factories:
+                f.myServer.myPort.startReading()
+        else:
+            # '+' is just an acknowledgement of newConnectionStatus, so we can
+            # ignore it.
+            result = self.intWithNoneAsZero(previousStatus)
+        return result
+
+
+    def newConnectionStatus(self, previousStatus):
+        """
+        Determine the effect of a new connection being sent on a subprocess
+        socket.
+        """
+        current = self.outstandingRequests + 1
+        maximum = (config.MaxRequests *
+                   config.MultiProcess.ProcessCount)
+        overloaded = (current >= maximum)
+        if overloaded:
+            for f in self.factories:
+                f.myServer.myPort.stopReading()
+
+        result = self.intWithNoneAsZero(previousStatus) + 1
+        return result
+
+
+    def createFactory(self, description):
+        """
+        Create a L{LimitingInheritingProtocolFactory}.
+        """
+        l = LimitingInheritingProtocolFactory(self, description)
+        self.factories.append(l)
+        return l
+
+
+    def intWithNoneAsZero(self, x):
+        """
+        Convert 'x' to an C{int}, unless x is C{None}, in which case return 0.
+        """
+        if x is None:
+            return 0
+        else:
+            return int(x)
+
+
+    @property
+    def outstandingRequests(self):
+        outstanding = 0
+        for status in self.dispatcher.statuses:
+            outstanding += self.intWithNoneAsZero(status)
+        return outstanding
+
+
+
+class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
+    """
+    An L{InheritingProtocolFactory} that supports the implicit factory contract
+    required by L{MaxAcceptTCPServer}/L{MaxAcceptTCPPort}.
+
+    @ivar outstandingRequests: a read-only property for the number of currently
+        active connections.
+
+    @ivar maxAccepts: The maximum number of times to call 'accept()' in a
+        single reactor loop iteration.
+
+    @ivar maxRequests: The maximum number of concurrent connections to accept
+        at once - note that this is for the I{entire server}, whereas the
+        value in the configuration file is for only a single process.
+    """
+
+    def __init__(self, limiter, description):
+        super(LimitingInheritingProtocolFactory, self).__init__(
+            limiter.dispatcher, description)
+        self.limiter = limiter
+        self.maxAccepts = limiter.maxAccepts
+        self.maxRequests = limiter.maxRequests
+
+
+    @property
+    def outstandingRequests(self):
+        return self.limiter.outstandingRequests
 
 
 

@@ -950,6 +950,8 @@ class OverloadedServerProtocol(protocol.Protocol):
                              "please try again later.</body></html>")
         self.transport.loseConnection()
 
+
+
 class HTTPFactory(protocol.ServerFactory):
     """
     Factory for HTTP server.
@@ -1005,6 +1007,7 @@ class HTTPFactory(protocol.ServerFactory):
     @property
     def outstandingRequests(self):
         return len(self.connectedChannels)
+
 
 
 class HTTP503LoggingFactory (HTTPFactory):
@@ -1160,45 +1163,6 @@ class LimitingHTTPFactory(HTTPFactory):
         HTTPFactory.removeConnectedChannel(self, channel)
         if self.outstandingRequests < self.maxRequests:
             self.myServer.myPort.startReading()
-
-
-
-class ReportingHTTPFactory(HTTPFactory):
-    """
-    An L{HTTPFactory} which reports its status to a
-    L{twext.internet.sendfdport.InheritedPort}.
-
-    @ivar inheritedPort: an L{InheritedPort} to report status (the current
-        number of outstanding connections) to.  Since this - the
-        L{ReportingHTTPFactory} - needs to be instantiated to be passed to
-        L{InheritedPort}'s constructor, this attribute must be set afterwards
-        but before any connections have occurred.
-    """
-
-    def _report(self):
-        """
-        Report the current number of open channels to the listening socket in
-        the parent process.
-        """
-        self.inheritedPort.reportStatus(str(self.outstandingRequests))
-
-
-    def addConnectedChannel(self, channel):
-        """
-        Add the connected channel, and report the current number of open
-        channels to the listening socket in the parent process.
-        """
-        HTTPFactory.addConnectedChannel(self, channel)
-        self._report()
-
-
-    def removeConnectedChannel(self, channel):
-        """
-        Remove the connected channel, and report the current number of open
-        channels to the listening socket in the parent process.
-        """
-        HTTPFactory.removeConnectedChannel(self, channel)
-        self._report()
 
 
 

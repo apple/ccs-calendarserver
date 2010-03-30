@@ -21,8 +21,9 @@ L{twext.python.sendfd}.
 """
 
 from os import close
-from errno import EAGAIN
-from socket import socketpair, fromfd, error as SocketError, AF_INET, SOCK_STREAM
+from errno import EAGAIN, ENOBUFS
+from socket import (socketpair, fromfd, error as SocketError,
+                    AF_INET, AF_UNIX, SOCK_STREAM, SOCK_DGRAM)
 
 from twisted.python import log
 
@@ -47,11 +48,6 @@ class InheritingProtocol(Protocol, object):
         self.transport.stopReading()
         self.transport.stopWriting()
         skt = self.transport.getHandle()
-        # actually I want to retrieve a child from a *pool* of potentially
-        # available children.  i have to make that determination based on the
-        # number of connections each child is currently handling.  which means
-        # the logic shouldn't live here.  where should it live?  in this spot,
-        # I just need an FD.
         self.factory.sendSocket(skt)
 
 
@@ -83,7 +79,7 @@ class InheritingProtocolFactory(Factory, object):
 
 
 
-class _AvailableConnection(FileDescriptor, object):
+class _SubprocessSocket(FileDescriptor, object):
     """
     A socket in the master process pointing at a file descriptor that can be
     used to transmit sockets to a subprocess.
@@ -103,9 +99,10 @@ class _AvailableConnection(FileDescriptor, object):
     @type status: C{str}
     """
 
-    def __init__(self, reactor, skt):
-        FileDescriptor.__init__(self, reactor)
+    def __init__(self, dispatcher, skt):
+        FileDescriptor.__init__(self, dispatcher.reactor)
         self.status = None
+        self.dispatcher = dispatcher
         self.skt = skt          # XXX needs to be set non-blocking by somebody
         self.fileno = skt.fileno
         self.outgoingSocketQueue = []
@@ -124,11 +121,12 @@ class _AvailableConnection(FileDescriptor, object):
         Receive a status / health message and record it.
         """
         try:
-            data, flags, ancillary = recvmsg(self.fd)
-        except SocketError:
-            pass                # handle EAGAIN, etc
+            data, flags, ancillary = recvmsg(self.skt.fileno())
+        except SocketError, se:
+            if se.errno not in (EAGAIN, ENOBUFS):
+                raise
         else:
-            self.status = data
+            self.dispatcher.statusMessage(self, data)
 
 
     def doWrite(self):
@@ -140,7 +138,7 @@ class _AvailableConnection(FileDescriptor, object):
             try:
                 sendfd(self.skt.fileno(), skt.fileno(), desc)
             except SocketError, se:
-                if se.errno == EAGAIN:
+                if se.errno in (EAGAIN, ENOBUFS):
                     self.outgoingSocketQueue.insert(0, (skt, desc))
                     return
                 raise
@@ -152,24 +150,35 @@ class _AvailableConnection(FileDescriptor, object):
 class InheritedSocketDispatcher(object):
     """
     Used by one or more L{InheritingProtocolFactory}s, this keeps track of a
-    list of available sockets in subprocesses and sends inbound connections towards them.
-
-    @ivar fitnessFunction: a function used to evaluate status messages received
-        on available subprocess connections.  a 1-argument function which
-        accepts a string - or C{None}, if no status has been reported - and
-        returns something sortable.  this will be used to sort all available
-        status messages; the lowest sorting result will be used to handle the
-        new connection.
+    list of available sockets in subprocesses and sends inbound connections
+    towards them.
     """
 
-    def __init__(self, fitnessFunction):
+    def __init__(self, statusWatcher):
         """
         Create a socket dispatcher.
         """
-        self.availableConnections = []
-        self.fitnessFunction = fitnessFunction
+        self._subprocessSockets = []
+        self.statusWatcher = statusWatcher
         from twisted.internet import reactor
         self.reactor = reactor
+
+
+    @property
+    def statuses(self):
+        """
+        Yield the current status of all subprocess sockets.
+        """
+        for subsocket in self._subprocessSockets:
+            yield subsocket.status
+
+
+    def statusMessage(self, subsocket, message):
+        """
+        The status of a connection has changed; update all registered status
+        change listeners.
+        """
+        subsocket.status = self.statusWatcher.statusFromMessage(subsocket.status, message)
 
 
     def sendFileDescriptor(self, skt, description):
@@ -181,9 +190,12 @@ class InheritedSocketDispatcher(object):
         @param description: some text to identify to the subprocess's
             L{InheritedPort} what type of transport to create for this socket.
         """
-        self.availableConnections.sort(key=lambda conn:
-                                           self.fitnessFunction(conn.status))
-        self.availableConnections[0].sendSocketToPeer(skt, description)
+        self._subprocessSockets.sort(key=lambda conn: conn.status)
+        selectedSocket = self._subprocessSockets[0]
+        selectedSocket.sendSocketToPeer(skt, description)
+        # XXX Maybe want to send along 'description' or 'skt' or some
+        # properties thereof? -glyph
+        selectedSocket.status = self.statusWatcher.newConnectionStatus(selectedSocket.status)
 
 
     def addSocket(self):
@@ -195,9 +207,10 @@ class InheritedSocketDispatcher(object):
             C{fileno()} as part of the C{childFDs} argument to
             C{spawnProcess()}, then close it.
         """
-        i, o = socketpair()
-        a = _AvailableConnection(self.reactor, o)
-        self.availableConnections.append(a)
+        i, o = socketpair(AF_UNIX, SOCK_DGRAM)
+        a = _SubprocessSocket(self, o)
+        a.startReading()
+        self._subprocessSockets.append(a)
         return i
 
 
@@ -271,7 +284,7 @@ class InheritedPort(FileDescriptor, object):
             try:
                 sendmsg(self.fd, msg, 0)
             except SocketError, se:
-                if se.errno == EAGAIN:
+                if se.errno in (EAGAIN, ENOBUFS):
                     self.statusQueue.insert(0, msg)
                     return
                 raise
@@ -280,10 +293,9 @@ class InheritedPort(FileDescriptor, object):
 
     def reportStatus(self, statusMessage):
         """
-        Report a status message to the L{_AvailableConnection} monitoring this
+        Report a status message to the L{_SubprocessSocket} monitoring this
         L{InheritedPort}'s health in the master process.
         """
-        # XXX this has got to be invoked from 
         self.statusQueue.append(statusMessage)
         self.startWriting()
         
