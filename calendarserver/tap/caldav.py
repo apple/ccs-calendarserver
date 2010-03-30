@@ -1168,13 +1168,13 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         # processes to procmon.  This step must be done prior to setting
         # active to 1
         for processObject, env in self.processObjects:
+            name = processObject.getName()
             self.addProcess(
-                processObject.getName(),
+                name,
                 processObject.getCommandLine(),
                 env=env
             )
-            self._extraFDs[
-                processObject.getName()] = processObject.getFileDescriptors()
+            self._extraFDs[name] = processObject.getFileDescriptors()
 
         self.active = 1
         delay = 0
