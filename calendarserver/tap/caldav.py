@@ -1125,7 +1125,8 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
     A L{DelayedStartupProcessMonitor} is a L{procmon.ProcessMonitor} that
     defers building its command lines until the service is actually ready to
     start.  It also specializes process-starting to allow for process objects
-    to
+    to determine their arguments as they are started up rather than entirely
+    ahead of time.
 
     @ivar processObjects: a C{list} of L{TwistdSlaveProcess} to add using
         C{self.addProcess} when this service starts up.
