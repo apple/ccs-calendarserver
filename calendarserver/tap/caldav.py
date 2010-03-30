@@ -77,7 +77,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
 from twistedcaldav.util import getNCPU
 
-from twistedcaldav.metafd import ConnectionLimiter, ReportingHTTPService
+from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
