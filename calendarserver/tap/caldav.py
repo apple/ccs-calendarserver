@@ -1134,8 +1134,8 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
     @ivar _extraFDs: a mapping from process names to extra file-descriptor
         maps.  (By default, all processes will have the standard stdio mapping,
         so all file descriptors here should be >2.)  This is updated during
-        L{DelayedStartupProcessMonitor.startService}, by inspecting
-        L{TwistdSlaveProcess.getFileDescriptors}.
+        L{DelayedStartupProcessMonitor.startService}, by inspecting the result
+        of L{TwistdSlaveProcess.getFileDescriptors}.
 
     @ivar reactor: an L{IReactorProcess} for spawning processes, defaulting to
         the global reactor.
