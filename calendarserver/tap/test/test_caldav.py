@@ -988,17 +988,25 @@ class DelayedStartupProcessMonitorTests(TestCase):
         dspm         = DelayedStartupProcessMonitor()
         dspm.reactor = InMemoryProcessSpawner()
         class FakeFD:
+            def __init__(self, n):
+                self.fd = n
             def fileno(self):
-                return 4
+                return self.fd
+
+        class FakeDispatcher:
+            n = 3
+            def addSocket(self):
+                self.n += 1
+                return FakeFD(self.n)
 
         # Most arguments here will be ignored, so these are bogus values.
         slave = TwistdSlaveProcess(
-            twistd        = "bleh",
-            tapname       = "caldav",
-            configFile    = "/does/not/exist",
-            id            = 10,
-            interfaces    = '127.0.0.1',
-            metaFD        = FakeFD()
+            twistd     = "bleh",
+            tapname    = "caldav",
+            configFile = "/does/not/exist",
+            id         = 10,
+            interfaces = '127.0.0.1',
+            dispatcher = FakeDispatcher()
         )
 
         dspm.addProcessObject(slave, {})
