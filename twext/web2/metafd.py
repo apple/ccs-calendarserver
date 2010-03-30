@@ -44,6 +44,8 @@ class ReportingHTTPService(Service, object):
     process via L{InheritedPort}.
     """
 
+    _connectionCount = 0
+
     def __init__(self, site, fd, contextFactory):
         self.contextFactory = contextFactory
         # Unlike other 'factory' constructions, config.MaxRequests and
@@ -80,9 +82,10 @@ class ReportingHTTPService(Service, object):
         """
         Create a TCP transport, from a socket object passed by the parent.
         """
+        self._connectionCount += 1
         transport = Server(skt, protocol,
                            skt.getpeername(), JustEnoughLikeAPort,
-                           4321, reactor)
+                           self._connectionCount, reactor)
         if data == 'SSL':
             transport.startTLS(self.contextFactory)
         transport.startReading()
