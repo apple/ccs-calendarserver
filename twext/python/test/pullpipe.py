@@ -19,8 +19,8 @@
 if __name__ == '__main__':
     from twext.python.sendfd import recvfd
     import sys, os
-    fd = recvfd(int(sys.argv[1]))
-    os.write(fd, "Test fixture data.\n")
+    fd, description = recvfd(int(sys.argv[1]))
+    os.write(fd, "Test fixture data: %s.\n" % (description,))
     os.close(fd)
 
     

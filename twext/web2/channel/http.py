@@ -739,7 +739,7 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
         
     def connectionMade(self):
         self.setTimeout(self.inputTimeOut)
-        self.factory.outstandingRequests+=1
+        self.factory.addConnectedChannel(self)
     
     def lineReceived(self, line):
         if self._first_line:
@@ -928,7 +928,7 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
             self.transport.loseConnection()
         
     def connectionLost(self, reason):
-        self.factory.outstandingRequests-=1
+        self.factory.removeConnectedChannel(self)
 
         self._writeLost = True
         self.readConnectionLost()
@@ -950,20 +950,33 @@ class OverloadedServerProtocol(protocol.Protocol):
                              "please try again later.</body></html>")
         self.transport.loseConnection()
 
+
+
 class HTTPFactory(protocol.ServerFactory):
-    """Factory for HTTP server."""
+    """
+    Factory for HTTP server.
+
+    @ivar outstandingRequests: the number of currently connected HTTP channels.
+
+    @type outstandingRequests: C{int}
+
+    @ivar connectedChannels: all the channels that have currently active
+    connections.
+
+    @type connectedChannels: C{set} of L{HTTPChannel}
+    """
 
     protocol = HTTPChannel
     
     protocolArgs = None
 
-    outstandingRequests = 0
-    
     def __init__(self, requestFactory, maxRequests=600, **kwargs):
-        self.maxRequests=maxRequests
+        self.maxRequests = maxRequests
         self.protocolArgs = kwargs
-        self.protocolArgs['requestFactory']=requestFactory
-        
+        self.protocolArgs['requestFactory'] = requestFactory
+        self.connectedChannels = set()
+
+
     def buildProtocol(self, addr):
         if self.outstandingRequests >= self.maxRequests:
             return OverloadedServerProtocol()
@@ -973,6 +986,28 @@ class HTTPFactory(protocol.ServerFactory):
         for arg,value in self.protocolArgs.iteritems():
             setattr(p, arg, value)
         return p
+
+
+    def addConnectedChannel(self, channel):
+        """
+        Add a connected channel to the set of currently connected channels and
+        increase the outstanding request count.
+        """
+        self.connectedChannels.add(channel)
+
+
+    def removeConnectedChannel(self, channel):
+        """
+        Remove a connected channel from the set of currently connected channels
+        and decrease the outstanding request count.
+        """
+        self.connectedChannels.remove(channel)
+
+
+    @property
+    def outstandingRequests(self):
+        return len(self.connectedChannels)
+
 
 
 class HTTP503LoggingFactory (HTTPFactory):
@@ -1087,26 +1122,13 @@ HTTPChannel.chanRequestFactory = HTTPLoggingChannelRequest
 
 
 
-class LimitingHTTPChannel(HTTPChannel):
-    """ HTTPChannel that takes itself out of the reactor once it has enough
-        requests in flight.
-    """
-
-    def connectionMade(self):
-        HTTPChannel.connectionMade(self)
-        if self.factory.outstandingRequests >= self.factory.maxRequests:
-            self.factory.myServer.myPort.stopReading()
-
-    def connectionLost(self, reason):
-        HTTPChannel.connectionLost(self, reason)
-        if self.factory.outstandingRequests < self.factory.maxRequests:
-            self.factory.myServer.myPort.startReading()
-
 class LimitingHTTPFactory(HTTPFactory):
-    """ HTTPFactory which stores maxAccepts on behalf of the MaxAcceptPortMixin
     """
+    HTTPFactory which stores maxAccepts on behalf of the MaxAcceptPortMixin
 
-    protocol = LimitingHTTPChannel
+    @ivar myServer: a reference to a L{MaxAcceptTCPServer} that this
+        L{LimitingHTTPFactory} will limit.  This must be set externally.
+    """
 
     def __init__(self, requestFactory, maxRequests=600, maxAccepts=100,
         **kwargs):
@@ -1114,11 +1136,34 @@ class LimitingHTTPFactory(HTTPFactory):
         self.maxAccepts = maxAccepts
 
     def buildProtocol(self, addr):
-
+        """
+        Override L{HTTPFactory.buildProtocol} in order to avoid ever returning
+        an L{OverloadedServerProtocol}; this should be handled in other ways.
+        """
         p = protocol.ServerFactory.buildProtocol(self, addr)
         for arg, value in self.protocolArgs.iteritems():
             setattr(p, arg, value)
         return p
+
+    def addConnectedChannel(self, channel):
+        """
+        Override L{HTTPFactory.addConnectedChannel} to pause listening on the
+        socket when there are too many outstanding channels.
+        """
+        HTTPFactory.addConnectedChannel(self, channel)
+        if self.outstandingRequests >= self.maxRequests:
+            self.myServer.myPort.stopReading()
+
+
+    def removeConnectedChannel(self, channel):
+        """
+        Override L{HTTPFactory.addConnectedChannel} to resume listening on the
+        socket when there are too many outstanding channels.
+        """
+        HTTPFactory.removeConnectedChannel(self, channel)
+        if self.outstandingRequests < self.maxRequests:
+            self.myServer.myPort.startReading()
+
 
 
 __all__ = [

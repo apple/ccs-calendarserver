@@ -154,7 +154,7 @@ class SendmsgTestCase(TestCase):
     @inlineCallbacks
     def test_sendSubProcessFD(self):
         """
-        Calling L{sendsmsg} with SOL_SOCKET, SCM_RIGHTS , and a platform-endian
+        Calling L{sendsmsg} with SOL_SOCKET, SCM_RIGHTS, and a platform-endian
         packed file descriptor number should send that file descriptor to a
         different process, where it can be retrieved by using L{recvmsg}.
         """
@@ -163,10 +163,10 @@ class SendmsgTestCase(TestCase):
         yield sspp.started
         pipeOut, pipeIn = pipe()
         self.addCleanup(close, pipeOut)
-        sendfd(self.input.fileno(), pipeIn)
+        sendfd(self.input.fileno(), pipeIn, "blonk")
         close(pipeIn)
         yield sspp.stopped
-        self.assertEquals(read(pipeOut, 1024), "Test fixture data.\n")
+        self.assertEquals(read(pipeOut, 1024), "Test fixture data: blonk.\n")
         # Make sure that the pipe is actually closed now.
         self.assertEquals(read(pipeOut, 1024), "")
 

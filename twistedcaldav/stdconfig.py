@@ -141,6 +141,10 @@ DEFAULT_CONFIG = {
     "BindSSLPorts" : [],   # List of port numbers to bind to for SSL [empty = same as "SSLPort"]
     "InheritFDs"   : [],   # File descriptors to inherit for HTTP requests (empty = don't inherit)
     "InheritSSLFDs": [],   # File descriptors to inherit for HTTPS requests (empty = don't inherit)
+    "MetaFD": 0,        # Inherited file descriptor to call recvmsg() on to recive sockets (none = don't inherit)
+
+    "UseMetaFD": True,         # Use a 'meta' FD, i.e. an FD to transmit other
+                               # FDs to slave processes.
 
     #
     # Types of service provided
