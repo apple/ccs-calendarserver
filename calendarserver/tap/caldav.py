@@ -1181,14 +1181,14 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         delay = 0
 
         if config.MultiProcess.StaggeredStartup.Enabled:
-            interval = config.MultiProcess.StaggeredStartup.Interval
+            delay_interval = config.MultiProcess.StaggeredStartup.Interval
         else:
-            interval = 0
+            delay_interval = 0
 
         for name in self.processes.keys():
             if name.startswith("caldav"):
                 when = delay
-                delay += interval
+                delay += delay_interval
             else:
                 when = 0
             callLater(when, self.startProcess, name)
