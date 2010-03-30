@@ -602,7 +602,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         config.addPostUpdateHooks((updateFactory,))
 
-        if config.InheritSSLFDs or config.InheritFDs:
+        if config.InheritFDs or config.InheritSSLFDs:
             # Inherit sockets to call accept() on them individually.
 
             for fd in config.InheritSSLFDs:
@@ -636,13 +636,14 @@ class CalDAVServiceMaker (LoggingMixIn):
                 ).setServiceParent(service)
 
         elif config.MetaFD:
+            # Inherit a single socket to receive accept()ed connections via
+            # recvmsg() and SCM_RIGHTS.
+
             fd = int(config.MetaFD)
 
             ReportingHTTPService(
                 site, fd, self.createContextFactory()
             ).setServiceParent(service)
-
-            # XXX put the code back
 
         else: # Not inheriting, therefore we open our own:
 
