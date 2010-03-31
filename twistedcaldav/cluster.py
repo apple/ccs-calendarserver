@@ -199,7 +199,7 @@ class TwistdSlaveProcess(object):
         if ssl and self.sslPorts is not None:
             port = self.sslPorts
 
-        if self.inheritFDs or self.inheritSSLFDs:
+        if self.inheritFDs or self.inheritSSLFDs or self.dispatcher:
             port = [self.id]
 
         if port is None:
@@ -497,6 +497,8 @@ def makeService_Combined(self, options):
             sslPort = None
 
         if config.UseMetaFD:
+            port = None
+            sslPort = None
             extraArgs = dict(dispatcher=cl.dispatcher)
         else:
             extraArgs = dict(inheritFDs=inheritFDs,
