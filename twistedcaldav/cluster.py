@@ -26,12 +26,16 @@ from twisted.application import internet, service
 from twisted.internet import reactor, process
 from twisted.internet.threads import deferToThread
 from twisted.python.reflect import namedClass
+from twisted.python.usage import UsageError
 
 from twistedcaldav.accesslog import AMPLoggingFactory, RotatingFileAccessLoggingObserver
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.util import getNCPU
 from twistedcaldav.log import Logger
 from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+OpenDirectoryService            # Pyflakes
+
+from twistedcaldav.metafd import ConnectionLimiter
 
 log = Logger()
 
@@ -62,7 +66,7 @@ class TwistdSlaveProcess(object):
 
     def __init__(self, twistd, tapname, configFile, id,
                  interfaces, port, sslPort,
-                 inheritFDs=None, inheritSSLFDs=None):
+                 inheritFDs=None, inheritSSLFDs=None, dispatcher=None):
 
         self.twistd = twistd
 
@@ -75,8 +79,15 @@ class TwistdSlaveProcess(object):
         self.ports = port
         self.sslPorts = sslPort
 
-        self.inheritFDs = inheritFDs
-        self.inheritSSLFDs = inheritSSLFDs
+        def emptyIfNone(x):
+            if x is None:
+                return []
+            else:
+                return x
+        self.inheritFDs = emptyIfNone(inheritFDs)
+        self.inheritSSLFDs = emptyIfNone(inheritSSLFDs)
+        self.metaSocket = None
+        self.dispatcher = dispatcher
 
         self.interfaces = interfaces
 
@@ -85,11 +96,35 @@ class TwistdSlaveProcess(object):
             return '%s-%s' % (self.prefix, self.ports[0])
         elif self.sslPorts is not None:
             return '%s-%s' % (self.prefix, self.sslPorts[0])
-        elif self.inheritFDs or self.inheritSSLFDs:
+        elif self.inheritFDs or self.inheritSSLFDs or self.dispatcher:
             return '%s-%s' % (self.prefix, self.id)
 
         raise ConfigurationError(
             "Can't create TwistdSlaveProcess without a TCP Port")
+
+
+    def getMetaDescriptor(self):
+        """
+        Get the meta-socket file descriptor to inherit.
+        """
+        if self.metaSocket is None:
+            self.metaSocket = self.dispatcher.addSocket()
+        return self.metaSocket.fileno()
+
+
+    def getFileDescriptors(self):
+        """
+        @return: a mapping of file descriptor numbers for the new (child)
+            process to file descriptor numbers in the current (master) process.
+        """
+        fds = {}
+        maybeMetaFD = []
+        if self.dispatcher is not None:
+            maybeMetaFD.append(self.getMetaDescriptor())
+        for fd in self.inheritSSLFDs + self.inheritFDs + maybeMetaFD:
+            fds[fd] = fd
+        return fds
+
 
     def getCommandLine(self):
         args = [
@@ -144,6 +179,13 @@ class TwistdSlaveProcess(object):
             args.extend([
                     '-o',
                     'InheritSSLFDs=%s' % (','.join(map(str, self.inheritSSLFDs)),)])
+ 
+        if self.dispatcher is not None:
+            # XXX this FD is never closed in the parent.  should it be?
+            # (should they *all* be?) -glyph
+            args.extend([
+                    "-o", "MetaFD=%s" % (self.getMetaDescriptor(),)
+                ])
 
         return args
 
@@ -169,42 +211,105 @@ class TwistdSlaveProcess(object):
                                'bindAddress': '127.0.0.1'}
 
 
+
 class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
+    """
+    A L{DelayedStartupProcessMonitor} is a L{procmon.ProcessMonitor} that
+    defers building its command lines until the service is actually ready to
+    start.  It also specializes process-starting to allow for process objects
+    to determine their arguments as they are started up rather than entirely
+    ahead of time.
+
+    @ivar processObjects: a C{list} of L{TwistdSlaveProcess} to add using
+        C{self.addProcess} when this service starts up.
+
+    @ivar _extraFDs: a mapping from process names to extra file-descriptor
+        maps.  (By default, all processes will have the standard stdio mapping,
+        so all file descriptors here should be >2.)  This is updated during
+        L{DelayedStartupProcessMonitor.startService}, by inspecting the result
+        of L{TwistdSlaveProcess.getFileDescriptors}.
+
+    @ivar reactor: an L{IReactorProcess} for spawning processes, defaulting to
+        the global reactor.
+    """
+
+    def __init__(self, *args, **kwargs):
+        procmon.ProcessMonitor.__init__(self, *args, **kwargs)
+        self.processObjects = []
+        self._extraFDs = {}
+        self.reactor = reactor
+
+
+    def addProcessObject(self, process, env):
+        """
+        Add a process object to be run when this service is started.
+
+        @param env: a dictionary of environment variables.
+
+        @param process: a L{TwistdSlaveProcesses} object to be started upon
+            service startup.
+        """
+        self.processObjects.append((process, env))
+
 
     def startService(self):
         service.Service.startService(self)
+
+        # Now we're ready to build the command lines and actualy add the
+        # processes to procmon.  This step must be done prior to setting
+        # active to 1
+        for processObject, env in self.processObjects:
+            name = processObject.getName()
+            self.addProcess(
+                name,
+                processObject.getCommandLine(),
+                env=env
+            )
+            self._extraFDs[name] = processObject.getFileDescriptors()
+
         self.active = 1
         delay = 0
-        delay_interval = config.MultiProcess['StaggeredStartup']['Interval'] if config.MultiProcess['StaggeredStartup']['Enabled'] else 0 
-        for name in self.processes.keys():
-            reactor.callLater(delay if name.startswith("caldav") else 0, self.startProcess, name)
-            if name.startswith("caldav"):
-                delay += delay_interval
-        self.consistency = reactor.callLater(self.consistencyDelay,
-                                             self._checkConsistency)
 
-    def signalAll(self, signal, startswithname=None, seconds=0):
+        if config.MultiProcess.StaggeredStartup.Enabled:
+            delay_interval = config.MultiProcess.StaggeredStartup.Interval
+        else:
+            delay_interval = 0
+
+        for name in self.processes.keys():
+            if name.startswith("caldav"):
+                when = delay
+                delay += delay_interval
+            else:
+                when = 0
+            reactor.callLater(when, self.startProcess, name)
+
+        self.consistency = reactor.callLater(
+            self.consistencyDelay,
+            self._checkConsistency
+        )
+
+    def signalAll(self, signal, startswithname=None):
         """
         Send a signal to all child processes.
 
         @param signal: the signal to send
         @type signal: C{int}
-        @param startswithname: is set only signal those processes whose name starts with this string
+        @param startswithname: is set only signal those processes
+            whose name starts with this string
         @type signal: C{str}
         """
-        delay = 0
         for name in self.processes.keys():
             if startswithname is None or name.startswith(startswithname):
-                reactor.callLater(delay, self.signalProcess, signal, name)
-                delay += seconds
+                self.signalProcess(signal, name)
 
     def signalProcess(self, signal, name):
         """
         Send a signal to each monitored process
-        
+
         @param signal: the signal to send
         @type signal: C{int}
-        @param startswithname: is set only signal those processes whose name starts with this string
+        @param startswithname: is set only signal those processes
+            whose name starts with this string
         @type signal: C{str}
         """
         if not self.protocols.has_key(name):
@@ -226,16 +331,14 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
 
         childFDs = { 0 : "w", 1 : "r", 2 : "r" }
 
-        # Examine args for -o InheritFDs= and -o InheritSSLFDs=
-        # Add any file descriptors listed in those args to the childFDs
-        # dictionary so those don't get closed across the spawn.
-        for i in xrange(len(args)-1):
-            if args[i] == "-o" and args[i+1].startswith("Inherit"):
-                for fd in map(int, args[i+1].split("=")[1].split(",")):
-                    childFDs[fd] = fd
+        childFDs.update(self._extraFDs.get(name, {}))
 
-        reactor.spawnProcess(p, args[0], args, uid=uid, gid=gid, env=env,
-            childFDs=childFDs)
+        self.reactor.spawnProcess(
+            p, args[0], args, uid=uid, gid=gid, env=env,
+            childFDs=childFDs
+        )
+
+
 
 def makeService_Combined(self, options):
 
@@ -327,7 +430,13 @@ def makeService_Combined(self, options):
         if not config.BindAddresses:
             config.BindAddresses = [""]
 
-        s._inheritedSockets = [] # keep a reference to these so they don't close
+        if config.UseMetaFD:
+            cl = ConnectionLimiter(config.MaxAccepts,
+                                   (config.MaxRequests *
+                                    config.MultiProcess.ProcessCount))
+            cl.setServiceParent(s)
+        else:
+            s._inheritedSockets = [] # keep a reference to these so they don't close
 
         for bindAddress in config.BindAddresses:
             if config.BindHTTPPorts:
@@ -346,23 +455,29 @@ def makeService_Combined(self, options):
             elif config.SSLPort != 0:
                 config.BindSSLPorts = [config.SSLPort]
 
-            def _openSocket(addr, port):
-                log.info("Opening socket for inheritance at %s:%d" % (addr, port))
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.setblocking(0)
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                sock.bind((addr, port))
-                sock.listen(config.ListenBacklog)
-                s._inheritedSockets.append(sock)
-                return sock
+            if config.UseMetaFD:
+                for ports, description in [(config.BindSSLPorts, "SSL"),
+                                           (config.BindHTTPPorts, "TCP")]:
+                    for portNumber in ports:
+                        cl.addPortService(description, portNumber, bindAddress, config.ListenBacklog)
+            else:
+                def _openSocket(addr, port):
+                    log.info("Opening socket for inheritance at %s:%d" % (addr, port))
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.setblocking(0)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    sock.bind((addr, port))
+                    sock.listen(config.ListenBacklog)
+                    s._inheritedSockets.append(sock)
+                    return sock
 
-            for portNum in config.BindHTTPPorts:
-                sock = _openSocket(bindAddress, int(portNum))
-                inheritFDs.append(sock.fileno())
+                for portNum in config.BindHTTPPorts:
+                    sock = _openSocket(bindAddress, int(portNum))
+                    inheritFDs.append(sock.fileno())
 
-            for portNum in config.BindSSLPorts:
-                sock = _openSocket(bindAddress, int(portNum))
-                inheritSSLFDs.append(sock.fileno())
+                for portNum in config.BindSSLPorts:
+                    sock = _openSocket(bindAddress, int(portNum))
+                    inheritSSLFDs.append(sock.fileno())
 
     if not config.MultiProcess['LoadBalancer']['Enabled']:
         bindAddress = config.BindAddresses
@@ -381,19 +496,22 @@ def makeService_Combined(self, options):
         if inheritSSLFDs:
             sslPort = None
 
+        if config.UseMetaFD:
+            extraArgs = dict(dispatcher=cl.dispatcher)
+        else:
+            extraArgs = dict(inheritFDs=inheritFDs,
+                             inheritSSLFDs=inheritSSLFDs)
+
         process = TwistdSlaveProcess(config.Twisted['twistd'],
                                      self.tapname,
                                      options['config'],
                                      p,
                                      bindAddress,
                                      port, sslPort,
-                                     inheritFDs=inheritFDs,
-                                     inheritSSLFDs=inheritSSLFDs
+                                     **extraArgs
                                      )
 
-        monitor.addProcess(process.getName(),
-                           process.getCommandLine(),
-                           env=parentEnv)
+        monitor.addProcessObject(process, parentEnv)
 
         if config.HTTPPort:
             hosts.append(process.getHostLine())

@@ -483,6 +483,12 @@ py_install () {
     cd "${path}";
     "${python}" ./setup.py install "${install_flag}${install}";
     cd /;
+  else
+      if "${do_setup}"; then
+        cd "${path}";
+        "${python}" ./setup.py build_ext -i;
+        cd /;
+      fi;
   fi;
 }
 

@@ -92,7 +92,10 @@ defaultConfig = {
     "ServerHostName": "localhost", # Network host name.
     "HTTPPort": 0,                 # HTTP port (0 to disable HTTP)
     "SSLPort" : 0,                 # SSL port (0 to disable HTTPS)
-
+    "MetaFD": 0,        # Inherited file descriptor to call recvmsg() on to recive sockets (none = don't inherit)
+                                                        
+    "UseMetaFD": True,         # Use a 'meta' FD, i.e. an FD to transmit other
+                               # FDs to slave processes.
     #
     # Network address configuration information
     #

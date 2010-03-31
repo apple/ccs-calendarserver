@@ -97,7 +97,10 @@ version_file.close()
 
 from distutils.core import Extension
 
-extensions = []
+extensions = [
+    Extension("twistedcaldav.sendmsg",
+              sources=["twistedcaldav/sendmsg.c"])
+]
 
 if sys.platform == "darwin":
     extensions.append(

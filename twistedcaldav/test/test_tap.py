@@ -15,14 +15,21 @@
 ##
 
 import os
+import sys
 from copy import deepcopy
 
-from twisted.trial import unittest
+from zope.interface import implements
+
 from twistedcaldav.test.util import TestCase
 
 from twisted.python.usage import Options, UsageError
 from twisted.python.util import sibpath
 from twisted.python.reflect import namedAny
+from twisted.python.filepath import FilePath
+
+from twisted.internet.interfaces import IProcessTransport, IReactorProcess
+from twisted.internet.defer import Deferred, inlineCallbacks
+
 from twisted.application.service import IService
 from twisted.application import internet
 
@@ -30,6 +37,9 @@ from twisted.web2.dav import auth
 from twisted.web2.log import LogWrapperResource
 
 from twistedcaldav.tap import CalDAVOptions, CalDAVServiceMaker
+
+from twistedcaldav.cluster import DelayedStartupProcessMonitor, TwistdSlaveProcess
+
 from twistedcaldav import tap
 
 from twistedcaldav.config import config
@@ -39,6 +49,67 @@ from twistedcaldav.py.plistlib import writePlist
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import UnknownRecordTypeError
+
+class NotAProcessTransport(object):
+    """
+    Simple L{IProcessTransport} stub.
+    """
+    implements(IProcessTransport)
+
+    def __init__(self, processProtocol, executable, args, env, path,
+                 uid, gid, usePTY, childFDs):
+        """
+        Hold on to all the attributes passed to spawnProcess.
+        """
+        self.processProtocol = processProtocol
+        self.executable = executable
+        self.args = args
+        self.env = env
+        self.path = path
+        self.uid = uid
+        self.gid = gid
+        self.usePTY = usePTY
+        self.childFDs = childFDs
+
+
+class InMemoryProcessSpawner(object):
+    """
+    Stub out L{IReactorProcess.spawnProcess} so that we can examine the
+    interaction of L{DelayedStartupProcessMonitor} and the reactor.
+    """
+    implements(IReactorProcess)
+
+    def __init__(self):
+        """
+        Create some storage to hold on to all the fake processes spawned.
+        """
+        self.processTransports = []
+        self.waiting = []
+
+
+    def waitForOneProcess(self):
+        """
+        Return a L{Deferred} which will fire when spawnProcess has been
+        invoked, with the L{IProcessTransport}.
+        """
+        d = Deferred()
+        self.waiting.append(d)
+        return d
+        
+
+    def spawnProcess(self, processProtocol, executable, args=(), env={},
+                     path=None, uid=None, gid=None, usePTY=0,
+                     childFDs=None):
+
+        transport = NotAProcessTransport(
+            processProtocol, executable, args, env, path, uid, gid, usePTY,
+            childFDs
+        )
+        self.processTransports.append(transport)
+        if self.waiting:
+            self.waiting.pop(0).callback(transport)
+        return transport
+
 
 
 class TestCalDAVOptions(CalDAVOptions):
@@ -673,3 +744,162 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         self.failUnless(isinstance(
                 realDirectory,
                 configuredDirectory))
+
+
+
+
+class DummyProcessObject(object):
+    """
+    Simple stub for the Process Object API that will run a test script.
+
+    This is a stand in for L{TwistdSlaveProcess}.
+    """
+
+    def __init__(self, scriptname, *args):
+        self.scriptname = scriptname
+        self.args = list(args)
+
+
+    def getCommandLine(self):
+        """
+        Get the command line to invoke this script.
+        """
+        return [sys.executable,
+                FilePath(__file__).sibling(self.scriptname).path] + self.args
+
+
+    def getFileDescriptors(self):
+        """
+        Return a dummy, empty mapping of file descriptors.
+        """
+        return {}
+
+
+    def getName(self):
+        """
+        Get a dummy name.
+        """
+        return 'Dummy'
+
+
+class CleanupHelper(object):
+    """
+    Emulate a more recent version of Twisted by providing addCleanup.
+    """
+
+    def setUp(self):
+        """
+        Emulate a more recent version of Twisted; initialize a list of
+        callables to run during cleanup.
+        """
+        self.cleanups = []
+
+
+    def addCleanup(self, thunk):
+        """
+        Emulate a more recent version of Trial; add a method to be run during
+        teardown.
+        """
+        self.cleanups.append(thunk)
+
+
+    def tearDown(self):
+        """
+        Emulate a more recent version of Trial; run all registered cleanup
+        functions.
+        """
+        from twisted.python import log
+        for cleanup in self.cleanups:
+            try:
+                cleanup()
+            except:
+                log.err()
+        
+
+
+
+class DelayedStartupProcessMonitorTests(CleanupHelper, TestCase):
+    """
+    Test cases for L{DelayedStartupProcessMonitor}.
+    """
+
+    @inlineCallbacks
+    def test_acceptDescriptorInheritance(self):
+        """
+        If a L{TwistdSlaveProcess} specifies some file descriptors to be
+        inherited, they should be inherited by the subprocess.
+        """
+        dspm         = DelayedStartupProcessMonitor()
+        dspm.reactor = InMemoryProcessSpawner()
+
+        # Most arguments here will be ignored, so these are bogus values.
+        slave = TwistdSlaveProcess(
+            twistd        = "bleh",
+            tapname       = "caldav",
+            configFile    = "/does/not/exist",
+            id            = 10,
+            interfaces    = '127.0.0.1',
+            port          = None,
+            sslPort       = None,
+            inheritFDs    = [3, 7],
+            inheritSSLFDs = [19, 25],
+        )
+
+        dspm.addProcessObject(slave, {})
+        dspm.startService()
+        self.addCleanup(dspm.consistency.cancel)
+        # We can easily stub out spawnProcess, because caldav calls it, but a
+        # bunch of callLater calls are buried in procmon itself, so we need to
+        # use the real clock.
+        oneProcessTransport = yield dspm.reactor.waitForOneProcess()
+        self.assertEquals(oneProcessTransport.childFDs,
+                          {0: 'w', 1: 'r', 2: 'r',
+                           3: 3, 7: 7,
+                           19: 19, 25: 25})
+    @inlineCallbacks
+    def test_metaDescriptorInheritance(self):
+        """
+        If a L{TwistdSlaveProcess} specifies a meta-file-descriptor to be
+        inherited, it should be inherited by the subprocess, and a
+        configuration argument should be passed that indicates to the
+        subprocess.
+        """
+        dspm         = DelayedStartupProcessMonitor()
+        dspm.reactor = InMemoryProcessSpawner()
+        class FakeFD:
+            def __init__(self, n):
+                self.fd = n
+            def fileno(self):
+                return self.fd
+
+        class FakeDispatcher:
+            n = 3
+            def addSocket(self):
+                self.n += 1
+                return FakeFD(self.n)
+
+        # Most arguments here will be ignored, so these are bogus values.
+        slave = TwistdSlaveProcess(
+            twistd     = "bleh",
+            tapname    = "caldav",
+            configFile = "/does/not/exist",
+            id         = 10,
+            port          = None,
+            sslPort       = None,
+            interfaces = '127.0.0.1',
+            dispatcher = FakeDispatcher()
+        )
+
+        dspm.addProcessObject(slave, {})
+        dspm.startService()
+        self.addCleanup(dspm.consistency.cancel)
+        oneProcessTransport = yield dspm.reactor.waitForOneProcess()
+        self.assertIn("MetaFD=4", oneProcessTransport.args)
+        self.assertEquals(
+            oneProcessTransport.args[oneProcessTransport.args.index("MetaFD=4")-1],
+            '-o',
+            "MetaFD argument was not passed as an option"
+        )
+        self.assertEquals(oneProcessTransport.childFDs,
+                          {0: 'w', 1: 'r', 2: 'r',
+                           4: 4})

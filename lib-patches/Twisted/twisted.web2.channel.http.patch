@@ -1,0 +1,81 @@
+Index: twisted/web2/channel/http.py
+===================================================================
+--- twisted/web2/channel/http.py	(revision 19773)
++++ twisted/web2/channel/http.py	(working copy)
+@@ -658,7 +658,7 @@
+         
+     def connectionMade(self):
+         self.setTimeout(self.inputTimeOut)
+-        self.factory.outstandingRequests+=1
++        self.factory.addConnectedChannel(self)
+     
+     def lineReceived(self, line):
+         if self._first_line:
+@@ -869,20 +869,33 @@
+                              "please try again later.</body></html>")
+         self.transport.loseConnection()
+ 
++
++
+ class HTTPFactory(protocol.ServerFactory):
+-    """Factory for HTTP server."""
++    """
++    Factory for HTTP server.
+ 
++    @ivar outstandingRequests: the number of currently connected HTTP channels.
++
++    @type outstandingRequests: C{int}
++
++    @ivar connectedChannels: all the channels that have currently active
++    connections.
++
++    @type connectedChannels: C{set} of L{HTTPChannel}
++    """
++
+     protocol = HTTPChannel
+     
+     protocolArgs = None
+ 
+-    outstandingRequests = 0
+-    
+     def __init__(self, requestFactory, maxRequests=600, **kwargs):
+-        self.maxRequests=maxRequests
++        self.maxRequests = maxRequests
+         self.protocolArgs = kwargs
+-        self.protocolArgs['requestFactory']=requestFactory
+-        
++        self.protocolArgs['requestFactory'] = requestFactory
++        self.connectedChannels = set()
++
++
+     def buildProtocol(self, addr):
+         if self.outstandingRequests >= self.maxRequests:
+             return OverloadedServerProtocol()
+@@ -893,4 +906,27 @@
+             setattr(p, arg, value)
+         return p
+ 
++ 
++    def addConnectedChannel(self, channel):
++        """
++        Add a connected channel to the set of currently connected channels and
++        increase the outstanding request count.
++        """
++        self.connectedChannels.add(channel)
++
++
++    def removeConnectedChannel(self, channel):
++        """
++        Remove a connected channel from the set of currently connected channels
++        and decrease the outstanding request count.
++        """
++        self.connectedChannels.remove(channel)
++
++
++    @property
++    def outstandingRequests(self):
++        return len(self.connectedChannels)
++
++
++
+ __all__ = ['HTTPFactory', ]
