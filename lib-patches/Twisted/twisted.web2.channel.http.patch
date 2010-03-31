@@ -11,6 +11,15 @@ Index: twisted/web2/channel/http.py
      
      def lineReceived(self, line):
          if self._first_line:
+@@ -847,7 +847,7 @@
+             self.transport.loseConnection()
+         
+     def connectionLost(self, reason):
+-        self.factory.outstandingRequests-=1
++        self.factory.removeConnectedChannel(self)
+ 
+         self._writeLost = True
+         self.readConnectionLost()
 @@ -869,20 +869,33 @@
                               "please try again later.</body></html>")
          self.transport.loseConnection()
