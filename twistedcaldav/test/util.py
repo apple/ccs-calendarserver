@@ -161,10 +161,10 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                     elif isinstance(expectedContents, tuple):
                         with open(childPath) as child:
                             contents = child.read()
-                            for str in expectedContents:
-                                if str not in contents:
+                            for term in expectedContents:
+                                if term not in contents:
                                     print "Contents mismatch:", childPath
-                                    print "Expecting match:\n%s\n\nActual:\n%s\n" % (str, contents)
+                                    print "Expecting match:\n%s\n\nActual:\n%s\n" % (term, contents)
                                     return False
                     else:
                         with open(childPath) as child:

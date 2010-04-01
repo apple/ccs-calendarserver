@@ -40,5 +40,5 @@ if __name__ == "__main__":
 
         sys.argv[1:1] = ["-f", join(home, "conf", "caldavd-dev.plist")]
 
-    from calendarserver.tools.purge import main_purge_events
-    main_purge_events()
+    from calendarserver.tools.purge import main_purge_principals
+    main_purge_principals()
