@@ -49,7 +49,7 @@ class PurgeOldEventsTestCase(TestCase):
         self.directory = self.rootResource.getDirectory()
 
     @inlineCallbacks
-    def _test_purgeOldEvents(self):
+    def test_purgeOldEvents(self):
         before = {
             "calendars" : {
                 "__uids__" : {
@@ -416,7 +416,7 @@ class DeprovisionTestCase(TestCase):
 
 
     @inlineCallbacks
-    def _test_purgeProxies(self):
+    def test_purgeProxies(self):
 
         # Set up fake user
         purging = "5D6ABA3C-3446-4340-8083-7E37C5BC0B26"
@@ -468,7 +468,7 @@ class DeprovisionTestCase(TestCase):
         self.assertEquals(len(membersProperty.children), 0)
 
     @inlineCallbacks
-    def _test_purgeExistingGUID(self):
+    def test_purgeExistingGUID(self):
 
         # Deprovisioned user is E9E78C86-4829-4520-A35D-70DDADAB2092
         # Keeper user is        291C2C29-B663-4342-8EA1-A055E6A04D65
@@ -587,7 +587,7 @@ class DeprovisionTestCase(TestCase):
 
 
     @inlineCallbacks
-    def _test_purgeNonExistentGUID(self):
+    def test_purgeNonExistentGUID(self):
 
         before = {
             "calendars" : {
@@ -727,7 +727,7 @@ class DeprovisionTestCase(TestCase):
 
 
     @inlineCallbacks
-    def _test_purgeMultipleNonExistentGUIDs(self):
+    def test_purgeMultipleNonExistentGUIDs(self):
 
         before = {
             "calendars" : {

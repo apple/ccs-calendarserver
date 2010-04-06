@@ -287,6 +287,8 @@ def purgeOldEvents(directory, root, date, verbose=False, dryrun=False):
 
                 # ...and ignore those that appear *after* the given cutoff
                 for name, uid, type in collection.index().indexedSearch(filter):
+                    if isinstance(name, unicode):
+                        name = name.encode("utf-8")
                     if name in resources:
                         resources.remove(name)
 
@@ -384,6 +386,8 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False):
         if collection.isCalendarCollection():
 
             for name, uid, type in collection.index().indexedSearch(filter):
+                if isinstance(name, unicode):
+                    name = name.encode("utf-8")
                 resource = collection.getChild(name)
                 uri = "/calendars/__uids__/%s/%s/%s" % (
                     record.uid,
