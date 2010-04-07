@@ -848,6 +848,10 @@ def _updateNotifications(configDict):
             service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
             service["Enabled"]
         ):
+            # If we already have the password, don't fetch it again
+            if service["Password"]:
+                continue
+
             # Get password from keychain.  If not there, fall back to what
             # is in the plist.
             try:
@@ -881,6 +885,10 @@ def _updateScheduling(configDict):
     service = configDict.Scheduling["iMIP"]
 
     if service["Enabled"]:
+
+        # If we already have the password, don't fetch it again
+        if service["Password"]:
+            return
 
         # Get password for the user that is allowed to inject iMIP replies
         # to the server's /inbox; if not available, fall back to plist
