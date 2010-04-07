@@ -16,6 +16,7 @@
 
 from twisted.internet.defer import inlineCallbacks, succeed, returnValue
 from twistedcaldav.method import report_common
+from twext.web2.dav.util import joinURL
 
 @inlineCallbacks
 def getCalendarObjectForPrincipals(request, principal, uid):
@@ -43,7 +44,10 @@ def getCalendarObjectForPrincipals(request, principal, uid):
         def queryCalendarCollection(collection, uri):
             rname = collection.index().resourceNameForUID(uid)
             if rname:
-                result["resource"] = collection.getChild(rname)
+                resource = collection.getChild(rname)
+                request._rememberResource(resource, joinURL(uri, rname))
+
+                result["resource"] = resource
                 result["resource_name"] = rname
                 result["calendar_collection"] = collection
                 result["calendar_collection_uri"] = uri

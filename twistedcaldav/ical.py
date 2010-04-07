@@ -131,6 +131,8 @@ normalizePropsValue = {
     "ORGANIZER":    normalizeCUAddr,
 }
 
+ignoredComponents = ("VTIMEZONE", "X-CALENDARSERVER-PERUSER",)
+
 class InvalidICalendarDataError(ValueError):
     pass
 
@@ -423,7 +425,7 @@ class Component (object):
         
         mtype = None
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 continue
             elif mtype and (mtype != component.name()):
                 raise InvalidICalendarDataError("Component contains more than one type of primary type: %r" % (self,))
@@ -442,7 +444,7 @@ class Component (object):
         
         result = None
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 continue
             elif not allow_multiple and (result is not None):
                 raise InvalidICalendarDataError("Calendar contains more than one primary component: %r" % (self,))
@@ -462,7 +464,7 @@ class Component (object):
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
         
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 continue
             if not component.hasProperty("RECURRENCE-ID"):
                 return component
@@ -481,7 +483,7 @@ class Component (object):
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
         
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 continue
             rid = component.getRecurrenceIDUTC()
             if rid and recurrence_id and dateordatetime(rid) == recurrence_id:
@@ -758,10 +760,6 @@ class Component (object):
         if self.name() not in ("VEVENT", ):
             return "FREE"
         
-        # If it is TRANSPARENT we always ignore it
-        if self.propertyValue("TRANSP") == "TRANSPARENT":
-            return "FREE"
-        
         # Handle status
         status = self.propertyValue("STATUS")
         if status == "CANCELLED":
@@ -1023,7 +1021,7 @@ class Component (object):
         if self.name() == "VCALENDAR":
             result = ()
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE":
+                if component.name() not in ignoredComponents:
                     result += component.getComponentInstances()
             return result
         else:
@@ -1038,7 +1036,7 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE" and component.isRecurring():
+                if component.name() not in ignoredComponents and component.isRecurring():
                     return True
         else:
             for propname in ("RRULE", "RDATE", "EXDATE", "RECURRENCE-ID",):
@@ -1158,6 +1156,51 @@ class Component (object):
 
         return newcomp
         
+    def validInstances(self, rids):
+        """
+        Test whether the specified recurrence-ids are valid instances in this event.
+
+        @param rid: recurrence-id values
+        @type rid: iterable
+        
+        @return: C{set} of valid rids
+        """
+        
+        valid = set()
+        non_master_rids = [rid for rid in rids if rid is not None]
+        if non_master_rids:
+            highest_rid = max(non_master_rids)
+            self.cacheExpandedTimeRanges(highest_rid + datetime.timedelta(days=1))
+        for rid in rids:
+            if self.validInstance(rid, clear_cache=False):
+                valid.add(rid)
+        return valid
+
+    def validInstance(self, rid, clear_cache=True):
+        """
+        Test whether the specified recurrence-id is a valid instance in this event.
+
+        @param rid: recurrence-id value
+        @type rid: L{datetime.datetime}
+        
+        @return: C{bool}
+        """
+        
+        # First check overridden instances already in this component
+        if not hasattr(self, "cachedComponentInstances") or clear_cache:
+            self.cachedComponentInstances = set(self.getComponentInstances())
+        if rid in self.cachedComponentInstances:
+            return True
+            
+        # Must have a master component
+        if self.masterComponent() is None:
+            return False
+
+        # Get expansion
+        instances = self.cacheExpandedTimeRanges(rid + datetime.timedelta(days=1))
+        new_rids = set([instances[key].rid for key in instances])
+        return rid in new_rids
+
     def resourceUID(self):
         """
         @return: the UID of the subcomponents in this component.
@@ -1166,7 +1209,7 @@ class Component (object):
 
         if not hasattr(self, "_resource_uid"):
             for subcomponent in self.subcomponents():
-                if subcomponent.name() != "VTIMEZONE":
+                if subcomponent.name() not in ignoredComponents:
                     self._resource_uid = subcomponent.propertyValue("UID")
                     break
             else:
@@ -1188,6 +1231,8 @@ class Component (object):
                 name = subcomponent.name()
                 if name == "VTIMEZONE":
                     has_timezone = True
+                elif subcomponent.name() in ignoredComponents:
+                    continue
                 else:
                     self._resource_type = name
                     break
@@ -1259,6 +1304,8 @@ class Component (object):
         
             if subcomponent.name() == "VTIMEZONE":
                 timezones.add(subcomponent.propertyValue("TZID"))
+            elif subcomponent.name() in ignoredComponents:
+                continue
             else:
                 if ctype is None:
                     ctype = subcomponent.name()
@@ -1477,7 +1524,7 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE":
+                if component.name() not in ignoredComponents:
                     return component.getOrganizer()
         else:
             try:
@@ -1499,7 +1546,7 @@ class Component (object):
         if self.name() == "VCALENDAR":
             result = ()
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE":
+                if component.name() not in ignoredComponents:
                     result += component.getOrganizersByInstance()
             return result
         else:
@@ -1523,7 +1570,7 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE":
+                if component.name() not in ignoredComponents:
                     return component.getOrganizerProperty()
         else:
             try:
@@ -1557,7 +1604,7 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE":
+                if component.name() not in ignoredComponents:
                     return component.getAttendees()
         else:
             # Find the property values
@@ -1580,7 +1627,7 @@ class Component (object):
         if self.name() == "VCALENDAR":
             result = ()
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE":
+                if component.name() not in ignoredComponents:
                     result += component.getAttendeesByInstance(makeUnique, onlyScheduleAgentServer)
             return result
         else:
@@ -1618,7 +1665,7 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE":
+                if component.name() not in ignoredComponents:
                     attendee = component.getAttendeeProperty(match)
                     if attendee is not None:
                         return attendee
@@ -1643,7 +1690,7 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         results = []
         for component in self.subcomponents():
-            if component.name() != "VTIMEZONE":
+            if component.name() not in ignoredComponents:
                 attendee = component.getAttendeeProperty(match)
                 if attendee:
                     results.append(attendee)
@@ -1660,7 +1707,7 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE":
+                if component.name() not in ignoredComponents:
                     for attendee in component.getAllAttendeeProperties():
                         yield attendee
         else:
@@ -1679,7 +1726,7 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() != "VTIMEZONE":
+                if component.name() not in ignoredComponents:
                     return component.getMaskUID()
         else:
             try:
@@ -1705,7 +1752,7 @@ class Component (object):
         """
         
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 continue
             for property in component.properties(propname):
                 if propvalue is None or property.value() == propvalue:
@@ -1738,7 +1785,7 @@ class Component (object):
         """
 
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 continue
             found = component.getProperty(property.name())
             if not found or found.value() != property.value():
@@ -1755,7 +1802,7 @@ class Component (object):
         """
         
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 continue
             component.addProperty(property)
 
@@ -1766,7 +1813,7 @@ class Component (object):
         """
         
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 continue
             component.replaceProperty(property)
     
@@ -1785,7 +1832,7 @@ class Component (object):
         
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() == "VTIMEZONE":
+                if component.name() in ignoredComponents:
                     continue
                 component.transferProperties(from_calendar, properties)
         else:
@@ -1815,7 +1862,7 @@ class Component (object):
         master_component = None
         removed_master = False
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 continue
             found_all_attendees = True
             for attendee in attendees:
@@ -1859,7 +1906,7 @@ class Component (object):
         components = tuple(self.subcomponents())
         remaining = len(components)
         for component in components:
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 remaining -= 1
                 continue
             rid = component.getRecurrenceIDUTC()
@@ -1877,7 +1924,7 @@ class Component (object):
         assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
 
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 continue
             [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() != attendee.lower()]
             
@@ -1888,7 +1935,7 @@ class Component (object):
 
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() == "VTIMEZONE":
+                if component.name() in ignoredComponents:
                     continue
                 component.removeAlarms()
         else:
@@ -1905,13 +1952,22 @@ class Component (object):
             for component in self.subcomponents():
                 component.filterProperties(remove, keep, do_subcomponents=False)
         else:
-            if self.name() == "VTIMEZONE":
+            if self.name() in ignoredComponents:
                 return
             
             for p in tuple(self.properties()):
                 if (keep and p.name() not in keep) or (remove and p.name() in remove):
                     self.removeProperty(p)
                 
+    def removeXComponents(self, keep_components=()):
+        """
+        Remove all X- properties except the specified ones
+        """
+
+        for component in tuple(self.subcomponents()):
+            if component.name().startswith("X-") and component.name() not in keep_components:
+                self.removeComponent(component)
+            
     def removeXProperties(self, keep_properties=(), remove_x_parameters=True, do_subcomponents=True):
         """
         Remove all X- properties except the specified ones
@@ -1921,7 +1977,7 @@ class Component (object):
             for component in self.subcomponents():
                 component.removeXProperties(keep_properties, remove_x_parameters, do_subcomponents=False)
         else:
-            if self.name() == "VTIMEZONE":
+            if self.name() in ignoredComponents:
                 return
             for p in tuple(self.properties()):
                 xpname = p.name().startswith("X-")
@@ -1939,7 +1995,7 @@ class Component (object):
 
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() == "VTIMEZONE":
+                if component.name() in ignoredComponents:
                     continue
                 component.removePropertyParameters(property, params)
         else:
@@ -1958,7 +2014,7 @@ class Component (object):
 
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() == "VTIMEZONE":
+                if component.name() in ignoredComponents:
                     continue
                 component.removePropertyParametersByValue(property, paramvalues)
         else:
@@ -2079,7 +2135,7 @@ class Component (object):
         
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() == "VTIMEZONE":
+                if component.name() in ignoredComponents:
                     continue
                 component.normalizePropertyValueLists(propname)
         else:
@@ -2096,7 +2152,7 @@ class Component (object):
         
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                if component.name() == "VTIMEZONE":
+                if component.name() in ignoredComponents:
                     continue
                 component.normalizeAttachments()
         else:
@@ -2118,7 +2174,7 @@ class Component (object):
         @type lookupFunction: L{Function}
         """
         for component in self.subcomponents():
-            if component.name() == "VTIMEZONE":
+            if component.name() in ignoredComponents:
                 continue
             for prop in itertools.chain(
                 component.properties("ORGANIZER"),
@@ -2203,7 +2259,49 @@ class Component (object):
                         except KeyError:
                             pass
 
+
+    def allPerUserUIDs(self):
         
+        results = set()
+        for component in self.subcomponents():
+            if component.name() == "X-CALENDARSERVER-PERUSER":
+                results.add(component.propertyValue("X-CALENDARSERVER-PERUSER-UID"))
+        return results
+
+    def perUserTransparency(self, rid):
+        
+        # We will create a cache of all user/rid/transparency values as we will likely
+        # be calling this a lot
+        if not hasattr(self, "_perUserTransparency"):
+            self._perUserTransparency = {}
+            
+            # Do per-user data
+            for component in self.subcomponents():
+                if component.name() == "X-CALENDARSERVER-PERUSER":
+                    uid = component.propertyValue("X-CALENDARSERVER-PERUSER-UID")
+                    for subcomponent in component.subcomponents():
+                        if subcomponent.name() == "X-CALENDARSERVER-PERINSTANCE":
+                            instancerid = subcomponent.propertyValue("RECURRENCE-ID")
+                            transp = subcomponent.propertyValue("TRANSP") == "TRANSPARENT"                                
+                            self._perUserTransparency.setdefault(uid, {})[instancerid] = transp
+                elif component.name() not in ignoredComponents:
+                    instancerid = component.propertyValue("RECURRENCE-ID")
+                    transp = component.propertyValue("TRANSP") == "TRANSPARENT"                    
+                    self._perUserTransparency.setdefault("", {})[instancerid] = transp
+
+        # Now lookup in cache
+        results = []
+        for uid, cachedRids in sorted(self._perUserTransparency.items(), key=lambda x:x[0]):
+            lookupRid = rid
+            if lookupRid not in cachedRids:
+                lookupRid = None
+            if lookupRid in cachedRids:
+                results.append((uid, cachedRids[lookupRid],))
+            else:
+                results.append((uid, False,))     
+        
+        return tuple(results)
+
 ##
 # Dates and date-times
 ##

@@ -27,9 +27,7 @@ __all__ = [
 ]
 
 from twistedcaldav.dateops import floatoffset
-from twistedcaldav.query import sqlgenerator
-from twistedcaldav.query import expression
-from twistedcaldav import caldavxml
+from twistedcaldav.query import expression, sqlgenerator, queryfilter
 
 # SQL Index column (field) names
 
@@ -51,17 +49,17 @@ def calendarquery(filter):
     # Lets assume we have a valid filter from the outset.
     
     # Top-level filter contains exactly one comp-filter element
-    assert len(filter.children) == 1
-    vcalfilter = filter.children[0]
-    assert isinstance(vcalfilter, caldavxml.ComponentFilter)
+    assert filter.child is not None
+    vcalfilter = filter.child
+    assert isinstance(vcalfilter, queryfilter.ComponentFilter)
     assert vcalfilter.filter_name == "VCALENDAR"
     
-    if len(vcalfilter.children) > 0:
+    if len(vcalfilter.filters) > 0:
         # Only comp-filters are handled
-        for _ignore in [x for x in vcalfilter.children if not isinstance(x, caldavxml.ComponentFilter)]:
+        for _ignore in [x for x in vcalfilter.filters if not isinstance(x, queryfilter.ComponentFilter)]:
             raise ValueError
         
-        return compfilterListExpression(vcalfilter.children)
+        return compfilterListExpression(vcalfilter.filters)
     else:
         return expression.allExpression()
 
@@ -98,13 +96,13 @@ def compfilterExpression(compfilter):
         expressions.append(expression.inExpression(FIELD_TYPE, compfilter.filter_name, True))
     
     # Handle time-range    
-    if compfilter.qualifier and isinstance(compfilter.qualifier, caldavxml.TimeRange):
+    if compfilter.qualifier and isinstance(compfilter.qualifier, queryfilter.TimeRange):
         start, end, startfloat, endfloat = getTimerangeArguments(compfilter.qualifier)
         expressions.append(expression.timerangeExpression(start, end, startfloat, endfloat))
         
     # Handle properties - we can only do UID right now
     props = []
-    for p in [x for x in compfilter.filters if isinstance(x, caldavxml.PropertyFilter)]:
+    for p in [x for x in compfilter.filters if isinstance(x, queryfilter.PropertyFilter)]:
         props.append(propfilterExpression(p))
     if len(props) > 1:
         propsExpression = expression.orExpression[props]
@@ -115,7 +113,7 @@ def compfilterExpression(compfilter):
         
     # Handle embedded components - we do not right now as our Index does not handle them
     comps = []
-    for _ignore in [x for x in compfilter.filters if isinstance(x, caldavxml.ComponentFilter)]:
+    for _ignore in [x for x in compfilter.filters if isinstance(x, queryfilter.ComponentFilter)]:
         raise ValueError
     if len(comps) > 1:
         compsExpression = expression.orExpression[comps]
@@ -153,16 +151,16 @@ def propfilterExpression(propfilter):
         return expression.isExpression(FIELD_UID, "", True)
     
     # Handle time-range - we cannot do this with our Index right now
-    if propfilter.qualifier and isinstance(propfilter.qualifier, caldavxml.TimeRange):
+    if propfilter.qualifier and isinstance(propfilter.qualifier, queryfilter.TimeRange):
         raise ValueError
     
     # Handle text-match
     tm = None
-    if propfilter.qualifier and isinstance(propfilter.qualifier, caldavxml.TextMatch):
+    if propfilter.qualifier and isinstance(propfilter.qualifier, queryfilter.TextMatch):
         if propfilter.qualifier.negate:
-            tm = expression.notcontainsExpression(propfilter.filter_name, str(propfilter.qualifier), propfilter.qualifier)
+            tm = expression.notcontainsExpression(propfilter.filter_name, propfilter.qualifier.text, propfilter.qualifier.caseless)
         else:
-            tm = expression.containsExpression(propfilter.filter_name, str(propfilter.qualifier), propfilter.qualifier)
+            tm = expression.containsExpression(propfilter.filter_name, propfilter.qualifier.text, propfilter.qualifier.caseless)
     
     # Handle embedded parameters - we do not right now as our Index does not handle them
     params = []
@@ -227,79 +225,3 @@ def sqlcalendarquery(filter):
         return sql.generate()
     except ValueError:
         return None
-
-
-if __name__ == "__main__":
-    import datetime
-
-    filter = caldavxml.Filter(
-                 caldavxml.ComponentFilter(
-                     *[caldavxml.ComponentFilter(
-                           *[caldavxml.TimeRange(**{"start":"20060605T160000Z", "end":"20060605T170000Z"})],
-                           **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
-                       )],
-                     **{"name":"VCALENDAR"}
-                 )
-             )
-
-    # A complete implementation of current DST rules for major US time zones.
-    
-    def first_sunday_on_or_after(dt):
-        days_to_go = 6 - dt.weekday()
-        if days_to_go:
-            dt += datetime.timedelta(days_to_go)
-        return dt
-    
-    # In the US, DST starts at 2am (standard time) on the first Sunday in April.
-    DSTSTART = datetime.datetime(1, 4, 1, 2)
-    # and ends at 2am (DST time; 1am standard time) on the last Sunday of Oct.
-    # which is the first Sunday on or after Oct 25.
-    DSTEND = datetime.datetime(1, 10, 25, 1)
-    
-    ZERO = datetime.timedelta(0)
-    HOUR = datetime.timedelta(hours=1)
-
-    class USTimeZone(datetime.tzinfo):
-    
-        def __init__(self, hours, reprname, stdname, dstname):
-            self.stdoffset = datetime.timedelta(hours=hours)
-            self.reprname = reprname
-            self.stdname = stdname
-            self.dstname = dstname
-    
-        def __repr__(self):
-            return self.reprname
-    
-        def tzname(self, dt):
-            if self.dst(dt):
-                return self.dstname
-            else:
-                return self.stdname
-    
-        def utcoffset(self, dt):
-            return self.stdoffset + self.dst(dt)
-    
-        def dst(self, dt):
-            if dt is None or dt.tzinfo is None:
-                # An exception may be sensible here, in one or both cases.
-                # It depends on how you want to treat them.  The default
-                # fromutc() implementation (called by the default astimezone()
-                # implementation) passes a datetime with dt.tzinfo is self.
-                return ZERO
-            assert dt.tzinfo is self
-    
-            # Find first Sunday in April & the last in October.
-            start = first_sunday_on_or_after(DSTSTART.replace(year=dt.year))
-            end = first_sunday_on_or_after(DSTEND.replace(year=dt.year))
-    
-            # Can't compare naive to aware objects, so strip the timezone from
-            # dt first.
-            if start <= dt.replace(tzinfo=None) < end:
-                return HOUR
-            else:
-                return ZERO
-
-    Eastern  = USTimeZone(-5, "Eastern",  "EST", "EDT")
-    filter.children[0].settzinfo(Eastern)
-    
-    print sqlcalendarquery(filter)

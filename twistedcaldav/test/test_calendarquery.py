@@ -30,6 +30,7 @@ import twistedcaldav.test.util
 from twistedcaldav import caldavxml
 from twistedcaldav import ical
 from twistedcaldav.index import db_basename
+from twistedcaldav.query import queryfilter
 
 class CalendarQuery (twistedcaldav.test.util.TestCase):
     """
@@ -116,7 +117,7 @@ class CalendarQuery (twistedcaldav.test.util.TestCase):
                             cal = property.calendar()
                             instances = cal.expandTimeRanges(query_timerange.end)
                             vevents = [x for x in cal.subcomponents() if x.name() == "VEVENT"]
-                            if not query_timerange.matchinstance(vevents[0], instances):
+                            if not queryfilter.TimeRange(query_timerange).matchinstance(vevents[0], instances):
                                 self.fail("REPORT property %r returned calendar %s outside of request time range %r"
                                           % (property, property.calendar, query_timerange))
 

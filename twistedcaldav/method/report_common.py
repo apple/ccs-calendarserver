@@ -55,12 +55,15 @@ from twext.python.log import Logger
 
 from twistedcaldav import caldavxml
 from twistedcaldav import carddavxml
-from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.caldavxml import caldav_namespace, CalendarData
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
+from twistedcaldav.datafilters.calendardata import CalendarDataFilter
+from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.index import IndexedSearchException
+from twistedcaldav.query import queryfilter
 
 log = Logger()
 
@@ -335,20 +338,16 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
     for property in props:
         if isinstance(property, caldavxml.CalendarData):
             # Handle private events access restrictions
-            if not isowner:
-                try:
-                    access = resource.readDeadProperty(TwistedCalendarAccessProperty)
-                except HTTPError:
-                    access = None
-            else:
+            try:
+                access = resource.readDeadProperty(TwistedCalendarAccessProperty)
+            except HTTPError:
                 access = None
 
-            if calendar:
-                propvalue = property.elementFromCalendarWithAccessRestrictions(calendar, access, timezone)
-            else:
-                propvalue = property.elementFromResourceWithAccessRestrictions(resource, access, timezone)
-            if propvalue is None:
-                raise ValueError("Invalid CalDAV:calendar-data for request: %r" % (property,))
+            if calendar is None:
+                calendar = (yield resource.iCalendarForUser(request))
+            filtered = PrivateEventFilter(access, isowner).filter(calendar)
+            filtered = CalendarDataFilter(property, timezone).filter(filtered)
+            propvalue = CalendarData().fromCalendar(filtered)
             properties_by_status[responsecode.OK].append(propvalue)
             continue
     
@@ -438,6 +437,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                       name="VCALENDAR",
                    )
               )
+    filter = queryfilter.Filter(filter)
 
     # Get the timezone property from the collection, and store in the query filter
     # for use during the query itself.
@@ -453,13 +453,17 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
     try:
-        resources = calresource.index().indexedSearch(filter, fbtype=True)
+        useruid = (yield calresource.resourceOwnerPrincipal(request))
+        useruid = useruid.principalUID() if useruid else ""
+        resources = calresource.index().indexedSearch(filter, useruid=useruid, fbtype=True)
     except IndexedSearchException:
         resources = calresource.index().bruteForceSearch()
 
     # We care about separate instances for VEVENTs only
     aggregated_resources = {}
-    for name, uid, type, test_organizer, float, start, end, fbtype in resources:
+    for name, uid, type, test_organizer, float, start, end, fbtype, transp in resources:
+        if transp == 'T' and fbtype != '?':
+            fbtype = 'F'
         aggregated_resources.setdefault((name, uid, type, test_organizer,), []).append((float, start, end, fbtype,))
 
     for key in aggregated_resources.iterkeys():
@@ -528,7 +532,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                     raise NumberOfMatchesWithinLimits(max_number_of_matches)
                 
         else:
-            calendar = calresource.iCalendar(name)
+            calendar = (yield calresource.iCalendarForUser(request, name))
             
             # The calendar may come back as None if the resource is being changed, or was deleted
             # between our initial index query and getting here. For now we will ignore this error, but in

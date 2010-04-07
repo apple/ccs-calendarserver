@@ -40,6 +40,7 @@ from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.index import IndexedSearchException
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.method import report_common
+from twistedcaldav.query import queryfilter
 
 log = Logger()
 
@@ -64,10 +65,11 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
 
     responses = []
 
-    filter = calendar_query.filter
-    query  = calendar_query.query
+    xmlfilter = calendar_query.filter
+    filter = queryfilter.Filter(xmlfilter)
+    props  = calendar_query.props
 
-    assert query is not None
+    assert props is not None
     
     # Get the original timezone provided in the query, if any, and validate it now
     query_timezone = None
@@ -80,19 +82,19 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         filter.settimezone(query_tz)
         query_timezone = tuple(calendar_query.timezone.calendar().subcomponents())[0]
 
-    if query.qname() == ("DAV:", "allprop"):
+    if props.qname() == ("DAV:", "allprop"):
         propertiesForResource = report_common.allPropertiesForResource
         generate_calendar_data = False
 
-    elif query.qname() == ("DAV:", "propname"):
+    elif props.qname() == ("DAV:", "propname"):
         propertiesForResource = report_common.propertyNamesForResource
         generate_calendar_data = False
 
-    elif query.qname() == ("DAV:", "prop"):
+    elif props.qname() == ("DAV:", "prop"):
         propertiesForResource = report_common.propertyListForResource
         
         # Verify that any calendar-data element matches what we can handle
-        result, message, generate_calendar_data = report_common.validPropertyListCalendarDataTypeVersion(query)
+        result, message, generate_calendar_data = report_common.validPropertyListCalendarDataTypeVersion(props)
         if not result:
             log.err(message)
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
@@ -102,7 +104,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
 
     # Verify that the filter element is valid
     if (filter is None) or not filter.valid():
-        log.err("Invalid filter element: %r" % (filter,))
+        log.err("Invalid filter element: %r" % (xmlfilter,))
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-filter")))
 
     matchcount = [0]
@@ -145,7 +147,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 else:
                     href = davxml.HRef.fromString(uri)
             
-                return report_common.responseForHref(request, responses, href, resource, calendar, timezone, propertiesForResource, query, isowner)
+                return report_common.responseForHref(request, responses, href, resource, calendar, timezone, propertiesForResource, props, isowner)
             else:
                 return succeed(None)
     
@@ -200,7 +202,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     child_path_name = urllib.unquote(child_uri_name)
                     
                     if generate_calendar_data or not index_query_ok:
-                        calendar = calresource.iCalendar(child_path_name)
+                        calendar = (yield calresource.iCalendarForUser(request, child_path_name))
                         assert calendar is not None, "Calendar %s is missing from calendar collection %r" % (child_uri_name, self)
                     else:
                         calendar = None
@@ -224,7 +226,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             # Check private events access status
             isowner = (yield calresource.isOwner(request, adminprincipals=True, readprincipals=True))
 
-            calendar = calresource.iCalendar()
+            calendar = (yield calresource.iCalendarForUser(request))
             yield queryCalendarObjectResource(calresource, uri, None, calendar, timezone)
 
         returnValue(True)

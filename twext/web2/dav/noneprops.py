@@ -49,19 +49,19 @@ class NonePropertyStore (object):
     def __init__(self, resource):
         pass
 
-    def get(self, qname):
+    def get(self, qname, uid=None):
         raise HTTPError(StatusResponse(responsecode.NOT_FOUND, "No such property: {%s}%s" % qname))
 
-    def set(self, property):
+    def set(self, property, uid=None):
         raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Permission denied for setting property: %s" % (property,)))
 
-    def delete(self, qname):
+    def delete(self, qname, uid=None):
         # RFC 2518 Section 12.13.1 says that removal of
         # non-existing property is not an error.
         pass
 
-    def contains(self, qname):
+    def contains(self, qname, uid=None):
         return False
 
-    def list(self):
+    def list(self, uid=None):
         return ()

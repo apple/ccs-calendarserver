@@ -46,6 +46,7 @@ from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.wiki import getWikiACL
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
+from twistedcaldav.notifications import NotificationCollectionResource
 
 log = Logger()
 
@@ -277,6 +278,10 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             childlist += (
                 ("freebusy", FreeBusyURLResource),
             )
+        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
+            childlist += (
+                ("notification", NotificationCollectionResource),
+            )
         for name, cls in childlist:
             child = self.provisionChild(name)
             assert isinstance(child, cls), "Child %r is not a %s: %r" % (name, cls.__name__, child)
@@ -358,6 +363,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
         return succeed(davxml.HRef(self.principalForRecord().principalURL()))
 
     def ownerPrincipal(self, request):
+        return succeed(self.principalForRecord())
+
+    def resourceOwnerPrincipal(self, request):
         return succeed(self.principalForRecord())
 
     def defaultAccessControlList(self):

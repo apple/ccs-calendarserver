@@ -22,7 +22,7 @@ from twistedcaldav.test.util import TestCase
 
 class StubProperty(object):
     def qname(self):
-        return "StubQname"
+        return "StubQnamespace", "StubQname"
 
 
 class CalDAVResourceTests(TestCase):
@@ -34,5 +34,5 @@ class CalDAVResourceTests(TestCase):
     def test_writeDeadPropertyWritesProperty(self):
         prop = StubProperty()
         self.resource.writeDeadProperty(prop)
-        self.assertEquals(self.resource._dead_properties.get("StubQname"),
+        self.assertEquals(self.resource._dead_properties.get(("StubQnamespace", "StubQname")),
                           prop)

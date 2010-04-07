@@ -887,6 +887,16 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
 
         return succeed(inbox)
 
+    def notificationCollection(self, request):
+        
+        notification = None
+        if config.Sharing.Enabled:
+            home = self.calendarHome()
+            if home is not None:    
+                notification = home.getChild("notification")
+    
+        return succeed(notification)
+
     def calendarHomeURLs(self):
         homeURL = self._homeChildURL(None)
         return (homeURL,) if homeURL else ()
@@ -900,6 +910,12 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
     def dropboxURL(self):
         if config.EnableDropBox:
             return self._homeChildURL("dropbox/")
+        else:
+            return None
+
+    def notificationURL(self):
+        if config.Sharing.Enabled:
+            return self._homeChildURL("notification/")
         else:
             return None
 

@@ -26,7 +26,7 @@ __all__ = [
 
 from twext.web2.dav.http import ErrorResponse
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.util import joinURL, normalizeURL
@@ -87,8 +87,8 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         (caldav_namespace, "schedule-default-calendar-URL"),
     )
 
-    def resourceType(self):
-        return davxml.ResourceType.scheduleInbox
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.scheduleInbox)
 
     def defaultAccessControlList(self):
         
@@ -253,8 +253,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         else:
             return super(ScheduleOutboxResource, self).defaultAccessControlList()
 
-    def resourceType(self):
-        return davxml.ResourceType.scheduleOutbox
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.scheduleOutbox)
 
     @inlineCallbacks
     def http_POST(self, request):
@@ -310,8 +310,8 @@ class IScheduleInboxResource (CalDAVResource):
             ),
         )
 
-    def resourceType(self):
-        return davxml.ResourceType.ischeduleinbox
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.ischeduleinbox)
 
     def isCollection(self):
         return False

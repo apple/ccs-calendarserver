@@ -446,8 +446,9 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             if config.ProcessType in ('Combined', 'Single'):
 
-                # Memcached is not needed for this process
-                config.Memcached.Pools.Default.ClientEnabled = False
+                # Memcached is not needed for the "master" process
+                if config.ProcessType in ('Combined',):
+                    config.Memcached.Pools.Default.ClientEnabled = False
 
                 # Note: if the master process ever needs access to memcached
                 # we'll either have to start memcached prior to the

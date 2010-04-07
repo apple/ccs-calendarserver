@@ -17,16 +17,17 @@
 from twisted.internet import reactor
 from twisted.internet.task import deferLater
 
+from twistedcaldav import caldavxml
+from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.ical import Component
 from twistedcaldav.index import Index, default_future_expansion_duration,\
     maximum_future_expansion_duration, IndexedSearchException,\
     AbstractCalendarIndex, icalfbtype_to_indexfbtype
 from twistedcaldav.index import ReservationError, MemcachedUIDReserver
 from twistedcaldav.instance import InvalidOverriddenInstanceError
+from twistedcaldav.query import queryfilter
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
 import twistedcaldav.test.util
-from twistedcaldav import caldavxml
-from twistedcaldav.caldavxml import TimeRange
 from vobject.icalendar import utc
 import sqlite3
 
@@ -278,7 +279,7 @@ END:VCALENDAR
 """,
                 "20080601T000000Z", "20080602T000000Z",
                 "mailto:user1@example.com",
-                (('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B'),),
+                (('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'F'),),
             ),
             (
                 "#1.2 Simple component - transparent",
@@ -299,7 +300,7 @@ END:VCALENDAR
 """,
                 "20080602T000000Z", "20080603T000000Z",
                 "mailto:user1@example.com",
-                (('N', "2008-06-02 12:00:00+00:00", "2008-06-02 13:00:00+00:00", 'F'),),
+                (('N', "2008-06-02 12:00:00+00:00", "2008-06-02 13:00:00+00:00", 'B', 'T'),),
             ),
             (
                 "#1.3 Simple component - canceled",
@@ -320,7 +321,7 @@ END:VCALENDAR
 """,
                 "20080603T000000Z", "20080604T000000Z",
                 "mailto:user1@example.com",
-                (('N', "2008-06-03 12:00:00+00:00", "2008-06-03 13:00:00+00:00", 'F'),),
+                (('N', "2008-06-03 12:00:00+00:00", "2008-06-03 13:00:00+00:00", 'F', 'F'),),
             ),
             (
                 "#1.4 Simple component - tentative",
@@ -341,7 +342,7 @@ END:VCALENDAR
 """,
                 "20080604T000000Z", "20080605T000000Z",
                 "mailto:user1@example.com",
-                (('N', "2008-06-04 12:00:00+00:00", "2008-06-04 13:00:00+00:00", 'T'),),
+                (('N', "2008-06-04 12:00:00+00:00", "2008-06-04 13:00:00+00:00", 'T', 'F'),),
             ),
             (
                 "#2.1 Recurring component - busy",
@@ -363,8 +364,8 @@ END:VCALENDAR
                 "20080605T000000Z", "20080607T000000Z",
                 "mailto:user1@example.com",
                 (
-                    ('N', "2008-06-05 12:00:00+00:00", "2008-06-05 13:00:00+00:00", 'B'),
-                    ('N', "2008-06-06 12:00:00+00:00", "2008-06-06 13:00:00+00:00", 'B'),
+                    ('N', "2008-06-05 12:00:00+00:00", "2008-06-05 13:00:00+00:00", 'B', 'F'),
+                    ('N', "2008-06-06 12:00:00+00:00", "2008-06-06 13:00:00+00:00", 'B', 'F'),
                 ),
             ),
             (
@@ -397,8 +398,8 @@ END:VCALENDAR
                 "20080607T000000Z", "20080609T000000Z",
                 "mailto:user1@example.com",
                 (
-                    ('N', "2008-06-07 12:00:00+00:00", "2008-06-07 13:00:00+00:00", 'B'),
-                    ('N', "2008-06-08 14:00:00+00:00", "2008-06-08 15:00:00+00:00", 'F'),
+                    ('N', "2008-06-07 12:00:00+00:00", "2008-06-07 13:00:00+00:00", 'B', 'F'),
+                    ('N', "2008-06-08 14:00:00+00:00", "2008-06-08 15:00:00+00:00", 'B', 'T'),
                 ),
             ),
         )
@@ -428,14 +429,418 @@ END:VCALENDAR
                       name="VCALENDAR",
                    )
               )
+            filter = queryfilter.Filter(filter)
 
             resources = self.db.indexedSearch(filter, fbtype=True)
             index_results = set()
-            for _ignore_name, _ignore_uid, type, test_organizer, float, start, end, fbtype in resources:
+            for _ignore_name, _ignore_uid, type, test_organizer, float, start, end, fbtype, transp in resources:
                 self.assertEqual(test_organizer, organizer, msg=description)
-                index_results.add((float, start, end, fbtype,))
+                index_results.add((float, start, end, fbtype, transp,))
 
             self.assertEqual(set(instances), index_results, msg=description)
+
+    def test_index_timespan_per_user(self):
+        data = (
+            (
+                "#1.1 Single per-user non-recurring component",
+                "1.1",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.1
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890-1.1
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""",
+                "20080601T000000Z", "20080602T000000Z",
+                "mailto:user1@example.com",
+                (
+                    (
+                        "user01",
+                        (('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'T'),),
+                    ),
+                    (
+                        "user02",
+                        (('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'F'),),
+                    ),
+                ),
+            ),
+            (
+                "#1.2 Two per-user non-recurring component",
+                "1.2",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.2
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890-1.2
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890-1.2
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""",
+                "20080601T000000Z", "20080602T000000Z",
+                "mailto:user1@example.com",
+                (
+                    (
+                        "user01",
+                        (('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'T'),),
+                    ),
+                    (
+                        "user02",
+                        (('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'F'),),
+                    ),
+                    (
+                        "user03",
+                        (('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'F'),),
+                    ),
+                ),
+            ),
+            (
+                "#2.1 Single per-user simple recurring component",
+                "2.1",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.1
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY;COUNT=10
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890-1.1
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""",
+                "20080601T000000Z", "20080603T000000Z",
+                "mailto:user1@example.com",
+                (
+                    (
+                        "user01",
+                        (
+                            ('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'T'),
+                            ('N', "2008-06-02 12:00:00+00:00", "2008-06-02 13:00:00+00:00", 'B', 'T'),
+                        ),
+                    ),
+                    (
+                        "user02",
+                        (
+                            ('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'F'),
+                            ('N', "2008-06-02 12:00:00+00:00", "2008-06-02 13:00:00+00:00", 'B', 'F'),
+                        ),
+                    ),
+                ),
+            ),
+            (
+                "#2.2 Two per-user simple recurring component",
+                "2.2",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.2
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY;COUNT=10
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890-1.2
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890-1.2
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""",
+                "20080601T000000Z", "20080603T000000Z",
+                "mailto:user1@example.com",
+                (
+                    (
+                        "user01",
+                        (
+                            ('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'T'),
+                            ('N', "2008-06-02 12:00:00+00:00", "2008-06-02 13:00:00+00:00", 'B', 'T'),
+                        ),
+                    ),
+                    (
+                        "user02",
+                        (
+                            ('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'F'),
+                            ('N', "2008-06-02 12:00:00+00:00", "2008-06-02 13:00:00+00:00", 'B', 'F'),
+                        ),
+                    ),
+                    (
+                        "user03",
+                        (
+                            ('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'F'),
+                            ('N', "2008-06-02 12:00:00+00:00", "2008-06-02 13:00:00+00:00", 'B', 'F'),
+                        ),
+                    ),
+                ),
+            ),
+            (
+                "#3.1 Single per-user complex recurring component",
+                "3.1",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.1
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY;COUNT=10
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1.1
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890-1.1
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080602T120000Z
+TRANSP:OPAQUE
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""",
+                "20080601T000000Z", "20080604T000000Z",
+                "mailto:user1@example.com",
+                (
+                    (
+                        "user01",
+                        (
+                            ('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'T'),
+                            ('N', "2008-06-02 13:00:00+00:00", "2008-06-02 14:00:00+00:00", 'B', 'F'),
+                            ('N', "2008-06-03 12:00:00+00:00", "2008-06-03 13:00:00+00:00", 'B', 'T'),
+                        ),
+                    ),
+                    (
+                        "user02",
+                        (
+                            ('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'F'),
+                            ('N', "2008-06-02 13:00:00+00:00", "2008-06-02 14:00:00+00:00", 'B', 'F'),
+                            ('N', "2008-06-03 12:00:00+00:00", "2008-06-03 13:00:00+00:00", 'B', 'F'),
+                        ),
+                    ),
+                ),
+            ),
+            (
+                "#3.2 Two per-user complex recurring component",
+                "3.2",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.2
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY;COUNT=10
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1.2
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890-1.2
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080602T120000Z
+TRANSP:OPAQUE
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890-1.2
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:X-CALENDARSERVER-PERINSTANCE
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080603T120000Z
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""",
+                "20080601T000000Z", "20080604T000000Z",
+                "mailto:user1@example.com",
+                (
+                    (
+                        "user01",
+                        (
+                            ('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'T'),
+                            ('N', "2008-06-02 13:00:00+00:00", "2008-06-02 14:00:00+00:00", 'B', 'F'),
+                            ('N', "2008-06-03 12:00:00+00:00", "2008-06-03 13:00:00+00:00", 'B', 'T'),
+                        ),
+                    ),
+                    (
+                        "user02",
+                        (
+                            ('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'F'),
+                            ('N', "2008-06-02 13:00:00+00:00", "2008-06-02 14:00:00+00:00", 'B', 'F'),
+                            ('N', "2008-06-03 12:00:00+00:00", "2008-06-03 13:00:00+00:00", 'B', 'T'),
+                        ),
+                    ),
+                    (
+                        "user03",
+                        (
+                            ('N', "2008-06-01 12:00:00+00:00", "2008-06-01 13:00:00+00:00", 'B', 'F'),
+                            ('N', "2008-06-02 13:00:00+00:00", "2008-06-02 14:00:00+00:00", 'B', 'F'),
+                            ('N', "2008-06-03 12:00:00+00:00", "2008-06-03 13:00:00+00:00", 'B', 'F'),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        revision = 0
+        for description, name, calendar_txt, trstart, trend, organizer, peruserinstances in data:
+            revision += 1
+            calendar = Component.fromString(calendar_txt)
+
+            f = open(os.path.join(self.site.resource.fp.path, name), "w")
+            f.write(calendar_txt)
+            del f
+
+            self.db.addResource(name, calendar, revision)
+            self.assertTrue(self.db.resourceExists(name), msg=description)
+
+            # Create fake filter element to match time-range
+            filter =  caldavxml.Filter(
+                  caldavxml.ComponentFilter(
+                      caldavxml.ComponentFilter(
+                          TimeRange(
+                              start=trstart,
+                              end=trend,
+                          ),
+                          name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                      ),
+                      name="VCALENDAR",
+                   )
+              )
+            filter = queryfilter.Filter(filter)
+
+            for useruid, instances in peruserinstances:
+                resources = self.db.indexedSearch(filter, useruid=useruid, fbtype=True)
+                index_results = set()
+                for _ignore_name, _ignore_uid, type, test_organizer, float, start, end, fbtype, transp in resources:
+                    self.assertEqual(test_organizer, organizer, msg=description)
+                    index_results.add((str(float), str(start), str(end), str(fbtype), str(transp),))
+    
+                self.assertEqual(set(instances), index_results, msg="%s, user:%s" % (description, useruid,))
+
+            revision += 1
+            self.db.deleteResource(name, revision)
 
     def test_index_revisions(self):
         data1 = """BEGIN:VCALENDAR
@@ -499,424 +904,6 @@ END:VCALENDAR
         
         for revision, results in tests:
             self.assertEquals(self.db.whatchanged(revision), results, "Mismatched results for whatchanged with revision %d" % (revision,))
-
-class SQLIndexUpgradeTests (twistedcaldav.test.util.TestCase):
-    """
-    Test abstract SQL DB class
-    """
-
-    class OldIndexv6(Index):
-
-        def _db_version(self):
-            """
-            @return: the schema version assigned to this index.
-            """
-            return "6"
-
-        def _db_init_data_tables_base(self, q, uidunique):
-            """
-            Initialise the underlying database tables.
-            @param q:           a database cursor to use.
-            """
-            #
-            # RESOURCE table is the primary index table
-            #   NAME: Last URI component (eg. <uid>.ics, RESOURCE primary key)
-            #   UID: iCalendar UID (may or may not be unique)
-            #   TYPE: iCalendar component type
-            #   RECURRANCE_MAX: Highest date of recurrence expansion
-            #
-            if uidunique:
-                q.execute(
-                    """
-                    create table RESOURCE (
-                        NAME           text unique,
-                        UID            text unique,
-                        TYPE           text,
-                        RECURRANCE_MAX date
-                    )
-                    """
-                )
-            else:
-                q.execute(
-                    """
-                    create table RESOURCE (
-                        NAME           text unique,
-                        UID            text,
-                        TYPE           text,
-                        RECURRANCE_MAX date
-                    )
-                    """
-                )
-    
-            #
-            # TIMESPAN table tracks (expanded) timespans for resources
-            #   NAME: Related resource (RESOURCE foreign key)
-            #   FLOAT: 'Y' if start/end are floating, 'N' otherwise
-            #   START: Start date
-            #   END: End date
-            #
-            q.execute(
-                """
-                create table TIMESPAN (
-                    NAME  text,
-                    FLOAT text(1),
-                    START date,
-                    END   date
-                )
-                """
-            )
-    
-            if uidunique:
-                #
-                # RESERVED table tracks reserved UIDs
-                #   UID: The UID being reserved
-                #   TIME: When the reservation was made
-                #
-                q.execute(
-                    """
-                    create table RESERVED (
-                        UID  text unique,
-                        TIME date
-                    )
-                    """
-                )
-
-        def _db_upgrade(self, old_version):
-            """
-            Upgrade the database tables.
-            """
-            
-            return super(AbstractCalendarIndex, self)._db_upgrade(old_version)
-
-        def _add_to_db(self, name, calendar, cursor = None, expand_until=None, reCreate=False):
-            """
-            Records the given calendar resource in the index with the given name.
-            Resource names and UIDs must both be unique; only one resource name may
-            be associated with any given UID and vice versa.
-            NB This method does not commit the changes to the db - the caller
-            MUST take care of that
-            @param name: the name of the resource to add.
-            @param calendar: a L{Calendar} object representing the resource
-                contents.
-            """
-            uid = calendar.resourceUID()
-    
-            # Decide how far to expand based on the component
-            master = calendar.masterComponent()
-            if master is None or not calendar.isRecurring() and not calendar.isRecurringUnbounded():
-                # When there is no master we have a set of overridden components - index them all.
-                # When there is one instance - index it.
-                # When bounded - index all.
-                expand = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
-            else:
-                if expand_until:
-                    expand = expand_until
-                else:
-                    expand = datetime.date.today() + default_future_expansion_duration
-        
-                if expand > (datetime.date.today() + maximum_future_expansion_duration):
-                    raise IndexedSearchException
-    
-            try:
-                instances = calendar.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
-            except InvalidOverriddenInstanceError:
-                raise
-    
-            self._delete_from_db(name, uid, None)
-    
-            for key in instances:
-                instance = instances[key]
-                start = instance.start.replace(tzinfo=utc)
-                end = instance.end.replace(tzinfo=utc)
-                float = 'Y' if instance.start.tzinfo is None else 'N'
-                self._db_execute(
-                    """
-                    insert into TIMESPAN (NAME, FLOAT, START, END)
-                    values (:1, :2, :3, :4)
-                    """, name, float, start, end
-                )
-    
-            # Special - for unbounded recurrence we insert a value for "infinity"
-            # that will allow an open-ended time-range to always match it.
-            if calendar.isRecurringUnbounded():
-                start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
-                end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
-                float = 'N'
-                self._db_execute(
-                    """
-                    insert into TIMESPAN (NAME, FLOAT, START, END)
-                    values (:1, :2, :3, :4)
-                    """, name, float, start, end
-                )
-                 
-            self._db_execute(
-                """
-                insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX)
-                values (:1, :2, :3, :4)
-                """, name, uid, calendar.resourceType(), instances.limit
-            )
-
-    class OldIndexv7(Index):
-
-        def _db_version(self):
-            """
-            @return: the schema version assigned to this index.
-            """
-            return "7"
-
-        def _db_init_data_tables_base(self, q, uidunique):
-            """
-            Initialise the underlying database tables.
-            @param q:           a database cursor to use.
-            """
-            #
-            # RESOURCE table is the primary index table
-            #   NAME: Last URI component (eg. <uid>.ics, RESOURCE primary key)
-            #   UID: iCalendar UID (may or may not be unique)
-            #   TYPE: iCalendar component type
-            #   RECURRANCE_MAX: Highest date of recurrence expansion
-            #   ORGANIZER: cu-address of the Organizer of the event
-            #
-            if uidunique:
-                q.execute(
-                    """
-                    create table RESOURCE (
-                        NAME           text unique,
-                        UID            text unique,
-                        TYPE           text,
-                        RECURRANCE_MAX date,
-                        ORGANIZER      text
-                    )
-                    """
-                )
-            else:
-                q.execute(
-                    """
-                    create table RESOURCE (
-                        NAME           text unique,
-                        UID            text,
-                        TYPE           text,
-                        RECURRANCE_MAX date
-                    )
-                    """
-                )
-    
-            #
-            # TIMESPAN table tracks (expanded) time spans for resources
-            #   NAME: Related resource (RESOURCE foreign key)
-            #   FLOAT: 'Y' if start/end are floating, 'N' otherwise
-            #   START: Start date
-            #   END: End date
-            #   FBTYPE: FBTYPE value:
-            #     '?' - unknown
-            #     'F' - free
-            #     'B' - busy
-            #     'U' - busy-unavailable
-            #     'T' - busy-tentative
-            #
-            q.execute(
-                """
-                create table TIMESPAN (
-                    NAME  text,
-                    FLOAT text(1),
-                    START date,
-                    END   date,
-                    FBTYPE text(1)
-                )
-                """
-            )
-    
-            if uidunique:
-                #
-                # RESERVED table tracks reserved UIDs
-                #   UID: The UID being reserved
-                #   TIME: When the reservation was made
-                #
-                q.execute(
-                    """
-                    create table RESERVED (
-                        UID  text unique,
-                        TIME date
-                    )
-                    """
-                )
-
-        def _add_to_db(self, name, calendar, cursor = None, expand_until=None, reCreate=False):
-            """
-            Records the given calendar resource in the index with the given name.
-            Resource names and UIDs must both be unique; only one resource name may
-            be associated with any given UID and vice versa.
-            NB This method does not commit the changes to the db - the caller
-            MUST take care of that
-            @param name: the name of the resource to add.
-            @param calendar: a L{Calendar} object representing the resource
-                contents.
-            """
-            uid = calendar.resourceUID()
-            organizer = calendar.getOrganizer()
-            if not organizer:
-                organizer = ""
-    
-            # Decide how far to expand based on the component
-            master = calendar.masterComponent()
-            if master is None or not calendar.isRecurring() and not calendar.isRecurringUnbounded():
-                # When there is no master we have a set of overridden components - index them all.
-                # When there is one instance - index it.
-                # When bounded - index all.
-                expand = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
-            else:
-                if expand_until:
-                    expand = expand_until
-                else:
-                    expand = datetime.date.today() + default_future_expansion_duration
-        
-                if expand > (datetime.date.today() + maximum_future_expansion_duration):
-                    raise IndexedSearchException
-    
-            try:
-                instances = calendar.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
-            except InvalidOverriddenInstanceError:
-                raise
-    
-            self._delete_from_db(name, uid, None)
-    
-            for key in instances:
-                instance = instances[key]
-                start = instance.start.replace(tzinfo=utc)
-                end = instance.end.replace(tzinfo=utc)
-                float = 'Y' if instance.start.tzinfo is None else 'N'
-                self._db_execute(
-                    """
-                    insert into TIMESPAN (NAME, FLOAT, START, END, FBTYPE)
-                    values (:1, :2, :3, :4, :5)
-                    """, name, float, start, end, icalfbtype_to_indexfbtype.get(instance.component.getFBType(), 'F')
-                )
-    
-            # Special - for unbounded recurrence we insert a value for "infinity"
-            # that will allow an open-ended time-range to always match it.
-            if calendar.isRecurringUnbounded():
-                start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
-                end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
-                float = 'N'
-                self._db_execute(
-                    """
-                    insert into TIMESPAN (NAME, FLOAT, START, END, FBTYPE)
-                    values (:1, :2, :3, :4, :5)
-                    """, name, float, start, end, '?'
-                )
-                 
-            self._db_execute(
-                """
-                insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX, ORGANIZER)
-                values (:1, :2, :3, :4, :5)
-                """, name, uid, calendar.resourceType(), instances.limit, organizer
-            )
-
-    def setUp(self):
-        super(SQLIndexUpgradeTests, self).setUp()
-        self.site.resource.isCalendarCollection = lambda: True
-        self.db = Index(self.site.resource)
-        self.olddbv6 = SQLIndexUpgradeTests.OldIndexv6(self.site.resource)
-        self.olddbv7 = SQLIndexUpgradeTests.OldIndexv7(self.site.resource)
-
-    def prepareOldDB(self):
-        if os.path.exists(self.olddbv6.dbpath):
-            os.remove(self.olddbv6.dbpath)
-
-    def test_old_schema(self):
-        
-        for olddb in (self.olddbv6, self.olddbv7):
-            self.prepareOldDB()
-    
-            schema = olddb._db_value_for_sql(
-                """
-                select VALUE from CALDAV
-                 where KEY = 'SCHEMA_VERSION'
-                """)
-            self.assertEqual(schema, olddb._db_version())
-
-    def test_empty_upgrade(self):
-        
-        for olddb in (self.olddbv6, self.olddbv7):
-            self.prepareOldDB()
-    
-            schema = olddb._db_value_for_sql(
-                """
-                select VALUE from CALDAV
-                 where KEY = 'SCHEMA_VERSION'
-                """)
-            self.assertEqual(schema, olddb._db_version())
-    
-            if olddb._db_version() == "6":
-                self.assertRaises(sqlite3.OperationalError, olddb._db_value_for_sql, "select ORGANIZER from RESOURCE")
-                self.assertRaises(sqlite3.OperationalError, olddb._db_value_for_sql, "select FBTYPE from TIMESPAN")
-            elif olddb._db_version() == "7":
-                olddb._db_value_for_sql("select ORGANIZER from RESOURCE")
-                olddb._db_value_for_sql("select FBTYPE from TIMESPAN")
-            self.assertEqual(set([row[1] for row in olddb._db_execute("PRAGMA index_list(TIMESPAN)")]), set())
-    
-            schema = self.db._db_value_for_sql(
-                """
-                select VALUE from CALDAV
-                 where KEY = 'SCHEMA_VERSION'
-                """)
-            self.assertEqual(schema, self.db._db_version())
-    
-            value = self.db._db_value_for_sql("select ORGANIZER from RESOURCE")
-            self.assertEqual(value, None)
-            self.assertEqual(set([row[1] for row in self.db._db_execute("PRAGMA index_list(TIMESPAN)")]), set(("STARTENDFLOAT",)))
-
-    def test_basic_upgrade(self):
-        
-        for olddb in (self.olddbv6, self.olddbv7):
-            self.prepareOldDB()
-    
-            calendar_name = "1.ics"
-            calendar_data = """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890-1.1
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-END:VEVENT
-END:VCALENDAR
-"""
-    
-            olddb.addResource(calendar_name, Component.fromString(calendar_data), 1)
-            self.assertTrue(olddb.resourceExists(calendar_name))
-    
-            if olddb._db_version() == "6":
-                self.assertRaises(sqlite3.OperationalError, olddb._db_value_for_sql, "select ORGANIZER from RESOURCE")
-                self.assertRaises(sqlite3.OperationalError, olddb._db_value_for_sql, "select FBTYPE from TIMESPAN")
-            elif olddb._db_version() == "7":
-                olddb._db_value_for_sql("select ORGANIZER from RESOURCE")
-                olddb._db_value_for_sql("select FBTYPE from TIMESPAN")
-            self.assertEqual(set([row[1] for row in olddb._db_execute("PRAGMA index_list(TIMESPAN)")]), set())
-    
-            value = self.db._db_value_for_sql("select ORGANIZER from RESOURCE where NAME = :1", calendar_name)
-            if olddb._db_version() == "6":
-                self.assertEqual(value, "?")
-            else:
-                self.assertEqual(value, "mailto:user1@example.com")
-    
-            value = self.db._db_value_for_sql("select FBTYPE from TIMESPAN where NAME = :1", calendar_name)
-            if olddb._db_version() == "6":
-                self.assertEqual(value, "?")
-            else:
-                self.assertEqual(value, "B")
-    
-            self.db.addResource(calendar_name, Component.fromString(calendar_data), 2)
-            self.assertTrue(olddb.resourceExists(calendar_name))
-    
-            value = self.db._db_value_for_sql("select ORGANIZER from RESOURCE where NAME = :1", calendar_name)
-            self.assertEqual(value, "mailto:user1@example.com")
-    
-            value = self.db._db_value_for_sql("select FBTYPE from TIMESPAN where NAME = :1", calendar_name)
-            self.assertEqual(value, "B")
 
 class MemcacheTests(SQLIndexTests):
     def setUp(self):

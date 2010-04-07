@@ -339,6 +339,19 @@ DEFAULT_CONFIG = {
     "EnableDropBox"           : False, # Calendar Drop Box
     "EnablePrivateEvents"     : False, # Private Events
     "EnableTimezoneService"   : False, # Timezone service
+    
+    "Sharing": {
+        "Enabled"             : False, # Overall on/off switch
+        "AllowExternalUsers"  : False, # External (non-principal) sharees allowed
+
+        "Calendars" : {
+            "Enabled"         : False, # Calendar on/off switch
+            "AllowScheduling" : False, # Scheduling in shared calendars
+        },
+        "AddressBooks" : {
+            "Enabled"         : False, # Address Books on/off switch
+        }        
+    },
 
     #
     # Web-based administration
@@ -901,6 +914,14 @@ def _updateScheduling(configDict):
                     log.info("iMIP %s password not found in keychain" %
                         (direction,))
 
+def _updateSharing(configDict):
+    #
+    # FIXME: Use the config object instead of doing this here
+    #
+    from twistedcaldav.resource import CalDAVResource, CalendarPrincipalResource
+    CalDAVResource.enableSharing(configDict.Sharing.Enabled)
+    CalendarPrincipalResource.enableSharing(configDict.Sharing.Enabled)
+
 def _updatePartitions(configDict):
     if configDict.Partitioning.Enabled:
         partitions.setSelfPartition(configDict.Partitioning.ServerPartitionID)
@@ -925,7 +946,10 @@ def _updateCompliance(configDict):
     if configDict.EnableCardDAV:
         compliance += carddavxml.carddav_compliance
 
-    compliance += customxml.calendarserver_principal_property_search
+    compliance += customxml.calendarserver_principal_property_search_compliance
+
+    if config.Sharing.Enabled:
+        compliance += customxml.calendarserver_sharing_compliance
 
     configDict.CalDAVComplianceClasses = compliance
 
@@ -946,6 +970,7 @@ POST_UPDATE_HOOKS = (
     _updateLogLevels,
     _updateNotifications,
     _updateScheduling,
+    _updateSharing,
     _updatePartitions,
     _updateCompliance,
     )

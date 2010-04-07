@@ -218,8 +218,8 @@ class IMIPInboxResource(CalDAVFile):
 
         return succeed(self.iMIPACL)
 
-    def resourceType(self):
-        return davxml.ResourceType.ischeduleinbox
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.ischeduleinbox)
 
     def isCollection(self):
         return False

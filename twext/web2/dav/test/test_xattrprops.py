@@ -81,40 +81,42 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         self._forbiddenTest('get')
 
 
-    def _makeValue(self):
+    def _makeValue(self, uid=None):
         """
         Create and return any old WebDAVDocument for use by the get tests.
         """
-        element = Depth("0")
+        element = Depth(uid if uid is not None else "0")
         document = WebDAVDocument(element)
         return document
 
 
-    def _setValue(self, originalDocument, value):
+    def _setValue(self, originalDocument, value, uid=None):
         element = originalDocument.root_element
         attribute = (
             self.propertyStore.deadPropertyXattrPrefix +
+            (uid if uid is not None else "") +
             "{%s}%s" % element.qname())
         self.attrs[attribute] = value
 
 
-    def _getValue(self, originalDocument):
+    def _getValue(self, originalDocument, uid=None):
         element = originalDocument.root_element
         attribute = (
             self.propertyStore.deadPropertyXattrPrefix +
+            (uid if uid is not None else "") +
             "{%s}%s" % element.qname())
         return self.attrs[attribute]
 
 
-    def _checkValue(self, originalDocument):
+    def _checkValue(self, originalDocument, uid=None):
         property = originalDocument.root_element.qname()
 
         # Try to load it via xattrPropertyStore.get
-        loadedDocument = self.propertyStore.get(property)
+        loadedDocument = self.propertyStore.get(property, uid)
 
         # XXX Why isn't this a WebDAVDocument?
         self.assertIsInstance(loadedDocument, Depth)
-        self.assertEquals(str(loadedDocument), "0")
+        self.assertEquals(str(loadedDocument), uid if uid else "0")
 
 
     def test_getXML(self):
@@ -306,3 +308,99 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         # Make sure that the status is FORBIDDEN, a roughly reasonable mapping
         # of the EPERM failure.
         self.assertEquals(error.response.code, FORBIDDEN)
+
+    def test_get_uids(self):
+        """
+        L{xattrPropertyStore.get} accepts a L{WebDAVElement} and stores a
+        compressed XML document representing it in an extended attribute.
+        """
+        
+        for uid in (None, "123", "456",):
+            document = self._makeValue(uid)
+            self._setValue(document, document.toxml(), uid=uid)
+
+        for uid in (None, "123", "456",):
+            document = self._makeValue(uid)
+            self._checkValue(document, uid=uid)
+
+
+    def test_set_uids(self):
+        """
+        L{xattrPropertyStore.set} accepts a L{WebDAVElement} and stores a
+        compressed XML document representing it in an extended attribute.
+        """
+        
+        for uid in (None, "123", "456",):
+            document = self._makeValue(uid)
+            self.propertyStore.set(document.root_element, uid=uid)
+            self.assertEquals(
+                decompress(self._getValue(document, uid)), document.toxml())
+
+    def test_delete_uids(self):
+        """
+        L{xattrPropertyStore.set} accepts a L{WebDAVElement} and stores a
+        compressed XML document representing it in an extended attribute.
+        """
+        
+        for delete_uid in (None, "123", "456",):
+            for uid in (None, "123", "456",):
+                document = self._makeValue(uid)
+                self.propertyStore.set(document.root_element, uid=uid)
+            self.propertyStore.delete(document.root_element.qname(), uid=delete_uid)
+            self.assertRaises(KeyError, self._getValue, document, uid=delete_uid)
+            for uid in (None, "123", "456",):
+                if uid == delete_uid:
+                    continue
+                document = self._makeValue(uid)
+                self.assertEquals(
+                    decompress(self._getValue(document, uid)), document.toxml())
+        
+    def test_contains_uids(self):
+        """
+        L{xattrPropertyStore.contains} returns C{True} if the given property
+        has a value, C{False} otherwise.
+        """
+        for uid in (None, "123", "456",):
+            document = self._makeValue(uid)
+            self.assertFalse(
+                self.propertyStore.contains(document.root_element.qname(), uid=uid))
+            self._setValue(document, document.toxml(), uid=uid)
+            self.assertTrue(
+                self.propertyStore.contains(document.root_element.qname(), uid=uid))
+
+    def test_list_uids(self):
+        """
+        L{xattrPropertyStore.list} returns a C{list} of property names
+        associated with the wrapped file.
+        """
+        prefix = self.propertyStore.deadPropertyXattrPrefix
+        for uid in (None, "123", "456",):
+            user = uid if uid is not None else ""
+            self.attrs[prefix + '%s{foo}bar' % (user,)] = 'baz%s' % (user,)
+            self.attrs[prefix + '%s{bar}baz' % (user,)] = 'quux%s' % (user,)
+            self.attrs[prefix + '%s{moo}mar%s' % (user, user,)] = 'quux%s' % (user,)
+
+        for uid in (None, "123", "456",):
+            user = uid if uid is not None else ""
+            self.assertEquals(
+                set(self.propertyStore.list(uid)),
+                set([
+                    (u'foo', u'bar'),
+                    (u'bar', u'baz'),
+                    (u'moo', u'mar%s' % (user,)),
+                ]))
+
+        self.assertEquals(
+            set(self.propertyStore.list(filterByUID=False)),
+            set([
+                (u'foo', u'bar', None),
+                (u'bar', u'baz', None),
+                (u'moo', u'mar', None),
+                (u'foo', u'bar', "123"),
+                (u'bar', u'baz', "123"),
+                (u'moo', u'mar123', "123"),
+                (u'foo', u'bar', "456"),
+                (u'bar', u'baz', "456"),
+                (u'moo', u'mar456', "456"),
+            ]))
+

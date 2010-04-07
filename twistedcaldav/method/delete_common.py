@@ -143,7 +143,7 @@ class DeleteResource(object):
         lock = None
         if not self.internal_request and self.allowImplicitSchedule:
             # Get data we need for implicit scheduling
-            calendar = delresource.iCalendar()
+            calendar = (yield delresource.iCalendarForUser(self.request))
             scheduler = ImplicitScheduler()
             do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(self.request, delresource, calendar))
             if do_implicit_action:
@@ -214,6 +214,18 @@ class DeleteResource(object):
                 errors.add(childurl, responsecode.BAD_REQUEST)
 
         # Now do normal delete
+
+        # Check virtual share first
+        isVirtual = yield delresource.isVirtualShare(self.request)
+        if isVirtual:
+            yield delresource.removeVirtualShare(self.request)
+            returnValue(responsecode.NO_CONTENT)
+
+        # Handle sharing
+        wasShared = (yield delresource.isShared(self.request))
+        if wasShared:
+            yield delresource.downgradeFromShare(self.request)
+
         # Change CTag
         yield delresource.bumpSyncToken()
         more_responses = (yield self.deleteResource(delresource, deluri, parent))
@@ -348,6 +360,12 @@ class DeleteResource(object):
                 errors.add(childurl, responsecode.BAD_REQUEST)
 
         # Now do normal delete
+
+        # Handle sharing
+        wasShared = (yield delresource.isShared(self.request))
+        if wasShared:
+            yield delresource.downgradeFromShare(self.request)
+
         yield delresource.updateCTag()
         more_responses = (yield self.deleteResource(delresource, deluri, parent))
         

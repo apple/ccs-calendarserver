@@ -219,9 +219,9 @@ class WebDAVElement (object):
         return child in self.children
 
 
-    def writeXML(self, output):
-        output.write("<?xml version='1.0' encoding='UTF-8'?>")
-        self.writeToStream(output, "", 0, True)
+    def writeXML(self, output, pretty=True):
+        output.write("<?xml version='1.0' encoding='UTF-8'?>" + ("\n" if pretty else ""))
+        self.writeToStream(output, "", 0, pretty)
 
     
     def writeToStream(self, output, ns, level, pretty):
@@ -294,9 +294,9 @@ class WebDAVElement (object):
 
         output.write(" %s='%s'" % (name, value,))  
       
-    def toxml(self):
+    def toxml(self, pretty=True):
         output = StringIO.StringIO()
-        self.writeXML(output)
+        self.writeXML(output, pretty)
         return str(output.getvalue())
 
     def element(self, document):

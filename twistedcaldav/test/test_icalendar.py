@@ -3124,6 +3124,245 @@ END:VCALENDAR
             elif changed:
                 self.fail("Truncation happened when not expected: %s" % (title,))
 
+    def test_valid_recurrence(self):
+        
+        data = (
+            (
+                "1.1 - no recurrence",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.2 - rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RDATE:20091004T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 5, 0, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.3 - rrule no overrides",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.4 - rrule no overrides + rdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+RDATE:20091004T010000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 2, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.5 - rrule no overrides + rdate + exdate",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+RDATE:20091004T010000Z
+EXDATE:20091003T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 2, 0, 0, tzinfo=tzutc()), False),
+                    (datetime.datetime(2009, 10, 3, 0, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.6 - rrule with override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 1, 0, 0, tzinfo=tzutc()), False),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.7 - rrule + rdate with override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+RRULE:FREQ=DAILY
+RDATE:20071115T010000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T010000Z
+DTSTART:20071115T020000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 1, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2007, 11, 15, 2, 0, 0, tzinfo=tzutc()), False),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.8 - override only",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, False),
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), False),
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
+                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+            (
+                "1.9 - no recurrence one test master",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (None, True),
+                )
+            ),
+            (
+                "1.10 - no recurrence one test master",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                )
+            ),
+            (
+                "1.11 - no recurrence one test missing",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), False),
+                )
+            ),
+        )
+        
+        for clear_cache in (True, False):
+            for title, calendar, tests in data:
+                ical = Component.fromString(calendar)
+                for ctr, item in enumerate(tests):
+                    rid, result = item
+                    self.assertEqual(ical.validInstance(rid, clear_cache=clear_cache), result, "Failed comparison: %s #%d" % (title, ctr+1,))
+
+        for title, calendar, tests in data:
+            ical = Component.fromString(calendar)
+            rids = set([rid for rid, result in tests])
+            expected_results = set([rid for rid, result in tests if result==True])
+            actual_results = ical.validInstances(rids)
+            self.assertEqual(actual_results, expected_results, "Failed comparison: %s %s" % (title, actual_results,))
+
     def test_mismatched_until(self):
         invalid = (
             """BEGIN:VCALENDAR
@@ -3220,3 +3459,519 @@ END:VCALENDAR
                 calendar.validateForCalDAV()
             except:
                 self.fail("Valid calendar should validate")
+
+    def test_allperuseruids(self):
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:OPAQUE
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        calendar = Component.fromString(data)
+        self.assertEqual(calendar.allPerUserUIDs(), set((
+            "user01",
+            "user02",
+        )))
+
+    def test_perUserTransparency(self):
+        data = (
+                    (
+                        "No per-user, not recurring 1.1",
+                        """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"),
+                        (
+                            (
+                                None,
+                                (
+                                    ("", True,),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "Single user, not recurring 1.2",
+                        """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:OPAQUE
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n"),
+                        (
+                            (
+                                None,
+                                (
+                                    ("", False,),
+                                    ("user01", False,),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "Two users, not recurring 1.3",
+                        """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:OPAQUE
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n"),
+                        (
+                            (
+                                None,
+                                (
+                                    ("", False,),
+                                    ("user01", False,),
+                                    ("user02", True,),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "No per-user, simple recurring 2.1",
+                        """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"),
+                        (
+                            (
+                                None,
+                                (
+                                    ("", False,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", False,),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "Single user, simple recurring 2.2",
+                        """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:OPAQUE
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n"),
+                        (
+                            (
+                                None,
+                                (
+                                    ("", False,),
+                                    ("user01", False,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", False,),
+                                    ("user01", False,),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "Two users, simple recurring 2.3",
+                        """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:OPAQUE
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n"),
+                        (
+                            (
+                                None,
+                                (
+                                    ("", False,),
+                                    ("user01", False,),
+                                    ("user02", True,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", False,),
+                                    ("user01", False,),
+                                    ("user02", True,),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "No per-user, complex recurring 3.1",
+                        """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"),
+                        (
+                            (
+                                None,
+                                (
+                                    ("", True,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", False,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 3, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", True,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 4, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", True,),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "Single user, complex recurring 3.2",
+                        """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:OPAQUE
+END:X-CALENDARSERVER-PERINSTANCE
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080602T120000Z
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080603T120000Z
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n"),
+                        (
+                            (
+                                None,
+                                (
+                                    ("", False,),
+                                    ("user01", False,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", False,),
+                                    ("user01", True,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 3, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", False,),
+                                    ("user01", True,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 4, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", False,),
+                                    ("user01", False,),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "Two users, complex recurring 3.3",
+                        """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:OPAQUE
+END:X-CALENDARSERVER-PERINSTANCE
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080602T120000Z
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080603T120000Z
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080602T120000Z
+TRANSP:OPAQUE
+END:X-CALENDARSERVER-PERINSTANCE
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080604T120000Z
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n"),
+                        (
+                            (
+                                None,
+                                (
+                                    ("", False,),
+                                    ("user01", False,),
+                                    ("user02", True,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", False,),
+                                    ("user01", True,),
+                                    ("user02", False,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 3, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", False,),
+                                    ("user01", True,),
+                                    ("user02", True,),
+                                ),
+                            ),
+                            (
+                                datetime.datetime(2008, 6, 4, 12, 0, 0, tzinfo=tzutc()),
+                                (
+                                    ("", False,),
+                                    ("user01", False,),
+                                    ("user02", True,),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
+
+        for title, text, results in data:
+            calendar = Component.fromString(text)
+            for rid, result in results:
+                self.assertEqual(calendar.perUserTransparency(rid), result, "Failed comparison: %s %s" % (title, rid,))

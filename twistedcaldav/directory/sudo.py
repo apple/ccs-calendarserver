@@ -109,6 +109,8 @@ class SudoDirectoryService(DirectoryService):
             return (
                 credentials.authnPrincipal.principalURL(),
                 credentials.authzPrincipal.principalURL(),
+                credentials.authnPrincipal,
+                credentials.authzPrincipal,
                 )
         else:
             raise UnauthorizedLogin(

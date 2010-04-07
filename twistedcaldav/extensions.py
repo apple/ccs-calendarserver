@@ -472,7 +472,8 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
 
         if namespace == dav_namespace:
             if name == "resourcetype":
-                returnValue(self.resourceType())
+                rtype = (yield self.resourceType(request))
+                returnValue(rtype)
 
         elif namespace == calendarserver_namespace:
             if name == "expanded-group-member-set":
@@ -513,14 +514,14 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
     def expandedGroupMemberships(self):
         return succeed(())
 
-    def resourceType(self):
+    def resourceType(self, request):
         # Allow live property to be overridden by dead property
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
-            return self.deadProperties().get((dav_namespace, "resourcetype"))
+            return succeed(self.deadProperties().get((dav_namespace, "resourcetype")))
         if self.isCollection():
-            return davxml.ResourceType(davxml.Collection(), davxml.Principal())
+            return succeed(davxml.ResourceType(davxml.Collection(), davxml.Principal()))
         else:
-            return davxml.ResourceType(davxml.Principal())
+            return succeed(davxml.ResourceType(davxml.Principal()))
 
 
 class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn):
@@ -534,17 +535,17 @@ class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn):
             qname = property.qname()
 
         if qname == (dav_namespace, "resourcetype"):
-            return succeed(self.resourceType())
+            return self.resourceType(request)
 
         return super(DAVFile, self).readProperty(property, request)
 
-    def resourceType(self):
+    def resourceType(self, request):
         # Allow live property to be overridden by dead property
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
-            return self.deadProperties().get((dav_namespace, "resourcetype"))
+            return succeed(self.deadProperties().get((dav_namespace, "resourcetype")))
         if self.isCollection():
-            return davxml.ResourceType.collection
-        return davxml.ResourceType.empty
+            return succeed(davxml.ResourceType.collection)
+        return succeed(davxml.ResourceType.empty)
 
     def render(self, request):
         if not self.fp.exists():
@@ -861,37 +862,43 @@ class CachingPropertyStore (LoggingMixIn):
         self.propertyStore = propertyStore
         self.resource = propertyStore.resource
 
-    def get(self, qname):
+    def get(self, qname, uid=None):
         #self.log_debug("Get: %r, %r" % (self.resource.fp.path, qname))
 
         cache = self._cache()
+        
+        cachedQname = qname + (uid,)
 
-        if qname in cache:
-            property = cache.get(qname, None)
+        if cachedQname in cache:
+            property = cache.get(cachedQname, None)
             if property is None:
                 self.log_debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
                 try:
-                    property = self.propertyStore.get(qname)
+                    property = self.propertyStore.get(qname, uid)
                 except HTTPError:
-                    del cache[qname]
+                    del cache[cachedQname]
                     raise PropertyNotFoundError(qname)
-                cache[qname] = property
+                cache[cachedQname] = property
 
             return property
         else:
             raise PropertyNotFoundError(qname)
 
-    def set(self, property):
+    def set(self, property, uid=None):
         #self.log_debug("Set: %r, %r" % (self.resource.fp.path, property))
 
         cache = self._cache()
 
-        cache[property.qname()] = None
-        self.propertyStore.set(property)
-        cache[property.qname()] = property
+        cachedQname = property.qname() + (uid,)
 
-    def contains(self, qname):
+        cache[cachedQname] = None
+        self.propertyStore.set(property, uid)
+        cache[cachedQname] = property
+
+    def contains(self, qname, uid=None):
         #self.log_debug("Contains: %r, %r" % (self.resource.fp.path, qname))
+
+        cachedQname = qname + (uid,)
 
         try:
             cache = self._cache()
@@ -901,30 +908,40 @@ class CachingPropertyStore (LoggingMixIn):
             else:
                 raise
 
-        if qname in cache:
+        if cachedQname in cache:
             #self.log_debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
             return True
         else:
             return False
 
-    def delete(self, qname):
+    def delete(self, qname, uid=None):
         #self.log_debug("Delete: %r, %r" % (self.resource.fp.path, qname))
 
-        if self._data is not None and qname in self._data:
-            del self._data[qname]
+        cachedQname = qname + (uid,)
 
-        self.propertyStore.delete(qname)
+        if self._data is not None and cachedQname in self._data:
+            del self._data[cachedQname]
 
-    def list(self):
+        self.propertyStore.delete(qname, uid)
+
+    def list(self, uid=None, filterByUID=True):
         #self.log_debug("List: %r" % (self.resource.fp.path,))
-        return self._cache().iterkeys()
+        keys = self._cache().iterkeys()
+        if filterByUID:
+            return [ 
+                (namespace, name)
+                for namespace, name, propuid in keys
+                if propuid == uid
+            ]
+        else:
+            return keys
 
     def _cache(self):
         if not hasattr(self, "_data"):
             #self.log_debug("Cache init: %r" % (self.resource.fp.path,))
             self._data = dict(
                 (name, None)
-                for name in self.propertyStore.list()
+                for name in self.propertyStore.list(filterByUID=False)
             )
         return self._data
 

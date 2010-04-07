@@ -22,52 +22,56 @@ __all__ = ["http_GET"]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2.dav import davxml
+from twext.web2.dav.util import parentForURL
 from twext.web2.http import HTTPError
 from twext.web2.http import Response
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
-from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import ScheduleTag
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
-from twistedcaldav.ical import Component
+from twistedcaldav.datafilters.privateevents import PrivateEventFilter
+from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 @inlineCallbacks
 def http_GET(self, request):
 
     # Look for calendar access restriction on existing resource.
     if self.exists():
-        try:
-            access = self.readDeadProperty(TwistedCalendarAccessProperty)
-        except HTTPError:
-            access = None
-            
-        if access in (Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED):
+        parentURL = parentForURL(request.uri)
+        parent = (yield request.locateResource(parentURL))
+        if isPseudoCalendarCollectionResource(parent):
     
             # Check authorization first
             yield self.authorize(request, (davxml.Read(),))
 
-            # Non DAV:owner's have limited access to the data
-            isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
-            
-            if not isowner:
-                # Now "filter" the resource calendar data through the CALDAV:calendar-data element and apply
-                # access restrictions to the data.
-                caldata = caldavxml.CalendarData().elementFromResourceWithAccessRestrictions(self, access).calendarData()
+            caldata = (yield self.iCalendarForUser(request))
 
-                response = Response()
-                response.stream = MemoryStream(caldata)
-                response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
-                returnValue(response)
-
+            try:
+                access = self.readDeadProperty(TwistedCalendarAccessProperty)
+            except HTTPError:
+                access = None
+                
+            if access:
+        
+                # Non DAV:owner's have limited access to the data
+                isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+                
+                # Now "filter" the resource calendar data
+                caldata = PrivateEventFilter(access, isowner).filter(caldata)
+    
+            response = Response()
+            response.stream = MemoryStream(str(caldata))
+            response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
+    
+            # Add Schedule-Tag header if property is present
+            if self.hasDeadProperty(ScheduleTag):
+                scheduletag = self.readDeadProperty(ScheduleTag)
+                if scheduletag:
+                    response.headers.setHeader("Schedule-Tag", str(scheduletag))
+        
+            returnValue(response)
 
     # Do normal GET behavior
     response = (yield super(CalDAVFile, self).http_GET(request))
-    
-    # Add Schedule-Tag header if property is present
-    if self.exists() and self.hasDeadProperty(ScheduleTag):
-        scheduletag = self.readDeadProperty(ScheduleTag)
-        if scheduletag:
-            response.headers.setHeader("Schedule-Tag", str(scheduletag))
-
     returnValue(response)

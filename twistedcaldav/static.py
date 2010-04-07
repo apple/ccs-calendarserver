@@ -32,6 +32,8 @@ __all__ = [
     "DropBoxCollectionFile",
     "DropBoxChildFile",
     "TimezoneServiceFile",
+    "NotificationCollectionFile",
+    "NotificationFile",
     "AddressBookHomeProvisioningFile",
     "AddressBookHomeUIDProvisioningFile",
     "AddressBookHomeFile",
@@ -45,7 +47,6 @@ from urlparse import urlsplit
 from uuid import uuid4
 
 from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
 
 from twisted.internet.defer import fail, succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
@@ -54,12 +55,14 @@ from twext.web2 import responsecode, http, http_headers
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
-from twext.web2.dav.fileop import mkcollection, rmdir
+from twext.web2.dav.fileop import mkcollection, rmdir, delete
+from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.idav import IDAVResource
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.dav.resource import davPrivilegeSet
 from twext.web2.dav.util import parentForURL, bindMethods, joinURL
+from twext.web2.http_headers import generateContentType, MimeType
 
 from twistedcaldav import caldavxml
 from twistedcaldav import carddavxml
@@ -68,6 +71,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.client.reverseproxy import ReverseProxyResource
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty, TwistedScheduleMatchETags
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.memcacheprops import MemcachePropertyCollection
@@ -78,6 +82,7 @@ from twistedcaldav.index import Index, IndexSchedule, SyncTokenValidException
 from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
 from twistedcaldav.resource import isAddressBookCollectionResource, SearchAddressBookResource, SearchAllAddressBookResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource, IScheduleInboxResource
+from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.directory.addressbook import uidsResourceName as uidsResourceNameAddressBook
@@ -91,11 +96,14 @@ from twistedcaldav.directory.calendar import DirectoryCalendarHomeTypeProvisioni
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeUIDProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeResource
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
+from twistedcaldav.sharing import SharedHomeMixin
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.vcardindex import AddressBookIndex
 from twistedcaldav.notify import getPubSubConfiguration, getPubSubXMPPURI
 from twistedcaldav.notify import getPubSubHeartbeatURI, getPubSubPath
 from twistedcaldav.notify import ClientNotifier, getNodeCacher
+from twistedcaldav.notifications import NotificationCollectionResource,\
+    NotificationResource
 
 log = Logger()
 
@@ -175,12 +183,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
     ##
     # CalDAV
     ##
-
-    def resourceType(self):
-        if self.isCalendarCollection():
-            return davxml.ResourceType.calendar
-        else:
-            return super(CalDAVFile, self).resourceType()
 
     def createCalendar(self, request):
         #
@@ -275,6 +277,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
             tzids = set()
             isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+            accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
             for name, uid, type in self.index().bruteForceSearch(): #@UnusedVariable
                 try:
@@ -291,7 +294,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                         continue
 
                     # Get the access filtered view of the data
-                    caldata = child.iCalendarTextFiltered(isowner)
+                    caldata = child.iCalendarTextFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
                     try:
                         subcalendar = iComponent.fromString(caldata)
                     except ValueError:
@@ -313,20 +316,17 @@ class CalDAVFile (CalDAVResource, DAVFile):
 
         raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST))
 
-    def iCalendarTextFiltered(self, isowner):
+    def iCalendarTextFiltered(self, isowner, accessUID=None):
         try:
             access = self.readDeadProperty(TwistedCalendarAccessProperty)
         except HTTPError:
             access = None
 
-        if access in (iComponent.ACCESS_CONFIDENTIAL, iComponent.ACCESS_RESTRICTED):
-
-            if not isowner:
-                # Now "filter" the resource calendar data through the CALDAV:calendar-data element and apply
-                # access restrictions to the data.
-                return caldavxml.CalendarData().elementFromResourceWithAccessRestrictions(self, access).calendarData()
-
-        return self.iCalendarText()
+        # Now "filter" the resource calendar data
+        caldata = PrivateEventFilter(access, isowner).filter(self.iCalendarText())
+        if accessUID:
+            caldata = PerUserDataFilter(accessUID).filter(caldata)
+        return str(caldata)
 
     def iCalendarText(self, name=None):
         if self.isPseudoCalendarCollection():
@@ -355,9 +355,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
             calendar_file.close()
 
         return calendar_data
-
-    def iCalendarXML(self, name=None):
-        return caldavxml.CalendarData.fromCalendar(self.iCalendarText(name))
 
     def createAddressBook(self, request):
         #
@@ -906,7 +903,7 @@ class CalendarHomeReverseProxyFile(ReverseProxyResource):
     def url(self):
         return joinURL(self.parent.url(), self.record.uid)
 
-class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource, CalDAVFile):
+class CalendarHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, DirectoryCalendarHomeResource, CalDAVFile):
     """
     Calendar home collection resource.
     """
@@ -924,6 +921,12 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
 
+    def provision(self):
+        result = super(CalendarHomeFile, self).provision()
+        if config.Sharing.Enabled:
+            self.provisionShares()
+        return result
+
     def provisionChild(self, name):
         if config.EnableDropBox:
             DropBoxHomeFileClass = DropBoxHomeFile
@@ -935,18 +938,23 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeResource
         else:
             FreeBusyURLFileClass = None
             
+        if config.Sharing.Enabled:
+            NotificationCollectionFileClass = NotificationCollectionFile
+        else:
+            NotificationCollectionFileClass = None
+
         cls = {
             "inbox"        : ScheduleInboxFile,
             "outbox"       : ScheduleOutboxFile,
             "dropbox"      : DropBoxHomeFileClass,
             "freebusy"     : FreeBusyURLFileClass,
+            "notification" : NotificationCollectionFileClass,
         }.get(name, None)
 
         if cls is not None:
             child = cls(self.fp.child(name).path, self)
             child.clientNotifier = self.clientNotifier
             return child
-
         return self.createSimilarFile(self.fp.child(name).path)
 
     def createSimilarFile(self, path):
@@ -1274,6 +1282,60 @@ class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
 
     def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
         return succeed(None)
+
+class NotificationCollectionFile(AutoProvisioningFileMixIn, NotificationCollectionResource, CalDAVFile):
+    """
+    Notification collection resource.
+    """
+    def __init__(self, path, parent):
+        NotificationCollectionResource.__init__(self)
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+        self.parent = parent
+
+    def createSimilarFile(self, path):
+        if self.comparePath(path):
+            return self
+        else:
+            return NotificationFile(path, self)
+
+    def __repr__(self):
+        return "<%s (notification collection): %s>" % (self.__class__.__name__, self.fp.path)
+
+    def _writeNotification(self, request, uid, rname, xmltype, xmldata):
+        
+        # TODO: use the generic StoreObject api so that quota, sync-token etc all get changed properly
+        child = self.createSimilarFile(self.fp.child(rname).path)
+        child.fp.setContent(xmldata)
+        child.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset":"utf-8"}))))
+        child.writeDeadProperty(customxml.NotificationType(xmltype))
+        
+        return succeed(True)
+
+    def _deleteNotification(self, request, rname):
+        
+        # TODO: use the generic DeleteResource api so that quota, sync-token etc all get changed properly
+        childfp = self.fp.child(rname)
+        return delete("", childfp)
+
+class NotificationFile(NotificationResource, CalDAVFile):
+
+    def __init__(self, path, parent):
+        NotificationResource.__init__(self, parent)
+        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
+
+        assert self.fp.isfile() or not self.fp.exists()
+
+    def createSimilarFile(self, path):
+        if self.comparePath(path):
+            return self
+        else:
+            return responsecode.NOT_FOUND
+
+    def __repr__(self):
+        return "<%s (notification file): %s>" % (self.__class__.__name__, self.fp.path)
+        
+    def resourceName(self):
+        return self.fp.basename()
 
 class AddressBookHomeProvisioningFile (DirectoryAddressBookHomeProvisioningResource, DAVFile):
     """

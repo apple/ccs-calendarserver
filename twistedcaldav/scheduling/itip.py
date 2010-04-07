@@ -667,12 +667,15 @@ class iTipGenerator(object):
         Remove properties and parameters that should not be sent in an iTIP message
         """
 
+        # All X- components go away
+        itip.removeXComponents()
+
         # Alarms
         itip.removeAlarms()
 
         # Top-level properties - remove all X-
         itip.removeXProperties(do_subcomponents=False)
-                
+
         # Component properties - remove all X- except for those specified
         if not reply:
             # Organizer properties that need to go to the Attendees

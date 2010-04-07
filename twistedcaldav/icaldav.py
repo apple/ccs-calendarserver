@@ -94,20 +94,6 @@ class ICalDAVResource(IDAVResource):
             of type C{"VCALENDAR"}.
         """
 
-    def iCalendarXML(name=None):
-        """
-        Constructs a CalDAV XML element representing this resource or its child
-        with the given name.
-        The behavior of this method is not specified if it is called on a
-        resource that is not a calendar collection or a calendar resource within
-        a calendar collection.
-        @param name: the name of the desired child of this resource, or None
-            if this resource is desired.  Must be None if this resource is
-            not a calendar collection.
-        @return: a L{twistedcaldav.caldavxml.CalendarData} containing the
-            iCalendar data for the requested resource.
-        """
-
 class ICalendarPrincipalResource(IDAVResource):
     """
     CalDAV principle resource.

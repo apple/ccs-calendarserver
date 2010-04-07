@@ -26,7 +26,7 @@ import datetime
 
 from vobject.icalendar import utc
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twext.python.log import Logger
 from twext.web2 import responsecode
@@ -99,8 +99,8 @@ class FreeBusyURLResource (CalDAVResource):
             )
         return davxml.ACL(*aces)
 
-    def resourceType(self):
-        return davxml.ResourceType.freebusyurl
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.freebusyurl)
 
     def isCollection(self):
         return False

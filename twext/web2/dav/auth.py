@@ -96,7 +96,12 @@ class TwistedPropertyChecker(object):
         pswd = str(pcreds.authnPrincipal.readDeadProperty(TwistedPasswordProperty))
 
         d = defer.maybeDeferred(credentials.checkPassword, pswd)
-        d.addCallback(self._cbPasswordMatch, (pcreds.authnPrincipal.principalURL(), pcreds.authzPrincipal.principalURL()))
+        d.addCallback(self._cbPasswordMatch, (
+            pcreds.authnPrincipal.principalURL(),
+            pcreds.authzPrincipal.principalURL(),
+            pcreds.authnPrincipal,
+            pcreds.authzPrincipal,
+        ))
         return d
 
 ##

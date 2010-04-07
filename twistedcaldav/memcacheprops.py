@@ -76,7 +76,7 @@ class MemcachePropertyCollection (LoggingMixIn):
         #    "/path/to/resource/file":
         #      (
         #        {
-        #          (namespace, name): property,
+        #          (namespace, name, uid): property,
         #          ...,
         #        },
         #        memcache_token,
@@ -192,8 +192,8 @@ class MemcachePropertyCollection (LoggingMixIn):
 
             propertyStore = child.deadProperties()
             props = {}
-            for qname in propertyStore.list(cache=False):
-                props[qname] = propertyStore.get(qname, cache=False)
+            for pnamespace, pname, puid in propertyStore.list(filterByUID=False, cache=False):
+                props[(pnamespace, pname, puid,)] = propertyStore.get((pnamespace, pname,), uid=puid, cache=False)
 
             cache[child.fp.path] = props
 
@@ -201,16 +201,18 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         return cache
 
-    def setProperty(self, child, property, delete=False):
+    def setProperty(self, child, property, uid, delete=False):
         propertyCache, key, childCache, token = self.childCache(child)
 
         if delete:
             qname = property
-            if childCache.has_key(qname):
-                del childCache[qname]
+            qnameuid = qname + (uid,)
+            if childCache.has_key(qnameuid):
+                del childCache[qnameuid]
         else:
             qname = property.qname()
-            childCache[qname] = property
+            qnameuid = qname + (uid,)
+            childCache[qnameuid] = property
 
         client = self.memcacheClient()
 
@@ -238,20 +240,24 @@ class MemcachePropertyCollection (LoggingMixIn):
                 propertyCache, key, childCache, token = self.childCache(child)
 
                 if delete:
-                    if childCache.has_key(qname):
-                        del childCache[qname]
+                    if childCache.has_key(qnameuid):
+                        del childCache[qnameuid]
                 else:
-                    childCache[qname] = property
+                    childCache[qnameuid] = property
 
             else:
                 log.error("memcacheprops setProperty had too many failures")
                 delattr(self, "_propertyCache")
-                raise MemcacheError("Unable to %s property {%s}%s on %s"
-                    % ("delete" if delete else "set",
-                    qname[0], qname[1], child))
+                raise MemcacheError("Unable to %s property %s{%s}%s on %s" % (
+                    "delete" if delete else "set",
+                    uid if uid else "",
+                    qname[0],
+                    qname[1],
+                    child
+                ))
 
-    def deleteProperty(self, child, qname):
-        return self.setProperty(child, qname, delete=True)
+    def deleteProperty(self, child, qname, uid):
+        return self.setProperty(child, qname, uid, delete=True)
 
     def flushCache(self, child):
         path = child.fp.path
@@ -285,49 +291,72 @@ class MemcachePropertyCollection (LoggingMixIn):
         def flushCache(self):
             self.parentPropertyCollection.flushCache(self.child)
 
-        def get(self, qname, cache=True):
+        def get(self, qname, uid=None, cache=True):
             if cache:
                 propertyCache = self.propertyCache()
-                if qname in propertyCache:
-                    return propertyCache[qname]
+                qnameuid = qname + (uid,)
+                if qnameuid in propertyCache:
+                    return propertyCache[qnameuid]
                 else:
                     raise HTTPError(StatusResponse(
                         responsecode.NOT_FOUND,
-                        "No such property: {%s}%s" % qname
+                        "No such property: %s{%s}%s" % (uid if uid else "", qname[0], qname[1],)
                     ))
 
-            self.log_debug("Read for %s on %s"
-                           % (qname, self.childPropertyStore.resource.fp.path))
-            return self.childPropertyStore.get(qname)
+            self.log_debug("Read for %s%s on %s" % (
+                ("{%s}:" % (uid,)) if uid else "",
+                qname,
+                self.childPropertyStore.resource.fp.path
+            ))
+            return self.childPropertyStore.get(qname, uid=uid)
 
-        def set(self, property):
-            self.log_debug("Write for %s on %s"
-                           % (property.qname(), self.childPropertyStore.resource.fp.path))
+        def set(self, property, uid=None):
+            self.log_debug("Write for %s%s on %s" % (
+                ("{%s}:" % (uid,)) if uid else "",
+                property.qname(),
+                self.childPropertyStore.resource.fp.path
+            ))
 
-            self.parentPropertyCollection.setProperty(self.child, property)
-            self.childPropertyStore.set(property)
+            self.parentPropertyCollection.setProperty(self.child, property, uid)
+            self.childPropertyStore.set(property, uid=uid)
 
-        def delete(self, qname):
-            self.log_debug("Delete for %s on %s"
-                           % (qname, self.childPropertyStore.resource.fp.path))
+        def delete(self, qname, uid=None):
+            self.log_debug("Delete for %s%s on %s" % (
+                ("{%s}:" % (uid,)) if uid else "",
+                qname,
+                self.childPropertyStore.resource.fp.path
+            ))
 
-            self.parentPropertyCollection.deleteProperty(self.child, qname)
-            self.childPropertyStore.delete(qname)
+            self.parentPropertyCollection.deleteProperty(self.child, qname, uid)
+            self.childPropertyStore.delete(qname, uid=uid)
 
-        def contains(self, qname, cache=True):
+        def contains(self, qname, uid=None, cache=True):
             if cache:
                 propertyCache = self.propertyCache()
-                return qname in propertyCache
+                qnameuid = qname + (uid,)
+                return qnameuid in propertyCache
 
-            self.log_debug("Contains for %s"
-                           % (self.childPropertyStore.resource.fp.path,))
-            return self.childPropertyStore.contains(qname)
+            self.log_debug("Contains for %s%s on %s" % (
+                ("{%s}:" % (uid,)) if uid else "",
+                qname,
+                self.childPropertyStore.resource.fp.path,
+            ))
+            return self.childPropertyStore.contains(qname, uid=uid)
 
-        def list(self, cache=True):
+        def list(self, uid=None, filterByUID=True, cache=True):
             if cache:
                 propertyCache = self.propertyCache()
-                return propertyCache.iterkeys()
+                results = propertyCache.keys()
+                if filterByUID:
+                    return [ 
+                        (namespace, name)
+                        for namespace, name, propuid in results
+                        if propuid == uid
+                    ]
+                else:
+                    return results
+                
 
             self.log_debug("List for %s"
                            % (self.childPropertyStore.resource.fp.path,))
-            return self.childPropertyStore.list()
+            return self.childPropertyStore.list(uid=uid, filterByUID=filterByUID)

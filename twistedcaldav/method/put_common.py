@@ -55,6 +55,7 @@ from twistedcaldav.customxml import calendarserver_namespace ,\
     TwistedCalendarHasPrivateCommentsProperty, TwistedSchedulingObjectResource,\
     TwistedScheduleMatchETags
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.fileops import copyToWithXAttrs, copyXAttrs
 from twistedcaldav.fileops import putWithXAttrs
 from twistedcaldav.fileops import copyWithXAttrs
@@ -315,7 +316,11 @@ class StoreCalendarObjectResource(object):
                         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
                 
                     # At this point we need the calendar data to do more tests
-                    self.calendar = self.source.iCalendar()
+                    try:
+                        self.calendar = (yield self.source.iCalendarForUser(self.request))
+                    except ValueError, e:
+                        log.err(str(e))
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Can't parse calendar data"))
                 else:
                     try:
                         if type(self.calendar) in (types.StringType, types.UnicodeType,):
@@ -364,7 +369,7 @@ class StoreCalendarObjectResource(object):
 
                 # FIXME: We need this here because we have to re-index the destination. Ideally it
                 # would be better to copy the index entries from the source and add to the destination.
-                self.calendar = self.source.iCalendar()
+                self.calendar = (yield self.source.iCalendarForUser(self.request))
 
             # Check access
             if self.destinationcal and config.EnablePrivateEvents:
@@ -375,7 +380,7 @@ class StoreCalendarObjectResource(object):
 
         elif self.sourcecal:
             self.source_index = self.sourceparent.index()
-            self.calendar = self.source.iCalendar()
+            self.calendar = (yield self.source.iCalendarForUser(self.request))
     
     @inlineCallbacks
     def validCopyMoveOperation(self):
@@ -692,6 +697,7 @@ class StoreCalendarObjectResource(object):
         else:
             return False
 
+    @inlineCallbacks
     def preservePrivateComments(self):
         # Check for private comments on the old resource and the new resource and re-insert
         # ones that are lost.
@@ -709,14 +715,14 @@ class StoreCalendarObjectResource(object):
             if old_has_private_comments and not new_has_private_comments:
                 # Transfer old comments to new calendar
                 log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
-                old_calendar = self.destination.iCalendar()
+                old_calendar = (yield self.destination.iCalendarForUser(self.request))
                 self.calendar.transferProperties(old_calendar, (
                     "X-CALENDARSERVER-PRIVATE-COMMENT",
                     "X-CALENDARSERVER-ATTENDEE-COMMENT",
                 ))
                 self.calendardata = None
         
-        return new_has_private_comments
+        returnValue(new_has_private_comments)
 
     @inlineCallbacks
     def doImplicitScheduling(self):
@@ -789,7 +795,26 @@ class StoreCalendarObjectResource(object):
         returnValue((is_scheduling_resource, data_changed, did_implicit_action,))
 
     @inlineCallbacks
+    def mergePerUserData(self):
+        
+        if self.calendar:
+            accessUID = (yield self.destination.resourceOwnerPrincipal(self.request))
+            accessUID = accessUID.principalUID() if accessUID else ""
+            oldCal = self.destination.iCalendar() if self.destination.exists() and self.destinationcal else None
+            
+            # Duplicate before we do the merge because someone else may "own" the calendar object
+            # and we should not change it. This is not ideal as we may duplicate it unnecessarily
+            # but we currently have no api to let the caller tell us whether it cares about the
+            # whether the calendar data is changed or not.
+            self.calendar = PerUserDataFilter(accessUID).merge(self.calendar.duplicate(), oldCal)
+            self.calendardata = None
+            
+    @inlineCallbacks
     def doStore(self, implicit):
+
+        # Always do the per-user data merge right before we store
+        yield self.mergePerUserData()
+
         # Do put or copy based on whether source exists
         if self.source is not None:
             if implicit:
@@ -966,7 +991,7 @@ class StoreCalendarObjectResource(object):
             rruleChanged = self.truncateRecurrence()
 
             # Preserve private comments
-            new_has_private_comments = self.preservePrivateComments()
+            new_has_private_comments = (yield self.preservePrivateComments())
     
             # Do scheduling
             implicit_result = (yield self.doImplicitScheduling())

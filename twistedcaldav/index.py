@@ -47,10 +47,9 @@ from twisted.internet.defer import maybeDeferred, succeed
 from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav.ical import Component
-from twistedcaldav.query import calendarquery
+from twistedcaldav.query import calendarquery, queryfilter
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
-from twistedcaldav import caldavxml
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.config import config
 from twistedcaldav.memcachepool import CachePoolUserMixIn
@@ -58,7 +57,7 @@ from twistedcaldav.memcachepool import CachePoolUserMixIn
 log = Logger()
 
 db_basename = db_prefix + "sqlite"
-schema_version = "9"
+schema_version = "10"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
 
 icalfbtype_to_indexfbtype = {
@@ -298,7 +297,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         
         return changed, deleted,
 
-    def indexedSearch(self, filter, fbtype=False):
+    def indexedSearch(self, filter, useruid="", fbtype=False):
         """
         Finds resources matching the given qualifiers.
         @param filter: the L{Filter} for the calendar-query to execute.
@@ -310,7 +309,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
 
         # Make sure we have a proper Filter element and get the partial SQL
         # statement to use.
-        if isinstance(filter, caldavxml.Filter):
+        if isinstance(filter, queryfilter.Filter):
             qualifiers = calendarquery.sqlcalendarquery(filter)
             if qualifiers is not None:
                 # Determine how far we need to extend the current expansion of
@@ -335,10 +334,25 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             rowiter = self._db_execute("select NAME, UID, TYPE from RESOURCE")
         else:
             if fbtype:
+                # Lookup the useruid - try the empty (default) one if needed
+                dbuseruid = self._db_value_for_sql(
+                    "select PERUSERID from PERUSER where USERUID == :1",
+                    useruid,
+                )
+                count = self._db_value_for_sql(
+                    "select COUNT(PERUSERID) from TRANSPARENCY where PERUSERID == :1",
+                    dbuseruid,
+                )
+                if dbuseruid is None or count == 0:
+                    dbuseruid = self._db_value_for_sql(
+                        "select PERUSERID from PERUSER where USERUID == :1",
+                        "",
+                    )
+                    
                 # For a free-busy time-range query we return all instances
                 rowiter = self._db_execute(
-                    "select RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE, RESOURCE.ORGANIZER, TIMESPAN.FLOAT, TIMESPAN.START, TIMESPAN.END, TIMESPAN.FBTYPE" + 
-                    qualifiers[0],
+                    "select RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE, RESOURCE.ORGANIZER, TIMESPAN.FLOAT, TIMESPAN.START, TIMESPAN.END, TIMESPAN.FBTYPE, TRANSPARENCY.TRANSPARENT" + 
+                    qualifiers[0] + " AND TRANSPARENCY.PERUSERID == '%s'" % (dbuseruid,),
                     *qualifiers[1]
                 )
             else:
@@ -430,6 +444,7 @@ class CalendarIndex (AbstractCalendarIndex):
         q.execute(
             """
             create table RESOURCE (
+                RESOURCEID     integer primary key autoincrement,
                 NAME           text unique,
                 UID            text%s,
                 TYPE           text,
@@ -455,17 +470,53 @@ class CalendarIndex (AbstractCalendarIndex):
         q.execute(
             """
             create table TIMESPAN (
-                NAME   text,
-                FLOAT  text(1),
-                START  date,
-                END    date,
-                FBTYPE text(1)
+                INSTANCEID   integer primary key autoincrement,
+                RESOURCEID   integer,
+                FLOAT        text(1),
+                START        date,
+                END          date,
+                FBTYPE       text(1)
             )
             """
         )
         q.execute(
             """
             create index STARTENDFLOAT on TIMESPAN (START, END, FLOAT)
+            """
+        )
+
+        #
+        # PERUSER table tracks per-user ids
+        #   PERUSERID: autoincrement primary key
+        #   UID: User ID used in calendar data
+        #
+        q.execute(
+            """
+            create table PERUSER (
+                PERUSERID       integer primary key autoincrement,
+                USERUID         text
+            )
+            """
+        )
+        q.execute(
+            """
+            create index PERUSER_UID on PERUSER (USERUID)
+            """
+        )
+
+        #
+        # TRANSPARENCY table tracks per-user per-instance transparency
+        #   PERUSERID: user id key
+        #   INSTANCEID: instance id key
+        #   TRANSPARENT: Y if transparent, N if opaque
+        #
+        q.execute(
+            """
+            create table TRANSPARENCY (
+                PERUSERID       integer,
+                INSTANCEID      integer,
+                TRANSPARENT     text(1)
+            )
             """
         )
 
@@ -506,41 +557,41 @@ class CalendarIndex (AbstractCalendarIndex):
                 """
             )
 
+        # Cascading triggers to help on delete
+        q.execute(
+            """
+            create trigger resourceDelete after delete on RESOURCE
+            for each row
+            begin
+                delete from TIMESPAN where TIMESPAN.RESOURCEID = OLD.RESOURCEID;
+            end
+            """
+        )
+        q.execute(
+            """
+            create trigger timespanDelete after delete on TIMESPAN
+            for each row
+            begin
+                delete from TRANSPARENCY where INSTANCEID = OLD.INSTANCEID;
+            end
+            """
+        )
+        
     def _db_can_upgrade(self, old_version):
         """
         Can we do an in-place upgrade
         """
         
-        # Previous versions can be upgraded as per _db_upgrade_data_tables
-        return True
+        # v10 is a big change - no upgrade possible
+        return False
 
     def _db_upgrade_data_tables(self, q, old_version):
         """
         Upgrade the data from an older version of the DB.
         """
 
-        # When going to version 7+ all we need to do is add a column to the resource and timespan
-        if old_version < "7":
-            q.execute("alter table RESOURCE add column ORGANIZER text default '?'")
-            q.execute("alter table TIMESPAN add column FBTYPE text(1) default '?'")
-
-        # When going to version 8+ all we need to do is add an index
-        if old_version < "8":
-            q.execute("create index STARTENDFLOAT on TIMESPAN (START, END, FLOAT)")
-
-        # When going to version 9+ all we need to do is add revision table and index
-        if old_version < "9":
-            q.execute(
-                """
-                create table REVISIONS (
-                    NAME            text unique,
-                    REVISION        integer,
-                    CREATEDREVISION integer,
-                    WASDELETED      text(1)
-                )
-                """
-            )
-            q.execute("create index REVISION on REVISIONS (REVISION)")
+        # v10 is a big change - no upgrade possible
+        pass
 
     def notExpandedBeyond(self, minDate):
         """
@@ -598,6 +649,35 @@ class CalendarIndex (AbstractCalendarIndex):
 
         self._delete_from_db(name, uid, None)
 
+        # Add RESOURCE item
+        self._db_execute(
+            """
+            insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX, ORGANIZER)
+            values (:1, :2, :3, :4, :5)
+            """, name, uid, calendar.resourceType(), instances.limit, organizer
+        )
+        resourceid = self.lastrowid
+
+        # Get a set of all referenced per-user UIDs and map those to entries already
+        # in the DB and add new ones as needed
+        useruids = calendar.allPerUserUIDs()
+        useruids.add("")
+        useruidmap = {}
+        for useruid in useruids:
+            peruserid = self._db_value_for_sql(
+                "select PERUSERID from PERUSER where USERUID = :1",
+                useruid
+            )
+            if peruserid is None:
+                self._db_execute(
+                    """
+                    insert into PERUSER (USERUID)
+                    values (:1)
+                    """, useruid
+                )
+                peruserid = self.lastrowid
+            useruidmap[useruid] = peruserid
+            
         for key in instances:
             instance = instances[key]
             start = instance.start.replace(tzinfo=utc)
@@ -605,10 +685,21 @@ class CalendarIndex (AbstractCalendarIndex):
             float = 'Y' if instance.start.tzinfo is None else 'N'
             self._db_execute(
                 """
-                insert into TIMESPAN (NAME, FLOAT, START, END, FBTYPE)
+                insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE)
                 values (:1, :2, :3, :4, :5)
-                """, name, float, start, end, icalfbtype_to_indexfbtype.get(instance.component.getFBType(), 'F')
+                """, resourceid, float, start, end, icalfbtype_to_indexfbtype.get(instance.component.getFBType(), 'F')
             )
+            instanceid = self.lastrowid
+            peruserdata = calendar.perUserTransparency(instance.rid)
+            for useruid, transp in peruserdata:
+                peruserid = useruidmap[useruid]
+                self._db_execute(
+                    """
+                    insert into TRANSPARENCY (PERUSERID, INSTANCEID, TRANSPARENT)
+                    values (:1, :2, :3)
+                    """, peruserid, instanceid, 'T' if transp else 'F'
+                )
+                    
 
         # Special - for unbounded recurrence we insert a value for "infinity"
         # that will allow an open-ended time-range to always match it.
@@ -618,18 +709,21 @@ class CalendarIndex (AbstractCalendarIndex):
             float = 'N'
             self._db_execute(
                 """
-                insert into TIMESPAN (NAME, FLOAT, START, END, FBTYPE)
+                insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE)
                 values (:1, :2, :3, :4, :5)
-                """, name, float, start, end, '?'
+                """, resourceid, float, start, end, '?'
             )
+            instanceid = self.lastrowid
+            peruserdata = calendar.perUserTransparency(None)
+            for useruid, transp in peruserdata:
+                peruserid = useruidmap[useruid]
+                self._db_execute(
+                    """
+                    insert into TRANSPARENCY (PERUSERID, INSTANCEID, TRANSPARENT)
+                    values (:1, :2, :3)
+                    """, peruserid, instanceid, 'T' if transp else 'F'
+                )
             
-        self._db_execute(
-            """
-            insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX, ORGANIZER)
-            values (:1, :2, :3, :4, :5)
-            """, name, uid, calendar.resourceType(), instances.limit, organizer
-        )
-
         if revision is not None:
             created = self._db_value_for_sql("select CREATEDREVISION from REVISIONS where NAME = :1", name)
             if created is None:
@@ -647,7 +741,6 @@ class CalendarIndex (AbstractCalendarIndex):
         @param name: the name of the resource to delete.
         @param uid: the uid of the resource to delete.
         """
-        self._db_execute("delete from TIMESPAN where NAME = :1", name)
         self._db_execute("delete from RESOURCE where NAME = :1", name)
         if revision is not None:
             self._db_execute(

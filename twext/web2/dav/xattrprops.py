@@ -84,20 +84,29 @@ class xattrPropertyStore (object):
     if sys.platform == "linux2":
         deadPropertyXattrPrefix = "user."
 
-    def _encode(clazz, name):
+    def _encode(clazz, name, uid=None):
         result = urllib.quote("{%s}%s" % name, safe='{}:')
+        if uid:
+            result = uid + result
         r = clazz.deadPropertyXattrPrefix + result
         return r
 
     def _decode(clazz, name):
         name = urllib.unquote(name[len(clazz.deadPropertyXattrPrefix):])
 
-        index = name.find("}")
+        index1 = name.find("{")
+        index2 = name.find("}")
 
-        if (index is -1 or not len(name) > index or not name[0] == "{"):
+        if (index1 is -1 or index2 is -1 or not len(name) > index2):
             raise ValueError("Invalid encoded name: %r" % (name,))
+        if index1 == 0:
+            uid = None
+        else:
+            uid = name[:index1]
+        propnamespace = name[index1+1:index2]
+        propname = name[index2+1:]
 
-        return (name[1:index], name[index+1:])
+        return (propnamespace, propname, uid)
 
     _encode = classmethod(_encode)
     _decode = classmethod(_decode)
@@ -107,13 +116,15 @@ class xattrPropertyStore (object):
         self.attrs = xattr.xattr(self.resource.fp.path)
 
 
-    def get(self, qname):
+    def get(self, qname, uid=None):
         """
         Retrieve the value of a property stored as an extended attribute on the
         wrapped path.
 
         @param qname: The property to retrieve as a two-tuple of namespace URI
             and local name.
+
+        @param uid: The per-user identifier for per user properties.
 
         @raise HTTPError: If there is no value associated with the given
             property.
@@ -122,7 +133,7 @@ class xattrPropertyStore (object):
             given property.
         """
         try:
-            data = self.attrs.get(self._encode(qname))
+            data = self.attrs.get(self._encode(qname, uid))
         except KeyError:
             raise HTTPError(StatusResponse(
                     responsecode.NOT_FOUND,
@@ -176,29 +187,33 @@ class xattrPropertyStore (object):
         return doc.root_element
 
 
-    def set(self, property):
+    def set(self, property, uid=None):
         """
         Store the given property as an extended attribute on the wrapped path.
 
+        @param uid: The per-user identifier for per user properties.
+
         @param property: A L{WebDAVElement} to store.
         """
-        key = self._encode(property.qname())
-        value = compress(property.toxml())
+        key = self._encode(property.qname(), uid)
+        value = compress(property.toxml(pretty=False))
         untilConcludes(setitem, self.attrs, key, value)
 
         # Update the resource because we've modified it
         self.resource.fp.restat()
 
 
-    def delete(self, qname):
+    def delete(self, qname, uid=None):
         """
         Remove the extended attribute from the wrapped path which stores the
         property given by C{qname}.
 
+        @param uid: The per-user identifier for per user properties.
+
         @param qname: The property to delete as a two-tuple of namespace URI
             and local name.
         """
-        key = self._encode(qname)
+        key = self._encode(qname, uid)
         try:
             try:
                 self.attrs.remove(key)
@@ -214,7 +229,7 @@ class xattrPropertyStore (object):
                     "Unable to delete property: " + key))
 
 
-    def contains(self, qname):
+    def contains(self, qname, uid=None):
         """
         Determine whether the property given by C{qname} is stored in an
         extended attribute of the wrapped path.
@@ -222,9 +237,11 @@ class xattrPropertyStore (object):
         @param qname: The property to look up as a two-tuple of namespace URI
             and local name.
 
+        @param uid: The per-user identifier for per user properties.
+
         @return: C{True} if the property exists, C{False} otherwise.
         """
-        key = self._encode(qname)
+        key = self._encode(qname, uid)
         try:
             self.attrs.get(key)
         except KeyError:
@@ -240,10 +257,12 @@ class xattrPropertyStore (object):
             return True
 
 
-    def list(self):
+    def list(self, uid=None, filterByUID=True):
         """
         Enumerate the property names stored in extended attributes of the
         wrapped path.
+
+        @param uid: The per-user identifier for per user properties.
 
         @return: A C{list} of property names as two-tuples of namespace URI and
             local name.
@@ -257,8 +276,16 @@ class xattrPropertyStore (object):
                     statusForFailure(Failure()),
                     "Unable to list properties: " + self.resource.fp.path))
         else:
-            return [
+            results = [
                 self._decode(name)
-                for name
-                in attrs
-                if name.startswith(prefix)]
+                for name in attrs
+                if name.startswith(prefix)
+            ]
+            if filterByUID:
+                return [ 
+                    (namespace, name)
+                    for namespace, name, propuid in results
+                    if propuid == uid
+                ]
+            else:
+                return results

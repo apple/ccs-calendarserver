@@ -16,7 +16,6 @@
 # limitations under the License.
 ##
 
-from cStringIO import StringIO
 from calendarserver.tap.util import FakeRequest
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.principals import removeProxy
@@ -35,6 +34,7 @@ from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryError, DirectoryRecord
 from twistedcaldav.method.delete_common import DeleteResource
+from twistedcaldav.query import queryfilter
 import os
 import sys
 
@@ -256,14 +256,15 @@ def purgeOldEvents(directory, root, date, verbose=False, dryrun=False):
     log.info("Purging events from %d calendar homes" % (len(records),))
 
     filter =  caldavxml.Filter(
-          caldavxml.ComponentFilter(
-              caldavxml.ComponentFilter(
-                  TimeRange(start=date,),
-                  name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
-              ),
-              name="VCALENDAR",
-           )
-      )
+        caldavxml.ComponentFilter(
+            caldavxml.ComponentFilter(
+                TimeRange(start=date,),
+                name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+            ),
+            name="VCALENDAR",
+        )
+    )
+    filter = queryfilter.Filter(filter)
 
     eventCount = 0
     for record in records:
@@ -378,6 +379,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False):
               name="VCALENDAR",
            )
       )
+    filter = queryfilter.Filter(filter)
 
     count = 0
 

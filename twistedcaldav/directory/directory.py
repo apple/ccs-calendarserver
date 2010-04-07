@@ -124,12 +124,16 @@ class DirectoryService(LoggingMixIn):
             return (
                 credentials.authnPrincipal.principalURL(),
                 credentials.authzPrincipal.principalURL(),
+                credentials.authnPrincipal,
+                credentials.authzPrincipal,
             )
         else:
             if credentials.authnPrincipal.record.verifyCredentials(credentials.credentials):
                 return (
                     credentials.authnPrincipal.principalURL(),
                     credentials.authzPrincipal.principalURL(),
+                    credentials.authnPrincipal,
+                    credentials.authzPrincipal,
                 )
             else:
                 raise UnauthorizedLogin("Incorrect credentials for %s" % (credentials.credentials.username,)) 

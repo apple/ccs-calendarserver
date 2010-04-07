@@ -94,8 +94,8 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
            ),
         )
 
-    def resourceType(self):
-        return davxml.ResourceType.addressbook #@UndefinedVariable
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.addressbook)
 
     def isDirectoryBackedAddressBookCollection(self):
         return True

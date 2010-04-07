@@ -466,6 +466,27 @@
     <key>EnablePrivateEvents</key>
     <true/>
 
+    <!-- Shared Calendars & Address Books -->
+    <key>Sharing</key>
+    <dict>
+    	<key>Enabled</key>
+    	<true/>
+    	<key>AllowExternalUsers</key>
+    	<false/>
+    	<key>Calendars</key>
+    	<dict>
+    		<key>Enabled</key>
+    		<true/>
+    		<key>AllowScheduling</key>
+    		<false/>
+    	</dict>
+    	<key>AddressBooks</key>
+    	<dict>
+    		<key>Enabled</key>
+    		<false/>
+    	</dict>
+    </dict>
+
 
     <!--
         Miscellaneous items
