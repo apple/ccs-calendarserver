@@ -400,7 +400,7 @@
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
-    <string>info</string> <!-- debug, info, warn, error -->
+    <string>warn</string> <!-- debug, info, warn, error -->
 
     <!-- Log level overrides for specific functionality -->
     <key>LogLevels</key>
@@ -742,10 +742,6 @@
             </dict>
         </dict>
     </dict>
-
-    <!-- Response Caching -->
-    <key>ResponseCacheTimeout</key>
-    <integer>30</integer> <!-- in minutes -->
 
 
     <!--

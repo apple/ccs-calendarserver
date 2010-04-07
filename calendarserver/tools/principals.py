@@ -51,7 +51,7 @@ def usage(e=None):
     name = os.path.basename(sys.argv[0])
     print "usage: %s [options] action_flags principal [principal ...]" % (name,)
     print "       %s [options] --list-principal-types" % (name,)
-   #print "       %s [options] --list-principals type" % (name,)
+    print "       %s [options] --list-principals type" % (name,)
     print ""
     print "  Performs the given actions against the giving principals."
     print ""
@@ -65,9 +65,9 @@ def usage(e=None):
     print "  -f --config <path>: Specify caldavd.plist configuration path"
     print ""
     print "actions:"
-   #print "  --search <search-string>: search for matching resources"
+    print "  --search <search-string>: search for matching principals"
     print "  --list-principal-types: list all of the known principal types"
-   #print "  --list-principals=type: list all principals of the given type"
+    print "  --list-principals type: list all principals of the given type"
     print "  --read-property=property: read DAV property (eg.: {DAV:}group-member-set)"
     print "  --list-read-proxies: list proxies with read-only access"
     print "  --list-write-proxies: list proxies with read-write access"
@@ -89,7 +89,7 @@ def main():
             sys.argv[1:], "hf:P:", [
                 "help",
                 "config=",
-               #"search=",
+                "search=",
                 "list-principal-types",
                 "list-principals=",
                 "read-property=",
@@ -112,6 +112,7 @@ def main():
     configFileName = None
     listPrincipalTypes = False
     listPrincipals = None
+    searchPrincipals = None
     principalActions = []
 
     for opt, arg in optargs:
@@ -126,6 +127,9 @@ def main():
 
         elif opt in ("", "--list-principals"):
             listPrincipals = arg
+
+        elif opt in ("", "--search"):
+            searchPrincipals = arg
 
         elif opt in ("", "--read-property"):
             try:
@@ -223,39 +227,49 @@ def main():
 
         return
 
-    if listPrincipals:
+    elif listPrincipals:
         if args:
             usage("Too many arguments")
 
         try:
-            for record in config.directory.listRecords(listPrincipals):
-                print record
+            results = [(record.fullName, record.guid) for record in config.directory.listRecords(listPrincipals)]
+            results.sort()
+            for name, guid in results:
+                print '%s %s' % (name, guid)
         except UnknownRecordTypeError, e:
             usage(e)
 
         return
 
-    #
-    # Do a quick sanity check that arguments look like principal
-    # identifiers.
-    #
-    if not args:
-        usage("No principals specified.")
+    elif searchPrincipals:
+        params = (runSearch, searchPrincipals)
 
-    for arg in args:
-        try:
-            principalForPrincipalID(arg, checkOnly=True)
-        except ValueError, e:
-            abort(e)
+    else:
+        #
+        # Do a quick sanity check that arguments look like principal
+        # identifiers.
+        #
+        if not args:
+            usage("No principals specified.")
+
+        for arg in args:
+            try:
+                principalForPrincipalID(arg, checkOnly=True)
+            except ValueError, e:
+                abort(e)
+
+        params = (runPrincipalActions, args, principalActions)
 
     #
     # Start the reactor
     #
-    reactor.callLater(0, run, args, principalActions)
+    reactor.callLater(0, *params)
     reactor.run()
 
+
+
 @inlineCallbacks
-def run(principalIDs, actions):
+def runPrincipalActions(principalIDs, actions):
     try:
         for principalID in principalIDs:
             # Resolve the given principal IDs to principals
@@ -272,6 +286,43 @@ def run(principalIDs, actions):
             for action in actions:
                 (yield action[0](principal, *action[1:]))
                 print ""
+
+    finally:
+        #
+        # Stop the reactor
+        #
+        reactor.stop()
+
+@inlineCallbacks
+def runSearch(searchTerm):
+
+    try:
+        fields = []
+        for fieldName in ("fullName", "firstName", "lastName", "emailAddresses"):
+            fields.append((fieldName, searchTerm, True, "contains"))
+
+        records = list((yield config.directory.recordsMatchingFields(fields)))
+        if records:
+            records.sort(key=operator.attrgetter('fullName'))
+            print "%d matches found:" % (len(records),)
+            for record in records:
+                print "\n%s (%s)" % (record.fullName,
+                    { "users"     : "User",
+                      "groups"    : "Group",
+                      "locations" : "Place",
+                      "resources" : "Resource",
+                    }.get(record.recordType),
+                )
+                print "   GUID: %s" % (record.guid,)
+                print "   Record name(s): %s" % (", ".join(record.shortNames),)
+                if record.authIDs:
+                    print "   Auth ID(s): %s" % (", ".join(record.authIDs),)
+                if record.emailAddresses:
+                    print "   Email(s): %s" % (", ".join(record.emailAddresses),)
+        else:
+            print "No matches found"
+
+        print ""
 
     finally:
         #
@@ -486,45 +537,25 @@ def action_getAutoSchedule(principal):
     )
 
 @inlineCallbacks
-def _run(directory, root, optargs, principalIDs):
+def action_searchPrincipals(principal, *proxyTypes):
+    for proxyType in proxyTypes:
+        subPrincipal = proxySubprincipal(principal, proxyType)
+        if subPrincipal is None:
+            print "No %s proxies for %s" % (proxyType, principal)
+            continue
 
-    print sys.path
+        membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
 
-    print ""
+        if membersProperty.children:
+            print "%s proxies for %s:" % (
+                {"read": "Read-only", "write": "Read/write"}[proxyType],
+                principal,
+            )
+            for member in membersProperty.children:
+                print " *", member
+        else:
+            print "No %s proxies for %s" % (proxyType, principal)
 
-    for opt, arg in optargs:
-
-        if opt in ("-s", "--search",):
-            fields = []
-            for fieldName in ("fullName", "firstName", "lastName",
-                "emailAddresses"):
-                fields.append((fieldName, arg, True, "contains"))
-
-            records = list((yield config.directory.recordsMatchingFields(fields)))
-            if records:
-                records.sort(key=operator.attrgetter('fullName'))
-                print "%d matches found:" % (len(records),)
-                for record in records:
-                    print "\n%s (%s)" % (record.fullName,
-                        { "users"     : "User",
-                          "groups"    : "Group",
-                          "locations" : "Place",
-                          "resources" : "Resource",
-                        }.get(record.recordType),
-                    )
-                    print record.guid
-                    print "   Record names: %s" % (", ".join(record.shortNames),)
-                    if record.authIDs:
-                        print "   Auth IDs: %s" % (", ".join(record.authIDs),)
-                    if record.emailAddresses:
-                        print "   Emails: %s" % (", ".join(record.emailAddresses),)
-            else:
-                print "No matches found"
-
-    print ""
-
-    # reactor.callLater(0, reactor.stop)
-    reactor.stop()
 
 def abort(msg, status=1):
     sys.stdout.write("%s\n" % (msg,))

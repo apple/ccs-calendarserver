@@ -68,7 +68,10 @@ version_file.close()
 
 from distutils.core import Extension
 
-extensions = []
+extensions = [
+    Extension("twext.python.sendmsg",
+              sources=["twext/python/sendmsg.c"])
+]
 
 if sys.platform == "darwin":
     extensions.append(
@@ -96,7 +99,7 @@ if __name__ == "__main__":
         author           = "Apple Inc.",
         author_email     = None,
         license          = None,
-        platforms        = [ "all" ],
+        platforms        = ["all"],
         packages         = find_modules(),
         package_data     = {
                              "twistedcaldav": [
@@ -120,7 +123,7 @@ if __name__ == "__main__":
         data_files       = [ ("caldavd", ["conf/caldavd.plist"]),
                              ("carddavd", ["conf/carddavd.plist" ])],
         ext_modules      = extensions,
-        py_modules       = ["kqreactor", "memcacheclient"],
+        py_modules       = [],
     )
 
     if "install" in dist.commands:

@@ -32,10 +32,9 @@ try:
 except ImportError:
     from md5 import new as md5
 
-from memcacheclient import ClientFactory as MemcacheClientFactory, MemcacheError, TokenMismatchError
-
 from twext.python.log import LoggingMixIn, Logger
-
+from twext.python.memcacheclient import ClientFactory
+from twext.python.memcacheclient import MemcacheError, TokenMismatchError
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
@@ -61,7 +60,7 @@ class MemcachePropertyCollection (LoggingMixIn):
 
             log.info("Instantiating memcache connection for MemcachePropertyCollection")
 
-            MemcachePropertyCollection._memcacheClient = MemcacheClientFactory.getClient([
+            MemcachePropertyCollection._memcacheClient = ClientFactory.getClient([
                     "%s:%s" % (config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port)
                 ],
                 debug=0,

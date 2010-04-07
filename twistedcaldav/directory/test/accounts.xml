@@ -60,6 +60,27 @@ limitations under the License.
     <name>No Calendar</name>
     <email-address>nocalendar@example.com</email-address>
   </user>
+  <user>
+    <uid>usera</uid>
+    <guid>7423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
+    <password>a</password>
+    <name>a</name>
+    <email-address>a@example.com</email-address>
+  </user>
+  <user>
+    <uid>userb</uid>
+    <guid>8A985493-EE2C-4665-94CF-4DFEA3A89500</guid>
+    <password>b</password>
+    <name>b</name>
+    <email-address>b@example.com</email-address>
+  </user>
+  <user>
+    <uid>userc</uid>
+    <guid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2</guid>
+    <password>c</password>
+    <name>c</name>
+    <email-address>c@example.com</email-address>
+  </user>
   <user repeat="2">
     <uid>user%02d</uid>
     <guid>user%02d</guid>
@@ -159,7 +180,7 @@ limitations under the License.
     <uid>mercury</uid>
     <guid>mercury</guid>
     <password>mercury</password>
-    <name>Mecury Seven</name>
+    <name>Mercury Seven</name>
     <email-address>mercury@example.com</email-address>
   </location>
   <location>

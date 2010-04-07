@@ -27,7 +27,8 @@ from twext.python.vcomponent import VComponent
 
 from txdav.idav import IPropertyStore
 
-from txcaldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject
+from txcaldav.icalendarstore import ICalendarStore, ICalendarHome
+from txcaldav.icalendarstore import ICalendar, ICalendarObject
 from txcaldav.icalendarstore import CalendarNameNotAllowedError
 from txcaldav.icalendarstore import CalendarObjectNameNotAllowedError
 from txcaldav.icalendarstore import CalendarAlreadyExistsError
@@ -152,29 +153,31 @@ def setUpCalendarStore(test):
     storePath.copyTo(calendarPath)
 
     test.calendarStore = CalendarStore(calendarPath)
+    assert test.calendarStore is not None, "No calendar store?"
 
 def setUpHome1(test):
     setUpCalendarStore(test)
     test.home1 = test.calendarStore.calendarHomeWithUID("home1")
+    assert test.home1 is not None, "No calendar home?"
 
 def setUpCalendar1(test):
     setUpHome1(test)
     test.calendar1 = test.home1.calendarWithName("calendar_1")
+    assert test.calendar1 is not None, "No calendar?"
 
 
 class CalendarStoreTest(unittest.TestCase):
     def setUp(self):
         setUpCalendarStore(self)
 
-    # FIXME: If we define an interface
-    #def test_interface(self):
-    #    """
-    #    Interface is completed and conforming.
-    #    """
-    #    try:
-    #        verifyObject(ICalendarStore, self.calendarstore)
-    #    except BrokenMethodImplementation, e:
-    #        self.fail(e)
+    def test_interface(self):
+        """
+        Interface is completed and conforming.
+        """
+        try:
+            verifyObject(ICalendarStore, self.calendarStore)
+        except BrokenMethodImplementation, e:
+            self.fail(e)
 
     def test_init(self):
         """
@@ -201,6 +204,26 @@ class CalendarStoreTest(unittest.TestCase):
             self.calendarStore.calendarHomeWithUID("xyzzy"),
             None
         )
+
+    def test_calendarHomeWithUID_create(self):
+        """
+        Create missing calendar home.
+        """
+        calendarHome = self.calendarStore.calendarHomeWithUID(
+            "xyzzy",
+            create=True
+        )
+
+        self.failUnless(isinstance(calendarHome, CalendarHome))
+        self.failUnless(calendarHome.path.isdir())
+
+    def test_calendarHomeWithUID_create_exists(self):
+        """
+        Create missing calendar home.
+        """
+        calendarHome = self.calendarStore.calendarHomeWithUID("home1")
+
+        self.failUnless(isinstance(calendarHome, CalendarHome))
 
     def test_calendarHomeWithUID_dot(self):
         """

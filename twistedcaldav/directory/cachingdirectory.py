@@ -28,10 +28,10 @@ __all__ = [
 
 import time
 
-import memcacheclient
 import base64
 
 from twext.python.log import LoggingMixIn
+from twext.python.memcacheclient import ClientFactory, MemcacheError
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError, UnknownRecordTypeError
@@ -160,7 +160,7 @@ class CachingDirectoryService(DirectoryService):
 
     def _getMemcacheClient(self, refresh=False):
         if refresh or not hasattr(self, "memcacheClient"):
-            self.memcacheClient = memcacheclient.ClientFactory.getClient(['%s:%s' %
+            self.memcacheClient = ClientFactory.getClient(['%s:%s' %
                 (config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port)],
                 debug=0, pickleProtocol=2)
         return self.memcacheClient
@@ -194,11 +194,11 @@ class CachingDirectoryService(DirectoryService):
             record = self._getMemcacheClient().get(key)
             if record is not None and isinstance(record, DirectoryRecord):
                 record.service = self
-        except memcacheclient.MemcacheError:
+        except MemcacheError:
             self.log_error("Could not read from memcache, retrying")
             try:
                 record = self._getMemcacheClient(refresh=True).get(key)
-            except memcacheclient.MemcacheError:
+            except MemcacheError:
                 self.log_error("Could not read from memcache again, giving up")
                 del self.memcacheClient
                 raise DirectoryMemcacheError("Failed to read from memcache")

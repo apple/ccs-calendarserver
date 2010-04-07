@@ -39,20 +39,27 @@ class MaxAcceptPortMixin(object):
     Mixin for resetting maxAccepts.
     """
     def doRead(self):
-        self.numberAccepts = min(self.factory.maxRequests - self.factory.outstandingRequests, self.factory.maxAccepts)
+        self.numberAccepts = min(
+            self.factory.maxRequests - self.factory.outstandingRequests,
+            self.factory.maxAccepts
+        )
         tcp.Port.doRead(self)
+
+
 
 class MaxAcceptTCPPort(MaxAcceptPortMixin, tcp.Port):
     """
     Use for non-inheriting tcp ports.
     """
-    pass
+
+
 
 class MaxAcceptSSLPort(MaxAcceptPortMixin, ssl.Port):
     """
     Use for non-inheriting SSL ports.
     """
-    pass
+
+
 
 class InheritedTCPPort(MaxAcceptTCPPort):
     """
@@ -100,6 +107,9 @@ class MaxAcceptTCPServer(internet.TCPServer):
     """
     TCP server which will uses MaxAcceptTCPPorts (and optionally,
     inherited ports)
+
+    @ivar myPort: When running, this is set to the L{IListeningPort} being
+        managed by this service.
     """
 
     def __init__(self, *args, **kwargs):

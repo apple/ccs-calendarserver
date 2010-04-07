@@ -29,15 +29,11 @@ import errno
 import urllib
 from zlib import compress, decompress, error as ZlibError
 from cPickle import UnpicklingError, loads as unpickle
-
-import xattr
-
-if getattr(xattr, "xattr", None) is None:
-    raise ImportError("wrong xattr package imported")
+from xattr import xattr
 
 from twext.web2.dav.davxml import WebDAVDocument
 
-from txdav.propertystore.base import AbstractPropertyStore, PropertyName
+from txdav.propertystore.base import AbstractPropertyStore, PropertyName, validKey
 from txdav.idav import PropertyStoreError
 
 
@@ -88,7 +84,7 @@ class PropertyStore(AbstractPropertyStore):
 
     def __init__(self, path):
         self.path = path
-        self.attrs = xattr.xattr(path.path)
+        self.attrs = xattr(path.path)
         self.removed = set()
         self.modified = {}
 
@@ -100,11 +96,18 @@ class PropertyStore(AbstractPropertyStore):
     #
 
     def __delitem__(self, key):
+        validKey(key)
+
         if key in self.modified:
             del self.modified[key]
+        elif self._encodeKey(key) not in self.attrs:
+            raise KeyError(key)
+
         self.removed.add(key)
 
     def __getitem__(self, key):
+        validKey(key)
+
         if key in self.modified:
             return self.modified[key]
 
@@ -157,6 +160,8 @@ class PropertyStore(AbstractPropertyStore):
         return doc.root_element
 
     def __contains__(self, key):
+        validKey(key)
+
         if key in self.modified:
             return True
         if key in self.removed:
@@ -164,6 +169,8 @@ class PropertyStore(AbstractPropertyStore):
         return self._encodeKey(key) in self.attrs
 
     def __setitem__(self, key, value):
+        validKey(key)
+
         if key in self.removed:
             self.removed.remove(key)
         self.modified[key] = value
@@ -182,7 +189,11 @@ class PropertyStore(AbstractPropertyStore):
                 yield key
 
     def __len__(self):
-        return len(self.attrs)
+        keys = (
+            set(self.attrs.keys()) |
+            set(self._encodeKey(key) for key in self.modified)
+        )
+        return len(keys)
 
     #
     # I/O

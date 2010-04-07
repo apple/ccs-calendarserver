@@ -26,6 +26,7 @@ from twext.python.plistlib import PlistParser
 from twext.python.log import Logger, InvalidLogLevelError
 from twext.python.log import clearLogLevels, setLogLevelForNamespace
 
+from twistedcaldav import caldavxml, customxml, carddavxml
 from twistedcaldav.config import ConfigProvider, ConfigurationError
 from twistedcaldav.config import config, _mergeData, fullServerPath
 from twistedcaldav.partitions import partitions
@@ -33,6 +34,7 @@ from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 
 log = Logger()
+
 
 DEFAULT_CONFIG_FILE = "/etc/caldavd/caldavd.plist"
 DEFAULT_CARDDAV_CONFIG_FILE = "/etc/carddavd/carddavd.plist"
@@ -123,11 +125,11 @@ DEFAULT_CONFIG = {
     #    default.  For example, it may be the address of a load balancer or
     #    proxy which forwards connections to the server.
     #
-    "ServerHostName": "", # Network host name.
-    "HTTPPort": 0,        # HTTP port (0 to disable HTTP)
-    "SSLPort" : 0,        # SSL port (0 to disable HTTPS)
+    "ServerHostName": "",          # Network host name.
+    "HTTPPort": 0,                 # HTTP port (0 to disable HTTP)
+    "SSLPort" : 0,                 # SSL port (0 to disable HTTPS)
     "RedirectHTTPToHTTPS" : False, # If True, all nonSSL requests redirected to an SSL Port
-    "SSLMethod" : "SSLv3_METHOD", # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
+    "SSLMethod" : "SSLv3_METHOD",  # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
 
     #
     # Network address configuration information
@@ -137,14 +139,18 @@ DEFAULT_CONFIG = {
     "BindAddresses": [],   # List of IP addresses to bind to [empty = all]
     "BindHTTPPorts": [],   # List of port numbers to bind to for HTTP [empty = same as "Port"]
     "BindSSLPorts" : [],   # List of port numbers to bind to for SSL [empty = same as "SSLPort"]
-    "InheritFDs": [],   # File descriptors to inherit for HTTP requests (empty = don't inherit)
+    "InheritFDs"   : [],   # File descriptors to inherit for HTTP requests (empty = don't inherit)
     "InheritSSLFDs": [],   # File descriptors to inherit for HTTPS requests (empty = don't inherit)
+    "MetaFD": 0,        # Inherited file descriptor to call recvmsg() on to recive sockets (none = don't inherit)
+
+    "UseMetaFD": True,         # Use a 'meta' FD, i.e. an FD to transmit other
+                               # FDs to slave processes.
 
     #
     # Types of service provided
     #
     "EnableCalDAV"  : True,  # Enable CalDAV service
-    "EnableCardDAV" : False,  # Enable CardDAV service
+    "EnableCardDAV" : True,  # Enable CardDAV service
 
     # XXX CardDAV
     "DirectoryAddressBook": {
@@ -269,6 +275,9 @@ DEFAULT_CONFIG = {
     #
     "AccessLogFile"  : "access.log",  # Apache-style access log
     "ErrorLogFile"   : "error.log",   # Server activity log
+    "ErrorLogEnabled"   : True,       # True = use log file, False = stdout
+    "ErrorLogRotateMB"  : 10,         # Rotate error log after so many megabytes
+    "ErrorLogMaxRotatedFiles"  : 5,   # Retain this many error log files
     "PIDFile"        : "caldavd.pid",
     "RotateAccessLog"   : False,
     "EnableExtendedAccessLog": True,
@@ -451,10 +460,10 @@ DEFAULT_CONFIG = {
     # Partitioning
     #
     "Partitioning" : {
-        "Enabled":             False,   # Partitioning enabled or not
-        "ServerPartitionID":   "",      # Unique ID for this server's partition instance.
+        "Enabled": False,                          # Partitioning enabled or not
+        "ServerPartitionID": "",                   # Unique ID for this server's partition instance.
         "PartitionConfigFile": "partitions.plist", # File path for partition information
-        "MaxClients":          5,       # Pool size for connections to each partition
+        "MaxClients": 5,                           # Pool size for connections to each partition
     },
 
     #
@@ -545,7 +554,6 @@ DEFAULT_CONFIG = {
     },
 
     "EnableKeepAlive": True,
-    "ResponseCacheTimeout": 30, # Minutes
     
     "Includes": [],     # Other plists to parse after this one
 }
@@ -824,10 +832,6 @@ def _updateLogLevels(configDict):
         raise ConfigurationError("Invalid log level: %s" % (e.level))
 
 def _updateNotifications(configDict):
-    #
-    # Notifications
-    #
-
     # Reloading not supported -- requires process running as root
     if getattr(configDict, "_reloading", False):
         return
@@ -919,10 +923,6 @@ def _updateSharing(configDict):
     CalendarPrincipalResource.enableSharing(configDict.Sharing.Enabled)
 
 def _updatePartitions(configDict):
-    #
-    # Partitions
-    #
-
     if configDict.Partitioning.Enabled:
         partitions.setSelfPartition(configDict.Partitioning.ServerPartitionID)
         partitions.setMaxClients(configDict.Partitioning.MaxClients)
@@ -930,6 +930,29 @@ def _updatePartitions(configDict):
         partitions.installReverseProxies()
     else:
         partitions.clear()
+
+def _updateCompliance(configDict):
+    if configDict.Scheduling.CalDAV.OldDraftCompatibility:
+        compliance = caldavxml.caldav_full_compliance
+    else:
+        compliance = caldavxml.caldav_implicit_compliance
+
+    if configDict.EnableProxyPrincipals:
+        compliance += customxml.calendarserver_proxy_compliance
+    if configDict.EnablePrivateEvents:
+        compliance += customxml.calendarserver_private_events_compliance
+    if configDict.Scheduling.CalDAV.EnablePrivateComments:
+        compliance += customxml.calendarserver_private_comments_compliance
+    if configDict.EnableCardDAV:
+        compliance += carddavxml.carddav_compliance
+
+    compliance += customxml.calendarserver_principal_property_search_compliance
+
+    if config.Sharing.Enabled:
+        compliance += customxml.calendarserver_sharing_compliance
+
+    configDict.CalDAVComplianceClasses = compliance
+
 
 PRE_UPDATE_HOOKS = (
     _preUpdateDirectoryService,
@@ -949,6 +972,7 @@ POST_UPDATE_HOOKS = (
     _updateScheduling,
     _updateSharing,
     _updatePartitions,
+    _updateCompliance,
     )
     
 def _cleanup(configDict, defaultDict):
@@ -993,5 +1017,5 @@ def _cleanup(configDict, defaultDict):
     return cleanDict
 
 config.setProvider(PListConfigProvider(DEFAULT_CONFIG))
-config.addPreUpdateHook(PRE_UPDATE_HOOKS)
-config.addPostUpdateHook(POST_UPDATE_HOOKS)
+config.addPreUpdateHooks(PRE_UPDATE_HOOKS)
+config.addPostUpdateHooks(POST_UPDATE_HOOKS)

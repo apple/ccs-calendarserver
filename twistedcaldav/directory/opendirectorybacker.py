@@ -453,11 +453,6 @@ class OpenDirectoryBackingService(DirectoryService):
                         self.directoryBackedAddressBook.fp.restat()
                         
                         self.directoryBackedAddressBook.writeDeadProperty(newAddressBookCTag)
-                        if hasattr(self.directoryBackedAddressBook, 'cacheNotifier'):
-                            yield self.directoryBackedAddressBook.cacheNotifier.changed()
-                        #else:
-                        #    self.log_info("%r does not have a cacheNotifier but the CTag changed"
-                        #                              % (self.directoryBackedAddressBook,))
                     finally:
                         self.log_debug("unlocking: \"%s\")" % self._tmpDirAddressBookLockPath)
                         yield tmpDirLock.release()

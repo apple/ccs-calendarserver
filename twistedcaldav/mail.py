@@ -768,7 +768,7 @@ class MailHandler(LoggingMixIn):
 
 
 
-    def outbound(self, originator, recipient, calendar, language='en'):
+    def outbound(self, originator, recipient, calendar, language='en', send=True):
         # create token, send email
 
         component = calendar.masterComponent()
@@ -804,15 +804,15 @@ class MailHandler(LoggingMixIn):
         if method != "REPLY":
             # Invites and cancellations:
 
-            # Reuse or generate a token based on originator, recipient, and
+            # Reuse or generate a token based on originator, toAddr, and
             # event uid
-            token = self.db.getToken(originator, recipient, icaluid)
+            token = self.db.getToken(originator, toAddr, icaluid)
             if token is None:
-                token = self.db.createToken(originator, recipient, icaluid)
-                self.log_debug("Mail gateway created token %s for %s (originator), %s (recipient) and %s (icaluid)" % (token, originator, recipient, icaluid))
+                token = self.db.createToken(originator, toAddr, icaluid)
+                self.log_debug("Mail gateway created token %s for %s (originator), %s (recipient) and %s (icaluid)" % (token, originator, toAddr, icaluid))
                 inviteState = "new"
             else:
-                self.log_debug("Mail gateway reusing token %s for %s (originator), %s (recipient) and %s (icaluid)" % (token, originator, recipient, icaluid))
+                self.log_debug("Mail gateway reusing token %s for %s (originator), %s (recipient) and %s (icaluid)" % (token, originator, toAddr, icaluid))
                 inviteState = "update"
 
             fullServerAddress = settings['Address']
@@ -863,34 +863,38 @@ class MailHandler(LoggingMixIn):
             orgCN, attendees, formattedFrom, addressWithToken, recipient,
             language=language)
 
-        self.log_debug("Sending: %s" % (message,))
-        def _success(result, msgId, fromAddr, toAddr):
-            self.log_info("Mail gateway sent message %s from %s to %s" %
-                (msgId, fromAddr, toAddr))
-            return True
+        if send:
+            self.log_debug("Sending: %s" % (message,))
+            def _success(result, msgId, fromAddr, toAddr):
+                self.log_info("Mail gateway sent message %s from %s to %s" %
+                    (msgId, fromAddr, toAddr))
+                return True
 
-        def _failure(failure, msgId, fromAddr, toAddr):
-            self.log_error("Mail gateway failed to send message %s from %s to %s (Reason: %s)" %
-                (msgId, fromAddr, toAddr, failure.getErrorMessage()))
-            return False
+            def _failure(failure, msgId, fromAddr, toAddr):
+                self.log_error("Mail gateway failed to send message %s from %s to %s (Reason: %s)" %
+                    (msgId, fromAddr, toAddr, failure.getErrorMessage()))
+                return False
 
-        deferred = defer.Deferred()
+            deferred = defer.Deferred()
 
-        if settings["UseSSL"]:
-            contextFactory = ssl.ClientContextFactory()
+            if settings["UseSSL"]:
+                contextFactory = ssl.ClientContextFactory()
+            else:
+                contextFactory = None
+
+            factory = ESMTPSenderFactory(settings['Username'], settings['Password'],
+                fromAddr, toAddr, StringIO(str(message)), deferred,
+                contextFactory=contextFactory,
+                requireAuthentication=False,
+                requireTransportSecurity=settings["UseSSL"])
+
+            reactor.connectTCP(settings['Server'], settings['Port'], factory)
+            deferred.addCallback(_success, msgId, fromAddr, toAddr)
+            deferred.addErrback(_failure, msgId, fromAddr, toAddr)
+            return deferred
         else:
-            contextFactory = None
-
-        factory = ESMTPSenderFactory(settings['Username'], settings['Password'],
-            fromAddr, toAddr, StringIO(str(message)), deferred,
-            contextFactory=contextFactory,
-            requireAuthentication=False,
-            requireTransportSecurity=settings["UseSSL"])
-
-        reactor.connectTCP(settings['Server'], settings['Port'], factory)
-        deferred.addCallback(_success, msgId, fromAddr, toAddr)
-        deferred.addErrback(_failure, msgId, fromAddr, toAddr)
-        return deferred
+            return succeed((inviteState, calendar, orgEmail, orgCN, attendees,
+                formattedFrom, recipient, addressWithToken))
 
 
     def getIconPath(self, details, canceled, language='en'):

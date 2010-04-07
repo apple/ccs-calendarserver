@@ -40,7 +40,7 @@ from twext.web2.dav.davxml import SyncCollection
 from twext.web2.dav.http import ErrorResponse
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, maybeDeferred, succeed
+from twisted.internet.defer import Deferred, succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
@@ -52,11 +52,8 @@ from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.util import joinURL, parentForURL, unimplemented, normalizeURL
 from twext.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
 from twext.web2.http_headers import MimeType
-from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
-import twext.web2.server
 
-import twistedcaldav
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav import carddavxml
 from twistedcaldav.carddavxml import carddav_namespace
@@ -74,11 +71,6 @@ from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.sharing import SharedCollectionMixin
 from twistedcaldav.vcard import Component as vComponent
 
-
-if twistedcaldav.__version__:
-    serverVersion = twext.web2.server.VERSION + " TwistedCardDAV/" + twistedcaldav.__version__
-else:
-    serverVersion = twext.web2.server.VERSION + " TwistedCardDAV/?"
 
 ##
 # Sharing Conts
@@ -101,40 +93,11 @@ shareAcceptStatesByXML["DECLINED"] = customxml.InviteStatusDeclined()
 shareAcceptStatesByXML["DELETED"] = customxml.InviteStatusDeleted()
 
 class CalDAVComplianceMixIn(object):
-
     def davComplianceClasses(self):
-        if config.Scheduling.CalDAV.OldDraftCompatibility:
-            extra_compliance = caldavxml.caldav_full_compliance
-        else:
-            extra_compliance = caldavxml.caldav_implicit_compliance
-        if config.EnableProxyPrincipals:
-            extra_compliance += customxml.calendarserver_proxy_compliance
-        if config.EnablePrivateEvents:
-            extra_compliance += customxml.calendarserver_private_events_compliance
-        if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
-            extra_compliance += customxml.calendarserver_private_comments_compliance
-        extra_compliance += customxml.calendarserver_principal_property_search_compliance
-        if config.EnableCardDAV:
-            extra_compliance += carddavxml.carddav_compliance
-        if config.Sharing.Enabled:
-            extra_compliance += customxml.calendarserver_sharing_compliance
-        return tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) + extra_compliance
-
-
-def updateCacheTokenOnCallback(f):
-    def fun(self, *args, **kwargs):
-        def _updateToken(response):
-            return self.cacheNotifier.changed().addCallback(
-                lambda _: response)
-
-        d = maybeDeferred(f, self, *args, **kwargs)
-
-        if hasattr(self, 'cacheNotifier'):
-            d.addCallback(_updateToken)
-
-        return d
-
-    return fun
+        return (
+            tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses())
+            + config.CalDAVComplianceClasses
+        )
 
 
 class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource, LoggingMixIn):
@@ -190,31 +153,6 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
             return d
 
         return super(CalDAVResource, self).render(request)
-
-    def renderHTTP(self, request):
-        response = maybeDeferred(super(CalDAVResource, self).renderHTTP, request)
-
-        def setHeaders(response):
-            response = IResponse(response)
-            response.headers.setHeader("server", serverVersion)
-
-            return response
-
-        response.addCallback(setHeaders)
-
-        return response
-
-    @updateCacheTokenOnCallback
-    def http_PROPPATCH(self, request):
-        return super(CalDAVResource, self).http_PROPPATCH(request)
-
-    @updateCacheTokenOnCallback
-    def http_DELETE(self, request):
-        return super(CalDAVResource, self).http_DELETE(request)
-
-    @updateCacheTokenOnCallback
-    def http_ACL(self, request):
-        return super(CalDAVResource, self).http_ACL(request)
 
 
     ##

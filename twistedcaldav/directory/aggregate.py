@@ -69,6 +69,15 @@ class AggregateDirectoryService(DirectoryService):
         self.realmName = realmName
         self._recordTypes = recordTypes
 
+        # FIXME: This is a temporary workaround until new data store is in
+        # place.  During the purging of deprovisioned users' data, we need
+        # to be able to look up records by guid and shortName.  The purge
+        # tool sticks temporary fake records in here.
+        self._tmpRecords = {
+            "guids" : { },
+            "shortNames" : { },
+        }
+
     def __repr__(self):
         return "<%s (%s): %r>" % (self.__class__.__name__, self.realmName, self._recordTypes)
 
@@ -111,9 +120,25 @@ class AggregateDirectoryService(DirectoryService):
             return records
 
     def recordWithShortName(self, recordType, shortName):
+
+        # FIXME: These temporary records shouldn't be needed when we move
+        # to the new data store API.  They're currently needed when purging
+        # deprovisioned users' data.
+        record = self._tmpRecords["shortNames"].get(shortName, None)
+        if record:
+            return record
+
         return self._query("recordWithShortName", recordType, shortName)
 
     def recordWithUID(self, uid):
+
+        # FIXME: These temporary records shouldn't be needed when we move
+        # to the new data store API.  They're currently needed when purging
+        # deprovisioned users' data.
+        record = self._tmpRecords["guids"].get(uid, None)
+        if record:
+            return record
+
         return self._queryAll("recordWithUID", uid)
 
     def recordWithAuthID(self, authID):

@@ -320,6 +320,12 @@ class Request(http.Request):
 
     def process(self):
         "Process a request."
+        log.msg("%s %s %s" % (
+            self.method,
+            unquote(self.uri),
+            "HTTP/%s.%s" % self.clientproto
+        ))
+
         try:
             self.checkExpect()
             resp = self.preprocessRequest()

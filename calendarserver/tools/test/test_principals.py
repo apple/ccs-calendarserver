@@ -36,13 +36,15 @@ class MangePrincipalsTestCase(TestCase):
         templateFile.close()
 
         newConfig = template % {
-            'ServerRoot' : os.path.abspath(config.ServerRoot),
+            "ServerRoot" : os.path.abspath(config.ServerRoot),
         }
         configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
         configFilePath.setContent(newConfig)
 
         self.configFileName = configFilePath.path
         config.load(self.configFileName)
+
+        os.makedirs(config.DataRoot)
 
         origUsersFile = FilePath(os.path.join(os.path.dirname(__file__),
             "principals", "users-groups.xml"))
@@ -96,6 +98,19 @@ class MangePrincipalsTestCase(TestCase):
         self.assertTrue("users" in results)
         self.assertTrue("locations" in results)
         self.assertTrue("resources" in results)
+
+    @inlineCallbacks
+    def test_listPrincipals(self):
+        results = yield self.runCommand("--list-principals=users")
+        for i in xrange(1, 10):
+            self.assertTrue("user%02d" % (i,) in results)
+
+    @inlineCallbacks
+    def test_search(self):
+        results = yield self.runCommand("--search=user")
+        self.assertTrue("10 matches found" in results)
+        for i in xrange(1, 10):
+            self.assertTrue("user%02d" % (i,) in results)
 
     @inlineCallbacks
     def test_modifyWriteProxies(self):

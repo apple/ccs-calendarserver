@@ -30,7 +30,6 @@ from twisted.internet.defer import succeed, inlineCallbacks, DeferredList,\
 from twistedcaldav import customxml, caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.customxml import SharedCalendar
-from twistedcaldav.extensions import updateCacheTokenOnCallback
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 from uuid import uuid4
 from vobject.icalendar import dateTimeToString, utc
@@ -907,7 +906,6 @@ class SharedHomeMixin(object):
         # Add to collections
         yield notifications.addNotification(request, notificationUID, xmltype, xmldata)
 
-    @updateCacheTokenOnCallback
     def xmlPOSTNoAuth(self, encoding, request):
 
         def _handleErrorResponse(error):

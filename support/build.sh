@@ -51,7 +51,7 @@ init_build () {
   disable_setup="false";
      print_path="false";
         install="";
-      daemonize="-X";
+      daemonize="-X -L";
            kill="false";
         restart="false";
     plugin_name="caldav";
@@ -63,7 +63,7 @@ init_build () {
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.
   conditional_set wd "$(pwd)";
-  conditional_set config "${wd}/conf/caldavd-dev.plist";
+  conditional_set config "${wd}/conf/${DAVD}davd-dev.plist";
   conditional_set caldav "${wd}";
 
   if [ -z "${CALENDARSERVER_CACHE_DEPS-}" ]; then
@@ -507,6 +507,12 @@ dependencies () {
   # Tool dependencies.  The code itself doesn't depend on these, but you probably want them.
   svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
   svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes HEAD;
+
+  if "${do_setup}"; then
+    cd "${caldav}";
+    echo "Building our own extension modules...";
+    python setup.py build_ext --inplace;
+  fi;
 }
 
 # Actually do the initialization, once all functions are defined.

@@ -59,11 +59,18 @@ class ConfigTests(TestCase):
     def tearDown(self):
         config.setDefaults(DEFAULT_CONFIG)
         config.reset()
-        config.update(None) # Make sure the update hooks get called
 
     def testDefaults(self):
         for key, value in DEFAULT_CONFIG.iteritems():
-            self.assertEquals(getattr(config, key), value)
+            if key in ("ServerHostName",):
+                # Value is calculated and may vary
+                continue
+
+            self.assertEquals(
+                getattr(config, key), value,
+                "config[%r] == %r, expected %r"
+                % (key, getattr(config, key), value)
+            )
 
     def testLoadConfig(self):
         self.assertEquals(config.ResponseCompression, True)

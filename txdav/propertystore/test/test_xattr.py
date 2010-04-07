@@ -18,35 +18,45 @@
 Property store tests.
 """
 
-from zope.interface.verify import verifyObject, BrokenMethodImplementation
+from twext.python.filepath import FilePath
 
-#from twext.python.filepath import CachingFilePath as FilePath
-from twisted.trial import unittest
+from txdav.propertystore.base import PropertyName
+from txdav.propertystore.test.base import propertyName
 
-from txdav.idav import IPropertyStore
-from txdav.propertystore.xattr import PropertyStore
+from txdav.propertystore.test import base
+
+try:
+    from txdav.propertystore.xattr import PropertyStore
+    from xattr import xattr
+except ImportError, e:
+    PropertyStore = None
+    importErrorMessage = str(e)
 
 
-class PropertyStoreTest(unittest.TestCase):
-    def test_interface(self):
-        raise NotImplementedError()
-
-        store = PropertyStore()
-
-        try:
-            verifyObject(IPropertyStore, store)
-        except BrokenMethodImplementation, e:
-            self.fail(e)
-    test_interface.todo = "Unimplemented"
+class PropertyStoreTest(base.PropertyStoreTest):
+    def setUp(self):
+        tempDir = FilePath(self.mktemp())
+        tempDir.makedirs()
+        tempFile = tempDir.child("test")
+        tempFile.touch()
+        self.propertyStore = PropertyStore(tempFile)
 
     def test_init(self):
-        raise NotImplementedError()
-    test_init.todo = "Unimplemented"
-
-    def test_flush(self):
-        raise NotImplementedError()
-    test_flush.todo = "Unimplemented"
+        store = self.propertyStore
+        self.failUnless(isinstance(store.attrs, xattr))
+        self.assertEquals(store.removed, set())
+        self.assertEquals(store.modified, {})
 
     def test_abort(self):
-        raise NotImplementedError()
-    test_abort.todo = "Unimplemented"
+        super(PropertyStoreTest, self).test_abort()
+        store = self.propertyStore
+        self.assertEquals(store.removed, set())
+        self.assertEquals(store.modified, {})
+
+
+if PropertyStore is None:
+    PropertyStoreTest.skip = importErrorMessage
+
+
+def propertyName(name):
+    return PropertyName("http://calendarserver.org/ns/test/", name)

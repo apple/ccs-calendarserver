@@ -20,6 +20,7 @@ Base property store.
 
 __all__ = [
     "AbstractPropertyStore",
+    "PropertyName",
 ]
 
 from zope.interface import implements
@@ -42,7 +43,7 @@ class PropertyName(LoggingMixIn):
         if (index is -1 or not len(sname) > index or not sname[0] == "{"):
             raise TypeError("Invalid sname: %r" % (sname,))
 
-        return (sname[1:index], sname[index+1:])
+        return PropertyName(sname[1:index], sname[index+1:])
 
     def __init__(self, namespace, name):
         self.namespace = namespace
@@ -167,3 +168,10 @@ class AbstractPropertyStore(LoggingMixIn):
     def update(other=None):
         # FIXME
         raise NotImplementedError()
+
+
+# FIXME: Actually, we should replace this with calls to IPropertyName()
+def validKey(key):
+    # Used by implementations to verify that keys are valid
+    if not isinstance(key, PropertyName):
+        raise TypeError("Not a PropertyName: %r" % (key,))
