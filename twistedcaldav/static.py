@@ -775,6 +775,15 @@ class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
 
         return True
 
+    def _initTypeAndEncoding(self):
+
+        # Handle cases not covered by getTypeAndEncoding()
+        if self.isCollection():
+            self._type = "httpd/unix-directory"
+        else:
+            super(AutoProvisioningFileMixIn, self)._initTypeAndEncoding()
+
+
 class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeProvisioningResource, DAVFile):
     """
     Resource which provisions calendar home collections as needed.

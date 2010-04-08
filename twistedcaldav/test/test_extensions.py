@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright (c) 2009 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,19 +15,19 @@
 # limitations under the License.
 ##
 
-from xml.etree.cElementTree import XML# , tostring
-
-from twisted.trial.unittest import TestCase
-
-from twisted.internet.defer import inlineCallbacks
 from twext.python.filepath import CachingFilePath as FilePath
-
-from twisted.web.microdom import parseString
+from twext.web2.dav import davxml
+from twext.web2.dav.element.base import WebDAVElement
+from twext.web2.http_headers import MimeType
 from twext.web2.static import MetaDataMixin
+
+from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.trial.unittest import TestCase
+from twisted.web.microdom import parseString
 
 from twistedcaldav.extensions import DAVFile
 
-from twext.web2.dav.element.base import WebDAVElement
+from xml.etree.cElementTree import XML
 
 class UnicodeProperty(WebDAVElement):
     """
@@ -163,7 +163,9 @@ class DirectoryListingTest(TestCase):
         unicodeChildName = "test"
         def addUnicodeChild(davFile):
             m = MetaDataMixin()
-            m.contentType = lambda: u'text/plain'
+            m.contentType = lambda: MimeType.fromString('text/plain')
+            m.resourceType = lambda r: succeed(davxml.ResourceType())
+            m.isCollection = lambda: False
             davFile.putChild(unicodeChildName, m)
         yield self.doDirectoryTest([nonASCIIFilename], addUnicodeChild,
                                    [nonASCIIFilename.encode("utf-8"), unicodeChildName])

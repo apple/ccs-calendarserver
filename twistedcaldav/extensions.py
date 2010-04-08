@@ -519,7 +519,7 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
             return succeed(self.deadProperties().get((dav_namespace, "resourcetype")))
         if self.isCollection():
-            return succeed(davxml.ResourceType(davxml.Collection(), davxml.Principal()))
+            return succeed(davxml.ResourceType(davxml.Principal(), davxml.Collection()))
         else:
             return succeed(davxml.ResourceType(davxml.Principal()))
 
@@ -640,7 +640,7 @@ class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn):
         d.addCallback(gotBody)
         return d
 
-    @printTracebacks
+    @inlineCallbacks
     def renderDirectoryBody(self, request):
         """
         Generate a directory listing table in HTML.
@@ -656,7 +656,7 @@ class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn):
         for name in sorted(self.listChildren()):
             child = self.getChild(name)
 
-            url, name, size, lastModified, contentType = self.getChildDirectoryEntry(child, name)
+            url, name, size, lastModified, contentType = (yield self.getChildDirectoryEntry(child, name, request))
 
             # FIXME: gray out resources that are not readable
             output.append(
@@ -761,11 +761,12 @@ class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn):
             d.addCallback(gotValues)
             return d
 
-        d = self.listProperties(request)
-        d.addCallback(gotProperties)
-        return d
+        qnames = (yield self.listProperties(request))
+        result = (yield gotProperties(qnames))
+        returnValue(result)
 
-    def getChildDirectoryEntry(self, child, name):
+    @inlineCallbacks
+    def getChildDirectoryEntry(self, child, name, request):
         def orNone(value, default="?", f=None):
             if value is None:
                 return default
@@ -782,22 +783,25 @@ class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn):
         if isinstance(child, MetaDataMixin):
             size = child.contentLength()
             lastModified = child.lastModified()
-            contentType = child.contentType()
+            rtypes = []
+            fullrtype = (yield child.resourceType(request))
+            for rtype in fullrtype.children:
+                rtypes.append(rtype.name)
+            if rtypes:
+                rtypes = "(%s)" % (", ".join(rtypes),)
+            if child.isCollection():
+                contentType = rtypes
+            else:
+                mimeType = child.contentType()
+                contentType = "%s/%s" % (mimeType.mediaType, mimeType.mediaSubtype)
+                if rtypes:
+                    contentType += " %s" % (rtypes,)
         else:
             size = None
             lastModified = None
             contentType = None
 
-        if self.fp.isdir():
-            contentType = "(collection)"
-        else:
-            contentType = self._orNone(
-                contentType,
-                default="-",
-                f=lambda m: "%s/%s %s" % (m.mediaType, m.mediaSubtype, m.params)
-            )
-
-        return (
+        returnValue((
             url,
             name,
             orNone(size),
@@ -807,7 +811,7 @@ class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn):
                 f=lambda t: time.strftime("%Y-%b-%d %H:%M", time.localtime(t))
              ),
              contentType,
-         )
+         ))
 
 
 
