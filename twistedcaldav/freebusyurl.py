@@ -240,6 +240,7 @@ class FreeBusyURLResource (CalDAVResource):
             scheduler.organizer,
             None,
             None,
+            None,
             attendeeProp,
             True,
         ))
