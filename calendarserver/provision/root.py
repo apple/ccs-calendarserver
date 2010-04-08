@@ -191,7 +191,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
                         if principal:
                             log.debug("Wiki-authenticated principal %s being assigned to authnUser" % (record.guid,))
-                            request.authnUser = davxml.Principal(
+                            request.authzUser = request.authnUser = davxml.Principal(
                                 davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,))
                             )
 
