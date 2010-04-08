@@ -49,7 +49,8 @@ class sqlgenerator(object):
     TIMESPANTEST         = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s AND TIMESPAN.END > %s))"
     TIMESPANTEST_NOEND   = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.END > %s))"
     TIMESPANTEST_NOSTART = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s))"
-    TIMESPANTEST_TAIL_PIECE = " AND TIMESPAN.RESOURCEID == RESOURCE.RESOURCEID AND TIMESPAN.INSTANCEID == TRANSPARENCY.INSTANCEID"
+    TIMESPANTEST_TAIL_PIECE = " AND TIMESPAN.RESOURCEID == RESOURCE.RESOURCEID"
+    TIMESPANTEST_JOIN_ON_PIECE = "TIMESPAN.INSTANCEID == TRANSPARENCY.INSTANCEID AND TRANSPARENCY.PERUSERID == '%s'"
 
     def __init__(self, expr):
         self.expression = expr
@@ -75,7 +76,11 @@ class sqlgenerator(object):
         # Prefix with ' from ...' partial statement
         select = self.FROM + self.RESOURCEDB
         if self.usedtimespan:
-            select += ", %s, %s, %s" % (self.TIMESPANDB, self.TRANSPARENCYDB, self.PERUSERDB,)
+            select += ", %s, %s LEFT OUTER JOIN %s ON (%s)" % (
+                self.TIMESPANDB,
+                self.PERUSERDB,
+                self.TRANSPARENCYDB,
+                self.TIMESPANTEST_JOIN_ON_PIECE)
         select += self.sout.getvalue()
         return select, self.arguments
         
@@ -207,7 +212,7 @@ class sqlgenerator(object):
         @param arg: the C{str} of the argument to add
         """
         
-        # Append argument to the list and add the appropriate substituion string to the output stream.
+        # Append argument to the list and add the appropriate substitution string to the output stream.
         self.arguments.append(arg)
         self.sout.write(":" + str(len(self.arguments)))
     
@@ -218,7 +223,7 @@ class sqlgenerator(object):
         @return: C{str} for argument substitution text
         """
         
-        # Append argument to the list and add the appropriate substituion string to the output stream.
+        # Append argument to the list and add the appropriate substitution string to the output stream.
         self.arguments.append(arg)
         return ":" + str(len(self.arguments))
 

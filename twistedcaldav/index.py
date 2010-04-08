@@ -339,20 +339,11 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
                     "select PERUSERID from PERUSER where USERUID == :1",
                     useruid,
                 )
-                count = self._db_value_for_sql(
-                    "select COUNT(PERUSERID) from TRANSPARENCY where PERUSERID == :1",
-                    dbuseruid,
-                )
-                if dbuseruid is None or count == 0:
-                    dbuseruid = self._db_value_for_sql(
-                        "select PERUSERID from PERUSER where USERUID == :1",
-                        "",
-                    )
-                    
+
                 # For a free-busy time-range query we return all instances
                 rowiter = self._db_execute(
-                    "select RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE, RESOURCE.ORGANIZER, TIMESPAN.FLOAT, TIMESPAN.START, TIMESPAN.END, TIMESPAN.FBTYPE, TRANSPARENCY.TRANSPARENT" + 
-                    qualifiers[0] + " AND TRANSPARENCY.PERUSERID == '%s'" % (dbuseruid,),
+                    "select DISTINCT RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE, RESOURCE.ORGANIZER, TIMESPAN.FLOAT, TIMESPAN.START, TIMESPAN.END, TIMESPAN.FBTYPE, TIMESPAN.TRANSPARENT, TRANSPARENCY.TRANSPARENT" + 
+                    qualifiers[0] % (dbuseruid if dbuseruid else "",),
                     *qualifiers[1]
                 )
             else:
@@ -363,6 +354,11 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         for row in rowiter:
             name = row[0]
             if self.resource.getChild(name.encode("utf-8")):
+                if fbtype:
+                    row = list(row)
+                    if row[9]:
+                        row[8] = row[9]
+                    del row[9]
                 yield row
             else:
                 log.err("Calendar resource %s is missing from %s. Removing from index."
@@ -466,6 +462,7 @@ class CalendarIndex (AbstractCalendarIndex):
         #     'B' - busy
         #     'U' - busy-unavailable
         #     'T' - busy-tentative
+        #   TRANSPARENT: Y if transparent, N if opaque (default non-per-user value)
         #
         q.execute(
             """
@@ -475,7 +472,8 @@ class CalendarIndex (AbstractCalendarIndex):
                 FLOAT        text(1),
                 START        date,
                 END          date,
-                FBTYPE       text(1)
+                FBTYPE       text(1),
+                TRANSPARENT  text(1)
             )
             """
         )
@@ -683,11 +681,18 @@ class CalendarIndex (AbstractCalendarIndex):
             start = instance.start.replace(tzinfo=utc)
             end = instance.end.replace(tzinfo=utc)
             float = 'Y' if instance.start.tzinfo is None else 'N'
+            transp = 'T' if instance.component.propertyValue("TRANSP") == "TRANSPARENT" else 'F'
             self._db_execute(
                 """
-                insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE)
-                values (:1, :2, :3, :4, :5)
-                """, resourceid, float, start, end, icalfbtype_to_indexfbtype.get(instance.component.getFBType(), 'F')
+                insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE, TRANSPARENT)
+                values (:1, :2, :3, :4, :5, :6)
+                """,
+                resourceid,
+                float,
+                start,
+                end,
+                icalfbtype_to_indexfbtype.get(instance.component.getFBType(), 'F'),
+                transp
             )
             instanceid = self.lastrowid
             peruserdata = calendar.perUserTransparency(instance.rid)
@@ -709,9 +714,9 @@ class CalendarIndex (AbstractCalendarIndex):
             float = 'N'
             self._db_execute(
                 """
-                insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE)
-                values (:1, :2, :3, :4, :5)
-                """, resourceid, float, start, end, '?'
+                insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE, TRANSPARENT)
+                values (:1, :2, :3, :4, :5, :6)
+                """, resourceid, float, start, end, '?', '?'
             )
             instanceid = self.lastrowid
             peruserdata = calendar.perUserTransparency(None)
