@@ -144,7 +144,11 @@ class Config(object):
             self._data[attr] = value
         else:
             self.__dict__[attr] = value
-        self.__dict__["_dirty"] = True
+
+        # So as not to cause a flurry of updates, don't mark ourselves
+        # dirty when the attribute begins with an underscore
+        if not attr.startswith("_"):
+            self.__dict__["_dirty"] = True
 
     def __getattr__(self, attr):
         if self._dirty:
