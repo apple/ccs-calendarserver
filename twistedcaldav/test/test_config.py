@@ -125,6 +125,20 @@ class ConfigTests(TestCase):
 
         self.assertEquals(config.BindAddresses, ["127.0.0.1"])
 
+    def testDirty(self):
+        config.__dict__["_dirty"] = False
+        self.assertEquals(config.__dict__["_dirty"], False)
+
+        config.foo = "bar"
+        self.assertEquals(config.__dict__["_dirty"], True)
+
+        config.__dict__["_dirty"] = False
+        self.assertEquals(config.__dict__["_dirty"], False)
+
+        config._foo = "bar"
+        self.assertEquals(config.__dict__["_dirty"], False)
+
+
     def testUpdating(self):
         self.assertEquals(config.SSLPort, 0)
 
