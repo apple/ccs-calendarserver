@@ -186,7 +186,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
                 self._delete_from_db(name, uid, None)
                 self._db_commit()
             else:
-                resources.append(name)
+                resources.append(name_utf8)
 
         return resources
 

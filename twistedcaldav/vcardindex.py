@@ -299,7 +299,7 @@ class AddressBookIndex(AbstractSQLDatabase):
                 self._delete_from_db(name, uid)
                 self._db_commit()
             else:
-                resources.append(name)
+                resources.append(name_utf8)
 
         return resources
 
