@@ -263,7 +263,7 @@ class timerange(object):
             elif self.end() is not None:
                 return other.start() < self.end()
             elif other.end() is not None:
-                self.start() >= other.start() and self.start() < other.end()
+                return self.start() >= other.start() and self.start() < other.end()
             else:
                 return False
         elif self.start() is not None:
