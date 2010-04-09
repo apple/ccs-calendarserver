@@ -14,8 +14,8 @@
 # limitations under the License.
 ##
 
-from twisted.web2 import responsecode
-from twisted.web2.http import HTTPError, StatusResponse
+from twext.web2 import responsecode
+from twext.web2.http import HTTPError, StatusResponse
 from twistedcaldav.caldavxml import Property, CalendarData, CalendarComponent,\
     AllProperties, AllComponents
 from twistedcaldav.datafilters.calendardata import CalendarDataFilter
