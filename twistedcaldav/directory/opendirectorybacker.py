@@ -426,7 +426,6 @@ class OpenDirectoryBackingService(DirectoryService):
                                                             destinationparent = newAddressBook,
                                                             vcard = vcard,
                                                             indexdestination = False,
-                                                            updatedestinationctag = False,
                                                             ).run()
                             except:
                                 self.log_info("Could not add record %s" % (record,))

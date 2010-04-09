@@ -131,7 +131,7 @@ def http_MKCOL(self, request):
             for property in properties:
                 if isinstance(property, davxml.ResourceType):
                     if rtype:
-                        error = "Multiple {DAV:}resource-type properties in MKCOL request body: %s" % (mkcol,)
+                        error = "Multiple {DAV:}resourcetype properties in MKCOL request body: %s" % (mkcol,)
                         log.err(error)
                         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
                     else:
@@ -141,18 +141,18 @@ def http_MKCOL(self, request):
                             elif property.childrenOfType(carddavxml.AddressBook):
                                 rtype = "addressbook"
             if not rtype:
-                error = "No {DAV:}resource-type property in MKCOL request body: %s" % (mkcol,)
+                error = "No {DAV:}resourcetype property in MKCOL request body: %s" % (mkcol,)
                 log.err(error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
             elif rtype not in ("calendar", "addressbook"):
-                error = "{DAV:}resource-type property in MKCOL request body not supported: %s" % (mkcol,)
+                error = "{DAV:}resourcetype property in MKCOL request body not supported: %s" % (mkcol,)
                 log.err(error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
                 
             # Make sure feature is enabled
             if (rtype == "calendar" and not config.EnableCalDAV or
                 rtype == "addressbook" and not config.EnableCardDAV):
-                error = "{DAV:}resource-type property in MKCOL request body not supported: %s" % (mkcol,)
+                error = "{DAV:}resourcetype property in MKCOL request body not supported: %s" % (mkcol,)
                 log.err(error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
             

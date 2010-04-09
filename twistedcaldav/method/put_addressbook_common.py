@@ -179,7 +179,6 @@ class StoreAddressObjectResource(object):
         destination=None, destination_uri=None, destinationparent=None, destinationadbk=True,
         vcard=None,
         indexdestination = True,
-        updatedestinationctag = True,
    ):
         """
         Function that does common PUT/COPY/MOVE behavior.
@@ -232,13 +231,10 @@ class StoreAddressObjectResource(object):
         self.vcarddata = None
         self.deletesource = deletesource
         self.indexdestination = indexdestination
-        self.updatedestinationctag = updatedestinationctag
-        #self.isiTIP = isiTIP
-        #self.allowImplicitSchedule = allowImplicitSchedule
-        #self.internal_request = internal_request
         
         self.rollback = None
         self.access = None
+        self.newrevision = None
 
     def fullValidation(self):
         """
@@ -502,7 +498,8 @@ class StoreAddressObjectResource(object):
     def doSourceDelete(self):
         # Delete index for original item
         if self.sourceadbk:
-            self.source_index.deleteResource(self.source.fp.basename())
+            self.newrevision = (yield self.sourceparent.bumpSyncToken())
+            self.source_index.deleteResource(self.source.fp.basename(), self.newrevision)
             self.rollback.source_index_deleted = True
             log.debug("Source index removed %s" % (self.source.fp.path,))
 
@@ -511,14 +508,14 @@ class StoreAddressObjectResource(object):
         self.rollback.source_deleted = True
         log.debug("Source removed %s" % (self.source.fp.path,))
 
+        returnValue(None)
+
+    @inlineCallbacks
+    def doSourceQuotaCheck(self):
         # Update quota
         if self.sourcequota is not None:
             delete_size = 0 - self.old_source_size
             yield self.source.quotaSizeAdjust(self.request, delete_size)
-
-        # Change CTag on the parent vcard collection
-        if self.sourceadbk:
-            yield self.sourceparent.updateCTag()
   
         returnValue(None)
 
@@ -546,7 +543,7 @@ class StoreAddressObjectResource(object):
         
         # Add or update the index for this resource.
         try:
-            self.source_index.addResource(self.source.fp.basename(), self.vcard)
+            self.source_index.addResource(self.source.fp.basename(), self.vcard, self.newrevision)
         except TooManyInstancesError, ex:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -569,7 +566,7 @@ class StoreAddressObjectResource(object):
         
         # Add or update the index for this resource.
         try:
-            self.destination_index.addResource(self.destination.fp.basename(), vcardtoindex)
+            self.destination_index.addResource(self.destination.fp.basename(), vcardtoindex, self.newrevision)
             log.debug("Destination indexed %s" % (self.destination.fp.path,))
         except (ValueError, TypeError), ex:
             log.err("Cannot index vcard resource: %s" % (ex,))
@@ -585,7 +582,7 @@ class StoreAddressObjectResource(object):
         
         # Delete index for original item
         if self.destinationadbk:
-            self.destination_index.deleteResource(self.destination.fp.basename())
+            self.destination_index.deleteResource(self.destination.fp.basename(), None)
             self.rollback.destination_index_deleted = True
             log.debug("Destination index removed %s" % (self.destination.fp.path,))
 
@@ -649,18 +646,19 @@ class StoreAddressObjectResource(object):
     
             # Index the new resource if storing to a vcard.
             if self.destinationadbk:
+                self.newrevision = (yield self.destinationparent.bumpSyncToken())
                 result = self.doDestinationIndex(self.vcard)
                 if result is not None:
                     self.rollback.Rollback()
                     returnValue(result)
     
+            # Delete the original source if needed.
+            if self.deletesource:
+                yield self.doSourceQuotaCheck()
+
             # Do quota check on destination
             if self.destquota is not None:
                 yield self.doDestinationQuotaCheck()
-    
-            if self.destinationadbk and self.updatedestinationctag:
-                # Change CTag on the parent vcard collection
-                yield self.destinationparent.updateCTag()
     
             # Can now commit changes and forget the rollback details
             self.rollback.Commit()

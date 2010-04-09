@@ -436,6 +436,11 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                     # Remove share
                     yield self.downgradeFromShare(request)
                 returnValue(None)
+            else:
+                # resourcetype cannot be changed but we will allow it to be set to the same value
+                currentType = (yield self.resourceType(request))
+                if currentType == property:
+                    returnValue(None)
 
         result = (yield super(CalDAVResource, self).writeProperty(property, request))
         returnValue(result)
@@ -912,8 +917,8 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         if config.EnableCardDAV:
             result.append(davxml.Report(carddavxml.AddressBookQuery(),))
             result.append(davxml.Report(carddavxml.AddressBookMultiGet(),))
-        if self.isPseudoCalendarCollection() and config.EnableSyncReport:
-            # Only allowed on calendar/inbox collections
+        if (self.isPseudoCalendarCollection() or self.isAddressBookCollection()) and config.EnableSyncReport:
+            # Only allowed on calendar/inbox/addressbook collections
             result.append(davxml.Report(SyncCollection(),))
         return result
 

@@ -398,7 +398,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 raise HTTPError(status)
 
             # Initialize CTag on the address book collection
-            d1 = self.updateCTag()
+            d1 = self.bumpSyncToken()
 
             # Create the index so its ready when the first PUTs come in
             d1.addCallback(lambda _: self.index().create())
@@ -507,7 +507,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
         return changed, removed, current_token
 
     @inlineCallbacks
-    def bumpSyncToken(self, reset=False):
+    def bumpSyncToken(self):
         """
         Increment the sync-token which is also the ctag.
         
@@ -524,8 +524,6 @@ class CalDAVFile (CalDAVResource, DAVFile):
                 raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (self.uri,)))
 
             try:
-                if reset:
-                    raise ValueError
                 token = str(self.readDeadProperty(customxml.GETCTag))
                 caluuid, revision = token.split("#", 1)
                 revision = int(revision) + 1
@@ -541,6 +539,21 @@ class CalDAVFile (CalDAVResource, DAVFile):
             returnValue(revision)
         finally:
             yield lock.clean()
+
+    def initSyncToken(self):
+        """
+        Create a new sync-token which is also the ctag.
+        """
+        assert self.isCollection()
+        
+        # Initialise it
+        caluuid = uuid4()
+        revision = 1
+        token = "%s#%d" % (caluuid, revision,)
+        try:
+            self.writeDeadProperty(customxml.GETCTag(token))
+        except:
+            return fail(Failure())
 
     def updateCTag(self, token=None):
         assert self.isCollection()

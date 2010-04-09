@@ -316,12 +316,9 @@ class DeleteResource(object):
                 yield delresource.quotaSizeAdjust(self.request, -old_size)
     
             if response == responsecode.NO_CONTENT:
+                newrevision = (yield parent.bumpSyncToken())
                 index = parent.index()
-                index.deleteResource(delresource.fp.basename())
-    
-                # Change CTag on the parent addressbook collection
-                yield parent.updateCTag()
-    
+                index.deleteResource(delresource.fp.basename(), newrevision)    
     
         except MemcacheLockTimeoutError:
             raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (deluri,)))
@@ -366,7 +363,7 @@ class DeleteResource(object):
         if wasShared:
             yield delresource.downgradeFromShare(self.request)
 
-        yield delresource.updateCTag()
+        yield delresource.bumpSyncToken()
         more_responses = (yield self.deleteResource(delresource, deluri, parent))
         
         if isinstance(more_responses, MultiStatusResponse):
@@ -427,6 +424,7 @@ class DeleteResource(object):
             
         elif isCalendarCollectionResource(self.resource):
             response = (yield self.deleteCalendar(self.resource, self.resource_uri, self.parent))
+
         elif isAddressBookCollectionResource(self.parent):
             response = (yield self.deleteAddressBookResource(self.resource, self.resource_uri, self.parent))
 

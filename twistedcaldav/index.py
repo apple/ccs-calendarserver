@@ -1018,8 +1018,8 @@ class Index (CalendarIndex):
         if do_commit:
             self._db_commit()
             
-        # This is a deferred but we can't defer at this point...
-        self.resource.bumpSyncToken(True)
+        # Need new sync-token
+        self.resource.initSyncToken()
 
 class IndexSchedule (CalendarIndex):
     """
@@ -1133,5 +1133,5 @@ class IndexSchedule (CalendarIndex):
         if do_commit:
             self._db_commit()
             
-        # This is a deferred but we can't defer at this point...
-        self.resource.bumpSyncToken(True)
+        # Need new sync-token
+        self.resource.initSyncToken()
