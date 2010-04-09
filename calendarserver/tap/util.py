@@ -30,6 +30,7 @@ from twisted.cred.portal import Portal
 from twext.web2.http_headers import Headers
 from twext.web2.dav import auth
 from twext.web2.auth.basic import BasicCredentialFactory
+from twext.web2.resource import RedirectResource
 from twext.web2.static import File as FileResource
 from twext.python.filepath import CachingFilePath as FilePath
 
@@ -45,6 +46,7 @@ from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
+from twistedcaldav.simpleresource import SimpleResource
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
@@ -319,6 +321,23 @@ def getRootResource(config, resources=None):
 
     root.putChild("principals", principalCollection)
     root.putChild("calendars", calendarCollection)
+
+    # /.well-known
+    if config.EnableWellKnown:
+        log.info("Setting up .well-known collection resource")
+
+        wellKnownResource = SimpleResource(
+            principalCollections=(principalCollection,),
+            isdir=True,
+            defaultACL=SimpleResource.allReadACL
+        )
+        root.putChild(".well-known", wellKnownResource)
+        for enabled, wellknown_name in (
+            (config.EnableCalDAV, "caldav",),
+            (config.EnableCardDAV, "carddav"),
+        ):
+            if enabled:
+                wellKnownResource.putChild(wellknown_name, RedirectResource(path="/"))
 
     for name, info in config.Aliases.iteritems():
         if os.path.sep in name or not info.get("path", None):

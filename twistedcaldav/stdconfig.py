@@ -332,6 +332,7 @@ DEFAULT_CONFIG = {
     # Standard (or draft) WebDAV extensions
     #
     "EnableSyncReport"        : True,  # REPORT collection-sync
+    "EnableWellKnown"         : True,  # /.well-known resource
 
     #
     # Non-standard CalDAV extensions
