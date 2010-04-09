@@ -199,6 +199,21 @@ else:
             self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_GUID, "1234567890", lookupMethod=lookupMethod)
             self.assertFalse(self.service().recordWithGUID("1234567890"))
 
+        def test_queryDirectoryEmailAddresses(self):
+            """ Test to ensure we only ask for users when email address is
+                part of the query """
+
+            def lookupMethod(obj, attr, value, matchType, casei, recordType, attributes, count=0):
+
+                if recordType != ['dsRecTypeStandard:Users']:
+                    raise ValueError
+
+                return []
+
+            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups, DirectoryService.recordType_locations, DirectoryService.recordType_resources]
+            self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_CUA, "mailto:user1@example.com", lookupMethod=lookupMethod)
+
+
 
         @inlineCallbacks
         def test_recordsMatchingFields(self):
