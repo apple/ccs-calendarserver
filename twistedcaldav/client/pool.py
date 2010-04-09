@@ -154,10 +154,10 @@ class HTTPClientPool(LoggingMixIn):
 
         @return: A L{Deferred} that fires with the L{IProtocol} instance.
         """
+        self._pendingConnects += 1
+
         self.log_debug("Initiating new client connection to: %s" % (self._serverAddress,))
         self._logClientStats()
-
-        self._pendingConnects += 1
 
         factory = self.clientFactory(self._reactor)
         factory.connectionPool = self
