@@ -610,18 +610,16 @@ class SharedCollectionMixin(object):
         d.addCallback(self.xmlPOSTNoAuth, request)
         return d
     
-    def http_POST(self, request):
+    def POST_handler_content_type(self, request, contentType):
         if self.isCollection():
-            contentType = request.headers.getHeader("content-type")
             if contentType:
-                contentType = (contentType.mediaType, contentType.mediaSubtype)
                 if contentType in self._postHandlers:
                     return self._postHandlers[contentType](self, request)
                 else:
                     self.log_info("Get a POST of an unsupported content type on a collection type: %s" % (contentType,))
             else:
                 self.log_info("Get a POST with no content type on a collection")
-        return responsecode.FORBIDDEN
+        return succeed(responsecode.FORBIDDEN)
 
     _postHandlers = {
         ("application", "xml") : xmlPOSTAuth,

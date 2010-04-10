@@ -331,6 +331,7 @@ DEFAULT_CONFIG = {
     #
     # Standard (or draft) WebDAV extensions
     #
+    "EnableAddMember"         : True,  # POST ;add-member extension
     "EnableSyncReport"        : True,  # REPORT collection-sync
     "EnableWellKnown"         : True,  # /.well-known resource
 
@@ -676,15 +677,6 @@ def _postUpdateDirectoryService(configDict):
                 del configDict.DirectoryService.params[param]
 
 
-def _updateAddressBook(configDict):
-    #
-    # FIXME: Use the config object instead of doing this here
-    #
-    from twistedcaldav.resource import CalendarPrincipalResource
-    CalendarPrincipalResource.enableAddressBooks(configDict.EnableCardDAV)
-
-
-
 def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items):
     #
     # Special handling for directory address book configs
@@ -809,13 +801,6 @@ def _updateRejectClients(configDict):
     except re.error, e:
         raise ConfigurationError("Invalid regular expression in RejectClients: %s" % (e,))
 
-def _updateDropBox(configDict):
-    #
-    # FIXME: Use the config object instead of doing this here
-    #
-    from twistedcaldav.resource import CalendarPrincipalResource
-    CalendarPrincipalResource.enableDropBox(configDict.EnableDropBox)
-
 def _updateLogLevels(configDict):
     clearLogLevels()
 
@@ -923,14 +908,6 @@ def _updateScheduling(configDict):
                     log.info("iMIP %s password not found in keychain" %
                         (direction,))
 
-def _updateSharing(configDict):
-    #
-    # FIXME: Use the config object instead of doing this here
-    #
-    from twistedcaldav.resource import CalDAVResource, CalendarPrincipalResource
-    CalDAVResource.enableSharing(configDict.Sharing.Enabled)
-    CalendarPrincipalResource.enableSharing(configDict.Sharing.Enabled)
-
 def _updatePartitions(configDict):
     if configDict.Partitioning.Enabled:
         partitions.setSelfPartition(configDict.Partitioning.ServerPartitionID)
@@ -969,17 +946,14 @@ PRE_UPDATE_HOOKS = (
     )
 POST_UPDATE_HOOKS = (
     _updateHostName,
-    _updateAddressBook,
     _postUpdateDirectoryService,
     _postUpdateAugmentService,
     _postUpdateProxyDBService,
     _updateACLs,
     _updateRejectClients,
-    _updateDropBox,
     _updateLogLevels,
     _updateNotifications,
     _updateScheduling,
-    _updateSharing,
     _updatePartitions,
     _updateCompliance,
     )

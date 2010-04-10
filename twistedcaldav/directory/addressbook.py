@@ -298,6 +298,8 @@ class DirectoryAddressBookHomeResource (AutoProvisioningResourceMixIn, CalDAVRes
         ##
         #return joinURL(self.parent.parent.getChild(self.record.recordType).url(), self.record.shortName)
 
+    def canonicalURL(self, request):
+        return succeed(self.url())
     ##
     # DAV
     ##

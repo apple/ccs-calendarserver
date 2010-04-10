@@ -118,11 +118,13 @@ class CalendarCollectionResource(CalDAVResource):
     # WebDAV
     #
 
-    liveProperties = DAVResource.liveProperties + (
-        (dav_namespace,    "owner"),               # Private Events needs this but it is also OK to return empty
-        (caldav_namespace, "supported-calendar-component-set"),
-        (caldav_namespace, "supported-calendar-data"         ),
-    )
+    def liveProperties(self):
+        
+        return super(CalendarCollectionResource, self).liveProperties() + (
+            (dav_namespace,    "owner"),               # Private Events needs this but it is also OK to return empty
+            (caldav_namespace, "supported-calendar-component-set"),
+            (caldav_namespace, "supported-calendar-data"         ),
+        )
 
 
 

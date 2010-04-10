@@ -16,7 +16,6 @@
 
 from twistedcaldav import caldavxml
 from twistedcaldav.query import queryfilter
-from twistedcaldav.query.calendarquery import sqlcalendarquery
 import datetime
 import twistedcaldav.test.util
 
@@ -94,6 +93,4 @@ class Tests(twistedcaldav.test.util.TestCase):
     
         Eastern  = USTimeZone(-5, "Eastern",  "EST", "EDT")
         filter.child.settzinfo(Eastern)
-        
-        print sqlcalendarquery(filter)
         

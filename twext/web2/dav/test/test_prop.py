@@ -47,7 +47,7 @@ class PROP(twext.web2.dav.test.util.TestCase):
     """
 
     def liveProperties(self):
-        return [lookupElement(qname)() for qname in self.resource_class.liveProperties if (qname[0] == dav_namespace) and qname not in dynamicLiveProperties]
+        return [lookupElement(qname)() for qname in self.site.resource.liveProperties() if (qname[0] == dav_namespace) and qname not in dynamicLiveProperties]
 
     def test_PROPFIND_basic(self):
         """

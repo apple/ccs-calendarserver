@@ -82,10 +82,12 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
     Extends L{DAVResource} to provide CalDAV functionality.
     """
 
-    liveProperties = CalendarSchedulingCollectionResource.liveProperties + (
-        (caldav_namespace, "calendar-free-busy-set"),
-        (caldav_namespace, "schedule-default-calendar-URL"),
-    )
+    def liveProperties(self):
+        
+        return super(ScheduleInboxResource, self).liveProperties() + (
+            (caldav_namespace, "calendar-free-busy-set"),
+            (caldav_namespace, "schedule-default-calendar-URL"),
+        )
 
     def resourceType(self, request):
         return succeed(davxml.ResourceType.scheduleInbox)

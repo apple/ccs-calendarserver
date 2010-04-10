@@ -514,11 +514,13 @@ class DirectoryPrincipalResource (PermissionsMixIn, DAVPrincipalResource, DAVFil
     Directory principal resource.
     """
 
-    liveProperties = tuple(DAVPrincipalResource.liveProperties) + (
-        (calendarserver_namespace, "first-name"       ),
-        (calendarserver_namespace, "last-name"        ),
-        (calendarserver_namespace, "email-address-set"),
-    )
+    def liveProperties(self):
+        
+        return super(DirectoryPrincipalResource, self).liveProperties() + (
+            (calendarserver_namespace, "first-name"       ),
+            (calendarserver_namespace, "last-name"        ),
+            (calendarserver_namespace, "email-address-set"),
+        )
 
     def __init__(self, parent, record):
         """
@@ -821,15 +823,8 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
     Directory calendar principal resource.
     """
 
-    @property
     def liveProperties(self):
-        # This needs to be a dynamic property because CalendarPrincipalResource
-        # liveProperties changes on the fly (drop box enabling)
-        return (
-            tuple(DirectoryPrincipalResource.liveProperties) +
-            tuple(CalendarPrincipalResource.liveProperties)
-        )
-
+        return DirectoryPrincipalResource.liveProperties(self) + CalendarPrincipalResource.liveProperties(self)
 
     @inlineCallbacks
     def readProperty(self, property, request):

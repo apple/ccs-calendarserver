@@ -929,11 +929,13 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, DirectoryCal
     """
     Calendar home collection resource.
     """
-    liveProperties = CalDAVFile.liveProperties + (
-        (customxml.calendarserver_namespace, "xmpp-uri"),
-        (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
-        (customxml.calendarserver_namespace, "xmpp-server"),
-    )
+    def liveProperties(self):
+        
+        return super(CalendarHomeFile, self).liveProperties() + (
+            (customxml.calendarserver_namespace, "xmpp-uri"),
+            (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
+            (customxml.calendarserver_namespace, "xmpp-server"),
+        )
 
     def __init__(self, path, parent, record):
         """
@@ -1493,9 +1495,11 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeRe
     """
     Address book home collection resource.
     """
-    liveProperties = CalDAVFile.liveProperties + (
-        (customxml.calendarserver_namespace, "xmpp-uri"),
-    )
+    
+    def liveProperties(self):
+        return super(AddressBookHomeFile, self).liveProperties() + (
+            (customxml.calendarserver_namespace, "xmpp-uri"),
+        )
 
     def __init__(self, path, parent, record):
         """

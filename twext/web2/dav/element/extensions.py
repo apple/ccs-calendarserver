@@ -31,6 +31,7 @@ Implementation of draft-sanchez-webdav-current-principal-02.
 __all__ = [
     "CurrentUserPrincipal",
     "ErrorDescription",
+    "AddMember",
     "SyncCollection",
     "SyncToken",
 ]
@@ -57,6 +58,17 @@ class ErrorDescription(WebDAVTextElement):
     namespace = twisted_dav_namespace
     name = "error-description"
     protected = True
+
+class AddMember (WebDAVElement):
+    """
+    A property on a collection to allow for "anonymous" creation of resources.
+    (draft-reschke-webdav-post)
+    """
+    name = "add-member"
+    hidden = True
+    protected = True
+
+    allowed_children = { (dav_namespace, "href"): (0, 1) }
 
 class SyncCollection (WebDAVElement):
     """

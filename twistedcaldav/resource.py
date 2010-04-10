@@ -159,23 +159,27 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
     # WebDAV
     ##
 
-    liveProperties = DAVResource.liveProperties + (
-        davxml.Owner.qname(),               # Private Events needs this but it is also OK to return empty
-        caldavxml.SupportedCalendarComponentSet.qname(),
-        caldavxml.SupportedCalendarData.qname(),
-    )
+    def liveProperties(self):
+        baseProperties = (
+            davxml.Owner.qname(),               # Private Events needs this but it is also OK to return empty
+            caldavxml.SupportedCalendarComponentSet.qname(),
+            caldavxml.SupportedCalendarData.qname(),
+        )
+        
+        if config.EnableAddMember and (self.isCalendarCollection() or self.isAddressBookCollection()):
+            baseProperties += (davxml.AddMember.qname(),)
+            
+        if config.Sharing.Enabled:
+            if config.Sharing.Calendars.Enabled and self.isCalendarCollection():
+                baseProperties += (customxml.Invite.qname(),)
+            elif config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection():
+                baseProperties += (customxml.Invite.qname(),)
+                
+        return super(CalDAVResource, self).liveProperties() + baseProperties
 
     supportedCalendarComponentSet = caldavxml.SupportedCalendarComponentSet(
         *[caldavxml.CalendarComponent(name=item) for item in allowedComponents]
     )
-
-    @classmethod
-    def enableSharing(clz, enable):
-        qname = (calendarserver_namespace, "invite" )
-        if enable and qname not in clz.liveProperties:
-            clz.liveProperties += (qname,)
-        elif not enable and qname in clz.liveProperties:
-            clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
 
     def isShadowableProperty(self, qname):
         """
@@ -191,7 +195,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         """
         A global property is one that is the same for all users.
         """
-        if qname in self.liveProperties:
+        if qname in self.liveProperties():
             if qname in (
                 davxml.DisplayName.qname(),
                 customxml.Invite.qname(),
@@ -282,6 +286,12 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         if qname == davxml.Owner.qname():
             owner = (yield self.owner(request))
             returnValue(davxml.Owner(owner))
+
+        elif qname == davxml.AddMember.qname() and config.EnableAddMember and (
+            self.isCalendarCollection() or self.isAddressBookCollection()
+        ):
+            url = (yield self.canonicalURL(request))
+            returnValue(davxml.AddMember(davxml.HRef.fromString(url + "/;add-member")))
 
         elif qname == caldavxml.SupportedCalendarComponentSet.qname():
             # CalDAV-access-09, section 5.2.3
@@ -1058,40 +1068,32 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
     """
     implements(ICalendarPrincipalResource)
 
-    liveProperties = tuple(DAVPrincipalResource.liveProperties) + (
-        (caldav_namespace, "calendar-home-set"        ),
-        (caldav_namespace, "calendar-user-address-set"),
-        (caldav_namespace, "schedule-inbox-URL"       ),
-        (caldav_namespace, "schedule-outbox-URL"      ),
-        (caldav_namespace, "calendar-user-type"       ),
-        (calendarserver_namespace, "calendar-proxy-read-for"  ),
-        (calendarserver_namespace, "calendar-proxy-write-for" ),
-        (calendarserver_namespace, "auto-schedule" ),
-    )
+    def liveProperties(self):
+        
+        baseProperties = ()
+        
+        if config.EnableCalDAV:
+            baseProperties += (
+                (caldav_namespace, "calendar-home-set"        ),
+                (caldav_namespace, "calendar-user-address-set"),
+                (caldav_namespace, "schedule-inbox-URL"       ),
+                (caldav_namespace, "schedule-outbox-URL"      ),
+                (caldav_namespace, "calendar-user-type"       ),
+                (calendarserver_namespace, "calendar-proxy-read-for"  ),
+                (calendarserver_namespace, "calendar-proxy-write-for" ),
+                (calendarserver_namespace, "auto-schedule" ),
+            )
+        
+        if config.EnableCardDAV:
+            baseProperties += (carddavxml.AddressBookHomeSet.qname(),)
 
-    @classmethod
-    def enableDropBox(clz, enable):
-        qname = (calendarserver_namespace, "dropbox-home-URL" )
-        if enable and qname not in clz.liveProperties:
-            clz.liveProperties += (qname,)
-        elif not enable and qname in clz.liveProperties:
-            clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
+        if config.EnableDropBox:
+            baseProperties += (customxml.DropBoxHomeURL.qname(),)
 
-    @classmethod
-    def enableSharing(clz, enable):
-        qname = (calendarserver_namespace, "notification-URL" )
-        if enable and qname not in clz.liveProperties:
-            clz.liveProperties += (qname,)
-        elif not enable and qname in clz.liveProperties:
-            clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
+        if config.Sharing.Enabled:
+            baseProperties += (customxml.NotificationURL.qname(),)
 
-    @classmethod
-    def enableAddressBooks(clz, enable):
-        qname = (carddav_namespace, "addressbook-home-set" )
-        if enable and qname not in clz.liveProperties:
-            clz.liveProperties += (qname,)
-        elif not enable and qname in clz.liveProperties:
-            clz.liveProperties = tuple([p for p in clz.liveProperties if p != qname])
+        return super(CalendarPrincipalResource, self).liveProperties() + baseProperties
 
     def isCollection(self):
         return True

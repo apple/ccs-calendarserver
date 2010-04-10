@@ -2025,7 +2025,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
 
     def listProperties(self, request):
         #print("VCardResource.listProperties()")
-        qnames = set(self.liveProperties)
+        qnames = set(self.liveProperties())
 
         # Add dynamic live properties that exist
         dynamicLiveProperties = (

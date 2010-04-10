@@ -129,30 +129,32 @@ class DAVPropertyMixIn (MetaDataMixin):
     # meaningful if you are using ACL semantics (ie. Unix-like) which
     # use them.  This (generic) class does not.
 
-    liveProperties = (
-        (dav_namespace, "resourcetype"              ),
-        (dav_namespace, "getetag"                   ),
-        (dav_namespace, "getcontenttype"            ),
-        (dav_namespace, "getcontentlength"          ),
-        (dav_namespace, "getlastmodified"           ),
-        (dav_namespace, "creationdate"              ),
-        (dav_namespace, "displayname"               ),
-        (dav_namespace, "supportedlock"             ),
-        (dav_namespace, "supported-report-set"      ), # RFC 3253, section 3.1.5
-       #(dav_namespace, "owner"                     ), # RFC 3744, section 5.1
-       #(dav_namespace, "group"                     ), # RFC 3744, section 5.2
-        (dav_namespace, "supported-privilege-set"   ), # RFC 3744, section 5.3
-        (dav_namespace, "current-user-privilege-set"), # RFC 3744, section 5.4
-        (dav_namespace, "current-user-principal"    ), # draft-sanchez-webdav-current-principal
-        (dav_namespace, "acl"                       ), # RFC 3744, section 5.5
-        (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
-        (dav_namespace, "inherited-acl-set"         ), # RFC 3744, section 5.7
-        (dav_namespace, "principal-collection-set"  ), # RFC 3744, section 5.8
-        (dav_namespace, "quota-available-bytes"     ), # RFC 4331, section 3
-        (dav_namespace, "quota-used-bytes"          ), # RFC 4331, section 4
-
-        (twisted_dav_namespace, "resource-class"),
-    )
+    def liveProperties(self):
+    
+        return (
+            (dav_namespace, "resourcetype"              ),
+            (dav_namespace, "getetag"                   ),
+            (dav_namespace, "getcontenttype"            ),
+            (dav_namespace, "getcontentlength"          ),
+            (dav_namespace, "getlastmodified"           ),
+            (dav_namespace, "creationdate"              ),
+            (dav_namespace, "displayname"               ),
+            (dav_namespace, "supportedlock"             ),
+            (dav_namespace, "supported-report-set"      ), # RFC 3253, section 3.1.5
+           #(dav_namespace, "owner"                     ), # RFC 3744, section 5.1
+           #(dav_namespace, "group"                     ), # RFC 3744, section 5.2
+            (dav_namespace, "supported-privilege-set"   ), # RFC 3744, section 5.3
+            (dav_namespace, "current-user-privilege-set"), # RFC 3744, section 5.4
+            (dav_namespace, "current-user-principal"    ), # draft-sanchez-webdav-current-principal
+            (dav_namespace, "acl"                       ), # RFC 3744, section 5.5
+            (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
+            (dav_namespace, "inherited-acl-set"         ), # RFC 3744, section 5.7
+            (dav_namespace, "principal-collection-set"  ), # RFC 3744, section 5.8
+            (dav_namespace, "quota-available-bytes"     ), # RFC 4331, section 3
+            (dav_namespace, "quota-used-bytes"          ), # RFC 4331, section 4
+    
+            (twisted_dav_namespace, "resource-class"),
+        )
 
     def deadProperties(self):
         """
@@ -198,7 +200,7 @@ class DAVPropertyMixIn (MetaDataMixin):
                 return d
         
         return succeed(
-            qname in self.liveProperties or
+            qname in self.liveProperties() or
             self.deadProperties().contains(qname)
         )
 
@@ -427,7 +429,7 @@ class DAVPropertyMixIn (MetaDataMixin):
                 qname = property.qname()
                 sname = property.sname()
 
-            if qname in self.liveProperties:
+            if qname in self.liveProperties():
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
                     "Live property %s cannot be deleted." % (sname,)
@@ -449,7 +451,7 @@ class DAVPropertyMixIn (MetaDataMixin):
         """
         See L{IDAVResource.listProperties}.
         """
-        qnames = set(self.liveProperties)
+        qnames = set(self.liveProperties())
 
         # Add dynamic live properties that exist
         dynamicLiveProperties = (
@@ -2288,12 +2290,14 @@ class DAVPrincipalResource (DAVResource):
     # WebDAV
     ##
 
-    liveProperties = DAVResource.liveProperties + (
-        (dav_namespace, "alternate-URI-set"),
-        (dav_namespace, "principal-URL"    ),
-        (dav_namespace, "group-member-set" ),
-        (dav_namespace, "group-membership" ),
-    )
+    def liveProperties(self):
+        
+        return super(DAVPrincipalResource, self).liveProperties() + (
+            (dav_namespace, "alternate-URI-set"),
+            (dav_namespace, "principal-URL"    ),
+            (dav_namespace, "group-member-set" ),
+            (dav_namespace, "group-membership" ),
+        )
 
     def davComplianceClasses(self):
         return ("1", "access-control",)

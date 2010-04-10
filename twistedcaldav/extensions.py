@@ -453,11 +453,12 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrinc
     Extended L{twext.web2.dav.static.DAVFile} implementation.
     """
 
-    liveProperties = tuple(SuperDAVPrincipalResource.liveProperties) + (
-        (calendarserver_namespace, "expanded-group-member-set"),
-        (calendarserver_namespace, "expanded-group-membership"),
-        (calendarserver_namespace, "record-type"),
-    )
+    def liveProperties(self):
+        return super(DAVPrincipalResource, self).liveProperties() + (
+            (calendarserver_namespace, "expanded-group-member-set"),
+            (calendarserver_namespace, "expanded-group-membership"),
+            (calendarserver_namespace, "record-type"),
+        )
 
     http_REPORT = http_REPORT
 
