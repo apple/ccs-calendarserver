@@ -169,25 +169,6 @@ class AddressBook (CardDAVEmptyElement):
     """
     name = "addressbook"
 
-class SearchAddressBook (CardDAVEmptyElement):
-    """
-    Denotes a search address book collection, that will respond 
-    to query reports by querying the user-readable address books 
-    on this server not cached by AddressBook.app.
-    For version 1.0, this object simply redirects queries to the open directory address book
-    """
-    name = "searchaddressbook"
-
-class SearchAllAddressBook (CardDAVEmptyElement):
-    """
-    Denotes a search address book collection, that will respond 
-    to query reports by querying the user-readable address books 
-    on this server.
-    For version 1.0, this will include the user's private address book,
-    the open directory address book, and user-readable group (shared) address books.
-    """
-    name = "searchalladdressbook"
-
 class AddressBookQuery (CardDAVElement):
     """
     Defines a report for querying address book data.
@@ -731,18 +712,6 @@ class AddressBookMultiGet (CardDAVElement):
         self.property  = property
         self.resources = resources
 
-class AddressBookFindShared (davxml.WebDAVElement):
-    """
-    Report used to retrieve shared address books accessible for a user principal
-    """
-    name = "addressbook-findshared"
-    namespace = addressbookserver_namespace
-
-    allowed_children = {
-#         (davxml.dav_namespace, "href"    ): (0, None),    # Actually ought to be (1, None)
-    }
-
-
 class NoUIDConflict(CardDAVElement):
     """
     CardDAV precondition used to indicate a UID conflict during PUT/COPY/MOVE.
@@ -772,5 +741,3 @@ class SupportedFilter(CardDAVElement):
 def _isAddressBook(self): return bool(self.childrenOfType(AddressBook))
 davxml.ResourceType.isAddressBook = _isAddressBook
 davxml.ResourceType.addressbook = davxml.ResourceType(davxml.Collection(), AddressBook())
-davxml.ResourceType.searchaddressbook = davxml.ResourceType(davxml.Collection(), SearchAddressBook())
-davxml.ResourceType.searchalladdressbook = davxml.ResourceType(davxml.Collection(), SearchAllAddressBook())
