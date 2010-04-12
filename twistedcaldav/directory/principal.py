@@ -48,8 +48,6 @@ from twext.web2.dav import davxml
 from twext.web2.dav.util import joinURL
 from twext.web2.dav.noneprops import NonePropertyStore
 
-from twistedcaldav import carddavxml
-
 from twext.python.log import Logger
 
 from twistedcaldav.authkerb import NegotiateCredentials
@@ -915,7 +913,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return None
 
     def addressBookHomeURLs(self):
-        home = self._addressBookHome()
+        home = self.addressBookHome()
         if home is None:
             return ()
         else:
@@ -945,7 +943,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         else:
             return None
 
-    def _addressBookHome(self):
+    def addressBookHome(self):
         # FIXME: self.record.service.addressBookHomesCollection smells like a hack
         # See AddressBookHomeProvisioningFile.__init__()
         service = self.record.service
@@ -953,13 +951,6 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return service.addressBookHomesCollection.homeForDirectoryRecord(self.record)
         else:
             return None
-
-    def supportedReports(self):            # Method added for AddressBook find-shared report support
-        result = super(DirectoryCalendarPrincipalResource, self).supportedReports()
-        if config.EnableCardDAV and config.EnableFindSharedReport:
-            result.append(davxml.Report(carddavxml.AddressBookFindShared(),)) 
-        return result
-
 
     ##
     # Static

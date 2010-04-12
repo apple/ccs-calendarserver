@@ -56,13 +56,13 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
         
     def provisionDirectory(self):
         if self.directory is None:
-            directoryClass = namedClass(config.DirectoryAddressBook["type"])
+            directoryClass = namedClass(config.DirectoryAddressBook.type)
         
             log.info("Configuring: %s:%r"
-                 % (config.DirectoryAddressBook["type"], config.DirectoryAddressBook["params"]))
+                 % (config.DirectoryAddressBook.type, config.DirectoryAddressBook.params))
         
             #add self as "directoryBackedAddressBook" parameter
-            params = config.DirectoryAddressBook["params"].copy()
+            params = config.DirectoryAddressBook.params.copy()
             params["directoryBackedAddressBook"] = self
 
             self.directory = directoryClass(params)

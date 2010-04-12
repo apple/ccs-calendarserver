@@ -74,6 +74,8 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         ClientFactory.allowTestCache = True
         memcacher.Memcacher.allowTestCache = True
 
+        config.DirectoryAddressBook.Enabled = False
+
     def createHierarchy(self, structure, root=None):
         if root is None:
             root = self.mktemp()

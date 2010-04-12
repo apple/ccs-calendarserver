@@ -26,8 +26,6 @@ __all__ = [
     "isCalendarCollectionResource",
     "isPseudoCalendarCollectionResource",
     "isAddressBookCollectionResource",
-    "SearchAddressBookResource",
-    "SearchAllAddressBookResource",
 ]
 
 import urllib
@@ -1276,64 +1274,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         Quota root only ever set on calendar homes.
         """
         return None
-
-
-
-
-
-class SearchAddressBookResource (CalDAVResource):
-    """
-    Search collection resource.
-    """
-    def __init__(self, parent):
-        """
-        @param parent: the parent resource of this one.
-        """
-        assert parent is not None
-
-        CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
-
-        self.parent = parent
-
-    def resourceType(self, request):
-        return succeed(davxml.ResourceType.searchaddressbook)
-
-    def renderHTTP(self, request):
-        return RedirectResponse(request.unparseURL(path="/directory/"))
-
-
-class SearchAllAddressBookResource (CalDAVResource):
-    """
-    Search collection resource.
-    """
-    def __init__(self, parent):
-        """
-        @param parent: the parent resource of this one.
-        """
-        assert parent is not None
-
-        CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
-
-        self.parent = parent
-
-    def resourceType(self, request):
-        return succeed(davxml.ResourceType.searchalladdressbook)
-
-    def renderHTTP(self, request):
-        
-        # if requested path ends with "searchall", redirect it for now, redirect to "addressbook"
-        #
-        # in future, should combine all accessible address books
-        
-        matchString = "/searchall"
-        if request.path[-1] == "/":
-            matchString += "/"
-            
-        if request.path.endswith( matchString ):
-            return RedirectResponse(request.unparseURL(path=request.path[:-len(matchString)] + "/addressbook/"))
-        else:
-            return CalDAVResource.renderHTTP(self, request)
-
 
 
 class AuthenticationWrapper(SuperAuthenticationWrapper):

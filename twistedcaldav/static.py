@@ -80,7 +80,7 @@ from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
 from twistedcaldav.index import Index, IndexSchedule, SyncTokenValidException
 from twistedcaldav.resource import CalDAVResource, isCalendarCollectionResource, isPseudoCalendarCollectionResource
-from twistedcaldav.resource import isAddressBookCollectionResource, SearchAddressBookResource, SearchAllAddressBookResource
+from twistedcaldav.resource import isAddressBookCollectionResource
 from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource, IScheduleInboxResource
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource
@@ -1374,25 +1374,6 @@ class AddressBookHomeProvisioningFile (DirectoryAddressBookHomeProvisioningResou
         DAVFile.__init__(self, path)
         DirectoryAddressBookHomeProvisioningResource.__init__(self, directory, url)
 
-        # create with permissions
-        try:
-            os.mkdir(path)
-            os.chmod(path, 0750)
-            if config.UserName and config.GroupName:
-                import pwd
-                import grp
-                uid = pwd.getpwnam(config.UserName)[2]
-                gid = grp.getgrnam(config.GroupName)[2]
-                os.chown(path, uid, gid)
- 
-            log.msg("Created %s" % (path,))
-            
-        except (OSError,), e:
-            # this is caused by multiprocessor race and is harmless
-            if e.errno != errno.EEXIST:
-                raise
-
-
     def provisionChild(self, name):
         if name == uidsResourceNameAddressBook:
             return AddressBookHomeUIDProvisioningFile(self.fp.child(name).path, self)
@@ -1499,6 +1480,8 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeRe
     def liveProperties(self):
         return super(AddressBookHomeFile, self).liveProperties() + (
             (customxml.calendarserver_namespace, "xmpp-uri"),
+            (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
+            (customxml.calendarserver_namespace, "xmpp-server"),
         )
 
     def __init__(self, path, parent, record):
@@ -1511,27 +1494,23 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeRe
 
     def provisionChild(self, name):
  
-        SearchAddressBookFileClass = None
-        SearchAllAddressBookFileClass = None
-        if config.EnableSearchAddressBook and config.DirectoryAddressBook:
-            SearchAddressBookFileClass = SearchAddressBookFile
-        if config.EnableSearchAllAddressBook:
-            SearchAllAddressBookFileClass = SearchAllAddressBookFile
-        
+        if config.Sharing.Enabled:
+            NotificationCollectionFileClass = NotificationCollectionFile
+        else:
+            NotificationCollectionFileClass = None
+
         cls = {
-            "search"       : SearchAddressBookFileClass,
-            "searchall"    : SearchAllAddressBookFileClass,
+            "notification" : NotificationCollectionFileClass,
         }.get(name, None)
 
         if cls is not None:
             child = cls(self.fp.child(name).path, self)
             child.clientNotifier = self.clientNotifier
             return child
-
         return self.createSimilarFile(self.fp.child(name).path)
 
     def createSimilarFile(self, path):
-        if path == self.fp.path:
+        if self.comparePath(path):
             return self
         else:
             similar = CalDAVFile(path, principalCollections=self.principalCollections())
@@ -1552,49 +1531,52 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeRe
         else:
             qname = property.qname()
 
+        def doneWaiting(result, propVal):
+            return propVal
+
         if qname == (customxml.calendarserver_namespace, "xmpp-uri"):
             pubSubConfiguration = getPubSubConfiguration(config)
             if pubSubConfiguration['enabled']:
-                return succeed(customxml.PubSubXMPPURIProperty(
-                    getPubSubXMPPURI(self.url(), pubSubConfiguration)))
+                if getattr(self, "clientNotifier", None) is not None:
+                    url = self.url()
+                    nodeName = getPubSubPath(url, pubSubConfiguration)
+                    propVal = customxml.PubSubXMPPURIProperty(
+                        getPubSubXMPPURI(url, pubSubConfiguration))
+                    nodeCacher = getNodeCacher()
+                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
+                    # In either case we're going to return the xmpp-uri value
+                    d.addCallback(doneWaiting, propVal)
+                    d.addErrback(doneWaiting, propVal)
+                    return d
             else:
                 return succeed(customxml.PubSubXMPPURIProperty())
 
+        elif qname == (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"):
+            pubSubConfiguration = getPubSubConfiguration(config)
+            if pubSubConfiguration['enabled']:
+                return succeed(
+                    customxml.PubSubHeartbeatProperty(
+                        customxml.PubSubHeartbeatURIProperty(
+                            getPubSubHeartbeatURI(pubSubConfiguration)
+                        ),
+                        customxml.PubSubHeartbeatMinutesProperty(
+                            str(pubSubConfiguration['heartrate'])
+                        )
+                    )
+                )
+            else:
+                return succeed(customxml.PubSubHeartbeatURIProperty())
+
+        elif qname == (customxml.calendarserver_namespace, "xmpp-server"):
+            pubSubConfiguration = getPubSubConfiguration(config)
+            if pubSubConfiguration['enabled']:
+                return succeed(customxml.PubSubXMPPServerProperty(
+                    pubSubConfiguration['xmpp-server']))
+            else:
+                return succeed(customxml.PubSubXMPPServerProperty())
+
         return super(AddressBookHomeFile, self).readProperty(property, request)
 
-
-class SearchAddressBookFile (SearchAddressBookResource, CalDAVFile):
-    """
-    Search collection resource.
-    """
-    def __init__(self, path, parent):
-        SearchAddressBookResource.__init__(self, parent)
-        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
-        self.parent = parent
-
-    def createSimilarFile(self, path):
-        if path == self.fp.path:
-            return self
-
-        # FIXME:  path here is similar too .../addressbooks/__uids__/us/er/user01/search/move2_1.vcf
-        #        so we should really redirect to /directory/move2_1.vcf or perhaps we shouldn't be here in the first place
-        raise HTTPError(responsecode.NOT_FOUND)
-
-class SearchAllAddressBookFile (SearchAllAddressBookResource, CalDAVFile):
-    """
-    Search collection resource.
-    """
-    def __init__(self, path, parent):
-        SearchAllAddressBookResource.__init__(self, parent)
-        CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
-        self.parent = parent
-   
-    def createSimilarFile(self, path):
-        if path == self.fp.path:
-            return self
-
-        # FIXME:  see note above
-        raise HTTPError(responsecode.NOT_FOUND)
 
 class DirectoryBackedAddressBookFile (DirectoryBackedAddressBookResource, CalDAVFile):
     """
@@ -1748,13 +1730,5 @@ twistedcaldav.method.get.CalDAVFile      = CalDAVFile
 twistedcaldav.method.mkcol.CalDAVFile    = CalDAVFile
 twistedcaldav.method.propfind.CalDAVFile = CalDAVFile
 twistedcaldav.method.put.CalDAVFile      = CalDAVFile
-
-
-#
-# Attach method to DirectoryCalendarPrincipalResource for "Find Shared Address Books" REPORT method
-#
-from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
-from twistedcaldav import report_addressbook_findshared
-setattr(DirectoryCalendarPrincipalResource, "report_http___addressbookserver_org_ns__addressbook_findshared", report_addressbook_findshared.http___addressbookserver_org_ns__addressbook_findshared)
 
 

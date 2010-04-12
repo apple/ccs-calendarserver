@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,22 +27,23 @@ __all__ = [
     "DirectoryAddressBookHomeResource",
 ]
 
-from twisted.internet.defer import succeed
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.http import HTTPError
+from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.util import joinURL
-from twext.web2.dav.resource import TwistedACLInheritable, TwistedQuotaRootProperty
+from twext.web2.http import HTTPError
+
+from twisted.internet.defer import succeed
 
 from twistedcaldav.config import config
-from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource
-from twistedcaldav.resource import CalDAVResource, SearchAddressBookResource, SearchAllAddressBookResource, CalDAVComplianceMixIn
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.resource import AutoProvisioningResourceMixIn
+from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource
+from twistedcaldav.notifications import NotificationCollectionResource
+from twistedcaldav.resource import CalDAVResource, CalDAVComplianceMixIn
 
-from twistedcaldav.directory.directory import DirectoryService
-
-from twistedcaldav.report_addressbook_findshared import getReadWriteSharedAddressBookGroups, getReadOnlySharedAddressBookGroups, getWritersGroupForSharedAddressBookGroup
+log = Logger()
 
 # Use __underbars__ convention to avoid conflicts with directory resource types.
 uidsResourceName = "__uids__"
@@ -56,10 +57,6 @@ class DirectoryAddressBookProvisioningResource (
 ):
     def defaultAccessControlList(self):
         return config.ProvisioningResourceACL
-
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
-        # Permissions here are fixed, and are not subject to inherritance rules, etc.
-        return succeed(self.defaultAccessControlList())
 
 
 class DirectoryAddressBookHomeProvisioningResource (DirectoryAddressBookProvisioningResource):
@@ -178,15 +175,15 @@ class DirectoryAddressBookHomeTypeProvisioningResource (DirectoryAddressBookProv
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)
 
+    def createSimilarFile(self, path):
+        raise HTTPError(responsecode.NOT_FOUND)
+
     ##
     # DAV
     ##
     
     def isCollection(self):
         return True
-
-    def http_COPY(self, request):
-        return responsecode.FORBIDDEN
 
     ##
     # ACL
@@ -263,40 +260,50 @@ class DirectoryAddressBookHomeResource (AutoProvisioningResourceMixIn, CalDAVRes
 
         self.record = record
         self.parent = parent
-        
-        # Cache children which must be of a specific type
+
         childlist = ()
-        if config.EnableSearchAddressBook and config.DirectoryAddressBook:
-            childlist += (("search" , SearchAddressBookResource ), )
-        if config.EnableSearchAllAddressBook:
-            childlist += (("searchall" , SearchAllAddressBookResource ),)
-        
+        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
+            childlist += (
+                ("notification", NotificationCollectionResource),
+            )
         for name, cls in childlist:
             child = self.provisionChild(name)
-            assert isinstance(child, cls), "Child %r not a %s: %r" % (name, cls.__name__, child)
+            assert isinstance(child, cls), "Child %r is not a %s: %r" % (name, cls.__name__, child)
             self.putChild(name, child)
 
-
     def provisionDefaultAddressBooks(self):
-        self.provision()
 
-        childName = "addressbook"
-        child = self.provisionChild(childName)
-        assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child) #@UndefinedVariable
+        # Disable notifications during provisioning
+        if hasattr(self, "clientNotifier"):
+            self.clientNotifier.disableNotify()
 
-        return child.createAddressBookCollection()
+        try:
+            self.provision()
+    
+            childName = "addressbook"
+            child = self.provisionChild(childName)
+            assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child) #@UndefinedVariable
+
+            d = child.createAddressBookCollection()
+        except:
+            # We want to make sure to re-enable notifications, so do so
+            # if there is an immediate exception above, or via errback, below
+            if hasattr(self, "clientNotifier"):
+                self.clientNotifier.enableNotify(None)
+            raise
+
+        # Re-enable notifications
+        if hasattr(self, "clientNotifier"):
+            d.addCallback(self.clientNotifier.enableNotify)
+            d.addErrback(self.clientNotifier.enableNotify)
+
+        return d
 
     def provisionChild(self, name):
         raise NotImplementedError("Subclass must implement provisionChild()")
 
     def url(self):
-        return joinURL(self.parent.url(), self.record.guid)
-        ##
-        ## While the underlying primary location is GUID-based, we want
-        ## the canonical user-facing location to be recordType &
-        ## shortName-based, because that's friendlier.
-        ##
-        #return joinURL(self.parent.parent.getChild(self.record.recordType).url(), self.record.shortName)
+        return joinURL(self.parent.url(), self.record.uid, "/")
 
     def canonicalURL(self, request):
         return succeed(self.url())
@@ -307,6 +314,9 @@ class DirectoryAddressBookHomeResource (AutoProvisioningResourceMixIn, CalDAVRes
     def isCollection(self):
         return True
 
+    def http_COPY(self, request):
+        return responsecode.FORBIDDEN
+
     ##
     # ACL
     ##
@@ -314,107 +324,24 @@ class DirectoryAddressBookHomeResource (AutoProvisioningResourceMixIn, CalDAVRes
     def owner(self, request):
         return succeed(davxml.HRef(self.principalForRecord().principalURL()))
 
-    def _determineGroupAccessMode(self):
-        """
-        Determines whether this record (assumed to be a group) is provisioned in the list of read-write address books or read-only address books
-        Returns:
-            "ReadWrite", "ReadOnly" or None
-        """
-        
-        members = getReadWriteSharedAddressBookGroups(self.record.service)      # list of members of the "ab_readwrite" group
-        if self.record in members:                                              # membership must be explicit in the "ab_readwrite" group - no membership expansion is done
-            return "ReadWrite"
-
-        members = getReadOnlySharedAddressBookGroups(self.record.service)       # list of members of the "ab_readonly" group
-        if self.record in members:                                              # membership must be explicit in the "ab_readonly" group - no membership expansion is done
-            return "ReadOnly"
-            
-        return None
-    
-    def _getWritersURL(self):
-        """
-           Looks for a "-writers" group, and if found, extract the principal URL to it
-        """
-
-        writerRecord = getWritersGroupForSharedAddressBookGroup(self.record)
-        if writerRecord == None:
-            return None
-        
-        
-        # TO-DO: Need better way to build the principal URL to the "-writers" group
-        #principalURL = "/principals/__uids__/%s/" % writerRecord.guid
-        
-        principalURL = None
-        for principalCollection in self.principalCollections():     # based on principalForCalendarUserAddress in resource.CalDAVResource
-            groups = principalCollection.getChild(DirectoryService.recordType_groups)       # get only the "groups" collection within the parent collection
-            if groups:
-                p = groups.principalForRecord(writerRecord)
-                if p is not None:
-                    principalURL = p.principalURL()
-                    break
-        
-        return principalURL
-        
     def ownerPrincipal(self, request):
+        return succeed(self.principalForRecord())
+
+    def resourceOwnerPrincipal(self, request):
         return succeed(self.principalForRecord())
 
     def defaultAccessControlList(self):
         myPrincipal = self.principalForRecord()
-        
-        if self.record.recordType != DirectoryService.recordType_groups:
-            # Original ACE logic
-            aces = (
-                # DAV:read access for authenticated users.
-                davxml.ACE(
-                    davxml.Principal(davxml.Authenticated()),
-                    davxml.Grant(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                    ),
-                ),
-                # Inheritable DAV:all access for the resource's associated principal.
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
-                    davxml.Grant(davxml.Privilege(davxml.All())),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                ),
-            )
-        else:
-            # Determine access for this group (members are read-write or members are read-only)
-            accMode = self._determineGroupAccessMode()
-                        
-            aces = ()
-                 
-            if accMode == "ReadWrite":
-                aces += (davxml.ACE(
-                    davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
-                    davxml.Grant(davxml.Privilege(davxml.All())),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                ), )            
-            elif accMode == "ReadOnly":
-                aces += (davxml.ACE(
-                    davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
-                    davxml.Grant(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                    ),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                ), )          
-                
-                # Look for a "-writers" group and add those members with read-write access
-                writerURL = self._getWritersURL()
-                if writerURL:
-                    aces += (davxml.ACE(
-                        davxml.Principal(davxml.HRef(writerURL)),
-                        davxml.Grant(davxml.Privilege(davxml.All())),
-                        davxml.Protected(),
-                        TwistedACLInheritable(),
-                    ), )            
-            else:
-                pass
+
+        aces = (
+            # Inheritable DAV:all access for the resource's associated principal.
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
+                davxml.Grant(davxml.Privilege(davxml.All())),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ),
+        )
 
         # Give read access to config.ReadPrincipals
         aces += config.ReadACEs
@@ -442,14 +369,11 @@ class DirectoryAddressBookHomeResource (AutoProvisioningResourceMixIn, CalDAVRes
         """
         @return: a C{True} if this resource has quota root, C{False} otherwise.
         """
-        return self.hasDeadProperty(TwistedQuotaRootProperty) or config.UserQuota > 0
+        return config.UserQuota != 0
     
     def quotaRoot(self, request):
         """
         @return: a C{int} containing the maximum allowed bytes if this collection
             is quota-controlled, or C{None} if not quota controlled.
         """
-        if self.hasDeadProperty(TwistedQuotaRootProperty):
-            return int(str(self.readDeadProperty(TwistedQuotaRootProperty)))
-        else:
-            return config.UserQuota if config.UserQuota > 0 else None
+        return config.UserQuota if config.UserQuota != 0 else None

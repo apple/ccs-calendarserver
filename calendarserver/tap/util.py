@@ -268,34 +268,22 @@ def getRootResource(config, resources=None):
 
     principalCollection = principalResourceClass("/principals/", directory)
 
-    log.info("Setting up calendar collection: %r" % (calendarResourceClass,))
-
-    calendarCollection = calendarResourceClass(
-        os.path.join(config.DocumentRoot, "calendars"),
-        directory, "/calendars/",
-    )
-
-    log.info("Setting up root resource: %r" % (rootResourceClass,))
-
-    root = rootResourceClass(
-        config.DocumentRoot,
-        principalCollections=(principalCollection,),
-    )
+    if config.EnableCalDAV:
+        log.info("Setting up calendar collection: %r" % (calendarResourceClass,))
+        calendarCollection = calendarResourceClass(
+            os.path.join(config.DocumentRoot, "calendars"),
+            directory, "/calendars/",
+        )
 
     if config.EnableCardDAV:
-        root.saclService = "addressbook" # XXX this needs to be dealt with
-                                         # differently if caldav and carddav
-                                         # are going to be in the same process
         log.info("Setting up address book collection: %r" % (addressBookResourceClass,))
-
         addressBookCollection = addressBookResourceClass(
             os.path.join(config.DocumentRoot, "addressbooks"),
             directory, "/addressbooks/"
         )
 
         directoryPath = os.path.join(config.DocumentRoot, "directory")
-        doBacking = config.DirectoryAddressBook and config.EnableSearchAddressBook
-        if doBacking:
+        if config.DirectoryAddressBook.Enabled:
             log.info("Setting up directory address book: %r" % (directoryBackedAddressBookResourceClass,))
 
             directoryBackedAddressBookCollection = directoryBackedAddressBookResourceClass(
@@ -315,12 +303,25 @@ def getRootResource(config, resources=None):
                 if e.errno != errno.ENOENT:
                     log.error("Could not delete: %s : %r" %  (directoryPath, e,))
 
-        root.putChild('addressbooks', addressBookCollection)
-        if doBacking:
-            root.putChild('directory', directoryBackedAddressBookCollection)
+    log.info("Setting up root resource: %r" % (rootResourceClass,))
+
+    root = rootResourceClass(
+        config.DocumentRoot,
+        principalCollections=(principalCollection,),
+    )
+
+    if config.EnableCardDAV and not config.EnableCalDAV:
+        # TODO need a better way to do this when both services are enabled
+        root.saclService = "addressbook"
+
 
     root.putChild("principals", principalCollection)
-    root.putChild("calendars", calendarCollection)
+    if config.EnableCalDAV:
+        root.putChild("calendars", calendarCollection)
+    if config.EnableCardDAV:
+        root.putChild('addressbooks', addressBookCollection)
+        if config.DirectoryAddressBook.Enabled:
+            root.putChild('directory', directoryBackedAddressBookCollection)
 
     # /.well-known
     if config.EnableWellKnown:

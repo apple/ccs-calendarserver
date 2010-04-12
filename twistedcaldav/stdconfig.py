@@ -152,19 +152,17 @@ DEFAULT_CONFIG = {
     "EnableCalDAV"  : True,  # Enable CalDAV service
     "EnableCardDAV" : True,  # Enable CardDAV service
 
-    # XXX CardDAV
+    # CardDAV Features
     "DirectoryAddressBook": {
-        "type": "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
-        "params": directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
+        "Enabled": True,
+        "type":    "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
+        "params":  directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
     },
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
 
-    "EnableSearchAddressBook": False,
-    "EnableSearchAllAddressBook":False,
     "MaxAddressBookQueryResults":1000,
     "MaxAddressBookMultigetHrefs":5000,
 
-    "EnableFindSharedReport":False,
     # /XXX CardDAV
 
     #
@@ -683,17 +681,17 @@ def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items):
     #
     dsType = items.get("DirectoryAddressBook", {}).get("type", None)
     if dsType is None:
-        dsType = configDict["DirectoryAddressBook"]["type"]
+        dsType = configDict.DirectoryAddressBook.type
     else:
-        if dsType == configDict["DirectoryAddressBook"]["type"]:
-            oldParams = configDict["DirectoryAddressBook"]["params"]
+        if dsType == configDict.DirectoryAddressBook.type:
+            oldParams = configDict.DirectoryAddressBook.params
             newParams = items["DirectoryAddressBook"].get("params", {})
             _mergeData(oldParams, newParams)
         else:
             if dsType in directoryAddressBookBackingServiceDefaultParams:
-                configDict["DirectoryAddressBook"]["params"] = copy.deepcopy(directoryAddressBookBackingServiceDefaultParams[dsType])
+                configDict.DirectoryAddressBook.params = copy.deepcopy(directoryAddressBookBackingServiceDefaultParams[dsType])
             else:
-                configDict["DirectoryAddressBook"]["params"] = {}
+                configDict.DirectoryAddressBook.params = {}
 
     for param in items.get("DirectoryAddressBook", {}).get("params", {}):
         if param not in directoryAddressBookBackingServiceDefaultParams[dsType]:
@@ -701,9 +699,9 @@ def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items):
 
     _mergeData(configDict, items)
 
-    for param in tuple(configDict["DirectoryAddressBook"]["params"]):
-        if param not in directoryAddressBookBackingServiceDefaultParams[configDict["DirectoryAddressBook"]["type"]]:
-            del configDict["DirectoryAddressBook"]["params"][param]
+    for param in tuple(configDict.DirectoryAddressBook.params):
+        if param not in directoryAddressBookBackingServiceDefaultParams[configDict.DirectoryAddressBook.type]:
+            del configDict.DirectoryAddressBook.params[param]
 
 def _postUpdateAugmentService(configDict):
     if configDict.AugmentService.type in DEFAULT_AUGMENT_PARAMS:

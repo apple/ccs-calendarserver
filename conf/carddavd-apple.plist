@@ -16,7 +16,7 @@
     limitations under the License.
   -->
 
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
 
@@ -39,18 +39,6 @@
 
     <key>EnableCalDAV</key>
     <false/>
-
-    <key>ConfigRoot</key>
-    <string>/etc/carddavd</string>
-
-    <key>LogRoot</key>
-    <string>/var/log/carddavd</string>
-
-    <key>PIDFile</key>
-    <string>carddavd.pid</string>
-
-    <key>GlobalStatsSocket</key>
-    <string>carddavd-stats.sock</string>
 
     <key>ControlSocket</key>
     <string>carddavd.sock</string>
@@ -113,10 +101,6 @@
     <key>ConfigRoot</key>
     <string>/etc/carddavd</string>
 
-    <!-- Log root -->
-    <key>LogRoot</key>
-    <string>/var/log/carddavd</string>
-
     <!-- Run root -->
     <key>RunRoot</key>
     <string>/var/run</string>
@@ -133,7 +117,12 @@
        -->
     </dict>
 
-    <!-- User quota (in bytes) -->
+
+    <!--
+        Quotas and limits
+      -->
+
+    <!-- User quota (in bytes) [0 = no quota] -->
     <key>UserQuota</key>
     <integer>104857600</integer><!-- 100Mb -->
 
@@ -198,78 +187,6 @@
       </dict>
     </dict>
 
-    <!--
-        Augment service
-
-        Augments for the directory service records to add calendar specific attributes.
-
-        A variety of augment services are available for use.
-        When using a partitioned server, a service that can be accessed from each host will be needed.
-      -->
-
-    <!-- XML File Augment Service -->
-    <key>AugmentService</key>
-    <dict>
-      <key>type</key>
-      <string>twistedcaldav.directory.augment.AugmentXMLDB</string>
-      
-      <key>params</key>
-      <dict>
-        <key>xmlFiles</key>
-        <array>
-	      <string>augments.xml</string>
-        </array>
-      </dict>
-    </dict>
-    
-    <!-- Sqlite Augment Service -->
-    <!--
-    <key>AugmentService</key>
-    <dict>
-      <key>type</key>
-      <string>twistedcaldav.directory.augment.AugmentSqliteDB</string>
-      
-      <key>params</key>
-      <dict>
-        <key>dbpath</key>
-        <string>augments.sqlite</string>
-      </dict>
-    </dict>
-     -->
-
-    <!-- PostgreSQL Augment Service -->
-    <!--
-    <key>AugmentService</key>
-    <dict>
-      <key>type</key>
-      <string>twistedcaldav.directory.augment.AugmentPostgreSQLDB</string>
-      
-      <key>params</key>
-      <dict>
-        <key>host</key>
-        <string>localhost</string>
-        <key>database</key>
-        <string>augments</string>
-      </dict>
-    </dict>
-     -->
-
-    <!-- PostgreSQL ProxyDB Service -->
-    <!--
-    <key>ProxyDBService</key>
-    <dict>
-      <key>type</key>
-      <string>twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB</string>
-      
-      <key>params</key>
-      <dict>
-        <key>host</key>
-        <string>localhost</string>
-        <key>database</key>
-        <string>proxies</string>
-      </dict>
-    </dict>
-     -->
 
     <!--
         Special principals
@@ -289,10 +206,6 @@
     <array>
       <!-- <string>/principals/__uids__/983C8238-FB6B-4D92-9242-89C0A39E5F81/</string> -->
     </array>
-
-    <!-- Principals that can pose as other principals -->
-    <key>SudoersFile</key>
-    <string>sudoers.plist</string>
 
     <!-- Create "proxy access" principals -->
     <key>EnableProxyPrincipals</key>
@@ -368,6 +281,10 @@
         Logging
       -->
 
+    <!-- Log root -->
+    <key>LogRoot</key>
+    <string>/var/log/carddavd</string>
+
     <!-- Apache-style access log -->
     <key>AccessLogFile</key>
     <string>access.log</string>
@@ -439,7 +356,6 @@
         </dict>
     </dict>
 
-
     <!--
         Notifications
       -->
@@ -449,6 +365,10 @@
       <!-- Time spent coalescing notifications before delivery -->
       <key>CoalesceSeconds</key>
       <integer>3</integer>
+
+      <!-- Client service port different from caldav -->
+      <key>InternalNotificationPort</key>
+      <integer>62311</integer>
 
       <key>Services</key>
       <dict>
@@ -568,7 +488,7 @@
     <key>FreeBusyURL</key>
     <dict>
       <key>Enabled</key>
-      <true/>
+      <false/>
       <key>TimePeriod</key>
       <integer>14</integer>
       <key>AnonymousAccess</key>
@@ -582,15 +502,15 @@
 
     <!-- Calendar Drop Box -->
     <key>EnableDropBox</key>
-    <true/>
+    <false/>
 
     <!-- Private Events -->
     <key>EnablePrivateEvents</key>
-    <true/>
+    <false/>
 
     <!-- Timezone Service -->
     <key>EnableTimezoneService</key>
-    <true/>
+    <false/>
 
 
     <!--
@@ -607,6 +527,9 @@
 
     <key>DirectoryAddressBook</key>
     <dict>
+    	<key>Enabled</key>
+    	<true/>
+
         <key>type</key>
         <string>twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService</string>
       
@@ -711,13 +634,6 @@
     <!--  allow unauthenticated users to access the directory address book -->
     <key>AnonymousDirectoryAddressBookAccess</key>
     <false/>
-    
-    <!--  enable search address book in user's home -->
-    <key>EnableSearchAddressBook</key>
-    <false/>
-    
-    <!--  enable find share report -->
-    <key>EnableFindSharedReport</key>
-    <false/>
+
   </dict>
 </plist>
