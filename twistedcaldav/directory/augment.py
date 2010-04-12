@@ -82,6 +82,12 @@ class AugmentDB(object):
             if self._defaultRecord is not None:
                 result = copy.deepcopy(self._defaultRecord)
                 result.uid = uid
+
+                # Mark default-cloned augment records as such so
+                # DirectoryRecord.addAugmentInformation( ) can avoid unneccesary
+                # error messages:
+                result._clonedFromDefault = True
+
         returnValue(result)
 
     @inlineCallbacks
