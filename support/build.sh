@@ -82,7 +82,6 @@ init_build () {
 
       top="$(cd "${caldav}/.." && pwd -L)";
   patches="${caldav}/lib-patches";
-  twisted="${top}/Twisted";
 
   # Find a command that can hash up a string for us
   if type -t openssl > /dev/null; then
@@ -378,12 +377,17 @@ py_dependency () {
     fi;
     py_install "${name}" "${srcdir}";
 
-    if "$inplace"; then
-      local add_path="${srcdir}";
+    if "${inplace}"; then
+      local add_pythonpath="${srcdir}";
+      local add_path="${srcdir}/bin";
     else
-      local add_path="${srcdir}/build/${py_platform_libdir}";
+      local add_pythonpath="${srcdir}/build/${py_platform_libdir}";
+      local add_path="${srcdir}/build/${py_platform_scripts}";
     fi;
-    export PYTHONPATH="${PYTHONPATH}:${add_path}";
+    export PYTHONPATH="${add_pythonpath}:${PYTHONPATH}";
+    if [ -d "${add_path}" ]; then
+      export PATH="${add_path}:${PATH}";
+    fi;
   else
     if ! "${print_path}"; then
       echo "Using system version of ${name}.";

@@ -135,7 +135,6 @@ run () {
     exec ${caldavd_wrapper_command}                   \
         "${caldav}/bin/${DAVD}davd" ${daemonize}      \
         -f "${config}"                                \
-        -T "${twisted}/bin/twistd"                    \
         -P "${plugin_name}"                           \
         -t "${service_type}"                          \
         ${reactor}                                    \

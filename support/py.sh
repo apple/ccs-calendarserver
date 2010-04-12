@@ -156,11 +156,12 @@ init_py () {
     exit 1;
   fi
 
-         py_platform="$("${python}" -c "from distutils.util import get_platform; print get_platform()")";
-          py_version="$(py_version "${python}")";
-  py_platform_libdir="lib.${py_platform}-${py_version}";
-           py_prefix="$("${python}" -c "import sys; print sys.prefix;")";
-           py_libdir="$("${python}" -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1);")";
+          py_platform="$("${python}" -c "from distutils.util import get_platform; print get_platform()")";
+           py_version="$(py_version "${python}")";
+   py_platform_libdir="lib.${py_platform}-${py_version}";
+  py_platform_scripts="scripts-${py_version}";
+            py_prefix="$("${python}" -c "import sys; print sys.prefix;")";
+            py_libdir="$("${python}" -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1);")";
 }
 
 init_py;
