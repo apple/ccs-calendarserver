@@ -282,7 +282,7 @@ def getRootResource(config, resources=None):
             directory, "/addressbooks/"
         )
 
-        directoryPath = os.path.join(config.DocumentRoot, "directory")
+        directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
         if config.DirectoryAddressBook.Enabled:
             log.info("Setting up directory address book: %r" % (directoryBackedAddressBookResourceClass,))
 
@@ -321,7 +321,7 @@ def getRootResource(config, resources=None):
     if config.EnableCardDAV:
         root.putChild('addressbooks', addressBookCollection)
         if config.DirectoryAddressBook.Enabled:
-            root.putChild('directory', directoryBackedAddressBookCollection)
+            root.putChild(config.DirectoryAddressBook.name, directoryBackedAddressBookCollection)
 
     # /.well-known
     if config.EnableWellKnown:

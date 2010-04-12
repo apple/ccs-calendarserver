@@ -152,19 +152,6 @@ DEFAULT_CONFIG = {
     "EnableCalDAV"  : True,  # Enable CalDAV service
     "EnableCardDAV" : True,  # Enable CardDAV service
 
-    # CardDAV Features
-    "DirectoryAddressBook": {
-        "Enabled": True,
-        "type":    "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
-        "params":  directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
-    },
-    "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
-
-    "MaxAddressBookQueryResults":1000,
-    "MaxAddressBookMultigetHrefs":5000,
-
-    # /XXX CardDAV
-
     #
     # Data store
     #
@@ -352,6 +339,20 @@ DEFAULT_CONFIG = {
             "Enabled"         : False, # Address Books on/off switch
         }        
     },
+
+    # CardDAV Features
+    "DirectoryAddressBook": {
+        "Enabled": True,
+        "type":    "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
+        "params":  directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
+        "name":    "directory"
+    },
+    "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
+
+    "MaxAddressBookQueryResults":1000,
+    "MaxAddressBookMultigetHrefs":5000,
+
+    # /XXX CardDAV
 
     #
     # Web-based administration

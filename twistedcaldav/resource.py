@@ -1084,6 +1084,8 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
         
         if config.EnableCardDAV:
             baseProperties += (carddavxml.AddressBookHomeSet.qname(),)
+            if config.DirectoryAddressBook.Enabled:
+                baseProperties += (carddavxml.DirectoryGateway.qname(),)
 
         if config.EnableDropBox:
             baseProperties += (customxml.DropBoxHomeURL.qname(),)
@@ -1169,6 +1171,10 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVPrincipalResource):
                 returnValue(carddavxml.AddressBookHomeSet(
                     *[davxml.HRef(url) for url in self.addressBookHomeURLs()]
                  ))
+            elif name == "directory-gateway":
+                returnValue(carddavxml.DirectoryGateway(
+                    davxml.HRef.fromString(joinURL("/", config.DirectoryAddressBook.name, "/"))
+                ))
 
         result = (yield super(CalendarPrincipalResource, self).readProperty(property, request))
         returnValue(result)

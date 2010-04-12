@@ -734,6 +734,16 @@ class SupportedFilter(CardDAVElement):
         (carddav_namespace, "param-filter"): (0, None)
     }
     
+class DirectoryGateway(CardDAVElement):
+    """
+    CardDAV property on a principal to indicate where the directory geatway resource is.
+    """
+    name = "directory-gateway"
+    hidden = True
+    protected = True
+
+    allowed_children = { (davxml.dav_namespace, "href"): (1, 1) }
+    
 ##
 # Extensions to davxml.ResourceType
 ##
