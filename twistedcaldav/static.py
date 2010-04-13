@@ -1361,7 +1361,7 @@ class NotificationFile(NotificationResource, CalDAVFile):
     def resourceName(self):
         return self.fp.basename()
 
-class AddressBookHomeProvisioningFile (DirectoryAddressBookHomeProvisioningResource, DAVFile):
+class AddressBookHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeProvisioningResource, DAVFile):
     """
     Resource which provisions address book home collections as needed.
     """
