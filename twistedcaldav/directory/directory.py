@@ -429,7 +429,7 @@ class DirectoryRecord(LoggingMixIn):
 
                 # For augment records cloned from the Default augment record,
                 # don't emit this message:
-                if not getattr(augment, "_clonedFromDefault", False):
+                if not augment.clonedFromDefault:
                     self.log_error("Group '%s(%s)' cannot be enabled for calendaring" % (self.guid, self.shortNames[0],))
 
         else:

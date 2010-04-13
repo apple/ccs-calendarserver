@@ -55,6 +55,7 @@ class AugmentRecord(object):
         self.enabledForCalendaring = enabledForCalendaring
         self.enabledForAddressBooks = enabledForAddressBooks
         self.autoSchedule = autoSchedule
+        self.clonedFromDefault = False
 
 class AugmentDB(object):
     """
@@ -86,7 +87,7 @@ class AugmentDB(object):
                 # Mark default-cloned augment records as such so
                 # DirectoryRecord.addAugmentInformation( ) can avoid unneccesary
                 # error messages:
-                result._clonedFromDefault = True
+                result.clonedFromDefault = True
 
         returnValue(result)
 
