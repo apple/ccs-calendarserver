@@ -42,6 +42,19 @@ class ReportingHTTPService(Service, object):
     """
     Service which starts up an HTTP server that can report back to its parent
     process via L{InheritedPort}.
+
+    @ivar site: a twext.web2 'site' object, i.e. a request factory
+
+    @ivar fd: the file descriptor of a UNIX socket being used to receive
+        connections from a master process calling accept()
+
+    @type fd: C{int}
+
+    @ivar contextFactory: A context factory for building SSL/TLS connections
+        for inbound connections tagged with the string 'SSL' as their
+        descriptive data, or None if SSL is not enabled for this server.
+
+    @type contextFactory: L{twisted.internet.ssl.ContextFactory} or C{NoneType}
     """
 
     _connectionCount = 0
