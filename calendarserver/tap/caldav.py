@@ -643,16 +643,16 @@ class CalDAVServiceMaker (LoggingMixIn):
             fd = int(config.MetaFD)
 
             try:
-                ctxFac = self.createContextFactory()
+                contextFactory = self.createContextFactory()
             except SSLError, e:
                 self.log_error("Unable to set up SSL context factory: %s" % (e,))
                 # None is okay as a context factory for ReportingHTTPService as
                 # long as we will never receive a file descriptor with the
                 # 'SSL' tag on it, since that's the only time it's used.
-                ctxFac = None
+                contextFactory = None
 
             ReportingHTTPService(
-                site, fd, ctxFac
+                site, fd, contextFactory
             ).setServiceParent(service)
 
         else: # Not inheriting, therefore we open our own:
