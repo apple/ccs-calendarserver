@@ -20,17 +20,17 @@ PUT/COPY/MOVE common behavior.
 
 __all__ = ["StoreAddressObjectResource"]
 
+import os
 import types
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
-from twisted.internet.defer import maybeDeferred, returnValue
+from twisted.internet.defer import returnValue
 from twisted.python import failure
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
-from twext.web2.dav.element.base import PCDATAElement
 from twext.web2.dav.fileop import delete
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.resource import TwistedGETContentMD5
@@ -38,16 +38,13 @@ from twext.web2.dav.stream import MD5StreamWrapper
 from twext.web2.dav.util import joinURL, parentForURL
 from twext.web2.http import HTTPError
 from twext.web2.http import StatusResponse
-from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 
 from twistedcaldav.config import config
-from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.carddavxml import NoUIDConflict, carddav_namespace
 from twistedcaldav.fileops import copyToWithXAttrs
 from twistedcaldav.fileops import putWithXAttrs
 from twistedcaldav.fileops import copyWithXAttrs
-from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.vcard import Component
 from twistedcaldav.vcardindex import ReservationError
 from twext.python.log import Logger
@@ -268,7 +265,7 @@ class StoreAddressObjectResource(object):
                         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-address-data")))
                         
                 # Valid vcard data for CalDAV check
-                result, message = self.validCardDAVDataCheck()
+                result, message = self.validAddressDataCheck()
                 if not result:
                     log.err(message)
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-addressbook-object-resource")))
@@ -323,7 +320,7 @@ class StoreAddressObjectResource(object):
 
         return result, message
         
-    def validCardDAVDataCheck(self):
+    def validAddressDataCheck(self):
         """
         Check that the vcard data is valid vCard.
         @return:         tuple: (True/False if the vcard data is valid,
@@ -340,22 +337,6 @@ class StoreAddressObjectResource(object):
             except ValueError, e:
                 result = False
                 message = "Invalid vcard data: %s" % (e,)
-        
-        return result, message
-    
-    def validCalDAVDataCheck(self):
-        """
-        Check that the vcard data is valid as a CalDAV vcard object resource.
-        @return:         tuple: (True/False if the vcard data is valid,
-                                 log message string).
-        """
-        result = True
-        message = ""
-        try:
-            self.vcard.validateForCardDAV()
-        except ValueError, e:
-            result = False
-            message = "Calendar data does not conform to CalDAV requirements: %s" % (e,)
         
         return result, message
     
@@ -451,11 +432,15 @@ class StoreAddressObjectResource(object):
         so rename the original file in case we need to rollback.
         """
 
+        def _createRollbackPath(path):
+            parent, child = os.path.split(path)
+            child = "." + child + ".rollback"
+            return os.path.join(parent, child)
+
         self.rollback = StoreAddressObjectResource.RollbackState(self)
         self.overwrite = self.destination.exists()
         if self.overwrite:
-            self.rollback.destination_copy = FilePath(self.destination.fp.path)
-            self.rollback.destination_copy.path += ".rollback"
+            self.rollback.destination_copy = FilePath(_createRollbackPath(self.destination.fp.path))
             copyToWithXAttrs(self.destination.fp, self.rollback.destination_copy)
             log.debug("Rollback: backing up destination %s to %s" % (self.destination.fp.path, self.rollback.destination_copy.path))
         else:
@@ -463,8 +448,7 @@ class StoreAddressObjectResource(object):
             log.debug("Rollback: will create new destination %s" % (self.destination.fp.path,))
 
         if self.deletesource:
-            self.rollback.source_copy = FilePath(self.source.fp.path)
-            self.rollback.source_copy.path += ".rollback"
+            self.rollback.source_copy = FilePath(_createRollbackPath(self.source.fp.path))
             copyToWithXAttrs(self.source.fp, self.rollback.source_copy)
             log.debug("Rollback: backing up source %s to %s" % (self.source.fp.path, self.rollback.source_copy.path))
 
@@ -472,27 +456,19 @@ class StoreAddressObjectResource(object):
     def doStore(self):
         # Do put or copy based on whether source exists
         if self.source is not None:
-            response = maybeDeferred(copyWithXAttrs, self.source.fp, self.destination.fp, self.destination_uri)
+            response = (yield copyWithXAttrs(self.source.fp, self.destination.fp, self.destination_uri))
         else:
             if self.vcarddata is None:
                 self.vcarddata = str(self.vcard)
             md5 = MD5StreamWrapper(MemoryStream(self.vcarddata))
-            response = maybeDeferred(putWithXAttrs, md5, self.destination.fp)
-        response = (yield response)
-
-        # Update the MD5 value on the resource
-        if self.source is not None:
-            # Copy MD5 value from source to destination
-            if self.source.hasDeadProperty(TwistedGETContentMD5):
-                md5 = self.source.readDeadProperty(TwistedGETContentMD5)
-                self.destination.writeDeadProperty(md5)
-        else:
+            response = (yield putWithXAttrs(md5, self.destination.fp))
+    
             # Finish MD5 calculation and write dead property
             md5.close()
             md5 = md5.getMD5()
             self.destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5))
     
-        returnValue(IResponse(response))
+        returnValue(response)
 
     @inlineCallbacks
     def doSourceDelete(self):
@@ -542,16 +518,7 @@ class StoreAddressObjectResource(object):
         """
         
         # Add or update the index for this resource.
-        try:
-            self.source_index.addResource(self.source.fp.basename(), self.vcard, self.newrevision)
-        except TooManyInstancesError, ex:
-            raise HTTPError(ErrorResponse(
-                responsecode.FORBIDDEN,
-                    NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
-                ))
-
-            self.source.writeDeadProperty(davxml.GETContentType.fromString("text/vcard"))
-            return None
+        self.source_index.addResource(self.source.fp.basename(), self.vcard, self.newrevision)
 
     def doDestinationIndex(self, vcardtoindex):
         """
@@ -569,8 +536,9 @@ class StoreAddressObjectResource(object):
             self.destination_index.addResource(self.destination.fp.basename(), vcardtoindex, self.newrevision)
             log.debug("Destination indexed %s" % (self.destination.fp.path,))
         except (ValueError, TypeError), ex:
-            log.err("Cannot index vcard resource: %s" % (ex,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-address-data")))
+            msg = "Cannot index vcard resource: %s" % (ex,)
+            log.err(msg)
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-address-data"), description=msg))
 
         self.destination.writeDeadProperty(davxml.GETContentType.fromString("text/vcard"))
         return None

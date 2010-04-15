@@ -93,11 +93,14 @@ def http_PUT(self, request):
         # Read the vcard component from the stream
         try:
             vcarddata = (yield allDataFromStream(request.stream))
+            if not hasattr(request, "extendedLogItems"):
+                request.extendedLogItems = {}
+            request.extendedLogItems["cl"] = str(len(vcarddata)) if vcarddata else "0"
 
             # We must have some data at this point
             if vcarddata is None:
                 # Use correct DAV:error response
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-address-data")))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-address-data"), description="No vcard data"))
 
             storer = StoreAddressObjectResource(
                 request = request,

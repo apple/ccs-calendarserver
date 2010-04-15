@@ -20,7 +20,6 @@ CardDAV multiget report
 
 __all__ = ["report_urn_ietf_params_xml_ns_carddav_addressbook_multiget"]
 
-import time
 from urllib import unquote
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -41,6 +40,7 @@ from twistedcaldav.method import report_common
 
 log = Logger()
 
+max_number_of_addressbook_multigets = 5000
 
 @inlineCallbacks
 def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, multiget):
@@ -48,8 +48,6 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, mu
     Generate a multiget REPORT.
     (CardDAV, section 8.7)
     """
-
-    startTime = time.time()
 
     # Verify root element
     if multiget.qname() != (carddav_namespace, "addressbook-multiget"):
@@ -67,6 +65,15 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, mu
     propertyreq = multiget.property
     resources  = multiget.resources
     
+    if not hasattr(request, "extendedLogItems"):
+        request.extendedLogItems = {}
+    request.extendedLogItems["rcount"] = len(resources)
+    
+    # Check size of results is within limit
+    if len(resources) > max_number_of_addressbook_multigets:
+        log.err("Too many results in multiget report: %d" % len(resources))
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))
+
     if propertyreq.qname() == ("DAV:", "allprop"):
         propertiesForResource = report_common.allPropertiesForResource
 
@@ -227,11 +234,23 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, mu
         
                     # Get properties for all valid readable resources
                     for resource, href in ok_resources:
-                        yield report_common.responseForHrefAB(request, responses, davxml.HRef.fromString(href), resource, propertiesForResource, propertyreq)
-                                
-                    # Indicate error for all valid non-readable resources
-                    for ignore_resource, href in bad_resources: #@UnusedVariable
-                        responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+                        try:
+                            yield report_common.responseForHrefAB(request, responses, davxml.HRef.fromString(href), resource, propertiesForResource, propertyreq)
+                        except ValueError:
+                            log.err("Invalid address resource during multiget: %s" % (href,))
+                            responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+                        except IOError:
+                            # This can happen because of a race-condition between the
+                            # time we determine which resources exist and the deletion
+                            # of one of these resources in another request.  In this
+                            # case, return a 404 for the now missing resource rather
+                            # than raise an error for the entire report.
+                            log.err("Missing calendar resource during multiget: %s" % (href,))
+                            responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+                                        
+                            # Indicate error for all valid non-readable resources
+                            for ignore_resource, href in bad_resources: #@UnusedVariable
+                                responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
             
             finally:
                 if directoryAddressBookLock:
@@ -309,10 +328,4 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, mu
         
                 yield report_common.responseForHrefAB(request, responses, href, child, propertiesForResource, propertyreq)
 
-    retValue = MultiStatusResponse(responses)
-    
-    elaspedTime = time.time() - startTime
-    self.log_info("Timing: CARDDAV:addressbook-multiget Report total: %.1f ms" % (elaspedTime*1000,))
-
-    returnValue(retValue)
-
+    returnValue(MultiStatusResponse(responses))

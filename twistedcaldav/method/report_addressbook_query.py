@@ -21,7 +21,6 @@ CardDAV addressbook-query report
 __all__ = ["report_urn_ietf_params_xml_ns_carddav_addressbook_query"]
 
 import urllib
-import time
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
 
@@ -40,16 +39,12 @@ from twistedcaldav.method import report_common
 
 log = Logger()
 
-
 @inlineCallbacks
 def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addressbook_query):
     """
     Generate an addressbook-query REPORT.
     (CardDAV, section 8.6)
     """
-    startTime = time.time()
-    #print("Timing: report_urn_ietf_params_xml_ns_carddav_addressbook_query.starttime=%f" % startTime)
-    
     # Verify root element
     if addressbook_query.qname() != (carddav_namespace, "addressbook-query"):
         raise ValueError("{CardDAV:}addressbook-query expected as root element, not %s." % (addressbook_query.sname(),))
@@ -161,8 +156,6 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
         directoryAddressBookLock = None
         try:                
 
-        #self.maxDSQueryRecords and len(queryResults) >= self.maxDSQueryRecords
- 
             if addrresource.isDirectoryBackedAddressBookCollection() and addrresource.directory.cacheQuery:
                 
                 directory = addrresource.directory
@@ -290,10 +283,9 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                         #davxml.ResponseDescription("Results limited by %s at %d" % resultsWereLimited),
                         davxml.ResponseDescription("Results limited to %d items" % e.maxLimit()),
                     ))
-           
-    retValue = MultiStatusResponse(responses)
     
-    elaspedTime = time.time() - startTime
-    self.log_info("Timing: CARDDAV:addressbook-query Report total: %.1f ms" % (elaspedTime*1000,))
+    if not hasattr(request, "extendedLogItems"):
+        request.extendedLogItems = {}
+    request.extendedLogItems["responses"] = len(responses)
 
-    returnValue(retValue)
+    returnValue(MultiStatusResponse(responses))
