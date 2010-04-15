@@ -35,6 +35,8 @@
 .Op Fl -remove-proxy Ar principal
 .Op Fl -set-auto-schedule Ar true|false
 .Op Fl -get-auto-schedule
+.Op Fl -add Ar locations|resources full-name [record-name] [GUID]
+.Op Fl -remove
 .Ar principal
 .Op principal ...
 .Sh DESCRIPTION
@@ -114,6 +116,8 @@ as a proxy.
 Enable or disable automatic scheduling.
 .It Fl -get-auto-schedule
 Get the automatic scheduling state.
+.It Fl -add Ar locations|resources full-name [record-name] [GUID]
+Add a new location or resource. Record name and GUID are optional.  If GUID is not specified, one will be generated.  If record name is not specified, the record name will be set to the GUID.
 .El
 .Sh EXAMPLES
 Add Alice and Bob as read proxies for Joe and display the list of Joe's proxies:
@@ -131,6 +135,22 @@ Turn on auto-scheduling for a resource, and confirm the setting:
 Search for all principals named Joe:
 .Pp
 .Dl "calendarserver_manage_principals --search joe"
+.Pp
+Add a location:
+.Pp
+.Dl "calendarserver_manage_principals --add locations 'Example Office' office1"
+.Pp
+Add a resource:
+.Pp
+.Dl "calendarserver_manage_principals --add resources 'Example Projector' proj1"
+.Pp
+List all resource:
+.Pp
+.Dl "calendarserver_manage_principals --list-principals resources"
+.Pp
+Remove a resource:
+.Pp
+.Dl "calendarserver_manage_principals --remove resources:proj1"
 .Pp
 .Sh FILES
 .Bl -tag -width flag

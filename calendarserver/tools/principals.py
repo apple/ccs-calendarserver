@@ -77,6 +77,8 @@ def usage(e=None):
     print "  --remove-proxy=principal: remove a proxy"
     print "  --set-auto-schedule={true|false}: set auto-accept state"
     print "  --get-auto-schedule: read auto-schedule state"
+    print "  --add {locations|resources} 'full name' [record name] [GUID]: add a principal"
+    print "  --remove: remove a principal"
 
     if e:
         sys.exit(64)
@@ -86,9 +88,11 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:P:", [
+            sys.argv[1:], "a:hf:P:", [
                 "help",
                 "config=",
+                "add=",
+                "remove",
                 "search=",
                 "list-principal-types",
                 "list-principals=",
@@ -110,6 +114,7 @@ def main():
     # Get configuration
     #
     configFileName = None
+    addType = None
     listPrincipalTypes = False
     listPrincipals = None
     searchPrincipals = None
@@ -121,6 +126,12 @@ def main():
 
         elif opt in ("-f", "--config"):
             configFileName = arg
+
+        elif opt in ("-a", "--add"):
+            addType = arg
+
+        elif opt in ("-r", "--remove"):
+            principalActions.append((action_removePrincipal,))
 
         elif opt in ("", "--list-principal-types"):
             listPrincipalTypes = True
@@ -227,15 +238,55 @@ def main():
 
         return
 
+    elif addType:
+
+        try:
+            addType = matchStrings(addType, ["locations", "resources"])
+        except ValueError, e:
+            print e
+            return
+
+        try:
+            fullName, shortName, guid = parseCreationArgs(args)
+        except ValueError, e:
+            print e
+            return
+
+        try:
+            record = config.directory.createRecord(addType, guid=guid,
+                shortNames=[shortName], fullName=fullName)
+        except DirectoryError, e:
+            print e
+            return
+
+        print "Added '%s' (%s) %s %s" % (record.fullName, addType,
+            record.shortNames[0], record.guid)
+        return
+
+
     elif listPrincipals:
+        try:
+            listPrincipals = matchStrings(listPrincipals, ["users", "groups",
+                "locations", "resources"])
+        except ValueError, e:
+            print e
+            return
+
         if args:
             usage("Too many arguments")
 
         try:
-            results = [(record.fullName, record.guid) for record in config.directory.listRecords(listPrincipals)]
-            results.sort()
-            for name, guid in results:
-                print '%s %s' % (name, guid)
+            results = [(record.fullName, record.shortNames[0], record.guid)
+                for record in config.directory.listRecords(listPrincipals)]
+            if results:
+                results.sort()
+                format = "%-15s %-15s %s"
+                print format % ("Full name", "Record name", "UUID")
+                print format % ("---------", "-----------", "----")
+                for fullName, shortName, guid in results:
+                    print format % ("'%s'" % (fullName,), shortName, guid)
+            else:
+                print "No records of type %s" % (listPrincipals,)
         except UnknownRecordTypeError, e:
             usage(e)
 
@@ -393,6 +444,16 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
 
 def proxySubprincipal(principal, proxyType):
     return principal.getChild("calendar-proxy-" + proxyType)
+
+def action_removePrincipal(principal):
+    record = principal.record
+    fullName = record.fullName
+    shortName = record.shortNames[0]
+    guid = record.guid
+
+    config.directory.destroyRecord(record.recordType, guid=guid)
+    print "Removed '%s' %s %s" % (fullName, shortName, guid)
+
 
 @inlineCallbacks
 def action_readProperty(resource, qname):
@@ -575,6 +636,48 @@ class ProxyWarning(Exception):
     Raised for harmless proxy assignment failures such as trying to add a
     duplicate or remove a non-existent assignment.
     """
+
+def parseCreationArgs(args):
+    """
+    Look at the command line arguments for --add, and figure out which
+    one is the shortName and which one is the guid by attempting to make a
+    UUID object out of them.
+    """
+
+    fullName = args[0]
+    shortName = None
+    guid = None
+    for arg in args[1:]:
+        if isUUID(arg):
+            if guid is not None:
+                # Both the 2nd and 3rd args are UUIDs.  The first one
+                # should be used for shortName.
+                shortName = guid
+            guid = arg
+        else:
+            shortName = arg
+
+    if len(args) == 3 and guid is None:
+        # both shortName and guid were specified but neither was a UUID
+        raise ValueError("Invalid value for guid")
+
+    return fullName, shortName, guid
+
+
+def isUUID(value):
+    try:
+        UUID(value)
+        return True
+    except:
+        return False
+
+def matchStrings(value, validValues):
+    for validValue in validValues:
+        if validValue.startswith(value):
+            return validValue
+
+    raise ValueError("'%s' is not a recognized value" % (value,))
+
 
 if __name__ == "__main__":
     main()

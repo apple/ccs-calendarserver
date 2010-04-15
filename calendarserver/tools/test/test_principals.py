@@ -23,6 +23,8 @@ from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 
+from calendarserver.tools.principals import parseCreationArgs, matchStrings
+
 
 class MangePrincipalsTestCase(TestCase):
 
@@ -111,6 +113,61 @@ class MangePrincipalsTestCase(TestCase):
         self.assertTrue("10 matches found" in results)
         for i in xrange(1, 10):
             self.assertTrue("user%02d" % (i,) in results)
+
+    @inlineCallbacks
+    def test_addRemove(self):
+        results = yield self.runCommand("--add", "resources", "New Resource",
+            "newresource", "edaa6ae6-011b-4d89-ace3-6b688cdd91d9")
+        self.assertTrue("Added 'New Resource'" in results)
+
+        results = yield self.runCommand("--list-principals=resources")
+        self.assertTrue("newresource" in results)
+
+        results = yield self.runCommand("--add", "resources", "New Resource",
+            "newresource1", "edaa6ae6-011b-4d89-ace3-6b688cdd91d9")
+        self.assertTrue("Duplicate guid" in results)
+
+        results = yield self.runCommand("--add", "resources", "New Resource",
+            "newresource", "fdaa6ae6-011b-4d89-ace3-6b688cdd91d9")
+        self.assertTrue("Duplicate shortName" in results)
+
+        results = yield self.runCommand("--remove", "resources:newresource")
+        self.assertTrue("Removed 'New Resource'" in results)
+
+        results = yield self.runCommand("--list-principals=resources")
+        self.assertFalse("newresource" in results)
+
+    def test_parseCreationArgs(self):
+
+        self.assertEquals(("full name", None, None),
+            parseCreationArgs(("full name",)))
+
+        self.assertEquals(("full name", "short name", None),
+            parseCreationArgs(("full name", "short name")))
+
+        guid = "02C3DE93-E655-4856-47B76B8BB1A7BDCE"
+
+        self.assertEquals(("full name", "short name", guid),
+            parseCreationArgs(("full name", "short name", guid)))
+
+        self.assertEquals(("full name", "short name", guid),
+            parseCreationArgs(("full name", guid, "short name")))
+
+        self.assertEquals(("full name", None, guid),
+            parseCreationArgs(("full name", guid)))
+
+        self.assertRaises(
+            ValueError,
+            parseCreationArgs, ("full name", "non guid", "non guid")
+        )
+
+    def test_matchStrings(self):
+        self.assertEquals("abc", matchStrings("a", ("abc", "def")))
+        self.assertEquals("def", matchStrings("de", ("abc", "def")))
+        self.assertRaises(
+            ValueError,
+            matchStrings, "foo", ("abc", "def")
+        )
 
     @inlineCallbacks
     def test_modifyWriteProxies(self):

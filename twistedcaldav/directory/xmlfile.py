@@ -339,6 +339,10 @@ class XMLDirectoryService(CachingDirectoryService):
             for xmlPrincipal in accounts[recType].itervalues():
                 if xmlPrincipal.guid == guid:
                     raise DirectoryError("Duplicate guid: %s" % (guid,))
+                for shortName in shortNames:
+                    if shortName in xmlPrincipal.shortNames:
+                        raise DirectoryError("Duplicate shortName: %s" %
+                            (shortName,))
                 self._addElement(accountsElement, xmlPrincipal)
 
         xmlPrincipal = XMLAccountRecord(recordType)
