@@ -755,7 +755,7 @@ class DirectoryGateway(CardDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (davxml.dav_namespace, "href"): (1, 1) }
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
     
 ##
 # Extensions to davxml.ResourceType
