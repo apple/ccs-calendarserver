@@ -25,7 +25,7 @@ import os
 from time import sleep
 
 from twisted.python.reflect import namedClass
-from twisted.internet import reactor
+from twisted.internet.reactor import addSystemEventTrigger
 from twisted.cred.portal import Portal
 from twext.web2.http_headers import Headers
 from twext.web2.dav import auth
@@ -47,7 +47,8 @@ from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.simpleresource import SimpleResource
-from twistedcaldav.static import CalendarHomeProvisioningFile
+from twistedcaldav.static import CalendarHomeProvisioningFile,\
+    GlobalAddressBookFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.static import AddressBookHomeProvisioningFile, DirectoryBackedAddressBookFile
@@ -91,6 +92,7 @@ def getRootResource(config, resources=None):
     webAdminResourceClass        = WebAdminResource
     addressBookResourceClass     = AddressBookHomeProvisioningFile
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookFile
+    globalAddressBookResourceClass          = GlobalAddressBookFile
 
     #
     # Setup the Directory
@@ -290,10 +292,7 @@ def getRootResource(config, resources=None):
                 directoryPath,
                 principalCollections=(principalCollection,)
             )
-            # do this after process is owned by carddav user, not root.  XXX
-            # this should be fixed to execute at a different stage of service
-            # startup entirely.
-            reactor.callLater(1.0, directoryBackedAddressBookCollection.provisionDirectory)
+            addSystemEventTrigger("after", "startup", directoryBackedAddressBookCollection.provisionDirectory)
         else:
             # remove /directory from previous runs that may have created it
             try:
@@ -302,6 +301,16 @@ def getRootResource(config, resources=None):
             except (OSError, IOError), e:
                 if e.errno != errno.ENOENT:
                     log.error("Could not delete: %s : %r" %  (directoryPath, e,))
+
+        if config.GlobalAddressBook.Enabled:
+            log.info("Setting up global address book collection: %r" % (globalAddressBookResourceClass,))
+
+            globalAddressBookCollection = globalAddressBookResourceClass(
+                os.path.join(config.DocumentRoot, config.GlobalAddressBook.Name),
+                principalCollections=(principalCollection,)
+            )
+            if not globalAddressBookCollection.exists():
+                addSystemEventTrigger("after", "startup", globalAddressBookCollection.createAddressBookCollection)
 
     log.info("Setting up root resource: %r" % (rootResourceClass,))
 
@@ -322,6 +331,8 @@ def getRootResource(config, resources=None):
         root.putChild('addressbooks', addressBookCollection)
         if config.DirectoryAddressBook.Enabled:
             root.putChild(config.DirectoryAddressBook.name, directoryBackedAddressBookCollection)
+        if config.GlobalAddressBook.Enabled:
+            root.putChild(config.GlobalAddressBook.Name, globalAddressBookCollection)            
 
     # /.well-known
     if config.EnableWellKnown:

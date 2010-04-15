@@ -160,10 +160,22 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
     def liveProperties(self):
         baseProperties = (
             davxml.Owner.qname(),               # Private Events needs this but it is also OK to return empty
-            caldavxml.SupportedCalendarComponentSet.qname(),
-            caldavxml.SupportedCalendarData.qname(),
         )
         
+        if self.isPseudoCalendarCollection():
+            baseProperties += (
+                caldavxml.SupportedCalendarComponentSet.qname(),
+                caldavxml.SupportedCalendarData.qname(),
+            )
+
+        if self.isAddressBookCollection():
+            baseProperties += (
+                carddavxml.SupportedAddressData.qname(),
+            )
+
+        if config.EnableSyncReport and (self.isPseudoCalendarCollection() or self.isAddressBookCollection()):
+            baseProperties += (davxml.SyncToken.qname(),)
+            
         if config.EnableAddMember and (self.isCalendarCollection() or self.isAddressBookCollection()):
             baseProperties += (davxml.AddMember.qname(),)
             
@@ -285,6 +297,11 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
             owner = (yield self.owner(request))
             returnValue(davxml.Owner(owner))
 
+        elif qname == davxml.SyncToken.qname() and config.EnableSyncReport and (
+            self.isPseudoCalendarCollection() or self.isAddressBookCollection()
+        ):
+            returnValue(davxml.SyncToken.fromString(self.getSyncToken()))
+
         elif qname == davxml.AddMember.qname() and config.EnableAddMember and (
             self.isCalendarCollection() or self.isAddressBookCollection()
         ):
@@ -330,6 +347,15 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                 url = (yield self.canonicalURL(request))
                 opaque = url in fbset
                 self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
+
+        elif qname == carddavxml.SupportedAddressData.qname():
+            # CardDAV, section 6.2.2
+            returnValue(carddavxml.SupportedAddressData(
+                carddavxml.AddressDataType(**{
+                    "content-type": "text/vcard",
+                    "version"     : "3.0",
+                }),
+            ))
 
         elif qname == customxml.Invite.qname():
             result = (yield self.inviteProperty(request))

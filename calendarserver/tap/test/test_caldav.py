@@ -344,7 +344,7 @@ def determineAppropriateGroupID():
 
 
 
-class SocketGroupOwnership(BaseTestCase):
+class SocketGroupOwnership(TestCase):
     """
     Tests for L{GroupOwnedUNIXServer}.
     """

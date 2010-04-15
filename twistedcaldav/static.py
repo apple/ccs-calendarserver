@@ -38,6 +38,7 @@ __all__ = [
     "AddressBookHomeUIDProvisioningFile",
     "AddressBookHomeFile",
     "DirectoryBackedAddressBookFile",
+    "GLobalAddressBookFile",
 ]
 
 import datetime
@@ -73,6 +74,7 @@ from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty, TwistedScheduleMatchETags
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
+from twistedcaldav.linkresource import LinkResource, LinkFollowerMixIn
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.memcacheprops import MemcachePropertyCollection
 from twistedcaldav.freebusyurl import FreeBusyURLResource
@@ -85,7 +87,8 @@ from twistedcaldav.schedule import ScheduleInboxResource, ScheduleOutboxResource
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.dropbox import DropBoxHomeResource, DropBoxCollectionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
-from twistedcaldav.directory.addressbook import uidsResourceName as uidsResourceNameAddressBook
+from twistedcaldav.directory.addressbook import uidsResourceName as uidsResourceNameAddressBook,\
+    GlobalAddressBookResource
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeTypeProvisioningResource
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeUIDProvisioningResource
@@ -107,7 +110,21 @@ from twistedcaldav.notifications import NotificationCollectionResource,\
 
 log = Logger()
 
-class CalDAVFile (CalDAVResource, DAVFile):
+class ReadOnlyResourceMixIn(object):
+
+    def http_PUT        (self, request): return responsecode.FORBIDDEN
+    def http_COPY       (self, request): return responsecode.FORBIDDEN
+    def http_MOVE       (self, request): return responsecode.FORBIDDEN
+    def http_DELETE     (self, request): return responsecode.FORBIDDEN
+    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
+
+    def http_MKCALENDAR(self, request):
+        return ErrorResponse(
+            responsecode.FORBIDDEN,
+            (caldav_namespace, "calendar-collection-location-ok")
+        )
+
+class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
     """
     CalDAV-accessible L{DAVFile} resource.
     """
@@ -555,6 +572,14 @@ class CalDAVFile (CalDAVResource, DAVFile):
         except:
             return fail(Failure())
 
+    def getSyncToken(self):
+        """
+        Return current sync-token value.
+        """
+        assert self.isCollection()
+        
+        return str(self.readDeadProperty(customxml.GETCTag))
+
     def updateCTag(self, token=None):
         assert self.isCollection()
         
@@ -738,7 +763,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
             if test(parent):
                 returnValue(parent)
 
-class AutoProvisioningFileMixIn (AutoProvisioningResourceMixIn):
+class AutoProvisioningFileMixIn (LinkFollowerMixIn, AutoProvisioningResourceMixIn):
     def provision(self):
         self.provisionFile()
         return super(AutoProvisioningFileMixIn, self).provision()
@@ -1050,7 +1075,7 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, DirectoryCal
         return super(CalendarHomeFile, self).readProperty(property, request)
 
 
-class ScheduleFile (AutoProvisioningFileMixIn, CalDAVFile):
+class ScheduleFile (ReadOnlyResourceMixIn, AutoProvisioningFileMixIn, CalDAVFile):
     def __init__(self, path, parent):
         super(ScheduleFile, self).__init__(path, principalCollections=parent.principalCollections())
 
@@ -1071,17 +1096,6 @@ class ScheduleFile (AutoProvisioningFileMixIn, CalDAVFile):
             resource.
         """
         return IndexSchedule(self)
-
-    def http_COPY       (self, request): return responsecode.FORBIDDEN
-    def http_MOVE       (self, request): return responsecode.FORBIDDEN
-    def http_DELETE     (self, request): return responsecode.FORBIDDEN
-    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
-
-    def http_MKCALENDAR(self, request):
-        return ErrorResponse(
-            responsecode.FORBIDDEN,
-            (caldav_namespace, "calendar-collection-location-ok")
-        )
 
 class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
     """
@@ -1136,7 +1150,7 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     def supportedPrivileges(self, request):
         return succeed(sendSchedulePrivilegeSet)
 
-class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
+class IScheduleInboxFile (ReadOnlyResourceMixIn, IScheduleInboxResource, CalDAVFile):
     """
     Server-to-server scheduling inbox resource.
     """
@@ -1155,18 +1169,6 @@ class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
             return self
         else:
             return responsecode.NOT_FOUND
-
-    def http_PUT        (self, request): return responsecode.FORBIDDEN
-    def http_COPY       (self, request): return responsecode.FORBIDDEN
-    def http_MOVE       (self, request): return responsecode.FORBIDDEN
-    def http_DELETE     (self, request): return responsecode.FORBIDDEN
-    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
-
-    def http_MKCALENDAR(self, request):
-        return ErrorResponse(
-            responsecode.FORBIDDEN,
-            (caldav_namespace, "calendar-collection-location-ok")
-        )
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
@@ -1188,7 +1190,7 @@ class IScheduleInboxFile (IScheduleInboxResource, CalDAVFile):
 
 
 
-class FreeBusyURLFile (AutoProvisioningFileMixIn, FreeBusyURLResource, CalDAVFile):
+class FreeBusyURLFile (ReadOnlyResourceMixIn, AutoProvisioningFileMixIn, FreeBusyURLResource, CalDAVFile):
     """
     Free-busy URL resource.
     """
@@ -1207,18 +1209,6 @@ class FreeBusyURLFile (AutoProvisioningFileMixIn, FreeBusyURLResource, CalDAVFil
             return self
         else:
             return responsecode.NOT_FOUND
-
-    def http_PUT        (self, request): return responsecode.FORBIDDEN
-    def http_COPY       (self, request): return responsecode.FORBIDDEN
-    def http_MOVE       (self, request): return responsecode.FORBIDDEN
-    def http_DELETE     (self, request): return responsecode.FORBIDDEN
-    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
-
-    def http_MKCALENDAR(self, request):
-        return ErrorResponse(
-            responsecode.FORBIDDEN,
-            (caldav_namespace, "calendar-collection-location-ok")
-        )
 
     ##
     # ACL
@@ -1268,7 +1258,7 @@ class DropBoxChildFile (CalDAVFile):
         else:
             return responsecode.NOT_FOUND
 
-class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
+class TimezoneServiceFile (ReadOnlyResourceMixIn, TimezoneServiceResource, CalDAVFile):
     def __init__(self, path, parent):
         CalDAVFile.__init__(self, path, principalCollections=parent.principalCollections())
         TimezoneServiceResource.__init__(self, parent)
@@ -1280,18 +1270,6 @@ class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
             return self
         else:
             return responsecode.NOT_FOUND
-
-    def http_PUT        (self, request): return responsecode.FORBIDDEN
-    def http_COPY       (self, request): return responsecode.FORBIDDEN
-    def http_MOVE       (self, request): return responsecode.FORBIDDEN
-    def http_DELETE     (self, request): return responsecode.FORBIDDEN
-    def http_MKCOL      (self, request): return responsecode.FORBIDDEN
-
-    def http_MKCALENDAR(self, request):
-        return ErrorResponse(
-            responsecode.FORBIDDEN,
-            (caldav_namespace, "calendar-collection-location-ok")
-        )
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
@@ -1307,7 +1285,7 @@ class TimezoneServiceFile (TimezoneServiceResource, CalDAVFile):
     def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
         return succeed(None)
 
-class NotificationCollectionFile(AutoProvisioningFileMixIn, NotificationCollectionResource, CalDAVFile):
+class NotificationCollectionFile(ReadOnlyResourceMixIn, AutoProvisioningFileMixIn, NotificationCollectionResource, CalDAVFile):
     """
     Notification collection resource.
     """
@@ -1492,6 +1470,21 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeRe
         CalDAVFile.__init__(self, path)
         DirectoryAddressBookHomeResource.__init__(self, parent, record)
 
+    def provision(self):
+        result = super(AddressBookHomeFile, self).provision()
+        self.provisionLinks()
+        return result
+
+    def provisionLinks(self):
+        
+        if not hasattr(self, "_provisionedLinks"):
+            if config.GlobalAddressBook.Enabled:
+                self.putChild(
+                    config.GlobalAddressBook.Name,
+                    LinkResource(self, joinURL("/", config.GlobalAddressBook.Name, "/")),
+                )
+            self._provisionedLinks = True
+
     def provisionChild(self, name):
  
         if config.Sharing.Enabled:
@@ -1578,7 +1571,7 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeRe
         return super(AddressBookHomeFile, self).readProperty(property, request)
 
 
-class DirectoryBackedAddressBookFile (DirectoryBackedAddressBookResource, CalDAVFile):
+class DirectoryBackedAddressBookFile (ReadOnlyResourceMixIn, DirectoryBackedAddressBookResource, CalDAVFile):
     """
     Directory-backed address book, supporting directory vcard search.
     """
@@ -1617,6 +1610,22 @@ class DirectoryBackedAddressBookFile (DirectoryBackedAddressBookResource, CalDAV
             ).getChild(name)
        
  
+class GlobalAddressBookFile (ReadOnlyResourceMixIn, GlobalAddressBookResource, CalDAVFile):
+    """
+    Directory-backed address book, supporting directory vcard search.
+    """
+    def __init__(self, path, principalCollections):
+        CalDAVFile.__init__(self, path, principalCollections=principalCollections)
+        self.clientNotifier = ClientNotifier(self)
+
+    def createSimilarFile(self, path):
+        if self.comparePath(path):
+            return self
+        else:
+            similar = CalDAVFile(path, principalCollections=self.principalCollections())
+            similar.clientNotifier = self.clientNotifier
+            return similar
+
 ##
 # Utilities
 ##

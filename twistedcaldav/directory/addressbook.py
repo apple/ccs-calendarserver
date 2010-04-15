@@ -25,6 +25,7 @@ __all__ = [
     "DirectoryAddressBookHomeTypeProvisioningResource",
     "DirectoryAddressBookHomeUIDProvisioningResource",
     "DirectoryAddressBookHomeResource",
+    "GlobalAddressBookResource",
 ]
 
 from twext.python.log import Logger
@@ -377,3 +378,49 @@ class DirectoryAddressBookHomeResource (AutoProvisioningResourceMixIn, CalDAVRes
             is quota-controlled, or C{None} if not quota controlled.
         """
         return config.UserQuota if config.UserQuota != 0 else None
+
+class GlobalAddressBookResource (CalDAVResource):
+    """
+    Global address book. All we care about is making sure permissions are setup.
+    """
+
+    def resourceType(self, request):
+        return succeed(davxml.ResourceType.sharedaddressbook)
+
+    def url(self):
+        return joinURL("/", config.GlobalAddressBook.Name, "/")
+
+    def canonicalURL(self, request):
+        return succeed(self.url())
+
+    def defaultAccessControlList(self):
+
+        aces = (
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(
+                    davxml.Privilege(davxml.Read()),
+                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                    davxml.Privilege(davxml.Write()),
+                ),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+           ),
+        )
+        
+        if config.GlobalAddressBook.EnableAnonymousReadAccess:
+            aces += (
+                davxml.ACE(
+                    davxml.Principal(davxml.Unauthenticated()),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                    ),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+               ),
+            )
+        return davxml.ACL(*aces)
+
+    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+        # Permissions here are fixed, and are not subject to inheritance rules, etc.
+        return succeed(self.defaultAccessControlList())

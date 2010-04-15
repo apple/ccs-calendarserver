@@ -349,6 +349,12 @@ DEFAULT_CONFIG = {
     },
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
 
+    "GlobalAddressBook": {
+        "Enabled":                   True,
+        "Name":                      "global-addressbook",
+        "EnableAnonymousReadAccess": False,
+    },
+
     "MaxAddressBookQueryResults":1000,
     "MaxAddressBookMultigetHrefs":5000,
 

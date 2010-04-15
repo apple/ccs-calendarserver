@@ -151,7 +151,7 @@ class SupportedAddressData (CardDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (carddav_namespace, "addressbook-data"): (0, None) }
+    allowed_children = { (carddav_namespace, "address-data-type"): (0, None) }
 
 class MaxResourceSize (CardDAVTextElement):
     """
@@ -220,6 +220,19 @@ class AddressBookQuery (CardDAVElement):
         self.query  = query
         self.filter = filter
         self.limit = limit
+
+class AddressDataType (CardDAVEmptyElement):
+    """
+    Defines which parts of a address component object should be returned by a
+    report.
+    (CardDAV, section 6.2.2)
+    """
+    name = "address-data-type"
+
+    allowed_attributes = {
+        "content-type": False,
+        "version"     : False,
+    }
 
 class AddressData (CardDAVElement):
     """

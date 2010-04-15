@@ -71,6 +71,7 @@ BAD_GATEWAY                     = 502
 SERVICE_UNAVAILABLE             = 503
 GATEWAY_TIMEOUT                 = 504
 HTTP_VERSION_NOT_SUPPORTED      = 505
+LOOP_DETECTED                   = 506
 INSUFFICIENT_STORAGE_SPACE      = 507
 NOT_EXTENDED                    = 510
 
@@ -116,7 +117,7 @@ RESPONSES = {
     REQUEST_ENTITY_TOO_LARGE: "Request Entity Too Large",
     REQUEST_URI_TOO_LONG: "Request-URI Too Long",
     UNSUPPORTED_MEDIA_TYPE: "Unsupported Media Type",
-    REQUESTED_RANGE_NOT_SATISFIABLE: "Requested Range not satisfiable",
+    REQUESTED_RANGE_NOT_SATISFIABLE: "Requested Range Not Satisfiable",
     EXPECTATION_FAILED: "Expectation Failed",
     UNPROCESSABLE_ENTITY: "Unprocessable Entity",
     LOCKED: "Locked",
@@ -128,7 +129,8 @@ RESPONSES = {
     BAD_GATEWAY: "Bad Gateway",
     SERVICE_UNAVAILABLE: "Service Unavailable",
     GATEWAY_TIMEOUT: "Gateway Time-out",
-    HTTP_VERSION_NOT_SUPPORTED: "HTTP Version not supported",
+    HTTP_VERSION_NOT_SUPPORTED: "HTTP Version Not Supported",
+    LOOP_DETECTED: "Loop In Linked or Bound Resource",
     INSUFFICIENT_STORAGE_SPACE: "Insufficient Storage Space",
     NOT_EXTENDED: "Not Extended"
     }

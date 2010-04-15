@@ -28,7 +28,7 @@ from twext.web2.dav.davxml import twisted_dav_namespace
 from twext.web2.dav.element.base import twisted_private_namespace
 from twext.web2.dav import davxml
 
-from twistedcaldav import caldavxml
+from twistedcaldav import caldavxml, carddavxml
 from twistedcaldav.ical import Component as iComponent
 
 from vobject.icalendar import utc
@@ -891,4 +891,6 @@ davxml.ResourceType.timezones = davxml.ResourceType(Timezones())
 davxml.ResourceType.ischeduleinbox = davxml.ResourceType(IScheduleInbox())
 davxml.ResourceType.freebusyurl = davxml.ResourceType(FreeBusyURL())
 davxml.ResourceType.notification = davxml.ResourceType(davxml.Collection(), Notification())
-davxml.ResourceType.sharedcalendar = davxml.ResourceType(davxml.Collection(), caldavxml.Calendar(), SharedOwner())
+davxml.ResourceType.sharedownercalendar = davxml.ResourceType(davxml.Collection(), caldavxml.Calendar(), SharedOwner())
+davxml.ResourceType.sharedcalendar = davxml.ResourceType(davxml.Collection(), caldavxml.Calendar(), Shared())
+davxml.ResourceType.sharedaddressbook = davxml.ResourceType(davxml.Collection(), carddavxml.AddressBook(), Shared())
