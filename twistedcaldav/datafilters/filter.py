@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.ical import Component
+
+from twistedcaldav.ical import Component as iComponent
+from twistedcaldav.vcard import Component as vComponent
 
 __all__ = [
     "CalendarFilter",
+    "AddressFilter",
 ]
 
 class CalendarFilter(object):
@@ -55,7 +58,7 @@ class CalendarFilter(object):
         # If we were passed a string, parse it out as a Component
         if isinstance(ical, str):
             try:
-                ical = Component.fromString(ical)
+                ical = iComponent.fromString(ical)
             except ValueError:
                 raise ValueError("Not a calendar: %r" % (ical,))
         
@@ -63,3 +66,48 @@ class CalendarFilter(object):
             raise ValueError("Not a calendar: %r" % (ical,))
         
         return ical
+
+class AddressFilter(object):
+    """
+    Abstract class that defines a vCard filter/merge object
+    """
+
+
+    def __init__(self):
+        pass
+    
+    def filter(self, vcard):
+        """
+        Filter the supplied vCard (vobject) data using the request information.
+
+        @param vcard: iCalendar object
+        @type vcard: L{Component}
+        
+        @return: L{Component} for the filtered vcard data
+        """
+        raise NotImplementedError
+    
+    def merge(self, vcardnew, vcardold):
+        """
+        Merge the old vcard (vobject) data into the new vcard data using the request information.
+        
+        @param vcardnew: new vcard object to merge data into
+        @type vcardnew: L{Component}
+        @param vcardold: old vcard data to merge data from
+        @type vcardold: L{Component}
+        """
+        raise NotImplementedError
+
+    def validAddress(self, vcard):
+
+        # If we were passed a string, parse it out as a Component
+        if isinstance(vcard, str):
+            try:
+                vcard = vComponent.fromString(vcard)
+            except ValueError:
+                raise ValueError("Not a vcard: %r" % (vcard,))
+        
+        if vcard is None or vcard.name() != "VCARD":
+            raise ValueError("Not a vcard: %r" % (vcard,))
+        
+        return vcard

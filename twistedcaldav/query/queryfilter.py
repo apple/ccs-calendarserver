@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -493,7 +493,7 @@ class TextMatch (FilterBase):
             negate = xml_element.attributes["negate-condition"]
             if negate == "yes":
                 self.negate = True
-            elif caseless == "no":
+            elif negate == "no":
                 self.negate = False
         else:
             self.negate = False

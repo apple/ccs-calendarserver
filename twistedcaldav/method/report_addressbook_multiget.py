@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,8 +40,6 @@ from twistedcaldav.method import report_common
 
 log = Logger()
 
-max_number_of_addressbook_multigets = 5000
-
 @inlineCallbacks
 def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, multiget):
     """
@@ -70,7 +68,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, mu
     request.extendedLogItems["rcount"] = len(resources)
     
     # Check size of results is within limit
-    if len(resources) > max_number_of_addressbook_multigets:
+    if len(resources) > config.MaxAddressBookMultigetHrefs:
         log.err("Too many results in multiget report: %d" % len(resources))
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))
 
@@ -90,11 +88,6 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, mu
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "supported-address-data")))
     else:
         raise AssertionError("We shouldn't be here")
-
-    # Check size of results is within limit
-    if len(resources) > config.MaxAddressBookMultigetHrefs:
-        log.err("Too many results in multiget report: %d" % len(resources))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
 
     """
     Three possibilities exist:

@@ -25,9 +25,6 @@ change.
 See draft spec: 
 """
 
-from twistedcaldav.vcard import Property as iProperty
-from twistedcaldav.vcard import Component
-
 from twext.web2.dav import davxml
 
 ##
@@ -35,7 +32,6 @@ from twext.web2.dav import davxml
 ##
 
 carddav_namespace = "urn:ietf:params:xml:ns:carddav"
-addressbookserver_namespace = "http://addressbookserver.org/ns/"
 
 carddav_compliance = (
     "addressbook",
@@ -58,69 +54,6 @@ class CardDAVTextElement (davxml.WebDAVTextElement):
     CardDAV element containing PCDATA.
     """
     namespace = carddav_namespace
-
-class CardDAVFilterElement (CardDAVElement):
-    """
-    CardDAV filter element.
-    """
-    def __init__(self, *children, **attributes):
-
-        super(CardDAVFilterElement, self).__init__(*children, **attributes)
-
-        qualifier = None
-        filters = []
-
-        for child in self.children:
-            qname = child.qname()
-            
-            if qname in (
-                (carddav_namespace, "is-not-defined"),
-            ):
-                if qualifier is not None:
-                    raise ValueError("Only one of CardDAV:is-not-defined allowed")
-                qualifier = child
-
-            else:
-                filters.append(child)
-
-        if qualifier and (len(filters) != 0):
-            raise ValueError("No other tests allowed when CardDAV:is-not-defined is present")
-        
-        if self.qname() == (carddav_namespace, "prop-filter"):
-            propfilter_test = attributes.get("test", "anyof")
-            if propfilter_test not in ("anyof", "allof"):
-                raise ValueError("Test must be only one of anyof, allof")
-        else:
-            propfilter_test = "anyof"
-
-        self.propfilter_test = propfilter_test
-        self.qualifier   = qualifier
-        self.filters     = filters
-        self.filter_name = attributes["name"]
-        if isinstance(self.filter_name, unicode):
-            self.filter_name = self.filter_name.encode("utf-8")
-        self.defined     = not self.qualifier or (self.qualifier.qname() != (carddav_namespace, "is-not-defined"))
-
-    def match(self, item):
-        """
-        Returns True if the given address book item (either a property or parameter value)
-        matches this filter, False otherwise.
-        """
-        
-        # Always return True for the is-not-defined case as the result of this will
-        # be negated by the caller
-        if not self.defined: return True
-
-        if self.qualifier and not self.qualifier.match(item): return False
-
-        if len(self.filters) > 0:
-            allof = self.propfilter_test == "allof"
-            for filter in self.filters:
-                if allof != filter._match(item):
-                    return not allof
-            return allof
-        else:
-            return True
 
 class AddressBookHomeSet (CardDAVElement):
     """
@@ -336,65 +269,6 @@ class AddressData (CardDAVElement):
         
         return False
 
-    def elementFromResource(self, resource):
-        """
-        Return a new AddressData element comprised of the possibly filtered
-        address data from the specified resource. If no filter is being applied
-        read the data directly from the resource without parsing it. If a filter
-        is required, parse the vCard data and filter using this AddressData.
-        @param resource: the resource whose address data is to be returned.
-        @return: an L{AddressData} with the (filtered) address data.
-        """
-        # Check for filtering or not
-        if self.children:
-            filtered = self.getFromvCard(resource.vCard())
-            return AddressData.fromAddress(filtered)
-        else:
-            return resource.vCardXML()
-
-    def elementFromAddress(self, address):
-        """
-        Return a new AddressData element comprised of the possibly filtered
-        address.
-        @param address: the address that is to be filtered and returned.
-        @return: an L{AddressData} with the (filtered) address data.
-        """
-        
-        # Check for filtering or not
-        filtered = self.getFromvCard(address)
-        return AddressData.fromAddress(filtered)
-
-    def getFromvCard(self, address):
-        """
-        Returns an address object containing the data in the given vCard
-        which is specified by this AddressData.
-        """
-        if address.name() != "VCARD":
-            raise ValueError("Not a vCard: %r" % (address,))
-
-        # Empty element: get all data
-        if not self.children: return address
-
-        # property filtering
-        # copy requested properties
-        vcard = Component("VCARD")
-        allProps = True
-        for property in self.children:
-            if isinstance(property, Property):
-                allProps = False
-                for addressProperty in address.properties(property.attributes["name"]):
-                    vcard.addProperty(addressProperty)
-        
-        # add required properties
-        if allProps:
-            vcard = address
-        else:
-            for requiredProperty in ('N', 'FN', 'VERSION'):
-                if not vcard.hasProperty(requiredProperty):
-                    vcard.addProperty(address.getProperty(requiredProperty))
-
-        return vcard
-
     def address(self):
         """
         Returns an address component derived from this element.
@@ -406,7 +280,20 @@ class AddressData (CardDAVElement):
                 # We guaranteed in __init__() that there is only one child...
                 break
 
-        return None # TODO: iComponent.fromString(str(data))
+        return None
+
+    def addressData(self):
+        """
+        Returns an address component derived from this element.
+        """
+        for data in self.children:
+            if not isinstance(data, davxml.PCDATAElement):
+                return None
+            else:
+                # We guaranteed in __init__() that there is only one child...
+                break
+
+        return str(data)
 
 
 class AllProperties (CardDAVEmptyElement):
@@ -453,49 +340,8 @@ class Filter (CardDAVElement):
 
     allowed_children = { (carddav_namespace, "prop-filter"): (0, None) }
     allowed_attributes = { "test": False }
-
-
-    def __init__(self, *children, **attributes):
-
-        super(Filter, self).__init__(*children, **attributes)
-
-        filter_test = attributes.get("test", "anyof")
-        if filter_test not in ("anyof", "allof"):
-            raise ValueError("Test must be only one of anyof, allof")
         
-        self.filter_test = filter_test
-
-    def match(self, vcard):
-        """
-        Returns True if the given address property matches this filter, False
-        otherwise. Empty element means always match.
-        """
- 
-        if len(self.children) > 0:
-            allof = self.filter_test == "allof"
-            for propfilter in self.children:
-                if allof != propfilter._match(vcard):
-                    return not allof
-            return allof
-        else:
-            return True
-
-    def valid(self):
-        """
-        Indicate whether this filter element's structure is valid wrt vCard
-        data object model.
-        
-        @return: True if valid, False otherwise
-        """
-        
-        # Test each property
-        for propfilter in self.children:
-            if not propfilter.valid():
-                return False
-        else:
-            return True
-        
-class PropertyFilter (CardDAVFilterElement):
+class PropertyFilter (CardDAVElement):
     """
     Limits a search to specific properties.
     (CardDAV-access-09, section 10.5.1)
@@ -512,26 +358,7 @@ class PropertyFilter (CardDAVFilterElement):
         "test": False,
     }
 
-    def _match(self, vcard):
-        # At least one property must match (or is-not-defined is set)
-        for property in vcard.properties():
-            if property.name() == self.filter_name and self.match(property): break
-        else:
-            return not self.defined
-        return self.defined
-
-    def valid(self):
-        """
-        Indicate whether this filter element's structure is valid wrt vCard
-        data object model.
-        
-        @return:      True if valid, False otherwise
-        """
-        
-        # No tests
-        return True
-
-class ParameterFilter (CardDAVFilterElement):
+class ParameterFilter (CardDAVElement):
     """
     Limits a search to specific parameters.
     (CardDAV, section 10.5.2)
@@ -543,17 +370,6 @@ class ParameterFilter (CardDAVFilterElement):
         (carddav_namespace, "text-match"     ): (0, 1),
     }
     allowed_attributes = { "name": True }
-
-    def _match(self, property):
-
-        # At least one parameter must match (or is-not-defined is set)
-        result = not self.defined
-        for parameterName in property.params().keys():
-            if parameterName == self.filter_name and self.match(property.params()[parameterName]):
-                result = self.defined
-                break
-
-        return result
 
 class Limit (davxml.WebDAVElement):
     """
@@ -580,13 +396,6 @@ class IsNotDefined (CardDAVEmptyElement):
     """
     name = "is-not-defined"
 
-    def match(self, component):
-        # Oddly, this needs always to return True so that it appears there is
-        # a match - but we then "negate" the result if is-not-defined is set.
-        # Actually this method should never be called as we special case the
-        # is-not-defined option.
-        return True
-
 class TextMatch (CardDAVTextElement):
     """
     Specifies a substring match on a property or parameter value.
@@ -609,81 +418,6 @@ class TextMatch (CardDAVTextElement):
         "negate-condition": False,
         "match-type": False
     }
-
-    def __init__(self, *children, **attributes):
-        super(TextMatch, self).__init__(*children, **attributes)
-
-        if "collation" in attributes:
-            self.collation = attributes["collation"]
-        else:
-            self.collation = "i;unicode-casemap"
-
-        if "negate-condition" in attributes:
-            self.negate = attributes["negate-condition"]
-            if self.negate not in ("yes", "no"):
-                self.negate = "no"
-            self.negate = {"yes": True, "no": False}[self.negate]
-        else:
-            self.negate = False
-
-        if "match-type" in attributes:
-            self.match_type = attributes["match-type"]
-            if self.match_type not in (
-                "equals",
-                "contains",
-                "starts-with",
-                "ends-with",
-            ):
-                self.match_type = "contains"
-        else:
-            self.match_type = "contains"
-
-    def _match(self, item):
-        """
-        Match the text for the item.
-        If the item is a property, then match the property value,
-        otherwise it may be a list of parameter values - try to match anyone of those
-        """
-        if item is None: return False
-
-        if isinstance(item, iProperty):
-            values = [item.value()]
-        else:
-            values = item
-
-        test = unicode(str(self), "utf-8").lower()
-
-        def _textCompare(s):
-            s = s.lower()
-            
-            #print("test=%r, s=%r, matchType=%r" % (test, s, self.match_type))
-            
-            if self.match_type == "equals":
-                return s == test
-            elif self.match_type == "contains":
-                return s.find(test) != -1 
-            elif self.match_type == "starts-with":
-                return s.startswith(test)
-            elif self.match_type == "ends-with":
-                return s.endswith(test)
-            else:
-                return False
-
-        for value in values:
-            # NB Its possible that we have a text list value which appears as a Python list,
-            # so we need to check for that an iterate over the list.
-            if isinstance(value, list):
-                for subvalue in value:
-                    if _textCompare(unicode(subvalue)):
-                        return not self.negate
-            else:
-                if _textCompare(unicode(value)):
-                    return not self.negate
-        
-        return self.negate
-
-    def match(self, item):
-        return self._match(item)
 
 class AddressBookMultiGet (CardDAVElement):
     """

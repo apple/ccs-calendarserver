@@ -674,9 +674,12 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         return self.isCalendarCollection()
 
     def findCalendarCollections(self, depth, request, callback, privileges=None):
-        """
-        See L{ICalDAVResource.findCalendarCollections}.
-        """
+        return self.findSpecialCollections(caldavxml.Calendar, depth, request, callback, privileges)
+
+    def findAddressBookCollections(self, depth, request, callback, privileges=None):
+        return self.findSpecialCollections(carddavxml.AddressBook, depth, request, callback, privileges)
+
+    def findSpecialCollections(self, type, depth, request, callback, privileges=None):
         assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
 
         def checkPrivilegesError(failure):
@@ -693,11 +696,11 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
             return ca
 
         def gotChild(child, childpath):
-            if child.isCalendarCollection():
+            if child.isSpecialCollection(type):
                 callback(child, childpath)
             elif child.isCollection():
                 if depth == "infinity":
-                    fc = child.findCalendarCollections(depth, request, callback, privileges)
+                    fc = child.findSpecialCollections(type, depth, request, callback, privileges)
                     fc.addCallback(lambda x: reactor.callLater(0, getChild))
                     return fc
 

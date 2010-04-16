@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.carddavxml import carddav_namespace, NResults
 from twistedcaldav.method import report_common
+from twistedcaldav.query import addressbookqueryfilter
 
 log = Logger()
 
@@ -57,7 +58,8 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
 
     responses = []
 
-    filter = addressbook_query.filter
+    xmlfilter = addressbook_query.filter
+    filter = addressbookqueryfilter.Filter(xmlfilter)
     query  = addressbook_query.query
     limit = addressbook_query.limit
 
@@ -275,7 +277,6 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
         yield report_common.applyToAddressBookCollections(self, request, request.uri, depth, doQuery, (davxml.Read(),))
     except NumberOfMatchesWithinLimits, e:
         self.log_info("Too many matching components in addressbook-query report. Limited to %d items" % e.maxLimit())
-        #raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))
         responses.append(davxml.StatusResponse(
                         davxml.HRef.fromString(request.uri),
                         davxml.Status.fromResponseCode(responsecode.INSUFFICIENT_STORAGE_SPACE),

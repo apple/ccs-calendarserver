@@ -56,9 +56,11 @@ from twext.python.log import Logger
 from twistedcaldav import caldavxml
 from twistedcaldav import carddavxml
 from twistedcaldav.caldavxml import caldav_namespace, CalendarData
+from twistedcaldav.carddavxml import AddressData
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.datafilters.calendardata import CalendarDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
+from twistedcaldav.datafilters.addressdata import AddressDataFilter
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
@@ -123,7 +125,6 @@ def applyToAddressBookCollections(resource, request, request_uri, depth, apply, 
     # First check the privilege on this resource
     if privileges:
         try:
-            print ("DeleteResource.applyToAddressBookCollections(1.5)")
             yield resource.checkPrivileges(request, privileges)
         except AccessDeniedError:
             returnValue( None )
@@ -135,11 +136,12 @@ def applyToAddressBookCollections(resource, request, request_uri, depth, apply, 
         resources = [(resource, request_uri)]
     else:
         resources = []
-        yield resource.findCalendarCollections(depth, request, lambda x, y: resources.append((x, y)), privileges = privileges)
+        yield resource.findAddressBookCollections(depth, request, lambda x, y: resources.append((x, y)), privileges = privileges)
          
     for addrresource, uri in resources:
-        yield apply(addrresource, uri)
-
+        result = yield apply(addrresource, uri)
+        if not result:
+            break
 
 def responseForHref(request, responses, href, resource, calendar, timezone, propertiesForResource, propertyreq, isowner=True, vcard=None):
     """
@@ -352,12 +354,10 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
             continue
     
         if isinstance(property, carddavxml.AddressData):
-            if vcard:
-                propvalue = property.elementFromAddress(vcard)
-            else:
-                propvalue = property.elementFromResource(resource)
-            if propvalue is None:
-                raise ValueError("Invalid CardDAV:address-data for request: %r" % (property,))
+            if vcard is None:
+                vcard = (yield resource.vCard())
+            filtered = AddressDataFilter(property).filter(vcard)
+            propvalue = AddressData().fromAddress(filtered)
             properties_by_status[responsecode.OK].append(propvalue)
             continue
     
