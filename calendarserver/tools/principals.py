@@ -29,7 +29,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twext.web2.dav import davxml
 
-from twext.python.log import setLogLevelForNamespace
+from twext.python.log import setLogLevelForNamespace, clearLogLevels
 from twext.python.log import StandardIOObserver
 from twext.web2.dav.davxml import sname2qname, qname2sname
 
@@ -63,6 +63,7 @@ def usage(e=None):
     print "options:"
     print "  -h --help: print this help and exit"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
+    print "  -v --verbose: print debugging information"
     print ""
     print "actions:"
     print "  --search <search-string>: search for matching principals"
@@ -88,7 +89,7 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "a:hf:P:", [
+            sys.argv[1:], "a:hf:P:v", [
                 "help",
                 "config=",
                 "add=",
@@ -105,6 +106,7 @@ def main():
                 "remove-proxy=",
                 "set-auto-schedule=",
                 "get-auto-schedule",
+                "verbose",
             ],
         )
     except GetoptError, e:
@@ -119,10 +121,14 @@ def main():
     listPrincipals = None
     searchPrincipals = None
     principalActions = []
+    verbose = False
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
             usage()
+
+        elif opt in ("-v", "--verbose"):
+            verbose = True
 
         elif opt in ("-f", "--config"):
             configFileName = arg
@@ -200,7 +206,12 @@ def main():
     #
     try:
         loadConfig(configFileName)
-        setLogLevelForNamespace(None, "warn")
+
+        # Do this first, because modifying the config object will cause
+        # some logging activity at whatever log level the plist says
+        clearLogLevels()
+
+        config.DefaultLogLevel = "debug" if verbose else "error"
 
         #
         # Send logging output to stdout

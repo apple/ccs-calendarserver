@@ -23,6 +23,7 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl -config Ar file
+.Op Fl -verbose
 .Op Fl -read-property Ar property
 .Op Fl -list-principal-types
 .Op Fl -list-principals Ar type
@@ -76,6 +77,8 @@ each principal specified.
 .Bl -tag -width flag
 .It Fl h, -help
 Displays usage information
+.It Fl v, -verbose
+Displays debugging information
 .It Fl f, -config Ar FILE
 Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
 .El
