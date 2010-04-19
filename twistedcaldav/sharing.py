@@ -809,6 +809,13 @@ class SharedHomeMixin(object):
             oldShare = share = SharedCalendarRecord(inviteUID, hostUrl, str(uuid4()), displayname)
             self.sharesDB().addOrUpdateRecord(share)
         
+        # Set per-user displayname to whatever was given
+        if displayname:
+            sharedCalendar = (yield request.locateResource(hostUrl))
+            ownerPrincipal = (yield self.ownerPrincipal(request))
+            sharedCalendar.setVirtualShare(ownerPrincipal, oldShare)
+            yield sharedCalendar.writeProperty(davxml.DisplayName.fromString(displayname), request)
+ 
         # Return the URL of the shared calendar
         returnValue(XMLResponse(
             code = responsecode.OK,
