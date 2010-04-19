@@ -870,7 +870,7 @@ class NotificationType (davxml.WebDAVElement):
     A property to indicate what type of notification the resource represents.
     """
     namespace = calendarserver_namespace
-    name = "notification-type"
+    name = "notificationtype"
     hidden = True
     protected = True
 
