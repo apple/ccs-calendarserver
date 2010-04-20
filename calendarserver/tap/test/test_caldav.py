@@ -23,8 +23,6 @@ from os.path import dirname, abspath
 
 from zope.interface import implements
 
-from twisted.trial.unittest import TestCase as BaseTestCase
-
 from twisted.python.threadable import isInIOThread
 from twisted.internet.reactor import callFromThread
 from twisted.python.usage import Options, UsageError
