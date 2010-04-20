@@ -390,9 +390,6 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             d = self.client.connectTCP("localhost", self.id)
         d.addCallback(_gotProtocol)
 
-    def stop(self):
-        super(AMPCommonAccessLoggingObserver, self).stop()
-        self.client.disconnect()
 
     def logMessage(self, message):
         """
