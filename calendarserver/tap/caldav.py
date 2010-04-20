@@ -40,6 +40,8 @@ from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
+from twisted.internet.defer import Deferred, gatherResults
+from twisted.internet import error, reactor
 from twisted.internet.reactor import callLater, addSystemEventTrigger
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
@@ -141,8 +143,9 @@ class CalDAVService (ErrorLoggingMultiService):
         self.logObserver.start()
 
     def stopService(self):
-        MultiService.stopService(self)
+        d = MultiService.stopService(self)
         self.logObserver.stop()
+        return d
 
 
 class CalDAVOptions (Options, LoggingMixIn):
@@ -1158,6 +1161,7 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         self._extraFDs = {}
         from twisted.internet import reactor
         self.reactor = reactor
+        self.stopping = False
 
 
     def addProcessObject(self, process, env):
@@ -1208,6 +1212,36 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
             self._checkConsistency
         )
 
+    def stopService(self):
+        """
+        Return a deferred that fires when all child processes have ended
+        """
+
+        Service.stopService(self)
+
+        self.stopping = True
+        self.active = 0
+        self.consistency.cancel()
+
+        self.deferreds = { }
+        for name in self.processes.keys():
+            self.deferreds[name] = Deferred()
+            self.stopProcess(name)
+
+        return gatherResults(self.deferreds.values())
+
+    def processEnded(self, name):
+        """
+        When a child process has ended it calls me so I can fire the
+        appropriate deferred which was created in stopService
+        """
+
+        if self.stopping:
+            deferred = self.deferreds.get(name, None)
+            if deferred is not None:
+                deferred.callback(None)
+
+
     def signalAll(self, signal, startswithname=None):
         """
         Send a signal to all child processes.
@@ -1257,6 +1291,41 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
             p, args[0], args, uid=uid, gid=gid, env=env,
             childFDs=childFDs
         )
+
+    def _forceStopProcess(self, proc, name):
+        """
+        After self.killTime seconds has passed, this method sends a KILL
+        to the process.  Clean up the now-called murder deferred.
+        """
+        try:
+            # This deferred has fired so remove it to keep from trying to
+            # cancel it later
+            del self.murder[name]
+        except KeyError:
+            pass
+        try:
+            proc.signalProcess('KILL')
+        except error.ProcessExitedAlready:
+            pass
+
+
+    def stopProcess(self, name):
+        """
+        Stop the process gently at first (TERM), but schedule a KILL for
+        self.killTime seconds later.
+        """
+
+        if not self.protocols.has_key(name):
+            return
+        proc = self.protocols[name].transport
+        del self.protocols[name]
+        try:
+            proc.signalProcess('TERM')
+        except error.ProcessExitedAlready:
+            pass
+        else:
+            self.murder[name] = reactor.callLater(self.killTime, self._forceStopProcess, proc, name)
+
 
 
 
@@ -1326,6 +1395,12 @@ class DelayedStartupLoggingProtocol(procmon.LoggingProtocol, object):
         self.output = DelayedStartupLineLogger()
         self.output.tag = self.name
 
+    def processEnded(self, reason):
+        """
+        Let the service know that this child process has ended
+        """
+        procmon.LoggingProtocol.processEnded(self, reason)
+        self.service.processEnded(self.name)
 
 
 def getSSLPassphrase(*ignored):
