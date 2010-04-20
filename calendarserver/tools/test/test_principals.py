@@ -26,10 +26,10 @@ from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tools.principals import parseCreationArgs, matchStrings
 
 
-class MangePrincipalsTestCase(TestCase):
+class ManagePrincipalsTestCase(TestCase):
 
     def setUp(self):
-        super(MangePrincipalsTestCase, self).setUp()
+        super(ManagePrincipalsTestCase, self).setUp()
 
         testRoot = os.path.join(os.path.dirname(__file__), "principals")
         templateName = os.path.join(testRoot, "caldavd.plist")
