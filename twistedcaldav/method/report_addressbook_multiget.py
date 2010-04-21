@@ -37,6 +37,7 @@ from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.method import report_common
+from twistedcaldav.query import addressbookqueryfilter
 
 log = Logger()
 
@@ -156,6 +157,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, mu
                         returnValue( None )
                          
                     addressBookFilter = carddavxml.Filter( *vCardFilters )
+                    addressBookFilter = addressbookqueryfilter.Filter(addressBookFilter)
                     if self.directory.cacheQuery:
                         # add vcards to directory address book and run "normal case" below
                         limit = 0 #config.MaxAddressBookMultigetHrefs

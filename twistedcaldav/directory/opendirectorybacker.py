@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,6 +60,7 @@ from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.ical import iCalendarProductID
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
+from twistedcaldav.query import addressbookqueryfilter
 from twistedcaldav.static import CalDAVFile
 from twistedcaldav.vcard import Component, Property
 
@@ -816,7 +817,7 @@ class OpenDirectoryBackingService(DirectoryService):
                         return( textMatchElement.match([constant,]), [], [] )
                     else:
 
-                        matchStrings = getMatchStrings(propFilter, str(textMatchElement))
+                        matchStrings = getMatchStrings(propFilter, textMatchElement.text)
 
                         if not len(matchStrings) or binaryAttrStrs:
                             # no searching text in binary ds attributes, so change to defined/not defined case
@@ -901,11 +902,11 @@ class OpenDirectoryBackingService(DirectoryService):
                 if not constant and not allAttrStrings: 
                     return (False, [], [])
                 
-                if propFilter.qualifier and isinstance(propFilter.qualifier, carddavxml.IsNotDefined):
+                if propFilter.qualifier and isinstance(propFilter.qualifier, addressbookqueryfilter.IsNotDefined):
                     return definedExpression(False, filterAllOf, propFilter.filter_name, constant, queryAttributes, allAttrStrings)
                 
-                paramFilterElements = [paramFilterElement for paramFilterElement in propFilter.filters if isinstance(paramFilterElement, carddavxml.ParameterFilter)]
-                textMatchElements = [textMatchElement for textMatchElement in propFilter.filters if isinstance(textMatchElement, carddavxml.TextMatch)]
+                paramFilterElements = [paramFilterElement for paramFilterElement in propFilter.filters if isinstance(paramFilterElement, addressbookqueryfilter.ParameterFilter)]
+                textMatchElements = [textMatchElement for textMatchElement in propFilter.filters if isinstance(textMatchElement, addressbookqueryfilter.TextMatch)]
                 propFilterAllOf = propFilter.propfilter_test == "allof"
                 
                 # handle parameter filter elements

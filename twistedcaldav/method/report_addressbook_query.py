@@ -186,6 +186,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                                                         carddavxml.TextMatch.fromString(resource_name[:-4]), 
                                                         name="UID", # attributes
                                                         ),] )
+                            vCardFilter = addressbookqueryfilter.Filter(vCardFilter)
                             
                             directoryAddressBookLock, limited[0] = (yield  directory.cacheVCardsForAddressBookQuery( vCardFilter, query, max_number_of_results[0] ) )
 
@@ -255,6 +256,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                                                     carddavxml.TextMatch.fromString(resource_name[:-4]), 
                                                     name="UID", # attributes
                                                     ),] )
+                        vCardFilter = addressbookqueryfilter.Filter(vCardFilter)
                         
                         yield  maybeDeferred( queryDirectoryBackedAddressBook, parent, vCardFilter )
                         handled = True
