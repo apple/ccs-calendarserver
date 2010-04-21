@@ -131,6 +131,7 @@ class GatewayTestCase(TestCase):
         results = yield self.runCommand(command_createResource)
         results = yield self.runCommand(command_getResourceAttributes)
         self.assertEquals(results["result"]["Comment"], "Test Comment")
+        self.assertEquals(results["result"]["Type"], "Computer")
 
     @inlineCallbacks
     def test_createLocation(self):
@@ -343,6 +344,8 @@ command_createResource = """<?xml version="1.0" encoding="UTF-8"?>
         <string>AF575A61-CFA6-49E1-A0F6-B5662C9D9801</string>
         <key>RealName</key>
         <string>Laptop 1</string>
+        <key>Type</key>
+        <string>Computer</string>
         <key>RecordName</key>
         <array>
                 <string>laptop1</string>
