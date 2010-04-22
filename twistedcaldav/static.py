@@ -38,7 +38,7 @@ __all__ = [
     "AddressBookHomeUIDProvisioningFile",
     "AddressBookHomeFile",
     "DirectoryBackedAddressBookFile",
-    "GLobalAddressBookFile",
+    "GlobalAddressBookFile",
 ]
 
 import datetime
