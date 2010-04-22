@@ -974,6 +974,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 # Try to match principals in each principal collection
                 # on the resource
                 def gotDetails(details, creds):
+                    if details == (None, None):
+                        log.msg("Could not find the principal resource for user id: %s" % (creds.username,))
+                        raise HTTPError(responsecode.UNAUTHORIZED)
+
                     authnPrincipal = IDAVPrincipalResource(details[0])
                     authzPrincipal = IDAVPrincipalResource(details[1])
                     return PrincipalCredentials(
@@ -1549,9 +1553,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         authnPrincipal = self.findPrincipalForAuthID(authid)
 
         if authnPrincipal is None:
-            log.msg("Could not find the principal resource for user id: %s"
-                    % (authid,))
-            raise HTTPError(responsecode.FORBIDDEN)
+            return succeed((None, None))
 
         d = self.authorizationPrincipal(request, authid, authnPrincipal)
         d.addCallback(lambda authzPrincipal: (authnPrincipal, authzPrincipal))

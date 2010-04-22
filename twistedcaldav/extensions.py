@@ -131,6 +131,10 @@ class SudoersMixin (object):
 
                 # Try to match principals in each principal collection on the resource
                 authnPrincipal, authzPrincipal = (yield self.principalsForAuthID(request, creds))
+                if (authnPrincipal, authzPrincipal) == (None, None):
+                    log.info("Could not find the principal resource for user id: %s" % (creds.username,))
+                    raise HTTPError(responsecode.UNAUTHORIZED)
+                    
                 authnPrincipal = IDAVPrincipalResource(authnPrincipal)
                 authzPrincipal = IDAVPrincipalResource(authzPrincipal)
 
@@ -169,9 +173,7 @@ class SudoersMixin (object):
         authnPrincipal = self.findPrincipalForAuthID(creds)
 
         if authnPrincipal is None:
-            log.info("Could not find the principal resource for user id: %s"
-                     % (creds.username,))
-            raise HTTPError(responsecode.FORBIDDEN)
+            return succeed((None, None))
 
         d = self.authorizationPrincipal(request, creds.username, authnPrincipal)
         d.addCallback(lambda authzPrincipal: (authnPrincipal, authzPrincipal))
