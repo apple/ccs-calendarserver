@@ -1005,7 +1005,7 @@ class DelayedStartupProcessMonitorTests(TestCase):
             configFile = "/does/not/exist",
             id         = 10,
             interfaces = '127.0.0.1',
-            dispatcher = FakeDispatcher()
+            metaSocket = FakeDispatcher().addSocket()
         )
 
         dspm.addProcessObject(slave, {})

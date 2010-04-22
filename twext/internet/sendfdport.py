@@ -198,6 +198,14 @@ class InheritedSocketDispatcher(object):
         selectedSocket.status = self.statusWatcher.newConnectionStatus(selectedSocket.status)
 
 
+    def startDispatching(self):
+        """
+        Start listening on all subprocess sockets.
+        """
+        for subSocket in self._subprocessSockets:
+            subSocket.startReading()
+
+
     def addSocket(self):
         """
         Add a C{sendmsg()}-oriented AF_UNIX socket to the pool of sockets being
@@ -209,7 +217,6 @@ class InheritedSocketDispatcher(object):
         """
         i, o = socketpair(AF_UNIX, SOCK_DGRAM)
         a = _SubprocessSocket(self, o)
-        a.startReading()
         self._subprocessSockets.append(a)
         return i
 

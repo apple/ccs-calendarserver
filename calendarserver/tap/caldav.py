@@ -860,7 +860,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         for p in xrange(0, config.MultiProcess.ProcessCount):
             if config.UseMetaFD:
-                extraArgs = dict(dispatcher=cl.dispatcher)
+                extraArgs = dict(metaSocket=cl.dispatcher.addSocket())
             else:
                 extraArgs = dict(inheritFDs=inheritFDs,
                                  inheritSSLFDs=inheritSSLFDs)
@@ -1010,15 +1010,16 @@ class TwistdSlaveProcess(object):
         on in the subprocess, and speaking TLS on the resulting sockets.
     @type inheritSSLFDs: C{list} of C{int}, or C{None}
 
-    @ivar dispatcher: a socket dispatcher to generate an inherited port from,
-        or C{None}.
+    @ivar metaSocket: an AF_UNIX/SOCK_DGRAM socket (initialized from the
+        dispatcher passed to C{__init__}) that is to be inherited by the
+        subprocess and used to accept incoming connections.
 
-    @type dispatcher: L{InheritedSocketDispatcher} or C{NoneType}
+    @type metaSocket: L{socket.socket}
     """
     prefix = "caldav"
 
     def __init__(self, twistd, tapname, configFile, id, interfaces,
-                 inheritFDs=None, inheritSSLFDs=None, dispatcher=None):
+                 inheritFDs=None, inheritSSLFDs=None, metaSocket=None):
 
         self.twistd = twistd
 
@@ -1034,22 +1035,11 @@ class TwistdSlaveProcess(object):
                 return x
         self.inheritFDs = emptyIfNone(inheritFDs)
         self.inheritSSLFDs = emptyIfNone(inheritSSLFDs)
-        self.metaSocket = None
-        self.dispatcher = dispatcher
-
+        self.metaSocket = metaSocket
         self.interfaces = interfaces
 
     def getName(self):
         return '%s-%s' % (self.prefix, self.id)
-
-
-    def getMetaDescriptor(self):
-        """
-        Get the meta-socket file descriptor to inherit.
-        """
-        if self.metaSocket is None:
-            self.metaSocket = self.dispatcher.addSocket()
-        return self.metaSocket.fileno()
 
 
     def getFileDescriptors(self):
@@ -1059,8 +1049,8 @@ class TwistdSlaveProcess(object):
         """
         fds = {}
         maybeMetaFD = []
-        if self.dispatcher is not None:
-            maybeMetaFD.append(self.getMetaDescriptor())
+        if self.metaSocket is not None:
+            maybeMetaFD.append(self.metaSocket.fileno())
         for fd in self.inheritSSLFDs + self.inheritFDs + maybeMetaFD:
             fds[fd] = fd
         return fds
@@ -1114,11 +1104,9 @@ class TwistdSlaveProcess(object):
                 "-o", "InheritSSLFDs=%s" % (",".join(map(str, self.inheritSSLFDs)),)
             ])
 
-        if self.dispatcher is not None:
-            # XXX this FD is never closed in the parent.  should it be?
-            # (should they *all* be?) -glyph
+        if self.metaSocket is not None:
             args.extend([
-                    "-o", "MetaFD=%s" % (self.getMetaDescriptor(),)
+                    "-o", "MetaFD=%s" % (self.metaSocket.fileno(),)
                 ])
 
         return args
