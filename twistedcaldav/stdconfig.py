@@ -332,7 +332,7 @@ DEFAULT_CONFIG = {
         "AllowExternalUsers"  : False, # External (non-principal) sharees allowed
 
         "Calendars" : {
-            "Enabled"         : False, # Calendar on/off switch
+            "Enabled"         : True,  # Calendar on/off switch
             "AllowScheduling" : False, # Scheduling in shared calendars
         },
         "AddressBooks" : {
