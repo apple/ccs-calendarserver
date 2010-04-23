@@ -484,6 +484,7 @@ class ImplicitScheduler(object):
         self.changed_rids = None
         self.cancelledAttendees = ()
         self.reinvites = None
+        self.needs_action_rids = None
 
         # Check for a delete
         if self.action == "remove":
@@ -501,7 +502,7 @@ class ImplicitScheduler(object):
             self.oldcalendar = (yield self.resource.iCalendarForUser(self.request))
             
             # Significant change
-            no_change, self.changed_rids, reinvites, recurrence_reschedule = self.isOrganizerChangeInsignificant()
+            no_change, self.changed_rids, self.needs_action_rids, reinvites, recurrence_reschedule = self.isOrganizerChangeInsignificant()
             if no_change:
                 if reinvites:
                     log.debug("Implicit - organizer '%s' is re-inviting UID: '%s', attendees: %s" % (self.organizer, self.uid, ", ".join(reinvites)))
@@ -513,6 +514,21 @@ class ImplicitScheduler(object):
             else:
                 log.debug("Implicit - organizer '%s' is modifying UID: '%s'" % (self.organizer, self.uid))
     
+                for rid in self.needs_action_rids:
+                    comp = self.calendar.overriddenComponent(rid)
+            
+                    for attendee in comp.getAllAttendeeProperties():
+                        if attendee.params().has_key("PARTSTAT"):
+                            cuaddr = attendee.value()
+                            
+                            if cuaddr in self.organizerPrincipal.calendarUserAddresses():
+                                # If the attendee is the organizer then do not update
+                                # the PARTSTAT to NEEDS-ACTION.
+                                # The organizer is automatically ACCEPTED to the event.
+                                continue
+
+                            attendee.params()["PARTSTAT"] = ["NEEDS-ACTION",]
+
                 # Check for removed attendees
                 if not recurrence_reschedule:
                     self.findRemovedAttendees()
@@ -537,6 +553,7 @@ class ImplicitScheduler(object):
     def isOrganizerChangeInsignificant(self):
         
         rids = None
+        date_changed_rids = None
         reinvites = None
         recurrence_reschedule = False
         differ = iCalDiff(self.oldcalendar, self.calendar, self.do_smart_merge)
@@ -545,12 +562,22 @@ class ImplicitScheduler(object):
             # ORGANIZER change is absolutely not allowed!
             diffs = differ.whatIsDifferent()
             rids = set()
+            date_changed_rids = set()
             checkOrganizerValue = False
             for rid, props in diffs.iteritems():
                 if "ORGANIZER" in props:
                     checkOrganizerValue = True
                 rids.add(rid)
                 
+                if any([testprop in props for testprop in (
+                    "DTSTART",
+                    "DTEND",
+                    "DURATION",
+                    "DUE",
+                    "RECURRENCE-ID",
+                )]):
+                    date_changed_rids.add(rid)
+
                 # Check to see whether a change to R-ID's happened
                 if rid == "":
                     if "RRULE" in props or "DTSTART" in props and self.calendar.masterComponent().hasProperty("RRULE"):
@@ -572,7 +599,7 @@ class ImplicitScheduler(object):
                 except KeyError:
                     pass
 
-        return no_change, rids, reinvites, recurrence_reschedule
+        return no_change, rids, date_changed_rids, reinvites, recurrence_reschedule
     
     def findRemovedAttendees(self):
         """

@@ -482,6 +482,9 @@ class Component (object):
         """
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
         
+        if isinstance(recurrence_id, str):
+            recurrence_id = parse_date_or_datetime(recurrence_id) if recurrence_id else None
+
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
