@@ -310,7 +310,15 @@ def getRootResource(config, resources=None):
                 principalCollections=(principalCollection,)
             )
             if not globalAddressBookCollection.exists():
-                addSystemEventTrigger("after", "startup", globalAddressBookCollection.createAddressBookCollection)
+                def createGlobalAddressBookIgnoreException():
+                    try:
+                        if not globalAddressBookCollection.exists():
+                            globalAddressBookCollection.createAddressBookCollection()
+                    except OSError, e:
+                        if e.errno != errno.EEXIST:
+                            raise
+
+                addSystemEventTrigger("after", "startup", createGlobalAddressBookIgnoreException)
 
     log.info("Setting up root resource: %r" % (rootResourceClass,))
 
