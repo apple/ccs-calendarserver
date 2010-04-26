@@ -105,7 +105,6 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         # with an empty string.
         if authzUser == davxml.Principal(davxml.Unauthenticated()):
             if RootResource.CheckSACL("", self.saclService) != 0:
-                log.info("Unauthenticated users not enabled with the %r SACL" % (self.saclService,))
                 response = (yield UnauthorizedResponse.makeResponse(
                     request.credentialFactories,
                     request.remoteAddr
