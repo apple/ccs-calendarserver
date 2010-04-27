@@ -322,7 +322,7 @@ class Request(http.Request):
         "Process a request."
         log.msg("%s %s %s" % (
             self.method,
-            unquote(self.uri),
+            self.uri,
             "HTTP/%s.%s" % self.clientproto
         ))
 

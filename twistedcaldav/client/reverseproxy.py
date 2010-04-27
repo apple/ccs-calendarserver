@@ -64,7 +64,7 @@ class ReverseProxyResource(LeafResource, LoggingMixIn):
         @return: Deferred L{Response}
         """
             
-        self.logger.info("%s %s %s" % (request.method, urllib.unquote(request.uri), "HTTP/%s.%s" % request.clientproto))
+        self.logger.info("%s %s %s" % (request.method, request.uri, "HTTP/%s.%s" % request.clientproto))
         clientPool = getHTTPClientPool(self.poolID)
         proxyRequest = ClientRequest(request.method, request.uri, request.headers, request.stream)
         
