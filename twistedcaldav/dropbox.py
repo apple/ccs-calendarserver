@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,16 +23,17 @@ __all__ = [
     "DropBoxCollectionResource",
 ]
 
-from twext.web2.dav.http import ErrorResponse
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
+from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.resource import DAVResource, TwistedACLInheritable
+from twext.web2.dav.util import joinURL
 
-from twext.python.log import Logger
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
+from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
-
-from twisted.internet.defer import succeed
 
 log = Logger()
 
@@ -48,6 +49,35 @@ class DropBoxHomeResource (DAVResource):
 
     def http_PUT(self, request):
         return responsecode.FORBIDDEN
+
+    @inlineCallbacks
+    def accessControlList(self, request, *args, **kwargs):
+        """
+        Override this to give write proxies DAV:write-acl privilege so they can add attachments too.
+        """
+
+        acl = (yield super(DropBoxHomeResource, self).accessControlList(request, *args, **kwargs))
+        
+        if config.EnableProxyPrincipals:
+            owner = (yield self.ownerPrincipal(request))
+
+            newaces = tuple(acl.children)
+            newaces += (
+                # DAV:write-acl access for this principal's calendar-proxy-write users.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(owner.principalURL(), "calendar-proxy-write/"))),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.WriteACL()),
+                    ),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ),
+            )
+
+            returnValue(davxml.ACL(*newaces))
+        
+        else:
+            returnValue(acl)
 
 class DropBoxCollectionResource (DAVResource):
     """
