@@ -673,7 +673,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             except IndexError:
                 completionDeferred.callback(None)
             else:
-                childpath = joinURL(basepath, childname)
+                childpath = joinURL(basepath, urllib.quote(childname))
                 d = request.locateChildResource(self, childname)
                 d.addCallback(checkPrivileges)
                 d.addCallbacks(gotChild, checkPrivilegesError, (childpath,))
@@ -726,7 +726,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         for childname in childnames:
             if names and childname not in names:
                 continue
-            childpath = joinURL(basepath, childname)
+            childpath = joinURL(basepath, urllib.quote(childname))
             child = (yield request.locateChildResource(self, childname))
             if child is None:
                 children.append((None, childpath + "/"))
