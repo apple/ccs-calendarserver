@@ -287,15 +287,9 @@ def main():
             usage("Too many arguments")
 
         try:
-            results = [(record.fullName, record.shortNames[0], record.guid)
-                for record in config.directory.listRecords(listPrincipals)]
-            if results:
-                results.sort()
-                format = "%-15s %-15s %s"
-                print format % ("Full name", "Record name", "UUID")
-                print format % ("---------", "-----------", "----")
-                for fullName, shortName, guid in results:
-                    print format % ("'%s'" % (fullName,), shortName, guid)
+            records = list(config.directory.listRecords(listPrincipals))
+            if records:
+                printRecordList(records)
             else:
                 print "No records of type %s" % (listPrincipals,)
         except UnknownRecordTypeError, e:
@@ -488,8 +482,14 @@ def action_listProxies(principal, *proxyTypes):
                 {"read": "Read-only", "write": "Read/write"}[proxyType],
                 principal,
             )
+            records = []
             for member in membersProperty.children:
-                print " *", member
+                proxyPrincipal = principalForPrincipalID(str(member),
+                    directory=config.directory)
+                records.append(proxyPrincipal.record)
+
+            printRecordList(records)
+            print
         else:
             print "No %s proxies for %s" % (proxyType, principal)
 
@@ -689,6 +689,16 @@ def matchStrings(value, validValues):
 
     raise ValueError("'%s' is not a recognized value" % (value,))
 
+
+def printRecordList(records):
+    results = [(record.fullName, record.shortNames[0], record.guid)
+        for record in records]
+    results.sort()
+    format = "%-22s %-17s %s"
+    print format % ("Full name", "Record name", "UUID")
+    print format % ("---------", "-----------", "----")
+    for fullName, shortName, guid in results:
+        print format % (fullName, shortName, guid)
 
 if __name__ == "__main__":
     main()

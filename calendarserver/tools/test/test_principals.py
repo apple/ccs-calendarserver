@@ -177,7 +177,7 @@ class ManagePrincipalsTestCase(TestCase):
 
         results = yield self.runCommand("--list-write-proxies",
             "locations:location01")
-        self.assertTrue("Read/write proxies for (locations)location01:\n * /principals/__uids__/user01/" in results)
+        self.assertTrue("Test User 01" in results)
 
         results = yield self.runCommand("--remove-proxy=users:user01",
             "locations:location01")
@@ -194,7 +194,7 @@ class ManagePrincipalsTestCase(TestCase):
 
         results = yield self.runCommand("--list-read-proxies",
             "locations:location01")
-        self.assertTrue("Read-only proxies for (locations)location01:\n * /principals/__uids__/user01/" in results)
+        self.assertTrue("Test User 01" in results)
 
         results = yield self.runCommand("--remove-proxy=users:user01",
             "locations:location01")
