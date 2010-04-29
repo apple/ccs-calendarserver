@@ -181,7 +181,11 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
             
         if config.Sharing.Enabled:
             if config.Sharing.Calendars.Enabled and self.isCalendarCollection():
-                baseProperties += (customxml.Invite.qname(),)
+                baseProperties += (
+                    customxml.Invite.qname(),
+                    customxml.AllowedSharingModes.qname(),
+                )
+
             elif config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection():
                 baseProperties += (customxml.Invite.qname(),)
                 
@@ -358,8 +362,13 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
             ))
 
         elif qname == customxml.Invite.qname():
-            result = (yield self.inviteProperty(request))
-            returnValue(result)
+            if config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.isCalendarCollection():
+                result = (yield self.inviteProperty(request))
+                returnValue(result)
+
+        elif qname == customxml.AllowedSharingModes.qname():
+            if config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.isCalendarCollection():
+                returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
 
         result = (yield super(CalDAVResource, self).readProperty(property, request))
         returnValue(result)

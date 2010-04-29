@@ -352,6 +352,7 @@ class FirstNameProperty (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "first-name"
     protected = True
+    hidden = True
 
 class LastNameProperty (davxml.WebDAVTextElement):
     """
@@ -360,6 +361,7 @@ class LastNameProperty (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "last-name"
     protected = True
+    hidden = True
 
 class EmailAddressProperty (davxml.WebDAVTextElement):
     """
@@ -368,6 +370,7 @@ class EmailAddressProperty (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "email-address"
     protected = True
+    hidden = True
 
 class EmailAddressSet (davxml.WebDAVElement):
     """
@@ -568,6 +571,7 @@ class RecordType (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "record-type"
     protected = True
+    hidden = True
 
 class AutoSchedule (davxml.WebDAVTextElement):
     """
@@ -661,6 +665,25 @@ class Birthday (davxml.WebDAVEmptyElement):
     """
     namespace = calendarserver_namespace
     name = "birthday"
+
+class AllowedSharingModes (davxml.WebDAVElement):
+    namespace = calendarserver_namespace
+    name = "allowed-sharing-modes"
+    protected = True
+    hidden = True
+
+    allowed_children = {
+        (calendarserver_namespace, "can-be-shared" )    : (0, 1),
+        (calendarserver_namespace, "can-be-published" ) : (0, 1),
+    }
+
+class CanBeShared (davxml.WebDAVEmptyElement):
+    namespace = calendarserver_namespace
+    name = "can-be-shared"
+
+class CanBePublished (davxml.WebDAVEmptyElement):
+    namespace = calendarserver_namespace
+    name = "can-be-published"
 
 class InviteShare (davxml.WebDAVElement):
     namespace = calendarserver_namespace
