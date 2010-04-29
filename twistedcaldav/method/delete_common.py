@@ -199,6 +199,13 @@ class DeleteResource(object):
             log.err(msg)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
+        # Check virtual share first
+        isVirtual = yield delresource.isVirtualShare(self.request)
+        if isVirtual:
+            log.debug("Removing shared calendar %s" % (delresource,))
+            yield delresource.removeVirtualShare(self.request)
+            returnValue(responsecode.NO_CONTENT)
+
         log.debug("Deleting calendar %s" % (delresource.fp.path,))
 
         errors = ResponseQueue(deluri, "DELETE", responsecode.NO_CONTENT)
@@ -214,12 +221,6 @@ class DeleteResource(object):
                 errors.add(childurl, responsecode.BAD_REQUEST)
 
         # Now do normal delete
-
-        # Check virtual share first
-        isVirtual = yield delresource.isVirtualShare(self.request)
-        if isVirtual:
-            yield delresource.removeVirtualShare(self.request)
-            returnValue(responsecode.NO_CONTENT)
 
         # Handle sharing
         wasShared = (yield delresource.isShared(self.request))
