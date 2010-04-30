@@ -73,7 +73,7 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource, LoggingMixIn):
         return self.linkedResource(request)
 
     def getChild(self, name):
-        return self._hostedResource.getChild(name)
+        return self._linkedResource.getChild(name)
 
     @inlineCallbacks
     def hasProperty(self, property, request):

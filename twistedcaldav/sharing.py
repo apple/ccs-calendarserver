@@ -237,9 +237,7 @@ class SharedCollectionMixin(object):
                 # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
                 davxml.ACE(
                     davxml.Principal(davxml.HRef(joinURL(self._shareePrincipal.principalURL(), "calendar-proxy-write/"))),
-                    davxml.Grant(
-                        davxml.Privilege(*proxyprivs),
-                    ),
+                    davxml.Grant(*proxyprivs),
                     davxml.Protected(),
                     TwistedACLInheritable(),
                 ),

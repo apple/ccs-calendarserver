@@ -14,13 +14,9 @@
 # limitations under the License.
 ##
 
-from twext.python.log import LoggingMixIn
-
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from twistedcaldav.extensions import DAVResource
-from twistedcaldav.resource import CalDAVComplianceMixIn
-from twistedcaldav.sharing import SharedCollectionMixin
+from twistedcaldav.linkresource import LinkResource
 
 __all__ = [
     "SharedCalendarResource",
@@ -30,56 +26,20 @@ __all__ = [
 Sharing behavior
 """
 
-class SharedCalendarResource(CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource, LoggingMixIn):
+class SharedCalendarResource(LinkResource):
     """
     This is similar to a WrapperResource except that we locate our shared calendar resource dynamically. 
     """
     
     def __init__(self, parent, share):
-        self.parent = parent
         self.share = share
-        super(SharedCalendarResource, self).__init__(self.parent.principalCollections())
+        super(SharedCalendarResource, self).__init__(parent, None)
 
     @inlineCallbacks
-    def hostedResource(self, request):
+    def linkedResource(self, request):
         
-        if not hasattr(self, "_hostedResource"):
-            self._hostedResource = (yield request.locateResource(self.share.hosturl))
+        if not hasattr(self, "_linkedResource"):
+            self._linkedResource = (yield request.locateResource(self.share.hosturl))
             ownerPrincipal = (yield self.parent.ownerPrincipal(request))
-            self._hostedResource.setVirtualShare(ownerPrincipal, self.share)
-        returnValue(self._hostedResource)
-
-    def isCollection(self):
-        return True
-
-    def locateChild(self, request, segments):
-        
-        def _defer(result):
-            return (result, segments)
-        d = self.hostedResource(request)
-        d.addCallback(_defer)
-        return d
-
-    def renderHTTP(self, request):
-        return self.hostedResource(request)
-
-    def getChild(self, name):
-        return self._hostedResource.getChild(name)
-
-    @inlineCallbacks
-    def hasProperty(self, property, request):
-        hosted = (yield self.hostedResource(request))
-        result = (yield hosted.hasProperty(property, request))
-        returnValue(result)
-
-    @inlineCallbacks
-    def readProperty(self, property, request):
-        hosted = (yield self.hostedResource(request))
-        result = (yield hosted.readProperty(property, request))
-        returnValue(result)
-
-    @inlineCallbacks
-    def writeProperty(self, property, request):
-        hosted = (yield self.hostedResource(request))
-        result = (yield hosted.writeProperty(property, request))
-        returnValue(result)
+            self._linkedResource.setVirtualShare(ownerPrincipal, self.share)
+        returnValue(self._linkedResource)
