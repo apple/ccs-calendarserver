@@ -80,14 +80,22 @@ class AugmentDB(object):
         if result is None:
             if not hasattr(self, "_defaultRecord"):
                 self._defaultRecord = (yield self._lookupAugmentRecord("Default"))
-            if self._defaultRecord is not None:
-                result = copy.deepcopy(self._defaultRecord)
-                result.uid = uid
+            if self._defaultRecord is None:
+                # No default was specified in the db, so generate one
+                self._defaultRecord = AugmentRecord(
+                    "Default",
+                    enabled=True,
+                    enabledForCalendaring=True,
+                    enabledForAddressBooks=True,
+                )
 
-                # Mark default-cloned augment records as such so
-                # DirectoryRecord.addAugmentInformation( ) can avoid unneccesary
-                # error messages:
-                result.clonedFromDefault = True
+            result = copy.deepcopy(self._defaultRecord)
+            result.uid = uid
+
+            # Mark default-cloned augment records as such so
+            # DirectoryRecord.addAugmentInformation( ) can avoid unneccesary
+            # error messages:
+            result.clonedFromDefault = True
 
         returnValue(result)
 

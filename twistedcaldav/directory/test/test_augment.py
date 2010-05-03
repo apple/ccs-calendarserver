@@ -59,10 +59,10 @@ class AugmentTests(TestCase):
             self.assertEqual(getattr(record, k), v)
 
     @inlineCallbacks
-    def _checkNoRecord(self, db, uid):
+    def _checkRecordExists(self, db, uid):
         
         record = (yield db.getAugmentRecord(uid))
-        self.assertTrue(record is None)
+        self.assertTrue(record is not None)
 
 class AugmentXMLTests(AugmentTests):
 
@@ -74,7 +74,9 @@ class AugmentXMLTests(AugmentTests):
         for item in testRecords:
             yield self._checkRecord(db, item)
 
-        yield self._checkNoRecord(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+        # Verify that a default record is returned, even if not specified
+        # in the DB
+        yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
 
     @inlineCallbacks
     def test_read_default(self):
@@ -162,7 +164,9 @@ class AugmentSqliteTests(AugmentTests):
         for item in testRecords:
             yield self._checkRecord(db, item)
 
-        yield self._checkNoRecord(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+        # Verify that a default record is returned, even if not specified
+        # in the DB
+        yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
 
     @inlineCallbacks
     def test_read_default(self):
@@ -189,7 +193,9 @@ class AugmentSqliteTests(AugmentTests):
         for item in testRecords:
             yield self._checkRecord(db, item)
 
-        yield self._checkNoRecord(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+        # Verify that a default record is returned, even if not specified
+        # in the DB
+        yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
 
         newrecord = AugmentRecord(
             **testAddRecords[0]
@@ -227,7 +233,9 @@ class AugmentPostgreSQLTests(AugmentTests):
         for item in testRecords:
             yield self._checkRecord(db, item)
 
-        yield self._checkNoRecord(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+        # Verify that a default record is returned, even if not specified
+        # in the DB
+        yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
 
     @inlineCallbacks
     def test_read_default(self):
@@ -255,7 +263,9 @@ class AugmentPostgreSQLTests(AugmentTests):
         for item in testRecords:
             yield self._checkRecord(db, item)
 
-        yield self._checkNoRecord(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+        # Verify that a default record is returned, even if not specified
+        # in the DB
+        yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
 
         newrecord = AugmentRecord(
             **testAddRecords[0]
