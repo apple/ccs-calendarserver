@@ -33,7 +33,10 @@ from twistedcaldav.directory.directory import DirectoryError
 from twext.web2.dav import davxml
 
 from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications
-from calendarserver.tools.principals import principalForPrincipalID, proxySubprincipal, addProxy, removeProxy, ProxyError, ProxyWarning
+from calendarserver.tools.principals import (
+    principalForPrincipalID, proxySubprincipal, addProxy, removeProxy,
+    ProxyError, ProxyWarning, updateRecord
+)
 
 from twext.python.log import StandardIOObserver
 
@@ -155,6 +158,7 @@ attrMap = {
     'ZIP' : { 'extras' : True, 'attr' : 'zip', },
     'Country' : { 'extras' : True, 'attr' : 'country', },
     'Phone' : { 'extras' : True, 'attr' : 'phone', },
+    'AutoSchedule' : { 'attr' : 'autoSchedule', },
 }
 
 class Runner(object):
@@ -208,18 +212,7 @@ class Runner(object):
                 kwargs[info['attr']] = command[key]
 
         try:
-            record = self.dir.createRecord("locations", **kwargs)
-        except DirectoryError, e:
-            respondWithError(str(e))
-            return
-
-        kwargs['guid'] = record.guid
-
-        principal = self.dir.principalCollection.principalForRecord(record)
-        (yield principal.setAutoSchedule(command.get('AutoSchedule', True)))
-
-        try:
-            self.dir.updateRecord("locations", **kwargs)
+            (yield updateRecord(True, self.dir, "locations", **kwargs))
         except DirectoryError, e:
             respondWithError(str(e))
             return
@@ -254,7 +247,7 @@ class Runner(object):
             if command.has_key(key):
                 kwargs[info['attr']] = command[key]
         try:
-            self.dir.updateRecord("locations", **kwargs)
+            (yield updateRecord(False, self.dir, "locations", **kwargs))
         except DirectoryError, e:
             respondWithError(str(e))
             return
@@ -286,18 +279,7 @@ class Runner(object):
                 kwargs[info['attr']] = command[key]
 
         try:
-            record = self.dir.createRecord("resources", **kwargs)
-        except DirectoryError, e:
-            respondWithError(str(e))
-            return
-
-        kwargs['guid'] = record.guid
-
-        principal = self.dir.principalCollection.principalForRecord(record)
-        (yield principal.setAutoSchedule(command.get('AutoSchedule', True)))
-
-        try:
-            self.dir.updateRecord("resources", **kwargs)
+            (yield updateRecord(True, self.dir, "resources", **kwargs))
         except DirectoryError, e:
             respondWithError(str(e))
             return
@@ -321,7 +303,7 @@ class Runner(object):
             if command.has_key(key):
                 kwargs[info['attr']] = command[key]
         try:
-            self.dir.updateRecord("resources", **kwargs)
+            (yield updateRecord(False, self.dir, "resources", **kwargs))
         except DirectoryError, e:
             respondWithError(str(e))
             return

@@ -21,15 +21,19 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 
 from twistedcaldav.config import config
+from twistedcaldav.directory.directory import DirectoryError
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 
-from calendarserver.tools.principals import parseCreationArgs, matchStrings
+from calendarserver.tap.util import getRootResource
+from calendarserver.tools.principals import parseCreationArgs, matchStrings, updateRecord
 
 
 class ManagePrincipalsTestCase(TestCase):
 
     def setUp(self):
         super(ManagePrincipalsTestCase, self).setUp()
+
+        config.GlobalAddressBook.Enabled = False
 
         testRoot = os.path.join(os.path.dirname(__file__), "principals")
         templateName = os.path.join(testRoot, "caldavd.plist")
@@ -119,6 +123,10 @@ class ManagePrincipalsTestCase(TestCase):
         results = yield self.runCommand("--add", "resources", "New Resource",
             "newresource", "edaa6ae6-011b-4d89-ace3-6b688cdd91d9")
         self.assertTrue("Added 'New Resource'" in results)
+
+        results = yield self.runCommand("--get-auto-schedule",
+            "resources:newresource")
+        self.assertTrue(results.startswith("Autoschedule for (resources)newresource is true"))
 
         results = yield self.runCommand("--list-principals=resources")
         self.assertTrue("newresource" in results)
@@ -217,3 +225,38 @@ class ManagePrincipalsTestCase(TestCase):
         results = yield self.runCommand("--get-auto-schedule",
             "locations:location01")
         self.assertTrue(results.startswith("Autoschedule for (locations)location01 is true"))
+
+    @inlineCallbacks
+    def test_updateRecord(self):
+        directory = getRootResource(config).getDirectory()
+        guid = "eee28807-a8c5-46c8-a558-a08281c558a7"
+
+        (yield updateRecord(True, directory, "locations",
+            guid=guid, fullName="Test User", shortNames=["testuser",],)
+        )
+        try:
+            (yield updateRecord(True, directory, "locations",
+                guid=guid, fullName="Test User", shortNames=["testuser",],)
+            )
+        except DirectoryError:
+            # We're expecting an error for trying to create a record with
+            # an existing GUID
+            pass
+        else:
+            raise self.failureException("Duplicate guid expected")
+
+        record = directory.recordWithGUID(guid)
+        self.assertTrue(record is not None)
+        self.assertEquals(record.fullName, "Test User")
+        self.assertTrue(record.autoSchedule)
+
+        (yield updateRecord(False, directory, "locations",
+            guid=guid, fullName="Changed", shortNames=["testuser",],)
+        )
+        record = directory.recordWithGUID(guid)
+        self.assertTrue(record is not None)
+        self.assertEquals(record.fullName, "Changed")
+
+        directory.destroyRecord("locations", guid=guid)
+        record = directory.recordWithGUID(guid)
+        self.assertTrue(record is None)

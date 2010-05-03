@@ -35,8 +35,14 @@ from twext.web2.dav.davxml import sname2qname, qname2sname
 
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
+from twistedcaldav.directory import augment
 
 from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications, booleanArgument
+
+__all__ = [
+    "principalForPrincipalID", "proxySubprincipal", "addProxy", "removeProxy",
+    "ProxyError", "ProxyWarning", "updateRecord"
+]
 
 def usage(e=None):
     if e:
@@ -263,16 +269,12 @@ def main():
             print e
             return
 
-        try:
-            record = config.directory.createRecord(addType, guid=guid,
-                shortNames=[shortName], fullName=fullName)
-        except DirectoryError, e:
-            print e
-            return
+        if shortName is not None:
+            shortNames = [shortName]
+        else:
+            shortNames = ()
 
-        print "Added '%s' (%s) %s %s" % (record.fullName, addType,
-            record.shortNames[0], record.guid)
-        return
+        params = (runAddPrincipal, addType, guid, shortNames, fullName)
 
 
     elif listPrincipals:
@@ -386,6 +388,22 @@ def runSearch(searchTerm):
         #
         reactor.stop()
 
+@inlineCallbacks
+def runAddPrincipal(addType, guid, shortNames, fullName):
+    try:
+        try:
+            yield updateRecord(True, config.directory, addType, guid=guid,
+                shortNames=shortNames, fullName=fullName)
+            print "Added '%s'" % (fullName,)
+        except DirectoryError, e:
+            print e
+
+    finally:
+        #
+        # Stop the reactor
+        #
+        reactor.stop()
+
 
 def principalForPrincipalID(principalID, checkOnly=False, directory=None):
     
@@ -441,7 +459,8 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
         if checkOnly:
             return None
 
-        return directory.principalCollection.principalForUID(principalID)
+        x = directory.principalCollection.principalForUID(principalID)
+        return x
     except ValueError:
         pass
 
@@ -591,15 +610,16 @@ def action_setAutoSchedule(principal, autoSchedule):
             { True: "true", False: "false" }[autoSchedule],
             principal,
         )
-        (yield principal.setAutoSchedule(autoSchedule))
+        # (yield principal.setAutoSchedule(autoSchedule))
 
-        # Invalidate the directory cache by updating this record
-        config.directory.updateRecord(principal.record.recordType,
+        (yield updateRecord(False, config.directory,
+            principal.record.recordType,
             guid=principal.record.guid,
             shortNames=principal.record.shortNames,
             fullName=principal.record.fullName,
+            autoSchedule=autoSchedule,
             **principal.record.extras
-        )
+        ))
 
 def action_getAutoSchedule(principal):
     autoSchedule = principal.getAutoSchedule()
@@ -699,6 +719,37 @@ def printRecordList(records):
     print format % ("---------", "-----------", "----")
     for fullName, shortName, guid in results:
         print format % (fullName, shortName, guid)
+
+
+@inlineCallbacks
+def updateRecord(create, directory, recordType, **kwargs):
+    """
+    Create/update a record, including the extra work required to set the
+    autoSchedule bit in the augment record.
+
+    If C{create} is true, the record is created, otherwise update the record
+    matching the guid in kwargs.
+    """
+
+    if kwargs.has_key("autoSchedule"):
+        autoSchedule = kwargs["autoSchedule"]
+        del kwargs["autoSchedule"]
+    else:
+        autoSchedule = recordType in ("locations", "resources")
+
+    if create:
+        record = directory.createRecord(recordType, **kwargs)
+        kwargs['guid'] = record.guid
+    else:
+        directory.updateRecord(recordType, **kwargs)
+
+    augmentRecord = (yield augment.AugmentService.getAugmentRecord(kwargs['guid']))
+    augmentRecord.autoSchedule = autoSchedule
+    (yield augment.AugmentService.addAugmentRecords([augmentRecord]))
+    directory.updateRecord(recordType, **kwargs)
+
+
+
 
 if __name__ == "__main__":
     main()
