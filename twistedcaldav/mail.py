@@ -62,6 +62,7 @@ from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.ical import Property
 from twistedcaldav.localization import translationTo
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.scheduling.scheduler import IMIPScheduler
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.static import CalDAVFile, deliverSchedulePrivilegeSet
@@ -718,6 +719,7 @@ class MailHandler(LoggingMixIn):
 
         self.log_debug(calBody)
         calendar = ical.Component.fromString(calBody)
+        event = calendar.mainComponent()
 
         # process mail messages from POP or IMAP, inject to calendar server
         result = self.db.lookupByToken(token)
@@ -735,9 +737,25 @@ class MailHandler(LoggingMixIn):
         if organizerProperty is None:
             # ORGANIZER is required per rfc2446 section 3.2.3
             self.log_warn("Mail gateway didn't find an ORGANIZER in REPLY %s" % (msg['Message-ID'],))
-            calendar.addProperty(Property("ORGANIZER", organizer))
+            event.addProperty(Property("ORGANIZER", organizer))
         else:
             organizerProperty.setValue(organizer)
+
+        if not calendar.getAttendees():
+            # The attendee we're expecting isn't there, so add it back
+            # with a SCHEDULE-STATUS of SERVICE_UNAVAILABLE.
+            # The organizer will then see that the reply was not successful.
+            attendeeProp = Property("ATTENDEE", attendee,
+                params = {
+                    "SCHEDULE-STATUS": [iTIPRequestStatus.SERVICE_UNAVAILABLE],
+                }
+            )
+            event.addProperty(attendeeProp)
+
+            # TODO: We have talked about sending an email to the reply-to
+            # at this point, to let them know that their reply was missing
+            # the appropriate ATTENDEE.  This will require a new localizable
+            # email template for the message.
 
         return fn(organizer, attendee, calendar, msg['Message-ID'])
 

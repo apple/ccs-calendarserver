@@ -18,6 +18,8 @@ from twistedcaldav.mail import *
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.ical import Component
 from twistedcaldav.config import config
+from twistedcaldav.scheduling.itip import iTIPRequestStatus
+
 
 from twisted.internet.defer import inlineCallbacks
 import email
@@ -108,7 +110,26 @@ class MailHandlerTests(TestCase):
 
         organizer, attendee, calendar, msgId = self.handler.processReply(msg,
             echo)
+        organizerProp = calendar.mainComponent().getOrganizerProperty()
+        self.assertTrue(organizerProp is not None)
         self.assertEquals(organizer, "mailto:user01@example.com")
+
+    def test_processReplyMissingAttendee(self):
+        msg = email.message_from_string(
+            file(os.path.join(self.dataDir, 'reply_missing_attendee')).read()
+        )
+        # stick the token in the database first
+        self.handler.db.createToken("mailto:user01@example.com", "mailto:xyzzy@example.com", icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
+
+        organizer, attendee, calendar, msgId = self.handler.processReply(msg,
+            echo)
+
+        # Since the expected attendee was missing, the reply processor should
+        # have added an attendee back in with a "5.1;Service unavailable"
+        # schedule-status
+        attendeeProp = calendar.mainComponent().getAttendeeProperty([attendee])
+        self.assertEquals(attendeeProp.paramValue("SCHEDULE-STATUS"),
+            iTIPRequestStatus.SERVICE_UNAVAILABLE)
 
 
     @inlineCallbacks
