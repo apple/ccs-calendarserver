@@ -269,6 +269,31 @@ class SharedCollectionMixin(object):
         else:
             return None
 
+    def validUserIDWithCommonNameForShare(self, userid, cn):
+        """
+        Validate user ID and find the common name.
+
+        @param userid: the userid to test
+        @type userid: C{str}
+        @param cn: default common name to use if principal has none
+        @type cn: C{str}
+        
+        @return: C{tuple} of C{str} of normalized userid or C{None} if
+            userid is not allowed, and appropriate common name.
+        """
+        
+        # First try to resolve as a principal
+        principal = self.principalForCalendarUserAddress(userid)
+        if principal:
+            return principal.principalURL(), principal.displayName()
+        
+        # TODO: we do not support external users right now so this is being hard-coded
+        # off in spite of the config option.
+        #elif config.Sharing.AllowExternalUsers:
+        #    return userid, cn
+        else:
+            return None, None
+
     def validateInvites(self):
         """
         Make sure each userid in an invite is valid - if not re-write status.
@@ -287,26 +312,24 @@ class SharedCollectionMixin(object):
         """ Possibly send a push and or email notification on a change to a resource in a shared collection """
         return succeed(True)
 
-    def inviteUserToShare(self, userid, ace, summary, request, commonName="", shareName="", add=True):
+    def inviteUserToShare(self, userid, cn, ace, summary, request):
         """ Send out in invite first, and then add this user to the share list
             @param userid: 
             @param ace: Must be one of customxml.ReadWriteAccess or customxml.ReadAccess
         """
         
         # Check for valid userid first
-        userid = self.validUserIDForShare(userid)
+        userid, cn = self.validUserIDWithCommonNameForShare(userid, cn)
         if userid is None:
             return succeed(False)
 
         # TODO: Check if this collection is shared, and error out if it isn't
         if type(userid) is not list:
             userid = [userid]
-        if type(commonName) is not list:
-            commonName = [commonName]
-        if type(shareName) is not list:
-            shareName = [shareName]
+        if type(cn) is not list:
+            cn = [cn]
             
-        dl = [self.inviteSingleUserToShare(user, ace, summary, request, cn=cn, sn=sn) for user, cn, sn in zip(userid, commonName, shareName)]
+        dl = [self.inviteSingleUserToShare(user, cn, ace, summary, request) for user, cn in zip(userid, cn)]
         return DeferredList(dl).addCallback(lambda _:True)
 
     def uninviteUserToShare(self, userid, ace, request):
@@ -321,32 +344,31 @@ class SharedCollectionMixin(object):
             userid = [userid]
         return DeferredList([self.uninviteSingleUserFromShare(user, ace, request) for user in userid]).addCallback(lambda _:True)
 
-    def inviteUserUpdateToShare(self, userid, aceOLD, aceNEW, summary, request, commonName="", shareName=""):
+    def inviteUserUpdateToShare(self, userid, cn, aceOLD, aceNEW, summary, request):
 
         # Check for valid userid first
-        userid = self.validUserIDForShare(userid)
+        userid, cn = self.validUserIDWithCommonNameForShare(userid, cn)
         if userid is None:
             return succeed(False)
 
         if type(userid) is not list:
             userid = [userid]
-        if type(commonName) is not list:
-            commonName = [commonName]
-        if type(shareName) is not list:
-            shareName = [shareName]
-        dl = [self.inviteSingleUserUpdateToShare(user, aceOLD, aceNEW, summary, request, commonName=cn, shareName=sn) for user, cn, sn in zip(userid, commonName, shareName)]
+        if type(cn) is not list:
+            cn = [cn]
+        dl = [self.inviteSingleUserUpdateToShare(user, cn, aceOLD, aceNEW, summary, request) for user, cn in zip(userid, cn)]
         return DeferredList(dl).addCallback(lambda _:True)
 
     @inlineCallbacks
-    def inviteSingleUserToShare(self, userid, ace, summary, request, cn="", sn=""):
+    def inviteSingleUserToShare(self, userid, cn, ace, summary, request):
         
         # Look for existing invite and update its fields or create new one
         record = self.invitesDB().recordForUserID(userid)
         if record:
+            record.name = cn
             record.access = inviteAccessMapFromXML[type(ace)]
             record.summary = summary
         else:
-            record = Invite(str(uuid4()), userid, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary)
+            record = Invite(str(uuid4()), userid, cn, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary)
         
         # Send invite
         yield self.sendInvite(record, request)
@@ -368,34 +390,34 @@ class SharedCollectionMixin(object):
         
         # Remove any shared calendar
         sharee = self.principalForCalendarUserAddress(record.userid)
-        if sharee is None:
-            raise ValueError("sharee is None but userid was valid before")
-        shareeHome = sharee.calendarHome()
-        yield shareeHome.removeShareByUID(request, record.inviteuid)
-
-        # If current user state is accepted then we send an invite with the new state, otherwise
-        # we cancel any existing invites for the user
-        if record and record.state != "ACCEPTED":
-            yield self.removeInvite(record, request)
-        elif record:
-            record.state = "DELETED"
-            yield self.sendInvite(record, request)
-
+        if sharee:
+            shareeHome = sharee.calendarHome()
+            yield shareeHome.removeShareByUID(request, record.inviteuid)
+    
+            # If current user state is accepted then we send an invite with the new state, otherwise
+            # we cancel any existing invites for the user
+            if record and record.state != "ACCEPTED":
+                yield self.removeInvite(record, request)
+            elif record:
+                record.state = "DELETED"
+                yield self.sendInvite(record, request)
+    
         # Remove from database
         self.invitesDB().removeRecordForUserID(userid)
         
         returnValue(True)            
 
-    def inviteSingleUserUpdateToShare(self, userid, acesOLD, aceNEW, summary, request, commonName="", shareName=""):
+    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request):
         
         # Just update existing
-        return self.inviteSingleUserToShare(userid, aceNEW, summary, request, commonName, shareName) 
+        return self.inviteSingleUserToShare(userid, commonName, aceNEW, summary, request) 
 
     @inlineCallbacks
     def sendInvite(self, record, request):
         
-        owner = (yield self.ownerPrincipal(request))
-        owner = owner.principalURL()
+        ownerPrincipal = (yield self.ownerPrincipal(request))
+        owner = ownerPrincipal.principalURL()
+        ownerCN = ownerPrincipal.displayName()
         hosturl = (yield self.canonicalURL(request))
 
         # Locate notifications collection for user
@@ -425,6 +447,7 @@ class SharedCollectionMixin(object):
                 ),
                 customxml.Organizer(
                     davxml.HRef.fromString(owner),
+                    customxml.CommonName.fromString(ownerCN),
                 ),
                 customxml.InviteSummary.fromString(record.summary),
                 **typeAttr
@@ -455,11 +478,15 @@ class SharedCollectionMixin(object):
         def _handleInvite(invitedoc):
             def _handleInviteSet(inviteset):
                 userid = None
+                cn = None
                 access = None
                 summary = None
                 for item in inviteset.children:
                     if isinstance(item, davxml.HRef):
                         userid = str(item)
+                        continue
+                    if isinstance(item, customxml.CommonName):
+                        cn = str(item)
                         continue
                     if isinstance(item, customxml.InviteSummary):
                         summary = str(item)
@@ -468,26 +495,20 @@ class SharedCollectionMixin(object):
                         access = item
                         continue
                 if userid and access and summary:
-                    return (userid, access, summary)
+                    return (userid, cn, access, summary)
                 else:
+                    error_text = []
                     if userid is None:
-                        raise HTTPError(ErrorResponse(
-                            responsecode.FORBIDDEN,
-                            (customxml.calendarserver_namespace, "valid-request"),
-                            "missing href: %s" % (inviteset,),
-                        ))
+                        error_text.append("missing href")
                     if access is None:
-                        raise HTTPError(ErrorResponse(
-                            responsecode.FORBIDDEN,
-                            (customxml.calendarserver_namespace, "valid-request"),
-                            "missing access: %s" % (inviteset,),
-                        ))
+                        error_text.append("missing access")
                     if summary is None:
-                        raise HTTPError(ErrorResponse(
-                            responsecode.FORBIDDEN,
-                            (customxml.calendarserver_namespace, "valid-request"),
-                            "missing summary: %s" % (inviteset,),
-                        ))
+                        error_text.append("missing summary")
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (customxml.calendarserver_namespace, "valid-request"),
+                        "%s: %s" % (", ".join(error_text), inviteset,),
+                    ))
 
             def _handleInviteRemove(inviteremove):
                 userid = None
@@ -524,8 +545,8 @@ class SharedCollectionMixin(object):
                 setDict, removeDict, updateinviteDict = {}, {}, {}
                 for item in invitedoc.children:
                     if isinstance(item, customxml.InviteSet):
-                        userid, access, summary = _handleInviteSet(item)
-                        setDict[userid] = (access, summary)
+                        userid, cn, access, summary = _handleInviteSet(item)
+                        setDict[userid] = (cn, access, summary)
                     elif isinstance(item, customxml.InviteRemove):
                         userid, access = _handleInviteRemove(item)
                         removeDict[userid] = access
@@ -536,18 +557,18 @@ class SharedCollectionMixin(object):
                 sameUseridInRemoveAndSet = [u for u in removeDict.keys() if u in setDict]
                 for u in sameUseridInRemoveAndSet:
                     removeACL = removeDict[u]
-                    newACL, summary = setDict[u]
-                    updateinviteDict[u] = (removeACL, newACL, summary)
+                    cn, newACL, summary = setDict[u]
+                    updateinviteDict[u] = (cn, removeACL, newACL, summary)
                     del removeDict[u]
                     del setDict[u]
                 for userid, access in removeDict.iteritems():
                     result = (yield self.uninviteUserToShare(userid, access, request))
                     (okusers if result else badusers).add(userid)
-                for userid, (access, summary) in setDict.iteritems():
-                    result = (yield self.inviteUserToShare(userid, access, summary, request))
+                for userid, (cn, access, summary) in setDict.iteritems():
+                    result = (yield self.inviteUserToShare(userid, cn, access, summary, request))
                     (okusers if result else badusers).add(userid)
-                for userid, (removeACL, newACL, summary) in updateinviteDict.iteritems():
-                    result = (yield self.inviteUserUpdateToShare(userid, removeACL, newACL, summary, request))
+                for userid, (cn, removeACL, newACL, summary) in updateinviteDict.iteritems():
+                    result = (yield self.inviteUserUpdateToShare(userid, cn, removeACL, newACL, summary, request))
                     (okusers if result else badusers).add(userid)
 
                 # Do a final validation of the entire set of invites
@@ -642,9 +663,10 @@ inviteStatusMapFromXML = dict([(v,k) for k,v in inviteStatusMapToXML.iteritems()
 
 class Invite(object):
     
-    def __init__(self, inviteuid, userid, access, state, summary):
+    def __init__(self, inviteuid, userid, common_name, access, state, summary):
         self.inviteuid = inviteuid
         self.userid = userid
+        self.name = common_name
         self.access = access
         self.state = state
         self.summary = summary
@@ -654,6 +676,7 @@ class Invite(object):
         return customxml.InviteUser(
             customxml.UID.fromString(self.inviteuid),
             davxml.HRef.fromString(self.userid),
+            customxml.CommonName.fromString(self.name),
             customxml.InviteAccess(inviteAccessMapToXML[self.access]()),
             inviteStatusMapToXML[self.state](),
         )
@@ -696,9 +719,9 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
     
     def addOrUpdateRecord(self, record):
 
-        self._db_execute("""insert or replace into INVITE (INVITEUID, USERID, ACCESS, STATE, SUMMARY)
-            values (:1, :2, :3, :4, :5)
-            """, record.inviteuid, record.userid, record.access, record.state, record.summary,
+        self._db_execute("""insert or replace into INVITE (INVITEUID, USERID, NAME, ACCESS, STATE, SUMMARY)
+            values (:1, :2, :3, :4, :5, :6)
+            """, record.inviteuid, record.userid, record.name, record.access, record.state, record.summary,
         )
     
     def removeRecordForUserID(self, userid):
@@ -734,7 +757,8 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         #
         # INVITE table is the primary table
         #   INVITEUID: UID for this invite
-        #   NAME: identifier of invitee
+        #   USERID: identifier of invitee
+        #   NAME: common name of invitee
         #   ACCESS: Access mode for share
         #   STATE: Invite response status
         #   SUMMARY: Invite summary
@@ -744,6 +768,7 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
             create table INVITE (
                 INVITEUID      text unique,
                 USERID         text unique,
+                NAME           text,
                 ACCESS         text,
                 STATE          text,
                 SUMMARY        text

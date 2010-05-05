@@ -27,10 +27,29 @@ from twistedcaldav.static import CalDAVFile
 from twistedcaldav.test.util import InMemoryPropertyStore
 from twistedcaldav.test.util import TestCase
 import os
-from twext.web2.http import HTTPError
 
 
 class SharingTests(TestCase):
+
+    class FakePrincipal(object):
+        
+        def __init__(self, cuaddr):
+            self.path = "/principals/__uids__/%s" % (cuaddr[7:].split('@')[0],)
+            self.homepath = "/calendars/__uids__/%s" % (cuaddr[7:].split('@')[0],)
+            self.displayname = cuaddr[7:].split('@')[0].upper()
+
+        def calendarHome(self):
+            class FakeHome(object):
+                def removeShareByUID(self, request, uid):pass
+            return FakeHome()
+        
+        def principalURL(self):
+            return self.path
+        
+        def displayName(self):
+            return self.displayname
+            
+
     def setUp(self):
         super(SharingTests, self).setUp()
         config.Sharing.Enabled = True
@@ -44,33 +63,23 @@ class SharingTests(TestCase):
         self.site.resource.putChild("calendar", self.resource)
         
         self.resource.validUserIDForShare = self._fakeValidUserID
+        self.resource.validUserIDWithCommonNameForShare = self._fakeValidUserID
         self.resource.sendInvite = lambda record, request:succeed(True)
         self.resource.removeInvite = lambda record, request:succeed(True)
         
-        class FakePrincipal(object):
-            
-            def __init__(self, cuaddr):
-                self.path = "/principals/__uids__/%s" % (cuaddr[7:].split('@')[0],)
-                self.homepath = "/calendars/__uids__/%s" % (cuaddr[7:].split('@')[0],)
-
-            def calendarHome(self):
-                class FakeHome(object):
-                    def removeShareByUID(self, request, uid):pass
-                return FakeHome()
-            
-        self.resource.principalForCalendarUserAddress = lambda cuaddr: FakePrincipal(cuaddr)
+        self.resource.principalForCalendarUserAddress = lambda cuaddr: SharingTests.FakePrincipal(cuaddr)
         
-    def _fakeValidUserID(self, userid):
+    def _fakeValidUserID(self, userid, *args):
+        if userid.startswith("/principals/"):
+            return userid
         if userid.endswith("@example.com"):
-            return userid
+            principal = SharingTests.FakePrincipal(userid)
+            return principal.path if len(args) == 0 else (principal.path, principal.displayname,)
         else:
-            return None
+            return None if len(args) == 0 else (None, None,)
 
-    def _fakeInvalidUserID(self, userid):
-        if userid.endswith("@example.net"):
-            return userid
-        else:
-            return None
+    def _fakeInvalidUserID(self, userid, *args):
+        return None if len(args) == 0 else (None, None,)
 
     @inlineCallbacks
     def _doPOST(self, body, resultcode = responsecode.OK):
@@ -174,7 +183,8 @@ class SharingTests(TestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user02"),
+                customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             )
@@ -203,7 +213,8 @@ class SharingTests(TestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user02"),
+                customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             )
@@ -243,7 +254,8 @@ class SharingTests(TestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user02"),
+                customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadAccess()),
                 customxml.InviteStatusNoResponse(),
             )
@@ -308,19 +320,22 @@ class SharingTests(TestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user02"),
+                customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user03@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user03"),
+                customxml.CommonName.fromString("USER03"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user04@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user04"),
+                customxml.CommonName.fromString("USER04"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
@@ -362,13 +377,15 @@ class SharingTests(TestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user02"),
+                customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user04@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user04"),
+                customxml.CommonName.fromString("USER04"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
@@ -410,13 +427,15 @@ class SharingTests(TestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user02"),
+                customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user03@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user03"),
+                customxml.CommonName.fromString("USER03"),
                 customxml.InviteAccess(customxml.ReadAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
@@ -472,19 +491,23 @@ class SharingTests(TestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user01@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user01"),
+                customxml.CommonName.fromString("USER01"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             )
         ))
 
         self.resource.validUserIDForShare = self._fakeInvalidUserID
+        self.resource.validUserIDWithCommonNameForShare = self._fakeInvalidUserID
+        self.resource.principalForCalendarUserAddress = lambda cuaddr: None
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user01@example.com"),
+                davxml.HRef.fromString("/principals/__uids__/user01"),
+                customxml.CommonName.fromString("USER01"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusInvalid(),
             )
@@ -493,7 +516,7 @@ class SharingTests(TestCase):
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
 <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
     <CS:remove>
-        <D:href>mailto:user01@example.com</D:href>
+        <D:href>/principals/__uids__/user01</D:href>
     </CS:remove>
 </CS:share>
 """)
