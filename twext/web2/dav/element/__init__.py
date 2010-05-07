@@ -38,5 +38,6 @@ __all__ = [
     "rfc3253",
     "rfc3744",
     "rfc4331",
+    "rfc5842",
     "extensions",
 ]

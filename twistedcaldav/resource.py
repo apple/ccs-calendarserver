@@ -30,6 +30,7 @@ __all__ = [
 
 import urllib
 from urlparse import urlsplit
+import uuid
 
 from zope.interface import implements
 
@@ -168,8 +169,14 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                 caldavxml.SupportedCalendarData.qname(),
             )
 
+        if self.isCalendarCollection():
+            baseProperties += (
+                davxml.ResourceID.qname(),
+            )
+
         if self.isAddressBookCollection():
             baseProperties += (
+                davxml.ResourceID.qname(),
                 carddavxml.SupportedAddressData.qname(),
             )
 
@@ -300,6 +307,9 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         if qname == davxml.Owner.qname():
             owner = (yield self.owner(request))
             returnValue(davxml.Owner(owner))
+
+        elif qname == davxml.ResourceID.qname():
+            returnValue(davxml.ResourceID(davxml.HRef.fromString(self.resourceID())))
 
         elif qname == davxml.SyncToken.qname() and config.EnableSyncReport and (
             self.isPseudoCalendarCollection() or self.isAddressBookCollection()
@@ -641,6 +651,12 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                 return super(DAVResource, self).displayName()
         else:
             return super(DAVResource, self).displayName()
+
+    def resourceID(self):
+        if not self.hasDeadProperty(davxml.ResourceID.qname()):
+            uuidval = uuid.uuid4()
+            self.writeDeadProperty(davxml.ResourceID(davxml.HRef.fromString(uuidval.urn)))
+        return str(self.readDeadProperty(davxml.ResourceID.qname()).children[0])
 
     ##
     # CalDAV
