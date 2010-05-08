@@ -534,6 +534,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             certificateChainFile=config.SSLAuthorityChain,
             passwdCallback=getSSLPassphrase,
             sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
+            ciphers=config.SSLCiphers.strip()
         )
 
 

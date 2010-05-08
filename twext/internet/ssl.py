@@ -31,10 +31,11 @@ class ChainingOpenSSLContextFactory (DefaultOpenSSLContextFactory):
     def __init__(
         self, privateKeyFileName, certificateFileName,
         sslmethod=SSLv3_METHOD, certificateChainFile=None,
-        passwdCallback=None
+        passwdCallback=None, ciphers=None
     ):
         self.certificateChainFile = certificateChainFile
         self.passwdCallback = passwdCallback
+        self.ciphers = ciphers
 
         DefaultOpenSSLContextFactory.__init__(
             self,
@@ -46,6 +47,9 @@ class ChainingOpenSSLContextFactory (DefaultOpenSSLContextFactory):
     def cacheContext(self):
         # Unfortunate code duplication.
         ctx = SSLContext(self.sslmethod)
+
+        if self.ciphers is not None:
+            ctx.set_cipher_list(self.ciphers)
 
         if self.passwdCallback is not None:
             ctx.set_passwd_cb(self.passwdCallback)

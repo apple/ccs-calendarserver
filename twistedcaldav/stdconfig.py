@@ -130,6 +130,7 @@ DEFAULT_CONFIG = {
     "SSLPort" : 0,                 # SSL port (0 to disable HTTPS)
     "RedirectHTTPToHTTPS" : False, # If True, all nonSSL requests redirected to an SSL Port
     "SSLMethod" : "SSLv3_METHOD",  # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
+    "SSLCiphers" : "ALL:!aNULL:!ADH:!eNULL:!LOW:!EXP:RC4+RSA:+HIGH:+MEDIUM",
 
     #
     # Network address configuration information
