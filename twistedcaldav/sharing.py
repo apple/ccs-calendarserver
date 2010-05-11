@@ -543,33 +543,41 @@ class SharedCollectionMixin(object):
             @inlineCallbacks
             def _processInviteDoc(_, request):
                 setDict, removeDict, updateinviteDict = {}, {}, {}
+                okusers = set()
+                badusers = set()
                 for item in invitedoc.children:
                     if isinstance(item, customxml.InviteSet):
                         userid, cn, access, summary = _handleInviteSet(item)
                         setDict[userid] = (cn, access, summary)
+                    
+                        # Validate each userid on add only
+                        (okusers if self.validUserIDForShare(userid) else badusers).add(userid)
                     elif isinstance(item, customxml.InviteRemove):
                         userid, access = _handleInviteRemove(item)
                         removeDict[userid] = access
+                        
+                        # Treat removed userids as valid as we will fail invalid ones silently
+                        okusers.add(userid)
 
-                # Special case removing and adding the same user and treat that as an add
-                okusers = set()
-                badusers = set()
-                sameUseridInRemoveAndSet = [u for u in removeDict.keys() if u in setDict]
-                for u in sameUseridInRemoveAndSet:
-                    removeACL = removeDict[u]
-                    cn, newACL, summary = setDict[u]
-                    updateinviteDict[u] = (cn, removeACL, newACL, summary)
-                    del removeDict[u]
-                    del setDict[u]
-                for userid, access in removeDict.iteritems():
-                    result = (yield self.uninviteUserToShare(userid, access, request))
-                    (okusers if result else badusers).add(userid)
-                for userid, (cn, access, summary) in setDict.iteritems():
-                    result = (yield self.inviteUserToShare(userid, cn, access, summary, request))
-                    (okusers if result else badusers).add(userid)
-                for userid, (cn, removeACL, newACL, summary) in updateinviteDict.iteritems():
-                    result = (yield self.inviteUserUpdateToShare(userid, cn, removeACL, newACL, summary, request))
-                    (okusers if result else badusers).add(userid)
+                # Only make changes if all OK
+                if len(badusers) == 0:
+                    # Special case removing and adding the same user and treat that as an add
+                    sameUseridInRemoveAndSet = [u for u in removeDict.keys() if u in setDict]
+                    for u in sameUseridInRemoveAndSet:
+                        removeACL = removeDict[u]
+                        cn, newACL, summary = setDict[u]
+                        updateinviteDict[u] = (cn, removeACL, newACL, summary)
+                        del removeDict[u]
+                        del setDict[u]
+                    for userid, access in removeDict.iteritems():
+                        result = (yield self.uninviteUserToShare(userid, access, request))
+                        (okusers if result else badusers).add(userid)
+                    for userid, (cn, access, summary) in setDict.iteritems():
+                        result = (yield self.inviteUserToShare(userid, cn, access, summary, request))
+                        (okusers if result else badusers).add(userid)
+                    for userid, (cn, removeACL, newACL, summary) in updateinviteDict.iteritems():
+                        result = (yield self.inviteUserUpdateToShare(userid, cn, removeACL, newACL, summary, request))
+                        (okusers if result else badusers).add(userid)
 
                 # Do a final validation of the entire set of invites
                 self.validateInvites()
@@ -578,7 +586,7 @@ class SharedCollectionMixin(object):
                 if badusers:
                     xml_responses = []
                     xml_responses.extend([
-                        davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(responsecode.OK))
+                        davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(responsecode.FAILED_DEPENDENCY))
                         for userid in sorted(okusers)
                     ])
                     xml_responses.extend([
