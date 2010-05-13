@@ -506,10 +506,12 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
     @inlineCallbacks
     def accessControlList(self, request, *args, **kwargs):
 
+        acls = None
         isvirt = (yield self.isVirtualShare(request))
         if isvirt:
             acls = self.shareeAccessControlList()
-        else:
+
+        if acls is None:
             acls = (yield super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
 
         # Look for private events access classification

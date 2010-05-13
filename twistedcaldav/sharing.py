@@ -29,7 +29,7 @@ from twisted.internet.defer import succeed, inlineCallbacks, DeferredList,\
     returnValue
 from twistedcaldav import customxml, caldavxml
 from twistedcaldav.config import config
-from twistedcaldav.customxml import SharedCalendar
+from twistedcaldav.customxml import SharedCalendar, calendarserver_namespace
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 from uuid import uuid4
 from vobject.icalendar import dateTimeToString, utc
@@ -40,6 +40,10 @@ import types
 """
 Sharing behavior
 """
+
+# Types of sharing mode
+SHARETYPE_INVITE = "I"  # Invite based sharing
+SHARETYPE_DIRECT = "D"  # Direct linking based sharing
 
 class SharedCollectionMixin(object):
     
@@ -132,6 +136,73 @@ class SharedCollectionMixin(object):
                 record.summary = summary
             self.invitesDB().addOrUpdateRecord(record)
 
+    @inlineCallbacks
+    def directShare(self, request):
+        """
+        Directly bind an accessible calendar/address book collection into the current
+        principal's calendar/addressbook home.
+
+        @param request: the request triggering this action
+        @type request: L{IRequest}
+        """
+        
+        # Need to have at least DAV:read to do this
+        yield self.authorize(request, (davxml.Read(),))
+        
+        # Find current principal
+        authz_principal = self.currentPrincipal(request).children[0]
+        if not isinstance(authz_principal, davxml.HRef):
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "valid-principal"),
+                "Current user principal not a DAV:href",
+            ))
+        principalURL = str(authz_principal)
+        if not principalURL:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "valid-principal"),
+                "Current user principal not specified",
+            ))
+        principal = (yield request.locateResource(principalURL))
+        
+        # Check enabled for service
+        from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
+        if not isinstance(principal, DirectoryCalendarPrincipalResource):
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "invalid-principal"),
+                "Current user principal is not a calendar/addressbook enabled principal",
+            ))
+        
+        # Get the home collection
+        if self.isCalendarCollection():
+            home = principal.calendarHome()
+        elif self.isAddressBookCollection():
+            home = principal.addressBookHome()
+        else:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "invalid-principal"),
+                "No calendar/addressbook home for principal",
+            ))
+            
+        # TODO: Make sure principal is not sharing back to themselves
+        compareURL = (yield self.canonicalURL(request))
+        homeURL = home.url()
+        if compareURL.startswith(homeURL):
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "invalid-share"),
+                "Can't share your own calendar or addressbook",
+            ))
+
+        # Accept it
+        response = (yield home.acceptDirectShare(request, request.path, self.resourceID(), self.displayName()))
+        
+        # Return the URL of the shared calendar
+        returnValue(response)
+
     def isShared(self, request):
         """ Return True if this is an owner shared calendar collection """
         return succeed(self.isSpecialCollection(customxml.SharedOwner))
@@ -182,8 +253,14 @@ class SharedCollectionMixin(object):
 
         assert self._isVirtualShare, "Only call this fort a virtual share"
 
+        # Direct shares use underlying privileges of shared collection
+        if self._share.sharetype == SHARETYPE_DIRECT:
+            return None
+
+        # Invite shares use access mode from the invite
+
         # Get the invite for this sharee
-        invite = self.invitesDB().recordForInviteUID(self._share.inviteuid)
+        invite = self.invitesDB().recordForInviteUID(self._share.shareuid)
         if invite is None:
             return davxml.ACL()
         
@@ -829,15 +906,25 @@ class SharedHomeMixin(object):
             self._provisionedShares = True
 
     @inlineCallbacks
-    def acceptShare(self, request, hostUrl, inviteUID, displayname=None):
+    def acceptInviteShare(self, request, hostUrl, inviteUID, displayname=None):
         
-        # Do this first to make sure we have a valid share
+        # Send the invite reply then add the link
         yield self._changeShare(request, "ACCEPTED", hostUrl, inviteUID, displayname)
 
+        yield self._acceptShare(request, SHARETYPE_INVITE, hostUrl, inviteUID, displayname)
+
+    def acceptDirectShare(self, request, hostUrl, resourceUID, displayname=None):
+
+        # Just add the link
+        return self._acceptShare(request, SHARETYPE_DIRECT, hostUrl, resourceUID, displayname)
+
+    @inlineCallbacks
+    def _acceptShare(self, request, sharetype, hostUrl, shareUID, displayname=None):
+
         # Add or update in DB
-        oldShare = self.sharesDB().recordForInviteUID(inviteUID)
+        oldShare = self.sharesDB().recordForShareUID(shareUID)
         if not oldShare:
-            oldShare = share = SharedCalendarRecord(inviteUID, hostUrl, str(uuid4()), displayname)
+            oldShare = share = SharedCalendarRecord(shareUID, sharetype, hostUrl, str(uuid4()), displayname)
             self.sharesDB().addOrUpdateRecord(share)
         
         # Set per-user displayname to whatever was given
@@ -860,32 +947,43 @@ class SharedHomeMixin(object):
 
     def removeShare(self, request, share):
         """ Remove a shared calendar named in resourceName and send a decline """
-        return self.declineShare(request, share.hosturl, share.inviteuid)
+
+        # Send a decline when an invite share is removed only
+        if share.sharetype == SHARETYPE_INVITE:
+            return self.declineShare(request, share.hosturl, share.shareuid)
+        else:
+            self.removeDirectShare(request, share)
 
     @inlineCallbacks
-    def removeShareByUID(self, request, inviteuid):
+    def removeShareByUID(self, request, shareUID):
         """ Remove a shared calendar but do not send a decline back """
 
-        record = self.sharesDB().recordForInviteUID(inviteuid)
-        if record:
-            shareURL = joinURL(self.url(), record.localname)
-    
-            # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-            principal = (yield self.resourceOwnerPrincipal(request))
-            inboxURL = principal.scheduleInboxURL()
-            if inboxURL:
-                inbox = (yield request.locateResource(inboxURL))
-                inbox.processFreeBusyCalendar(shareURL, False)
-    
-            self.sharesDB().removeRecordForInviteUID(inviteuid)
+        share = self.sharesDB().recordForShareUID(shareUID)
+        if share:
+            yield self.removeDirectShare(request, share)
 
         returnValue(True)
+
+    @inlineCallbacks
+    def removeDirectShare(self, request, share):
+        """ Remove a shared calendar but do not send a decline back """
+
+        shareURL = joinURL(self.url(), share.localname)
+
+        # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
+        principal = (yield self.resourceOwnerPrincipal(request))
+        inboxURL = principal.scheduleInboxURL()
+        if inboxURL:
+            inbox = (yield request.locateResource(inboxURL))
+            inbox.processFreeBusyCalendar(shareURL, False)
+
+        self.sharesDB().removeRecordForShareUID(share.shareuid)
 
     @inlineCallbacks
     def declineShare(self, request, hostUrl, inviteUID):
 
         # Remove it if its in the DB
-        self.sharesDB().removeRecordForInviteUID(inviteUID)
+        yield self.removeShareByUID(inviteUID)
 
         yield self._changeShare(request, "DECLINED", hostUrl, inviteUID)
         
@@ -976,7 +1074,7 @@ class SharedHomeMixin(object):
                     "missing required XML elements",
                 ))
             if accepted:
-                return self.acceptShare(request, hostUrl, replytoUID, displayname=summary)
+                return self.acceptInviteShare(request, hostUrl, replytoUID, displayname=summary)
             else:
                 return self.declineShare(request, hostUrl, replytoUID)
 
@@ -1001,8 +1099,9 @@ class SharedHomeMixin(object):
 
 class SharedCalendarRecord(object):
     
-    def __init__(self, inviteuid, hosturl, localname, summary):
-        self.inviteuid = inviteuid
+    def __init__(self, shareuid, sharetype, hosturl, localname, summary):
+        self.shareuid = shareuid
+        self.sharetype = sharetype
         self.hosturl = hosturl
         self.localname = localname
         self.summary = summary
@@ -1038,25 +1137,25 @@ class SharedCalendarsDatabase(AbstractSQLDatabase, LoggingMixIn):
         row = self._db_execute("select * from SHARES where LOCALNAME = :1", localname)
         return self._makeRecord(row[0]) if row else None
     
-    def recordForInviteUID(self, inviteUID):
+    def recordForShareUID(self, shareUID):
 
-        row = self._db_execute("select * from SHARES where INVITEUID = :1", inviteUID)
+        row = self._db_execute("select * from SHARES where SHAREUID = :1", shareUID)
         return self._makeRecord(row[0]) if row else None
     
     def addOrUpdateRecord(self, record):
 
-        self._db_execute("""insert or replace into SHARES (INVITEUID, HOSTURL, LOCALNAME, SUMMARY)
-            values (:1, :2, :3, :4)
-            """, record.inviteuid, record.hosturl, record.localname, record.summary,
+        self._db_execute("""insert or replace into SHARES (SHAREUID, SHARETYPE, HOSTURL, LOCALNAME, SUMMARY)
+            values (:1, :2, :3, :4, :5)
+            """, record.shareuid, record.sharetype, record.hosturl, record.localname, record.summary,
         )
     
     def removeRecordForLocalName(self, localname):
 
         self._db_execute("delete from SHARES where LOCALNAME = :1", localname)
     
-    def removeRecordForInviteUID(self, inviteUID):
+    def removeRecordForShareUID(self, shareUID):
 
-        self._db_execute("delete from SHARES where INVITEUID = :1", inviteUID)
+        self._db_execute("delete from SHARES where SHAREUID = :1", shareUID)
     
     def remove(self):
         
@@ -1082,15 +1181,17 @@ class SharedCalendarsDatabase(AbstractSQLDatabase, LoggingMixIn):
         """
         #
         # SHARES table is the primary table
-        #   INVITEUID: UID for this invite
+        #   SHAREUID: UID for this share
+        #   SHARETYPE: type of share: "I" for invite, "D" for direct
         #   HOSTURL: URL for data source
         #   LOCALNAME: local path name
-        #   SUMMARY: Invite summary
+        #   SUMMARY: Share summary
         #
         q.execute(
             """
             create table SHARES (
-                INVITEUID      text unique,
+                SHAREUID       text unique,
+                SHARETYPE      text(1),
                 HOSTURL        text,
                 LOCALNAME      text,
                 SUMMARY        text
@@ -1100,7 +1201,7 @@ class SharedCalendarsDatabase(AbstractSQLDatabase, LoggingMixIn):
 
         q.execute(
             """
-            create index INVITEUID on SHARES (INVITEUID)
+            create index SHAREUID on SHARES (SHAREUID)
             """
         )
         q.execute(
