@@ -275,6 +275,53 @@ class UTCOffset (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "utc-offset"
 
+class PubSubPushTransportsProperty (davxml.WebDAVTextElement):
+    """
+    A calendar property describing the available push notification transports
+    available.
+    """
+    namespace = calendarserver_namespace
+    name = "push-transports"
+    protected = True
+    hidden = True
+    allowed_children = {
+        (calendarserver_namespace, "transport") : (0, 1),
+    }
+
+class PubSubTransportProperty (davxml.WebDAVTextElement):
+    namespace = calendarserver_namespace
+    name = "transport"
+    protected = True
+    hidden = True
+    allowed_attributes = {
+        "type" : True,
+    }
+    allowed_children = {
+        (calendarserver_namespace, "subscription-url") : (1, 1),
+        (calendarserver_namespace, "apsbundleid") : (1, 1),
+        (calendarserver_namespace, "xmpp-server") : (1, 1),
+        (calendarserver_namespace, "xmpp-uri") : (1, 1),
+    }
+
+class PubSubSubscriptionProperty (davxml.WebDAVTextElement):
+    namespace = calendarserver_namespace
+    name = "subscription-url"
+    protected = True
+    hidden = True
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
+class PubSubAPSBundleIDProperty (davxml.WebDAVTextElement):
+    namespace = calendarserver_namespace
+    name = "apsbundleid"
+    protected = True
+    hidden = True
+
+class PubSubXMPPPushKeyProperty (davxml.WebDAVTextElement):
+    namespace = calendarserver_namespace
+    name = "pushkey"
+    protected = True
+    hidden = True
+
 class PubSubXMPPURIProperty (davxml.WebDAVTextElement):
     """
     A calendarhomefile property to indicate the pubsub XMPP URI to subscribe to

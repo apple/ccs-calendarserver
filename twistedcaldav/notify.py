@@ -113,34 +113,64 @@ sasl.get_mechanisms = get_mechanisms
 
 class ClientNotifier(LoggingMixIn):
     """
-    Provides a method to send change notifications to the L{NotificationClient}.
+    Provides a hook for sending changs notifications to the
+    L{NotificationClient}.
     """
 
-    def __init__(self, resource, configOverride=None):
-        self._resource = resource
+    def __init__(self, resource, label="default", id=None, configOverride=None):
+        self.ids = { label : (resource, self.normalizeID(id)) }
         self._notify = True
         self.config = configOverride or config
 
+    def normalizeID(self, id):
+        urn = "urn:uuid:"
+        try:
+            if id.startswith(urn):
+                return id[len(urn):]
+        except AttributeError:
+            pass
+        return id
+
+    def addResource(self, resource, label="default", id=None):
+        self.ids[label] = (resource, self.normalizeID(id))
+
     def enableNotify(self, arg):
-        url = self._resource.url()
-        self.log_debug("enableNotify: %s" % (url,))
+        self.log_debug("enableNotify: %s" % (self.ids['default'][1],))
         self._notify = True
 
     def disableNotify(self):
-        url = self._resource.url()
-        self.log_debug("disableNotify: %s" % (url,))
+        self.log_debug("disableNotify: %s" % (self.ids['default'][1],))
         self._notify = False
 
     def notify(self, op="update"):
-        url = self._resource.url()
-
         if self.config.Notifications.Enabled:
-            if self._notify:
-                self.log_debug("Notifications are enabled: %s %s" % (op, url))
-                return getNotificationClient().send(op, url)
-            else:
-                self.log_debug("Skipping notification for: %s" % (url,))
+            notificationClient = getNotificationClient()
+            for label, (resource, id) in self.ids.iteritems():
+                if id is None:
+                    id = self.getID(label=label)
+                if id is not None:
+                    if self._notify:
+                        self.log_debug("Notifications are enabled: %s %s %s" %
+                            (op, label, id))
+                        notificationClient.send(op, id)
+                    else:
+                        self.log_debug("Skipping notification for: %s" % (id,))
 
+    def clone(self, resource, label="default", id=None):
+        newNotifier = self.__class__(None, configOverride=self.config)
+        newNotifier.ids = self.ids.copy()
+        newNotifier.ids[label] = (resource, id)
+        return newNotifier
+
+    def getID(self, label="default"):
+        resource, id = self.ids.get(label, (None, None))
+        if id is not None:
+            return id
+        if resource is not None:
+            id = self.normalizeID(resource.resourceID())
+            self.ids[label] = (resource, id)
+            return id
+        return None
 
 class NotificationClientLineProtocol(LineReceiver, LoggingMixIn):
     """
@@ -216,13 +246,13 @@ class NotificationClient(LoggingMixIn):
             from twisted.internet import reactor
         self.reactor = reactor
 
-    def send(self, op, uri):
+    def send(self, op, id):
         if self.factory is None:
             self.factory = NotificationClientFactory(self)
             self.reactor.connectTCP(self.host, self.port, self.factory)
             self.log_debug("Creating factory")
 
-        msg = "%s %s" % (op, str(uri))
+        msg = "%s %s" % (op, str(id))
         if self.factory.isReady() and self.observers:
             for observer in self.observers:
                 self.log_debug("Sending to notification server: %s" % (msg,))
@@ -329,8 +359,8 @@ class InternalNotificationProtocol(LineReceiver):
     """
 
     def lineReceived(self, line):
-        op, uri = line.strip().split()
-        self.factory.coalescer.add(op, uri)
+        op, id = line.strip().split()
+        self.factory.coalescer.add(op, id)
 
 
 class InternalNotificationFactory(ServerFactory):
@@ -351,7 +381,7 @@ class Coalescer(LoggingMixIn):
     """
     Coalescer
 
-    A queue which hangs on to incoming uris for some period of time before
+    A queue which hangs on to incoming ids for some period of time before
     passing them along to the external notifier listening for these updates.
     A chatty CalDAV client can make several changes in a short period of time,
     and the Coalescer buffers the external clients somewhat.
@@ -379,40 +409,40 @@ class Coalescer(LoggingMixIn):
             from twisted.internet import reactor
         self.reactor = reactor
 
-        self.uris = {}
+        self.ids = {}
         self.notifiers = notifiers
 
-    def add(self, op, uri):
+    def add(self, op, id):
 
         if op == "create":
             # we don't want to delay a "create" notification; this opcode
             # is meant for XMPP pubsub -- it means create and configure the
             # node but don't publish to it
             for notifier in self.notifiers:
-                notifier.enqueue(op, uri)
+                notifier.enqueue(op, id)
 
         else: # normal update notification
-            delayed, count = self.uris.get(uri, [None, 0])
+            delayed, count = self.ids.get(id, [None, 0])
 
             if delayed and delayed.active():
                 count += 1
                 if count < self.sendAnywayAfterCount:
                     # reschedule for delaySeconds in the future
                     delayed.reset(self.delaySeconds)
-                    self.uris[uri][1] = count
-                    self.log_debug("Delaying: %s" % (uri,))
+                    self.ids[id][1] = count
+                    self.log_debug("Delaying: %s" % (id,))
                 else:
-                    self.log_debug("Not delaying to avoid starvation: %s" % (uri,))
+                    self.log_debug("Not delaying to avoid starvation: %s" % (id,))
             else:
-                self.log_debug("Scheduling: %s" % (uri,))
-                self.uris[uri] = [self.reactor.callLater(self.delaySeconds,
-                    self.delayedEnqueue, op, uri), 0]
+                self.log_debug("Scheduling: %s" % (id,))
+                self.ids[id] = [self.reactor.callLater(self.delaySeconds,
+                    self.delayedEnqueue, op, id), 0]
 
-    def delayedEnqueue(self, op, uri):
-        self.log_debug("Time to send: %s" % (uri,))
-        self.uris[uri][1] = 0
+    def delayedEnqueue(self, op, id):
+        self.log_debug("Time to send: %s" % (id,))
+        self.ids[id][1] = 0
         for notifier in self.notifiers:
-            notifier.enqueue(op, uri)
+            notifier.enqueue(op, id)
 
 
 
@@ -427,13 +457,13 @@ class INotifier(Interface):
     Defines an enqueue method that Notifier classes need to implement.
     """
 
-    def enqueue(self, op, uri):
+    def enqueue(self, op, id):
         """
         Let's the notifier object know that a change has been made for this
-        uri, and enough time has passed to allow for coalescence.
+        id, and enough time has passed to allow for coalescence.
 
         @type op: C{str}
-        @type uri: C{str}
+        @type id: C{str}
         """
 
 
@@ -441,10 +471,10 @@ class SimpleLineNotifier(LoggingMixIn):
     """
     Simple Line Notifier
 
-    Listens for uris from the coalescer and writes them out to any
+    Listens for ids from the coalescer and writes them out to any
     connected clients.  Each line is simply a sequence number, a
-    space, and a uri string.  If the external client sends a sequence
-    number, this notifier will send notification lines for each uri
+    space, and an id string.  If the external client sends a sequence
+    number, this notifier will send notification lines for each id
     that was changed since that sequence number was originally sent.
     A history of such sequence numbers is stored in a python dict.
     If the external client sends a zero, then the history is cleared
@@ -466,32 +496,32 @@ class SimpleLineNotifier(LoggingMixIn):
         self.observers = set()
         self.sentReset = False
 
-    def enqueue(self, op, uri):
+    def enqueue(self, op, id):
 
         if op == "update":
 
             self.latestSeq += 1L
 
             # Update history
-            self.history[uri] = self.latestSeq
+            self.history[id] = self.latestSeq
 
             for observer in self.observers:
-                msg = "%d %s" % (self.latestSeq, uri)
+                msg = "%d %s" % (self.latestSeq, id)
                 self.log_debug("Sending %s" % (msg,))
                 observer.sendLine(msg)
 
     def reset(self):
         self.latestSeq = 0L
-        self.history = { } # keys=uri, values=sequenceNumber
+        self.history = { } # keys=id, values=sequenceNumber
 
     def playback(self, observer, oldSeq):
 
         hist = self.history
-        toSend = [(hist[uri], uri) for uri in hist if hist[uri] > oldSeq]
+        toSend = [(hist[id], id) for id in hist if hist[id] > oldSeq]
         toSend.sort() # sorts the tuples based on numeric sequence number
 
-        for seq, uri in toSend:
-            msg = "%d %s" % (seq, uri)
+        for seq, id in toSend:
+            msg = "%d %s" % (seq, id)
             self.log_debug("Sending %s" % (msg,))
             observer.sendLine(msg)
 
@@ -634,10 +664,10 @@ class XMPPNotifier(LoggingMixIn):
             self.reactor.callLater(self.settings['HeartbeatMinutes'] * 60,
                 self.sendHeartbeat)
 
-    def enqueue(self, op, uri, lock=True):
+    def enqueue(self, op, id, lock=True):
         if self.xmlStream is not None:
-            # Convert uri to node
-            nodeName = self.uriToNodeName(uri)
+            # Convert id to node
+            nodeName = getPubSubPath(id, getPubSubConfiguration(self.config))
             if op == "create":
                 if not self.lockNode(nodeName):
                     # this node is busy, so it must already be created, or at
@@ -646,9 +676,6 @@ class XMPPNotifier(LoggingMixIn):
                 self.createNode(nodeName, publish=False)
             else:
                 self.publishNode(nodeName, lock=lock)
-
-    def uriToNodeName(self, uri):
-        return getPubSubPath(uri, getPubSubConfiguration(self.config))
 
     def publishNode(self, nodeName, lock=True):
         if self.xmlStream is None:
@@ -1205,20 +1232,22 @@ def getPubSubConfiguration(config):
             results['host'] = config.ServerHostName
             results['port'] = config.SSLPort or config.HTTPPort
             results['xmpp-server'] = settings['Host']
+            results['subscription-url'] = settings['SubscriptionURL']
+            results['aps-bundle-id'] = settings['APSBundleID']
             results['heartrate'] = settings['HeartbeatMinutes']
+            break
 
     return results
 
-def getPubSubPath(uri, pubSubConfiguration):
-    path = "/Public/CalDAV/%s/%d/" % (pubSubConfiguration['host'],
-        pubSubConfiguration['port'])
-    if uri:
-        path += "%s/" % (uri.strip("/"),)
+def getPubSubPath(id, pubSubConfiguration):
+    path = "/DAV/%s/" % (pubSubConfiguration['host'],)
+    if id:
+        path += "%s/" % (id,)
     return path
 
-def getPubSubXMPPURI(uri, pubSubConfiguration):
+def getPubSubXMPPURI(id, pubSubConfiguration):
     return "xmpp:%s?pubsub;node=%s" % (pubSubConfiguration['service'],
-        getPubSubPath(uri, pubSubConfiguration))
+        getPubSubPath(id, pubSubConfiguration))
 
 def getPubSubHeartbeatURI(pubSubConfiguration):
     return "xmpp:%s?pubsub;node=%s" % (pubSubConfiguration['service'],
@@ -1357,8 +1386,8 @@ class SimpleLineNotifierService(service.Service):
         self.server = internet.TCPServer(settings["Port"],
             SimpleLineNotificationFactory(self.notifier))
 
-    def enqueue(self, op, uri):
-        self.notifier.enqueue(op, uri)
+    def enqueue(self, op, id):
+        self.notifier.enqueue(op, id)
 
     def startService(self):
         self.server.startService()
@@ -1381,8 +1410,8 @@ class XMPPNotifierService(service.Service):
             self.client = internet.TCPClient(settings["Host"], settings["Port"],
                 XMPPNotificationFactory(self.notifier, settings))
 
-    def enqueue(self, op, uri):
-        self.notifier.enqueue(op, uri)
+    def enqueue(self, op, id):
+        self.notifier.enqueue(op, id)
 
     def startService(self):
         self.client.startService()

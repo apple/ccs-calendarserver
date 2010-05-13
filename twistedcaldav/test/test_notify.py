@@ -25,16 +25,16 @@ from twistedcaldav.test.util import TestCase
 
 class StubResource(object):
 
-    def __init__(self, url):
-        self._url = url
+    def __init__(self, id):
+        self._id = id
 
-    def url(self):
-        return self._url
+    def resourceID(self):
+        return self._id
 
 
 class NotificationClientUserTests(TestCase):
 
-    def test_installNoficationClient(self):
+    def test_installNotificationClient(self):
         self.assertEquals(getNotificationClient(), None)
         self.clock = Clock()
         installNotificationClient(None, None,
@@ -43,11 +43,48 @@ class NotificationClientUserTests(TestCase):
         self.assertNotEquals(notificationClient, None)
 
         enabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
-        enabledConfig.Notifications['Enabled'] = True
-        clientNotifier = ClientNotifier(StubResource("a"),
-            configOverride=enabledConfig)
+        enabledConfig.Notifications["Enabled"] = True
+        resource = StubResource("test")
+        clientNotifier = ClientNotifier(resource, configOverride=enabledConfig)
         clientNotifier.notify()
-        self.assertEquals(notificationClient.lines, ["a"])
+        self.assertEquals(notificationClient.lines, ["test"])
+
+        notificationClient.clear()
+        clientNotifier = clientNotifier.clone(StubResource("sub"), label="alt")
+        clientNotifier.notify()
+        self.assertEquals(notificationClient.lines, ["test", "sub"])
+
+
+class ClientNotifierTests(TestCase):
+
+    def test_clientNotifier(self):
+        enabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
+        enabledConfig.Notifications["Enabled"] = True
+        resource = StubResource("test")
+        subResource = StubResource("sub")
+        clientNotifier = ClientNotifier(resource, configOverride=enabledConfig)
+
+        self.assertEquals(clientNotifier.ids, {"default": (resource, None)})
+        clone = clientNotifier.clone(subResource, label="alt", id="altID")
+        self.assertEquals("altID", clone.getID(label="alt"))
+        self.assertEquals(clone.ids, {
+            "default" : (resource, None),
+            "alt"     : (subResource, "altID"),
+        })
+        self.assertEquals("test", clientNotifier.getID())
+        self.assertEquals(clientNotifier.ids, {
+            "default" : (resource, "test"),
+        })
+        self.assertEquals(None, clientNotifier.getID(label="notthere"))
+
+        resource = StubResource("urn:uuid:foo")
+        clientNotifier = ClientNotifier(resource, configOverride=enabledConfig)
+        self.assertEquals("foo", clientNotifier.getID())
+
+        clientNotifier.disableNotify()
+        self.assertEquals(clientNotifier._notify, False)
+        clientNotifier.enableNotify(None)
+        self.assertEquals(clientNotifier._notify, True)
 
 
 class NotificationClientFactoryTests(TestCase):
@@ -76,8 +113,8 @@ class StubNotificationClient(object):
         self.lines = []
         self.observers = set()
 
-    def send(self, op, uri):
-        self.lines.append(uri)
+    def send(self, op, id):
+        self.lines.append(id)
 
     def addObserver(self, observer):
         self.observers.add(observer)
@@ -87,6 +124,9 @@ class StubNotificationClient(object):
 
     def connectionMade(self):
         pass
+
+    def clear(self):
+        self.lines = []
 
 class StubNotificationClientProtocol(object):
 
@@ -172,8 +212,8 @@ class StubNotifier(object):
         self.observers = set()
         self.playbackHistory = []
 
-    def enqueue(self, op, uri):
-        self.notifications.append(uri)
+    def enqueue(self, op, id):
+        self.notifications.append(id)
 
     def playback(self, protocol, old_seq):
         self.playbackHistory.append((protocol, old_seq))
@@ -343,39 +383,39 @@ class StubFailure(object):
 class XMPPNotifierTests(TestCase):
 
     xmppEnabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
-    xmppEnabledConfig.Notifications['Services']['XMPPNotifier']['Enabled'] = True
+    xmppEnabledConfig.Notifications["Services"]["XMPPNotifier"]["Enabled"] = True
     xmppEnabledConfig.ServerHostName = "server.example.com"
     xmppEnabledConfig.HTTPPort = 80
 
     xmppDisabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
-    xmppDisabledConfig.Notifications['Services']['XMPPNotifier']['Enabled'] = False
+    xmppDisabledConfig.Notifications["Services"]["XMPPNotifier"]["Enabled"] = False
 
     def setUp(self):
         TestCase.setUp(self)
         self.xmlStream = StubXmlStream()
-        self.settings = { 'ServiceAddress' : 'pubsub.example.com',
-            'NodeConfiguration' : { 'pubsub#deliver_payloads' : '1' },
-            'HeartbeatMinutes' : 30,
+        self.settings = { "ServiceAddress" : "pubsub.example.com",
+            "NodeConfiguration" : { "pubsub#deliver_payloads" : "1" },
+            "HeartbeatMinutes" : 30,
         }
         self.notifier = XMPPNotifier(self.settings, reactor=Clock(),
             configOverride=self.xmppEnabledConfig, heartbeat=False)
         self.notifier.streamOpened(self.xmlStream)
 
     def test_sendWhileConnected(self):
-        self.notifier.enqueue("update", "/principals/__uids__/test")
+        self.notifier.enqueue("update", "test")
 
         iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
 
         pubsubElement = list(iq.elements())[0]
         self.assertEquals(pubsubElement.name, "pubsub")
-        self.assertEquals(pubsubElement.uri, 'http://jabber.org/protocol/pubsub')
+        self.assertEquals(pubsubElement.uri, "http://jabber.org/protocol/pubsub")
 
         publishElement = list(pubsubElement.elements())[0]
         self.assertEquals(publishElement.name, "publish")
-        self.assertEquals(publishElement.uri, 'http://jabber.org/protocol/pubsub')
-        self.assertEquals(publishElement['node'],
-            "/Public/CalDAV/server.example.com/80/principals/__uids__/test/")
+        self.assertEquals(publishElement.uri, "http://jabber.org/protocol/pubsub")
+        self.assertEquals(publishElement["node"],
+            "/DAV/server.example.com/test/")
 
     def test_sendWhileNotConnected(self):
         notifier = XMPPNotifier(self.settings, reactor=Clock(),
@@ -389,39 +429,39 @@ class XMPPNotifierTests(TestCase):
         self.assertEquals(iq.name, "iq")
 
     def test_publishReponse400(self):
-        failure = StubFailure(StanzaError('bad-request'))
+        failure = StubFailure(StanzaError("bad-request"))
         self.assertEquals(len(self.xmlStream.elements), 1)
         self.notifier.publishNodeFailure(failure, "testNodeName")
         self.assertEquals(len(self.xmlStream.elements), 2)
         iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
-        self.assertEquals(iq['type'], "get")
+        self.assertEquals(iq["type"], "get")
 
         pubsubElement = list(iq.elements())[0]
         self.assertEquals(pubsubElement.name, "pubsub")
         self.assertEquals(pubsubElement.uri,
-            'http://jabber.org/protocol/pubsub#owner')
+            "http://jabber.org/protocol/pubsub#owner")
         configElement = list(pubsubElement.elements())[0]
         self.assertEquals(configElement.name, "configure")
-        self.assertEquals(configElement['node'], "testNodeName")
+        self.assertEquals(configElement["node"], "testNodeName")
 
 
     def test_publishReponse404(self):
         self.assertEquals(len(self.xmlStream.elements), 1)
-        failure = StubFailure(StanzaError('item-not-found'))
+        failure = StubFailure(StanzaError("item-not-found"))
         self.notifier.publishNodeFailure(failure, "testNodeName")
         self.assertEquals(len(self.xmlStream.elements), 2)
         iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
-        self.assertEquals(iq['type'], "set")
+        self.assertEquals(iq["type"], "set")
 
         pubsubElement = list(iq.elements())[0]
         self.assertEquals(pubsubElement.name, "pubsub")
         self.assertEquals(pubsubElement.uri,
-            'http://jabber.org/protocol/pubsub')
+            "http://jabber.org/protocol/pubsub")
         createElement = list(pubsubElement.elements())[0]
         self.assertEquals(createElement.name, "create")
-        self.assertEquals(createElement['node'], "testNodeName")
+        self.assertEquals(createElement["node"], "testNodeName")
 
 
     def test_configureResponse(self):
@@ -432,11 +472,11 @@ class XMPPNotifierTests(TestCase):
                     return child
             return None
 
-        response = IQ(self.xmlStream, type='result')
-        pubsubElement = response.addElement('pubsub')
-        configElement = pubsubElement.addElement('configure')
-        formElement = configElement.addElement('x')
-        formElement['type'] = 'form'
+        response = IQ(self.xmlStream, type="result")
+        pubsubElement = response.addElement("pubsub")
+        configElement = pubsubElement.addElement("configure")
+        formElement = configElement.addElement("x")
+        formElement["type"] = "form"
         fields = [
             ( "unknown", "don't edit me", "text-single" ),
             ( "pubsub#deliver_payloads", "0", "boolean" ),
@@ -449,9 +489,9 @@ class XMPPNotifierTests(TestCase):
         }
         for field in fields:
             fieldElement = formElement.addElement("field")
-            fieldElement['var'] = field[0]
-            fieldElement['type'] = field[2]
-            fieldElement.addElement('value', content=field[1])
+            fieldElement["var"] = field[0]
+            fieldElement["type"] = field[2]
+            fieldElement.addElement("value", content=field[1])
 
         self.assertEquals(len(self.xmlStream.elements), 1)
         self.notifier.requestConfigurationFormSuccess(response, "testNodeName",
@@ -460,35 +500,35 @@ class XMPPNotifierTests(TestCase):
 
         iq = self.xmlStream.elements[1]
         self.assertEquals(iq.name, "iq")
-        self.assertEquals(iq['type'], "set")
+        self.assertEquals(iq["type"], "set")
 
         pubsubElement = list(iq.elements())[0]
         self.assertEquals(pubsubElement.name, "pubsub")
         configElement = list(pubsubElement.elements())[0]
         self.assertEquals(configElement.name, "configure")
-        self.assertEquals(configElement['node'], "testNodeName")
+        self.assertEquals(configElement["node"], "testNodeName")
         formElement = list(configElement.elements())[0]
-        self.assertEquals(formElement['type'], "submit")
+        self.assertEquals(formElement["type"], "submit")
         for field in formElement.elements():
             valueElement = _getChild(field, "value")
             if valueElement is not None:
-                self.assertEquals(expectedFields[field['var']],
+                self.assertEquals(expectedFields[field["var"]],
                     str(valueElement))
 
 
     def test_sendHeartbeat(self):
 
         xmppConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
-        xmppConfig.Notifications['Services']['XMPPNotifier']['Enabled'] = True
+        xmppConfig.Notifications["Services"]["XMPPNotifier"]["Enabled"] = True
         xmppConfig.ServerHostName = "server.example.com"
         xmppConfig.HTTPPort = 80
 
         clock = Clock()
         xmlStream = StubXmlStream()
-        settings = { 'ServiceAddress' : 'pubsub.example.com', 'JID' : 'jid',
-            'Password' : 'password', 'KeepAliveSeconds' : 5,
-            'NodeConfiguration' : { 'pubsub#deliver_payloads' : "1" },
-            'HeartbeatMinutes' : 30 }
+        settings = { "ServiceAddress" : "pubsub.example.com", "JID" : "jid",
+            "Password" : "password", "KeepAliveSeconds" : 5,
+            "NodeConfiguration" : { "pubsub#deliver_payloads" : "1" },
+            "HeartbeatMinutes" : 30 }
         notifier = XMPPNotifier(settings, reactor=clock, heartbeat=True,
             roster=False, configOverride=xmppConfig)
         factory = XMPPNotificationFactory(notifier, settings, reactor=clock,
@@ -498,13 +538,13 @@ class XMPPNotifierTests(TestCase):
 
         self.assertEquals(len(xmlStream.elements), 1)
         heartbeat = xmlStream.elements[0]
-        self.assertEquals(heartbeat.name, 'iq')
+        self.assertEquals(heartbeat.name, "iq")
 
         clock.advance(1800)
 
         self.assertEquals(len(xmlStream.elements), 2)
         heartbeat = xmlStream.elements[1]
-        self.assertEquals(heartbeat.name, 'iq')
+        self.assertEquals(heartbeat.name, "iq")
 
         factory.disconnected(xmlStream)
         clock.advance(1800)
@@ -517,9 +557,9 @@ class XMPPNotificationFactoryTests(TestCase):
     def test_sendPresence(self):
         clock = Clock()
         xmlStream = StubXmlStream()
-        settings = { 'ServiceAddress' : 'pubsub.example.com', 'JID' : 'jid',
-            'NodeConfiguration' : { 'pubsub#deliver_payloads' : "1" },
-            'Password' : 'password', 'KeepAliveSeconds' : 5 }
+        settings = { "ServiceAddress" : "pubsub.example.com", "JID" : "jid",
+            "NodeConfiguration" : { "pubsub#deliver_payloads" : "1" },
+            "Password" : "password", "KeepAliveSeconds" : 5 }
         notifier = XMPPNotifier(settings, reactor=clock, heartbeat=False)
         factory = XMPPNotificationFactory(notifier, settings, reactor=clock)
         factory.connected(xmlStream)
@@ -527,15 +567,15 @@ class XMPPNotificationFactoryTests(TestCase):
 
         self.assertEquals(len(xmlStream.elements), 2)
         presence = xmlStream.elements[0]
-        self.assertEquals(presence.name, 'presence')
+        self.assertEquals(presence.name, "presence")
         iq = xmlStream.elements[1]
-        self.assertEquals(iq.name, 'iq')
+        self.assertEquals(iq.name, "iq")
 
         clock.advance(5)
 
         self.assertEquals(len(xmlStream.elements), 3)
         presence = xmlStream.elements[2]
-        self.assertEquals(presence.name, 'presence')
+        self.assertEquals(presence.name, "presence")
 
         factory.disconnected(xmlStream)
         clock.advance(5)

@@ -12,10 +12,7 @@
 
 from __future__ import with_statement
 
-import datetime
-import optparse
 import os
-import shutil
 import sys
 from getopt import getopt, GetoptError
 

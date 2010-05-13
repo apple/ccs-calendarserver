@@ -180,7 +180,7 @@ class SharedCollectionMixin(object):
 
     def shareeAccessControlList(self):
 
-        assert self._isVirtualShare, "Only call this fort a virtual share"
+        assert self._isVirtualShare, "Only call this for a virtual share"
 
         # Get the invite for this sharee
         invite = self.invitesDB().recordForInviteUID(self._share.inviteuid)

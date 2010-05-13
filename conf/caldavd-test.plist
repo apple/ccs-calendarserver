@@ -512,6 +512,12 @@
           <key>ServiceAddress</key>
           <string>pubsub.xmpp.host.name</string>
 
+          <!-- Apple-specific config -->
+          <key>SubscriptionURL</key>
+          <string></string>
+          <key>APSBundleID</key>
+          <string></string>
+
           <key>NodeConfiguration</key>
           <dict>
             <key>pubsub#deliver_payloads</key>

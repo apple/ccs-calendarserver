@@ -67,6 +67,8 @@ from twistedcaldav.ical import Component
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
+from twistedcaldav.notify import getPubSubConfiguration, getPubSubPath
+from twistedcaldav.notify import getNodeCacher, NodeCreationException
 from twistedcaldav.sharing import SharedCollectionMixin
 from twistedcaldav.vcard import Component as vComponent
 
@@ -172,12 +174,14 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         if self.isCalendarCollection():
             baseProperties += (
                 davxml.ResourceID.qname(),
+                customxml.PubSubXMPPPushKeyProperty.qname(),
             )
 
         if self.isAddressBookCollection():
             baseProperties += (
                 davxml.ResourceID.qname(),
                 carddavxml.SupportedAddressData.qname(),
+                customxml.PubSubXMPPPushKeyProperty.qname(),
             )
 
         if config.EnableSyncReport and (self.isPseudoCalendarCollection() or self.isAddressBookCollection()):
@@ -284,6 +288,28 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
             qname = property.qname()
 
         isvirt = (yield self.isVirtualShare(request))
+
+        if self.isCalendarCollection() or self.isAddressBookCollection():
+            # Push notification DAV property "pushkey"
+            if qname == customxml.PubSubXMPPPushKeyProperty.qname():
+                pubSubConfiguration = getPubSubConfiguration(config)
+                if (pubSubConfiguration['enabled'] and
+                    getattr(self, "clientNotifier", None) is not None):
+                    label = "collection" if isvirt else "default"
+                    id = self.clientNotifier.getID(label=label)
+                    nodeName = getPubSubPath(id, pubSubConfiguration)
+                    propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
+                    nodeCacher = getNodeCacher()
+                    try:
+                        (yield nodeCacher.waitForNode(self.clientNotifier, nodeName))
+                    except NodeCreationException:
+                        pass
+                    returnValue(propVal)
+
+                else:
+                    returnValue(customxml.PubSubXMPPPushKeyProperty())
+
+
         if isvirt:
             if self.isShadowableProperty(qname):
                 ownerPrincipal = (yield self.resourceOwnerPrincipal(request))

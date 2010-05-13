@@ -87,7 +87,6 @@ class ManagePrincipalsTestCase(TestCase):
         cwd = sourceRoot
 
         deferred = Deferred()
-        e = os.environ
         reactor.spawnProcess(CapturingProcessProtocol(deferred, None), python, args, env=os.environ, path=cwd)
         output = yield deferred
         returnValue(output)

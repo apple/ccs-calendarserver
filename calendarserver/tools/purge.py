@@ -334,6 +334,8 @@ def deleteResource(root, collection, resource, uri, guid, implicit=False):
 def purgeGUIDs(directory, root, guids, verbose=False, dryrun=False):
     total = 0
 
+    allAssignments = { }
+
     for guid in guids:
         count, allAssignments[guid] = (yield purgeGUID(guid, directory, root,
             verbose=verbose, dryrun=dryrun))
