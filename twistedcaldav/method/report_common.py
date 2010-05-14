@@ -371,7 +371,10 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
         if has:
             try:
                 prop = (yield resource.readProperty(qname, request))
-                properties_by_status[responsecode.OK].append(prop)
+                if prop is not None:
+                    properties_by_status[responsecode.OK].append(prop)
+                else:
+                    properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
             except HTTPError:
                 f = Failure()
     
