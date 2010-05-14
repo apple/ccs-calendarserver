@@ -688,12 +688,12 @@ class SharedURL (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "shared-url"
 
-class SharedCalendar (davxml.WebDAVElement):
+class SharedAs (davxml.WebDAVElement):
     """
     The url for a shared calendar.
     """
     namespace = calendarserver_namespace
-    name = "shared-calendar"
+    name = "shared-as"
 
     allowed_children = {
         (dav_namespace, "href")    : (1, 1),
