@@ -491,7 +491,8 @@ def action_listProxies(principal, *proxyTypes):
     for proxyType in proxyTypes:
         subPrincipal = proxySubprincipal(principal, proxyType)
         if subPrincipal is None:
-            print "No %s proxies for %s" % (proxyType, principal)
+            print "No %s proxies for %s" % (proxyType,
+                prettyPrincipal(principal))
             continue
 
         membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
@@ -499,7 +500,7 @@ def action_listProxies(principal, *proxyTypes):
         if membersProperty.children:
             print "%s proxies for %s:" % (
                 {"read": "Read-only", "write": "Read/write"}[proxyType],
-                principal,
+                prettyPrincipal(principal)
             )
             records = []
             for member in membersProperty.children:
@@ -510,7 +511,8 @@ def action_listProxies(principal, *proxyTypes):
             printRecordList(records)
             print
         else:
-            print "No %s proxies for %s" % (proxyType, principal)
+            print "No %s proxies for %s" % (proxyType,
+                prettyPrincipal(principal))
 
 @inlineCallbacks
 def action_addProxy(principal, proxyType, *proxyIDs):
@@ -525,7 +527,9 @@ def action_addProxy(principal, proxyType, *proxyIDs):
 def action_addProxyPrincipal(principal, proxyType, proxyPrincipal):
     try:
         (yield addProxy(principal, proxyType, proxyPrincipal))
-        print "Added %s as a %s proxy for %s" % (proxyPrincipal, proxyType, principal)
+        print "Added %s as a %s proxy for %s" % (
+            prettyPrincipal(proxyPrincipal), proxyType,
+            prettyPrincipal(principal))
     except ProxyError, e:
         print "Error:", e
     except ProxyWarning, e:
@@ -537,13 +541,16 @@ def addProxy(principal, proxyType, proxyPrincipal):
 
     subPrincipal = proxySubprincipal(principal, proxyType)
     if subPrincipal is None:
-        raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType, principal))
+        raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
+            prettyPrincipal(principal)))
 
     membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
 
     for memberURL in membersProperty.children:
         if str(memberURL) == proxyURL:
-            raise ProxyWarning("%s is already a %s proxy for %s" % (proxyPrincipal, proxyType, principal))
+            raise ProxyWarning("%s is already a %s proxy for %s" % (
+                prettyPrincipal(proxyPrincipal), proxyType,
+                prettyPrincipal(principal)))
 
     else:
         memberURLs = list(membersProperty.children)
@@ -584,7 +591,8 @@ def removeProxy(principal, proxyPrincipal, **kwargs):
 
         subPrincipal = proxySubprincipal(principal, proxyType)
         if subPrincipal is None:
-            raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType, principal))
+            raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
+                prettyPrincipal(principal)))
 
         membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
 
@@ -608,9 +616,8 @@ def action_setAutoSchedule(principal, autoSchedule):
     else:
         print "Setting auto-schedule to %s for %s" % (
             { True: "true", False: "false" }[autoSchedule],
-            principal,
+            prettyPrincipal(principal),
         )
-        # (yield principal.setAutoSchedule(autoSchedule))
 
         (yield updateRecord(False, config.directory,
             principal.record.recordType,
@@ -624,29 +631,9 @@ def action_setAutoSchedule(principal, autoSchedule):
 def action_getAutoSchedule(principal):
     autoSchedule = principal.getAutoSchedule()
     print "Autoschedule for %s is %s" % (
-        principal,
+        prettyPrincipal(principal),
         { True: "true", False: "false" }[autoSchedule],
     )
-
-@inlineCallbacks
-def action_searchPrincipals(principal, *proxyTypes):
-    for proxyType in proxyTypes:
-        subPrincipal = proxySubprincipal(principal, proxyType)
-        if subPrincipal is None:
-            print "No %s proxies for %s" % (proxyType, principal)
-            continue
-
-        membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
-
-        if membersProperty.children:
-            print "%s proxies for %s:" % (
-                {"read": "Read-only", "write": "Read/write"}[proxyType],
-                principal,
-            )
-            for member in membersProperty.children:
-                print " *", member
-        else:
-            print "No %s proxies for %s" % (proxyType, principal)
 
 
 def abort(msg, status=1):
@@ -719,6 +706,11 @@ def printRecordList(records):
     print format % ("---------", "-----------", "----")
     for fullName, shortName, guid in results:
         print format % (fullName, shortName, guid)
+
+def prettyPrincipal(principal):
+    record = principal.record
+    return "\"%s\" (%s:%s)" % (record.fullName, record.recordType,
+        record.shortNames[0])
 
 
 @inlineCallbacks
