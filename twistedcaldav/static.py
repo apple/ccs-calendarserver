@@ -972,7 +972,7 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, DirectoryCal
 
     def provision(self):
         result = super(CalendarHomeFile, self).provision()
-        if config.Sharing.Enabled:
+        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
             self.provisionShares()
         return result
 
@@ -987,7 +987,7 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, DirectoryCal
         else:
             FreeBusyURLFileClass = None
             
-        if config.Sharing.Enabled:
+        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
             NotificationCollectionFileClass = NotificationCollectionFile
         else:
             NotificationCollectionFileClass = None
@@ -1450,7 +1450,7 @@ class AddressBookHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryAd
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
 
-class AddressBookHomeFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeResource, CalDAVFile):
+class AddressBookHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, DirectoryAddressBookHomeResource, CalDAVFile):
     """
     Address book home collection resource.
     """
@@ -1472,22 +1472,13 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, DirectoryAddressBookHomeRe
 
     def provision(self):
         result = super(AddressBookHomeFile, self).provision()
-        self.provisionLinks()
+        if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled:
+            self.provisionShares()
         return result
-
-    def provisionLinks(self):
-        
-        if not hasattr(self, "_provisionedLinks"):
-            if config.GlobalAddressBook.Enabled:
-                self.putChild(
-                    config.GlobalAddressBook.Name,
-                    LinkResource(self, joinURL("/", config.GlobalAddressBook.Name, "/")),
-                )
-            self._provisionedLinks = True
 
     def provisionChild(self, name):
  
-        if config.Sharing.Enabled:
+        if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and not config.Sharing.Calendars.Enabled:
             NotificationCollectionFileClass = NotificationCollectionFile
         else:
             NotificationCollectionFileClass = None

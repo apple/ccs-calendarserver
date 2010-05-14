@@ -343,6 +343,13 @@ class DeleteResource(object):
             log.err(msg)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
+        # Check virtual share first
+        isVirtual = yield delresource.isVirtualShare(self.request)
+        if isVirtual:
+            log.debug("Removing shared address book %s" % (delresource,))
+            yield delresource.removeVirtualShare(self.request)
+            returnValue(responsecode.NO_CONTENT)
+
         log.debug("Deleting addressbook %s" % (delresource.fp.path,))
 
         errors = ResponseQueue(deluri, "DELETE", responsecode.NO_CONTENT)

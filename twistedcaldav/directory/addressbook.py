@@ -263,7 +263,7 @@ class DirectoryAddressBookHomeResource (AutoProvisioningResourceMixIn, CalDAVRes
         self.parent = parent
 
         childlist = ()
-        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
+        if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and not config.Sharing.Calendars.Enabled:
             childlist += (
                 ("notification", NotificationCollectionResource),
             )

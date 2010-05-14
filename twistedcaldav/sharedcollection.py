@@ -19,21 +19,21 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.linkresource import LinkResource
 
 __all__ = [
-    "SharedCalendarResource",
+    "SharedCollectionResource",
 ]
 
 """
 Sharing behavior
 """
 
-class SharedCalendarResource(LinkResource):
+class SharedCollectionResource(LinkResource):
     """
-    This is similar to a WrapperResource except that we locate our shared calendar resource dynamically. 
+    This is similar to a WrapperResource except that we locate our shared collection resource dynamically. 
     """
     
     def __init__(self, parent, share):
         self.share = share
-        super(SharedCalendarResource, self).__init__(parent, None)
+        super(SharedCollectionResource, self).__init__(parent, None)
 
     @inlineCallbacks
     def linkedResource(self, request):

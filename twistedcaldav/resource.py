@@ -194,7 +194,10 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                 )
 
             elif config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection():
-                baseProperties += (customxml.Invite.qname(),)
+                baseProperties += (
+                    customxml.Invite.qname(),
+                    customxml.AllowedSharingModes.qname(),
+                )
                 
         return super(CalDAVResource, self).liveProperties() + baseProperties
 
@@ -210,6 +213,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         return qname in (
             caldavxml.CalendarDescription.qname(),
             caldavxml.CalendarTimeZone.qname(),
+            carddavxml.AddressBookDescription.qname(),
         )
 
     def isGlobalProperty(self, qname):
@@ -372,12 +376,17 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
             ))
 
         elif qname == customxml.Invite.qname():
-            if config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.isCalendarCollection():
+            if config.Sharing.Enabled and (
+                config.Sharing.Calendars.Enabled and self.isCalendarCollection() or 
+                config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection()
+            ):
                 result = (yield self.inviteProperty(request))
                 returnValue(result)
 
         elif qname == customxml.AllowedSharingModes.qname():
             if config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.isCalendarCollection():
+                returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
+            elif config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection():
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
 
         result = (yield super(CalDAVResource, self).readProperty(property, request))
@@ -455,13 +464,19 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         yield self._preProcessWriteProperty(property, request)
 
         if property.qname() == davxml.ResourceType.qname():
-            if self.isCalendarCollection():
+            if self.isCalendarCollection() or self.isAddressBookCollection():
                 sawShare = [child for child in property.children if child.qname() == (calendarserver_namespace, "shared-owner")]
-                if not (config.Sharing.Enabled and config.Sharing.Calendars.Enabled):
-                    raise HTTPError(StatusResponse(
-                        responsecode.FORBIDDEN,
-                        "Cannot create shared calendars on this server.",
-                    ))
+                if sawShare:
+                    if self.isCalendarCollection() and not (config.Sharing.Enabled and config.Sharing.Calendars.Enabled):
+                        raise HTTPError(StatusResponse(
+                            responsecode.FORBIDDEN,
+                            "Cannot create shared calendars on this server.",
+                        ))
+                    elif self.isAddressBookCollection() and not (config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled):
+                        raise HTTPError(StatusResponse(
+                            responsecode.FORBIDDEN,
+                            "Cannot create shared address books on this server.",
+                        ))
 
                 # Check if adding or removing share
                 shared = (yield self.isShared(request))
@@ -474,7 +489,8 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                         "Protected property %s may not be set." % (property.sname(),)
                     ))
                 for child in property.children:
-                    if child.qname() == caldavxml.Calendar.qname():
+                    if self.isCalendarCollection and child.qname() == caldavxml.Calendar.qname() or \
+                       self.isAddressBookCollection and child.qname() == carddavxml.AddressBook.qname():
                         break
                 else:
                     raise HTTPError(StatusResponse(
