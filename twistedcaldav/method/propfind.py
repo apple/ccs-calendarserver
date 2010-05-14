@@ -163,7 +163,10 @@ def http_PROPFIND(self, request):
                                 properties_by_status[status] = []
                             properties_by_status[status].append(propertyName(property))
                         else:
-                            properties_by_status[responsecode.OK].append(resource_property)
+                            if resource_property is not None:
+                                properties_by_status[responsecode.OK].append(resource_property)
+                            else:
+                                properties_by_status[responsecode.NOT_FOUND].append(propertyName(property))
                     else:
                         properties_by_status[responsecode.NOT_FOUND].append(propertyName(property))
 
