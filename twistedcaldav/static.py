@@ -1474,7 +1474,18 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, Directory
         result = super(AddressBookHomeFile, self).provision()
         if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled:
             self.provisionShares()
+        self.provisionLinks()
         return result
+
+    def provisionLinks(self):
+        
+        if not hasattr(self, "_provisionedLinks"):
+            if config.GlobalAddressBook.Enabled:
+                self.putChild(
+                    config.GlobalAddressBook.Name,
+                    LinkResource(self, joinURL("/", config.GlobalAddressBook.Name, "/")),
+                )
+            self._provisionedLinks = True
 
     def provisionChild(self, name):
  
