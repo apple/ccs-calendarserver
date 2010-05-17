@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,6 @@
 # limitations under the License.
 ##
 
-from twext.web2.http_headers import DefaultHTTPHandler, tokenize, generateList, singleHeader
-
-DefaultHTTPHandler.updateParsers({
-    "x-forwarded-for": (tokenize, list),
-    "x-forwarded-host": (tokenize, list),
-    "x-forwarded-server": (tokenize, list),
-})
-DefaultHTTPHandler.updateGenerators({
-    "x-forwarded-for": (generateList, singleHeader),
-    "x-forwarded-host": (generateList, singleHeader),
-    "x-forwarded-server": (generateList, singleHeader),
-})
-
+"""
+Tests for the twistedcaldav.client module.
+"""

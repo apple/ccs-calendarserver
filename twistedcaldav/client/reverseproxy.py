@@ -18,12 +18,11 @@ __all__ = [
     "ReverseProxyResource",
 ]
 
-import urllib
-
 from zope.interface.declarations import implements
 
-from twext.web2 import iweb
+from twext.web2 import iweb, responsecode
 from twext.web2.client.http import ClientRequest
+from twext.web2.http import StatusResponse, HTTPError
 from twext.web2.resource import LeafResource
 
 from twext.python.log import LoggingMixIn
@@ -47,6 +46,7 @@ class ReverseProxyResource(LeafResource, LoggingMixIn):
         self.poolID = poolID
         self._args   = args
         self._kwargs = kwargs
+        self.allowMultiHop = False
 
     def isCollection(self):
         return True
@@ -65,13 +65,26 @@ class ReverseProxyResource(LeafResource, LoggingMixIn):
         """
             
         self.logger.info("%s %s %s" % (request.method, request.uri, "HTTP/%s.%s" % request.clientproto))
+
+        # Check for multi-hop
+        if not self.allowMultiHop:
+            x_server =  request.headers.getHeader("x-forwarded-server")
+            if x_server:
+                for item in x_server:
+                    if item == config.ServerHostName:
+                        raise HTTPError(StatusResponse(responsecode.BAD_GATEWAY, "Too many x-forwarded-server hops"))
+                
+            
         clientPool = getHTTPClientPool(self.poolID)
         proxyRequest = ClientRequest(request.method, request.uri, request.headers, request.stream)
         
-        # Need x-forwarded-(for|host) headers. First strip any existing ones out, then add ours
+        # Need x-forwarded-(for|host|server) headers. First strip any existing ones out, then add ours
         proxyRequest.headers.removeHeader("x-forwarded-host")
         proxyRequest.headers.removeHeader("x-forwarded-for")
-        proxyRequest.headers.addRawHeader("x-forwarded-host", config.ServerHostName)
+        proxyRequest.headers.removeHeader("x-forwarded-server")
+        proxyRequest.headers.addRawHeader("x-forwarded-host", request.host)
         proxyRequest.headers.addRawHeader("x-forwarded-for", request.remoteAddr.host)
+        proxyRequest.headers.addRawHeader("x-forwarded-server", config.ServerHostName)
 
         return clientPool.submitRequest(proxyRequest)
+
