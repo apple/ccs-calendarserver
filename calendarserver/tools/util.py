@@ -113,6 +113,7 @@ def getDirectory():
     if config.ResourceService.Enabled:
         resourceClass = namedClass(config.ResourceService.type)
         resourceDirectory = resourceClass(config.ResourceService.params)
+        resourceDirectory.realmName = directory.realmName
         directories.append(resourceDirectory)
 
     aggregate = MyDirectoryService(directories)

@@ -121,6 +121,7 @@ def getRootResource(config, resources=None):
         log.info("Configuring resource service of type: %s" % (resourceClass,))
 
         resourceDirectory = resourceClass(config.ResourceService.params)
+        resourceDirectory.realmName = baseDirectory.realmName
         directories.append(resourceDirectory)
 
     #
