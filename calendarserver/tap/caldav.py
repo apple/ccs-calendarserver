@@ -279,7 +279,6 @@ class CalDAVOptions (Options, LoggingMixIn):
             "Server root",
             # Require write access because one might not allow editing on /
             access=os.W_OK,
-            create=(0750, config.UserName, config.GroupName),
         )
         
         #
