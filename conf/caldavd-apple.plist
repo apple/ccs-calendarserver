@@ -477,6 +477,10 @@
     <key>EnablePrivateEvents</key>
     <true/>
 
+    <!-- Timezone Service -->
+    <key>EnableTimezoneService</key>
+    <true/>
+
     <!-- Shared Calendars & Address Books -->
     <key>Sharing</key>
     <dict>
