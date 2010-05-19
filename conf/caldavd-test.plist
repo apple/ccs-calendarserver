@@ -692,7 +692,7 @@
       <key>AddressBooks</key>
       <dict>
     	<key>Enabled</key>
-    	<false/>
+    	<true/>
       </dict>
     </dict>
 
