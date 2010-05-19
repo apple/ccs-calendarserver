@@ -37,6 +37,9 @@ class DirectoryTestCase (TestCase):
     # Subclass should init this to a dict of groupname keys and dict values.
     groups = {}
 
+    # Subclass should init this to a dict of locationnames keys and dict values.
+    locations = {}
+
     # Subclass should init this to a dict of resourcenames keys and dict values.
     resources = {}
 

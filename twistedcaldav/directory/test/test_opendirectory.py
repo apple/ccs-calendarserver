@@ -45,11 +45,9 @@ else:
         recordTypes = set((
             DirectoryService.recordType_users,
             DirectoryService.recordType_groups,
-            DirectoryService.recordType_locations,
-            DirectoryService.recordType_resources
         ))
 
-        users = groups = locations = resources = {}
+        users = groups = {}
 
         def setUp(self):
             super(OpenDirectory, self).setUp()
@@ -161,7 +159,7 @@ else:
                         results.append(("", entry))
                 return results
 
-            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups, DirectoryService.recordType_locations, DirectoryService.recordType_resources]
+            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups]
             self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_GUID, "1234567890", lookupMethod=lookupMethod)
             self.assertTrue(self.service().recordWithGUID("1234567890"))
             self.assertFalse(self.service().recordWithGUID("987654321"))
@@ -191,7 +189,7 @@ else:
                         results.append(("", entry))
                 return results
 
-            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups, DirectoryService.recordType_locations, DirectoryService.recordType_resources]
+            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups]
             self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_GUID, "1234567890", lookupMethod=lookupMethod)
             self.assertFalse(self.service().recordWithGUID("1234567890"))
 
@@ -221,7 +219,7 @@ else:
                         results.append(("", entry))
                 return results
 
-            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups, DirectoryService.recordType_locations, DirectoryService.recordType_resources]
+            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups]
             self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_GUID, "1234567890", lookupMethod=lookupMethod)
             self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_GUID, "987654321", lookupMethod=lookupMethod)
             self.assertFalse(self.service().recordWithGUID("1234567890"))
@@ -238,7 +236,7 @@ else:
 
                 return []
 
-            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups, DirectoryService.recordType_locations, DirectoryService.recordType_resources]
+            recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups]
             self.service().queryDirectory(recordTypes, self.service().INDEX_TYPE_CUA, "mailto:user1@example.com", lookupMethod=lookupMethod)
 
 

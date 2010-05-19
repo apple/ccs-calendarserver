@@ -67,8 +67,6 @@ class OpenDirectoryService(CachingDirectoryService):
             'recordTypes' : (
                 self.recordType_users,
                 self.recordType_groups,
-                self.recordType_locations,
-                self.recordType_resources,
             ),
         }
         ignored = (
@@ -269,8 +267,6 @@ class OpenDirectoryService(CachingDirectoryService):
             'appliesTo' : set([
                 dsattributes.kDSStdRecordTypeUsers,
                 dsattributes.kDSStdRecordTypeGroups,
-                dsattributes.kDSStdRecordTypePlaces,
-                dsattributes.kDSStdRecordTypeResources,
             ]),
         },
         'firstName' : {
@@ -297,8 +293,6 @@ class OpenDirectoryService(CachingDirectoryService):
             'appliesTo' : set([
                 dsattributes.kDSStdRecordTypeUsers,
                 dsattributes.kDSStdRecordTypeGroups,
-                dsattributes.kDSStdRecordTypePlaces,
-                dsattributes.kDSStdRecordTypeResources,
             ]),
         },
         'guid' : {
@@ -306,8 +300,6 @@ class OpenDirectoryService(CachingDirectoryService):
             'appliesTo' : set([
                 dsattributes.kDSStdRecordTypeUsers,
                 dsattributes.kDSStdRecordTypeGroups,
-                dsattributes.kDSStdRecordTypePlaces,
-                dsattributes.kDSStdRecordTypeResources,
             ]),
         },
     }
@@ -315,12 +307,8 @@ class OpenDirectoryService(CachingDirectoryService):
     _toODRecordTypes = {
         DirectoryService.recordType_users :
             dsattributes.kDSStdRecordTypeUsers,
-        DirectoryService.recordType_locations :
-            dsattributes.kDSStdRecordTypePlaces,
         DirectoryService.recordType_groups :
             dsattributes.kDSStdRecordTypeGroups,
-        DirectoryService.recordType_resources :
-            dsattributes.kDSStdRecordTypeResources,
     }
 
     _fromODRecordTypes = dict([(b, a) for a, b in _toODRecordTypes.iteritems()])
@@ -529,18 +517,6 @@ class OpenDirectoryService(CachingDirectoryService):
                     attrs.append(dsattributes.kDSNAttrGroupMembers)
                     attrs.append(dsattributes.kDSNAttrNestedGroups)
     
-            elif recordType == DirectoryService.recordType_locations:
-                if queryattr != dsattributes.kDSNAttrEMailAddress:
-                    listRecordTypes.append(dsattributes.kDSStdRecordTypePlaces)
-                # MOR: possibly can be removed
-                attrs.append(dsattributes.kDSNAttrResourceInfo)
-            
-            elif recordType == DirectoryService.recordType_resources:
-                if queryattr != dsattributes.kDSNAttrEMailAddress:
-                    listRecordTypes.append(dsattributes.kDSStdRecordTypeResources)
-                # MOR: possibly can be removed
-                attrs.append(dsattributes.kDSNAttrResourceInfo)
-            
             else:
                 raise UnknownRecordTypeError("Unknown OpenDirectory record type: %s" % (recordType))
 

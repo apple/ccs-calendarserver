@@ -41,7 +41,6 @@ class BuildQueryTests(TestCase):
             buildQueries(
                 [
                     dsattributes.kDSStdRecordTypeUsers,
-                    dsattributes.kDSStdRecordTypePlaces
                 ],
                 (
                     ("firstName", "morgen", True, "starts-with"),
@@ -54,14 +53,12 @@ class BuildQueryTests(TestCase):
                     ('dsAttrTypeStandard:FirstName', 'morgen', True, 'starts-with'),
                     ('dsAttrTypeStandard:EMailAddress', 'morgen', True, 'contains'),
                 ): ['dsRecTypeStandard:Users'],
-                (): ['dsRecTypeStandard:Places']
             }
         )
         self.assertEquals(
             buildQueries(
                 [
                     dsattributes.kDSStdRecordTypeGroups,
-                    dsattributes.kDSStdRecordTypePlaces
                 ],
                 (
                     ("firstName", "morgen", True, "starts-with"),
@@ -76,9 +73,6 @@ class BuildQueryTests(TestCase):
                     ('dsAttrTypeStandard:RealName', 'morgen', True, 'starts-with'),
                     ('dsAttrTypeStandard:EMailAddress', 'morgen', True, 'contains'),
                 ): ['dsRecTypeStandard:Groups'],
-                (
-                    ('dsAttrTypeStandard:RealName', 'morgen', True, 'starts-with'),
-                ): ['dsRecTypeStandard:Places']
             }
         )
         self.assertEquals(
@@ -86,8 +80,6 @@ class BuildQueryTests(TestCase):
                 [
                     dsattributes.kDSStdRecordTypeUsers,
                     dsattributes.kDSStdRecordTypeGroups,
-                    dsattributes.kDSStdRecordTypeResources,
-                    dsattributes.kDSStdRecordTypePlaces
                 ],
                 (
                     ("firstName", "morgen", True, "starts-with"),
@@ -102,9 +94,6 @@ class BuildQueryTests(TestCase):
                     ('dsAttrTypeStandard:RealName', 'morgen', True, 'starts-with'),
                     ('dsAttrTypeStandard:EMailAddress', 'morgen', True, 'contains')
                 ): ['dsRecTypeStandard:Groups'],
-                (
-                    ('dsAttrTypeStandard:RealName', 'morgen', True, 'starts-with'),
-                ): ['dsRecTypeStandard:Resources', 'dsRecTypeStandard:Places'],
                 (
                     ('dsAttrTypeStandard:FirstName', 'morgen', True, 'starts-with'),
                     ('dsAttrTypeStandard:LastName', 'morgen', True, 'starts-with'),
