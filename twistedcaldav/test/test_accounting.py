@@ -27,7 +27,6 @@ import stat
 class AccountingITIP (twistedcaldav.test.util.TestCase):
 
     def setUp(self):
-        
         super(AccountingITIP, self).setUp()
         config.AccountingCategories.iTIP = True
         config.AccountingPrincipals = ["*",]
@@ -60,9 +59,8 @@ class AccountingITIP (twistedcaldav.test.util.TestCase):
         """
         
         # Make log root a file
-        config.AccountingLogRoot = self.mktemp()
+        config.AccountingLogRoot = os.path.abspath(self.mktemp())
         open(config.AccountingLogRoot, "w").close()
-        
         emitAccounting("iTIP", self._Principal("1234-5678"), "bogus")
 
 class AccountingHTTP (twistedcaldav.test.util.TestCase):

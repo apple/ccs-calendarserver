@@ -196,7 +196,7 @@ class TestCase (unittest.TestCase):
         path = mkdtemp(prefix=prefix + "_", dir=self.docroot)
         uri  = joinURL("/", url_quote(os.path.basename(path))) + "/"
 
-        return (path, uri)
+        return (os.path.abspath(path), uri)
 
     def send(self, request, callback):
         log.msg("Sending %s request for URI %s" % (request.method, request.uri))

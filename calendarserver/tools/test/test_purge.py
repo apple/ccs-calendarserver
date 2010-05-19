@@ -345,11 +345,8 @@ class DeprovisionTestCase(TestCase):
     def setUp(self):
         super(DeprovisionTestCase, self).setUp()
 
-        testRoot = os.path.join(os.path.dirname(__file__), "deprovision")
-        templateName = os.path.join(testRoot, "caldavd.plist")
-        templateFile = open(templateName)
-        template = templateFile.read()
-        templateFile.close()
+        testRootPath = FilePath(__file__).sibling("deprovision")
+        template = testRootPath.child("caldavd.plist").getContent()
 
         newConfig = template % {
             "ServerRoot" : os.path.abspath(config.ServerRoot),
@@ -360,22 +357,19 @@ class DeprovisionTestCase(TestCase):
         self.configFileName = configFilePath.path
         config.load(self.configFileName)
 
-        os.makedirs(config.DataRoot)
-        os.makedirs(config.DocumentRoot)
-
-        origUsersFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "deprovision", "users-groups.xml"))
-        copyUsersFile = FilePath(os.path.join(config.DataRoot, "accounts.xml"))
+        origUsersFile = FilePath(__file__).sibling(
+            "deprovision").child("users-groups.xml")
+        copyUsersFile = FilePath(config.DataRoot).child("accounts.xml")
         origUsersFile.copyTo(copyUsersFile)
 
-        origResourcesFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "deprovision", "resources-locations.xml"))
-        copyResourcesFile = FilePath(os.path.join(config.DataRoot, "resources.xml"))
+        origResourcesFile = FilePath(__file__).sibling(
+            "deprovision").child("resources-locations.xml")
+        copyResourcesFile = FilePath(config.DataRoot).child("resources.xml")
         origResourcesFile.copyTo(copyResourcesFile)
 
-        origAugmentFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "deprovision", "augments.xml"))
-        copyAugmentFile = FilePath(os.path.join(config.DataRoot, "augments.xml"))
+        origAugmentFile = FilePath(__file__).sibling(
+            "deprovision").child("augments.xml")
+        copyAugmentFile = FilePath(config.DataRoot).child("augments.xml")
         origAugmentFile.copyTo(copyAugmentFile)
 
         self.rootResource = getRootResource(config)
