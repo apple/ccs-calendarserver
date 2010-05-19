@@ -21,7 +21,8 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twisted.trial.unittest import TestCase
 
 from twistedcaldav.config import Config
-from twistedcaldav.stdconfig import NoUnicodePlistParser, PListConfigProvider
+from twistedcaldav.stdconfig import NoUnicodePlistParser, PListConfigProvider,\
+    _updateDataStore
 
 nonASCIIValue = "→←"
 nonASCIIPlist = "<plist version='1.0'><string>%s</string></plist>" % (
@@ -64,6 +65,28 @@ class ConfigParsingTests(TestCase):
         tempfile.setContent(nonASCIIConfigPList)
         cfg.load(tempfile.path)
         self.assertEquals(cfg.DataRoot, nonASCIIValue)
+
+
+    def test_relativeDefaultPaths(self):
+        """
+        The paths specified in the default configuration should be interpreted
+        as relative to the paths specified in the configuration file.
+        """
+        cfg = Config(PListConfigProvider(
+            {"AccountingLogRoot": "some-path",
+             "LogRoot": "should-be-ignored"}))
+        cfg.addPostUpdateHooks([_updateDataStore])
+        tempfile = FilePath(self.mktemp())
+        tempfile.setContent("<plist version='1.0'><dict>"
+                            "<key>LogRoot</key><string>/some/root</string>"
+                            "</dict></plist>")
+        cfg.load(tempfile.path)
+        self.assertEquals(cfg.AccountingLogRoot, "/some/root/some-path")
+        tempfile.setContent("<plist version='1.0'><dict>"
+                            "<key>LogRoot</key><string>/other/root</string>"
+                            "</dict></plist>")
+        cfg.load(tempfile.path)
+        self.assertEquals(cfg.AccountingLogRoot, "/other/root/some-path")
 
 
     def test_includes(self):
@@ -115,6 +138,7 @@ class ConfigParsingTests(TestCase):
             "RunRoot": "",
             "Includes": [],
         }))
+        cfg.addPostUpdateHooks([_updateDataStore])
         cfg.load(tempfile1.path)
         self.assertEquals(cfg.DocumentRoot, "/root/defaultdoc")
         self.assertEquals(cfg.DataRoot, "/root/overridedata")

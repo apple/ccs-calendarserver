@@ -22,7 +22,7 @@ import re
 from twext.web2.dav import davxml
 from twext.web2.dav.resource import TwistedACLInheritable
 
-from twext.python.plistlib import PlistParser
+from twext.python.plistlib import PlistParser #@UnresolvedImport
 from twext.python.log import Logger, InvalidLogLevelError
 from twext.python.log import clearLogLevels, setLogLevelForNamespace
 
@@ -593,19 +593,17 @@ class PListConfigProvider(ConfigProvider):
         configDict = {}
         if self._configFileName:
             configDict = self._parseConfigFromFile(self._configFileName)
-                
         # Now check for Includes and parse and add each of those
         if "Includes" in configDict:
             configRoot = os.path.join(configDict.ServerRoot, configDict.ConfigRoot)
             for include in configDict.Includes:
-                
+
                 additionalDict = self._parseConfigFromFile(fullServerPath(configRoot, include))
                 if additionalDict:
                     log.info("Adding configuration from file: '%s'" % (include,))
                     configDict.update(additionalDict)
-
-        _updateDataStore(configDict)
         return configDict
+
 
     def _parseConfigFromFile(self, filename):
         parser = NoUnicodePlistParser()
@@ -617,38 +615,49 @@ class PListConfigProvider(ConfigProvider):
             raise ConfigurationError("Configuration file does not exist or is inaccessible: %s" % (filename, ))
         else:
             configDict = _cleanup(configDict, self._defaults)
-        
         return configDict
 
+
 def _updateDataStore(configDict):
-    
-    # Base paths
-    if hasattr(configDict, "ServerRoot"):
-        configDict.DataRoot = fullServerPath(configDict.ServerRoot, configDict.DataRoot)
-        configDict.DocumentRoot = fullServerPath(configDict.ServerRoot, configDict.DocumentRoot)
-        configDict.ConfigRoot = fullServerPath(configDict.ServerRoot, configDict.ConfigRoot)
-        configDict.LogRoot = fullServerPath(configDict.ServerRoot, configDict.LogRoot)
-        configDict.RunRoot = fullServerPath(configDict.ServerRoot, configDict.RunRoot)
+    """
+    Post-update configuration hook for making all configured paths relative to
+    their respective root directories rather than the current working directory.
+    """
+    for root, relativePath in [("ServerRoot", "DataRoot"),
+                               ("ServerRoot", "DocumentRoot"),
+                               ("ServerRoot", "ConfigRoot"),
+                               ("ServerRoot", "LogRoot"),
+                               ("ServerRoot", "RunRoot"),
+                               ("ConfigRoot", "SudoersFile"),
+                               ("LogRoot", "AccessLogFile"),
+                               ("LogRoot", "ErrorLogFile"),
+                               ("LogRoot", "AccountingLogRoot"),
+                               ("RunRoot", "PIDFile"),
+                               ("RunRoot", "GlobalStatsSocket"),
+                               ("RunRoot", "ControlSocket")]:
+        if root in configDict and relativePath in configDict:
+            previousAbsoluteName = ".absolute." + relativePath
+            previousRelativeName = ".relative." + relativePath
 
-    # Config paths
-    if hasattr(configDict, "SudoersFile"):
-        configDict.SudoersFile = fullServerPath(configDict.ConfigRoot, configDict.SudoersFile)
+            # If we previously made the name absolute, and the name in the
+            # config is still the same absolute name that we made it, let's
+            # change it to be the relative name again.  (This is necessary
+            # because the config data is actually updated several times before
+            # the config *file* has been read, so these keys will be made
+            # absolute based on default values, and need to be made relative to
+            # non-default values later.)  -glyph
+            if previousAbsoluteName in configDict and (
+                    configDict[previousAbsoluteName] == configDict[relativePath]
+                ):
+                userSpecifiedPath = configDict[previousRelativeName]
+            else:
+                userSpecifiedPath = configDict[relativePath]
+                configDict[previousRelativeName] = configDict[relativePath]
+            newAbsolutePath = fullServerPath(configDict[root],
+                                             userSpecifiedPath)
+            configDict[relativePath] = newAbsolutePath
+            configDict[previousAbsoluteName] = newAbsolutePath
 
-    # Log paths
-    if hasattr(configDict, "AccessLogFile"):
-        configDict.AccessLogFile = fullServerPath(configDict.LogRoot, configDict.AccessLogFile)
-    if hasattr(configDict, "ErrorLogFile"):
-        configDict.ErrorLogFile = fullServerPath(configDict.LogRoot, configDict.ErrorLogFile)
-    if hasattr(configDict, "AccountingLogRoot"):
-        configDict.AccountingLogRoot = fullServerPath(configDict.LogRoot, configDict.AccountingLogRoot)
-
-    # Run paths
-    if hasattr(configDict, "PIDFile"):
-        configDict.PIDFile = fullServerPath(configDict.RunRoot, configDict.PIDFile)
-    if hasattr(configDict, "GlobalStatsSocket"):
-        configDict.GlobalStatsSocket = fullServerPath(configDict.RunRoot, configDict.GlobalStatsSocket)
-    if hasattr(configDict, "ControlSocket"):
-        configDict.ControlSocket = fullServerPath(configDict.RunRoot, configDict.ControlSocket)
 
 def _updateHostName(configDict):
     if not configDict.ServerHostName:
@@ -953,6 +962,7 @@ PRE_UPDATE_HOOKS = (
     _preUpdateDirectoryAddressBookBackingDirectoryService,
     )
 POST_UPDATE_HOOKS = (
+    _updateDataStore,
     _updateHostName,
     _postUpdateDirectoryService,
     _postUpdateAugmentService,
