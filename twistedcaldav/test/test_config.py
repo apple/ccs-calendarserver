@@ -14,12 +14,13 @@
 # limitations under the License.
 ##
 
-from twext.python.plistlib import writePlist
+from twext.python.plistlib import writePlist #@UnresolvedImport
 from twext.python.log import logLevelForNamespace
 
 from twistedcaldav.config import config, ConfigDict
 from twistedcaldav.static import CalDAVFile
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider,\
+    RELATIVE_PATHS
 from twistedcaldav.test.util import TestCase
 
 testConfig = """<?xml version="1.0" encoding="UTF-8"?>
@@ -65,7 +66,9 @@ class ConfigTests(TestCase):
             if key in ("ServerHostName",):
                 # Value is calculated and may vary
                 continue
-
+            if key in (item[1] for item in RELATIVE_PATHS):
+                # These are covered by test_stdconfig.
+                continue
             self.assertEquals(
                 getattr(config, key), value,
                 "config[%r] == %r, expected %r"

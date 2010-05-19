@@ -618,23 +618,26 @@ class PListConfigProvider(ConfigProvider):
         return configDict
 
 
+RELATIVE_PATHS = [("ServerRoot", "DataRoot"),
+                  ("ServerRoot", "DocumentRoot"),
+                  ("ServerRoot", "ConfigRoot"),
+                  ("ServerRoot", "LogRoot"),
+                  ("ServerRoot", "RunRoot"),
+                  ("ConfigRoot", "SudoersFile"),
+                  ("LogRoot", "AccessLogFile"),
+                  ("LogRoot", "ErrorLogFile"),
+                  ("LogRoot", "AccountingLogRoot"),
+                  ("RunRoot", "PIDFile"),
+                  ("RunRoot", "GlobalStatsSocket"),
+                  ("RunRoot", "ControlSocket")]
+
+
 def _updateDataStore(configDict):
     """
     Post-update configuration hook for making all configured paths relative to
     their respective root directories rather than the current working directory.
     """
-    for root, relativePath in [("ServerRoot", "DataRoot"),
-                               ("ServerRoot", "DocumentRoot"),
-                               ("ServerRoot", "ConfigRoot"),
-                               ("ServerRoot", "LogRoot"),
-                               ("ServerRoot", "RunRoot"),
-                               ("ConfigRoot", "SudoersFile"),
-                               ("LogRoot", "AccessLogFile"),
-                               ("LogRoot", "ErrorLogFile"),
-                               ("LogRoot", "AccountingLogRoot"),
-                               ("RunRoot", "PIDFile"),
-                               ("RunRoot", "GlobalStatsSocket"),
-                               ("RunRoot", "ControlSocket")]:
+    for root, relativePath in RELATIVE_PATHS:
         if root in configDict and relativePath in configDict:
             previousAbsoluteName = ".absolute." + relativePath
             previousRelativeName = ".relative." + relativePath
