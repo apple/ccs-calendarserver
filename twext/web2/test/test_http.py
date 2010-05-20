@@ -919,6 +919,21 @@ class ErrorTestCase(HTTPTests):
 
         self.checkError(cxn, 400)
 
+
+    def test_nonAsciiHeader(self):
+        """
+        As per U{RFC 822 section 3,
+        <http://www.w3.org/Protocols/rfc822/3_Lexical.html#z0>}, headers are
+        ASCII only.
+        """
+        cxn = self.connect()
+        cxn.client.write("GET / HTTP/1.1\r\nX-Extra-Header: \xff\r\n\r\n")
+        self.checkError(cxn, responsecode.BAD_REQUEST)
+        cxn = self.connect()
+        cxn.client.write("GET / HTTP/1.1\r\nX-E\xfftra-Header: foo\r\n\r\n")
+        self.checkError(cxn, responsecode.BAD_REQUEST)
+
+
     def testBadRequest(self):
         cxn = self.connect()
         cxn.client.write("GET / more HTTP/1.1\r\n")
@@ -1069,11 +1084,11 @@ class TCPServerTest(unittest.TestCase, AbstractServerTestMixin):
 try:
     from twisted.internet import ssl
 except ImportError:
-   # happens the first time the interpreter tries to import it
-   ssl = None
+    # happens the first time the interpreter tries to import it
+    ssl = None
 if ssl and not ssl.supported:
-   # happens second and later times
-   ssl = None
+    # happens second and later times
+    ssl = None
 
 certPath = util.sibpath(__file__, "server.pem")
 

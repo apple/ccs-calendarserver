@@ -253,18 +253,26 @@ class HTTPParser(object):
             
             channel.setLineMode(extraneous)
 
+
     def headerReceived(self, line):
-        """Store this header away. Check for too much header data
-           (> channel.maxHeaderLength) and abort the connection if so.
+        """
+        Store this header away. Check for too much header data (>
+        channel.maxHeaderLength) and non-ASCII characters; abort the
+        connection with C{BAD_REQUEST} if so.
         """
         nameval = line.split(':', 1)
         if len(nameval) != 2:
             self._abortWithError(responsecode.BAD_REQUEST, "No ':' in header.")
-        
         name, val = nameval
+        for field in name, val:
+            try:
+                field.decode('ascii')
+            except UnicodeDecodeError:
+                self._abortWithError(responsecode.BAD_REQUEST,
+                                     "Headers must be ASCII")
         val = val.lstrip(' \t')
         self.inHeaders.addRawHeader(name, val)
-        
+
 
     def allHeadersReceived(self):
         # Split off connection-related headers
