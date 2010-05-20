@@ -195,6 +195,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                 baseProperties += (
                     customxml.Invite.qname(),
                     customxml.AllowedSharingModes.qname(),
+                    customxml.SharedURL.qname(),
                 )
 
             elif config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection():
@@ -414,6 +415,14 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
             elif config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection():
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
+
+        elif qname == customxml.SharedURL.qname():
+            isvirt = (yield self.isVirtualShare(request))
+            
+            if isvirt:
+                returnValue(customxml.SharedURL(davxml.HRef.fromString(self._share.hosturl)))
+            else:
+                returnValue(None)
 
         result = (yield super(CalDAVResource, self).readProperty(property, request))
         returnValue(result)

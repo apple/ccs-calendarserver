@@ -687,6 +687,8 @@ class SharedURL (davxml.WebDAVTextElement):
     """
     namespace = calendarserver_namespace
     name = "shared-url"
+    protected = True
+    hidden = True
 
 class SharedAs (davxml.WebDAVElement):
     """
