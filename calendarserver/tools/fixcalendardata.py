@@ -34,6 +34,8 @@ totalProblems = 0
 totalErrors = 0
 totalScanned = 0
 
+verbose = False
+
 def usage(e=None):
     if e:
         print e
@@ -49,6 +51,7 @@ def usage(e=None):
     print "  -h --help: print this help and exit"
     print "  -f --config: Specify caldavd.plist configuration path"
     print "  -o <path>: path to file for scan results [problems.txt]"
+    print "  -v: print each calendar home scanned"
     print "  --scan: Scan for problems"
     print "  --fix: Apply fixes"
     print ""
@@ -97,7 +100,8 @@ def scanData(basePath, scanFile, doFix):
                             scanCalendarHome(basePath, calendarHome, scanFile, doFix)
 
 def scanCalendarHome(basePath, calendarHome, scanFile, doFix):
-    print "Scanning: %s" % (calendarHome,)
+    if verbose:
+        print "Scanning: %s" % (calendarHome,)
     
     for item in os.listdir(calendarHome):
         calendarPath = os.path.join(calendarHome, item)
@@ -293,7 +297,7 @@ def main():
     doFix = False
     
     # Parse command line options
-    opts, _ignore_args = getopt.getopt(sys.argv[1:], "f:ho:", ["config", "scan", "fix", "help",])
+    opts, _ignore_args = getopt.getopt(sys.argv[1:], "f:ho:v", ["config", "scan", "fix", "help",])
     for option, value in opts:
         if option in ("-h", "--help"):
             usage()
@@ -303,6 +307,8 @@ def main():
                 usage("Path does not exist: %s" % (plistPath,))
         elif option == "-o":
             scanPath = value
+        elif option == "-v":
+            verbose = True
         elif option == "--scan":
             doScan = True
         elif option == "--fix":
