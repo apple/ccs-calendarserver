@@ -1672,11 +1672,15 @@ class DirectoryBackedAddressBookFile (ReadOnlyResourceMixIn, DirectoryBackedAddr
         if name is "":
             return self
         else:
-            return CalDAVFile(
-                self.fp,
-                principalCollections=self.principalCollections()
-            ).getChild(name)
+            from twistedcaldav.simpleresource import SimpleCalDAVResource
+            return SimpleCalDAVResource(principalCollections=self.principalCollections())
        
+    def createSimilarFile(self, path):
+        if self.comparePath(path):
+            return self
+        else:
+            from twistedcaldav.simpleresource import SimpleCalDAVResource
+            return SimpleCalDAVResource(principalCollections=self.principalCollections())
  
 class GlobalAddressBookFile (ReadOnlyResourceMixIn, GlobalAddressBookResource, CalDAVFile):
     """

@@ -814,7 +814,7 @@ class OpenDirectoryBackingService(DirectoryService):
     
                     if constant:
                         # do the match right now!  Return either all or none.
-                        return( textMatchElement.match([constant,]), [], [] )
+                        return( textMatchElement.test([constant,]), [], [] )
                     else:
 
                         matchStrings = getMatchStrings(propFilter, textMatchElement.text)

@@ -69,7 +69,7 @@ class Filter(FilterBase):
         if len(self.children) > 0:
             allof = self.filter_test == "allof"
             for propfilter in self.children:
-                if allof != propfilter._match(vcard):
+                if allof != propfilter.test(vcard):
                     return not allof
             return allof
         else:
@@ -153,7 +153,7 @@ class FilterChildBase(FilterBase):
         if len(self.filters) > 0:
             allof = self.propfilter_test == "allof"
             for filter in self.filters:
-                if allof != filter._match(item):
+                if allof != filter.test(item):
                     return not allof
             return allof
         else:
@@ -164,7 +164,7 @@ class PropertyFilter (FilterChildBase):
     Limits a search to specific properties.
     """
 
-    def _match(self, vcard):
+    def test(self, vcard):
         # At least one property must match (or is-not-defined is set)
         for property in vcard.properties():
             if property.name() == self.filter_name and self.match(property): break
@@ -188,7 +188,7 @@ class ParameterFilter (FilterChildBase):
     Limits a search to specific parameters.
     """
 
-    def _match(self, property):
+    def test(self, property):
 
         # At least one parameter must match (or is-not-defined is set)
         result = not self.defined
@@ -246,7 +246,7 @@ class TextMatch (FilterBase):
         else:
             self.match_type = "contains"
 
-    def _match(self, item):
+    def test(self, item):
         """
         Match the text for the item.
         If the item is a property, then match the property value,
