@@ -966,6 +966,10 @@ class MailHandler(LoggingMixIn):
             else:
                 formatString = _("Event reply: %(summary)s")
 
+            # The translations we get back from gettext are utf-8 encoded
+            # strings, so convert to unicode
+            formatString = formatString.decode("utf-8")
+
             details['subject'] = msg['Subject'] = formatString % {
                 'summary' : details['summary']
             }
@@ -1006,6 +1010,12 @@ class MailHandler(LoggingMixIn):
 
             details['plainOrganizer'] = (orgCN if not orgEmail else
                 "%s <%s>" % (orgCN, orgEmail))
+
+            # The translations we get back from gettext are utf-8 encoded
+            # strings, so convert to unicode
+            for key in details.keys():
+                if isinstance(details[key], str):
+                    details[key] = details[key].decode("utf-8")
 
             # plain text version
             if canceled:

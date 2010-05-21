@@ -495,7 +495,7 @@ DEFAULT_CONFIG = {
     "Localization" : {
         "TranslationsDirectory" : "/usr/share/caldavd/share/translations",
         "LocalesDirectory" : "/usr/share/caldavd/share/locales",
-        "Language" : "English",
+        "Language" : "en",
     },
 
 

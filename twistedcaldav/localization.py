@@ -26,6 +26,12 @@ from locale import normalize
 
 from twext.python.log import Logger
 
+try:
+    from Foundation import *
+    foundationImported = True
+except ImportError:
+    foundationImported = False
+
 from twistedcaldav.config import config
 
 log = Logger()
@@ -355,6 +361,9 @@ def processLocalizationFiles(settings):
     lprojRoot = settings.TranslationsDirectory
     gnuRoot = settings.LocalesDirectory
 
+    if not foundationImported:
+        return
+
     # Do we have an Apple translations directory?
     if lprojRoot and gnuRoot and os.path.exists(lprojRoot):
 
@@ -393,46 +402,6 @@ def processLocalizationFiles(settings):
 class ParseError(Exception):
     pass
 
-def parseString(text, index=0):
-
-    value = ""
-
-    while index < len(text):
-        ch = text[index]
-
-        if ch == '"':
-            if text[index-1] != "\\":
-                # At unescaped quote
-                if value:
-                    # ...marking end of string; return it
-                    return (value, index+1)
-                else:
-                    # ...marking beginning of string; skip it
-                    index += 1
-                continue
-
-        value += text[index]
-        index += 1
-
-    # no closing quote "
-    raise ParseError("No closing quote")
-
-def parseLine(line):
-
-    key, index = parseString(line)
-    remaining = line[index:].strip()
-    if remaining[0] != "=":
-        raise ParseError("Expected equals sign")
-    remaining = remaining[1:].strip()
-    value, index = parseString(remaining)
-    return (key, value)
-
-
-boms = {
-    codecs.BOM_UTF8 : 'UTF8',
-    codecs.BOM_UTF16_BE : 'UTF-16BE',
-    codecs.BOM_UTF16_LE : 'UTF-16LE',
-}
 
 def convertStringsFile(src, dest):
     strings = { }
@@ -446,35 +415,17 @@ def convertStringsFile(src, dest):
             # can't create directory to hold .po file
             return
 
-    with open(src) as input:
-        contents = input.read()
-        for bom, encoding in boms.iteritems():
-            if contents.startswith(bom):
-                contents = contents[len(bom):]
-                break
-        else:
-            encoding = "UTF8"
-
-    contents = contents.decode(encoding)
-    lines = contents.split("\n")
-
-    for num, line in enumerate(lines):
-        # print num, line
-        line = line.strip()
-        if not line.startswith('"'):
-            continue
-
-        try:
-            key, value = parseLine(line)
-        except ParseError, err:
-            log.info("Error on line %d of %s: %s" % (num+1, src, str(err)))
-            raise
-
-        strings[key] = value
+    # Parse the binary plist .strings file:
+    parser = NSPropertyListSerialization.propertyListFromData_mutabilityOption_format_errorDescription_
+    data = NSData.dataWithContentsOfMappedFile_(src)
+    strings, format, error = parser(data, NSPropertyListImmutable, None, None)
+    if error:
+        raise ParseError(error)
 
     # The format of GNUtext MO files is described here:
     # http://www.gnu.org/software/autoconf/manual/gettext/MO-Files.html
 
+    strings = dict(strings)
     originals = strings.keys()
     originals.sort()
 
