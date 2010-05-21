@@ -438,17 +438,20 @@ dependencies () {
   #
 
   if ! type memcached > /dev/null 2>&1; then
-    local le="libevent-1.4.8-stable";
+    local le="libevent-1.4.13-stable";
+    local mc="memcached-1.4.5";
     c_dependency "libevent" "${le}" \
-      "http://monkey.org/~provos/libevent-1.4.8-stable.tar.gz";
-    c_dependency "memcached" "memcached-1.2.6" \
-      "http://www.danga.com/memcached/dist/memcached-1.2.6.tar.gz" \
+      "http://monkey.org/~provos/${le}.tar.gz";
+    c_dependency "memcached" "${mc}" \
+      "http://www.danga.com/memcached/dist/${mc}.tar.gz" \
       --enable-threads --with-libevent="${top}/${le}/_root";
   fi;
 
   if ! type postgres > /dev/null 2>&1; then
-    c_dependency "PostgreSQL" "postgresql-8.4.2" \
-      "http://ftp9.us.postgresql.org/pub/mirrors/postgresql/source/v8.4.2/postgresql-8.4.2.tar.gz" \
+    local pgv="8.4.4";
+    local pg="postgresql-${pgv}";
+    c_dependency "PostgreSQL" "${pg}" \
+      "http://ftp9.us.postgresql.org/pub/mirrors/postgresql/source/v${pgv}/${pg}.tar.gz" \
       --with-python;
     :;
   fi;
@@ -457,17 +460,20 @@ dependencies () {
   # Python dependencies
   #
 
+  local zi="zope.interface-3.3.0";
   py_dependency \
-    "Zope Interface" "zope.interface" "zope.interface-3.3.0" \
+    "Zope Interface" "zope.interface" "${zi}" \
     "http://www.zope.org/Products/ZopeInterface/3.3.0/zope.interface-3.3.0.tar.gz";
 
+  local px="PyXML-0.8.4";
   py_dependency \
-    "PyXML" "xml.dom.ext" "PyXML-0.8.4" \
-    "http://internap.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz";
+    "PyXML" "xml.dom.ext" "${px}" \
+    "http://internap.dl.sourceforge.net/sourceforge/pyxml/${px}.tar.gz";
 
-  py_dependency -v 0.9 \
-    "PyOpenSSL" "OpenSSL" "pyOpenSSL-0.9" \
-    "http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.9.tar.gz";
+  local po="pyOpenSSL-0.10";
+  py_dependency -v 0.10 \
+    "PyOpenSSL" "OpenSSL" "${po}" \
+    "http://pypi.python.org/packages/source/p/pyOpenSSL/${po}.tar.gz";
 
   if type krb5-config > /dev/null 2>&1; then
     py_dependency -r 4241 \
@@ -499,16 +505,18 @@ dependencies () {
     "Twisted" "twisted" "Twisted" \
     "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-10.0.0";
 
+  local du="python-dateutil-1.5";
   py_dependency \
-    "dateutil" "dateutil" "python-dateutil-1.4.1" \
-    "http://www.labix.org/download/python-dateutil/python-dateutil-1.4.1.tar.gz";
+    "dateutil" "dateutil" "${du}" \
+    "http://www.labix.org/download/python-dateutil/${du}";
 
   # XXX actually vObject should be imported in-place.
   py_dependency -fie -r 219 \
     "vObject" "vobject" "vobject" \
     "http://svn.osafoundation.org/vobject/trunk";
 
-  # Tool dependencies.  The code itself doesn't depend on these, but you probably want them.
+  # Tool dependencies.  The code itself doesn't depend on these, but
+  # they are useful to developers.
   svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
   svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes HEAD;
 
