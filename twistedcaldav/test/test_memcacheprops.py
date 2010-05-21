@@ -280,3 +280,80 @@ class MemcachePropertyCollectionTestCase(TestCase):
                 "val0%s" % (uid if uid else "",))
             self.assertEquals(child2.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
+
+
+    def _stub_set_multi(self, values, time=None):
+
+        self.callCount += 1
+        for key, value in values.iteritems():
+            self.results[key] = value
+
+    def test_splitSetMulti(self):
+
+        self.callCount = 0
+        self.results = {}
+
+        mpc = MemcachePropertyCollection(None)
+        values = {}
+        for i in xrange(600):
+            values["key%d" % (i,)] = "value%d" % (i,)
+
+        mpc._split_set_multi(values, self._stub_set_multi)
+
+        self.assertEquals(self.callCount, 3)
+        self.assertEquals(self.results, values)
+
+
+    def test_splitSetMultiWithChunksize(self):
+
+        self.callCount = 0
+        self.results = {}
+
+        mpc = MemcachePropertyCollection(None)
+        values = {}
+        for i in xrange(13):
+            values["key%d" % (i,)] = "value%d" % (i,)
+
+        mpc._split_set_multi(values, self._stub_set_multi, chunksize=3)
+
+        self.assertEquals(self.callCount, 5)
+        self.assertEquals(self.results, values)
+
+
+    def _stub_gets_multi(self, keys):
+
+        self.callCount += 1
+        result = {}
+        for key in keys:
+            result[key] = self.expected[key]
+        return result
+
+    def test_splitGetsMulti(self):
+
+        self.callCount = 0
+        self.expected = {}
+        keys = []
+        for i in xrange(600):
+            keys.append("key%d" % (i,))
+            self.expected["key%d" % (i,)] = "value%d" % (i,)
+
+        mpc = MemcachePropertyCollection(None)
+        result = mpc._split_gets_multi(keys, self._stub_gets_multi)
+
+        self.assertEquals(self.callCount, 3)
+        self.assertEquals(self.expected, result)
+
+    def test_splitGetsMultiWithChunksize(self):
+
+        self.callCount = 0
+        self.expected = {}
+        keys = []
+        for i in xrange(600):
+            keys.append("key%d" % (i,))
+            self.expected["key%d" % (i,)] = "value%d" % (i,)
+
+        mpc = MemcachePropertyCollection(None)
+        result = mpc._split_gets_multi(keys, self._stub_gets_multi, chunksize=12)
+
+        self.assertEquals(self.callCount, 50)
+        self.assertEquals(self.expected, result)

@@ -133,7 +133,8 @@ class MemcachePropertyCollection (LoggingMixIn):
             for childName in childNames
         ))
 
-        result = client.gets_multi((key for key, name in keys))
+        result = self._split_gets_multi((key for key, name in keys),
+            client.gets_multi)
 
         if self.logger.willLogAtLevel("debug"):
             if abortIfMissing:
@@ -162,6 +163,49 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         return result
 
+
+    def _split_gets_multi(self, keys, func, chunksize=250):
+        """
+        Splits gets_multi into chunks to avoid a memcacheclient timeout due
+        of a large number of keys.  Consolidates and returns results.
+        Takes a function parameter for easier unit testing.
+        """
+
+        results = {}
+        count = 0
+        subset = []
+        for key in keys:
+            if count == 0:
+                subset = []
+            subset.append(key)
+            count += 1
+            if count == chunksize:
+                results.update(func(subset))
+                count = 0
+        if count:
+            results.update(func(subset))
+        return results
+
+    def _split_set_multi(self, values, func, time=0, chunksize=250):
+        """
+        Splits set_multi into chunks to avoid a memcacheclient timeout due
+        of a large number of keys.
+        Takes a function parameter for easier unit testing.
+        """
+        count = 0
+        subset = {}
+        for key, value in values.iteritems():
+            if count == 0:
+                subset.clear()
+            subset[key] = value
+            count += 1
+            if count == chunksize:
+                func(subset, time=time)
+                count = 0
+        if count:
+            func(subset, time=time)
+
+
     def _storeCache(self, cache):
         self.log_debug("Storing cache for %s" % (self.collection,))
 
@@ -173,7 +217,8 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         client = self.memcacheClient()
         if client is not None:
-            client.set_multi(values, time=self.cacheTimeout)
+            self._split_set_multi(values, client.set_multi,
+                time=self.cacheTimeout)
 
     def _buildCache(self, childNames=None):
         if childNames is None:
