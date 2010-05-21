@@ -62,7 +62,11 @@ while getopts "nhoucr:" option; do
 done;
 shift $((${OPTIND} - 1));
 
-twisted="$(cd "${wd}/.." && pwd -L)/Twisted";
+if [ -d "${wd}/../Twisted" ]; then
+  trial="${wd}/../Twisted/bin/trial";
+else
+  trial="$(type -p trial)";
+fi;
 
 export PYTHONPATH="$("${wd}/run" -p)";
 
@@ -72,4 +76,4 @@ else
     test_modules="calendarserver twistedcaldav twext txdav txcaldav txcarddav ${m_twisted}";
 fi;
 
-cd "${wd}" && "${python}" "${twisted}/bin/trial" --rterrors ${random} ${until_fail} ${no_colour} ${coverage} ${test_modules};
+cd "${wd}" && "${python}" "${trial}" --rterrors ${random} ${until_fail} ${no_colour} ${coverage} ${test_modules};
