@@ -70,7 +70,9 @@ class iCalDiff(object):
                 "DTSTAMP",
                 "LAST-MODIFIED",
             ))
-            calendar.removeXProperties()
+            calendar.removeXProperties(keep_properties=(
+                "X-APPLE-DROPBOX",
+            ))
             calendar.removePropertyParameters("ATTENDEE", ("RSVP", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
             calendar.normalizeAll()
             return calendar
