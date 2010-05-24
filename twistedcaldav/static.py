@@ -1801,6 +1801,9 @@ import twistedcaldav.method
 bindMethods(twistedcaldav.method, CalDAVFile)
 
 # Some resources do not support some methods
+setattr(CalendarHomeFile, "http_ACL", None)
+setattr(AddressBookHomeFile, "http_ACL", None)
+
 setattr(DropBoxCollectionFile, "http_MKCALENDAR", None)
 setattr(DropBoxChildFile, "http_MKCOL", None)
 setattr(DropBoxChildFile, "http_MKCALENDAR", None)
