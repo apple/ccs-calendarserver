@@ -170,7 +170,7 @@ www_get () {
       bz2)    decompress="bzip2 -d -c"; ;;
       tar)    decompress="cat"; ;;
       *)
-        echo "Unknown extension: ${ext}";
+        echo "Error in www_get of URL ${url}: Unknown extension ${ext}";
         exit 1;
         ;;
     esac;
