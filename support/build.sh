@@ -508,7 +508,7 @@ dependencies () {
   local du="python-dateutil-1.5";
   py_dependency \
     "dateutil" "dateutil" "${du}" \
-    "http://www.labix.org/download/python-dateutil/${du}";
+    "http://www.labix.org/download/python-dateutil/${du}.tar.gz";
 
   # XXX actually vObject should be imported in-place.
   py_dependency -fie -r 219 \
