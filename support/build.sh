@@ -443,7 +443,7 @@ dependencies () {
     c_dependency "libevent" "${le}" \
       "http://monkey.org/~provos/${le}.tar.gz";
     c_dependency "memcached" "${mc}" \
-      "http://www.danga.com/memcached/dist/${mc}.tar.gz" \
+      "http://memcached.googlecode.com/files/${mc}.tar.gz" \
       --enable-threads --with-libevent="${top}/${le}/_root";
   fi;
 
