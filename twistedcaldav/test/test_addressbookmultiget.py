@@ -17,7 +17,6 @@
 import os
 import shutil
 
-from twisted.internet.defer import inlineCallbacks
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
@@ -27,45 +26,42 @@ from twext.web2.dav.util import davXMLFromStream
 from twext.web2.test.test_server import SimpleRequest
 
 import twistedcaldav.test.util
-from twistedcaldav import caldavxml
-from twistedcaldav import ical
+from twistedcaldav import carddavxml
+from twistedcaldav import vcard
 from twistedcaldav.index import db_basename
 from twistedcaldav.config import config
 
-class CalendarMultiget (twistedcaldav.test.util.TestCase):
+class AddressBookMultiget (twistedcaldav.test.util.TestCase):
     """
-    calendar-multiget REPORT
+    addressbook-multiget REPORT
     """
     data_dir = os.path.join(os.path.dirname(__file__), "data")
-    holidays_dir = os.path.join(data_dir, "Holidays")
+    vcards_dir = os.path.join(data_dir, "vCards")
 
-    def test_multiget_some_events(self):
+    def test_multiget_some_vcards(self):
         """
-        All events.
-        (CalDAV-access-09, section 7.6.8)
+        All vcards.
         """
-        okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.holidays_dir)) if r[1] == ".ics"]
-        okuids[:] = okuids[1:10]
+        okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
+        okuids[:] = okuids[1:5]
 
         baduids = ["12345@example.com", "67890@example.com"]
 
-        return self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids)
+        return self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids)
 
-    def test_multiget_all_events(self):
+    def test_multiget_all_vcards(self):
         """
-        All events.
-        (CalDAV-access-09, section 7.6.8)
+        All vcards.
         """
-        okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.holidays_dir)) if r[1] == ".ics"]
+        okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
 
         baduids = ["12345@example.com", "67890@example.com"]
 
-        return self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids)
+        return self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids)
 
     def test_multiget_limited_with_data(self):
         """
-        All events.
-        (CalDAV-access-09, section 7.6.8)
+        All vcards.
         """
         oldValue = config.MaxMultigetWithDataHrefs
         config.MaxMultigetWithDataHrefs = 1
@@ -77,18 +73,17 @@ class CalendarMultiget (twistedcaldav.test.util.TestCase):
             config.MaxMultigetWithDataHrefs = oldValue
             return None
 
-        okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.holidays_dir)) if r[1] == ".ics"]
+        okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
 
         baduids = ["12345@example.com", "67890@example.com"]
 
-        d = self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids)
+        d = self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids)
         d.addCallbacks(_restoreValueOK, _restoreValueError)
         return d
 
     def test_multiget_limited_no_data(self):
         """
-        All events.
-        (CalDAV-access-09, section 7.6.8)
+        All vcards.
         """
         oldValue = config.MaxMultigetWithDataHrefs
         config.MaxMultigetWithDataHrefs = 1
@@ -100,85 +95,29 @@ class CalendarMultiget (twistedcaldav.test.util.TestCase):
             config.MaxMultigetWithDataHrefs = oldValue
             self.fail("REPORT must not fail with 403")
 
-        okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.holidays_dir)) if r[1] == ".ics"]
+        okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
 
         baduids = ["12345@example.com", "67890@example.com"]
 
-        return self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids, withData=False)
+        return self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids, withData=False)
 
-    @inlineCallbacks
-    def test_multiget_one_broken_event(self):
-        """
-        All events.
-        (CalDAV-access-09, section 7.6.8)
-        """
-        okuids = ["good", "bad",]
-        baduids = []
-        data = {
-            "good":"""BEGIN:VCALENDAR
-CALSCALE:GREGORIAN
-PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
-VERSION:2.0
-BEGIN:VEVENT
-UID:good
-DTSTART;VALUE=DATE:20020101
-DTEND;VALUE=DATE:20020102
-RRULE:FREQ=YEARLY;INTERVAL=1;UNTIL=20031231;BYMONTH=1
-SUMMARY:New Year's Day
-END:VEVENT
-END:VCALENDAR
-""",
-            "bad":"""BEGIN:VCALENDAR
-CALSCALE:GREGORIAN
-PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
-VERSION:2.0
-BEGIN:VEVENT
-UID:bad
-DTSTART;VALUE=DATE:20020214
-DTEND;VALUE=DATE:20020215
-RRULE:FREQ=YEARLY;INTERVAL=1;BYMONTH=2
-SUMMARY:Valentine's Day
-END:VEVENT
-END:VCALENDAR
-"""
-        }
-
-        yield self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids, data)
-        
-        # Now forcibly corrupt one piece of calendar data
-        calendar_path = os.path.join(self.docroot, "calendar_multiget_events/", "bad.ics")
-        f = open(calendar_path, "w")
-        f.write("""BEGIN:VCALENDAR
-CALSCALE:GREGORIAN
-PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
-VERSION:2.0
-BEGIN:VEVENT
-UID:bad
-DTSTART;VALUE=DATE:20020214
-DTEND;VALUE=DATE:20020""")
-        f.close
-
-        okuids = ["good", ]
-        baduids = ["bad", ]
-        yield self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids, data, no_init=True)
-
-    def simple_event_multiget(self, cal_uri, okuids, baduids, data=None, no_init=False, withData=True):
+    def simple_vcard_multiget(self, vcard_uri, okuids, baduids, data=None, no_init=False, withData=True):
         props = (
             davxml.GETETag(),
         )
         if withData:
             props += (
-                caldavxml.CalendarData(),
+                carddavxml.AddressData(),
             )
         children = []
         children.append(davxml.PropertyContainer(*props))
         
-        okhrefs = [cal_uri + x + ".ics" for x in okuids]
-        badhrefs = [cal_uri + x + ".ics" for x in baduids]
+        okhrefs = [vcard_uri + x + ".vcf" for x in okuids]
+        badhrefs = [vcard_uri + x + ".vcf" for x in baduids]
         for href in okhrefs + badhrefs:
             children.append(davxml.HRef.fromString(href))
         
-        query = caldavxml.CalendarMultiGet(*children)
+        query = carddavxml.AddressBookMultiGet(*children)
         
         def got_xml(doc):
             if not isinstance(doc.root_element, davxml.MultiStatus):
@@ -198,28 +137,28 @@ DTEND;VALUE=DATE:20020""")
                     for property in properties:
                         qname = property.qname()
                         if qname == (davxml.dav_namespace, "getetag"): continue
-                        if qname != (caldavxml.caldav_namespace, "calendar-data"):
+                        if qname != (carddavxml.carddav_namespace, "address-data"):
                             self.fail("Response included unexpected property %r" % (property,))
 
-                        result_calendar = property.calendar()
+                        result_address = property.address()
 
-                        if result_calendar is None:
-                            self.fail("Invalid response CalDAV:calendar-data: %r" % (property,))
+                        if result_address is None:
+                            self.fail("Invalid response CalDAV:address-data: %r" % (property,))
 
-                        uid = result_calendar.resourceUID()
+                        uid = result_address.resourceUID()
 
                         if uid in okuids:
                             okuids.remove(uid)
                         else:
-                            self.fail("Got calendar for unexpected UID %r" % (uid,))
+                            self.fail("Got address for unexpected UID %r" % (uid,))
 
                         if data:
-                            original_calendar = ical.Component.fromStream(data[uid])
+                            original_address = vcard.Component.fromStream(data[uid])
                         else:
-                            original_filename = file(os.path.join(self.holidays_dir, uid + ".ics"))
-                            original_calendar = ical.Component.fromStream(original_filename)
+                            original_filename = file(os.path.join(self.vcards_dir, uid + ".vcf"))
+                            original_address = vcard.Component.fromStream(original_filename)
 
-                        self.assertEqual(result_calendar, original_calendar)
+                        self.assertEqual(result_address, original_address)
             
             for response in doc.root_element.childrenOfType(davxml.StatusResponse):
                 href = str(response.childOfType(davxml.HRef))
@@ -242,39 +181,39 @@ DTEND;VALUE=DATE:20020""")
             if withData and (len(okuids) + len(badhrefs)):
                 self.fail("Some components were not returned: %r, %r" % (okuids, badhrefs))
 
-        return self.calendar_query(cal_uri, query, got_xml, data, no_init)
+        return self.addressbook_query(vcard_uri, query, got_xml, data, no_init)
 
-    def calendar_query(self, calendar_uri, query, got_xml, data, no_init):
-        calendar_path = os.path.join(self.docroot, calendar_uri[1:])
+    def addressbook_query(self, addressbook_uri, query, got_xml, data, no_init):
+        addressbook_path = os.path.join(self.docroot, addressbook_uri[1:])
 
-        if not no_init and os.path.exists(calendar_path): rmdir(calendar_path)
+        if not no_init and os.path.exists(addressbook_path): rmdir(addressbook_path)
 
         def do_report(response):
             if not no_init:
                 response = IResponse(response)
     
                 if response.code != responsecode.CREATED:
-                    self.fail("MKCALENDAR failed: %s" % (response.code,))
+                    self.fail("MKCOL failed: %s" % (response.code,))
     
                 if data:
                     for filename, icaldata in data.iteritems():
-                        path = os.path.join(calendar_path, filename + ".ics")
+                        path = os.path.join(addressbook_path, filename + ".vcf")
                         f = open(path, "w")
                         f.write(icaldata)
                         f.close()
                 else:
-                    # Add holiday events to calendar
+                    # Add vcards to addressbook
                     # We're cheating by simply copying the files in
-                    for filename in os.listdir(self.holidays_dir):
-                        if os.path.splitext(filename)[1] != ".ics": continue
-                        path = os.path.join(self.holidays_dir, filename)
-                        shutil.copy(path, calendar_path)
+                    for filename in os.listdir(self.vcards_dir):
+                        if os.path.splitext(filename)[1] != ".vcf": continue
+                        path = os.path.join(self.vcards_dir, filename)
+                        shutil.copy(path, addressbook_path)
     
                 # Delete the index because we cheated
-                index_path = os.path.join(calendar_path, db_basename)
+                index_path = os.path.join(addressbook_path, db_basename)
                 if os.path.isfile(index_path): os.remove(index_path)
 
-            request = SimpleRequest(self.site, "REPORT", calendar_uri)
+            request = SimpleRequest(self.site, "REPORT", addressbook_uri)
             request.stream = MemoryStream(query.toxml())
 
             def do_test(response):
@@ -290,6 +229,15 @@ DTEND;VALUE=DATE:20020""")
         if no_init:
             return do_report(None)
         else:
-            request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
+            mkcol = """<?xml version="1.0" encoding="utf-8" ?>
+<D:mkcol xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
+<D:set>
+<D:prop>
+<D:resourcetype><D:collection/><C:addressbook/></D:resourcetype>
+</D:prop>
+</D:set>
+</D:mkcol>
+"""
+            request = SimpleRequest(self.site, "MKCOL", addressbook_uri, content=mkcol)
     
             return self.send(request, do_report)

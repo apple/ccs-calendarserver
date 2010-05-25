@@ -15,27 +15,27 @@
 ##
 
 """
-CardDAV multiget report
+CalDAV multiget report
 """
 
-__all__ = ["report_urn_ietf_params_xml_ns_carddav_addressbook_multiget"]
+__all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_multiget"]
 
 from twext.python.log import Logger
 
-from twistedcaldav.carddavxml import carddav_namespace
-from twistedcaldav.method.report_common import COLLECTION_TYPE_ADDRESSBOOK
+from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.method.report_common import COLLECTION_TYPE_CALENDAR
 from twistedcaldav.method.report_multiget_common import multiget_common
 
 log = Logger()
 
-def report_urn_ietf_params_xml_ns_carddav_addressbook_multiget(self, request, multiget):
+def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multiget):
     """
     Generate a multiget REPORT.
-    (CardDAV, section 8.7)
+    (CalDAV-access, section 7.7)
     """
 
     # Verify root element
-    if multiget.qname() != (carddav_namespace, "addressbook-multiget"):
-        raise ValueError("{CardDAV:}addressbook-multiget expected as root element, not %s." % (multiget.sname(),))
+    if multiget.qname() != (caldav_namespace, "calendar-multiget"):
+        raise ValueError("{CalDAV:}calendar-multiget expected as root element, not %s." % (multiget.sname(),))
 
-    return multiget_common(self, request, multiget, COLLECTION_TYPE_ADDRESSBOOK)
+    return multiget_common(self, request, multiget, COLLECTION_TYPE_CALENDAR)

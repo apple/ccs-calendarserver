@@ -65,9 +65,13 @@ from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOve
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.index import IndexedSearchException
-from twistedcaldav.query import queryfilter
+from twistedcaldav.query import calendarqueryfilter
 
 log = Logger()
+
+COLLECTION_TYPE_REGULAR     = "collection"
+COLLECTION_TYPE_CALENDAR    = "calendar"
+COLLECTION_TYPE_ADDRESSBOOK = "adressbook"
 
 @inlineCallbacks
 def applyToCalendarCollections(resource, request, request_uri, depth, apply, privileges):
@@ -143,7 +147,7 @@ def applyToAddressBookCollections(resource, request, request_uri, depth, apply, 
         if not result:
             break
 
-def responseForHref(request, responses, href, resource, calendar, timezone, propertiesForResource, propertyreq, isowner=True, vcard=None):
+def responseForHref(request, responses, href, resource, propertiesForResource, propertyreq, isowner=True, calendar=None, timezone=None, vcard=None):
     """
     Create an appropriate property status response for the given resource.
 
@@ -185,20 +189,6 @@ def responseForHref(request, responses, href, resource, calendar, timezone, prop
     d = propertiesForResource(request, propertyreq, resource, calendar, timezone, vcard, isowner)
     d.addCallback(_defer)
     return d
-
-
-
-def responseForHrefAB(request, responses, href, resource, propertiesForResource,
-                      propertyreq, calendar=None, timezone=None, vcard=None,
-                      isowner=True):
-    """
-    Legacy wrapper for compatibility of signature of L{responseForHref} in
-    Contacts Server.
-    """
-    return responseForHref(request, responses, href, resource, calendar,
-                           timezone, propertiesForResource, propertyreq, isowner, vcard)
-
-
 
 def allPropertiesForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True):
     """
@@ -440,7 +430,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                       name="VCALENDAR",
                    )
               )
-    filter = queryfilter.Filter(filter)
+    filter = calendarqueryfilter.Filter(filter)
 
     # Get the timezone property from the collection, and store in the query filter
     # for use during the query itself.

@@ -60,7 +60,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
 
     xmlfilter = addressbook_query.filter
     filter = addressbookqueryfilter.Filter(xmlfilter)
-    query  = addressbook_query.query
+    query  = addressbook_query.props
     limit = addressbook_query.limit
 
     assert query is not None
@@ -91,12 +91,12 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-filter")))
 
     matchcount = [0,]
-    max_number_of_results = [config.MaxAddressBookQueryResults,]
+    max_number_of_results = [config.MaxQueryWithDataResults if generate_address_data else None,]
     limited = [False,]
     
     if limit:
         clientLimit = int(str(limit.childOfType(NResults)))
-        if clientLimit < max_number_of_results[0]:
+        if max_number_of_results[0] is None or clientLimit < max_number_of_results[0]:
             max_number_of_results[0] = clientLimit
 
     @inlineCallbacks
@@ -110,7 +110,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
         
         def checkMaxResults():
             matchcount[0] += 1
-            if matchcount[0] > max_number_of_results[0]:
+            if max_number_of_results[0] is not None and matchcount[0] > max_number_of_results[0]:
                 raise NumberOfMatchesWithinLimits(max_number_of_results[0])
            
         
@@ -132,7 +132,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                 else:
                     href = davxml.HRef.fromString(uri)
             
-                return report_common.responseForHrefAB(request, responses, href, resource, propertiesForResource, query, vcard=vcard)
+                return report_common.responseForHref(request, responses, href, resource, propertiesForResource, query, vcard=vcard)
             else:
                 return succeed(None)
             
@@ -151,7 +151,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                     # Check size of results is within limit
                     checkMaxResults()
                    
-                    yield report_common.responseForHrefAB(request, responses, vCardRecord.hRef(), vCardRecord, propertiesForResource, query, vcard=vCardRecord.vCard())
+                    yield report_common.responseForHref(request, responses, vCardRecord.hRef(), vCardRecord, propertiesForResource, query, vcard=vCardRecord.vCard())
  
  
             

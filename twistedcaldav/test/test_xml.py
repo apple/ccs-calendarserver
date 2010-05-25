@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import os
 
 from twisted.trial.unittest import SkipTest
 from twistedcaldav.ical import Component
-from twistedcaldav.query import queryfilter
+from twistedcaldav.query import calendarqueryfilter
 import twistedcaldav.test.util
 from twistedcaldav.caldavxml import ComponentFilter, PropertyFilter, TextMatch,\
     Filter, TimeRange
@@ -43,7 +43,7 @@ class XML (twistedcaldav.test.util.TestCase):
             if has: no = "no "
             else:   no = ""
 
-            if has != queryfilter.ComponentFilter(
+            if has != calendarqueryfilter.ComponentFilter(
                 ComponentFilter(
                     ComponentFilter(
                         name=component_name
@@ -64,7 +64,7 @@ class XML (twistedcaldav.test.util.TestCase):
             if has: no = "no "
             else:   no = ""
 
-            if has != queryfilter.ComponentFilter(
+            if has != calendarqueryfilter.ComponentFilter(
                 ComponentFilter(
                     ComponentFilter(
                         PropertyFilter(
@@ -96,7 +96,7 @@ class XML (twistedcaldav.test.util.TestCase):
             if has: no = "no "
             else:   no = ""
 
-            if has != queryfilter.ComponentFilter(
+            if has != calendarqueryfilter.ComponentFilter(
                 ComponentFilter(
                     ComponentFilter(
                         PropertyFilter(
@@ -135,7 +135,7 @@ class XML (twistedcaldav.test.util.TestCase):
             if has: no = "no "
             else:   no = ""
 
-            if has != queryfilter.Filter(
+            if has != calendarqueryfilter.Filter(
                 Filter(
                     ComponentFilter(
                         ComponentFilter(

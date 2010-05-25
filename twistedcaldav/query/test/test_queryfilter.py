@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 ##
 
 from twistedcaldav import caldavxml
-from twistedcaldav.query import queryfilter
+from twistedcaldav.query import calendarqueryfilter
 import twistedcaldav.test.util
 
 class Tests(twistedcaldav.test.util.TestCase):
@@ -28,7 +28,7 @@ class Tests(twistedcaldav.test.util.TestCase):
             )
         )
 
-        queryfilter.Filter(xml_element)
+        calendarqueryfilter.Filter(xml_element)
         
     def test_simpleSummaryRangeQuery(self):
 
@@ -45,7 +45,7 @@ class Tests(twistedcaldav.test.util.TestCase):
             )
         )
 
-        queryfilter.Filter(xml_element)
+        calendarqueryfilter.Filter(xml_element)
         
     def test_simpleTimeRangeQuery(self):
 
@@ -59,7 +59,7 @@ class Tests(twistedcaldav.test.util.TestCase):
             )
         )
 
-        queryfilter.Filter(xml_element)
+        calendarqueryfilter.Filter(xml_element)
         
     def test_multipleTimeRangeQuery(self):
 
@@ -73,5 +73,5 @@ class Tests(twistedcaldav.test.util.TestCase):
             )
         )
 
-        queryfilter.Filter(xml_element)
+        calendarqueryfilter.Filter(xml_element)
         

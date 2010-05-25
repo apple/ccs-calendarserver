@@ -34,7 +34,7 @@ from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryError, DirectoryRecord
 from twistedcaldav.method.delete_common import DeleteResource
-from twistedcaldav.query import queryfilter
+from twistedcaldav.query import calendarqueryfilter
 import os
 import sys
 
@@ -264,7 +264,7 @@ def purgeOldEvents(directory, root, date, verbose=False, dryrun=False):
             name="VCALENDAR",
         )
     )
-    filter = queryfilter.Filter(filter)
+    filter = calendarqueryfilter.Filter(filter)
 
     eventCount = 0
     for record in records:
@@ -381,7 +381,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False):
               name="VCALENDAR",
            )
       )
-    filter = queryfilter.Filter(filter)
+    filter = calendarqueryfilter.Filter(filter)
 
     count = 0
 

@@ -346,7 +346,8 @@ DEFAULT_CONFIG = {
         "Enabled": True,
         "type":    "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
         "params":  directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
-        "name":    "directory"
+        "name":    "directory",
+        "MaxQueryResults": 1000,
     },
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
 
@@ -355,9 +356,6 @@ DEFAULT_CONFIG = {
         "Name":                      "global-addressbook",
         "EnableAnonymousReadAccess": False,
     },
-
-    "MaxAddressBookQueryResults":1000,
-    "MaxAddressBookMultigetHrefs":5000,
 
     # /XXX CardDAV
 
@@ -488,6 +486,8 @@ DEFAULT_CONFIG = {
     "IdleConnectionTimeOut": 15,
     "UIDReservationTimeOut": 30 * 60,
 
+    "MaxMultigetWithDataHrefs": 5000,
+    "MaxQueryWithDataResults": 1000,
 
     #
     # Localization

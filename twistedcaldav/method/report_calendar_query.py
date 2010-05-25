@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.config import config
 
 """
 CalDAV calendar-query report
@@ -40,11 +41,9 @@ from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.index import IndexedSearchException
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.method import report_common
-from twistedcaldav.query import queryfilter
+from twistedcaldav.query import calendarqueryfilter
 
 log = Logger()
-
-max_number_of_results = 1000
 
 @inlineCallbacks
 def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_query):
@@ -66,7 +65,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
     responses = []
 
     xmlfilter = calendar_query.filter
-    filter = queryfilter.Filter(xmlfilter)
+    filter = calendarqueryfilter.Filter(xmlfilter)
     props  = calendar_query.props
 
     assert props is not None
@@ -108,6 +107,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-filter")))
 
     matchcount = [0]
+    max_number_of_results = [config.MaxQueryWithDataResults if generate_calendar_data else None,]
     
     @inlineCallbacks
     def doQuery(calresource, uri):
@@ -139,15 +139,15 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             if query_ok or filter.match(calendar, access):
                 # Check size of results is within limit
                 matchcount[0] += 1
-                if matchcount[0] > max_number_of_results:
-                    raise NumberOfMatchesWithinLimits(max_number_of_results)
+                if max_number_of_results[0] is not None and matchcount[0] > max_number_of_results[0]:
+                    raise NumberOfMatchesWithinLimits(max_number_of_results[0])
 
                 if name:
                     href = davxml.HRef.fromString(joinURL(uri, name))
                 else:
                     href = davxml.HRef.fromString(uri)
             
-                return report_common.responseForHref(request, responses, href, resource, calendar, timezone, propertiesForResource, props, isowner)
+                return report_common.responseForHref(request, responses, href, resource, propertiesForResource, props, isowner, calendar=calendar, timezone=timezone)
             else:
                 return succeed(None)
     

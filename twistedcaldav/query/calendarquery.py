@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ __all__ = [
 ]
 
 from twistedcaldav.dateops import floatoffset
-from twistedcaldav.query import expression, sqlgenerator, queryfilter
+from twistedcaldav.query import expression, sqlgenerator, calendarqueryfilter
 
 # SQL Index column (field) names
 
@@ -51,12 +51,12 @@ def calendarquery(filter):
     # Top-level filter contains exactly one comp-filter element
     assert filter.child is not None
     vcalfilter = filter.child
-    assert isinstance(vcalfilter, queryfilter.ComponentFilter)
+    assert isinstance(vcalfilter, calendarqueryfilter.ComponentFilter)
     assert vcalfilter.filter_name == "VCALENDAR"
     
     if len(vcalfilter.filters) > 0:
         # Only comp-filters are handled
-        for _ignore in [x for x in vcalfilter.filters if not isinstance(x, queryfilter.ComponentFilter)]:
+        for _ignore in [x for x in vcalfilter.filters if not isinstance(x, calendarqueryfilter.ComponentFilter)]:
             raise ValueError
         
         return compfilterListExpression(vcalfilter.filters)
@@ -96,13 +96,13 @@ def compfilterExpression(compfilter):
         expressions.append(expression.inExpression(FIELD_TYPE, compfilter.filter_name, True))
     
     # Handle time-range    
-    if compfilter.qualifier and isinstance(compfilter.qualifier, queryfilter.TimeRange):
+    if compfilter.qualifier and isinstance(compfilter.qualifier, calendarqueryfilter.TimeRange):
         start, end, startfloat, endfloat = getTimerangeArguments(compfilter.qualifier)
         expressions.append(expression.timerangeExpression(start, end, startfloat, endfloat))
         
     # Handle properties - we can only do UID right now
     props = []
-    for p in [x for x in compfilter.filters if isinstance(x, queryfilter.PropertyFilter)]:
+    for p in [x for x in compfilter.filters if isinstance(x, calendarqueryfilter.PropertyFilter)]:
         props.append(propfilterExpression(p))
     if len(props) > 1:
         propsExpression = expression.orExpression[props]
@@ -113,7 +113,7 @@ def compfilterExpression(compfilter):
         
     # Handle embedded components - we do not right now as our Index does not handle them
     comps = []
-    for _ignore in [x for x in compfilter.filters if isinstance(x, queryfilter.ComponentFilter)]:
+    for _ignore in [x for x in compfilter.filters if isinstance(x, calendarqueryfilter.ComponentFilter)]:
         raise ValueError
     if len(comps) > 1:
         compsExpression = expression.orExpression[comps]
@@ -151,12 +151,12 @@ def propfilterExpression(propfilter):
         return expression.isExpression(FIELD_UID, "", True)
     
     # Handle time-range - we cannot do this with our Index right now
-    if propfilter.qualifier and isinstance(propfilter.qualifier, queryfilter.TimeRange):
+    if propfilter.qualifier and isinstance(propfilter.qualifier, calendarqueryfilter.TimeRange):
         raise ValueError
     
     # Handle text-match
     tm = None
-    if propfilter.qualifier and isinstance(propfilter.qualifier, queryfilter.TextMatch):
+    if propfilter.qualifier and isinstance(propfilter.qualifier, calendarqueryfilter.TextMatch):
         if propfilter.qualifier.negate:
             tm = expression.notcontainsExpression(propfilter.filter_name, propfilter.qualifier.text, propfilter.qualifier.caseless)
         else:

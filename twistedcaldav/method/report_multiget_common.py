@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,48 +15,53 @@
 ##
 
 """
-CalDAV multiget report
+CalDAV/CardDAV multiget report
 """
 
-__all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_multiget"]
+__all__ = ["multiget_common"]
 
 from urllib import unquote
 
 from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
-
-from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.http import MultiStatusResponse
+from twext.web2.dav.element.base import dav_namespace
+from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError, StatusResponse
 
+from twisted.internet.defer import inlineCallbacks, returnValue
+
+from twistedcaldav import carddavxml
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.carddavxml import carddav_namespace
+from twistedcaldav.config import config
 from twistedcaldav.method import report_common
+from twistedcaldav.method.report_common import COLLECTION_TYPE_CALENDAR,\
+    COLLECTION_TYPE_ADDRESSBOOK
+from twistedcaldav.query import addressbookqueryfilter
 
 log = Logger()
 
-max_number_of_multigets = 5000
-
 @inlineCallbacks
-def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multiget):
+def multiget_common(self, request, multiget, collection_type):
     """
     Generate a multiget REPORT.
-    (CalDAV-access-09, section 7.7)
     """
-
-    # Verify root element
-    if multiget.qname() != (caldav_namespace, "calendar-multiget"):
-        raise ValueError("{CalDAV:}calendar-multiget expected as root element, not %s." % (multiget.sname(),))
 
     # Make sure target resource is of the right type
     if not self.isCollection():
         parent = (yield self.locateParent(request, request.uri))
-        if not parent.isPseudoCalendarCollection():
-            log.err("calendar-multiget report is not allowed on a resource outside of a calendar collection %s" % (self,))
-            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar resource"))
+        
+        if collection_type == COLLECTION_TYPE_CALENDAR:
+            if not parent.isPseudoCalendarCollection():
+                log.err("calendar-multiget report is not allowed on a resource outside of a calendar collection %s" % (self,))
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar resource"))
+        elif collection_type == COLLECTION_TYPE_ADDRESSBOOK:
+            if not parent.isAddressBookCollection():
+                log.err("addressbook-multiget report is not allowed on a resource outside of an address book collection %s" % (self,))
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be address book resource"))
 
     responses = []
 
@@ -67,11 +72,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
         request.extendedLogItems = {}
     request.extendedLogItems["rcount"] = len(resources)
     
-    # Check size of results is within limit
-    if len(resources) > max_number_of_multigets:
-        log.err("Too many results in multiget report: %d" % len(resources))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))
-
+    hasData = False
     if propertyreq.qname() == ("DAV:", "allprop"):
         propertiesForResource = report_common.allPropertiesForResource
 
@@ -81,13 +82,26 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     elif propertyreq.qname() == ("DAV:", "prop"):
         propertiesForResource = report_common.propertyListForResource
         
-        # Verify that any calendar-data element matches what we can handle
-        result, message, _ignore = report_common.validPropertyListCalendarDataTypeVersion(propertyreq)
+        if collection_type == COLLECTION_TYPE_CALENDAR:
+            # Verify that any calendar-data element matches what we can handle
+            result, message, hasData = report_common.validPropertyListCalendarDataTypeVersion(propertyreq)
+            precondition = (caldav_namespace, "supported-calendar-data")
+        elif collection_type == COLLECTION_TYPE_ADDRESSBOOK:
+            # Verify that any address-data element matches what we can handle
+            result, message, hasData = report_common.validPropertyListAddressDataTypeVersion(propertyreq)
+            precondition = (carddav_namespace, "supported-address-data")
+        else:
+            result = True
         if not result:
             log.err(message)
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, precondition))
     else:
         raise AssertionError("We shouldn't be here")
+
+    # Check size of results is within limit when data property requested
+    if hasData and len(resources) > config.MaxMultigetWithDataHrefs:
+        log.err("Too many results in multiget report returning data: %d" % len(resources))
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))
 
     """
     Three possibilities exist:
@@ -119,6 +133,18 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
         # Check private events access status
         isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
 
+    elif self.isAddressBookCollection():
+        requestURIis = "addressbook"
+
+        # Do some optimisation of access control calculation by determining any inherited ACLs outside of
+        # the child resource loop and supply those to the checkPrivileges on each child.
+        filteredaces = (yield self.inheritedACEsforChildren(request))
+    
+        # Check for disabled access
+        if filteredaces is None:
+            disabled = True
+        isowner = None
+
     elif self.isCollection():
         requestURIis = "collection"
         filteredaces = None
@@ -132,7 +158,14 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     if not disabled:
 
         @inlineCallbacks
-        def doCalendarResponse():
+        def doResponse():
+            
+            # Special for addressbooks
+            if collection_type == COLLECTION_TYPE_ADDRESSBOOK:
+                if self.isDirectoryBackedAddressBookCollection() and self.directory.liveQuery:
+                    result = (yield doDirectoryAddressBookResponse())
+                    returnValue(result)
+
             # Verify that requested resources are immediate children of the request-URI
             valid_names = []
             for href in resources:
@@ -173,7 +206,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
             # Get properties for all valid readable resources
             for resource, href in ok_resources:
                 try:
-                    yield report_common.responseForHref(request, responses, davxml.HRef.fromString(href), resource, None, None, propertiesForResource, propertyreq, isowner=isowner)
+                    yield report_common.responseForHref(request, responses, davxml.HRef.fromString(href), resource, propertiesForResource, propertyreq, isowner=isowner)
                 except ValueError:
                     log.err("Invalid calendar resource during multiget: %s" % (href,))
                     responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
@@ -183,15 +216,72 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     # of one of these resources in another request.  In this
                     # case, return a 404 for the now missing resource rather
                     # than raise an error for the entire report.
-                    log.err("Missing calendar resource during multiget: %s" % (href,))
+                    log.err("Missing resource during multiget: %s" % (href,))
                     responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
 
             # Indicate error for all valid non-readable resources
             for ignore_resource, href in bad_resources:
                 responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
     
-        if requestURIis == "calendar":
-            yield doCalendarResponse()
+        @inlineCallbacks
+        def doDirectoryAddressBookResponse():
+            
+            directoryAddressBookLock = None
+            try: 
+                # Verify that requested resources are immediate children of the request-URI
+                # and get vCardFilters ;similar to "normal" case below but do not call getChild()
+                vCardFilters = []
+                valid_hrefs = []
+                for href in resources:
+                    resource_uri = str(href)
+                    resource_name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
+                    if self._isChildURI(request, resource_uri) and resource_name.endswith(".vcf") and len(resource_name) > 4:
+                        valid_hrefs.append(href)
+                        vCardFilters.append(carddavxml.PropertyFilter(
+                                                carddavxml.TextMatch.fromString(resource_name[:-4]), 
+                                                name="UID", # attributes
+                                            ))
+                    elif not self.directory.cacheQuery:
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+                       
+                # exit if not valid           
+                if not vCardFilters or not valid_hrefs:
+                    returnValue( None )
+                     
+                addressBookFilter = carddavxml.Filter( *vCardFilters )
+                addressBookFilter = addressbookqueryfilter.Filter(addressBookFilter)
+                if self.directory.cacheQuery:
+                    # add vcards to directory address book and run "normal case" below
+                    limit = config.DirectoryAddressBook.MaxQueryResults
+                    directoryAddressBookLock, limited = (yield  self.directory.cacheVCardsForAddressBookQuery(addressBookFilter, propertyreq, limit) )
+                    if limited:
+                        log.err("Too many results in multiget report: %d" % len(resources))
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
+                else:
+                    #get vCards and filter
+                    limit = config.DirectoryAddressBook.MaxQueryResults
+                    vCardRecords, limited = (yield self.directory.vCardRecordsForAddressBookQuery( addressBookFilter, propertyreq, limit ))
+                    if limited:
+                        log.err("Too many results in multiget report: %d" % len(resources))
+                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
+                   
+                    for href in valid_hrefs:
+                        matchingRecord = None
+                        for vCardRecord in vCardRecords:
+                            if href == vCardRecord.hRef(): # might need to compare urls instead - also case sens ok?
+                                matchingRecord = vCardRecord
+                                break;
+
+                        if matchingRecord:
+                            yield report_common.responseForHref(request, responses, href, matchingRecord, propertiesForResource, propertyreq, vcard=matchingRecord.vCard())
+                        else:
+                            responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+            finally:
+                if directoryAddressBookLock:
+                    yield directoryAddressBookLock.release()
+
+        if requestURIis == "calendar" or requestURIis == "addressbook":
+            yield doResponse()
         else:
             for href in resources:
     
@@ -199,6 +289,8 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     
                 # Do href checks
                 if requestURIis == "calendar":
+                    pass
+                elif requestURIis == "addressbook":
                     pass
         
                 # TODO: we can optimize this one in a similar manner to the calendar case
@@ -216,9 +308,14 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     
                     parent = (yield child.locateParent(request, resource_uri))
     
-                    if not parent.isCalendarCollection() or not parent.index().resourceExists(name):
-                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
-                        continue
+                    if collection_type == COLLECTION_TYPE_CALENDAR:
+                        if not parent.isCalendarCollection() or not parent.index().resourceExists(name):
+                            responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+                            continue
+                    elif collection_type == COLLECTION_TYPE_ADDRESSBOOK:
+                        if not parent.isAddressBookCollection() or not parent.index().resourceExists(name):
+                            responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+                            continue
                     
                     # Check privileges on parent - must have at least DAV:read
                     try:
@@ -245,9 +342,14 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
     
                     parent = (yield self.locateParent(request, resource_uri))
     
-                    if not parent.isPseudoCalendarCollection() or not parent.index().resourceExists(name):
-                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
-                        continue
+                    if collection_type == COLLECTION_TYPE_CALENDAR:
+                        if not parent.isPseudoCalendarCollection() or not parent.index().resourceExists(name):
+                            responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+                            continue
+                    elif collection_type == COLLECTION_TYPE_ADDRESSBOOK:
+                        if not parent.isAddressBookCollection() or not parent.index().resourceExists(name):
+                            responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+                            continue
                     child = self
             
                     # Do some optimisation of access control calculation by determining any inherited ACLs outside of
@@ -264,6 +366,6 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multig
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                     continue
         
-                yield report_common.responseForHref(request, responses, href, child, None, None, propertiesForResource, propertyreq, isowner=isowner)
+                yield report_common.responseForHref(request, responses, href, child, propertiesForResource, propertyreq, isowner=isowner)
 
     returnValue(MultiStatusResponse(responses))

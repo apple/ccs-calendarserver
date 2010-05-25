@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ See draft spec:
 """
 
 from twext.web2.dav import davxml
+from twistedcaldav.vcard import Component
 
 ##
 # CardDAV objects
@@ -120,7 +121,7 @@ class AddressBookQuery (CardDAVElement):
     def __init__(self, *children, **attributes):
         super(AddressBookQuery, self).__init__(*children, **attributes)
 
-        query = None
+        props = None
         filter = None
         limit = None
 
@@ -132,9 +133,9 @@ class AddressBookQuery (CardDAVElement):
                 (davxml.dav_namespace, "propname"),
                 (davxml.dav_namespace, "prop"    ),
             ):
-                if query is not None:
+                if props is not None:
                     raise ValueError("Only one of CardDAV:allprop, CardDAV:propname, CardDAV:prop allowed")
-                query = child
+                props = child
 
             elif qname == (carddav_namespace, "filter"):
                 filter = child
@@ -150,7 +151,7 @@ class AddressBookQuery (CardDAVElement):
             if filter is None:
                 raise ValueError("CARDDAV:filter required")
 
-        self.query  = query
+        self.props  = props
         self.filter = filter
         self.limit = limit
 
@@ -273,14 +274,11 @@ class AddressData (CardDAVElement):
         """
         Returns an address component derived from this element.
         """
-        for data in self.children:
-            if not isinstance(data, davxml.PCDATAElement):
-                return None
-            else:
-                # We guaranteed in __init__() that there is only one child...
-                break
-
-        return None
+        data = self.addressData()
+        if data:
+            return Component.fromString(data)
+        else:
+            return None
 
     def addressData(self):
         """

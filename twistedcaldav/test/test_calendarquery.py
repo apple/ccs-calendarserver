@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@ import twistedcaldav.test.util
 from twistedcaldav import caldavxml
 from twistedcaldav import ical
 from twistedcaldav.index import db_basename
-from twistedcaldav.query import queryfilter
+from twistedcaldav.query import calendarqueryfilter
+from twistedcaldav.config import config
 
 class CalendarQuery (twistedcaldav.test.util.TestCase):
     """
@@ -117,7 +118,7 @@ class CalendarQuery (twistedcaldav.test.util.TestCase):
                             cal = property.calendar()
                             instances = cal.expandTimeRanges(query_timerange.end)
                             vevents = [x for x in cal.subcomponents() if x.name() == "VEVENT"]
-                            if not queryfilter.TimeRange(query_timerange).matchinstance(vevents[0], instances):
+                            if not calendarqueryfilter.TimeRange(query_timerange).matchinstance(vevents[0], instances):
                                 self.fail("REPORT property %r returned calendar %s outside of request time range %r"
                                           % (property, property.calendar, query_timerange))
 
@@ -183,12 +184,60 @@ class CalendarQuery (twistedcaldav.test.util.TestCase):
 
         return self.simple_event_query("/calendar_query_events/", None, uids)
 
-    def simple_event_query(self, cal_uri, event_filter, uids):
-        query = caldavxml.CalendarQuery(
-            davxml.PropertyContainer(
-                davxml.GETETag(),
+    def test_calendar_query_limited_with_data(self):
+        """
+        All events.
+        (CalDAV-access-09, section 7.6.8)
+        """
+        
+        oldValue = config.MaxQueryWithDataResults
+        config.MaxQueryWithDataResults = 1
+        def _restoreValueOK(f):
+            config.MaxQueryWithDataResults = oldValue
+            self.fail("REPORT must fail with 403")
+
+        def _restoreValueError(f):
+            config.MaxQueryWithDataResults = oldValue
+            return None
+
+        uids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.holidays_dir)) if r[1] == ".ics"]
+
+        d = self.simple_event_query("/calendar_query_events/", None, uids)
+        d.addCallbacks(_restoreValueOK, _restoreValueError)
+        return d
+
+    def test_calendar_query_limited_without_data(self):
+        """
+        All events.
+        (CalDAV-access-09, section 7.6.8)
+        """
+        
+        oldValue = config.MaxQueryWithDataResults
+        config.MaxQueryWithDataResults = 1
+        def _restoreValueOK(f):
+            config.MaxQueryWithDataResults = oldValue
+            return None
+
+        def _restoreValueError(f):
+            config.MaxQueryWithDataResults = oldValue
+            self.fail("REPORT must not fail with 403")
+
+        uids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.holidays_dir)) if r[1] == ".ics"]
+
+        d = self.simple_event_query("/calendar_query_events/", None, uids, withData=False)
+        d.addCallbacks(_restoreValueOK, _restoreValueError)
+        return d
+
+    def simple_event_query(self, cal_uri, event_filter, uids, withData=True):
+        props = (
+            davxml.GETETag(),
+        )
+        if withData:
+            props += (
                 caldavxml.CalendarData(),
-            ),
+            )
+        query = caldavxml.CalendarQuery(
+            davxml.PropertyContainer(*props),
             caldavxml.Filter(
                 caldavxml.ComponentFilter(
                     caldavxml.ComponentFilter(

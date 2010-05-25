@@ -20,16 +20,12 @@ from twisted.internet.task import deferLater
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.ical import Component
-from twistedcaldav.index import Index, default_future_expansion_duration,\
-    maximum_future_expansion_duration, IndexedSearchException,\
-    AbstractCalendarIndex, icalfbtype_to_indexfbtype
+from twistedcaldav.index import Index
 from twistedcaldav.index import ReservationError, MemcachedUIDReserver
 from twistedcaldav.instance import InvalidOverriddenInstanceError
-from twistedcaldav.query import queryfilter
+from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
 import twistedcaldav.test.util
-from vobject.icalendar import utc
-import sqlite3
 
 import datetime
 import os
@@ -429,7 +425,7 @@ END:VCALENDAR
                       name="VCALENDAR",
                    )
               )
-            filter = queryfilter.Filter(filter)
+            filter = calendarqueryfilter.Filter(filter)
 
             resources = self.db.indexedSearch(filter, fbtype=True)
             index_results = set()
@@ -828,7 +824,7 @@ END:VCALENDAR
                       name="VCALENDAR",
                    )
               )
-            filter = queryfilter.Filter(filter)
+            filter = calendarqueryfilter.Filter(filter)
 
             for useruid, instances in peruserinstances:
                 resources = self.db.indexedSearch(filter, useruid=useruid, fbtype=True)

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 ##
 
 from twistedcaldav import caldavxml
-from twistedcaldav.query import queryfilter
+from twistedcaldav.query import calendarqueryfilter
 import datetime
 import twistedcaldav.test.util
 
@@ -32,7 +32,7 @@ class Tests(twistedcaldav.test.util.TestCase):
                 **{"name":"VCALENDAR"}
             )
         )
-        filter = queryfilter.Filter(filter)
+        filter = calendarqueryfilter.Filter(filter)
     
         # A complete implementation of current DST rules for major US time zones.
         
