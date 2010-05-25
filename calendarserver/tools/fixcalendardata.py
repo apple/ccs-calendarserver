@@ -25,7 +25,7 @@ import sys
 import time
 import xattr
 
-from twext.python.plistlib import readPlist
+from plistlib import readPlist
 
 PLIST_FILE = "/etc/caldavd/caldavd.plist"
 SCAN_FILE = "problems.txt"
@@ -150,8 +150,9 @@ def scanCalendar(basePath, calendarPath, scanFile, doFix):
         if testICSData_TZIDs(icsData):
             problems.append("tzids")
             fixTZIDs = True
-        if testICSData_MultipleVALARMS(icsData):
-            problems.append("multi-valarms")
+        valarms = testICSData_MultipleVALARMS(icsData)
+        if valarms != 0:
+            problems.append("multi-valarms-%d" % valarms)
             fixMultiVALARMs = True
         if problems:
             if doFix:
@@ -182,7 +183,31 @@ def testICSData_TZIDs(icsData):
 
 def testICSData_MultipleVALARMS(icsData):
     
-    return icsData.find("END:VALARM\r\nBEGIN:VALARM") != -1
+    if icsData.count("END:VALARM\r\nBEGIN:VALARM") > 0:
+        
+        # More detailed scan
+        lines = icsData.split("\r\n")
+        badcount = 0
+        inevent = False
+        for line in lines:
+            line = line.upper()
+            if line == "BEGIN:VEVENT":
+                duplicate_count = 0
+                alarm_ids = set()
+                inevent = True
+            elif line == "END:VEVENT":
+                if duplicate_count > badcount:
+                    badcount = duplicate_count
+                inevent = False
+            elif inevent and line.startswith("X-WR-ALARMUID"):
+                new_id = line
+                if new_id in alarm_ids:
+                    duplicate_count += 1
+                else:
+                    alarm_ids.add(new_id)
+        return badcount
+    else:
+        return 0
 
 def fixData(basePath, scanPath):
     
