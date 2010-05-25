@@ -2,6 +2,15 @@ Index: vobject/vcard.py
 ===================================================================
 --- vobject/vcard.py	(revision 218)
 +++ vobject/vcard.py	(working copy)
+@@ -196,7 +196,7 @@
+            can handle PHOTO if it's not wrapped, so don't wrap it."""
+         if wacky_apple_photo_serialize:
+             lineLength = REALLY_LARGE
+-        VCardTextBehavior.serialize(obj, buf, lineLength, validate)
++        return VCardTextBehavior.serialize(obj, buf, lineLength, validate)
+ 
+ registerBehavior(Photo)
+ 
 @@ -207,10 +207,10 @@
      else:
          return stringList
