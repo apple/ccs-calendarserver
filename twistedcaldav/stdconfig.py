@@ -863,13 +863,13 @@ def _updateNotifications(configDict):
             try:
                 password = getPasswordFromKeychain(service["JID"])
                 service["Password"] = password
-                log.info("XMPP password successfully retreived from keychain")
+                log.info("XMPP password retreived from keychain")
             except KeychainAccessError:
                 # The system doesn't support keychain
                 pass
             except KeychainPasswordNotFound:
                 # The password doesn't exist in the keychain.
-                log.error("XMPP password not found in keychain")
+                log.info("XMPP password not found in keychain")
 
             # Check for empty fields
             for key, value in service.iteritems():
