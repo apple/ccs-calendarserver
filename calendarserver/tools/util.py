@@ -33,7 +33,7 @@ from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
@@ -96,7 +96,11 @@ def getDirectory():
 
     # Load augment/proxy db classes now
     augmentClass = namedClass(config.AugmentService.type)
-    augment.AugmentService = augmentClass(**config.AugmentService.params)
+    try:
+        augment.AugmentService = augmentClass(**config.AugmentService.params)
+    except IOError, e:
+        # FIXME: Augments DB tries to write to disk, which seems annoying                                                                                                              
+        raise DirectoryError(e)
 
     proxydbClass = namedClass(config.ProxyDBService.type)
     calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
