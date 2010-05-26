@@ -873,7 +873,10 @@ def _updateNotifications(configDict):
 
             # Check for empty fields
             for key, value in service.iteritems():
-                if not value and key not in ("AllowedJIDs", "HeartbeatMinutes", "Password"):
+                if not value and key not in (
+                    "AllowedJIDs", "HeartbeatMinutes", "Password",
+                    "SubscriptionURL", "APSBundleID"
+                ):
                     raise ConfigurationError("Invalid %s for XMPPNotifierService: %r"
                                              % (key, value))
 
