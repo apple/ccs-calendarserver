@@ -120,6 +120,17 @@ class dateordatetime(object):
         dt1, dt2 = self._comparableDatetimes(other)
         return dt1 - dt2
 
+    def timetuple(self):
+        #
+        # This attribute is required in order to allow comparisions
+        # against dates and datetimes in Python 2.x.
+        #
+        # See:
+        #   http://bugs.python.org/issue8005#msg104333
+        #   http://docs.python.org/library/datetime.html#datetime.date.timetuple
+        #
+        return self.datetime().timetuple()
+
     def date(self):
         if self._isDatetime:
             return self._dateOrDatetime.date()
