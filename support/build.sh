@@ -471,7 +471,7 @@ dependencies () {
     "http://internap.dl.sourceforge.net/sourceforge/pyxml/${px}.tar.gz";
 
   local po="pyOpenSSL-0.10";
-  py_dependency -v 0.10 \
+  py_dependency -v 0.9 \
     "PyOpenSSL" "OpenSSL" "${po}" \
     "http://pypi.python.org/packages/source/p/pyOpenSSL/${po}.tar.gz";
 
