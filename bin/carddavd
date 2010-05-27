@@ -21,6 +21,7 @@
 #PYTHONPATH
 
 daemonize="";
+errorlogenabled="";
 username="";
 groupname="";
 configfile="";
@@ -97,11 +98,12 @@ usage ()
     exit 64;
 }
 
-while getopts 'hXu:g:f:T:P:t:p:R:' option; do
+while getopts 'hXLu:g:f:T:P:t:p:R:' option; do
     case "${option}" in
         '?') usage; ;;
         'h') usage -; exit 0; ;;
         'X') daemonize="-n"; ;;
+        'L') errorlogenabled="-o ErrorLogEnabled=False"; ;;
         'f') configfile="-f ${OPTARG}"; ;;
         'T') twistdpath="${OPTARG}"; ;;
         'u') username="-u ${OPTARG}"; ;;
@@ -119,6 +121,5 @@ if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
 export PYTHONPATH
 
-echo exec "${python}" "${twistdpath}" "${twistd_reactor}" ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${profile} "${child_reactor}";
 
-exec "${python}" "${twistdpath}" ${twistd_reactor} ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${profile} ${child_reactor};
+exec "${python}" "${twistdpath}" ${twistd_reactor} ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${errorlogenabled} ${profile} ${child_reactor};
