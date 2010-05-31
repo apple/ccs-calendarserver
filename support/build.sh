@@ -395,6 +395,23 @@ py_dependency () {
   fi;
 }
 
+jmake () {
+  case "$(uname -s)" in
+    Darwin|Linux)
+      ncpu="$(getconf _NPROCESSORS_ONLN)";
+      ;;
+    FreeBSD)
+      ncpu="$(sysctl hw.ncpu)";
+      ncpu="${cpu##hw.ncpu: }";
+      ;;
+  esac;
+
+  if [ -n "${ncpu:-}" ] && [[ "${ncpu}" =~ ^[0-9]+$ ]]; then
+    make -j "${ncpu}" "$@";
+  else
+    make "$@";
+  fi;
+}
 
 # Declare a dependency on a C project built with autotools.
 c_dependency () {
@@ -413,8 +430,8 @@ c_dependency () {
     echo "Building ${name}...";
     cd "${srcdir}";
     ./configure --prefix="${srcdir}/_root" "$@";
-    make;
-    make install;
+    jmake;
+    jmake install;
   fi;
 
   export              PATH="${PATH}:${srcdir}/_root/bin";
