@@ -807,7 +807,8 @@ class ImplicitScheduler(object):
             else:
                 log.debug("Implicit - attendee '%s' is removing UID without server scheduling: '%s'" % (self.attendee, self.uid))
                 # Nothing else to do
-        
+            returnValue(None)
+
         else:
             # Make sure ORGANIZER is not changed
             if self.resource.exists():
@@ -823,6 +824,11 @@ class ImplicitScheduler(object):
             # Get the ORGANIZER's current copy of the calendar object
             yield self.getOrganizersCopy()
             if self.organizer_calendar:
+
+                # If Organizer copy exists we cannot allow SCHEDULE-AGENT=CLIENT or NONE
+                if not doScheduling:
+                    log.error("Attendee '%s' is not allowed to change SCHEDULE-AGENT on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
 
                 # Determine whether the current change is allowed
                 changeAllowed, doITipReply, changedRids, newCalendar = self.isAttendeeChangeInsignificant()
@@ -844,14 +850,27 @@ class ImplicitScheduler(object):
                 log.debug("Attendee '%s' is allowed to update UID: '%s' with local organizer '%s'" % (self.attendee, self.uid, self.organizer))
 
             elif isinstance(self.organizerAddress, LocalCalendarUser):
-                # Check to see whether all instances are CANCELLED
-                if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
-                    log.debug("Attendee '%s' is creating CANCELLED event for missing UID: '%s' - removing entire event" % (self.attendee, self.uid,))
-                    self.return_status = ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT
-                    returnValue(None)
+                # If Organizer copy does not exists we cannot allow SCHEDULE-AGENT=SERVER
+                if doScheduling:
+                    # Check to see whether all instances are CANCELLED
+                    if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
+                        log.debug("Attendee '%s' is creating CANCELLED event for missing UID: '%s' - removing entire event" % (self.attendee, self.uid,))
+                        self.return_status = ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT
+                        returnValue(None)
+                    else:
+                        # Check to see whether existing event is SCHEDULE-AGENT=CLIENT/NONE
+                        if self.oldcalendar:
+                            oldScheduling = self.oldcalendar.getOrganizerScheduleAgent()
+                            if not oldScheduling:
+                                log.error("Attendee '%s' is not allowed to set SCHEDULE-AGENT=SERVER on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
+                                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+
+                        log.debug("Attendee '%s' is not allowed to update UID: '%s' - missing organizer copy - removing entire event" % (self.attendee, self.uid,))
+                        self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT
+                        returnValue(None)
                 else:
-                    log.debug("Attendee '%s' is not allowed to update UID: '%s' - missing organizer copy - removing entire event" % (self.attendee, self.uid,))
-                    self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT
+                    log.debug("Implicit - attendee '%s' is modifying UID without server scheduling: '%s'" % (self.attendee, self.uid))
+                    # Nothing else to do
                     returnValue(None)
 
             elif isinstance(self.organizerAddress, InvalidCalendarUser):
@@ -889,10 +908,7 @@ class ImplicitScheduler(object):
         if config.Scheduling.iMIP.Enabled and self.organizerAddress.cuaddr.startswith("mailto:"):
             return True
 
-        if local_organizer and not is_server:
-            log.error("Attendee '%s' is not allowed to change SCHEDULE-AGENT on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
-        elif not local_organizer and is_server:
+        if not local_organizer and is_server:
             # Coerce ORGANIZER to SCHEDULE-AGENT=NONE
             log.debug("Attendee '%s' is not allowed to use SCHEDULE-AGENT=SERVER on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
             self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-AGENT", "NONE", "ORGANIZER", None)
