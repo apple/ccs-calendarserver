@@ -111,7 +111,7 @@ class OpenDirectoryService(CachingDirectoryService):
         """
         Look up (and cache) the set of guids that are members of the
         restrictToGroup.  If restrictToGroup is not set, return None to
-        indicate there are no group restricions.
+        indicate there are no group restrictions.
         """
         if self.restrictEnabledRecords:
             if time.time() - self.restrictedTimestamp > self.cacheTimeout:
