@@ -24,6 +24,8 @@ __all__ = [
 ]
 
 import sys
+import time
+from uuid import UUID
 
 import opendirectory
 import dsattributes
@@ -55,6 +57,11 @@ class OpenDirectoryService(CachingDirectoryService):
         """
         @param params: a dictionary containing the following keys:
             node: an OpenDirectory node name to bind to.
+            restrictEnabledRecords: C{True} if a group in the
+              directory is to be used to determine which calendar
+              users are enabled.
+            restrictToGroup: C{str} guid or name of group used to
+              restrict enabled users.
             cacheTimeout: C{int} number of minutes before cache is invalidated.
         @param dosetup: if C{True} then the directory records are initialized,
                         if C{False} they are not.
@@ -63,17 +70,15 @@ class OpenDirectoryService(CachingDirectoryService):
 
         defaults = {
             'node' : '/Search',
+            'restrictEnabledRecords' : False,
+            'restrictToGroup' : '',
             'cacheTimeout' : 30,
             'recordTypes' : (
                 self.recordType_users,
                 self.recordType_groups,
             ),
         }
-        ignored = (
-            'requireComputerRecord',
-            'restrictEnabledRecords',
-            'restrictToGroup'
-        )
+        ignored = ('requireComputerRecord',)
         params = self.getParams(params, defaults, ignored)
 
         self._recordTypes = params['recordTypes']
@@ -89,8 +94,62 @@ class OpenDirectoryService(CachingDirectoryService):
         self.realmName = params['node']
         self.directory = directory
         self.node = params['node']
+        self.restrictEnabledRecords = params['restrictEnabledRecords']
+        self.restrictToGroup = params['restrictToGroup']
+        try:
+            UUID(self.restrictToGroup)
+        except:
+            self.restrictToGUID = False
+        else:
+            self.restrictToGUID = True
+        self.restrictedTimestamp = 0
         self._records = {}
         self._delayedCalls = set()
+
+    @property
+    def restrictedGUIDs(self):
+        """
+        Look up (and cache) the set of guids that are members of the
+        restrictToGroup.  If restrictToGroup is not set, return None to
+        indicate there are no group restricions.
+        """
+        if self.restrictEnabledRecords:
+            if time.time() - self.restrictedTimestamp > self.cacheTimeout:
+                attributeToMatch = dsattributes.kDS1AttrGeneratedUID if self.restrictToGUID else dsattributes.kDSNAttrRecordName
+                valueToMatch = self.restrictToGroup
+                self.log_debug("Doing restricted group membership check")
+                self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                    self.directory,
+                    attributeToMatch,
+                    valueToMatch,
+                    dsattributes.eDSExact,
+                    False,
+                    dsattributes.kDSStdRecordTypeGroups,
+                    [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
+                ))
+                results = opendirectory.queryRecordsWithAttribute_list(
+                    self.directory,
+                    attributeToMatch,
+                    valueToMatch,
+                    dsattributes.eDSExact,
+                    False,
+                    dsattributes.kDSStdRecordTypeGroups,
+                    [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
+                )
+
+                if len(results) == 1:
+                    members = results[0][1].get(dsattributes.kDSNAttrGroupMembers, [])
+                    nestedGroups = results[0][1].get(dsattributes.kDSNAttrNestedGroups, [])
+                else:
+                    members = []
+                    nestedGroups = []
+                self._cachedRestrictedGUIDs = set(self._expandGroupMembership(members, nestedGroups, returnGroups=True))
+                self.log_debug("Got %d restricted group members" % (len(self._cachedRestrictedGUIDs),))
+                self.restrictedTimestamp = time.time()
+            return self._cachedRestrictedGUIDs
+        else:
+            # No restrictions
+            return None
 
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
@@ -353,6 +412,13 @@ class OpenDirectoryService(CachingDirectoryService):
                         continue
 
                     recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
+
+                    # Skip if group restriction is in place and guid is not
+                    # a member
+                    if self.restrictedGUIDs is not None:
+                        if str(recordGUID) not in self.restrictedGUIDs:
+                            continue
+
                     recordType = value.get(dsattributes.kDSNAttrRecordType)
                     if isinstance(recordType, list):
                         recordType = recordType[0]
@@ -468,6 +534,7 @@ class OpenDirectoryService(CachingDirectoryService):
         )
         deferred.addCallback(collectResults)
         return deferred
+
 
 
     def queryDirectory(self, recordTypes, indexType, indexKey,
@@ -591,6 +658,17 @@ class OpenDirectoryService(CachingDirectoryService):
                                % (recordType, recordShortName, recordNodeName))
                 continue
 
+            # If restrictToGroup is in effect, all guids which are not a member
+            # of that group are disabled (overriding the augments db).
+            if (
+                self.restrictedGUIDs is not None and
+                config.Scheduling.iMIP.Username != recordShortName
+            ):
+                unrestricted = recordGUID in self.restrictedGUIDs
+            else:
+                unrestricted = True
+
+
             # Special case for groups, which have members.
             if recordType == self.recordType_groups:
                 memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
@@ -625,6 +703,12 @@ class OpenDirectoryService(CachingDirectoryService):
             # we know it is completing immediately.
             d = augment.AugmentService.getAugmentRecord(record.guid)
             d.addCallback(lambda x:record.addAugmentInformation(x))
+
+            if not unrestricted:
+                self.log_debug("%s is not enabled because it's not a member of group: %s" % (recordGUID, self.restrictToGroup))
+                record.enabled = False
+                record.enabledForCalendaring = False
+                record.enabledForAddressBooks = False
 
             if record.enabledForCalendaring:
                 enabledRecords.append(record)

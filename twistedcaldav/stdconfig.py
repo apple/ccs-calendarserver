@@ -48,6 +48,8 @@ DEFAULT_SERVICE_PARAMS = {
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
         "cacheTimeout": 30,
+        "restrictEnabledRecords": False,
+        "restrictToGroup": "",
         "recordTypes": ("users", "groups"),
     },
 }
