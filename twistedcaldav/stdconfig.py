@@ -420,6 +420,7 @@ DEFAULT_CONFIG = {
             "AllowGroupAsOrganizer"      : False, # Allow groups to be Organizers
             "AllowLocationAsOrganizer"   : False, # Allow locations to be Organizers
             "AllowResourceAsOrganizer"   : False, # Allow resources to be Organizers
+            "LimitFreeBusyAttendees"     : 30,    # Maximum number of attendees to request freebusy for
         }
     },
 

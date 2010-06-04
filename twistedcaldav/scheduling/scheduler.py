@@ -188,9 +188,12 @@ class Scheduler(object):
     def loadRecipientsFromCalendarData(self):
 
         # Get the ATTENDEEs
-        attendees = set()
+        attendees = list()
+        unique_set = set()
         for attendee, _ignore in self.calendar.getAttendeesByInstance():
-            attendees.add(attendee)
+            if attendee not in unique_set:
+                attendees.append(attendee)
+                unique_set.add(attendee)
         
         if not attendees:
             log.err("%s request must have at least one Recipient" % (self.method,))
@@ -391,8 +394,14 @@ class Scheduler(object):
         partitioned_recipients = []
         remote_recipients = []
         imip_recipients = []
-        for recipient in self.recipients:
+        for ctr, recipient in enumerate(self.recipients):
     
+            # Check for freebusy limit
+            if freebusy and ctr >= config.Scheduling.Options.LimitFreeBusyAttendees:
+                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-limit")))
+                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_USER_SUPPORT)
+                continue
+                
             if self.fakeTheResult:
                 responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.SUCCESS if freebusy else iTIPRequestStatus.MESSAGE_DELIVERED)
                 
@@ -411,7 +420,7 @@ class Scheduler(object):
             else:
                 err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-exists")))
                 responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.INVALID_CALENDAR_USER)
-            
+
         # Now process local recipients
         if caldav_recipients:
             yield self.generateLocalSchedulingResponses(caldav_recipients, responses, freebusy)
