@@ -706,7 +706,6 @@ class OpenDirectoryService(CachingDirectoryService):
 
             if not unrestricted:
                 self.log_debug("%s is not enabled because it's not a member of group: %s" % (recordGUID, self.restrictToGroup))
-                record.enabled = False
                 record.enabledForCalendaring = False
                 record.enabledForAddressBooks = False
 
