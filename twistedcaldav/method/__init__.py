@@ -22,6 +22,7 @@ bind methods to CalDAVFile.
 """
 
 __all__ = [
+    "acl",
     "copymove",
     "delete",
     "get",
