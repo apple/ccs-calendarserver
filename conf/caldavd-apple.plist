@@ -34,6 +34,12 @@
     <key>ServerHostName</key>
     <string></string> <!-- The hostname clients use when connecting -->
 
+    <key>EnableCalDAV</key>
+    <true/>
+
+    <key>EnableCardDAV</key>
+    <false/>
+
     <!-- HTTP port [0 = disable HTTP] -->
     <key>HTTPPort</key>
     <integer>8008</integer>
