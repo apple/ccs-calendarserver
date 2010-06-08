@@ -304,7 +304,9 @@ DEFAULT_CONFIG = {
     "ProcessType": "Combined",
     "MultiProcess": {
         "ProcessCount": 0,
-        "MinProcessCount": 4,
+        "MinProcessCount": 2,
+        "PerCPU": 1,
+        "PerGB": 2,
         "StaggeredStartup": {
             "Enabled": False,
             "Interval": 15,

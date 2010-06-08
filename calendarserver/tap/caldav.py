@@ -77,7 +77,6 @@ from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
-from twistedcaldav.util import getNCPU
 
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
@@ -93,7 +92,7 @@ from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.provision.root import RootResource
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
-from calendarserver.tap.util import getRootResource
+from calendarserver.tap.util import getRootResource, computeProcessCount
 
 log = Logger()
 
@@ -775,30 +774,16 @@ class CalDAVServiceMaker (LoggingMixIn):
             parentEnv["KRB5_KTNAME"] = os.environ["KRB5_KTNAME"]
 
         #
-        # Attempt to calculate the number of processes to use 1 per processor
+        # Calculate the number of processes to spawn
         #
         if config.MultiProcess.ProcessCount == 0:
-            try:
-                cpuCount = getNCPU()
-            except NotImplementedError, e:
-                self.log_error("Unable to detect number of CPUs: %s"
-                               % (str(e),))
-                cpuCount = 0
-            else:
-                if cpuCount < 1:
-                    self.log_error(
-                        "%d processors detected, which is hard to believe."
-                        % (cpuCount,)
-                    )
-
-            processCount = config.MultiProcess.MinProcessCount
-            if 2 * cpuCount > processCount:
-                processCount = 2 * cpuCount
-
-            self.log_info("%d processors found. Configuring %d processes."
-                          % (cpuCount, processCount))
-
+            processCount = computeProcessCount(
+                config.MultiProcess.MinProcessCount,
+                config.MultiProcess.PerCPU,
+                config.MultiProcess.PerGB,
+            )
             config.MultiProcess.ProcessCount = processCount
+            self.log_info("Configuring %d processes." % (processCount,))
 
 
         # Open the socket(s) to be inherited by the slaves

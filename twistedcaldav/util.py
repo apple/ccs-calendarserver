@@ -28,7 +28,7 @@ from twisted.python import failure
 from twext.python.log import LoggingMixIn
 
 ##
-# getNCPU
+# System Resources (Memory size and processor count)
 ##
 
 try:
@@ -42,6 +42,9 @@ if sys.platform == "darwin" and hasCtypes:
     libc = cdll.LoadLibrary(ctypes.util.find_library("libc"))
 
     def getNCPU():
+        """
+        Returns the number of processors detected
+        """
         ncpu = c_int(0)
         size = c_size_t(sizeof(ncpu))
 
@@ -58,11 +61,35 @@ if sys.platform == "darwin" and hasCtypes:
 
         return int(ncpu.value)
 
+    def getMemorySize():
+        """
+        Returns the physical amount of RAM installed, in bytes
+        """
+        memsize = c_uint64(0)
+        size = c_size_t(sizeof(memsize))
+
+        libc.sysctlbyname.argtypes = [
+            c_char_p, c_void_p, c_void_p, c_void_p, c_ulong
+        ]
+        libc.sysctlbyname(
+            "hw.memsize",
+            c_voidp(addressof(memsize)),
+            c_voidp(addressof(size)),
+            None,
+            0
+        )
+
+        return int(memsize.value)
+
+
 elif sys.platform == "linux2" and hasCtypes:
     libc = cdll.LoadLibrary(ctypes.util.find_library("libc"))
 
     def getNCPU():
         return libc.get_nprocs()
+
+    def getMemorySize():
+        return libc.getpagesize() * libc.get_phys_pages()
 
 else:
     def getNCPU():
@@ -72,6 +99,9 @@ else:
             msg = ""
 
         raise NotImplementedError("getNCPU not supported on %s%s" % (sys.platform, msg))
+
+    def getMemorySize():
+        raise NotImplementedError("getMemorySize not yet supported on %s" % (sys.platform))
 
 ##
 # Module management
