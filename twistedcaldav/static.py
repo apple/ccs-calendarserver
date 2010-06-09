@@ -1912,6 +1912,7 @@ setattr(DropBoxChildFile, "http_MKCOL", None)
 setattr(DropBoxChildFile, "http_MKCALENDAR", None)
 
 # FIXME: Little bit of a circular dependency here...
+twistedcaldav.method.acl.CalDAVFile      = CalDAVFile
 twistedcaldav.method.copymove.CalDAVFile = CalDAVFile
 twistedcaldav.method.delete.CalDAVFile   = CalDAVFile
 twistedcaldav.method.get.CalDAVFile      = CalDAVFile
