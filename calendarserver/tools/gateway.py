@@ -32,7 +32,7 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryError
 from twext.web2.dav import davxml
 
-from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications
+from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications, checkDirectory
 from calendarserver.tools.principals import (
     principalForPrincipalID, proxySubprincipal, addProxy, removeProxy,
     ProxyError, ProxyWarning, updateRecord
@@ -94,6 +94,15 @@ def main():
 
     try:
         loadConfig(configFileName)
+
+        # Create the DataRoot directory before shedding privileges
+        if config.DataRoot.startswith(config.ServerRoot + os.sep):
+            checkDirectory(
+                config.DataRoot,
+                "Data root",
+                access=os.W_OK,
+                create=(0750, config.UserName, config.GroupName),
+            )
 
         # Shed privileges
         if config.UserName and config.GroupName and os.getuid() == 0:

@@ -37,7 +37,7 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
 from twistedcaldav.directory import augment
 
-from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications, booleanArgument
+from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications, booleanArgument, checkDirectory
 
 __all__ = [
     "principalForPrincipalID", "proxySubprincipal", "addProxy", "removeProxy",
@@ -217,6 +217,7 @@ def main():
         # some logging activity at whatever log level the plist says
         clearLogLevels()
 
+
         config.DefaultLogLevel = "debug" if verbose else "error"
 
         #
@@ -225,6 +226,14 @@ def main():
         observer = StandardIOObserver()
         observer.start()
 
+        # Create the DataRoot directory before shedding privileges
+        if config.DataRoot.startswith(config.ServerRoot + os.sep):
+            checkDirectory(
+                config.DataRoot,
+                "Data root",
+                access=os.W_OK,
+                create=(0750, config.UserName, config.GroupName),
+            )
 
         # Shed privileges
         if config.UserName and config.GroupName and os.getuid() == 0:

@@ -93,6 +93,7 @@ from calendarserver.provision.root import RootResource
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
 from calendarserver.tap.util import getRootResource, computeProcessCount
+from calendarserver.tools.util import checkDirectory
 
 log = Logger()
 
@@ -249,6 +250,9 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         config.updateDefaults(self.overrides)
         
+    def checkDirectory(self, dirpath, description, access=None, create=None):
+        checkDirectory(dirpath, description, access=access, create=create)
+
     def checkConfiguration(self):
         uid, gid = None, None
 
@@ -335,51 +339,6 @@ class CalDAVOptions (Options, LoggingMixIn):
         if oldmask != config.umask:
             self.log_info("WARNING: changing umask from: 0%03o to 0%03o"
                           % (oldmask, config.umask))
-
-    def checkDirectory(self, dirpath, description, access=None, create=None):
-        if not os.path.exists(dirpath):
-            try:
-                mode, username, groupname = create
-            except TypeError:
-                raise ConfigurationError("%s does not exist: %s"
-                                         % (description, dirpath))
-            try:
-                os.mkdir(dirpath)
-            except (OSError, IOError), e:
-                self.log_error("Could not create %s: %s" % (dirpath, e))
-                raise ConfigurationError(
-                    "%s does not exist and cannot be created: %s"
-                    % (description, dirpath)
-                )
-
-            if username:
-                uid = getpwnam(username).pw_uid
-            else:
-                uid = -1
-
-            if groupname:
-                gid = getgrnam(groupname).gr_gid
-            else:
-                gid = -1
-
-            try:
-                os.chmod(dirpath, mode)
-                os.chown(dirpath, uid, gid)
-            except (OSError, IOError), e:
-                self.log_error("Unable to change mode/owner of %s: %s"
-                               % (dirpath, e))
-
-            self.log_info("Created directory: %s" % (dirpath,))
-
-        if not os.path.isdir(dirpath):
-            raise ConfigurationError("%s is not a directory: %s"
-                                     % (description, dirpath))
-
-        if access and not os.access(dirpath, access):
-            raise ConfigurationError(
-                "Insufficient permissions for server on %s directory: %s"
-                % (description, dirpath)
-            )
 
 
 

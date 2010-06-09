@@ -170,60 +170,22 @@ class AugmentXMLDB(AugmentDB):
     """
     XMLFile based augment database implementation.
     """
-    
+
     def __init__(self, xmlFiles, cacheTimeout=30):
-        
+
         self.xmlFiles = [fullServerPath(config.DataRoot, path) for path in xmlFiles]
         self.cacheTimeout = cacheTimeout * 60 # Value is mins we want secs
         self.lastCached = 0
         self.db = {}
-        
-        # Preflight existence of files
-        missing = list()
-        for xmlFile in self.xmlFiles:
-            if not os.path.exists(xmlFile):
-                missing.append(xmlFile)
-                
-        # For each missing one create an empty xml file
-        if missing:
-            # If all files are missing, then create one augment file that defaults
-            # to all records being enabled
-            doDefault = (len(missing) == len(self.xmlFiles))
-            for missedFile in missing:
-                
-                _ignore_etree, root = newElementTreeWithRoot(xmlaugmentsparser.ELEMENT_AUGMENTS)
-                if doDefault:
-                    record = addSubElement(root, xmlaugmentsparser.ELEMENT_RECORD)
-                    addSubElement(record, xmlaugmentsparser.ELEMENT_UID, "Default")
-                    addSubElement(record, xmlaugmentsparser.ELEMENT_ENABLE, "true")
-                    addSubElement(record, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true")
-                    addSubElement(record, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true")
-                    doDefault = False
-                writeXML(missedFile, root)
 
-                # Set permissions
-                uid = -1
-                if config.UserName:
-                    try:
-                        uid = pwd.getpwnam(config.UserName).pw_uid
-                    except KeyError:
-                        log.error("User not found: %s" % (config.UserName,))
-                gid = -1
-                if config.GroupName:
-                    try:
-                        gid = grp.getgrnam(config.GroupName).gr_gid
-                    except KeyError:
-                        log.error("Group not found: %s" % (config.GroupName,))
-                if uid != -1 and gid != -1:
-                    os.chown(missedFile, uid, gid)
-            
         try:
             self.db = self._parseXML()
         except RuntimeError:
             log.error("Failed to parse XML augments file - fatal error on startup")
             raise
-            
+
         self.lastCached = time.time()
+
 
     @inlineCallbacks
     def getAllUIDs(self):
@@ -284,9 +246,44 @@ class AugmentXMLDB(AugmentDB):
         return succeed(None)
 
     def _doAddToFile(self, xmlfile, records):
-    
+
+        if not os.path.exists(xmlfile):
+
+            # File doesn't yet exist.  Create it with items in self.db, and
+            # set file permissions.
+
+            _ignore_etree, augments_node = newElementTreeWithRoot(xmlaugmentsparser.ELEMENT_AUGMENTS)
+            for record in self.db.itervalues():
+                record_node = addSubElement(augments_node, xmlaugmentsparser.ELEMENT_RECORD)
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_UID, record.uid)
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_HOSTEDAT, record.hostedAt)
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true" if record.enabledForCalendaring else "false")
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true" if record.enabledForAddressBooks else "false")
+                addSubElement(record_node, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if record.autoSchedule else "false")
+
+
+            writeXML(xmlfile, augments_node)
+
+            # Set permissions
+            uid = -1
+            if config.UserName:
+                try:
+                    uid = pwd.getpwnam(config.UserName).pw_uid
+                except KeyError:
+                    log.error("User not found: %s" % (config.UserName,))
+            gid = -1
+            if config.GroupName:
+                try:
+                    gid = grp.getgrnam(config.GroupName).gr_gid
+                except KeyError:
+                    log.error("Group not found: %s" % (config.GroupName,))
+            if uid != -1 and gid != -1:
+                os.chown(xmlfile, uid, gid)
+
+
         _ignore_etree, augments_node = readXML(xmlfile)
-    
+
         # Create new record
         for record in records:
             record_node = addSubElement(augments_node, xmlaugmentsparser.ELEMENT_RECORD)
@@ -302,6 +299,9 @@ class AugmentXMLDB(AugmentDB):
         
     def _doModifyInFile(self, xmlfile, records):
     
+        if not os.path.exists(xmlfile):
+            return
+
         _ignore_etree, augments_node = readXML(xmlfile)
     
         # Map uid->record for fast lookup
@@ -393,15 +393,31 @@ class AugmentXMLDB(AugmentDB):
 
         self.removeAugmentRecords(self.db.keys())
         return succeed(None)
-        
+
     def _parseXML(self):
-        
+        """
+        Parse self.xmlFiles into AugmentRecords.
+
+        If none of the xmlFiles exist, create a default record.
+        """
+
         # Do each file
         results = {}
+
+        allMissing = True
         for xmlFile in self.xmlFiles:
-            
-            # Creating a parser does the parse
-            XMLAugmentsParser(xmlFile, results)
+            if os.path.exists(xmlFile):
+                # Creating a parser does the parse
+                XMLAugmentsParser(xmlFile, results)
+                allMissing = False
+
+        if allMissing:
+            results["Default"] = AugmentRecord(
+                "Default",
+                enabled=True,
+                enabledForCalendaring=True,
+                enabledForAddressBooks=True,
+            )
         
         return results
 

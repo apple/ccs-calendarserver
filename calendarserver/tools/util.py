@@ -22,11 +22,15 @@ __all__ = [
     "booleanArgument",
 ]
 
-import os
+import os, sys
 from time import sleep
 import socket
+from pwd import getpwnam
+from grp import getgrnam
 
 from twisted.python.reflect import namedClass
+from twext.python.log import Logger
+
 
 from calendarserver.provision.root import RootResource
 from twistedcaldav import memcachepool
@@ -38,6 +42,7 @@ from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
+log = Logger()
 
 def loadConfig(configFileName):
     if configFileName is None:
@@ -96,11 +101,7 @@ def getDirectory():
 
     # Load augment/proxy db classes now
     augmentClass = namedClass(config.AugmentService.type)
-    try:
-        augment.AugmentService = augmentClass(**config.AugmentService.params)
-    except IOError, e:
-        # FIXME: Augments DB tries to write to disk, which seems annoying                                                                                                              
-        raise DirectoryError(e)
+    augment.AugmentService = augmentClass(**config.AugmentService.params)
 
     proxydbClass = namedClass(config.ProxyDBService.type)
     calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
@@ -203,5 +204,50 @@ def setupNotifications(config):
         installNotificationClient(
             config.Notifications.InternalNotificationHost,
             config.Notifications.InternalNotificationPort,
+        )
+
+def checkDirectory(dirpath, description, access=None, create=None):
+    if not os.path.exists(dirpath):
+        try:
+            mode, username, groupname = create
+        except TypeError:
+            raise ConfigurationError("%s does not exist: %s"
+                                     % (description, dirpath))
+        try:
+            os.mkdir(dirpath)
+        except (OSError, IOError), e:
+            log.error("Could not create %s: %s" % (dirpath, e))
+            raise ConfigurationError(
+                "%s does not exist and cannot be created: %s"
+                % (description, dirpath)
+            )
+
+        if username:
+            uid = getpwnam(username).pw_uid
+        else:
+            uid = -1
+
+        if groupname:
+            gid = getgrnam(groupname).gr_gid
+        else:
+            gid = -1
+
+        try:
+            os.chmod(dirpath, mode)
+            os.chown(dirpath, uid, gid)
+        except (OSError, IOError), e:
+            log.error("Unable to change mode/owner of %s: %s"
+                           % (dirpath, e))
+
+        log.info("Created directory: %s" % (dirpath,))
+
+    if not os.path.isdir(dirpath):
+        raise ConfigurationError("%s is not a directory: %s"
+                                 % (description, dirpath))
+
+    if access and not os.access(dirpath, access):
+        raise ConfigurationError(
+            "Insufficient permissions for server on %s directory: %s"
+            % (description, dirpath)
         )
 
