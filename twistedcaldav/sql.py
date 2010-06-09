@@ -88,13 +88,20 @@ class AbstractSQLDatabase (object):
                     self._db_connection = sqlite.connect(db_filename, isolation_level=None)
                 else:
                     self._db_connection = sqlite.connect(db_filename)
+
             except DatabaseError:
                 raise DatabaseError("Unable to open database %s" % (self.dbpath,))
+
+            q = self._db_connection.cursor()
+
+            #
+            # Set Journal mode to PERSIST to avoid constant unlink calls
+            #
+            q.execute("PRAGMA journal_mode = PERSIST")
 
             #
             # Set up the schema
             #
-            q = self._db_connection.cursor()
             try:
                 # Create CALDAV table if needed
 
