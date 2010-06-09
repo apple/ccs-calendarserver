@@ -29,6 +29,7 @@ from twext.web2.dav.http import ErrorResponse
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
+from twext.web2.dav.element.extensions import SyncCollection
 from twext.web2.dav.util import joinURL, normalizeURL
 from twext.web2.http import HTTPError
 from twext.web2.http import Response
@@ -73,6 +74,9 @@ class CalendarSchedulingCollectionResource (CalDAVResource):
         result.append(davxml.Report(caldavxml.CalendarQuery(),))
         result.append(davxml.Report(caldavxml.CalendarMultiGet(),))
         # free-busy report not allowed
+        if config.EnableSyncReport:
+            # Only allowed on calendar/inbox/addressbook collections
+            result.append(davxml.Report(SyncCollection(),))
         return result
 
 class ScheduleInboxResource (CalendarSchedulingCollectionResource):
