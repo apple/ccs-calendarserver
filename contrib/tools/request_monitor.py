@@ -149,16 +149,20 @@ def parseLine(line):
 
 def usage():
     print "-h         print help and exit"
-    print "--lines N  specifies how many lines to tail from access.log"
+    print "--lines N  specifies how many lines to tail from access.log (default: 10000)"
+    print "--procs N  specifies how many python processes are expected in the log file (default: 80)"
 
 numLines = 10000
-options, args = getopt.getopt(sys.argv[1:], "h", ["lines=",])
+numProcs = 80
+options, args = getopt.getopt(sys.argv[1:], "h", ["lines=", "procs=",])
 for option, value in options:
     if option == "-h":
         usage()
         sys.exit(0)
     elif option == "--lines":
         numLines = int(value)
+    elif option == "--procs":
+        numProcs = int(value)
 
 
 while True:
@@ -303,7 +307,7 @@ while True:
             print
 
         print "Proc:   Peak outstanding:        Seconds of processing (number of requests):"
-        for l in xrange(8):
+        for l in xrange(numProcs/10 + 1):
             base = l * 10
             print "%2d-%2d: " % (base, base+9),
 
