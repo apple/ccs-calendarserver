@@ -42,16 +42,16 @@ def listenq():
             ssl = int(line.split("/")[0])
         elif line.find("8008") != -1:
             nonssl = int(line.split("/")[0])
-    return "%s+%s" % (ssl, nonssl)
+    return "%s+%s" % (ssl, nonssl), ssl, nonssl
 
 _listenQueueHistory = []
 
 def listenQueueHistory():
     global _listenQueueHistory
-    latest = listenq()
+    latest, ssl, nonssl = listenq()
     _listenQueueHistory.insert(0, latest)
     del _listenQueueHistory[12:]
-    return _listenQueueHistory
+    return _listenQueueHistory, ssl, nonssl
 
 
 _idleHistory = []
@@ -280,17 +280,18 @@ while True:
 
 
         if len(samples) < 3:
+            avgRequests = 0
             avg = ""
         else:
             samples = samples[1:-1]
             total = 0
             for sample in samples:
                 total += sample
-            avg = float(total) / len(samples)
-            avg = "%.1f average requests per second" % (avg,)
+            avgRequests = float(total) / len(samples)
+            avg = "%.1f average requests per second" % (avgRequests,)
 
         print "- " * 40
-        q = listenQueueHistory()
+        q, lqssl, lqnon = listenQueueHistory()
         print datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"), 
         print "Listenq (ssl+non):", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
         q = idleHistory()
@@ -299,7 +300,14 @@ while True:
         if avg:
             print avg, "|",
         print "%d requests between %s and %s" % (numLines, startTime.strftime("%H:%M:%S"), endTime.strftime("%H:%M:%S"))
-        print "Response time: average %.1f ms, max %.1f ms" % (totalRespTime / numRequests, maxRespTime)
+        
+        lqlatency = (lqssl / avgRequests, lqnon / avgRequests,) if avgRequests else (0.0, 0.0,)
+        print "Response time: average %.1f ms, max %.1f ms, listenq latency (ssl+non): %.1f s %.1f s" % (
+            totalRespTime / numRequests,
+            maxRespTime,
+            lqlatency[0],
+            lqlatency[1],
+        )
         print "<10ms: %d  >10ms: %d  >100ms: %d  >1s: %d  >10s: %d  >30s: %d  >60s: %d" % (under10ms, over10ms, over100ms, over1s, over10s, over30s, over60s)
         print
         if errorCount:
