@@ -1124,7 +1124,7 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
         if self.logData is not None:
             doneTime = time.time()
             self.logData.response.append("\r\n\r\n<<<< Response complete at: %.3f (elapsed: %.1f ms)\r\n" % (doneTime, 1000 * (doneTime - self.startTime),))
-            accounting.emitAccounting("HTTP", "", "".join(self.logData.request) + "".join(self.logData.response))
+            accounting.emitAccounting("HTTP", "", "".join(self.logData.request) + "".join(self.logData.response), self.command)
 
 HTTPChannel.chanRequestFactory = HTTPLoggingChannelRequest
 
