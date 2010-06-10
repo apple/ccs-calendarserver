@@ -71,6 +71,25 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         # of the EPERM failure.
         self.assertEquals(error.response.code, FORBIDDEN)
 
+    def _missingTest(self, method):
+        # Remove access to the directory containing the file so that getting
+        # extended attributes from it fails with EPERM.
+        self.resourcePath.parent().chmod(0)
+        # Make sure to restore access to it later so that it can be deleted
+        # after the test run is finished.
+        self.addCleanup(self.resourcePath.parent().chmod, 0700)
+
+        # Try to get a property from it - and fail.
+        document = self._makeValue()
+        error = self.assertRaises(
+            HTTPError,
+            getattr(self.propertyStore, method),
+            document.root_element.qname())
+
+        # Make sure that the status is FORBIDDEN, a roughly reasonable mapping
+        # of the EPERM failure.
+        self.assertEquals(error.response.code, FORBIDDEN)
+
 
     def test_getErrors(self):
         """
@@ -80,6 +99,24 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         """
         self._forbiddenTest('get')
 
+    def test_getMissing(self):
+        """
+        Test missing file.
+        """
+
+        resourcePath = FilePath(self.mktemp())
+        resource = DAVFile(resourcePath.path)
+        propertyStore = xattrPropertyStore(resource)
+
+        # Try to get a property from it - and fail.
+        document = self._makeValue()
+        error = self.assertRaises(
+            HTTPError,
+            propertyStore.get,
+            document.root_element.qname())
+
+        # Make sure that the status is NOT FOUND.
+        self.assertEquals(error.response.code, NOT_FOUND)
 
     def _makeValue(self, uid=None):
         """
@@ -274,6 +311,19 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         self._forbiddenTest('contains')
 
 
+    def test_containsMissing(self):
+        """
+        Test missing file.
+        """
+
+        resourcePath = FilePath(self.mktemp())
+        resource = DAVFile(resourcePath.path)
+        propertyStore = xattrPropertyStore(resource)
+
+        # Try to get a property from it - and fail.
+        document = self._makeValue()
+        self.assertFalse(propertyStore.contains(document.root_element.qname()))
+
     def test_list(self):
         """
         L{xattrPropertyStore.list} returns a C{list} of property names
@@ -308,6 +358,18 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         # Make sure that the status is FORBIDDEN, a roughly reasonable mapping
         # of the EPERM failure.
         self.assertEquals(error.response.code, FORBIDDEN)
+
+    def test_listMissing(self):
+        """
+        Test missing file.
+        """
+
+        resourcePath = FilePath(self.mktemp())
+        resource = DAVFile(resourcePath.path)
+        propertyStore = xattrPropertyStore(resource)
+
+        # Try to get a property from it - and fail.
+        self.assertEqual(propertyStore.list(), [])
 
     def test_get_uids(self):
         """

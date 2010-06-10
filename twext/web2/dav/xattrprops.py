@@ -34,6 +34,7 @@ change.
 __all__ = ["xattrPropertyStore"]
 
 import urllib
+import os
 import sys
 import zlib
 import errno
@@ -132,6 +133,7 @@ class xattrPropertyStore (object):
         @return: A L{WebDAVDocument} representing the value associated with the
             given property.
         """
+        
         try:
             data = self.attrs.get(self._encode(qname, uid))
         except KeyError:
@@ -139,7 +141,7 @@ class xattrPropertyStore (object):
                     responsecode.NOT_FOUND,
                     "No such property: {%s}%s" % qname))
         except IOError, e:
-            if e.errno in _ATTR_MISSING:
+            if e.errno in _ATTR_MISSING or e.errno == errno.ENOENT:
                 raise HTTPError(StatusResponse(
                         responsecode.NOT_FOUND,
                         "No such property: {%s}%s" % qname))
@@ -241,6 +243,7 @@ class xattrPropertyStore (object):
 
         @return: C{True} if the property exists, C{False} otherwise.
         """
+            
         key = self._encode(qname, uid)
         try:
             self.attrs.get(key)
@@ -267,10 +270,13 @@ class xattrPropertyStore (object):
         @return: A C{list} of property names as two-tuples of namespace URI and
             local name.
         """
+            
         prefix = self.deadPropertyXattrPrefix
         try:
             attrs = iter(self.attrs)
-        except IOError:
+        except IOError, e:
+            if e.errno == errno.ENOENT:
+                return []
             raise HTTPError(
                 StatusResponse(
                     statusForFailure(Failure()),
