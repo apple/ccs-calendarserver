@@ -100,6 +100,7 @@ class PurgeOldEventsTestCase(TestCase):
                                     "@contents" : None, # ignore contents
                                 },
                                 ".db.sqlite-journal": {
+                                    "@optional" : None, # not in old sqlite
                                     "@contents" : None, # ignore contents
                                 },
                                 "endless.ics": {
@@ -532,6 +533,7 @@ class DeprovisionTestCase(TestCase):
                                     "@contents" : None, # ignore contents
                                 },
                                 ".db.sqlite-journal": {
+                                    "@optional" : None, # not in old sqlite
                                     "@contents" : None, # ignore contents
                                 },
                                 "noninvite.ics": {
@@ -549,6 +551,7 @@ class DeprovisionTestCase(TestCase):
                                     "@contents" : None, # ignore contents
                                 },
                                 ".db.sqlite-journal": {
+                                    "@optional" : None, # not in old sqlite
                                     "@contents" : None, # ignore contents
                                 },
                                 "*.ics/UID:7ED97931-9A19-4596-9D4D-52B36D6AB803": {
@@ -568,6 +571,7 @@ class DeprovisionTestCase(TestCase):
                                     "@contents" : None, # ignore contents
                                 },
                                 ".db.sqlite-journal": {
+                                    "@optional" : None, # not in old sqlite
                                     "@contents" : None, # ignore contents
                                 },
                                 "organizer.ics": {
@@ -670,6 +674,7 @@ class DeprovisionTestCase(TestCase):
                                     "@contents" : None, # ignore contents
                                 },
                                 ".db.sqlite-journal": {
+                                    "@optional" : None, # not in old sqlite
                                     "@contents" : None, # ignore contents
                                 },
                                 "noninvite_past.ics": {
@@ -687,6 +692,7 @@ class DeprovisionTestCase(TestCase):
                                     "@contents" : None, # ignore contents
                                 },
                                 ".db.sqlite-journal": {
+                                    "@optional" : None, # not in old sqlite
                                     "@contents" : None, # ignore contents
                                 },
                                 "*.ics/UID:7ED97931-9A19-4596-9D4D-52B36D6AB803": {
@@ -711,6 +717,7 @@ class DeprovisionTestCase(TestCase):
                                     "@contents" : None, # ignore contents
                                 },
                                 ".db.sqlite-journal": {
+                                    "@optional" : None, # not in old sqlite
                                     "@contents" : None, # ignore contents
                                 },
                                 "organizer.ics": {
@@ -833,6 +840,7 @@ class DeprovisionTestCase(TestCase):
                                     "@contents" : None, # ignore contents
                                 },
                                 ".db.sqlite-journal": {
+                                    "@optional" : None, # not in old sqlite
                                     "@contents" : None, # ignore contents
                                 },
                                 "noninvite.ics": { # event in the past
@@ -871,6 +879,7 @@ class DeprovisionTestCase(TestCase):
                                     "@contents" : None, # ignore contents
                                 },
                                 ".db.sqlite-journal": {
+                                    "@optional" : None, # not in old sqlite
                                     "@contents" : None, # ignore contents
                                 },
                                 "*.ics/UID:7ED97931-9A19-4596-9D4D-52B36D6AB803": {
@@ -890,6 +899,7 @@ class DeprovisionTestCase(TestCase):
                                     "@contents" : None, # ignore contents
                                 },
                                 ".db.sqlite-journal": {
+                                    "@optional" : None, # not in old sqlite
                                     "@contents" : None, # ignore contents
                                 },
                                 "organizer.ics": {
