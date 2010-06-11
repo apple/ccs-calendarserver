@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.web2.dav.test.test_delete -*-
 ##
-# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,51 +19,54 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-#
-# DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
 """
 WebDAV DELETE method
 """
 
-__all__ = ["http_DELETE"]
+__all__ = ["deleteResource"]
 
 from twisted.internet.defer import waitForDeferred, deferredGenerator
 
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError
-from twext.web2.dav import davxml
-from twext.web2.dav.method.delete_common import deleteResource
-from twext.web2.dav.util import parentForURL
+from twext.web2.dav.fileop import delete
 
 log = Logger()
 
 
-def http_DELETE(self, request):
+def deleteResource(request, resource, resource_uri, depth="0"):
     """
-    Respond to a DELETE request. (RFC 2518, section 8.6)
+    Handle a resource delete with proper quota etc updates
     """
-    if not self.fp.exists():
-        log.err("File not found: %s" % (self.fp.path,))
+    if not resource.fp.exists():
+        log.err("File not found: %s" % (resource.fp.path,))
         raise HTTPError(responsecode.NOT_FOUND)
 
-    depth = request.headers.getHeader("depth", "infinity")
+    # Do quota checks before we start deleting things
+    myquota = waitForDeferred(resource.quota(request))
+    yield myquota
+    myquota = myquota.getResult()
+    if myquota is not None:
+        old_size = waitForDeferred(resource.quotaSize(request))
+        yield old_size
+        old_size = old_size.getResult()
+    else:
+        old_size = 0
 
-    #
-    # Check authentication and access controls
-    #
-    parent = waitForDeferred(request.locateResource(parentForURL(request.uri)))
-    yield parent
-    parent = parent.getResult()
-
-    x = waitForDeferred(parent.authorize(request, (davxml.Unbind(),)))
+    # Do delete
+    x = waitForDeferred(delete(resource_uri, resource.fp, depth))
     yield x
-    x.getResult()
+    result = x.getResult()
 
-    x = waitForDeferred(deleteResource(request, self, request.uri, depth))
-    yield x
-    yield x.getResult()
+    # Adjust quota
+    if myquota is not None:
+        d = waitForDeferred(resource.quotaSizeAdjust(request, -old_size))
+        yield d
+        d.getResult()
+    
+    yield result
 
-http_DELETE = deferredGenerator(http_DELETE)
+deleteResource = deferredGenerator(deleteResource)

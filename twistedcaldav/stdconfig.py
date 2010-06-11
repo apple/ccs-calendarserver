@@ -338,7 +338,6 @@ DEFAULT_CONFIG = {
 
         "Calendars" : {
             "Enabled"         : True,  # Calendar on/off switch
-            "AllowScheduling" : False, # Scheduling in shared calendars
         },
         "AddressBooks" : {
             "Enabled"         : True,  # Address Books on/off switch
