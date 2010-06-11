@@ -124,6 +124,11 @@ class PerUserDataFilter(CalendarFilter):
 
         # Make sure input is valid
         icalnew = self.validCalendar(icalnew)
+        
+        # There cannot be any X-CALENDARSERVER-PERUSER components in the new data
+        for component in tuple(icalnew.subcomponents()):
+            if component.name() == PerUserDataFilter.PERUSER_COMPONENT:
+                raise ValueError("Cannot merge calendar data with X-CALENDARSERVER-PERUSER components in it")
 
         # First split the new data into common and per-user pieces
         self._splitPerUserData(icalnew)

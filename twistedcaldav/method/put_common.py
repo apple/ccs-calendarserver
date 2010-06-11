@@ -806,7 +806,12 @@ class StoreCalendarObjectResource(object):
             # and we should not change it. This is not ideal as we may duplicate it unnecessarily
             # but we currently have no api to let the caller tell us whether it cares about the
             # whether the calendar data is changed or not.
-            self.calendar = PerUserDataFilter(accessUID).merge(self.calendar.duplicate(), oldCal)
+            try:
+                self.calendar = PerUserDataFilter(accessUID).merge(self.calendar.duplicate(), oldCal)
+            except ValueError:
+                msg = "Invalid per-user data merge"
+                log.err(msg)
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
             self.calendardata = None
             
     @inlineCallbacks

@@ -976,6 +976,35 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
 
+    def test_prevent_injection(self):
+        
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        
+        for item in (data, Component.fromString(data),):
+            filter = PerUserDataFilter("user01")
+            self.assertRaises(ValueError, filter.merge, item, None)
+        for item in (data, Component.fromString(data),):
+            filter = PerUserDataFilter("")
+            self.assertRaises(ValueError, filter.merge, item, None)
+
 class PerUserDataMergeTestNewRecurring (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
