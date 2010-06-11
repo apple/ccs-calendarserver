@@ -708,20 +708,6 @@ class MailHandler(LoggingMixIn):
             self.log_error("Mail gateway couldn't parse To: address (%s) in message %s" % (msg['To'], msg['Message-ID']))
             return
 
-        for part in msg.walk():
-            if part.get_content_type() == "text/calendar":
-                calBody = part.get_payload(decode=True)
-                break
-        else:
-            # No icalendar attachment
-            self.log_error("Mail gateway didn't find an icalendar attachment in message %s" % (msg['Message-ID'],))
-            return
-
-        self.log_debug(calBody)
-        calendar = ical.Component.fromString(calBody)
-        event = calendar.mainComponent()
-
-        # process mail messages from POP or IMAP, inject to calendar server
         result = self.db.lookupByToken(token)
         if result is None:
             # This isn't a token we recognize
@@ -732,6 +718,54 @@ class MailHandler(LoggingMixIn):
         organizer = str(organizer)
         attendee = str(attendee)
         icaluid = str(icaluid)
+
+        for part in msg.walk():
+            if part.get_content_type() == "text/calendar":
+                calBody = part.get_payload(decode=True)
+                break
+        else:
+            # No icalendar attachment
+            self.log_error("Mail gateway didn't find an icalendar attachment in message %s" % (msg['Message-ID'],))
+
+            if not organizer.startswith("mailto:"):
+                self.log_error("Don't have an email address for the organizer; ignoring reply.")
+                return
+
+            # Forward this email to organizer
+            toAddr = organizer[7:]
+            fromAddr = attendee[7:]
+
+            settings = config.Scheduling["iMIP"]["Sending"]
+            if settings["UseSSL"]:
+                contextFactory = ssl.ClientContextFactory()
+            else:
+                contextFactory = None
+
+            deferred = defer.Deferred()
+            del msg["From"]
+            msg["From"] = fromAddr
+            del msg["Reply-To"]
+            msg["Reply-To"] = fromAddr
+            del msg["To"]
+            msg["To"] = toAddr
+            factory = ESMTPSenderFactory(
+                settings["Username"], settings["Password"],
+                fromAddr, toAddr, StringIO(str(msg)), deferred,
+                contextFactory=contextFactory,
+                requireAuthentication=False,
+                requireTransportSecurity=settings["UseSSL"],
+            )
+
+            reactor.connectTCP(settings["Server"], settings["Port"], factory)
+            return deferred
+
+
+        # Process the imip attachment; inject to calendar server
+
+        self.log_debug(calBody)
+        calendar = ical.Component.fromString(calBody)
+        event = calendar.mainComponent()
+
         calendar.removeAllButOneAttendee(attendee)
         organizerProperty = calendar.getOrganizerProperty()
         if organizerProperty is None:
