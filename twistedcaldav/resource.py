@@ -1110,6 +1110,34 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         """
         return None 
 
+    @inlineCallbacks
+    def quotaRootResource(self, request):
+        """
+        Return the quota root for this resource.
+        
+        @return: L{DAVResource} or C{None}
+        """
+
+        sharedParent = None
+        isvirt = (yield self.isVirtualShare(request))
+        if isvirt:
+            # A virtual share's quota root is the resource owner's root
+            sharedParent = (yield request.locateResource(parentForURL(self._share.hosturl)))
+        else:
+            parent = (yield self.locateParent(request, request.urlForResource(self)))
+            if isCalendarCollectionResource(parent) or isAddressBookCollectionResource(parent):
+                isvirt = (yield parent.isVirtualShare(request))
+                if isvirt:
+                    # A virtual share's quota root is the resource owner's root
+                    sharedParent = (yield request.locateResource(parentForURL(parent._share.hosturl)))
+
+        if sharedParent:
+            result = (yield sharedParent.quotaRootResource(request))
+        else:
+            result = (yield super(CalDAVResource, self).quotaRootResource(request))
+
+        returnValue(result)
+
 class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDAVResource):
     """
     CalDAV principal collection.

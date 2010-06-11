@@ -145,7 +145,7 @@ class DAVPropertyMixIn (MetaDataMixin):
            #(dav_namespace, "group"                     ), # RFC 3744, section 5.2
             (dav_namespace, "supported-privilege-set"   ), # RFC 3744, section 5.3
             (dav_namespace, "current-user-privilege-set"), # RFC 3744, section 5.4
-            (dav_namespace, "current-user-principal"    ), # draft-sanchez-webdav-current-principal
+            (dav_namespace, "current-user-principal"    ), # RFC 5397, Section 3
             (dav_namespace, "acl"                       ), # RFC 3744, section 5.5
             (dav_namespace, "acl-restrictions"          ), # RFC 3744, section 5.6
             (dav_namespace, "inherited-acl-set"         ), # RFC 3744, section 5.7
@@ -171,7 +171,7 @@ class DAVPropertyMixIn (MetaDataMixin):
 
         @return: a dict-like object from which one can read and to
             which one can write dead properties.  Keys are qname
-            tuples (ie. C{(namespace, name)}) as returned by
+            tuples (i.e. C{(namespace, name)}) as returned by
             L{davxml.WebDAVElement.qname()} and values are
             L{davxml.WebDAVElement} instances.
         """
@@ -220,7 +220,7 @@ class DAVPropertyMixIn (MetaDataMixin):
 
             if namespace == dav_namespace:
                 if name == "resourcetype":
-                    # Allow live property to be overriden by dead property
+                    # Allow live property to be overridden by dead property
                     if self.deadProperties().contains(qname):
                         return self.deadProperties().get(qname)
                     if self.isCollection():
@@ -1055,7 +1055,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             access control list for this resource.
         """
         #
-        # The default behaviour is no ACL; we should inherrit from the parent
+        # The default behaviour is no ACL; we should inherit from the parent
         # collection.
         #
         return davxml.ACL()
@@ -1274,7 +1274,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             for.  If C{None}, it is deduced from C{request} by calling
             L{currentPrincipal}.
         @param inherited_aces: a list of L{davxml.ACE}s corresponding
-            to the precomputed inheritable aces from the parent
+            to the pre-computed inheritable aces from the parent
             resource hierarchy.
         @return: a L{Deferred} that callbacks with C{None} or errbacks
             with an L{AccessDeniedError}
@@ -1533,8 +1533,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def principalsForAuthID(self, request, authid):
         """
-        Return authentication and authorization prinicipal identifiers
-        for the authentication identifer passed in. In this
+        Return authentication and authorization principal identifiers
+        for the authentication identifier passed in. In this
         implementation authn and authz principals are the same.
 
         @param request: the L{IRequest} for the request in progress.
@@ -1562,7 +1562,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     def findPrincipalForAuthID(self, authid):
         """
         Return authentication and authorization principal identifiers
-        for the authentication identifer passed in. In this
+        for the authentication identifier passed in. In this
         implementation authn and authz principals are the same.
 
         @param authid: a string containing the
@@ -1583,7 +1583,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         Determine the authorization principal for the given request
         and authentication principal.  This implementation simply uses
-        aht authentication principalk as the authoization principal.
+        that authentication principal as the authorization principal.
         
         @param request: the L{IRequest} for the request in progress.
         @param authid: a string containing the
@@ -1599,7 +1599,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         
     def samePrincipal(self, principal1, principal2):
         """
-        Check whether the two prinicpals are exactly the same in terms of
+        Check whether the two principals are exactly the same in terms of
         elements and data.
 
         @param principal1: a L{Principal} to test.
@@ -1965,7 +1965,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     queried for quota information. If not found, no quota exists for
     the resource.
     
-    To determine tha actual quota in use we will cache the used byte
+    To determine that actual quota in use we will cache the used byte
     count on the quota-root collection in another private property. It
     is the servers responsibility to keep that property up to date by
     adjusting it after every PUT, DELETE, COPY, MOVE, MKCOL,
@@ -1980,7 +1980,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         Get current available & used quota values for this resource's
         quota root collection.
 
-        @return: an L{Defered} with result C{tuple} containing two
+        @return: an L{Deferred} with result C{tuple} containing two
             C{int}'s the first is quota-available-bytes, the second is
             quota-used-bytes, or C{None} if quota is not defined on
             the resource.
@@ -1993,60 +1993,45 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         else:
             request.quota = {}
 
-        # Check this resource first
-        if self.isCollection():
-            qroot = self.quotaRoot(request)
-            if qroot is not None:
-                def gotUsage(used):
-                    available = qroot - used
-                    if available < 0:
-                        available = 0
-                    request.quota[self] = (available, used)
-                    return (available, used)
+        # Find the quota root for this resource and return its data
+        def gotQuotaRootResource(qroot_resource):
+            if qroot_resource:
+                qroot = qroot_resource.quotaRoot(request)
+                if qroot is not None:
+                    def gotUsage(used):
+                        available = qroot - used
+                        if available < 0:
+                            available = 0
+                        request.quota[self] = (available, used)
+                        return (available, used)
+    
+                    d = qroot_resource.currentQuotaUse(request)
+                    d.addCallback(gotUsage)
+                    return d
 
-                d = self.currentQuotaUse(request)
-                d.addCallback(gotUsage)
-                return d
-        
-        # Check the next parent
-        url = request.urlForResource(self)
-        if url != "/":
-            def gotQuota(quota):
-                request.quota[self] = quota
-                return quota
-
-            d = request.locateResource(parentForURL(url))
-            d.addCallback(lambda p: p.quota(request))
-            d.addCallback(gotQuota)
-            return d
-        else:
             request.quota[self] = None
+            return None
 
-        return succeed(request.quota[self])
+            
+        d = self.quotaRootResource(request)
+        d.addCallback(gotQuotaRootResource)
+        return d
     
     def hasQuota(self, request):
         """
-        Check whether this resource is undre quota control by checking
+        Check whether this resource is under quota control by checking
         each parent to see if it has a quota root.
         
         @return: C{True} if under quota control, C{False} if not.
         """
+
+        def gotQuotaRootResource(qroot_resource):
+            
+            return qroot_resource is not None
         
-        # Check this one first
-        if self.hasQuotaRoot(request):
-            return succeed(True)
-        
-        # Look at each parent
-        try:
-            url = request.urlForResource(self)
-            if url != "/":
-                d = request.locateResource(parentForURL(url))
-                d.addCallback(lambda p: p.hasQuota(request))
-                return d
-            else:
-                return succeed(False)
-        except NoURLForResourceError:
-            return succeed(False)
+        d = self.quotaRootResource(request)
+        d.addCallback(gotQuotaRootResource)
+        return d
 
     def hasQuotaRoot(self, request):
         """
@@ -2066,15 +2051,21 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             return None
     
     @inlineCallbacks
-    def quotaRootParent(self, request):
+    def quotaRootResource(self, request):
         """
-        Return the next quota root above this resource.
+        Return the quota root for this resource.
         
         @return: L{DAVResource} or C{None}
         """
 
+        if self.hasQuotaRoot(request):
+            returnValue(self)
+
         # Check the next parent
-        url = request.urlForResource(self)
+        try:
+            url = request.urlForResource(self)
+        except NoURLForResourceError:
+            returnValue(None)
         while (url != "/"):
             url = parentForURL(url)
             parent = (yield request.locateResource(url))
@@ -2082,11 +2073,11 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 returnValue(parent)
 
         returnValue(None)
-        
+
     def setQuotaRoot(self, request, maxsize):
         """
         @param maxsize: a C{int} containing the maximum allowed bytes
-            for the contents of this collection, or C{None} tp remove
+            for the contents of this collection, or C{None} to remove
             quota restriction.
         """
         assert self.isCollection(), "Only collections can have a quota root"
@@ -2111,7 +2102,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         unimplemented(self)
 
-    @inlineCallbacks
     def checkQuota(self, request, available):
         """
         Check to see whether all quota roots have sufficient available
@@ -2125,18 +2115,19 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             quota roots, C{False} otherwise.
         """
         
-        quotaroot = self
-        while(quotaroot is not None):
-            # Check quota on this root (if it has one)
-            quota = quotaroot.quotaRoot(request)
-            if quota is not None:
-                if available > quota[0]:
-                    returnValue(False)
+        def _defer(quotaroot):
+            if quotaroot:
+                # Check quota on this root (if it has one)
+                quota = quotaroot.quotaRoot(request)
+                if quota is not None:
+                    if available > quota[0]:
+                        return False
+    
+            return True
 
-            # Check the next parent with a quota root
-            quotaroot = (yield quotaroot.quotaRootParent(request))
-
-        returnValue(True)
+        d = self.quotaRootResource(request)
+        d.addCallback(_defer)
+        return d
 
     def quotaSizeAdjust(self, request, adjust):
         """
@@ -2148,19 +2139,15 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             adjust the cached total.
         """
         
-        # Check this resource first
-        if self.isCollection():
-            if self.hasQuotaRoot(request):
-                return self.updateQuotaUse(request, adjust)
         
-        # Check the next parent
-        url = request.urlForResource(self)
-        if url != "/":
-            d = request.locateResource(parentForURL(url))
-            d.addCallback(lambda p: p.quotaSizeAdjust(request, adjust))
-            return d
+        def _defer(quotaroot):
+            if quotaroot:
+                # Check quota on this root (if it has one)
+                return quotaroot.updateQuotaUse(request, adjust)
 
-        return succeed(None)
+        d = self.quotaRootResource(request)
+        d.addCallback(_defer)
+        return d
 
     def currentQuotaUse(self, request):
         """
