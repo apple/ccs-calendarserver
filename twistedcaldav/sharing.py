@@ -90,8 +90,8 @@ class SharedCollectionMixin(object):
         self.writeDeadProperty(rtype)
         
         # Remove all invitees
-        records = self.invitesDB().allRecords()
-        yield self.uninviteUserToShare([record.userid for record in records], None, request)
+        for record in self.invitesDB().allRecords():
+            yield self.uninviteRecordFromShare(record, request)
 
         # Remove invites database
         self.invitesDB().remove()
@@ -106,7 +106,7 @@ class SharedCollectionMixin(object):
         return succeed(True)
 
     @inlineCallbacks
-    def changeUserInviteState(self, request, inviteUID, userid, state, summary=None):
+    def changeUserInviteState(self, request, inviteUID, principalURL, state, summary=None):
         
         shared = (yield self.isShared(request))
         if not shared:
@@ -117,7 +117,7 @@ class SharedCollectionMixin(object):
             ))
             
         record = self.invitesDB().recordForInviteUID(inviteUID)
-        if record is None or record.userid != userid:
+        if record is None or record.principalURL != principalURL:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (customxml.calendarserver_namespace, "valid-request"),
@@ -364,14 +364,14 @@ class SharedCollectionMixin(object):
         # First try to resolve as a principal
         principal = self.principalForCalendarUserAddress(userid)
         if principal:
-            return principal.principalURL(), principal.displayName()
+            return userid, principal.principalURL(), principal.displayName()
         
         # TODO: we do not support external users right now so this is being hard-coded
         # off in spite of the config option.
         #elif config.Sharing.AllowExternalUsers:
-        #    return userid, cn
+        #    return userid, None, cn
         else:
-            return None, None
+            return None, None, None
 
     def validateInvites(self):
         """
@@ -390,19 +390,23 @@ class SharedCollectionMixin(object):
             @param ace: Must be one of customxml.ReadWriteAccess or customxml.ReadAccess
         """
         
-        # Check for valid userid first
-        userid, cn = self.validUserIDWithCommonNameForShare(userid, cn)
-        if userid is None:
-            return succeed(False)
-
         # TODO: Check if this collection is shared, and error out if it isn't
+        resultIsList = True
         if type(userid) is not list:
             userid = [userid]
+            resultIsList = False
         if type(cn) is not list:
             cn = [cn]
             
+        def _defer(resultset):
+            results = [result if success else False for success, result in resultset]
+            if resultIsList:
+                return results
+            else:
+                return results[0]
+
         dl = [self.inviteSingleUserToShare(user, cn, ace, summary, request) for user, cn in zip(userid, cn)]
-        return DeferredList(dl).addCallback(lambda _:True)
+        return DeferredList(dl).addCallback(_defer)
 
     def uninviteUserToShare(self, userid, ace, request):
         """ Send out in uninvite first, and then remove this user from the share list."""
@@ -418,29 +422,41 @@ class SharedCollectionMixin(object):
 
     def inviteUserUpdateToShare(self, userid, cn, aceOLD, aceNEW, summary, request):
 
-        # Check for valid userid first
-        userid, cn = self.validUserIDWithCommonNameForShare(userid, cn)
-        if userid is None:
-            return succeed(False)
-
+        resultIsList = True
         if type(userid) is not list:
             userid = [userid]
+            resultIsList = False
         if type(cn) is not list:
             cn = [cn]
+            
+        def _defer(resultset):
+            results = [result if success else False for success, result in resultset]
+            if resultIsList:
+                return results
+            else:
+                return results[0]
+
         dl = [self.inviteSingleUserUpdateToShare(user, cn, aceOLD, aceNEW, summary, request) for user, cn in zip(userid, cn)]
-        return DeferredList(dl).addCallback(lambda _:True)
+        return DeferredList(dl).addCallback(_defer)
 
     @inlineCallbacks
     def inviteSingleUserToShare(self, userid, cn, ace, summary, request):
         
+        # Validate userid and cn
+        userid, principalURL, cn = self.validUserIDWithCommonNameForShare(userid, cn)
+        
+        # We currently only handle local users
+        if principalURL is None:
+            returnValue(False)
+
         # Look for existing invite and update its fields or create new one
-        record = self.invitesDB().recordForUserID(userid)
+        record = self.invitesDB().recordForPrincipalURL(principalURL)
         if record:
             record.name = cn
             record.access = inviteAccessMapFromXML[type(ace)]
             record.summary = summary
         else:
-            record = Invite(str(uuid4()), userid, cn, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary)
+            record = Invite(str(uuid4()), userid, principalURL, cn, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary)
         
         # Send invite
         yield self.sendInvite(record, request)
@@ -450,15 +466,14 @@ class SharedCollectionMixin(object):
         
         returnValue(True)            
 
-    @inlineCallbacks
     def uninviteSingleUserFromShare(self, userid, aces, request):
         
-        newuserid = self.validUserIDForShare(userid)
-        if newuserid:
-            userid = newuserid
-
-        # Cancel invites
+        # Cancel invites - we'll just use whatever userid we are given
         record = self.invitesDB().recordForUserID(userid)
+        return self.uninviteRecordFromShare(record, request) if record else succeed(True)
+        
+    @inlineCallbacks
+    def uninviteRecordFromShare(self, record, request):
         
         # Remove any shared calendar or address book
         sharee = self.principalForCalendarUserAddress(record.userid)
@@ -478,7 +493,7 @@ class SharedCollectionMixin(object):
                 yield self.sendInvite(record, request)
     
         # Remove from database
-        self.invitesDB().removeRecordForUserID(userid)
+        self.invitesDB().removeRecordForUserID(record.userid)
         
         returnValue(True)            
 
@@ -745,9 +760,10 @@ inviteStatusMapFromXML = dict([(v,k) for k,v in inviteStatusMapToXML.iteritems()
 
 class Invite(object):
     
-    def __init__(self, inviteuid, userid, common_name, access, state, summary):
+    def __init__(self, inviteuid, userid, principalURL, common_name, access, state, summary):
         self.inviteuid = inviteuid
         self.userid = userid
+        self.principalURL = principalURL
         self.name = common_name
         self.access = access
         self.state = state
@@ -794,6 +810,11 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         row = self._db_execute("select * from INVITE where USERID = :1", userid)
         return self._makeRecord(row[0]) if row else None
     
+    def recordForPrincipalURL(self, principalURL):
+        
+        row = self._db_execute("select * from INVITE where PRINCIPALURL = :1", principalURL)
+        return self._makeRecord(row[0]) if row else None
+    
     def recordForInviteUID(self, inviteUID):
 
         row = self._db_execute("select * from INVITE where INVITEUID = :1", inviteUID)
@@ -801,14 +822,18 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
     
     def addOrUpdateRecord(self, record):
 
-        self._db_execute("""insert or replace into INVITE (INVITEUID, USERID, NAME, ACCESS, STATE, SUMMARY)
-            values (:1, :2, :3, :4, :5, :6)
-            """, record.inviteuid, record.userid, record.name, record.access, record.state, record.summary,
+        self._db_execute("""insert or replace into INVITE (INVITEUID, USERID, PRINCIPALURL, NAME, ACCESS, STATE, SUMMARY)
+            values (:1, :2, :3, :4, :5, :6, :7)
+            """, record.inviteuid, record.userid, record.principalURL, record.name, record.access, record.state, record.summary,
         )
     
     def removeRecordForUserID(self, userid):
 
         self._db_execute("delete from INVITE where USERID = :1", userid)
+    
+    def removeRecordForPrincipalURL(self, principalURL):
+
+        self._db_execute("delete from INVITE where PRINCIPALURL = :1", principalURL)
     
     def removeRecordForInviteUID(self, inviteUID):
 
@@ -840,6 +865,7 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         # INVITE table is the primary table
         #   INVITEUID: UID for this invite
         #   USERID: identifier of invitee
+        #   PRINCIPALURL: principal-URL of invitee
         #   NAME: common name of invitee
         #   ACCESS: Access mode for share
         #   STATE: Invite response status
@@ -850,6 +876,7 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
             create table INVITE (
                 INVITEUID      text unique,
                 USERID         text unique,
+                PRINCIPALURL   text unique,
                 NAME           text,
                 ACCESS         text,
                 STATE          text,
@@ -861,6 +888,11 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         q.execute(
             """
             create index USERID on INVITE (USERID)
+            """
+        )
+        q.execute(
+            """
+            create index PRINCIPALURL on INVITE (PRINCIPALURL)
             """
         )
         q.execute(
@@ -978,7 +1010,7 @@ class SharedHomeMixin(object):
     @inlineCallbacks
     def declineShare(self, request, hostUrl, inviteUID):
 
-        # Remove it if its in the DB
+        # Remove it if it is in the DB
         yield self.removeShareByUID(request, inviteUID)
 
         yield self._changeShare(request, "DECLINED", hostUrl, inviteUID)
