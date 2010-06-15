@@ -56,9 +56,10 @@ from twext.web2 import responsecode, http, http_headers
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
-from twext.web2.dav.fileop import mkcollection, rmdir, delete
+from twext.web2.dav.fileop import mkcollection, rmdir
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.idav import IDAVResource
+from twext.web2.dav.method import put_common, delete_common
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.dav.resource import davPrivilegeSet
@@ -1409,19 +1410,27 @@ class NotificationCollectionFile(ReadOnlyResourceMixIn, AutoProvisioningFileMixI
 
     def _writeNotification(self, request, uid, rname, xmltype, xmldata):
         
-        # TODO: use the generic StoreObject api so that quota, sync-token etc all get changed properly
         child = self.createSimilarFile(self.fp.child(rname).path)
-        child.fp.setContent(xmldata)
-        child.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset":"utf-8"}))))
-        child.writeDeadProperty(customxml.NotificationType(xmltype))
-        
-        return succeed(True)
+
+        def _defer(_):
+            child.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset":"utf-8"}))))
+            child.writeDeadProperty(customxml.NotificationType(xmltype))
+            return True
+
+        url = request.urlForResource(self)
+        url = joinURL(url, rname)
+        request._rememberResource(child, url)
+        d = put_common.storeResource(request, data=xmldata, destination=child, destination_uri=url)
+        d.addCallback(_defer)
+        return d
 
     def _deleteNotification(self, request, rname):
         
-        # TODO: use the generic DeleteResource api so that quota, sync-token etc all get changed properly
-        childfp = self.fp.child(rname)
-        return delete("", childfp)
+        child = self.createSimilarFile(self.fp.child(rname).path)
+        url = request.urlForResource(self)
+        url = joinURL(url, rname)
+        request._rememberResource(child, url)
+        return delete_common.deleteResource(request, child, url)
 
 class NotificationFile(NotificationResource, CalDAVFile):
 

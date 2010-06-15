@@ -70,11 +70,6 @@ class SharedCollectionMixin(object):
     def upgradeToShare(self, request):
         """ Upgrade this collection to a shared state """
         
-        # For calendars we only allow upgrades is shared-scheduling is on
-        if request.method not in ("MKCALENDAR", "MKCOL") and self.isCalendarCollection() and \
-            not config.Sharing.Calendars.AllowScheduling and len(self.listChildren()) != 0:
-            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Cannot upgrade to shared calendar"))
-
         # Change resourcetype
         rtype = (yield self.resourceType(request))
         rtype = davxml.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
@@ -614,8 +609,7 @@ class SharedCollectionMixin(object):
 
             def _autoShare(isShared, request):
                 if not isShared:
-                    if not self.isCalendarCollection() or config.Sharing.Calendars.AllowScheduling or len(self.listChildren()) == 0:
-                        return self.upgradeToShare(request)
+                    return self.upgradeToShare(request)
                 else:
                     return succeed(True)
                 raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Cannot upgrade to shared calendar"))

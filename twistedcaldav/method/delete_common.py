@@ -33,6 +33,7 @@ from twext.web2.dav.http import ErrorResponse
 
 from twistedcaldav.caldavxml import caldav_namespace, ScheduleTag
 from twistedcaldav.config import config
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method.report_common import applyToAddressBookCollections, applyToCalendarCollections
 from twistedcaldav.resource import isCalendarCollectionResource,\
@@ -147,6 +148,14 @@ class DeleteResource(object):
             scheduler = ImplicitScheduler()
             do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(self.request, delresource, calendar))
             if do_implicit_action:
+                # Cannot do implicit in sharee's shared calendar
+                isvirt = (yield parent.isVirtualShare(self.request))
+                if isvirt:
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (calendarserver_namespace, "sharee-privilege-needed",),
+                        description="Sharee's cannot schedule"
+                    ))
                 lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
 
         try:

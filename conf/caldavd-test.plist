@@ -686,8 +686,6 @@
       <dict>
     	<key>Enabled</key>
     	<true/>
-    	<key>AllowScheduling</key>
-    	<false/>
       </dict>
       <key>AddressBooks</key>
       <dict>

@@ -704,8 +704,6 @@
       <dict>
     	<key>Enabled</key>
     	<false/>
-    	<key>AllowScheduling</key>
-    	<false/>
       </dict>
       <key>AddressBooks</key>
       <dict>

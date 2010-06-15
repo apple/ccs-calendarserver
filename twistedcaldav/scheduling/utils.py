@@ -14,12 +14,12 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.method import report_common
 from twext.web2.dav.util import joinURL
 
 @inlineCallbacks
-def getCalendarObjectForPrincipals(request, principal, uid):
+def getCalendarObjectForPrincipals(request, principal, uid, allow_shared=False):
     """
     Get a copy of the event for a principal.
     """
@@ -40,8 +40,13 @@ def getCalendarObjectForPrincipals(request, principal, uid):
         request._rememberResource(calendar_home, calendar_home.url())
 
         # Run a UID query against the UID
-
+        @inlineCallbacks
         def queryCalendarCollection(collection, uri):
+            if not allow_shared:
+                isvirt = (yield collection.isVirtualShare(request))
+                if isvirt:
+                    returnValue(True)
+
             rname = collection.index().resourceNameForUID(uid)
             if rname:
                 resource = collection.getChild(rname)
@@ -51,9 +56,9 @@ def getCalendarObjectForPrincipals(request, principal, uid):
                 result["resource_name"] = rname
                 result["calendar_collection"] = collection
                 result["calendar_collection_uri"] = uri
-                return succeed(False)
+                returnValue(False)
             else:
-                return succeed(True)
+                returnValue(True)
         
         # NB We are by-passing privilege checking here. That should be OK as the data found is not
         # exposed to the user.

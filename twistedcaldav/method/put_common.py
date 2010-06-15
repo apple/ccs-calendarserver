@@ -780,6 +780,16 @@ class StoreCalendarObjectResource(object):
                 ))
             
             if do_implicit_action and self.allowImplicitSchedule:
+
+                # Cannot do implicit in sharee's shared calendar
+                isvirt = (yield self.destinationparent.isVirtualShare(self.request))
+                if isvirt:
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (calendarserver_namespace, "sharee-privilege-needed",),
+                        description="Sharee's cannot schedule"
+                    ))
+
                 new_calendar = (yield scheduler.doImplicitScheduling(self.schedule_tag_match))
                 if new_calendar:
                     if isinstance(new_calendar, int):
