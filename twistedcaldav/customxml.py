@@ -37,6 +37,7 @@ from vobject.icalendar import dateTimeToString
 import datetime
 
 calendarserver_namespace = "http://calendarserver.org/ns/"
+mobileme_namespace = "http://cal.me.com/_namespace/"
 
 calendarserver_proxy_compliance = (
     "calendar-proxy",
@@ -298,7 +299,7 @@ class PubSubTransportProperty (davxml.WebDAVTextElement):
     }
     allowed_children = {
         (calendarserver_namespace, "subscription-url") : (1, 1),
-        (calendarserver_namespace, "apsbundleid") : (1, 1),
+        (mobileme_namespace, "apsbundleid") : (1, 1),
         (calendarserver_namespace, "xmpp-server") : (1, 1),
         (calendarserver_namespace, "xmpp-uri") : (1, 1),
     }
@@ -311,7 +312,7 @@ class PubSubSubscriptionProperty (davxml.WebDAVTextElement):
     allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
 class PubSubAPSBundleIDProperty (davxml.WebDAVTextElement):
-    namespace = calendarserver_namespace
+    namespace = mobileme_namespace
     name = "apsbundleid"
     protected = True
     hidden = True
