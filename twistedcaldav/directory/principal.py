@@ -518,6 +518,7 @@ class DirectoryPrincipalResource (PermissionsMixIn, DAVPrincipalResource, DAVFil
             (calendarserver_namespace, "first-name"       ),
             (calendarserver_namespace, "last-name"        ),
             (calendarserver_namespace, "email-address-set"),
+            davxml.ResourceID.qname(),
         )
 
     def __init__(self, parent, record):
@@ -557,7 +558,9 @@ class DirectoryPrincipalResource (PermissionsMixIn, DAVPrincipalResource, DAVFil
 
         namespace, name = qname
 
-        if namespace == calendarserver_namespace:
+        if qname == davxml.ResourceID.qname():
+            returnValue(davxml.ResourceID(davxml.HRef.fromString("urn:uuid:%s" % (self.record.guid,))))
+        elif namespace == calendarserver_namespace:
             if name == "first-name":
                 firstName = self.record.firstName
                 if firstName:
