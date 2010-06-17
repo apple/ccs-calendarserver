@@ -24,13 +24,16 @@ if __name__ == "__main__":
     wd = os.path.dirname(__file__)
     document_root = "."
     user_max = 99
+    user_one = None
     calendars = ("calendar.10", "calendar.100", "calendar.1000",)
 
-    options, args = getopt.getopt(sys.argv[1:], "n:d:")
+    options, args = getopt.getopt(sys.argv[1:], "n:d:o:")
 
     for option, value in options:
         if option == "-n":
             user_max = int(value)
+        elif option == "-o":
+            user_one = int(value)
         elif option == "-d":
             document_root = os.path.abspath(value)
         else:
@@ -38,7 +41,7 @@ if __name__ == "__main__":
             raise ValueError
 
     
-    for ctr in xrange(1, user_max + 1): 
+    for ctr in (xrange(user_one, user_one + 1) if user_one else xrange(1, user_max + 1)): 
         path = os.path.join(document_root, "calendars/__uids__/us/er/user%02d" % (ctr,))
     
         try: os.makedirs(path)

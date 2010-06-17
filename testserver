@@ -63,10 +63,10 @@ fi;
 
 export PYTHONPATH=$("${wd}/run" -p);
 
-if [ ! -e "${documentroot}/calendars/__uids__/user01" ]; then
-  curl "http://localhost:8008/calendars/__uids__/user01/";
+if [ ! -e "${documentroot}/calendars/__uids__/user09" ]; then
+  curl "http://localhost:8008/calendars/__uids__/user09/";
 fi;
 
-python twistedcaldav/test/data/makelargecalendars.py -n 1 -d "${documentroot}";
+python twistedcaldav/test/data/makelargecalendars.py -o 9 -d "${documentroot}";
 
 cd "${cdt}" && python testcaldav.py -s "${serverinfo}" "$@";
