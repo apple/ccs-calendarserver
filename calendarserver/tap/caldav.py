@@ -1354,6 +1354,7 @@ def getSSLPassphrase(*ignored):
             log.error("Could not get passphrase for %s: %s"
                       % (config.SSLPrivateKey, error))
         else:
+            log.info("Obtained passphrase for %s" % (config.SSLPrivateKey))
             return output.strip()
 
     if (
