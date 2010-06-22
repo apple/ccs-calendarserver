@@ -945,24 +945,29 @@ def _updatePartitions(configDict):
         partitions.clear()
 
 def _updateCompliance(configDict):
-    if configDict.Scheduling.CalDAV.OldDraftCompatibility:
-        compliance = caldavxml.caldav_full_compliance
-    else:
-        compliance = caldavxml.caldav_implicit_compliance
 
-    if configDict.EnableProxyPrincipals:
-        compliance += customxml.calendarserver_proxy_compliance
-    if configDict.EnablePrivateEvents:
-        compliance += customxml.calendarserver_private_events_compliance
-    if configDict.Scheduling.CalDAV.EnablePrivateComments:
-        compliance += customxml.calendarserver_private_comments_compliance
+
+    if configDict.EnableCalDAV:
+        if configDict.Scheduling.CalDAV.OldDraftCompatibility:
+            compliance = caldavxml.caldav_full_compliance
+        else:
+            compliance = caldavxml.caldav_implicit_compliance
+        if configDict.EnableProxyPrincipals:
+            compliance += customxml.calendarserver_proxy_compliance
+        if configDict.EnablePrivateEvents:
+            compliance += customxml.calendarserver_private_events_compliance
+        if configDict.Scheduling.CalDAV.EnablePrivateComments:
+            compliance += customxml.calendarserver_private_comments_compliance
+        if config.Sharing.Enabled:
+            compliance += customxml.calendarserver_sharing_compliance
+    else:
+        compliance = ()
+
     if configDict.EnableCardDAV:
         compliance += carddavxml.carddav_compliance
 
+    # Principal property search is always enabled
     compliance += customxml.calendarserver_principal_property_search_compliance
-
-    if config.Sharing.Enabled:
-        compliance += customxml.calendarserver_sharing_compliance
 
     configDict.CalDAVComplianceClasses = compliance
 
