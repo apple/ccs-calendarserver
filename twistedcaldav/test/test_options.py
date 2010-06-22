@@ -137,7 +137,7 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             dav = response.headers.getHeader("dav")
             if not dav: self.fail("no DAV header: %s" % (response.headers,))
             self.assertIn("1", dav, "no DAV level 1 header")
-            self.assertNotIn("addressbook", dav, "DAV calendar-access header")
+            self.assertNotIn("addressbook", dav, "DAV addressbook header")
 
         config.EnableCardDAV = False
         request = SimpleRequest(self.site, "OPTIONS", "/")
