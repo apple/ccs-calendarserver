@@ -546,7 +546,7 @@
           <true/>
           <key>userNode</key>
      	  <!-- Search for user records in this directory service node -->
-          <string>/Search</string>
+          <string>/Search/Contacts</string>
       	  <!-- query in directory service local node -->
           <key>queryDSLocal</key>
           <false/>

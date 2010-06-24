@@ -98,7 +98,7 @@ directoryAddressBookBackingServiceDefaultParams = {
         "queryPeopleRecords": True,
         "peopleNode": "/Search/Contacts",
         "queryUserRecords": True,
-        "userNode": "/Search",
+        "userNode": "/Search/Contacts",
         "maxDSQueryRecords":150,
         "queryDSLocal": False,
         "ignoreSystemRecords": True,
