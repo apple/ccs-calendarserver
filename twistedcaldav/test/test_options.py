@@ -121,6 +121,10 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             if not dav: self.fail("no DAV header: %s" % (response.headers,))
             self.assertIn("1", dav, "no DAV level 1 header")
             self.assertNotIn("calendar-access", dav, "DAV calendar-access header")
+        oldEnableCalDAV = config.EnableCalDAV
+        def _finally():
+            config.EnableCalDAV = oldEnableCalDAV
+        self.addCleanup(_finally)
 
         config.EnableCalDAV = False
         request = SimpleRequest(self.site, "OPTIONS", "/")
@@ -138,6 +142,11 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             if not dav: self.fail("no DAV header: %s" % (response.headers,))
             self.assertIn("1", dav, "no DAV level 1 header")
             self.assertNotIn("addressbook", dav, "DAV addressbook header")
+
+        oldEnableCardDAV = config.EnableCardDAV
+        def _finally():
+            config.EnableCardDAV = oldEnableCardDAV
+        self.addCleanup(_finally)
 
         config.EnableCardDAV = False
         request = SimpleRequest(self.site, "OPTIONS", "/")
