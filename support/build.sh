@@ -158,6 +158,16 @@ apply_patches () {
 www_get () {
   if ! "${do_get}"; then return 0; fi;
 
+  local md5="";
+
+  OPTIND=1;
+  while getopts "m:" option; do
+    case "${option}" in
+      'm') md5="${OPTARG}"; ;;
+    esac;
+  done;
+  shift $((${OPTIND} - 1));
+
   local name="$1"; shift;
   local path="$1"; shift;
   local  url="$1"; shift;
@@ -185,6 +195,15 @@ www_get () {
       if [ ! -f "${cache_file}" ]; then
 	echo "Downloading ${name}...";
 	curl -L "${url}" -o "${cache_file}";
+      fi;
+
+      if [ -n "${md5}" ]; then
+	echo "Checking MD5 sum for ${name}...";
+	local sum="$(md5 "${cache_file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
+	if [ "${md5}" != "${sum}" ]; then
+	  echo "ERROR: MD5 sum for cache file ${cache_file} ${sum} != ${md5}. Corrupt file?";
+	  exit 1;
+	fi;
       fi;
 
       echo "Unpacking ${name} from cache...";
@@ -334,9 +353,10 @@ py_dependency () {
   local revision="0";     # Revision (if svn)
   local get_type="www";   # Protocol to use
   local  version="";      # Minimum version required
+  local   f_hash="";      # Checksum
 
   OPTIND=1;
-  while getopts "ofier:v:" option; do
+  while getopts "ofier:v:m:" option; do
     case "${option}" in
       'o') optional="true"; ;;
       'f') override="true"; ;;
@@ -344,6 +364,7 @@ py_dependency () {
       'e') skip_egg="true"; ;;
       'r') get_type="svn"; revision="${OPTARG}"; ;;
       'v')  version="-v ${OPTARG}"; ;;
+      'm')   f_hash="-m ${OPTARG}"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -360,7 +381,7 @@ py_dependency () {
     echo "";
   fi;
   if "${override}" || ! py_have_module ${version} "${module}"; then
-    "${get_type}_get" "${name}" "${srcdir}" "${get_uri}" "${revision}"
+    "${get_type}_get" ${f_hash} "${name}" "${srcdir}" "${get_uri}" "${revision}"
     if "${inplace}"; then
       if "${do_setup}" && "${override}" && ! "${skip_egg}"; then
         echo;
@@ -514,9 +535,9 @@ dependencies () {
       "http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz";
   fi;
 
-  py_dependency -v 4.0 \
+  py_dependency -v 4.0 -m 1aca50e59ff4cc56abe9452a9a49c5ff -o \
     "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
-    "ftp://ftp.pygresql.org/pub/distrib/PyGreSQL.tgz";
+    "http://pypi.python.org/packages/source/P/PyGreSQL/PyGreSQL-4.0.tar.gz";
 
   py_dependency -v 10 -r 28657 \
     "Twisted" "twisted" "Twisted" \
