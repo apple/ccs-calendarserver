@@ -320,10 +320,10 @@ else:
                     if caseless:
                         fieldValue = fieldValue.lower()
                         value = value.lower()
-                    if matchType == "starts-with":
+                    if matchType == dsattributes.eDSStartsWith:
                         if fieldValue.startswith(value):
                             return True
-                    elif matchType == "contains":
+                    elif matchType == dsattributes.eDSContains:
                         try:
                             fieldValue.index(value)
                             return True
