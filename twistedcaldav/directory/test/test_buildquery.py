@@ -31,10 +31,8 @@ class BuildQueryTests(TestCase):
                 OpenDirectoryService._ODFields
             ),
             {
-                (
-                    ('dsAttrTypeStandard:FirstName', 'morgen', True, 'starts-with'),
-                    ('dsAttrTypeStandard:LastName', 'sagen', True, 'starts-with')
-                ): ['dsRecTypeStandard:Users']
+                ('dsAttrTypeStandard:FirstName', 'morgen', True, 'starts-with') : [dsattributes.kDSStdRecordTypeUsers],
+                ('dsAttrTypeStandard:LastName', 'sagen', True, 'starts-with') : [dsattributes.kDSStdRecordTypeUsers],
             }
         )
         self.assertEquals(
@@ -49,10 +47,8 @@ class BuildQueryTests(TestCase):
                 OpenDirectoryService._ODFields
             ),
             {
-                (
-                    ('dsAttrTypeStandard:FirstName', 'morgen', True, 'starts-with'),
-                    ('dsAttrTypeStandard:EMailAddress', 'morgen', True, 'contains'),
-                ): ['dsRecTypeStandard:Users'],
+                ('dsAttrTypeStandard:FirstName', 'morgen', True, 'starts-with') : [dsattributes.kDSStdRecordTypeUsers],
+                ('dsAttrTypeStandard:EMailAddress', 'morgen', True, 'contains') : [dsattributes.kDSStdRecordTypeUsers],
             }
         )
         self.assertEquals(
@@ -69,10 +65,8 @@ class BuildQueryTests(TestCase):
                 OpenDirectoryService._ODFields
             ),
             {
-                (
-                    ('dsAttrTypeStandard:RealName', 'morgen', True, 'starts-with'),
-                    ('dsAttrTypeStandard:EMailAddress', 'morgen', True, 'contains'),
-                ): ['dsRecTypeStandard:Groups'],
+                ('dsAttrTypeStandard:RealName', 'morgen', True, 'starts-with') : [dsattributes.kDSStdRecordTypeGroups],
+                ('dsAttrTypeStandard:EMailAddress', 'morgen', True, 'contains') : [dsattributes.kDSStdRecordTypeGroups],
             }
         )
         self.assertEquals(
@@ -90,15 +84,22 @@ class BuildQueryTests(TestCase):
                 OpenDirectoryService._ODFields
             ),
             {
+                ('dsAttrTypeStandard:RealName', 'morgen', True, 'starts-with') : [dsattributes.kDSStdRecordTypeUsers, dsattributes.kDSStdRecordTypeGroups],
+                ('dsAttrTypeStandard:EMailAddress', 'morgen', True, 'contains') : [dsattributes.kDSStdRecordTypeUsers, dsattributes.kDSStdRecordTypeGroups],
+                ('dsAttrTypeStandard:FirstName', 'morgen', True, 'starts-with') : [dsattributes.kDSStdRecordTypeUsers],
+                ('dsAttrTypeStandard:LastName', 'morgen', True, 'starts-with') : [dsattributes.kDSStdRecordTypeUsers],
+            }
+        )
+        self.assertEquals(
+            buildQueries(
+                [
+                    dsattributes.kDSStdRecordTypeGroups,
+                ],
                 (
-                    ('dsAttrTypeStandard:RealName', 'morgen', True, 'starts-with'),
-                    ('dsAttrTypeStandard:EMailAddress', 'morgen', True, 'contains')
-                ): ['dsRecTypeStandard:Groups'],
-                (
-                    ('dsAttrTypeStandard:FirstName', 'morgen', True, 'starts-with'),
-                    ('dsAttrTypeStandard:LastName', 'morgen', True, 'starts-with'),
-                    ('dsAttrTypeStandard:RealName', 'morgen', True, 'starts-with'),
-                    ('dsAttrTypeStandard:EMailAddress', 'morgen', True, 'contains')
-                ): ['dsRecTypeStandard:Users']
+                    ("firstName", "morgen", True, "starts-with"),
+                ),
+                OpenDirectoryService._ODFields
+            ),
+            {
             }
         )

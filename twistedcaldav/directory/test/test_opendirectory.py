@@ -243,35 +243,110 @@ else:
         @inlineCallbacks
         def test_recordsMatchingFields(self):
 
-            def lookupMethod(obj, compound, casei, recordType, attributes, count=0):
-                if dsattributes.kDSStdRecordTypeUsers in recordType:
-                    return [
-                        ('morgen',
-                        {
-                            'dsAttrTypeStandard:RecordType': 'dsRecTypeStandard:Users',
-                            'dsAttrTypeStandard:AppleMetaNodeLocation': '/LDAPv3/127.0.0.1',
-                            'dsAttrTypeStandard:RecordName': ['morgen', 'Morgen Sagen'],
-                            'dsAttrTypeStandard:FirstName': 'Morgen',
-                            'dsAttrTypeStandard:GeneratedUID': '83479230-821E-11DE-B6B0-DBB02C6D659D',
-                            'dsAttrTypeStandard:LastName': 'Sagen',
-                            'dsAttrTypeStandard:EMailAddress': 'morgen@example.com',
-                            'dsAttrTypeStandard:RealName': 'Morgen Sagen'
-                        }),
-                        ('morehouse',
-                        {
-                            'dsAttrTypeStandard:RecordType': 'dsRecTypeStandard:Users',
-                            'dsAttrTypeStandard:AppleMetaNodeLocation': '/LDAPv3/127.0.0.1',
-                            'dsAttrTypeStandard:RecordName': ['morehouse', 'Joe Morehouse'],
-                            'dsAttrTypeStandard:FirstName': 'Joe',
-                            'dsAttrTypeStandard:GeneratedUID': '98342930-90DC-11DE-A842-A29601FB13E8',
-                            'dsAttrTypeStandard:LastName': 'Morehouse',
-                            'dsAttrTypeStandard:EMailAddress': 'morehouse@example.com',
-                            'dsAttrTypeStandard:RealName': 'Joe Morehouse'
-                        }),
-                    ]
-                else:
-                    return []
 
+            def lookupMethod(obj, attribute, value, matchType, caseless,
+                recordTypes, attributes):
+
+                data = {
+                    dsattributes.kDSStdRecordTypeUsers : (
+                        {
+                            dsattributes.kDS1AttrDistinguishedName : "Morgen Sagen",
+                            dsattributes.kDSNAttrRecordName : "morgen",
+                            dsattributes.kDS1AttrFirstName : "Morgen",
+                            dsattributes.kDS1AttrLastName : "Sagen",
+                            dsattributes.kDSNAttrEMailAddress : "morgen@example.com",
+                            dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
+                            dsattributes.kDS1AttrGeneratedUID : "83479230-821E-11DE-B6B0-DBB02C6D659D",
+                            dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                        },
+                        {
+                            dsattributes.kDS1AttrDistinguishedName : "Morgan Sagan",
+                            dsattributes.kDSNAttrRecordName : "morgan",
+                            dsattributes.kDS1AttrFirstName : "Morgan",
+                            dsattributes.kDS1AttrLastName : "Sagan",
+                            dsattributes.kDSNAttrEMailAddress : "morgan@example.com",
+                            dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
+                            dsattributes.kDS1AttrGeneratedUID : "93479230-821E-11DE-B6B0-DBB02C6D659D",
+                            dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                        },
+                        {
+                            dsattributes.kDS1AttrDistinguishedName : "Shari Sagen",
+                            dsattributes.kDSNAttrRecordName : "shari",
+                            dsattributes.kDS1AttrFirstName : "Shari",
+                            dsattributes.kDS1AttrLastName : "Sagen",
+                            dsattributes.kDSNAttrEMailAddress : "shari@example.com",
+                            dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
+                            dsattributes.kDS1AttrGeneratedUID : "A3479230-821E-11DE-B6B0-DBB02C6D659D",
+                            dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                        },
+                        {
+                            dsattributes.kDS1AttrDistinguishedName : "Local Morgen",
+                            dsattributes.kDSNAttrRecordName : "localmorgen",
+                            dsattributes.kDS1AttrFirstName : "Local",
+                            dsattributes.kDS1AttrLastName : "Morgen",
+                            dsattributes.kDSNAttrEMailAddress : "localmorgen@example.com",
+                            dsattributes.kDSNAttrMetaNodeLocation : "/Local/Default",
+                            dsattributes.kDS1AttrGeneratedUID : "B3479230-821E-11DE-B6B0-DBB02C6D659D",
+                            dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                        },
+                    ),
+                    dsattributes.kDSStdRecordTypeGroups : (
+                        {
+                            dsattributes.kDS1AttrDistinguishedName : "Test Group",
+                            dsattributes.kDSNAttrRecordName : "testgroup",
+                            dsattributes.kDS1AttrFirstName : None,
+                            dsattributes.kDS1AttrLastName : None,
+                            dsattributes.kDSNAttrEMailAddress : None,
+                            dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
+                            dsattributes.kDS1AttrGeneratedUID : "C3479230-821E-11DE-B6B0-DBB02C6D659D",
+                            dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeGroups,
+                        },
+                        {
+                            dsattributes.kDS1AttrDistinguishedName : "Morgen's Group",
+                            dsattributes.kDSNAttrRecordName : "morgensgroup",
+                            dsattributes.kDS1AttrFirstName : None,
+                            dsattributes.kDS1AttrLastName : None,
+                            dsattributes.kDSNAttrEMailAddress : None,
+                            dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
+                            dsattributes.kDS1AttrGeneratedUID : "D3479230-821E-11DE-B6B0-DBB02C6D659D",
+                            dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeGroups,
+                        },
+                    ),
+                }
+
+                def attributeMatches(fieldValue, value, caseless, matchType):
+                    if fieldValue is None:
+                        return False
+                    if caseless:
+                        fieldValue = fieldValue.lower()
+                        value = value.lower()
+                    if matchType == "starts-with":
+                        if fieldValue.startswith(value):
+                            return True
+                    elif matchType == "contains":
+                        try:
+                            fieldValue.index(value)
+                            return True
+                        except ValueError:
+                            pass
+                    else: # exact
+                        if fieldValue == value:
+                            return True
+                    return False
+
+                results = []
+                for recordType in recordTypes:
+                    for row in data[recordType]:
+                        if attributeMatches(row[attribute], value, caseless,
+                            matchType):
+                            results.append((row[dsattributes.kDSNAttrRecordName], row))
+
+                return results
+
+
+            #
+            # OR
+            #
             fields = [
                 ('fullName', 'mor', True, u'starts-with'),
                 ('emailAddresses', 'mor', True, u'starts-with'),
@@ -279,12 +354,71 @@ else:
                 ('lastName', 'mor', True, u'starts-with')
             ]
 
+            # any record type
             results = (yield self.service().recordsMatchingFields(fields,
                 lookupMethod=lookupMethod))
             results = list(results)
-            self.assertEquals(len(results), 2)
+            self.assertEquals(len(results), 4)
             for record in results:
                 self.assertTrue(isinstance(record, OpenDirectoryRecord))
+
+            # just users
+            results = (yield self.service().recordsMatchingFields(fields,
+                recordType="users",
+                lookupMethod=lookupMethod))
+            results = list(results)
+            self.assertEquals(len(results), 3)
+
+            # just groups
+            results = (yield self.service().recordsMatchingFields(fields,
+                recordType="groups",
+                lookupMethod=lookupMethod))
+            results = list(results)
+            self.assertEquals(len(results), 1)
+
+
+            #
+            # AND
+            #
+            fields = [
+                ('firstName', 'morgen', True, u'equals'),
+                ('lastName', 'age', True, u'contains')
+            ]
+            results = (yield self.service().recordsMatchingFields(fields,
+                operand="and", lookupMethod=lookupMethod))
+            results = list(results)
+            self.assertEquals(len(results), 1)
+
+            #
+            # case sensitivity
+            #
+            fields = [
+                ('firstName', 'morgen', False, u'equals'),
+            ]
+            results = (yield self.service().recordsMatchingFields(fields,
+                lookupMethod=lookupMethod))
+            results = list(results)
+            self.assertEquals(len(results), 0)
+
+            fields = [
+                ('firstName', 'morgen', True, u'equals'),
+            ]
+            results = (yield self.service().recordsMatchingFields(fields,
+                lookupMethod=lookupMethod))
+            results = list(results)
+            self.assertEquals(len(results), 1)
+
+            #
+            # no matches
+            #
+            fields = [
+                ('firstName', 'xyzzy', True, u'starts-with'),
+                ('lastName', 'plugh', True, u'contains')
+            ]
+            results = (yield self.service().recordsMatchingFields(fields,
+                operand="and", lookupMethod=lookupMethod))
+            results = list(results)
+            self.assertEquals(len(results), 0)
 
 
     class OpenDirectorySubset (OpenDirectory):

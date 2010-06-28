@@ -392,7 +392,7 @@ class OpenDirectoryService(CachingDirectoryService):
             return ()
 
     def recordsMatchingFields(self, fields, operand="or", recordType=None,
-        lookupMethod=opendirectory.queryRecordsWithAttributes_list):
+        lookupMethod=opendirectory.queryRecordsWithAttribute_list):
 
         # Note that OD applies case-sensitivity globally across the entire
         # query, not per expression, so the current code uses whatever is
@@ -407,9 +407,6 @@ class OpenDirectoryService(CachingDirectoryService):
                         dsattributes.kDSNAttrMetaNodeLocation)
                     recordShortNames = self._uniqueTupleFromAttribute(
                         value.get(dsattributes.kDSNAttrRecordName))
-                    if (recordNodeName == "/Local/Default" and not
-                        (config.Scheduling.iMIP.Username in recordShortNames)):
-                        continue
 
                     recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
 
@@ -469,38 +466,56 @@ class OpenDirectoryService(CachingDirectoryService):
                     pass
 
         def multiQuery(directory, queries, attrs, operand):
-            results = []
+            byGUID = { }
+            sets = []
 
             for query, recordTypes in queries.iteritems():
-                if not query:
-                    continue
+                ODField, value, caseless, matchType = query
+                if matchType == "starts-with":
+                    comparison = dsattributes.eDSStartsWith
+                elif matchType == "contains":
+                    comparison = dsattributes.eDSContains
+                else:
+                    comparison = dsattributes.eDSExact
 
-                expressions = []
-                for ODField, value, caseless, matchType in query:
-                    if matchType == "starts-with":
-                        comparison = dsattributes.eDSStartsWith
-                    elif matchType == "contains":
-                        comparison = dsattributes.eDSContains
-                    else:
-                        comparison = dsattributes.eDSExact
-                    expressions.append(dsquery.match(ODField, value, comparison))
+                self.log_debug("Calling OD: Types %s, Field %s, Value %s, Match %s, Caseless %s" %
+                    (recordTypes, ODField, value, matchType, caseless))
 
-                complexExpression = dsquery.expression(operand, expressions).generate()
-
-                self.log_debug("Calling OD: Types %s, Operand %s, Caseless %s, %s" %
-                    (recordTypes, operand, caseless, complexExpression))
-
-                results.extend(
-                    lookupMethod(
-                        directory,
-                        complexExpression,
-                        caseless,
-                        recordTypes,
-                        attrs,
-                    )
+                queryResults = lookupMethod(
+                    directory,
+                    ODField,
+                    value,
+                    comparison,
+                    caseless,
+                    recordTypes,
+                    attrs,
                 )
 
-            return results
+                if operand == dsquery.expression.OR:
+                    for recordName, data in queryResults:
+                        guid = data.get(dsattributes.kDS1AttrGeneratedUID, None)
+                        if guid:
+                            byGUID[guid] = (recordName, data)
+                else: # AND
+                    newSet = set()
+                    for recordName, data in queryResults:
+                        guid = data.get(dsattributes.kDS1AttrGeneratedUID, None)
+                        if guid:
+                            byGUID[guid] = (recordName, data)
+                            newSet.add(guid)
+
+                    sets.append(newSet)
+
+            if operand == dsquery.expression.OR:
+                return byGUID.values()
+
+            else:
+                results = []
+                for guid in set.intersection(*sets):
+                    recordName, data = byGUID.get(guid, None)
+                    if data is not None:
+                        results.append((data[dsattributes.kDSNAttrRecordName], data))
+                return results
 
 
         operand = (dsquery.expression.OR if operand == "or"
@@ -636,11 +651,6 @@ class OpenDirectoryService(CachingDirectoryService):
             recordEmailAddresses = self._setFromAttribute(value.get(dsattributes.kDSNAttrEMailAddress), lower=True)
             recordNodeName       = value.get(dsattributes.kDSNAttrMetaNodeLocation)
 
-            if recordNodeName == "/Local/Default" and not (config.Scheduling.iMIP.Username in recordShortNames):
-                self.log_info("Local record (%s)%s is not eligible for calendaring."
-                              % (recordType, recordShortName))
-                continue
-
             if not recordType:
                 self.log_debug("Record (unknown)%s in node %s has no recordType; ignoring."
                                % (recordShortName, recordNodeName))
@@ -766,20 +776,17 @@ def buildQueries(recordTypes, fields, mapping):
     results (either none, or all records).
     """
 
-    fieldLists = {}
+    queries = {}
     for recordType in recordTypes:
-        fieldLists[recordType] = []
         for field, value, caseless, matchType in fields:
             if field in mapping:
                 if recordType in mapping[field]['appliesTo']:
                     ODField = mapping[field]['odField']
-                    fieldLists[recordType].append((ODField, value, caseless, matchType))
+                    key = (ODField, value, caseless, matchType)
+                    queries.setdefault(key, []).append(recordType)
 
-    queries = {}
-    for recordType, fieldList in fieldLists.iteritems():
-        key = tuple(fieldList)
-        queries.setdefault(key, []).append(recordType)
     return queries
+
 
 
 class OpenDirectoryRecord(CachingDirectoryRecord):
