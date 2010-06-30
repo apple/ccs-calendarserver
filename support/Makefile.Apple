@@ -88,6 +88,7 @@ install::
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/carddavd.8"                         "$(DSTROOT)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_export.8"            "$(DSTROOT)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_principals.8" "$(DSTROOT)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_migrate_resources.8" "$(DSTROOT)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_command_gateway.8"   "$(DSTROOT)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_events.8"   "$(DSTROOT)$(MANDIR)/man8"
 	$(_v) gzip -9 -f "$(DSTROOT)$(MANDIR)/man8/"*.[0-9]
