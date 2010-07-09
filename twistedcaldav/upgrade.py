@@ -301,6 +301,11 @@ def upgrade_to_1(config):
         if os.path.exists(dbPath):
             os.chown(dbPath, uid, gid)
 
+        journalPath = "%s-journal" % (dbPath,)
+        if os.path.exists(journalPath):
+            os.chown(journalPath, uid, gid)
+
+
     def createTaskServiceDirectory(config, uid, gid):
 
         taskDir = os.path.join(config.DataRoot, "tasks")
