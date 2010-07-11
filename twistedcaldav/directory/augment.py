@@ -63,7 +63,8 @@ class AugmentDB(object):
     """
     
     def __init__(self):
-        pass
+        
+        self.cachedRecords = {}
     
     @inlineCallbacks
     def getAugmentRecord(self, uid):
@@ -77,26 +78,29 @@ class AugmentDB(object):
         """
         
         result = (yield self._lookupAugmentRecord(uid))
-        if result is None:
-            if not hasattr(self, "_defaultRecord"):
-                self._defaultRecord = (yield self._lookupAugmentRecord("Default"))
-            if self._defaultRecord is None:
-                # No default was specified in the db, so generate one
-                self._defaultRecord = AugmentRecord(
-                    "Default",
-                    enabled=True,
-                    enabledForCalendaring=True,
-                    enabledForAddressBooks=True,
-                )
+        if result is not None:
+            returnValue(result)
 
-            result = copy.deepcopy(self._defaultRecord)
-            result.uid = uid
+        # Try wildcard/default matches next
+        for lookup in ("%s*" % (uid[0:2],), "%s*" % (uid[0],), "Default"):
+            result = (yield self._cachedAugmentRecord(lookup))
+            if result is not None:
+                result = copy.deepcopy(result)
+                result.uid = uid
+                result.clonedFromDefault = True
+                returnValue(result)
 
-            # Mark default-cloned augment records as such so
-            # DirectoryRecord.addAugmentInformation( ) can avoid unneccesary
-            # error messages:
-            result.clonedFromDefault = True
-
+        # No default was specified in the db, so generate one
+        result = AugmentRecord(
+            "Default",
+            enabled=True,
+            enabledForCalendaring=True,
+            enabledForAddressBooks=True,
+        )
+        self.cachedRecords["Default"] = result
+        result = copy.deepcopy(result)
+        result.uid = uid
+        result.clonedFromDefault = True
         returnValue(result)
 
     @inlineCallbacks
@@ -120,6 +124,22 @@ class AugmentDB(object):
         """
         
         raise NotImplementedError("Child class must define this.")
+
+    @inlineCallbacks
+    def _cachedAugmentRecord(self, uid):
+        """
+        Get an AugmentRecord for the specified UID from the cache.
+
+        @param uid: directory UID to lookup
+        @type uid: C{str}
+        
+        @return: L{Deferred}
+        """
+        
+        if not uid in self.cachedRecords:
+            result = (yield self._lookupAugmentRecord(uid))
+            self.cachedRecords[uid] = result
+        returnValue(self.cachedRecords[uid])
 
     def addAugmentRecords(self, records):
         """
@@ -152,6 +172,7 @@ class AugmentDB(object):
         @return: L{Deferred}
         """
 
+        self.cachedRecords.clear()
         return succeed(None)
     
     def clean(self):
@@ -173,6 +194,7 @@ class AugmentXMLDB(AugmentDB):
 
     def __init__(self, xmlFiles, cacheTimeout=30):
 
+        super(AugmentXMLDB, self).__init__()
         self.xmlFiles = [fullServerPath(config.DataRoot, path) for path in xmlFiles]
         self.cacheTimeout = cacheTimeout * 60 # Value is mins we want secs
         self.lastCached = 0
@@ -378,6 +400,7 @@ class AugmentXMLDB(AugmentDB):
         """
         Refresh any cached data.
         """
+        super(AugmentXMLDB, self).refresh()
         try:
             self.db = self._parseXML()
         except RuntimeError:
@@ -431,6 +454,7 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
     
     def __init__(self, dbID, dbapiName, dbapiArgs, **kwargs):
         
+        AugmentDB.__init__(self)
         self.cachedPartitions = {}
         self.cachedHostedAt = {}
         

@@ -36,7 +36,18 @@ testRecords = (
     {"uid":"6A73326A-F781-47E7-A9F8-AF47364D4152", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":True, "enabledForAddressBooks":True, "autoSchedule":True},
 )
 
-testRecordDefault = {"uid":"A4318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":True, "enabledForAddressBooks":True, "autoSchedule":False}
+testRecordWildcardDefault = (
+    {"uid":"A4318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":False},
+    {"uid":"AA5F935F-3358-4510-A649-B391D63279F2", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"ABF1A83B-1A29-4E04-BDC3-A6A66ECF27CA", "enabled":False, "hostedAt":"",      "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"BC22A734-5E41-4FB7-B5C1-51DC0656DC2F", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":False},
+    {"uid":"C6DEEBB1-E14A-47F2-98BA-7E3BB4353E3A", "enabled":True,  "hostedAt":"00003", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":True },
+    {"uid":"AA859321-2C72-4974-ADCF-0CBA0C76F95D", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"AB7C488B-9ED2-4265-881C-7E2E38A63584", "enabled":False, "hostedAt":"",      "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"BB0C0DA1-0545-45F6-8D08-917C554D93A4", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":False},
+    {"uid":"CCD30AD3-582F-4682-8B65-2EDE92C5656E", "enabled":True,  "hostedAt":"00003", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":True },
+)
+
 
 testAddRecords = (
     {"uid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975767", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
@@ -53,16 +64,94 @@ class AugmentTests(TestCase):
     def _checkRecord(self, db, items):
         
         record = (yield db.getAugmentRecord(items["uid"]))
-        self.assertTrue(record is not None)
+        self.assertTrue(record is not None, "Failed record uid: %s" % (items["uid"],))
         
         for k,v in items.iteritems():
-            self.assertEqual(getattr(record, k), v)
+            self.assertEqual(getattr(record, k), v, "Failed record uid: %s, attribute: %s" % (items["uid"], k, ))
 
     @inlineCallbacks
     def _checkRecordExists(self, db, uid):
         
         record = (yield db.getAugmentRecord(uid))
-        self.assertTrue(record is not None)
+        self.assertTrue(record is not None, "Failed record uid: %s" % (uid,))
+
+class AugmentTestsMixin(object):
+
+    def _db(self, dbpath=None):
+        raise NotImplementedError
+
+    @inlineCallbacks
+    def test_read(self):
+        
+        dbpath = os.path.abspath(self.mktemp())
+        db = self._db(dbpath)
+
+        dbxml = AugmentXMLDB((xmlFile,))
+        yield db.addAugmentRecords(dbxml.db.values())
+
+        for item in testRecords:
+            yield self._checkRecord(db, item)
+
+        # Verify that a default record is returned, even if not specified
+        # in the DB
+        yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+
+    @inlineCallbacks
+    def test_read_default(self):
+        
+        dbpath = os.path.abspath(self.mktemp())
+        db = self._db(dbpath)
+
+        dbxml = AugmentXMLDB((xmlFileDefault,))
+        yield db.addAugmentRecords(dbxml.db.values())
+
+        for item in testRecords:
+            yield self._checkRecord(db, item)
+
+        for item in testRecordWildcardDefault:
+            yield self._checkRecord(db, item)
+
+        # Do a second time to test caching
+        for item in testRecordWildcardDefault:
+            yield self._checkRecord(db, item)
+
+    @inlineCallbacks
+    def test_add_modify(self):
+        
+        dbpath = os.path.abspath(self.mktemp())
+        db = self._db(dbpath)
+
+        dbxml = AugmentXMLDB((xmlFile,))
+        yield db.addAugmentRecords(dbxml.db.values())
+
+        for item in testRecords:
+            yield self._checkRecord(db, item)
+
+        # Verify that a default record is returned, even if not specified
+        # in the DB
+        yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
+
+        newrecord = AugmentRecord(
+            **testAddRecords[0]
+        )
+        yield db.addAugmentRecords((newrecord,))
+
+        newdb = self._db(dbpath)
+
+        for item in testRecords:
+            yield self._checkRecord(newdb, item)
+        yield self._checkRecord(newdb, testAddRecords[0])
+
+        newrecord = AugmentRecord(
+            **testModifyRecords[0]
+        )
+        yield db.addAugmentRecords((newrecord,))
+
+        newdb = self._db(dbpath)
+
+        for item in testRecords:
+            yield self._checkRecord(newdb, item)
+        yield self._checkRecord(newdb, testModifyRecords[0])
 
 class AugmentXMLTests(AugmentTests):
 
@@ -86,7 +175,8 @@ class AugmentXMLTests(AugmentTests):
         for item in testRecords:
             yield self._checkRecord(db, item)
 
-        yield self._checkRecord(db, testRecordDefault)
+        for item in testRecordWildcardDefault:
+            yield self._checkRecord(db, item)
 
     def test_parseErrors(self):
         
@@ -151,143 +241,15 @@ class AugmentXMLTests(AugmentTests):
             yield self._checkRecord(newdb, item)
         yield self._checkRecord(newdb, testModifyRecords[0])
 
-class AugmentSqliteTests(AugmentTests):
+class AugmentSqliteTests(AugmentTests, AugmentTestsMixin):
 
-    @inlineCallbacks
-    def test_read(self):
-        
-        db = AugmentSqliteDB(os.path.abspath(self.mktemp()))
+    def _db(self, dbpath=None):
+        return AugmentSqliteDB(dbpath if dbpath else os.path.abspath(self.mktemp()))
 
-        dbxml = AugmentXMLDB((xmlFile,))
-        yield db.addAugmentRecords(dbxml.db.values())
+class AugmentPostgreSQLTests(AugmentTests, AugmentTestsMixin):
 
-        for item in testRecords:
-            yield self._checkRecord(db, item)
-
-        # Verify that a default record is returned, even if not specified
-        # in the DB
-        yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
-
-    @inlineCallbacks
-    def test_read_default(self):
-        
-        db = AugmentSqliteDB(os.path.abspath(self.mktemp()))
-
-        dbxml = AugmentXMLDB((xmlFileDefault,))
-        yield db.addAugmentRecords(dbxml.db.values())
-
-        for item in testRecords:
-            yield self._checkRecord(db, item)
-
-        yield self._checkRecord(db, testRecordDefault)
-
-    @inlineCallbacks
-    def test_add_modify(self):
-        
-        dbpath = os.path.abspath(self.mktemp())
-        db = AugmentSqliteDB(dbpath)
-
-        dbxml = AugmentXMLDB((xmlFile,))
-        yield db.addAugmentRecords(dbxml.db.values())
-
-        for item in testRecords:
-            yield self._checkRecord(db, item)
-
-        # Verify that a default record is returned, even if not specified
-        # in the DB
-        yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
-
-        newrecord = AugmentRecord(
-            **testAddRecords[0]
-        )
-        yield db.addAugmentRecords((newrecord,))
-
-        newdb = AugmentSqliteDB(dbpath)
-
-        for item in testRecords:
-            yield self._checkRecord(newdb, item)
-        yield self._checkRecord(newdb, testAddRecords[0])
-
-        newrecord = AugmentRecord(
-            **testModifyRecords[0]
-        )
-        yield db.addAugmentRecords((newrecord,))
-
-        newdb = AugmentSqliteDB(dbpath)
-
-        for item in testRecords:
-            yield self._checkRecord(newdb, item)
-        yield self._checkRecord(newdb, testModifyRecords[0])
-
-class AugmentPostgreSQLTests(AugmentTests):
-
-    @inlineCallbacks
-    def test_read(self):
-        
-        db = AugmentPostgreSQLDB("localhost", "augments")
-        yield db.clean()
-
-        dbxml = AugmentXMLDB((xmlFile,))
-        yield db.addAugmentRecords(dbxml.db.values())
-
-        for item in testRecords:
-            yield self._checkRecord(db, item)
-
-        # Verify that a default record is returned, even if not specified
-        # in the DB
-        yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
-
-    @inlineCallbacks
-    def test_read_default(self):
-        
-        db = AugmentPostgreSQLDB("localhost", "augments")
-        yield db.clean()
-
-        dbxml = AugmentXMLDB((xmlFileDefault,))
-        yield db.addAugmentRecords(dbxml.db.values())
-
-        for item in testRecords:
-            yield self._checkRecord(db, item)
-
-        yield self._checkRecord(db, testRecordDefault)
-
-    @inlineCallbacks
-    def test_add_modify(self):
-        
-        db = AugmentPostgreSQLDB("localhost", "augments")
-        yield db.clean()
-
-        dbxml = AugmentXMLDB((xmlFile,))
-        yield db.addAugmentRecords(dbxml.db.values())
-
-        for item in testRecords:
-            yield self._checkRecord(db, item)
-
-        # Verify that a default record is returned, even if not specified
-        # in the DB
-        yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
-
-        newrecord = AugmentRecord(
-            **testAddRecords[0]
-        )
-        yield db.addAugmentRecords((newrecord,))
-
-        newdb = AugmentPostgreSQLDB("localhost", "augments")
-
-        for item in testRecords:
-            yield self._checkRecord(newdb, item)
-        yield self._checkRecord(newdb, testAddRecords[0])
-
-        newrecord = AugmentRecord(
-            **testModifyRecords[0]
-        )
-        yield db.addAugmentRecords((newrecord,))
-
-        newdb = AugmentPostgreSQLDB("localhost", "augments")
-
-        for item in testRecords:
-            yield self._checkRecord(newdb, item)
-        yield self._checkRecord(newdb, testModifyRecords[0])
+    def _db(self, dbpath=None):
+        return AugmentPostgreSQLDB("localhost", "augments")
 
 try:
     import pgdb

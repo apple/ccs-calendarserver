@@ -27,6 +27,30 @@ limitations under the License.
     <hosted-at>00001</hosted-at>
   </record>
   <record>
+    <uid>AA*</uid>
+    <enable>true</enable>
+    <hosted-at>00001</hosted-at>
+  </record>
+  <record>
+    <uid>AB*</uid>
+    <enable>false</enable>
+  </record>
+  <record>
+    <uid>B*</uid>
+    <enable>true</enable>
+    <hosted-at>00002</hosted-at>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>C*</uid>
+    <enable>true</enable>
+    <hosted-at>00003</hosted-at>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>true</auto-schedule>
+  </record>
+  <record>
     <uid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</uid>
     <enable>true</enable>
   </record>
@@ -60,7 +84,6 @@ limitations under the License.
     <uid>6A73326A-F781-47E7-A9F8-AF47364D4152</uid>
     <enable>true</enable>
     <hosted-at>00002</hosted-at>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
