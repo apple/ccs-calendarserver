@@ -399,7 +399,7 @@ class Scheduler(object):
             # Check for freebusy limit
             if freebusy and ctr >= config.Scheduling.Options.LimitFreeBusyAttendees:
                 err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-limit")))
-                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_USER_SUPPORT)
+                responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
                 continue
                 
             if self.fakeTheResult:
@@ -641,7 +641,7 @@ class CalDAVScheduler(Scheduler):
             if self.calendar.propertyValue("METHOD") in ("COUNTER", "DECLINECOUNTER"):
                 return
             
-            # Anything else is not allowed. However, for compatIbility we will optionally 
+            # Anything else is not allowed. However, for compatibility we will optionally 
             # return a success response for all attendees.
             if config.Scheduling.CalDAV.OldDraftCompatibility:
                 self.fakeTheResult = True
