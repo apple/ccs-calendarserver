@@ -397,7 +397,7 @@ class Scheduler(object):
         for ctr, recipient in enumerate(self.recipients):
     
             # Check for freebusy limit
-            if freebusy and ctr >= config.Scheduling.Options.LimitFreeBusyAttendees:
+            if freebusy and config.Scheduling.Options.LimitFreeBusyAttendees and ctr >= config.Scheduling.Options.LimitFreeBusyAttendees:
                 err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-limit")))
                 responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
                 continue
