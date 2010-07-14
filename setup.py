@@ -118,6 +118,7 @@ if __name__ == "__main__":
                              "bin/calendarserver_manage_principals",
                              "bin/calendarserver_command_gateway",
                              "bin/calendarserver_purge_events",
+                             "bin/calendarserver_migrate_resources",
                              "bin/carddavd",
                            ],
         data_files       = [ ("caldavd", ["conf/caldavd.plist"]),
