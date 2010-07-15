@@ -334,9 +334,10 @@ Description:
     This utility will analyze the output of the trace.d dtrace script to produce
     useful statistics, and other performance related data.
 
-    To use this do the following:
+    To use this do the following (where PID is the pid of the
+    Python process to monitor:
     
-    > sudo ./trace.d > results.txt
+    > sudo ./trace.d PID > results.txt
     ...
     > ./dtraceanalyze.py results.txt
 """
