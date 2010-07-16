@@ -37,6 +37,7 @@
  */
 
 #pragma D option quiet
+#pragma D option bufsize=100m
 
 dtrace:::BEGIN
 {
@@ -79,6 +80,11 @@ python*:::function-return
 
 profile:::tick-10s
 {
+	exit(0);
+}
+
+dtrace:::END
+{
 	printf("\nCount,\n");
 	printf("   %-20s %-10s %-32s %8s\n", "FILE", "TYPE", "NAME", "COUNT");
 	printa("   %-20s %-10s %-32s %@8d\n", @num);
@@ -92,5 +98,4 @@ profile:::tick-10s
 	printf("\nInclusive function on-CPU times (us),\n");
 	printf("   %-20s %-10s %-32s %8s\n", "FILE", "TYPE", "NAME", "TOTAL");
 	printa("   %-20s %-10s %-32s %@8d\n", @types_incl);
-	exit(0);
 }
