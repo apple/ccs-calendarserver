@@ -49,6 +49,7 @@ class Dtrace(object):
             self.file_location = ""
             self.parent = None
             self.children = []
+            self.lineno = lineno
             
             re_matched = re.match("(..) ([^ ]+) \(([^\)]+)\)", line)
             if re_matched is None:
@@ -78,7 +79,9 @@ class Dtrace(object):
                             self.file_location = value
                         break
                     
-        
+        def __repr__(self):
+            return "%s (%s)" % self.getKey()
+
         def getKey(self):
             return (self.file_location, self.function_name,)
 
@@ -97,7 +100,7 @@ class Dtrace(object):
             return False
 
         def filePath(self):
-            return self.file_location[0][:self.file_location[0].rfind(":")]
+            return self.file_location[0:self.file_location.rfind(':')]
 
         def prettyPrint(self, indent, indents, sout):
             
@@ -110,6 +113,9 @@ class Dtrace(object):
                 else:
                     indenter += "  "
             sout.write("%s%s (%s)\n" % (indenter, self.function_name, self.file_location,))
+
+        def stackName(self):
+            return self.function_name, self.filePath()
 
     class DtraceStack(object):
         
@@ -138,7 +144,9 @@ class Dtrace(object):
             min_indent = 0
             current_line = None
             blocks = [[]]
+            backstack = []
             for line in new_lines:
+                stackName = line.stackName()
                 if line.entering:
                     if line.function_name == "mainLoop":
                         if min_indent < 0:
@@ -149,15 +157,23 @@ class Dtrace(object):
                         min_indent = 0
                         indent = 0
                         blocks.append([])
+                        backstack = []
                     else:
                         indent += 1
+                        backstack.append(stackName)
                     blocks[-1].append((indent, line,))
                     if current_line:
                         current_line.addChild(line)
                     current_line = line
                 else:
-                    if len(blocks) == 1 or line.function_name != "mainLoop":
+                    if len(blocks) == 1 or line.function_name != "mainLoop" and indent:
                         indent -= 1
+                        while backstack and indent and stackName != backstack[-1]:
+                            indent -= 1
+                            backstack.pop()
+                        if backstack: backstack.pop()
+                        if indent < 0:
+                            print "help"
                     current_line = current_line.parent if current_line else None
                 min_indent = min(min_indent, indent)
 
