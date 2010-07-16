@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# coding=utf-8
 
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
@@ -90,7 +91,7 @@ class Dtrace(object):
 
         def checkForCollapse(self, other):
             if self.entering and not other.entering:
-                if self.function_name == other.function_name:
+                if self.function_name == other.function_name and self.function_name != "mainLoop":
                     if self.filePath() == other.filePath():
                         return True
             return False
@@ -98,8 +99,17 @@ class Dtrace(object):
         def filePath(self):
             return self.file_location[0][:self.file_location[0].rfind(":")]
 
-        def prettyPrint(self, indent, sout):
-            sout.write("%s%s (%s)\n" % (" " * indent, self.function_name, self.file_location,))
+        def prettyPrint(self, indent, indents, sout):
+            
+            indenter = ""
+            for level in indents:
+                if level > 0:
+                    indenter += "⎢ "
+                elif level < 0:
+                    indenter += "⎿ "
+                else:
+                    indenter += "  "
+            sout.write("%s%s (%s)\n" % (indenter, self.function_name, self.file_location,))
 
     class DtraceStack(object):
         
@@ -127,18 +137,32 @@ class Dtrace(object):
             indent = 0
             min_indent = 0
             current_line = None
+            blocks = [[]]
             for line in new_lines:
                 if line.entering:
-                    indent += 1
-                    self.stack.append((indent, line,))
+                    if line.function_name == "mainLoop":
+                        if min_indent < 0:
+                            newstack = []
+                            for oldindent, oldline in blocks[-1]:
+                                newstack.append((oldindent - min_indent, oldline,))
+                            blocks[-1] = newstack
+                        min_indent = 0
+                        indent = 0
+                        blocks.append([])
+                    else:
+                        indent += 1
+                    blocks[-1].append((indent, line,))
                     if current_line:
                         current_line.addChild(line)
                     current_line = line
                 else:
-                    indent -= 1
+                    if len(blocks) == 1 or line.function_name != "mainLoop":
+                        indent -= 1
                     current_line = current_line.parent if current_line else None
                 min_indent = min(min_indent, indent)
 
+            for block in blocks:
+                self.stack.extend(block) 
             if min_indent < 0:
                 self.start_indent = -min_indent
             else:
@@ -162,8 +186,22 @@ class Dtrace(object):
                     self.call_into[key][child_key] = child_calls + 1
 
         def prettyPrint(self, sout):
+            indents = [1] * self.start_indent
+            ctr = 0
+            maxctr = len(self.stack) - 1
             for indent, line in self.stack:
-                line.prettyPrint(self.start_indent + indent, sout)
+                current_indent = self.start_indent + indent
+                next_indent = (self.start_indent + self.stack[ctr+1][0]) if ctr < maxctr else 10000
+                if len(indents) == current_indent:
+                    pass
+                elif len(indents) < current_indent:
+                    indents.append(current_indent)
+                else:
+                    indents = indents[0:current_indent]
+                if next_indent < current_indent:
+                    indents = indents[0:next_indent] + [-1] * (current_indent - next_indent)
+                line.prettyPrint(self.start_indent + indent, indents, sout)
+                ctr += 1
 
     def __init__(self, filepath):
         
