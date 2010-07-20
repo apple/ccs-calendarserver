@@ -323,8 +323,8 @@ class DropboxCollection(_GetChildHelper):
     def __init__(self, path, parent, *a, **kw):
         # FIXME: constructor signature takes a 'path' because CalendarHomeFile
         # requires it, but we don't need it (and shouldn't have it) eventually.
-        super(DropboxCollection, self).__init__(
-            *a, principalCollections=parent.principalCollections(), **kw)
+        kw.update(principalCollections=parent.principalCollections())
+        super(DropboxCollection, self).__init__(*a, **kw)
         self._newStoreCalendarHome = parent._newStoreCalendarHome
         parent.propagateTransaction(self)
 
