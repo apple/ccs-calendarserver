@@ -26,13 +26,13 @@ from twext.web2.dav.fileop import rmdir
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.test.test_server import SimpleRequest
 
-import twistedcaldav.test.util
 from twistedcaldav import caldavxml
 from twistedcaldav import ical
 from twistedcaldav.index import db_basename
+from twistedcaldav.test.util import HomeTestCase
 from twistedcaldav.config import config
 
-class CalendarMultiget (twistedcaldav.test.util.TestCase):
+class CalendarMultiget (HomeTestCase):
     """
     calendar-multiget REPORT
     """
@@ -127,7 +127,7 @@ RRULE:FREQ=YEARLY;INTERVAL=1;UNTIL=20031231;BYMONTH=1
 SUMMARY:New Year's Day
 END:VEVENT
 END:VCALENDAR
-""",
+""".replace("\n", "\r\n"),
             "bad":"""BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
 PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
@@ -140,7 +140,7 @@ RRULE:FREQ=YEARLY;INTERVAL=1;BYMONTH=2
 SUMMARY:Valentine's Day
 END:VEVENT
 END:VCALENDAR
-"""
+""".replace("\n", "\r\n")
         }
 
         yield self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids, data)
@@ -155,7 +155,7 @@ VERSION:2.0
 BEGIN:VEVENT
 UID:bad
 DTSTART;VALUE=DATE:20020214
-DTEND;VALUE=DATE:20020""")
+DTEND;VALUE=DATE:20020""".replace("\n", "\r\n"))
         f.close
 
         okuids = ["good", ]

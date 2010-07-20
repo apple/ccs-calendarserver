@@ -25,9 +25,9 @@ from twext.web2.dav.util import davXMLFromStream
 from twext.web2.test.test_server import SimpleRequest
 from twistedcaldav import caldavxml
 
-import twistedcaldav.test.util
+from twistedcaldav.test.util import HomeTestCase
 
-class Properties (twistedcaldav.test.util.TestCase):
+class Properties(HomeTestCase):
     """
     CalDAV properties
     """

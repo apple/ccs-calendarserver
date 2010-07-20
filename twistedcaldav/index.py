@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test.test_index -*-
 ##
 # Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
@@ -31,7 +32,6 @@ __all__ = [
 ]
 
 import datetime
-import os
 import time
 import hashlib
 
@@ -118,7 +118,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             C{resource.isPseudoCalendarCollection()} returns C{True}.)
         """
         self.resource = resource
-        db_filename = os.path.join(self.resource.fp.path, db_basename)
+        db_filename = self.resource.fp.child(db_basename).path
         super(AbstractCalendarIndex, self).__init__(db_filename, False)
 
     def create(self):
@@ -260,7 +260,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         @return: a C{list} of all names that exist
         """
         statement = "select NAME from RESOURCE where NAME in ("
-        for ctr, ignore_name in enumerate(names):
+        for ctr in (item[0] for item in enumerate(names)):
             if ctr != 0:
                 statement += ", "
             statement += ":%s" % (ctr,)
@@ -1025,14 +1025,6 @@ class IndexSchedule (CalendarIndex):
     """
     Schedule collection index - does not require UID uniqueness.
     """
-    def __init__(self, resource):
-        """
-        @param resource: the L{twistedcaldav.static.CalDAVFile} resource to
-            index. C{resource} must be a calendar collection (i.e.
-            C{resource.isPseudoCalendarCollection()} returns C{True}.)
-        """
-        assert resource.isPseudoCalendarCollection() and not resource.isCalendarCollection(), "non-calendar collection resource %s has no index." % (resource,)
-        super(IndexSchedule, self).__init__(resource)
 
     def reserveUID(self, uid): #@UnusedVariable
         """

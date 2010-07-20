@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import inlineCallbacks
-from twistedcaldav import index
 
 import os
+
+from twisted.internet.defer import inlineCallbacks
 
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
@@ -25,11 +25,10 @@ from twext.web2.dav import davxml
 from twext.web2.dav.fileop import rmdir
 from twext.web2.test.test_server import SimpleRequest
 
-import twistedcaldav.test.util
 from twistedcaldav import caldavxml
-from twistedcaldav.static import CalDAVFile
+from twistedcaldav.test.util import HomeTestCase
 
-class MKCALENDAR (twistedcaldav.test.util.TestCase):
+class MKCALENDAR (HomeTestCase):
     """
     MKCALENDAR request
     """
@@ -41,37 +40,36 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
         """
         Make calendar
         """
-        uri  = "/calendar_make"
+        uri  = "/calendar_make/"
         path = os.path.join(self.docroot, uri[1:])
 
         if os.path.exists(path):
             rmdir(path)
 
+        request = SimpleRequest(self.site, "MKCALENDAR", uri)
+
+        @inlineCallbacks
         def do_test(response):
             response = IResponse(response)
-
-            if not os.path.isdir(path):
-                self.fail("MKCALENDAR made no calendar")
-
-            resource = CalDAVFile(path)
-            if not resource.isCalendarCollection():
-                self.fail("MKCALENDAR made non-calendar collection")
 
             if response.code != responsecode.CREATED:
                 self.fail("Incorrect response to successful MKCALENDAR: %s"
                           % (response.code,))
+            resource = (yield request.locateResource(uri))
 
-            if not os.path.exists(os.path.join(path, index.db_basename)):
-                self.fail("Did not create index file when creating a calendar")
+            if not resource:
+                self.fail("MKCALENDAR made no calendar")
 
-        request = SimpleRequest(self.site, "MKCALENDAR", uri)
+            if not resource.isCalendarCollection():
+                self.fail("MKCALENDAR made non-calendar collection")
+
         return self.send(request, do_test)
 
     def test_make_calendar_with_props(self):
         """
         Make calendar with properties (CalDAV-access-09, section 5.3.1.2)
         """
-        uri  = "/calendar_prop"
+        uri  = "/calendar_prop/"
         path = os.path.join(self.docroot, uri[1:])
 
         if os.path.exists(path):
@@ -84,7 +82,7 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
             if response.code != responsecode.CREATED:
                 self.fail("MKCALENDAR failed: %s" % (response.code,))
 
-            resource = CalDAVFile(path)
+            resource = (yield request.locateResource(uri))
             if not resource.isCalendarCollection():
                 self.fail("MKCALENDAR made non-calendar collection")
 
@@ -108,7 +106,7 @@ class MKCALENDAR (twistedcaldav.test.util.TestCase):
                           % (caldavxml.SupportedCalendarComponentSet.qname(),
                              supported_components[0].toxml(), caldavxml.CalendarComponent(name="VEVENT").toxml()))
 
-            tz = yield resource.readProperty(caldavxml.CalendarTimeZone, None)
+            tz = (yield resource.readProperty(caldavxml.CalendarTimeZone, None))
             tz = tz.calendar()
             self.failUnless(tz.resourceType() == "VTIMEZONE")
             self.failUnless(tuple(tz.subcomponents())[0].propertyValue("TZID") == "US-Eastern")
@@ -156,7 +154,7 @@ END:VCALENDAR
         """
         Make calendar with no parent
         """
-        uri  = "/no/parent/for/calendar"
+        uri  = "/no/parent/for/calendar/"
 
         def do_test(response):
             response = IResponse(response)
@@ -173,12 +171,33 @@ END:VCALENDAR
         """
         Make calendar on existing resource
         """
-        uri  = "/calendar_on_resource"
+        uri  = "/calendar_on_resource/"
         path = os.path.join(self.docroot, uri[1:])
 
         if not os.path.exists(path):
-            f = open(path, "w")
+            f = open(path[:-1], 'w')
             f.close()
+
+        def do_test(response):
+            response = IResponse(response)
+
+            if response.code != responsecode.NOT_ALLOWED:
+                self.fail("Incorrect response to MKCALENDAR on existing resource: %s" % (response.code,))
+
+            # FIXME: Check for DAV:resource-must-be-null element
+
+        request = SimpleRequest(self.site, "MKCALENDAR", uri)
+        return self.send(request, do_test)
+
+    def test_make_calendar_on_collection(self):
+        """
+        Make calendar on existing collection
+        """
+        uri  = "/calendar_on_resource/"
+        path = os.path.join(self.docroot, uri[1:])
+
+        if not os.path.exists(path):
+            os.mkdir(path)
 
         def do_test(response):
             response = IResponse(response)
@@ -195,7 +214,7 @@ END:VCALENDAR
         """
         Make calendar in calendar
         """
-        first_uri  = "/calendar_in_calendar"
+        first_uri  = "/calendar_in_calendar/"
         first_path = os.path.join(self.docroot, first_uri[1:])
 
         if os.path.exists(first_path): rmdir(first_path)

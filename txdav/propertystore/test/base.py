@@ -65,6 +65,117 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEquals(store.get(name, None), None)
         self.failIf(name in store)
 
+    def test_peruser(self):
+        store1 = self.propertyStore1
+        store2 = self.propertyStore2
+
+        name = propertyName("test")
+        value1 = propertyValue("Hello, World1!")
+        value2 = propertyValue("Hello, World2!")
+
+        store1[name] = value1
+        store1.flush()
+        self.assertEquals(store1.get(name, None), value1)
+        self.assertEquals(store2.get(name, None), None)
+        self.failUnless(name in store1)
+        self.failIf(name in store2)
+        
+        store2[name] = value2
+        store2.flush()
+        self.assertEquals(store1.get(name, None), value1)
+        self.assertEquals(store2.get(name, None), value2)
+        self.failUnless(name in store1)
+        self.failUnless(name in store2)
+        
+        del store2[name]
+        store2.flush()
+        self.assertEquals(store1.get(name, None), value1)
+        self.assertEquals(store2.get(name, None), None)
+        self.failUnless(name in store1)
+        self.failIf(name in store2)
+        
+        del store1[name]
+        store1.flush()
+        self.assertEquals(store1.get(name, None), None)
+        self.assertEquals(store2.get(name, None), None)
+        self.failIf(name in store1)
+        self.failIf(name in store2)
+        
+    def test_peruser_shadow(self):
+        store1 = self.propertyStore1
+        store2 = self.propertyStore2
+
+        name = propertyName("shadow")
+
+        store1.setSpecialProperties((name,), ())
+        store2.setSpecialProperties((name,), ())
+
+        value1 = propertyValue("Hello, World1!")
+        value2 = propertyValue("Hello, World2!")
+
+        store1[name] = value1
+        store1.flush()
+        self.assertEquals(store1.get(name, None), value1)
+        self.assertEquals(store2.get(name, None), value1)
+        self.failUnless(name in store1)
+        self.failUnless(name in store2)
+        
+        store2[name] = value2
+        store2.flush()
+        self.assertEquals(store1.get(name, None), value1)
+        self.assertEquals(store2.get(name, None), value2)
+        self.failUnless(name in store1)
+        self.failUnless(name in store2)
+        
+        del store2[name]
+        store2.flush()
+        self.assertEquals(store1.get(name, None), value1)
+        self.assertEquals(store2.get(name, None), value1)
+        self.failUnless(name in store1)
+        self.failUnless(name in store2)
+        
+        del store1[name]
+        store1.flush()
+        self.assertEquals(store1.get(name, None), None)
+        self.assertEquals(store2.get(name, None), None)
+        self.failIf(name in store1)
+        self.failIf(name in store2)
+        
+
+    def test_peruser_global(self):
+        store1 = self.propertyStore1
+        store2 = self.propertyStore2
+
+        name = propertyName("global")
+
+        store1.setSpecialProperties((), (name,))
+        store2.setSpecialProperties((), (name,))
+
+        value1 = propertyValue("Hello, World1!")
+        value2 = propertyValue("Hello, World2!")
+
+        store1[name] = value1
+        store1.flush()
+        self.assertEquals(store1.get(name, None), value1)
+        self.assertEquals(store2.get(name, None), value1)
+        self.failUnless(name in store1)
+        self.failUnless(name in store2)
+        
+        store2[name] = value2
+        store2.flush()
+        self.assertEquals(store1.get(name, None), value2)
+        self.assertEquals(store2.get(name, None), value2)
+        self.failUnless(name in store1)
+        self.failUnless(name in store2)
+        
+        del store2[name]
+        store2.flush()
+        self.assertEquals(store1.get(name, None), None)
+        self.assertEquals(store2.get(name, None), None)
+        self.failIf(name in store1)
+        self.failIf(name in store2)
+        
+
     def test_iteration(self):
         store = self.propertyStore
 

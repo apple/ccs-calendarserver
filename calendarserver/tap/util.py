@@ -40,6 +40,7 @@ from twistedcaldav import memcachepool
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
+from twistedcaldav.directory.internal import InternalDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.util import NotFilePath
@@ -47,8 +48,7 @@ from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.simpleresource import SimpleResource
-from twistedcaldav.static import CalendarHomeProvisioningFile,\
-    GlobalAddressBookFile
+from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.static import IScheduleInboxFile
 from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.static import AddressBookHomeProvisioningFile, DirectoryBackedAddressBookFile
@@ -66,6 +66,8 @@ from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
+
+from txdav.common.datastore.file import CommonDataStore
 
 log = Logger()
 
@@ -93,7 +95,6 @@ def getRootResource(config, resources=None):
     webAdminResourceClass        = WebAdminResource
     addressBookResourceClass     = AddressBookHomeProvisioningFile
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookFile
-    globalAddressBookResourceClass          = GlobalAddressBookFile
 
     #
     # Setup the Directory
@@ -151,6 +152,14 @@ def getRootResource(config, resources=None):
         wikiDirectory = WikiDirectoryService()
         wikiDirectory.realmName = baseDirectory.realmName
         directories.append(wikiDirectory)
+
+    #
+    # Add internal directory service
+    # Right now we only use this for CardDAV
+    #
+    if config.EnableCardDAV:
+        internalDirectory = InternalDirectoryService(baseDirectory.realmName)
+        directories.append(internalDirectory)
 
     directory = AggregateDirectoryService(directories)
 
@@ -272,18 +281,23 @@ def getRootResource(config, resources=None):
 
     principalCollection = principalResourceClass("/principals/", directory)
 
+    # Need a data store
+    _newStore = CommonDataStore(FilePath(config.DocumentRoot), config.EnableCalDAV, config.EnableCardDAV)
+
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: %r" % (calendarResourceClass,))
         calendarCollection = calendarResourceClass(
             os.path.join(config.DocumentRoot, "calendars"),
             directory, "/calendars/",
+            _newStore,
         )
 
     if config.EnableCardDAV:
         log.info("Setting up address book collection: %r" % (addressBookResourceClass,))
         addressBookCollection = addressBookResourceClass(
             os.path.join(config.DocumentRoot, "addressbooks"),
-            directory, "/addressbooks/"
+            directory, "/addressbooks/",
+            _newStore,
         )
 
         directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
@@ -304,24 +318,6 @@ def getRootResource(config, resources=None):
                 if e.errno != errno.ENOENT:
                     log.error("Could not delete: %s : %r" %  (directoryPath, e,))
 
-        if config.GlobalAddressBook.Enabled:
-            log.info("Setting up global address book collection: %r" % (globalAddressBookResourceClass,))
-
-            globalAddressBookCollection = globalAddressBookResourceClass(
-                os.path.join(config.DocumentRoot, config.GlobalAddressBook.Name),
-                principalCollections=(principalCollection,)
-            )
-            if not globalAddressBookCollection.exists():
-                def createGlobalAddressBookIgnoreException():
-                    try:
-                        if not globalAddressBookCollection.exists():
-                            globalAddressBookCollection.createAddressBookCollection()
-                    except OSError, e:
-                        if e.errno != errno.EEXIST:
-                            raise
-
-                addSystemEventTrigger("after", "startup", createGlobalAddressBookIgnoreException)
-
     log.info("Setting up root resource: %r" % (rootResourceClass,))
 
     root = rootResourceClass(
@@ -341,8 +337,6 @@ def getRootResource(config, resources=None):
         root.putChild('addressbooks', addressBookCollection)
         if config.DirectoryAddressBook.Enabled:
             root.putChild(config.DirectoryAddressBook.name, directoryBackedAddressBookCollection)
-        if config.GlobalAddressBook.Enabled:
-            root.putChild(config.GlobalAddressBook.Name, globalAddressBookCollection)            
 
     # /.well-known
     if config.EnableWellKnown:

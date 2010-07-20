@@ -19,8 +19,7 @@ from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue,\
 from twext.web2.dav import davxml
 
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile,\
-    proxiesFile
+from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
@@ -34,7 +33,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     """
     Directory service provisioned principals.
     """
-    
+
     @inlineCallbacks
     def setUp(self):
         super(ProxyPrincipals, self).setUp()

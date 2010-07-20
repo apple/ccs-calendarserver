@@ -39,8 +39,8 @@ def http_DELETE(self, request):
     # index file has the entry for the deleted calendar component removed.
     #
 
-    if not self.fp.exists():
-        log.err("File not found: %s" % (self.fp.path,))
+    if not self.exists():
+        log.err("Resource not found: %s" % (self,))
         raise HTTPError(responsecode.NOT_FOUND)
 
     depth = request.headers.getHeader("depth", "infinity")

@@ -13,61 +13,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.directory.directory import DirectoryService
-
-import os
 
 from twext.web2.dav import davxml
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.test.test_server import SimpleRequest
 
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
-
-import twistedcaldav.test.util
-from twistedcaldav.directory import augment
+from twistedcaldav.test.util import TestCase, xmlFile
 
 
-class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
+class ProvisionedPrincipals(TestCase):
     """
     Directory service provisioned principals.
     """
     def setUp(self):
         super(ProvisionedPrincipals, self).setUp()
-        
+
         # Setup the initial directory
-        self.xmlFile = os.path.abspath(self.mktemp())
-        fd = open(self.xmlFile, "w")
-        fd.write(open(xmlFile.path, "r").read())
-        fd.close()
-        self.directoryService = XMLDirectoryService({'xmlFile' : self.xmlFile})
-        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
-        
-        # Set up a principals hierarchy for each service we're testing with
-        name = "principals"
-        url = "/" + name + "/"
-
-        provisioningResource = DirectoryPrincipalProvisioningResource(url, self.directoryService)
-
-        self.site.resource.putChild("principals", provisioningResource)
-
+        self.createStockDirectoryService()
         self.setupCalendars()
 
         self.site.resource.setAccessControlList(davxml.ACL())
 
-    def setupCalendars(self):
-        calendarCollection = CalendarHomeProvisioningFile(
-            os.path.join(self.docroot, "calendars"),
-            self.directoryService,
-            "/calendars/"
-        )
-        self.site.resource.putChild("calendars", calendarCollection)
 
     def resetCalendars(self):
         del self.site.resource.putChildren["calendars"]
         self.setupCalendars()
+
 
     def test_guidchange(self):
         """
@@ -80,10 +52,9 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         
         def privs1(result):
             # Change GUID in record
-            fd = open(self.xmlFile, "w")
-            fd.write(open(xmlFile.path, "r").read().replace(oldUID, newUID))
-            fd.close()
-            fd = None
+            self.xmlFile.setContent(
+                xmlFile.getContent().replace(oldUID, newUID)
+            )
 
             # Force re-read of records (not sure why _fileInfo has to be wiped here...)
             self.directoryService._fileInfo = (0, 0)

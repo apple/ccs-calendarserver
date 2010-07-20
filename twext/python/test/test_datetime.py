@@ -46,6 +46,10 @@ def timeSeries(n):
 
 
 class DatetimeTests(TestCase):
+    @testUnimplemented
+    def test_timetuple(self):
+        raise NotImplementedError()
+
     @timezones
     def test_date_date(self, tz):
         d = date.today()
@@ -231,7 +235,7 @@ class TimerangeTests(TestCase):
 
     @testUnimplemented
     def test_compare(self):
-        raise NotImplemented
+        raise NotImplementedError()
 
     @featureUnimplemented
     def test_overlapsWith(self):

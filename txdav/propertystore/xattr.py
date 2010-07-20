@@ -1,3 +1,4 @@
+# -*- test-case-name: txdav.propertystore.test.test_xattr,txcaldav.calendarstore,txcarddav.addressbookstore -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -68,58 +69,116 @@ class PropertyStore(AbstractPropertyStore):
 
     # Linux seems to require that attribute names use a "user." prefix.
     if sys.platform == "linux2":
-        deadPropertyXattrPrefix = "user.%s" % (deadPropertyXattrPrefix,)
+        deadPropertyXattrPrefix = "user."
 
-    @classmethod
-    def _encodeKey(cls, name):
-        result = urllib.quote(name.toString(), safe="{}:")
-        r = cls.deadPropertyXattrPrefix + result
-        return r
+    # There is a 127 character limit for xattr keys so we need to compress/expand
+    # overly long namespaces to help stay under that limit now that GUIDs are also
+    # encoded in the keys.
+    _namespaceCompress = {
+        "urn:ietf:params:xml:ns:caldav"                       :"CALDAV:",
+        "urn:ietf:params:xml:ns:carddav"                      :"CARDDAV:",
+        "http://calendarserver.org/ns/"                       :"CS:",
+        "http://cal.me.com/_namespace/"                       :"ME:",
+        "http://twistedmatrix.com/xml_namespace/dav/"         :"TD:",
+        "http://twistedmatrix.com/xml_namespace/dav/private/" :"TDP:",
+    }
+    _namespaceExpand = dict([ (v, k) for k, v in _namespaceCompress.iteritems() ])
 
-    @classmethod
-    def _decodeKey(cls, name):
-        return PropertyName.fromString(
-            urllib.unquote(name[len(cls.deadPropertyXattrPrefix):])
-        )
+    def __init__(self, peruser, defaultuser, pathFactory):
+        """
+        Initialize a L{PropertyStore}.
 
-    def __init__(self, path):
-        self.path = path
-        self.attrs = xattr(path.path)
+        @param pathFactory: a 0-arg callable that returns the L{CachingFilePath} to set extended attributes on.
+        """
+        super(PropertyStore, self).__init__(peruser, defaultuser)
+
+        self._pathFactory = pathFactory
+        # self.attrs = xattr(path.path)
         self.removed = set()
         self.modified = {}
+
+
+    @property
+    def path(self):
+        return self._pathFactory()
+
+    @property
+    def attrs(self):
+        return xattr(self.path.path)
 
     def __str__(self):
         return "<%s %s>" % (self.__class__.__name__, self.path.path)
 
+    def _encodeKey(self, effective, compressNamespace=True):
+
+        qname, uid = effective
+        namespace = self._namespaceCompress.get(qname.namespace, qname.namespace) if compressNamespace else qname.namespace
+        result = urllib.quote("{%s}%s" % (namespace, qname.name), safe="{}:")
+        if uid:
+            result = uid + result
+        r = self.deadPropertyXattrPrefix + result
+        return r
+
+    def _decodeKey(self, name):
+
+        name = urllib.unquote(name[len(self.deadPropertyXattrPrefix):])
+
+        index1 = name.find("{")
+        index2 = name.find("}")
+
+        if (index1 is - 1 or index2 is - 1 or not len(name) > index2):
+            raise ValueError("Invalid encoded name: %r" % (name,))
+        if index1 == 0:
+            uid = None
+        else:
+            uid = name[:index1]
+        propnamespace = name[index1 + 1:index2]
+        propnamespace = self._namespaceExpand.get(propnamespace, propnamespace)
+        propname = name[index2 + 1:]
+
+        return PropertyName(propnamespace, propname), uid
+
     #
-    # Accessors
+    # Required implementations
     #
 
-    def __delitem__(self, key):
+    def _getitem_uid(self, key, uid):
         validKey(key)
+        effectiveKey = (key, uid)
 
-        if key in self.modified:
-            del self.modified[key]
-        elif self._encodeKey(key) not in self.attrs:
-            raise KeyError(key)
+        if effectiveKey in self.modified:
+            return self.modified[effectiveKey]
 
-        self.removed.add(key)
-
-    def __getitem__(self, key):
-        validKey(key)
-
-        if key in self.modified:
-            return self.modified[key]
-
-        if key in self.removed:
+        if effectiveKey in self.removed:
             raise KeyError(key)
 
         try:
-            data = self.attrs[self._encodeKey(key)]
-        except IOError, e:
-            if e.errno in _ERRNO_NO_ATTR:
-                raise KeyError(key)
-            raise PropertyStoreError(e)
+            try:
+                data = self.attrs[self._encodeKey(effectiveKey)]
+            except IOError, e:
+                if e.errno in [_ERRNO_NO_ATTR, errno.ENOENT]:
+                    raise KeyError(key)
+                raise PropertyStoreError(e)
+        except KeyError:
+            # Check for uncompressed namespace
+            if  effectiveKey[0].namespace in self._namespaceCompress:
+                try:
+                    data = self.attrs[self._encodeKey(effectiveKey, compressNamespace=False)]
+                except IOError, e:
+                    raise KeyError(key)
+
+                try:
+                    # Write it back using the compressed format
+                    self.attrs[self._encodeKey(effectiveKey)] = data
+                    del self.attrs[self._encodeKey(effectiveKey, compressNamespace=False)]
+                except IOError, e:
+                    msg = "Unable to upgrade property to compressed namespace: %s" % (
+                        key.toString()
+                    )
+                    self.log_error(msg)
+                    raise PropertyStoreError(msg)
+            else:
+                raise
 
         #
         # Unserialize XML data from an xattr.  The storage format has changed
@@ -155,63 +214,86 @@ class PropertyStore(AbstractPropertyStore):
                 legacy = True
 
         if legacy:
-            self.set(doc.root_element)
+            # XXX untested: CDT catches this though.
+            self._setitem_uid(key, doc.root_element, uid)
 
         return doc.root_element
 
-    def __contains__(self, key):
+    def _setitem_uid(self, key, value, uid):
         validKey(key)
+        effectiveKey = (key, uid)
 
-        if key in self.modified:
-            return True
-        if key in self.removed:
-            return False
-        return self._encodeKey(key) in self.attrs
+        if effectiveKey in self.removed:
+            self.removed.remove(effectiveKey)
+        self.modified[effectiveKey] = value
 
-    def __setitem__(self, key, value):
+    def _delitem_uid(self, key, uid):
         validKey(key)
+        effectiveKey = (key, uid)
 
-        if key in self.removed:
-            self.removed.remove(key)
-        self.modified[key] = value
+        if effectiveKey in self.modified:
+            del self.modified[effectiveKey]
+        elif self._encodeKey(effectiveKey) not in self.attrs:
+            raise KeyError(key)
 
-    def __iter__(self):
+        self.removed.add(effectiveKey)
+
+    def _keys_uid(self, uid):
         seen = set()
 
-        for key in self.attrs:
-            key = self._decodeKey(key)
-            if key not in self.removed:
-                seen.add(key)
-                yield key
+        try:
+            iterattr = iter(self.attrs)
+        except IOError, e:
+            if e.errno != errno.ENOENT:
+                raise
+            iterattr = iter(())
 
-        for key in self.modified:
-            if key not in seen:
-                yield key
+        for key in iterattr:
+            effectivekey = self._decodeKey(key)
+            if effectivekey[1] == uid and effectivekey not in self.removed:
+                seen.add(effectivekey)
+                yield effectivekey[0]
 
-    def __len__(self):
-        keys = (
-            set(self.attrs.keys()) |
-            set(self._encodeKey(key) for key in self.modified)
-        )
-        return len(keys)
+        for effectivekey in self.modified:
+            if effectivekey[1] == uid and effectivekey not in seen:
+                yield effectivekey[0]
 
     #
     # I/O
     #
 
     def flush(self):
-        attrs    = self.attrs
-        removed  = self.removed
+        # FIXME: The transaction may have deleted the file, and then obviously
+        # flushing would fail.  Let's try to detect that scenario.  The
+        # transaction should not attempt to flush properties if it is also
+        # deleting the resource, though, and there are other reasons we might
+        # want to know about that the file doesn't exist, so this should be
+        # fixed.
+        self.path.changed()
+        if not self.path.exists():
+            return
+
+        attrs = self.attrs
+        removed = self.removed
         modified = self.modified
 
         for key in removed:
             assert key not in modified
-            del attrs[self._encodeKey(key)]
+            try:
+                del attrs[self._encodeKey(key)]
+            except KeyError:
+                pass
+            except IOError, e:
+                if e.errno != _ERRNO_NO_ATTR:
+                    raise
 
         for key in modified:
             assert key not in removed
             value = modified[key]
             attrs[self._encodeKey(key)] = compress(value.toxml())
+
+        self.removed.clear()
+        self.modified.clear()
 
     def abort(self):
         self.removed.clear()

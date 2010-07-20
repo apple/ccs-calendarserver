@@ -39,8 +39,14 @@ class TestCopyMoveValidation(TestCase):
         """
         Set up some CalDAV stuff.
         """
-        self.destination = CalDAVFile(self.mktemp())
-        self.destinationParent = CalDAVFile(self.mktemp())
+        
+        class CalDAVFileWithName(CalDAVFile):
+            
+            def name(self):
+                return self.fp.basename()
+
+        self.destination = CalDAVFileWithName(self.mktemp())
+        self.destinationParent = CalDAVFileWithName(self.mktemp())
         self.sampleCalendar = Component.fromString("""
 BEGIN:VCALENDAR
 VERSION:2.0

@@ -25,13 +25,13 @@ from twext.web2.dav.fileop import rmdir
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.test.test_server import SimpleRequest
 
-import twistedcaldav.test.util
 from twistedcaldav import carddavxml
 from twistedcaldav import vcard
 from twistedcaldav.index import db_basename
 from twistedcaldav.config import config
+from twistedcaldav.test.util import AddressBookHomeTestCase
 
-class AddressBookMultiget (twistedcaldav.test.util.TestCase):
+class AddressBookMultiget (AddressBookHomeTestCase):
     """
     addressbook-multiget REPORT
     """

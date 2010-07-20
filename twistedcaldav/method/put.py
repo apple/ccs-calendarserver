@@ -82,7 +82,6 @@ def http_PUT(self, request):
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     elif isAddressBookCollectionResource(parent):
-        self.fp.restat(False)
 
         # Content-type check
         content_type = request.headers.getHeader("content-type")
@@ -125,7 +124,7 @@ def http_PUT(self, request):
             request.extendedLogItems = {}
         clength = request.headers.getHeader("content-length", 0)
         if clength == 0:
-            clength = self.fp.getsize()
+            clength = self.contentLength()
         request.extendedLogItems["cl"] = str(clength)
         
         returnValue(result)

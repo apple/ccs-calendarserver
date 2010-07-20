@@ -147,6 +147,14 @@ class dateordatetime(object):
     def dateOrDatetime(self):
         return self._dateOrDatetime
 
+    def timetuple(self):
+        #
+        # This is required to make comparison with datetimes work. See:
+        # http://bugs.python.org/issue8005
+        # http://docs.python.org/release/2.6.5/library/datetime.html#datetime.date.day
+        #
+        return self._dateOrDatetime.timetuple()
+
     def iCalendarString(self):
         if self._isDatetime:
             return dateTimeToString(self._dateOrDatetime)

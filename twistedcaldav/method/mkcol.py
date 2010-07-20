@@ -53,8 +53,8 @@ def http_MKCOL(self, request):
     yield parent.authorize(request, (davxml.Bind(),))
 
     if self.exists():
-        log.err("Attempt to create collection where file exists: %s"
-                % (self.fp.path,))
+        log.err("Attempt to create collection where resource exists: %s"
+                % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             (davxml.dav_namespace, "resource-must-be-null"))
@@ -62,7 +62,7 @@ def http_MKCOL(self, request):
 
     if not parent.isCollection():
         log.err("Attempt to create collection with non-collection parent: %s"
-                % (self.fp.path,))
+                % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.CONFLICT,
             (davxml.dav_namespace, "collection-location-ok"))
@@ -111,9 +111,6 @@ def http_MKCOL(self, request):
         # Parse response body
         mkcol = doc.root_element
         if not isinstance(mkcol, mkcolxml.MakeCollection):
-            # Clean up
-            if self.fp.exists(): self.fp.remove()
-
             error = ("Non-%s element in MKCOL request body: %s"
                      % (mkcolxml.MakeCollection.name, mkcol))
             log.err(error)
@@ -177,8 +174,7 @@ def http_MKCOL(self, request):
     
         if got_an_error:
             # Clean up
-            if self.fp.exists(): self.fp.remove()
-
+            self.transactionError()
             errors.error()
             raise HTTPError(MultiStatusResponse([errors.response()]))
 

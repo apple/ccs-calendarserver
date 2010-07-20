@@ -13,15 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twext.web2.dav.element.base import WebDAVTextElement
 
 """
 Property store tests.
 """
 
-from twext.python.filepath import FilePath
+from twext.python.filepath import CachingFilePath as FilePath
 
 from txdav.propertystore.base import PropertyName
-from txdav.propertystore.test.base import propertyName
 
 from txdav.propertystore.test import base
 
@@ -39,7 +39,8 @@ class PropertyStoreTest(base.PropertyStoreTest):
         tempDir.makedirs()
         tempFile = tempDir.child("test")
         tempFile.touch()
-        self.propertyStore = PropertyStore(tempFile)
+        self.propertyStore = self.propertyStore1 = PropertyStore("user01", "user01", lambda : tempFile)
+        self.propertyStore2 = PropertyStore("user02", "user01", lambda : tempFile)
 
     def test_init(self):
         store = self.propertyStore
@@ -53,6 +54,33 @@ class PropertyStoreTest(base.PropertyStoreTest):
         self.assertEquals(store.removed, set())
         self.assertEquals(store.modified, {})
 
+    def test_compress(self):
+
+        class DummyProperty (WebDAVTextElement):
+            namespace = "http://calendarserver.org/ns/"
+            name = "dummy"
+
+        name = PropertyName.fromElement(DummyProperty)
+        compressedKey = self.propertyStore._encodeKey((name, self.propertyStore._defaultuser))
+        uncompressedKey = self.propertyStore._encodeKey((name, self.propertyStore._defaultuser), compressNamespace=False)
+
+        self.propertyStore[name] = DummyProperty.fromString("data")
+        self.propertyStore.flush()
+        self.assertEqual(self.propertyStore[name], DummyProperty.fromString("data"))
+        self.assertTrue(compressedKey in self.propertyStore.attrs)
+        self.assertFalse(uncompressedKey in self.propertyStore.attrs)
+
+    def test_compress_upgrade(self):
+
+        class DummyProperty (WebDAVTextElement):
+            namespace = "http://calendarserver.org/ns/"
+            name = "dummy"
+
+        name = PropertyName.fromElement(DummyProperty)
+        uncompressedKey = self.propertyStore._encodeKey((name, self.propertyStore._defaultuser), compressNamespace=False)
+        self.propertyStore.attrs[uncompressedKey] = DummyProperty.fromString("data").toxml()
+        self.assertEqual(self.propertyStore[name], DummyProperty.fromString("data"))
+        self.assertRaises(KeyError, lambda:self.propertyStore.attrs[uncompressedKey])
 
 if PropertyStore is None:
     PropertyStoreTest.skip = importErrorMessage

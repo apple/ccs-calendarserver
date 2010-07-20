@@ -31,14 +31,14 @@ from time import sleep as _sleep
 from types import FunctionType, MethodType
 from errno import EINVAL
 
-from twisted.python.filepath import FilePath
+from twisted.python.filepath import FilePath as _FilePath
 
 from stat import S_ISDIR
 
-class CachingFilePath(FilePath, object):
+class CachingFilePath(_FilePath, object):
     """
-    A descendent of L{twisted.python.filepath.FilePath} which implements a more
-    aggressive caching policy.
+    A descendent of L{_FilePath} which implements a more aggressive caching
+    policy.
     """
 
     _listdir = _listdir         # integration points for tests
@@ -56,11 +56,11 @@ class CachingFilePath(FilePath, object):
     @property
     def siblingExtensionSearch(self):
         """
-        Dynamically create a version of L{FilePath.siblingExtensionSearch} that
+        Dynamically create a version of L{_FilePath.siblingExtensionSearch} that
         uses a pluggable 'listdir' implementation.
         """
         return MethodType(FunctionType(
-                FilePath.siblingExtensionSearch.im_func.func_code,
+                _FilePath.siblingExtensionSearch.im_func.func_code,
                 {'listdir': self._retryListdir,
                  'basename': _basename,
                  'dirname': _dirname,
@@ -121,20 +121,19 @@ class CachingFilePath(FilePath, object):
 
     def moveTo(self, destination, followLinks=True):
         """
-        Override L{FilePath.moveTo}, updating extended cache information if
+        Override L{_FilePath.moveTo}, updating extended cache information if
         necessary.
         """
-        try:
-            return super(CachingFilePath, self).moveTo(destination, followLinks)
-        except OSError:
-            raise
-        else:
-            self.changed()
+        result = super(CachingFilePath, self).moveTo(destination, followLinks)
+        self.changed()
+        # Work with vanilla FilePath destinations to pacify the tests. 
+        if hasattr(destination, "changed"):
+            destination.changed()
 
 
     def remove(self):
         """
-        Override L{FilePath.remove}, updating extended cache information if
+        Override L{_FilePath.remove}, updating extended cache information if
         necessary.
         """
         try:

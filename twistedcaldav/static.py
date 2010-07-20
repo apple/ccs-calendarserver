@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test -*-
 ##
 # Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
@@ -57,7 +58,7 @@ from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
 from twext.web2.dav.fileop import mkcollection, rmdir
-from twext.web2.dav.http import ErrorResponse
+from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.idav import IDAVResource
 from twext.web2.dav.method import put_common, delete_common
 from twext.web2.dav.noneprops import NonePropertyStore
@@ -65,6 +66,7 @@ from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.dav.resource import davPrivilegeSet
 from twext.web2.dav.util import parentForURL, bindMethods, joinURL
 from twext.web2.http_headers import generateContentType, MimeType
+from txdav.idav import AlreadyFinishedError
 
 from twistedcaldav import caldavxml
 from twistedcaldav import carddavxml
@@ -74,10 +76,12 @@ from twistedcaldav.client.reverseproxy import ReverseProxyResource
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty, TwistedScheduleMatchETags
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
+from twistedcaldav.directory.internal import InternalDirectoryRecord
+from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.linkresource import LinkResource, LinkFollowerMixIn
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
-from twistedcaldav.memcacheprops import MemcachePropertyCollection
+
 from twistedcaldav.freebusyurl import FreeBusyURLResource
 from twistedcaldav.ical import Component as iComponent
 from twistedcaldav.ical import Property as iProperty
@@ -125,15 +129,17 @@ class ReadOnlyResourceMixIn(object):
             (caldav_namespace, "calendar-collection-location-ok")
         )
 
+
+
 class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
     """
     CalDAV-accessible L{DAVFile} resource.
     """
-    def __repr__(self):
-        if self.isCalendarCollection():
-            return "<%s (calendar collection): %s>" % (self.__class__.__name__, self.fp.path)
-        else:
-            return super(CalDAVFile, self).__repr__()
+#    def __repr__(self):
+#        if self.isCalendarCollection():
+#            return "<%s (calendar collection): %s>" % (self.__class__.__name__, self.fp.path)
+#        else:
+#            return super(CalDAVFile, self).__repr__()
 
     def __eq__(self, other):
         if not isinstance(other, CalDAVFile):
@@ -187,6 +193,9 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
 
     def deadProperties(self, caching=True):
         if not hasattr(self, "_dead_properties"):
+            # FIXME: this code should actually be dead, as the property store
+            # should be initialized as part of the traversal process.
+ 
             # Get the property store from super
             deadProperties = super(CalDAVFile, self).deadProperties()
 
@@ -203,18 +212,27 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
     ##
 
     def createCalendar(self, request):
-        #
-        # request object is required because we need to validate against parent
-        # resources, and we need the request in order to locate the parents.
-        #
+        """
+        External API for creating a calendar.  Verify that the parent is a
+        collection, exists, is I{not} a calendar collection; that this resource
+        does not yet exist, then create it.
 
+        @param request: the request used to look up parent resources to
+            validate.
+
+        @type request: L{twext.web2.iweb.IRequest}
+
+        @return: a deferred that fires when a calendar collection has been
+            created in this resource.
+        """
         if self.fp.exists():
             log.err("Attempt to create collection where file exists: %s" % (self.fp.path,))
             raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
-        if not os.path.isdir(os.path.dirname(self.fp.path)):
-            log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
-            raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
+        # newStore guarantees that we always have a parent calendar home
+        #if not self.fp.parent().isdir():
+        #    log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
+        #    raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
         # Verify that no parent collection is a calendar also
@@ -235,28 +253,22 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
         parent.addCallback(_defer)
         return parent
 
+
     def createCalendarCollection(self):
-        #
-        # Create the collection once we know it is safe to do so
-        #
-        def onCalendarCollection(status):
-            if status != responsecode.CREATED:
-                raise HTTPError(status)
+        """
+        Internal API for creating a calendar collection.
 
-            # Initialize CTag on the calendar collection
-            d1 = self.bumpSyncToken()
+        This will immediately create the collection without performing any
+        verification.  For the normal API, see L{CalDAVFile.createCalendar}.
 
-            # Calendar is initially transparent to freebusy
-            self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()))
+        The default behavior is to return a failing Deferred; for a working
+        implementation, see L{twistedcaldav.legacy}.
 
-            # Create the index so its ready when the first PUTs come in
-            d1.addCallback(lambda _: self.index().create())
-            d1.addCallback(lambda _: status)
-            return d1
+        @return: a L{Deferred} which fires when the underlying collection has
+            actually been created.
+        """
+        return fail(NotImplementedError())
 
-        d = self.createSpecialCollection(davxml.ResourceType.calendar)
-        d.addCallback(onCalendarCollection)
-        return d
 
     def createSpecialCollection(self, resourceType=None):
         #
@@ -286,37 +298,39 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
     def iCalendarRolledup(self, request):
         if self.isPseudoCalendarCollection():
 
+
+# FIXME: move cache implementation!
             # Determine the cache key
-            isvirt = (yield self.isVirtualShare(request))
-            if isvirt:
-                principal = (yield self.resourceOwnerPrincipal(request))
-                if principal:
-                    cacheKey = principal.principalUID()
-                else:
-                    cacheKey = "unknown"
-            else:
-                isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
-                cacheKey = "owner" if isowner else "notowner"
+#            isvirt = (yield self.isVirtualShare(request))
+#            if isvirt:
+#                principal = (yield self.resourceOwnerPrincipal(request))
+#                if principal:
+#                    cacheKey = principal.principalUID()
+#                else:
+#                    cacheKey = "unknown"
+#            else:
+#                isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+#                cacheKey = "owner" if isowner else "notowner"
                 
             # Now check for a cached .ics
-            rolled = self.fp.child(".subscriptions")
-            if not rolled.exists():
-                try:
-                    rolled.makedirs()
-                except IOError, e:
-                    log.err("Unable to create internet calendar subscription cache directory: %s because of: %s" % (rolled.path, e,))
-                    raise HTTPError(ErrorResponse(responsecode.INTERNAL_SERVER_ERROR))
-            cached = rolled.child(cacheKey)
-            if cached.exists():
-                try:
-                    cachedData = cached.open().read()
-                except IOError, e:
-                    log.err("Unable to open or read internet calendar subscription cache file: %s because of: %s" % (cached.path, e,))
-                else:
-                    # Check the cache token
-                    token, data = cachedData.split("\r\n", 1)
-                    if token == self.getSyncToken():
-                        returnValue(data)
+#            rolled = self.fp.child(".subscriptions")
+#            if not rolled.exists():
+#                try:
+#                    rolled.makedirs()
+#                except IOError, e:
+#                    log.err("Unable to create internet calendar subscription cache directory: %s because of: %s" % (rolled.path, e,))
+#                    raise HTTPError(ErrorResponse(responsecode.INTERNAL_SERVER_ERROR))
+#            cached = rolled.child(cacheKey)
+#            if cached.exists():
+#                try:
+#                    cachedData = cached.open().read()
+#                except IOError, e:
+#                    log.err("Unable to open or read internet calendar subscription cache file: %s because of: %s" % (cached.path, e,))
+#                else:
+#                    # Check the cache token
+#                    token, data = cachedData.split("\r\n", 1)
+#                    if token == self.getSyncToken():
+#                        returnValue(data)
 
             # Generate a monolithic calendar
             calendar = iComponent("VCALENDAR")
@@ -366,10 +380,10 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
             # Cache the data
             data = str(calendar)
             data = self.getSyncToken() + "\r\n" + data
-            try:
-                cached.open(mode='w').write(data)
-            except IOError, e:
-                log.err("Unable to open or write internet calendar subscription cache file: %s because of: %s" % (cached.path, e,))
+#            try:
+#                cached.open(mode='w').write(data)
+#            except IOError, e:
+#                log.err("Unable to open or write internet calendar subscription cache file: %s because of: %s" % (cached.path, e,))
                 
             returnValue(calendar)
 
@@ -416,6 +430,19 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
         return calendar_data
 
     def createAddressBook(self, request):
+        """
+        External API for creating an addressbook.  Verify that the parent is a
+        collection, exists, is I{not} an addressbook collection; that this resource
+        does not yet exist, then create it.
+
+        @param request: the request used to look up parent resources to
+            validate.
+
+        @type request: L{twext.web2.iweb.IRequest}
+
+        @return: a deferred that fires when an addressbook collection has been
+            created in this resource.
+        """
         #
         # request object is required because we need to validate against parent
         # resources, and we need the request in order to locate the parents.
@@ -425,9 +452,10 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
             log.err("Attempt to create collection where file exists: %s" % (self.fp.path,))
             raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
-        if not os.path.isdir(os.path.dirname(self.fp.path)):
-            log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
-            raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
+        # newStore guarantees that we always have a parent calendar home
+        #if not os.path.isdir(os.path.dirname(self.fp.path)):
+        #    log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
+        #    raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
         # Verify that no parent collection is a calendar also
@@ -449,24 +477,19 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
         return parent
 
     def createAddressBookCollection(self):
-        #
-        # Create the collection once we know it is safe to do so
-        #
-        def onAddressBookCollection(status):
-            if status != responsecode.CREATED:
-                raise HTTPError(status)
+        """
+        Internal API for creating an addressbook collection.
 
-            # Initialize CTag on the address book collection
-            d1 = self.bumpSyncToken()
+        This will immediately create the collection without performing any
+        verification.  For the normal API, see L{CalDAVFile.createAddressBook}.
 
-            # Create the index so its ready when the first PUTs come in
-            d1.addCallback(lambda _: self.index().create())
-            d1.addCallback(lambda _: status)
-            return d1
+        The default behavior is to return a failing Deferred; for a working
+        implementation, see L{twistedcaldav.legacy}.
 
-        d = self.createSpecialCollection(davxml.ResourceType.addressbook) #@UndefinedVariable
-        d.addCallback(onAddressBookCollection)
-        return d
+        @return: a L{Deferred} which fires when the underlying collection has
+            actually been created.
+        """
+        return fail(NotImplementedError())
 
     @inlineCallbacks
     def vCardRolledup(self, request):
@@ -603,8 +626,9 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
         """
         Create a new sync-token which is also the ctag.
         """
+        # FIXME: new implementation is in txcaldav.file, this should be
+        # deleted.
         assert self.isCollection()
-        
         # Initialise it
         caluuid = uuid4()
         revision = 1
@@ -647,11 +671,6 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
             if not child.startswith(".")
         ]
 
-    def propertyCollection(self):
-        if not hasattr(self, "_propertyCollection"):
-            self._propertyCollection = MemcachePropertyCollection(self)
-        return self._propertyCollection
-
     def createSimilarFile(self, path):
         if self.comparePath(path):
             return self
@@ -659,47 +678,8 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
         similar = super(CalDAVFile, self).createSimilarFile(path)
 
         if isCalendarCollectionResource(self):
-
-            # Short-circuit stat with information we know to be true at this point
-            if isinstance(path, FilePath) and hasattr(self, "knownChildren"):
-                if os.path.basename(path.path) in self.knownChildren:
-                    path.existsCached = True
-                    path.isDirCached = False
-
-            #
-            # Override the dead property store
-            #
-            superDeadProperties = similar.deadProperties
-
-            def deadProperties():
-                if not hasattr(similar, "_dead_properties"):
-                    similar._dead_properties = self.propertyCollection().propertyStoreForChild(
-                        similar,
-                        superDeadProperties(caching=False)
-                    )
-                return similar._dead_properties
-
-            similar.deadProperties = deadProperties
-
-            #
-            # Override DELETE, MOVE
-            #
-            for method in ("DELETE", "MOVE"):
-                method = "http_" + method
-                original = getattr(similar, method)
-
-                @inlineCallbacks
-                def override(request, original=original):
-
-                    # Call original method (which is deferred)
-                    response = (yield original(request))
-
-                    # Wipe the cache
-                    similar.deadProperties().flushCache()
-
-                    returnValue(response)
-
-                setattr(similar, method, override)
+            raise RuntimeError("Calendar collection resources should really "
+                               "be represented by a different class.")
 
         return similar
 
@@ -861,18 +841,31 @@ class AutoProvisioningFileMixIn (LinkFollowerMixIn, AutoProvisioningResourceMixI
             super(AutoProvisioningFileMixIn, self)._initTypeAndEncoding()
 
 
-class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeProvisioningResource, DAVFile):
+class CalendarHomeProvisioningFile(AutoProvisioningFileMixIn, 
+                                   DirectoryCalendarHomeProvisioningResource,
+                                   DAVFile):
     """
     Resource which provisions calendar home collections as needed.
     """
-    def __init__(self, path, directory, url):
+
+    def __init__(self, path, directory, url, store):
         """
-        @param path: the path to the file which will back the resource.
+        Initialize this L{CalendarHomeProvisioningFile}.
+
+        @param path: the path to the filesystem directory which will back the
+            resource.
+
+        @type path: L{FilePath}
+
         @param directory: an L{IDirectoryService} to provision calendars from.
-        @param url: the canonical URL for the resource.
+
+        @param url: the canonical URL for this L{CalendarHomeProvisioningFile} 
+            resource.
         """
         DAVFile.__init__(self, path)
         DirectoryCalendarHomeProvisioningResource.__init__(self, directory, url)
+        self._newStore = store
+
 
     def provisionChild(self, name):
         if name == uidsResourceName:
@@ -880,8 +873,11 @@ class CalendarHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendar
 
         return CalendarHomeTypeProvisioningFile(self.fp.child(name).path, self, name)
 
+
     def createSimilarFile(self, path):
         raise HTTPError(responsecode.NOT_FOUND)
+
+
 
 class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeTypeProvisioningResource, DAVFile):
     def __init__(self, path, parent, recordType):
@@ -892,6 +888,46 @@ class CalendarHomeTypeProvisioningFile (AutoProvisioningFileMixIn, DirectoryCale
         """
         DAVFile.__init__(self, path)
         DirectoryCalendarHomeTypeProvisioningResource.__init__(self, parent, recordType)
+
+
+
+def _transactionFromRequest(request, newStore):
+    """
+    Return the associated transaction from the given HTTP request, creating a
+    new one from the given data store if none has yet been associated.
+
+    Also, if the request was not previously associated with a transaction, add
+    a failsafe transaction-abort response filter to abort any transaction which
+    has not been committed or aborted by the resource which responds to the
+    request.
+
+    @param request: The request to inspect.
+    @type request: L{IRequest}
+
+    @param newStore: The store to create a transaction from.
+    @type newStore: L{IDataStore}
+
+    @return: a transaction that should be used to read and write data
+        associated with the request.
+    @rtype: L{ITransaction} (and possibly L{ICalendarTransaction} and
+        L{IAddressBookTransaction} as well.
+    """
+    TRANSACTION_KEY = '_newStoreTransaction'
+    transaction = getattr(request, TRANSACTION_KEY, None)
+    if transaction is None:
+        transaction = newStore.newTransaction(repr(request))
+        def abortIfUncommitted(request, response):
+            try:
+                transaction.abort()
+            except AlreadyFinishedError:
+                pass
+            return response
+        abortIfUncommitted.handleErrors = True
+        request.addResponseFilter(abortIfUncommitted)
+        setattr(request, TRANSACTION_KEY, transaction)
+    return transaction
+
+
 
 class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalendarHomeUIDProvisioningResource, DAVFile):
     def __init__(self, path, parent, homeResourceClass=None):
@@ -905,8 +941,24 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
         else:
             self.homeResourceClass = homeResourceClass
 
-    def provisionChild(self, name):
+
+    def locateChild(self, request, segments):
+
+        name = segments[0]
+        if name == "":
+            return (self, ())
+
         record = self.directory.recordWithUID(name)
+        if record:
+            return (self.homeResourceForRecord(record, request), segments[1:])
+        else:
+            return (None, ())
+
+    def homeResourceForRecord(self, record, request):
+        self.provision()
+        transaction = _transactionFromRequest(request, self.parent._newStore)
+
+        name = record.uid
 
         if record is None:
             log.msg("No directory record with GUID %r" % (name,))
@@ -920,7 +972,7 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
         
         if record.locallyHosted():
             childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
-            child = self.homeResourceClass(childPath.path, self, record)
+            child = self.homeResourceClass(childPath.path, self, record, transaction)
     
             if not child.exists():
                 self.provision()
@@ -947,25 +999,7 @@ class CalendarHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryCalen
                             ))
                         child.fp.changed()
                         break
-                else:
-                    #
-                    # NOTE: provisionDefaultCalendars() returns a deferred, which we are ignoring.
-                    # The result being that the default calendars will be present at some point
-                    # in the future, not necessarily right now, and we don't have a way to wait
-                    # on that to finish.
-                    #
-                    child.provisionDefaultCalendars()
-    
-                    #
-                    # Try to work around the above a little by telling the client that something
-                    # when wrong temporarily if the child isn't provisioned right away.
-                    #
-                    if not child.exists():
-                        raise HTTPError(StatusResponse(
-                            responsecode.SERVICE_UNAVAILABLE,
-                            "Provisioning calendar home."
-                        ))
-    
+
                 assert child.exists()
         
         else:
@@ -989,7 +1023,8 @@ class CalendarHomeReverseProxyFile(ReverseProxyResource):
     def url(self):
         return joinURL(self.parent.url(), self.record.uid)
 
-class CalendarHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, DirectoryCalendarHomeResource, CalDAVFile):
+class CalendarHomeFile(AutoProvisioningFileMixIn, SharedHomeMixin, 
+                       DirectoryCalendarHomeResource, CalDAVFile):
     """
     Calendar home collection resource.
     """
@@ -1003,27 +1038,69 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, DirectoryCal
             (customxml.calendarserver_namespace, "xmpp-server"),
         )
 
-    def __init__(self, path, parent, record):
+    def __init__(self, path, parent, record, transaction):
         """
         @param path: the path to the file which will back the resource.
         """
 
+        self.associateWithTransaction(transaction)
+
         # TODO: when calendar home gets a resourceID( ) method, remove
         # the "id=record.uid" keyword from this call:
         self.clientNotifier = ClientNotifier(self, id=record.uid)
-
+        storeHome = transaction.calendarHomeWithUID(record.uid)
+        if storeHome is not None:
+            created = False
+        else:
+            storeHome = transaction.calendarHomeWithUID(
+                record.uid, create=True
+            )
+            created = True
+        self._newStoreCalendarHome = storeHome
         CalDAVFile.__init__(self, path)
         DirectoryCalendarHomeResource.__init__(self, parent, record)
+        from twistedcaldav.storebridge import _NewStorePropertiesWrapper
+        self._dead_properties = _NewStorePropertiesWrapper(
+            self._newStoreCalendarHome.properties()
+        )
+        if created:
+            # This is a bit of a hack.  Really we ought to be always generating
+            # this URL live from a back-end method that tells us what the
+            # default calendar is.
+            inbox = self.getChild("inbox")
+            childURL = joinURL(self.url(), "calendar")
+            inbox.processFreeBusyCalendar(childURL, True)
+
+
+    def sharesDB(self):
+        """
+        Retrieve the new-style shares DB wrapper.
+        """
+        if not hasattr(self, "_sharesDB"):
+            self._sharesDB = self._newStoreCalendarHome.retrieveOldShares()
+        return self._sharesDB
+
+
+    def exists(self):
+        # FIXME: tests
+        return True
+    
+    
+    def quotaSize(self, request):
+        # FIXME: tests, workingness
+        return succeed(0)
+
 
     def provision(self):
-        result = super(CalendarHomeFile, self).provision()
-        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
+        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.fp.exists():
             self.provisionShares()
-        return result
+        return
 
     def provisionChild(self, name):
+        from twistedcaldav.storebridge import StoreScheduleInboxFile
+        from twistedcaldav.storebridge import DropboxCollection
         if config.EnableDropBox:
-            DropBoxHomeFileClass = DropBoxHomeFile
+            DropBoxHomeFileClass = DropboxCollection
         else:
             DropBoxHomeFileClass = None
 
@@ -1037,8 +1114,13 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, DirectoryCal
         else:
             NotificationCollectionFileClass = None
 
+
+        # For storebridge stuff we special case this
+        if name == "notification":
+            return self.createNotificationsFile(self.fp.child(name).path)
+
         cls = {
-            "inbox"        : ScheduleInboxFile,
+            "inbox"        : StoreScheduleInboxFile,
             "outbox"       : ScheduleOutboxFile,
             "dropbox"      : DropBoxHomeFileClass,
             "freebusy"     : FreeBusyURLFileClass,
@@ -1052,12 +1134,46 @@ class CalendarHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, DirectoryCal
             return child
         return self.createSimilarFile(self.fp.child(name).path)
 
+    def createNotificationsFile(self, path):
+        
+        txn = self._newStoreCalendarHome._transaction
+        notifications = txn.notificationsWithUID(self._newStoreCalendarHome.uid())
+
+        from twistedcaldav.storebridge import StoreNotificationCollectionFile
+        similar = StoreNotificationCollectionFile(
+            notifications, self._newStoreCalendarHome,
+            path, self,
+        )
+        self.propagateTransaction(similar)
+        similar.clientNotifier = self.clientNotifier.clone(similar,
+            label="collection")
+        return similar
+
     def createSimilarFile(self, path):
 
         if self.comparePath(path):
             return self
         else:
-            similar = CalDAVFile(path, principalCollections=self.principalCollections())
+            if not isinstance(path, FilePath):
+                path = FilePath(path)
+            newCalendar = self._newStoreCalendarHome.calendarWithName(
+                path.basename()
+            )
+            if newCalendar is None:
+                # Local imports.due to circular dependency between modules.
+                from twistedcaldav.storebridge import (
+                     ProtoCalendarCollectionFile)
+                similar = ProtoCalendarCollectionFile(
+                    self._newStoreCalendarHome,
+                    path, principalCollections=self.principalCollections()
+                )
+            else:
+                from twistedcaldav.storebridge import CalendarCollectionFile
+                similar = CalendarCollectionFile(
+                    newCalendar, self._newStoreCalendarHome,
+                    path, principalCollections=self.principalCollections()
+                )
+            self.propagateTransaction(similar)
             similar.clientNotifier = self.clientNotifier.clone(similar,
                 label="collection")
             return similar
@@ -1210,17 +1326,6 @@ class ScheduleInboxFile (ScheduleInboxResource, ScheduleFile):
         ScheduleFile.__init__(self, path, parent)
         ScheduleInboxResource.__init__(self, parent)
 
-    def provision(self):
-        if self.provisionFile():
-
-            # Initialize CTag on the calendar collection
-            self.bumpSyncToken()
-
-            # Initialize the index
-            self.index().create()
-
-        return super(ScheduleInboxFile, self).provision()
-
     def __repr__(self):
         return "<%s (calendar inbox collection): %s>" % (self.__class__.__name__, self.fp.path)
 
@@ -1237,12 +1342,22 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
     Calendar scheduling outbox collection resource.
     """
     def __init__(self, path, parent):
-        ScheduleFile.__init__(self, path, parent)
+        ScheduleFile.__init__(self, NotFilePath(isdir=True), parent)
         ScheduleOutboxResource.__init__(self, parent)
 
+    def deadProperties(self):
+        if not hasattr(self, "_dead_properties"):
+            self._dead_properties = NonePropertyStore(self)
+        return self._dead_properties
+
+    def etag(self):
+        return None
+
     def provision(self):
-        self.provisionFile()
-        return super(ScheduleOutboxFile, self).provision()
+        """
+        Schedule outboxes do not need to be provisioned; they shouldn't store
+        anything.
+        """
 
     def __repr__(self):
         return "<%s (calendar outbox collection): %s>" % (self.__class__.__name__, self.fp.path)
@@ -1254,6 +1369,13 @@ class ScheduleOutboxFile (ScheduleOutboxResource, ScheduleFile):
 
     def supportedPrivileges(self, request):
         return succeed(sendSchedulePrivilegeSet)
+
+    def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_query):
+        return succeed(MultiStatusResponse(()))
+        
+    def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multiget):
+        responses = [davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)) for href in multiget.resources]
+        return succeed(MultiStatusResponse((responses)))
 
 class IScheduleInboxFile (ReadOnlyResourceMixIn, IScheduleInboxResource, CalDAVFile):
     """
@@ -1390,7 +1512,7 @@ class TimezoneServiceFile (ReadOnlyResourceMixIn, TimezoneServiceResource, CalDA
     def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
         return succeed(None)
 
-class NotificationCollectionFile(ReadOnlyResourceMixIn, AutoProvisioningFileMixIn, NotificationCollectionResource, CalDAVFile):
+class NotificationCollectionFile(ReadOnlyResourceMixIn, NotificationCollectionResource, CalDAVFile):
     """
     Notification collection resource.
     """
@@ -1410,8 +1532,8 @@ class NotificationCollectionFile(ReadOnlyResourceMixIn, AutoProvisioningFileMixI
 
     def _writeNotification(self, request, uid, rname, xmltype, xmldata):
         
+        # TODO: use the generic StoreObject api so that quota, sync-token etc all get changed properly
         child = self.createSimilarFile(self.fp.child(rname).path)
-
         def _defer(_):
             child.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset":"utf-8"}))))
             child.writeDeadProperty(customxml.NotificationType(xmltype))
@@ -1424,8 +1546,8 @@ class NotificationCollectionFile(ReadOnlyResourceMixIn, AutoProvisioningFileMixI
         d.addCallback(_defer)
         return d
 
+
     def _deleteNotification(self, request, rname):
-        
         child = self.createSimilarFile(self.fp.child(rname).path)
         url = request.urlForResource(self)
         url = joinURL(url, rname)
@@ -1456,7 +1578,7 @@ class AddressBookHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryAddre
     """
     Resource which provisions address book home collections as needed.
     """
-    def __init__(self, path, directory, url):
+    def __init__(self, path, directory, url, store):
         """
         @param path: the path to the file which will back the resource.
         @param directory: an L{IDirectoryService} to provision address books from.
@@ -1464,6 +1586,8 @@ class AddressBookHomeProvisioningFile (AutoProvisioningFileMixIn, DirectoryAddre
         """
         DAVFile.__init__(self, path)
         DirectoryAddressBookHomeProvisioningResource.__init__(self, directory, url)
+        self._newStore = store
+
 
     def provisionChild(self, name):
         if name == uidsResourceNameAddressBook:
@@ -1496,8 +1620,23 @@ class AddressBookHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryAd
         else:
             self.homeResourceClass = homeResourceClass
 
-    def provisionChild(self, name):
+    def locateChild(self, request, segments):
+
+        name = segments[0]
+        if name == "":
+            return (self, ())
+
         record = self.directory.recordWithUID(name)
+        if record:
+            return (self.homeResourceForRecord(record, request), segments[1:])
+        else:
+            return (None, ())
+
+    def homeResourceForRecord(self, record, request):
+        self.provision()
+        transaction = _transactionFromRequest(request, self.parent._newStore)
+
+        name = record.uid
 
         if record is None:
             log.msg("No directory record with GUID %r" % (name,))
@@ -1510,7 +1649,7 @@ class AddressBookHomeUIDProvisioningFile (AutoProvisioningFileMixIn, DirectoryAd
         assert len(name) > 4
         
         childPath = self.fp.child(name[0:2]).child(name[2:4]).child(name)
-        child = self.homeResourceClass(childPath.path, self, record)
+        child = self.homeResourceClass(childPath.path, self, record, transaction)
 
         if not child.exists():
             self.provision()
@@ -1577,24 +1716,51 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, Directory
             (customxml.calendarserver_namespace, "xmpp-server"),
         )
 
-    def __init__(self, path, parent, record):
+    def __init__(self, path, parent, record, transaction):
         """
         @param path: the path to the file which will back the resource.
         """
 
+        self.associateWithTransaction(transaction)
+
         # TODO: when addressbook home gets a resourceID( ) method, remove
         # the "id=record.uid" keyword from this call:
         self.clientNotifier = ClientNotifier(self, id=record.uid)
-
+        self._newStoreAddressBookHome = (
+            transaction.addressbookHomeWithUID(record.uid, create=True)
+        )
         CalDAVFile.__init__(self, path)
         DirectoryAddressBookHomeResource.__init__(self, parent, record)
 
+        from twistedcaldav.storebridge import _NewStorePropertiesWrapper
+        self._dead_properties = _NewStorePropertiesWrapper(
+            self._newStoreAddressBookHome.properties()
+        )
+
+
+    def sharesDB(self):
+        """
+        Retrieve the new-style shares DB wrapper.
+        """
+        if not hasattr(self, "_sharesDB"):
+            self._sharesDB = self._newStoreAddressBookHome.retrieveOldShares()
+        return self._sharesDB
+
+
+    def exists(self):
+        # FIXME: tests
+        return True
+    
+    
+    def quotaSize(self, request):
+        # FIXME: tests, workingness
+        return succeed(0)
+
+
     def provision(self):
-        result = super(AddressBookHomeFile, self).provision()
         if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled:
             self.provisionShares()
         self.provisionLinks()
-        return result
 
     def provisionLinks(self):
         
@@ -1602,7 +1768,7 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, Directory
             if config.GlobalAddressBook.Enabled:
                 self.putChild(
                     config.GlobalAddressBook.Name,
-                    LinkResource(self, joinURL("/", config.GlobalAddressBook.Name, "/")),
+                    LinkResource(self, "/addressbooks/public/global/addressbook/"),
                 )
             self._provisionedLinks = True
 
@@ -1628,7 +1794,38 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, Directory
         if self.comparePath(path):
             return self
         else:
-            similar = CalDAVFile(path, principalCollections=self.principalCollections())
+            if not isinstance(path, FilePath):
+                path = FilePath(path)
+
+            # Check for public/global path
+            from twistedcaldav.storebridge import (
+                AddressBookCollectionFile,
+                ProtoAddressBookCollectionFile,
+                GlobalAddressBookCollectionFile,
+                ProtoGlobalAddressBookCollectionFile,
+            )
+            mainCls = AddressBookCollectionFile
+            protoCls = ProtoAddressBookCollectionFile
+            if isinstance(self.record, InternalDirectoryRecord):
+                if "global" in self.record.shortNames:
+                    mainCls = GlobalAddressBookCollectionFile
+                    protoCls = ProtoGlobalAddressBookCollectionFile
+
+            newAddressBook = self._newStoreAddressBookHome.addressbookWithName(
+                path.basename()
+            )
+            if newAddressBook is None:
+                # Local imports.due to circular dependency between modules.
+                similar = protoCls(
+                    self._newStoreAddressBookHome,
+                    path, principalCollections=self.principalCollections()
+                )
+            else:
+                similar = mainCls(
+                    newAddressBook, self._newStoreAddressBookHome,
+                    path, principalCollections=self.principalCollections()
+                )
+            self.propagateTransaction(similar)
             similar.clientNotifier = self.clientNotifier.clone(similar,
                 label="collection")
             return similar

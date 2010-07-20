@@ -443,151 +443,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         returnValue(MultiStatusResponse(responses))
 
 
-class DAVResource (DirectoryPrincipalPropertySearchMixIn, SudoersMixin, SuperDAVResource, LoggingMixIn):
-    """
-    Extended L{twext.web2.dav.resource.DAVResource} implementation.
-    """
-    http_REPORT = http_REPORT
-
-
-class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn, SuperDAVPrincipalResource, LoggingMixIn):
-    """
-    Extended L{twext.web2.dav.static.DAVFile} implementation.
-    """
-
-    def liveProperties(self):
-        return super(DAVPrincipalResource, self).liveProperties() + (
-            (calendarserver_namespace, "expanded-group-member-set"),
-            (calendarserver_namespace, "expanded-group-membership"),
-            (calendarserver_namespace, "record-type"),
-        )
-
-    http_REPORT = http_REPORT
-
-    @inlineCallbacks
-    def readProperty(self, property, request):
-        if type(property) is tuple:
-            qname = property
-        else:
-            qname = property.qname()
-
-        namespace, name = qname
-
-        if namespace == dav_namespace:
-            if name == "resourcetype":
-                rtype = (yield self.resourceType(request))
-                returnValue(rtype)
-
-        elif namespace == calendarserver_namespace:
-            if name == "expanded-group-member-set":
-                principals = (yield self.expandedGroupMembers())
-                returnValue(customxml.ExpandedGroupMemberSet(
-                    *[davxml.HRef(p.principalURL()) for p in principals]
-                ))
-
-            elif name == "expanded-group-membership":
-                principals = (yield self.expandedGroupMemberships())
-                returnValue(customxml.ExpandedGroupMembership(
-                    *[davxml.HRef(p.principalURL()) for p in principals]
-                ))
-
-            elif name == "record-type":
-                if hasattr(self, "record"):
-                    returnValue(customxml.RecordType(self.record.recordType))
-                else:
-                    raise HTTPError(StatusResponse(
-                        responsecode.NOT_FOUND,
-                        "Property %s does not exist." % (qname,)
-                    ))
-
-
-
-        result = (yield super(DAVPrincipalResource, self).readProperty(property, request))
-        returnValue(result)
-
-    def groupMembers(self):
-        return succeed(())
-
-    def expandedGroupMembers(self):
-        return succeed(())
-
-    def groupMemberships(self):
-        return succeed(())
-
-    def expandedGroupMemberships(self):
-        return succeed(())
-
-    def resourceType(self, request):
-        # Allow live property to be overridden by dead property
-        if self.deadProperties().contains((dav_namespace, "resourcetype")):
-            return succeed(self.deadProperties().get((dav_namespace, "resourcetype")))
-        if self.isCollection():
-            return succeed(davxml.ResourceType(davxml.Principal(), davxml.Collection()))
-        else:
-            return succeed(davxml.ResourceType(davxml.Principal()))
-
-
-class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn):
-    """
-    Extended L{twext.web2.dav.static.DAVFile} implementation.
-    """
-    def readProperty(self, property, request):
-        if type(property) is tuple:
-            qname = property
-        else:
-            qname = property.qname()
-
-        if qname == (dav_namespace, "resourcetype"):
-            return self.resourceType(request)
-
-        return super(DAVFile, self).readProperty(property, request)
-
-    def resourceType(self, request):
-        # Allow live property to be overridden by dead property
-        if self.deadProperties().contains((dav_namespace, "resourcetype")):
-            return succeed(self.deadProperties().get((dav_namespace, "resourcetype")))
-        if self.isCollection():
-            return succeed(davxml.ResourceType.collection)
-        return succeed(davxml.ResourceType.empty)
-
-    def render(self, request):
-        if not self.fp.exists():
-            return responsecode.NOT_FOUND
-
-        if self.fp.isdir():
-            if request.path[-1] != "/":
-                # Redirect to include trailing '/' in URI
-                return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/'))
-            else:
-                ifp = self.fp.childSearchPreauth(*self.indexNames)
-                if ifp:
-                    # Render from the index file
-                    return self.createSimilarFile(ifp.path).render(request)
-
-                return self.renderDirectory(request)
-
-        try:
-            f = self.fp.open()
-        except IOError, e:
-            import errno
-            if e[0] == errno.EACCES:
-                return responsecode.FORBIDDEN
-            elif e[0] == errno.ENOENT:
-                return responsecode.NOT_FOUND
-            else:
-                raise
-
-        response = Response()
-        response.stream = FileStream(f, 0, self.fp.getsize())
-
-        for (header, value) in (
-            ("content-type", self.contentType()),
-            ("content-encoding", self.contentEncoding()),
-        ):
-            if value is not None:
-                response.headers.setHeader(header, value)
-
-        return response
+class DirectoryRenderingMixIn(object):
 
     def directoryStyleSheet(self):
         return (
@@ -796,7 +652,11 @@ class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn):
                 contentType = rtypes
             else:
                 mimeType = child.contentType()
-                contentType = "%s/%s" % (mimeType.mediaType, mimeType.mediaSubtype)
+                if mimeType is None:
+                    print 'BAD contentType() IMPLEMENTATION', child
+                    contentType = 'application/octet-stream'
+                else:
+                    contentType = "%s/%s" % (mimeType.mediaType, mimeType.mediaSubtype)
                 if rtypes:
                     contentType += " %s" % (rtypes,)
         else:
@@ -816,6 +676,175 @@ class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn):
              contentType,
          ))
 
+
+
+class DAVResource (DirectoryPrincipalPropertySearchMixIn,
+                   SudoersMixin, SuperDAVResource, LoggingMixIn,
+                   DirectoryRenderingMixIn):
+    """
+    Extended L{twext.web2.dav.resource.DAVResource} implementation.
+    """
+    http_REPORT = http_REPORT
+
+    def render(self, request):
+        if not self.exists():
+            return responsecode.NOT_FOUND
+
+        if self.isCollection():
+            return self.renderDirectory(request)
+        return super(DAVResource, self).render(request)
+
+
+    def resourceType(self, request):
+        # Allow live property to be overridden by dead property
+        if self.deadProperties().contains((dav_namespace, "resourcetype")):
+            return succeed(self.deadProperties().get((dav_namespace, "resourcetype")))
+        return succeed(davxml.ResourceType())
+
+
+
+class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
+                            SuperDAVPrincipalResource, LoggingMixIn,
+                            DirectoryRenderingMixIn):
+    """
+    Extended L{twext.web2.dav.static.DAVFile} implementation.
+    """
+
+    def liveProperties(self):
+        return super(DAVPrincipalResource, self).liveProperties() + (
+            (calendarserver_namespace, "expanded-group-member-set"),
+            (calendarserver_namespace, "expanded-group-membership"),
+            (calendarserver_namespace, "record-type"),
+        )
+
+    http_REPORT = http_REPORT
+
+    @inlineCallbacks
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        namespace, name = qname
+
+        if namespace == dav_namespace:
+            if name == "resourcetype":
+                rtype = (yield self.resourceType(request))
+                returnValue(rtype)
+
+        elif namespace == calendarserver_namespace:
+            if name == "expanded-group-member-set":
+                principals = (yield self.expandedGroupMembers())
+                returnValue(customxml.ExpandedGroupMemberSet(
+                    *[davxml.HRef(p.principalURL()) for p in principals]
+                ))
+
+            elif name == "expanded-group-membership":
+                principals = (yield self.expandedGroupMemberships())
+                returnValue(customxml.ExpandedGroupMembership(
+                    *[davxml.HRef(p.principalURL()) for p in principals]
+                ))
+
+            elif name == "record-type":
+                if hasattr(self, "record"):
+                    returnValue(customxml.RecordType(self.record.recordType))
+                else:
+                    raise HTTPError(StatusResponse(
+                        responsecode.NOT_FOUND,
+                        "Property %s does not exist." % (qname,)
+                    ))
+
+
+
+        result = (yield super(DAVPrincipalResource, self).readProperty(property, request))
+        returnValue(result)
+
+    def groupMembers(self):
+        return succeed(())
+
+    def expandedGroupMembers(self):
+        return succeed(())
+
+    def groupMemberships(self):
+        return succeed(())
+
+    def expandedGroupMemberships(self):
+        return succeed(())
+
+    def resourceType(self, request):
+        # Allow live property to be overridden by dead property
+        if self.deadProperties().contains((dav_namespace, "resourcetype")):
+            return succeed(self.deadProperties().get((dav_namespace, "resourcetype")))
+        if self.isCollection():
+            return succeed(davxml.ResourceType(davxml.Principal(), davxml.Collection()))
+        else:
+            return succeed(davxml.ResourceType(davxml.Principal()))
+
+
+
+class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn,
+               DirectoryRenderingMixIn):
+    """
+    Extended L{twext.web2.dav.static.DAVFile} implementation.
+    """
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname == (dav_namespace, "resourcetype"):
+            return self.resourceType(request)
+
+        return super(DAVFile, self).readProperty(property, request)
+
+    def resourceType(self, request):
+        # Allow live property to be overridden by dead property
+        if self.deadProperties().contains((dav_namespace, "resourcetype")):
+            return succeed(self.deadProperties().get((dav_namespace, "resourcetype")))
+        if self.isCollection():
+            return succeed(davxml.ResourceType.collection)
+        return succeed(davxml.ResourceType.empty)
+
+    def render(self, request):
+        if not self.fp.exists():
+            return responsecode.NOT_FOUND
+
+        if self.fp.isdir():
+            if request.path[-1] != "/":
+                # Redirect to include trailing '/' in URI
+                return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/'))
+            else:
+                ifp = self.fp.childSearchPreauth(*self.indexNames)
+                if ifp:
+                    # Render from the index file
+                    return self.createSimilarFile(ifp.path).render(request)
+
+                return self.renderDirectory(request)
+
+        try:
+            f = self.fp.open()
+        except IOError, e:
+            import errno
+            if e[0] == errno.EACCES:
+                return responsecode.FORBIDDEN
+            elif e[0] == errno.ENOENT:
+                return responsecode.NOT_FOUND
+            else:
+                raise
+
+        response = Response()
+        response.stream = FileStream(f, 0, self.fp.getsize())
+
+        for (header, value) in (
+            ("content-type", self.contentType()),
+            ("content-encoding", self.contentEncoding()),
+        ):
+            if value is not None:
+                response.headers.setHeader(header, value)
+
+        return response
 
 
 

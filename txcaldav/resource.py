@@ -31,11 +31,14 @@ __all__ = [
 import urllib
 
 from twext.python.log import LoggingMixIn
+from twext.web2.dav.element.base import dav_namespace
 from twext.web2.http_headers import MimeType
 from twext.web2.http import RedirectResponse, Response
 from twext.web2.stream import MemoryStream
 
-from twistedcaldav import config
+from twistedcaldav import caldavxml
+from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVResource
 
 

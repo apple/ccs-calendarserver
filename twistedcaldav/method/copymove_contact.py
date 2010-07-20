@@ -71,8 +71,8 @@ def maybeCOPYContact(self, request):
     # Check for existing destination resource
     overwrite = request.headers.getHeader("overwrite", True)
     if destination.exists() and not overwrite:
-        log.err("Attempt to copy onto existing file without overwrite flag enabled: %s"
-                % (destination.fp.path,))
+        log.err("Attempt to copy onto existing resource without overwrite flag enabled: %s"
+                % (destination,))
         raise HTTPError(StatusResponse(
             responsecode.PRECONDITION_FAILED,
             "Destination %s already exists." % (destination_uri,))
@@ -141,8 +141,8 @@ def maybeMOVEContact(self, request):
     # Check for existing destination resource
     overwrite = request.headers.getHeader("overwrite", True)
     if destination.exists() and not overwrite:
-        log.err("Attempt to copy onto existing file without overwrite flag enabled: %s"
-                % (destination.fp.path,))
+        log.err("Attempt to copy onto existing resource without overwrite flag enabled: %s"
+                % (destination,))
         raise HTTPError(StatusResponse(
             responsecode.PRECONDITION_FAILED,
             "Destination %s already exists." % (destination_uri,)
@@ -206,8 +206,8 @@ def checkForAddressBookAction(self, request):
     destinationadbk = False
     
     # Check the source path first
-    if not self.fp.exists():
-        log.err("File not found: %s" % (self.fp.path,))
+    if not self.exists():
+        log.err("Resource not found: %s" % (self,))
         raise HTTPError(StatusResponse(
             responsecode.NOT_FOUND,
             "Source resource %s not found." % (request.uri,)

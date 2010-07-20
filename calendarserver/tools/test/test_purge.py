@@ -23,6 +23,7 @@ from twext.python.plistlib import readPlistFromString
 from twext.web2.dav import davxml
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
+from twisted.trial.unittest import SkipTest
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryRecord
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
@@ -40,6 +41,8 @@ collectionType = zlib.compress("""<?xml version='1.0' encoding='UTF-8'?>
 
 
 class PurgeOldEventsTestCase(TestCase):
+
+    skip = SkipTest("Needs to be rewritten for new-store")
 
     def setUp(self):
         super(PurgeOldEventsTestCase, self).setUp()
@@ -345,6 +348,8 @@ END:VCALENDAR
 
 
 class DeprovisionTestCase(TestCase):
+
+    skip = SkipTest("Needs to be rewritten for new-store")
 
     def setUp(self):
         super(DeprovisionTestCase, self).setUp()

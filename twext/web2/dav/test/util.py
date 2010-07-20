@@ -35,7 +35,7 @@ from twext.python.log import Logger
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.fileop import rmdir
+
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.static import DAVFile
 from twext.web2.dav.util import joinURL
@@ -185,8 +185,7 @@ class TestCase (unittest.TestCase):
 
     def tearDown(self):
         unittest.TestCase.tearDown(self)
-        if hasattr(self, "_docroot"):
-            rmdir(self._docroot)
+
 
     def mkdtemp(self, prefix):
         """

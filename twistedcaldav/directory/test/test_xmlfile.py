@@ -14,19 +14,13 @@
 # limitations under the License.
 ##
 
-import os
-
 from twext.python.filepath import CachingFilePath as FilePath
 
-from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService
 import twistedcaldav.directory.test.util
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
-
-xmlFile = FilePath(os.path.join(os.path.dirname(__file__), "accounts.xml"))
-augmentsFile = FilePath(os.path.join(os.path.dirname(__file__), "augments.xml"))
-proxiesFile = FilePath(os.path.join(os.path.dirname(__file__), "proxies.xml"))
+from twistedcaldav.test.util import TestCase, xmlFile, augmentsFile
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
@@ -104,7 +98,8 @@ class XMLFile (
     """
     def service(self):
         directory = XMLDirectoryService({'xmlFile' : self.xmlFile()}, alwaysStat=True)
-        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,))
+        self.patch(augment, "AugmentService",
+                   augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,)))
         return directory
 
     def test_changedXML(self):
@@ -304,5 +299,10 @@ class XMLFileSubset (XMLFileBase, TestCase):
     ))
 
     def test_recordTypesSubset(self):
-        directory = XMLDirectoryService({'xmlFile' : self.xmlFile(), 'recordTypes' : (DirectoryService.recordType_users, DirectoryService.recordType_groups)}, alwaysStat=True)
+        directory = XMLDirectoryService(
+            {'xmlFile' : self.xmlFile(), 
+             'recordTypes' : (DirectoryService.recordType_users, 
+                              DirectoryService.recordType_groups)}, 
+            alwaysStat=True
+        )
         self.assertEquals(set(("users", "groups")), set(directory.recordTypes()))

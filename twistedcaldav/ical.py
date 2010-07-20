@@ -1765,10 +1765,13 @@ class Component (object):
         """
         Test for the existence of one or more properties in any component.
         
-        @param properties: property names to test for
-        @type properties: C{list} or C{tuple}
+        @param properties: property name(s) to test for
+        @type properties: C{list}, C{tuple} or C{str}
         """
 
+        if isinstance(properties, str):
+            properties = (properties,)
+            
         for property in properties:
             if self.hasProperty(property):
                 return True
@@ -1778,6 +1781,29 @@ class Component (object):
                 return True
 
         return False
+
+    def getFirstPropertyInAnyComponent(self, properties):
+        """
+        Get the first of any set of properties in any component.
+        
+        @param properties: property name(s) to test for
+        @type properties: C{list}, C{tuple} or C{str}
+        """
+
+        if isinstance(properties, str):
+            properties = (properties,)
+            
+        for property in properties:
+            props = tuple(self.properties(property))
+            if props:
+                return props[0]
+
+        for component in self.subcomponents():
+            prop = component.getFirstPropertyInAnyComponent(properties)
+            if prop:
+                return prop
+
+        return None
 
     def hasPropertyValueInAllComponents(self, property):
         """

@@ -431,20 +431,27 @@ class ImplicitProcessor(object):
         # refresh them. To prevent a race we need a lock.
         lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
 
+        # Note that this lock also protects the request, as this request is
+        # being re-used by potentially multiple transactions and should not be
+        # used concurrency (the locateResource cache needs to be cleared each
+        # time, by inNewTransaction). -glyph
         try:
             yield lock.acquire()
-
-            # Send out a reply
-            log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
-            from twistedcaldav.scheduling.implicit import ImplicitScheduler
-            scheduler = ImplicitScheduler()
-            yield scheduler.sendAttendeeReply(self.request, resource, calendar, self.recipient)
-
         except MemcacheLockTimeoutError:
-            
             # Just try again to get the lock
             reactor.callLater(2.0, self.sendAttendeeAutoReply, *(calendar, resource, partstat))
-    
+        else:
+            txn = resource.inNewTransaction(self.request)
+            try:
+                # Send out a reply
+                log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
+                from twistedcaldav.scheduling.implicit import ImplicitScheduler
+                scheduler = ImplicitScheduler()
+                yield scheduler.sendAttendeeReply(self.request, resource, calendar, self.recipient)
+            except:
+                txn.abort()
+            else:
+                txn.commit()
         finally:
             yield lock.clean()
 
@@ -652,14 +659,11 @@ class ImplicitProcessor(object):
         @param name: the resource name to write into, or {None} to write a new resource.
         @type name: C{str}
         """
-        
-        from twistedcaldav.method.delete_common import DeleteResource
         delchild = collection.getChild(name)
         childURL = joinURL(collURL, name)
         self.request._rememberResource(delchild, childURL)
+        yield delchild.storeRemove(self.request, False, childURL)
 
-        deleter = DeleteResource(self.request, delchild, childURL, collection, "0", internal_request=True)
-        yield deleter.run()
 
     def changeAttendeePartstat(self, attendees, partstat):
         """

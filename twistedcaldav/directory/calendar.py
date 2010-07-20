@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test.test_calendar -*-
 ##
 # Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
@@ -117,12 +118,12 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
         # See DirectoryPrincipalProvisioningResource.__init__()
         return self.directory.principalCollection.principalForRecord(record)
 
-    def homeForDirectoryRecord(self, record):
+    def homeForDirectoryRecord(self, record, request):
         uidResource = self.getChild(uidsResourceName)
         if uidResource is None:
             return None
         else:
-            return uidResource.getChild(record.uid)
+            return uidResource.homeResourceForRecord(record, request)
 
     ##
     # DAV
@@ -154,17 +155,18 @@ class DirectoryCalendarHomeTypeProvisioningResource (DirectoryCalendarProvisioni
     def url(self):
         return joinURL(self._parent.url(), self.recordType)
 
-    def getChild(self, name, record=None):
+    def locateChild(self, request, segments):
         self.provision()
+        name = segments[0]
         if name == "":
-            return self
+            return (self, segments[1:])
 
+        record = self.directory.recordWithShortName(self.recordType, name)
         if record is None:
-            record = self.directory.recordWithShortName(self.recordType, name)
-            if record is None:
-                return None
+            return None, []
 
-        return self._parent.homeForDirectoryRecord(record)
+        return (self._parent.homeForDirectoryRecord(record, request),
+                segments[1:])
 
     def listChildren(self):
         if config.EnablePrincipalListings:
@@ -217,16 +219,7 @@ class DirectoryCalendarHomeUIDProvisioningResource (DirectoryCalendarProvisionin
         return joinURL(self.parent.url(), uidsResourceName)
 
     def getChild(self, name, record=None):
-        self.provision()
-        if name == "":
-            return self
-
-        if record is None:
-            record = self.directory.recordWithUID(name)
-            if record is None:
-                return None
-
-        return self.provisionChild(name)
+        raise NotImplementedError("DirectoryCalendarProvisioningResource.getChild no longer exists.")
 
     def listChildren(self):
         # Not a listable collection
@@ -285,57 +278,9 @@ class DirectoryCalendarHomeResource (AutoProvisioningResourceMixIn, CalDAVResour
             )
         for name, cls in childlist:
             child = self.provisionChild(name)
-            assert isinstance(child, cls), "Child %r is not a %s: %r" % (name, cls.__name__, child)
+            # assert isinstance(child, cls), "Child %r is not a %s: %r" % (name, cls.__name__, child)
             self.putChild(name, child)
 
-    def provisionDefaultCalendars(self):
-
-        # Disable notifications during provisioning
-        if hasattr(self, "clientNotifier"):
-            self.clientNotifier.disableNotify()
-
-        def setupFreeBusy(_):
-            # Default calendar is initially opaque to freebusy
-            child.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
-
-            # FIXME: Shouldn't have to call provision() on another resource
-            # We cheat here because while inbox will auto-provision itself when located,
-            # we need to write a dead property to it pre-emptively.
-            # This will go away once we remove the free-busy-set property on inbox.
-
-            # Set calendar-free-busy-set on inbox
-            inbox = self.getChild("inbox")
-            inbox.provision()
-            inbox.processFreeBusyCalendar(childURL, True)
-
-            # Default calendar is marked as the default for scheduling
-            inbox.writeDeadProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(childURL)))
-
-            return self
-
-        try:
-            self.provision()
-
-            childName = "calendar"
-            childURL = joinURL(self.url(), childName)
-            child = self.provisionChild(childName)
-            assert isinstance(child, CalDAVResource), "Child %r is not a %s: %r" % (childName, CalDAVResource.__name__, child)
-
-            d = child.createCalendarCollection()
-            d.addCallback(setupFreeBusy)
-        except:
-            # We want to make sure to re-enable notifications, so do so
-            # if there is an immediate exception above, or via errback, below
-            if hasattr(self, "clientNotifier"):
-                self.clientNotifier.enableNotify(None)
-            raise
-
-        # Re-enable notifications
-        if hasattr(self, "clientNotifier"):
-            d.addCallback(self.clientNotifier.enableNotify)
-            d.addErrback(self.clientNotifier.enableNotify)
-
-        return d
 
     def provisionChild(self, name):
         raise NotImplementedError("Subclass must implement provisionChild()")

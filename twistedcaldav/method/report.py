@@ -47,8 +47,8 @@ def http_REPORT(self, request):
     """
     Respond to a REPORT request. (RFC 3253, section 3.6)
     """
-    if not self.fp.exists():
-        log.err("File not found: %s" % (self.fp.path,))
+    if not self.exists():
+        log.err("Resource not found: %s" % (self,))
         raise HTTPError(responsecode.NOT_FOUND)
 
     #

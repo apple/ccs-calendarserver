@@ -14,56 +14,24 @@
 # limitations under the License.
 ##
 
-import os
-
 from twisted.internet.defer import inlineCallbacks
 from twext.web2.dav import davxml
 from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import caldavxml
-from twistedcaldav.directory import augment
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.static import CalendarHomeProvisioningFile
 
-import twistedcaldav.test.util
-from twistedcaldav.config import config
+from twistedcaldav.test.util import TestCase
 
-class ProvisionedCalendars (twistedcaldav.test.util.TestCase):
+class ProvisionedCalendars (TestCase):
     """
     Directory service provisioned principals.
     """
     def setUp(self):
         super(ProvisionedCalendars, self).setUp()
-        
-        # Setup the initial directory
-        self.xmlFile = os.path.join(config.DataRoot, "accounts.xml")
-        fd = open(self.xmlFile, "w")
-        fd.write(open(xmlFile.path, "r").read())
-        fd.close()
-        self.directoryService = XMLDirectoryService({'xmlFile' : "accounts.xml"})
-        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
-        
-        # Set up a principals hierarchy for each service we're testing with
-        name = "principals"
-        url = "/" + name + "/"
 
-        provisioningResource = DirectoryPrincipalProvisioningResource(url, self.directoryService)
-
-        self.site.resource.putChild("principals", provisioningResource)
-
+        self.createStockDirectoryService()
         self.setupCalendars()
 
-        self.site.resource.setAccessControlList(davxml.ACL())
-
-    def setupCalendars(self):
-        calendarCollection = CalendarHomeProvisioningFile(
-            os.path.join(self.docroot, "calendars"),
-            self.directoryService,
-            "/calendars/"
-        )
-        self.site.resource.putChild("calendars", calendarCollection)
 
     def test_NonExistentCalendarHome(self):
 

@@ -54,24 +54,15 @@ def preconditions_PUT(self, request):
         yield parent
         parent = parent.getResult()
 
+        if not parent.exists():
+            raise HTTPError(
+                StatusResponse(
+                    responsecode.CONFLICT,
+                    "cannot PUT to non-existent parent"))
         x = waitForDeferred(parent.authorize(request, (davxml.Bind(),)))
         yield x
         x.getResult()
 
-    if self.fp.exists():
-        if not self.fp.isfile():
-            log.err("Unable to PUT to non-file: %s" % (self.fp.path,))
-            raise HTTPError(StatusResponse(
-                responsecode.FORBIDDEN,
-                "The requested resource exists but is not backed by a regular file."
-            ))
-    else:
-        if not self.fp.parent().isdir():
-            log.err("No such directory: %s" % (self.fp.path,))
-            raise HTTPError(StatusResponse(
-                responsecode.CONFLICT,
-                "Parent collection resource does not exist."
-            ))
 
     #
     # HTTP/1.1 (RFC 2068, section 9.6) requires that we respond with a Not

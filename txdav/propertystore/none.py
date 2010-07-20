@@ -18,72 +18,99 @@
 Property store with no storage.
 """
 
-from __future__ import absolute_import
-
 __all__ = [
     "PropertyStore",
 ]
 
 from txdav.propertystore.base import AbstractPropertyStore, validKey
-from txdav.idav import PropertyChangeNotAllowedError
-
 
 class PropertyStore(AbstractPropertyStore):
     """
     Property store with no storage.
     """
-    def __init__(self):
+    
+    properties = {}
+
+    def __init__(self, peruser, defaultuser):
+        super(PropertyStore, self).__init__(peruser, defaultuser)
+
         self.modified = {}
+        self.removed = set()
 
     def __str__(self):
         return "<%s>" % (self.__class__.__name__,)
 
     #
-    # Accessors
+    # Required implementations
     #
 
-    def __delitem__(self, key):
+    def _getitem_uid(self, key, uid):
         validKey(key)
+        effectiveKey = (key, uid)
 
-        if key in self.modified:
-            del self.modified[key]
-        else:
+        if effectiveKey in self.modified:
+            return self.modified[effectiveKey]
+
+        if effectiveKey in self.removed:
             raise KeyError(key)
 
-    def __getitem__(self, key):
-        validKey(key)
+        return self.properties[effectiveKey]
 
-        if key in self.modified:
-            return self.modified[key]
-        else:
+    def _setitem_uid(self, key, value, uid):
+        validKey(key)
+        effectiveKey = (key, uid)
+
+        if effectiveKey in self.removed:
+            self.removed.remove(effectiveKey)
+        self.modified[effectiveKey] = value
+
+    def _delitem_uid(self, key, uid):
+        validKey(key)
+        effectiveKey = (key, uid)
+
+        if effectiveKey in self.modified:
+            del self.modified[effectiveKey]
+        elif effectiveKey not in self.properties:
             raise KeyError(key)
 
-    def __contains__(self, key):
-        validKey(key)
+        self.removed.add(effectiveKey)
 
-        return key in self.modified
+    def _keys_uid(self, uid):
+        seen = set()
 
-    def __setitem__(self, key, value):
-        validKey(key)
+        for effectivekey in self.properties:
+            if effectivekey[1] == uid and effectivekey not in self.removed:
+                seen.add(effectivekey)
+                yield effectivekey[0]
 
-        self.modified[key] = value
-
-    def __iter__(self):
-        return (k for k in self.modified)
-
-    def __len__(self):
-        return len(self.modified)
+        for effectivekey in self.modified:
+            if effectivekey[1] == uid and effectivekey not in seen:
+                yield effectivekey[0]
 
     #
     # I/O
     #
 
     def flush(self):
-        if self.modified:
-            raise PropertyChangeNotAllowedError(
-                "None property store cannot flush changes.",
-                keys = self.modified.keys()
-            )
+        props    = self.properties
+        removed  = self.removed
+        modified = self.modified
+
+        for effectivekey in removed:
+            assert effectivekey not in modified
+            try:
+                del props[effectivekey]
+            except KeyError:
+                pass
+
+        for effectivekey in modified:
+            assert effectivekey not in removed
+            value = modified[effectivekey]
+            props[effectivekey] = value
+        
+        self.removed.clear()
+        self.modified.clear()        
 
     def abort(self):
+        self.removed.clear()
         self.modified.clear()

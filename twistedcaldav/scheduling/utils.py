@@ -33,7 +33,7 @@ def getCalendarObjectForPrincipals(request, principal, uid, allow_shared=False):
 
     if principal and principal.locallyHosted():
         # Get principal's calendar-home
-        calendar_home = principal.calendarHome()
+        calendar_home = principal.calendarHome(request)
         
         # FIXME: because of the URL->resource request mapping thing, we have to force the request
         # to recognize this resource

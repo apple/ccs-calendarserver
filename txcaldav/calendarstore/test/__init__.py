@@ -1,3 +1,4 @@
+# -*- test-case-name: txcaldav.calendarstore.test -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #

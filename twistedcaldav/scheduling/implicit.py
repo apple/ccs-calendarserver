@@ -383,8 +383,8 @@ class ImplicitScheduler(object):
 
         # Get owner's calendar-home
         calendar_owner_principal = (yield self.resource.resourceOwnerPrincipal(self.request))
-        calendar_home = calendar_owner_principal.calendarHome()
-        
+        calendar_home = calendar_owner_principal.calendarHome(self.request)
+
         check_parent_uri = parentForURL(check_uri)[:-1] if check_uri else None
 
         # FIXME: because of the URL->resource request mapping thing, we have to force the request

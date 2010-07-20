@@ -35,6 +35,8 @@ from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 
 import twistedcaldav.test.util
+from txdav.common.datastore.file import CommonDataStore
+from twisted.python.filepath import FilePath
 
 
 class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
@@ -356,6 +358,9 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         # Need to create a calendar home provisioner for each service.
         calendarRootResources = {}
 
+        # Need a data store
+        _newStore = CommonDataStore(FilePath(self.docroot), True, False)
+
         for directory in self.directoryServices:
             url = "/homes_" + directory.__class__.__name__ + "/"
             path = os.path.join(self.docroot, url[1:])
@@ -364,7 +369,12 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 rmdir(path)
             os.mkdir(path)
 
-            provisioningResource = CalendarHomeProvisioningFile(path, directory, url)
+            provisioningResource = CalendarHomeProvisioningFile(
+                path,
+                directory,
+                url,
+                _newStore
+            )
 
             calendarRootResources[directory.__class__.__name__] = provisioningResource
 

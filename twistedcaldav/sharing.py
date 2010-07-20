@@ -172,9 +172,9 @@ class SharedCollectionMixin(object):
         
         # Get the home collection
         if self.isCalendarCollection():
-            home = principal.calendarHome()
+            home = principal.calendarHome(request)
         elif self.isAddressBookCollection():
-            home = principal.addressBookHome()
+            home = principal.addressBookHome(request)
         else:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -206,6 +206,11 @@ class SharedCollectionMixin(object):
         self._isVirtualShare = True
         self._shareePrincipal = shareePrincipal
         self._share = share
+        
+        if hasattr(self, "_newStoreCalendar"):
+            self._newStoreCalendar.setSharingUID(self._shareePrincipal.principalUID())
+        elif hasattr(self, "_newStoreAddressBook"):
+            self._newStoreAddressBook.setSharingUID(self._shareePrincipal.principalUID())
 
     def isVirtualShare(self, request):
         """ Return True if this is a shared calendar collection """
@@ -216,15 +221,21 @@ class SharedCollectionMixin(object):
         
         # Remove from sharee's calendar/address book home
         if self.isCalendarCollection():
-            shareeHome = self._shareePrincipal.calendarHome()
+            shareeHome = self._shareePrincipal.calendarHome(request)
         elif self.isAddressBookCollection():
-            shareeHome = self._shareePrincipal.addressBookHome()
+            shareeHome = self._shareePrincipal.addressBookHome(request)
         return shareeHome.removeShare(request, self._share)
 
     @inlineCallbacks
     def resourceType(self, request):
-        
-        rtype = (yield super(SharedCollectionMixin, self).resourceType(request))
+        superObject = super(SharedCollectionMixin, self)
+        try:
+            superMethod = superObject.resourceType
+        except AttributeError:
+            rtype = davxml.ResourceType()
+        else:
+            rtype = (yield superMethod(request))
+
         isVirt = (yield self.isVirtualShare(request))
         if isVirt:
             rtype = davxml.ResourceType(
@@ -479,9 +490,9 @@ class SharedCollectionMixin(object):
         sharee = self.principalForCalendarUserAddress(record.userid)
         if sharee:
             if self.isCalendarCollection():
-                shareeHome = sharee.calendarHome()
+                shareeHome = sharee.calendarHome(request)
             elif self.isAddressBookCollection():
-                shareeHome = sharee.addressBookHome()
+                shareeHome = sharee.addressBookHome(request)
             yield shareeHome.removeShareByUID(request, record.inviteuid)
     
             # If current user state is accepted then we send an invite with the new state, otherwise
@@ -513,11 +524,11 @@ class SharedCollectionMixin(object):
         # Locate notifications collection for user
         sharee = self.principalForCalendarUserAddress(record.userid)
         if sharee is None:
-            raise ValueError("sharee is None but userid was valid before")
-        notifications = (yield request.locateResource(sharee.notificationURL()))
+            raise ValueError("sharee is None but userid was valid before")        
+        notifications = self._newStoreParentHome._transaction.notificationsWithUID(sharee.principalUID())
         
         # Look for existing notification
-        oldnotification = (yield notifications.getNotifictionMessageByUID(request, record.inviteuid))
+        oldnotification = notifications.notificationObjectWithUID(record.inviteuid)
         if oldnotification:
             # TODO: rollup changes?
             pass
@@ -545,7 +556,7 @@ class SharedCollectionMixin(object):
         ).toxml()
         
         # Add to collections
-        yield notifications.addNotification(request, record.inviteuid, xmltype, xmldata)
+        notifications.writeNotificationObject(record.inviteuid, xmltype, xmldata)
 
     @inlineCallbacks
     def removeInvite(self, record, request):

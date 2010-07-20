@@ -90,7 +90,7 @@ def POST_handler_add_member(self, request):
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="No calendar data"))
 
             # Create a new name if one was not provided
-            name =  md5(str(calendardata) + str(time.time()) + self.fp.path).hexdigest() + ".ics"
+            name =  md5(str(calendardata) + str(time.time()) + request.path).hexdigest() + ".ics"
         
             # Get a resource for the new item
             newchildURL = joinURL(parentURL, name)
@@ -139,7 +139,7 @@ def POST_handler_add_member(self, request):
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-address-data"), description="No address data"))
 
             # Create a new name if one was not provided
-            name =  md5(str(vcarddata) + str(time.time()) + self.fp.path).hexdigest() + ".vcf"
+            name =  md5(str(vcarddata) + str(time.time()) + request.path).hexdigest() + ".vcf"
         
             # Get a resource for the new item
             newchildURL = joinURL(parentURL, name)

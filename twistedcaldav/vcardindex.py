@@ -230,7 +230,10 @@ class AddressBookIndex(AbstractSQLDatabase):
         db_filename = os.path.join(self.resource.fp.path, db_basename)
         super(AddressBookIndex, self).__init__(db_filename, False)
 
-        if config.Memcached.Pools.Default.ClientEnabled:
+        if (
+            hasattr(config, "Memcached") and
+            config.Memcached.Pools.Default.ClientEnabled
+        ):
             self.reserver = MemcachedUIDReserver(self)
         else:
             self.reserver = SQLUIDReserver(self)
@@ -440,6 +443,26 @@ class AddressBookIndex(AbstractSQLDatabase):
                 log.err("vCard resource %s is missing from %s. Removing from index."
                         % (name, self.resource))
                 self.deleteResource(name, None)
+
+    def bruteForceSearch(self):
+        """
+        List the whole index and tests for existence, updating the index
+        @return: all resources in the index
+        """
+        # List all resources
+        rowiter = self._db_execute("select NAME, UID from RESOURCE")
+
+        # Check result for missing resources:
+
+        for row in rowiter:
+            name = row[0]
+            if self.resource.getChild(name.encode("utf-8")):
+                yield row
+            else:
+                log.err("AddressBook resource %s is missing from %s. Removing from index."
+                        % (name, self.resource))
+                self.deleteResource(name)
+
 
     def _db_version(self):
         """

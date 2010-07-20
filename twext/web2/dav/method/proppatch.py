@@ -97,7 +97,7 @@ def http_PROPPATCH(self, request):
 
             properties = container.children
 
-            def do(action, property):
+            def do(action, property, removing=False):
                 """
                 Perform action(property, request) while maintaining an
                 undo queue.
@@ -122,13 +122,19 @@ def http_PROPPATCH(self, request):
                     yield x
                     x.getResult()
                 except KeyError, e:
-                    # Convert KeyError exception into HTTPError
-                    responses.add(
-                        Failure(exc_value=HTTPError(StatusResponse(responsecode.FORBIDDEN, str(e)))),
-                        property
-                    )
-                    yield False
-                    return
+                    # Removing a non-existent property is OK according to WebDAV
+                    if removing:
+                        responses.add(responsecode.OK, property)
+                        yield True
+                        return
+                    else:
+                        # Convert KeyError exception into HTTPError
+                        responses.add(
+                            Failure(exc_value=HTTPError(StatusResponse(responsecode.FORBIDDEN, str(e)))),
+                            property
+                        )
+                        yield False
+                        return
                 except:
                     responses.add(Failure(), property)
                     yield False
@@ -153,7 +159,7 @@ def http_PROPPATCH(self, request):
                         gotError = True
             elif isinstance(setOrRemove, davxml.Remove):
                 for property in properties:
-                    ok = waitForDeferred(do(self.removeProperty, property))
+                    ok = waitForDeferred(do(self.removeProperty, property, True))
                     yield ok
                     ok = ok.getResult()
                     if not ok:

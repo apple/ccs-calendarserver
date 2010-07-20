@@ -26,20 +26,20 @@ from twext.web2.test.test_server import SimpleRequest
 from twistedcaldav import caldavxml
 from twistedcaldav.static import ScheduleInboxFile
 
-import twistedcaldav.test.util
+from twistedcaldav.test.util import HomeTestCase
 
-class Properties (twistedcaldav.test.util.TestCase):
+class Properties (HomeTestCase):
     """
     CalDAV properties
     """
-    def test_missing_free_busy_set_prop(self):
+    def test_free_busy_set_prop(self):
         """
         Test for PROPFIND on Inbox with missing calendar-free-busy-set property.
         """
 
         inbox_uri  = "/inbox/"
-        inbox_path = os.path.join(self.docroot, "inbox")
-        self.site.resource.putChild("inbox", ScheduleInboxFile(inbox_path, self.site.resource))
+        #inbox_path = os.path.join(self.docroot, "inbox")
+        #self.site.resource.putChild("inbox", ScheduleInboxFile(inbox_path, self.site.resource))
 
         def propfind_cb(response):
             response = IResponse(response)
@@ -71,8 +71,8 @@ class Properties (twistedcaldav.test.util.TestCase):
                 if not free_busy_set:
                     self.fail("Expected CalDAV:calendar-free-busy-set element; but got none.")
 
-                if free_busy_set.children:
-                    self.fail("Expected empty CalDAV:calendar-free-busy-set element; but got %s." % (free_busy_set.children,))
+                if not free_busy_set.children:
+                    self.fail("Expected non-empty CalDAV:calendar-free-busy-set element.")
 
             return davXMLFromStream(response.stream).addCallback(got_xml)
 

@@ -14,9 +14,8 @@
 # limitations under the License.
 ##
 
-import os
-
 from twisted.internet.defer import DeferredList
+from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream, FileStream
@@ -27,41 +26,48 @@ from twistedcaldav.ical import Component
 from twistedcaldav.memcachelock import MemcacheLock
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
-import twistedcaldav.test.util
 
-class CollectionContents (twistedcaldav.test.util.TestCase):
+
+from twistedcaldav.test.util import HomeTestCase
+
+class CollectionContents(HomeTestCase):
     """
     PUT request
     """
-    data_dir = os.path.join(os.path.dirname(__file__), "data")
+
+    dataPath = FilePath(__file__).sibling("data")
 
     def setUp(self):
-        
         # Need to fake out memcache
         def _getFakeMemcacheProtocol(self):
-            
             result = super(MemcacheLock, self)._getMemcacheProtocol()
             if isinstance(result, Memcacher.nullCacher):
                 result = self._memcacheProtocol = Memcacher.memoryCacher()
-            
             return result
-        
-        MemcacheLock._getMemcacheProtocol = _getFakeMemcacheProtocol
+
+        self.patch(MemcacheLock, "_getMemcacheProtocol",
+                   _getFakeMemcacheProtocol)
 
         # Need to not do implicit behavior during these tests
         def _fakeDoImplicitScheduling(self):
             return False, False, False
-        
-        StoreCalendarObjectResource.doImplicitScheduling = _fakeDoImplicitScheduling
 
+        self.patch(StoreCalendarObjectResource , "doImplicitScheduling",
+                   _fakeDoImplicitScheduling)
+
+        # Tests in this suite assume that the root resource is a calendar home.
+        # FIXME: there should be a centralized way of saying 'make this look
+        # like a calendar home'
         super(CollectionContents, self).setUp()
+
 
     def test_collection_in_calendar(self):
         """
         Make (regular) collection in calendar
         """
         calendar_path, calendar_uri = self.mkdtemp("collection_in_calendar")
-        os.rmdir(calendar_path)
+        calPath = FilePath(calendar_path)
+        calPath.remove()
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -75,7 +81,7 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
                 if response.code != responsecode.FORBIDDEN:
                     self.fail("Incorrect response to nested MKCOL: %s" % (response.code,))
 
-            nested_uri  = os.path.join(calendar_uri, "nested")
+            nested_uri = "/".join([calendar_uri, "nested"])
 
             request = SimpleRequest(self.site, "MKCOL", nested_uri)
             self.send(request, mkcol_cb)
@@ -95,17 +101,28 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
         finally:
             dst_file.close()
 
+    def openHolidays(self):
+        """
+        Open the 'Holidays.ics' calendar.
+
+        @return: an open file pointing at the start of Holidays.ics
+
+        @rtype: C{file}
+        """
+        f = self.dataPath.child("Holidays.ics").open()
+        self.addCleanup(f.close)
+        return f
+
+
     def test_monolithic_ical(self):
         """
         Monolithic iCalendar file in calendar collection
         """
         # FIXME: Should FileStream be OK here?
-        dst_file = file(os.path.join(self.data_dir, "Holidays.ics"))
-        try:
-            stream = FileStream(dst_file)
-            return self._test_file_in_calendar("monolithic iCalendar file in calendar", (stream, responsecode.FORBIDDEN))
-        finally:
-            dst_file.close()
+        dst_file = self.openHolidays()
+        stream = FileStream(dst_file)
+        return self._test_file_in_calendar("monolithic iCalendar file in calendar", (stream, responsecode.FORBIDDEN))
+
 
     def test_single_events(self):
         """
@@ -113,9 +130,8 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
         """
         work = []
 
-        stream = file(os.path.join(self.data_dir, "Holidays.ics"))
-        try: calendar = Component.fromStream(stream)
-        finally: stream.close()
+        stream = self.openHolidays()
+        calendar = Component.fromStream(stream)
 
         for subcomponent in calendar.subcomponents():
             if subcomponent.name() == "VEVENT":
@@ -126,19 +142,23 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
 
         return self._test_file_in_calendar("single event in calendar", *work)
 
+
     def test_duplicate_uids(self):
         """
         Mutiple resources with the same UID.
         """
-        stream = file(os.path.join(self.data_dir, "Holidays", "C318AA54-1ED0-11D9-A5E0-000A958A3252.ics"))
+        stream = self.dataPath.child(
+            "Holidays").child(
+            "C318AA54-1ED0-11D9-A5E0-000A958A3252.ics").open()
         try: calendar = str(Component.fromStream(stream))
         finally: stream.close()
 
         return self._test_file_in_calendar(
             "mutiple resources with the same UID",
-            (MemoryStream(calendar), responsecode.CREATED  ),
+            (MemoryStream(calendar), responsecode.CREATED),
             (MemoryStream(calendar), responsecode.FORBIDDEN),
         )
+
 
     def _test_file_in_calendar(self, what, *work):
         """
@@ -147,7 +167,8 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
         PUT request matches the given response_code.
         """
         calendar_path, calendar_uri = self.mkdtemp("calendar")
-        os.rmdir(calendar_path)
+        calPath = FilePath(calendar_path)
+        calPath.remove()
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -155,7 +176,7 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
             if response.code != responsecode.CREATED:
                 self.fail("MKCALENDAR failed: %s" % (response.code,))
 
-            if not os.path.isdir(calendar_path):
+            if not calPath.isdir():
                 self.fail("MKCALENDAR did not create a collection")
 
             ds = []
@@ -164,12 +185,11 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
             for stream, response_code in work:
                 def put_cb(response, stream=stream, response_code=response_code):
                     response = IResponse(response)
-    
+
                     if response.code != response_code:
                         self.fail("Incorrect response to %s: %s (!= %s)" % (what, response.code, response_code))
 
-                dst_uri  = os.path.join(calendar_uri, "dst%d.ics" % (c,))
-    
+                dst_uri = "/".join([calendar_uri, "dst%d.ics" % (c,)])
                 request = SimpleRequest(self.site, "PUT", dst_uri)
                 request.headers.setHeader("if-none-match", "*")
                 request.headers.setHeader("content-type", MimeType("text", "calendar"))
@@ -187,11 +207,9 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
         """
         Make sure database files are not listed as children.
         """
-        colpath = self.site.resource.fp.path
-        fd = open(os.path.join(colpath, "._bogus"), "w")
-        fd.close()
-        fd = open(os.path.join(colpath, "bogus"), "w")
-        fd.close()
+        colpath = self.site.resource.fp
+        colpath.child("._bogus").touch()
+        colpath.child("bogus").touch()
         children = self.site.resource.listChildren()
         self.assertTrue("bogus" in children)
         self.assertFalse("._bogus" in children)
@@ -201,7 +219,8 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
         Make (regular) collection in calendar
         """
         calendar_path, calendar_uri = self.mkdtemp("dot_file_in_calendar")
-        os.rmdir(calendar_path)
+        calPath = FilePath(calendar_path)
+        calPath.remove()
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -215,11 +234,14 @@ class CollectionContents (twistedcaldav.test.util.TestCase):
                 if response.code != responsecode.FORBIDDEN:
                     self.fail("Incorrect response to dot file PUT: %s" % (response.code,))
 
-            stream = file(os.path.join(self.data_dir, "Holidays", "C318AA54-1ED0-11D9-A5E0-000A958A3252.ics"))
+            stream = self.dataPath.child(
+                "Holidays").child(
+                "C318AA54-1ED0-11D9-A5E0-000A958A3252.ics"
+            ).open()
             try: calendar = str(Component.fromStream(stream))
             finally: stream.close()
 
-            event_uri  = os.path.join(calendar_uri, ".event.ics")
+            event_uri = "/".join([calendar_uri, ".event.ics"])
 
             request = SimpleRequest(self.site, "PUT", event_uri)
             request.headers.setHeader("content-type", MimeType("text", "calendar"))

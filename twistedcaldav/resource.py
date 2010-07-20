@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test.test_resource -*-
 ##
 # Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
@@ -39,7 +40,7 @@ from twext.web2.dav.davxml import SyncCollection
 from twext.web2.dav.http import ErrorResponse
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, succeed
+from twisted.internet.defer import Deferred, succeed, maybeDeferred
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
@@ -72,6 +73,7 @@ from twistedcaldav.notify import getNodeCacher, NodeCreationException
 from twistedcaldav.sharing import SharedCollectionMixin
 from twistedcaldav.vcard import Component as vComponent
 
+from txdav.common.icommondatastore import InternalDataStoreError
 
 ##
 # Sharing Conts
@@ -155,6 +157,108 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
 
         return super(CalDAVResource, self).render(request)
 
+
+    _associatedTransaction = None
+    _transactionError = False
+
+    def associateWithTransaction(self, transaction):
+        """
+        Associate this resource with a L{txcaldav.idav.ITransaction}; when this
+        resource (or any of its children) are rendered successfully, commit the
+        transaction.  Otherwise, abort the transaction.
+
+        @param transaction: the transaction to associate this resource and its
+            children with.
+
+        @type transaction: L{txcaldav.idav.ITransaction} 
+        """
+        # FIXME: needs to reject association with transaction if it's already
+        # got one (resources associated with a transaction are not reusable)
+        self._associatedTransaction = transaction
+
+
+    def propagateTransaction(self, otherResource):
+        """
+        Propagate the transaction associated with this resource to another
+        resource (which should ostensibly be a child resource).
+
+        @param otherResource: Another L{CalDAVResource}, usually one being
+            constructed as a child of this one.
+
+        @type otherResource: L{CalDAVResource} (or a subclass thereof)
+        """
+        if not self._associatedTransaction:
+            raise RuntimeError("No associated transaction to propagate")
+        otherResource.associateWithTransaction(self._associatedTransaction)
+
+
+    def transactionError(self):
+        self._transactionError = True
+
+
+    def renderHTTP(self, request):
+        """
+        Override C{renderHTTP} to commit the transaction when the resource is
+        successfully rendered.
+
+        @param request: the request to generate a response for.
+        @type request: L{twext.web2.iweb.IRequest}
+        """
+        d = maybeDeferred(super(CalDAVResource, self).renderHTTP, request)
+        def succeeded(result):
+            if self._associatedTransaction is not None:
+                if self._transactionError:
+                    self._associatedTransaction.abort()
+                else:
+                    self._associatedTransaction.commit()
+            return result
+        return d.addCallback(succeeded)
+
+
+    # Begin transitional new-store resource interface:
+
+    def copyDeadPropertiesTo(self, other):
+        """
+        Copy this resource's dead properties to another resource.  This requires
+        that the new resource have a back-end store.
+
+        @param other: a resource to copy all properites to.
+        @type other: subclass of L{CalDAVResource}
+        """
+        self.newStoreProperties().update(other.newStoreProperties())
+
+
+    def newStoreProperties(self):
+        """
+        Return an L{IMapping} that represents properties.  Only available on
+        new-storage objects.
+        """
+        raise NotImplementedError("%s does not implement newStoreProperties" %
+                                  (self,))
+        
+    
+    def storeRemove(self, *a, **kw):
+        """
+        Remove this resource from storage.
+        """
+        raise NotImplementedError("%s does not implement storeRemove" %
+                                  (self,))
+
+
+    def storeStream(self, stream):
+        """
+        Store the content of the stream in this resource, as it would via a PUT.
+
+        @param stream: The stream containing the data to be stored.
+        @type stream: L{IStream}
+        
+        @return: a L{Deferred} which fires with an HTTP response.
+        @rtype: L{Deferred}
+        """
+        raise NotImplementedError("%s does not implement storeStream"  %
+                                  (self,))
+
+    # End transitional new-store interface 
 
     ##
     # WebDAV
@@ -776,11 +880,13 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         def gotChild(child, childpath):
             if child.isSpecialCollection(type):
                 callback(child, childpath)
-            elif child.isCollection():
-                if depth == "infinity":
-                    fc = child.findSpecialCollections(type, depth, request, callback, privileges)
-                    fc.addCallback(lambda x: reactor.callLater(0, getChild))
-                    return fc
+                
+            # No more regular collections
+            #elif child.isCollection():
+            #    if depth == "infinity":
+            #        fc = child.findSpecialCollections(type, depth, request, callback, privileges)
+            #        fc.addCallback(lambda x: reactor.callLater(0, getChild))
+            #        return fc
 
             reactor.callLater(0, getChild)
 
@@ -890,7 +996,11 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         an infinite loop.  A subclass must override one of both of these
         methods.
         """
-        calendar_data = self.iCalendarText(name)
+        
+        try:
+            calendar_data = self.iCalendarText(name)
+        except InternalDataStoreError:
+            return None
 
         if calendar_data is None: return None
 
@@ -982,7 +1092,10 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         an infinite loop.  A subclass must override one of both of these
         methods.
         """
-        vcard_data = self.vCardText(name)
+        try:
+            vcard_data = self.vCardText(name)
+        except InternalDataStoreError:
+            return None
 
         if vcard_data is None: return None
 

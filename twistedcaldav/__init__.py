@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav -*-
 ##
 # Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #

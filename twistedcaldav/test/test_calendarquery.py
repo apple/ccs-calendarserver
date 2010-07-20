@@ -26,14 +26,14 @@ from twext.web2.dav.fileop import rmdir
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.test.test_server import SimpleRequest
 
-import twistedcaldav.test.util
 from twistedcaldav import caldavxml
 from twistedcaldav import ical
 from twistedcaldav.index import db_basename
 from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.config import config
+from twistedcaldav.test.util import HomeTestCase
 
-class CalendarQuery (twistedcaldav.test.util.TestCase):
+class CalendarQuery (HomeTestCase):
     """
     calendar-query REPORT
     """
@@ -293,6 +293,8 @@ class CalendarQuery (twistedcaldav.test.util.TestCase):
 
         if os.path.exists(calendar_path): rmdir(calendar_path)
 
+        mkrequest = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
+
         def do_report(response):
             response = IResponse(response)
 
@@ -323,6 +325,4 @@ class CalendarQuery (twistedcaldav.test.util.TestCase):
 
             return self.send(request, do_test)
 
-        request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
-
-        return self.send(request, do_report)
+        return self.send(mkrequest, do_report)

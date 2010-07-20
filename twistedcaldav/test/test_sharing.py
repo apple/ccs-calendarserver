@@ -38,7 +38,7 @@ class SharingTests(TestCase):
             self.homepath = "/calendars/__uids__/%s" % (cuaddr[7:].split('@')[0],)
             self.displayname = cuaddr[7:].split('@')[0].upper()
 
-        def calendarHome(self):
+        def calendarHome(self, request):
             class FakeHome(object):
                 def removeShareByUID(self, request, uid):pass
             return FakeHome()

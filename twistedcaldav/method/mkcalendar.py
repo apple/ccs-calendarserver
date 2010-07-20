@@ -50,8 +50,7 @@ def http_MKCALENDAR(self, request):
     yield parent.authorize(request, (davxml.Bind(),))
 
     if self.exists():
-        log.err("Attempt to create collection where file exists: %s"
-                % (self.fp.path,))
+        log.err("Attempt to create collection where resource exists: %s"  % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             (davxml.dav_namespace, "resource-must-be-null"))
@@ -59,7 +58,7 @@ def http_MKCALENDAR(self, request):
 
     if not parent.isCollection():
         log.err("Attempt to create collection with non-collection parent: %s"
-                % (self.fp.path,))
+                % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.CONFLICT,
             (caldavxml.caldav_namespace, "calendar-collection-location-ok"))
@@ -78,9 +77,6 @@ def http_MKCALENDAR(self, request):
     if doc is not None:
         makecalendar = doc.root_element
         if not isinstance(makecalendar, caldavxml.MakeCalendar):
-            # Clean up
-            if self.fp.exists(): self.fp.remove()
-
             error = ("Non-%s element in MKCALENDAR request body: %s"
                      % (caldavxml.MakeCalendar.name, makecalendar))
             log.err(error)
@@ -104,9 +100,8 @@ def http_MKCALENDAR(self, request):
                     errors.add(responsecode.OK, property)
     
         if got_an_error:
-            # Clean up
-            if self.fp.exists(): self.fp.remove()
-
+            # Force a transaction error and proper clean-up
+            self.transactionError()
             errors.error()
             raise HTTPError(MultiStatusResponse([errors.response()]))
 

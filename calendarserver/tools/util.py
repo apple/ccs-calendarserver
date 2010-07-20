@@ -28,6 +28,7 @@ import socket
 from pwd import getpwnam
 from grp import getgrnam
 
+from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twext.python.log import Logger
 
@@ -41,6 +42,8 @@ from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord,
 from twistedcaldav.notify import installNotificationClient
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+
+from txdav.common.datastore.file import CommonDataStore
 
 log = Logger()
 
@@ -60,6 +63,10 @@ def getDirectory():
     class MyDirectoryService (AggregateDirectoryService):
         def getPrincipalCollection(self):
             if not hasattr(self, "_principalCollection"):
+
+                # Need a data store
+                _newStore = CommonDataStore(FilePath(config.DocumentRoot), True, False)
+
                 #
                 # Instantiating a CalendarHomeProvisioningResource with a directory
                 # will register it with the directory (still smells like a hack).
@@ -67,7 +74,7 @@ def getDirectory():
                 # We need that in order to locate calendar homes via the directory.
                 #
                 from twistedcaldav.static import CalendarHomeProvisioningFile
-                CalendarHomeProvisioningFile(os.path.join(config.DocumentRoot, "calendars"), self, "/calendars/")
+                CalendarHomeProvisioningFile(os.path.join(config.DocumentRoot, "calendars"), self, "/calendars/", _newStore)
 
                 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
                 self._principalCollection = DirectoryPrincipalProvisioningResource("/principals/", self)
@@ -132,9 +139,14 @@ def getDirectory():
         principalCollections=(principalCollection,),
     )
     root.putChild("principals", principalCollection)
+
+    # Need a data store
+    _newStore = CommonDataStore(FilePath(config.DocumentRoot), True, False)
+
     calendarCollection = CalendarHomeProvisioningFile(
         os.path.join(config.DocumentRoot, "calendars"),
         aggregate, "/calendars/",
+        _newStore,
     )
     root.putChild("calendars", calendarCollection)
 

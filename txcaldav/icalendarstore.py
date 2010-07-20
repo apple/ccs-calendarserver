@@ -1,3 +1,4 @@
+# -*- test-case-name: txcaldav.calendarstore -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -13,152 +14,62 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.common.icommondatastore import ICommonTransaction
 
 """
 Calendar store interfaces
 """
 
-# FIXME:  Still to do:
-# - Where to defer?
-# - commit() and abort()
+from zope.interface import Interface
+
 
 __all__ = [
-    # Exceptions
-    "CalendarStoreError",
-    "NameNotAllowedError",
-    "CalendarNameNotAllowedError",
-    "CalendarObjectNameNotAllowedError",
-    "AlreadyExistsError",
-    "CalendarAlreadyExistsError",
-    "CalendarObjectNameAlreadyExistsError",
-    "CalendarObjectUIDAlreadyExistsError",
-    "NotFoundError",
-    "NoSuchCalendarError",
-    "NoSuchCalendarObjectError",
-    "InvalidCalendarComponentError",
-    "InternalDataStoreError",
-
     # Classes
-    "ICalendarStore",
+    "ICalendarTransaction",
     "ICalendarHome",
     "ICalendar",
     "ICalendarObject",
 ]
 
-from zope.interface import Interface #, Attribute
 
-from datetime import datetime, date, tzinfo
-from twext.python.vcomponent import VComponent
-from txdav.idav import IPropertyStore
+# The following imports are used by the L{} links below, but shouldn't actually
+# be imported.as they're not really needed.
 
+# from datetime import datetime, date, tzinfo
 
-#
-# Exceptions
-#
+# from twext.python.vcomponent import VComponent
 
-class CalendarStoreError(RuntimeError):
+# from txdav.idav import IPropertyStore
+# from txdav.idav import ITransaction
+
+class ICalendarTransaction(ICommonTransaction):
     """
-    Calendar store generic error.
-    """
-
-class NameNotAllowedError(CalendarStoreError):
-    """
-    Attempt to create an object with a name that is not allowed.
+    Transaction functionality required to be implemented by calendar stores.
     """
 
-class CalendarNameNotAllowedError(NameNotAllowedError):
-    """
-    Calendar name not allowed.
-    """
+    def calendarHomeWithUID(uid, create=False):
+        """
+        Retrieve the calendar home for the principal with the given C{uid}.
 
-class CalendarObjectNameNotAllowedError(NameNotAllowedError):
-    """
-    Calendar object name not allowed.
-    """
+        If C{create} is C{True}, create the calendar home if it doesn't
+        already exist.
 
-class AlreadyExistsError(CalendarStoreError):
-    """
-    Attempt to create an object that already exists.
-    """
-
-class CalendarAlreadyExistsError(AlreadyExistsError):
-    """
-    Calendar already exists.
-    """
-
-class CalendarObjectNameAlreadyExistsError(AlreadyExistsError):
-    """
-    A calendar object with the requested name already exists.
-    """
-
-class CalendarObjectUIDAlreadyExistsError(AlreadyExistsError):
-    """
-    A calendar object with the requested UID already exists.
-    """
-
-class NotFoundError(CalendarStoreError):
-    """
-    Requested data not found.
-    """
-
-class NoSuchCalendarError(NotFoundError):
-    """
-    The requested calendar does not exist.
-    """
-
-class NoSuchCalendarObjectError(NotFoundError):
-    """
-    The requested calendar object does not exist.
-    """
-
-class InvalidCalendarComponentError(CalendarStoreError):
-    """
-    Invalid calendar component.
-    """
-
-class InternalDataStoreError(CalendarStoreError):
-    """
-    Uh, oh.
-    """
+        @return: an L{ICalendarHome} or C{None} if no such calendar
+            home exists.
+        """
 
 
 #
 # Interfaces
 #
 
-class ICalendarStore(Interface):
-    """
-    Calendar store
-    """
-    def calendarHomeWithUID(uid, create=False):
-        """
-        Retrieve the calendar home for the principal with the given
-        C{uid}.
-
-        If C{create} is true, create the calendar home if it doesn't
-        already exist.
-
-        @return: an L{ICalendarHome} or C{None} if no such calendar
-        home exists.
-        """
-
-
 class ICalendarHome(Interface):
     """
-    Calendar home
-
-    A calendar home belongs to a specific principal and contains the
-    calendars which that principal has direct access to.  This
-    includes both calendars owned by the principal as well as
-    calendars that have been shared with and accepts by the principal.
+    An L{ICalendarHome} is a collection of calendars which belongs to a
+    specific principal and contains the calendars which that principal has
+    direct access to.  This includes both calendars owned by the principal as
+    well as calendars that have been shared with and accepts by the principal.
     """
-    # FIXME: We need a principal interface somewhere, possibly part of
-    # an idirectory rework.  IDirectoryRecord may be close...
-    #def owner():
-    #    """
-    #    Retrieve the owner principal for this calendar home.
-    #    @return: a ???
-    #    """
 
     def uid():
         """
@@ -183,6 +94,23 @@ class ICalendarHome(Interface):
         @return: an L{ICalendar} or C{None} if no such calendar
             exists.
         """
+
+
+    def calendarObjectWithDropboxID(dropboxID):
+        """
+        Retrieve an L{ICalendarObject} by looking up its attachment collection
+        ID.
+
+        @param dropboxID: The name of the collection in a dropbox corresponding
+            to a collection in the user's dropbox.
+
+        @type dropboxID: C{str}
+
+        @return: the calendar object identified by the given dropbox.
+
+        @rtype: L{ICalendarObject}
+        """
+
 
     def createCalendarWithName(name):
         """
@@ -221,6 +149,21 @@ class ICalendar(Interface):
     shared with other principals, granting them read-only or
     read/write access.
     """
+
+    def name():
+        """
+        Identify this calendar uniquely, as with
+        L{ICalendarHome.calendarWithName}.
+
+        @return: the name of this calendar.
+        @rtype: C{str}
+        """
+
+    def rename(name):
+        """
+        Change the name of this calendar.
+        """
+
     def ownerCalendarHome():
         """
         Retrieve the calendar home for the owner of this calendar.
@@ -336,9 +279,10 @@ class ICalendarObject(Interface):
     """
     Calendar object
 
-    A calendar object decribes an event, to-do, or other iCalendar
+    A calendar object describes an event, to-do, or other iCalendar
     object.
     """
+
     def setComponent(component):
         """
         Rewrite this calendar object to match the given C{component}.
@@ -396,3 +340,125 @@ class ICalendarObject(Interface):
 
         @return: an L{IPropertyStore}.
         """
+
+
+    def dropboxID():
+        """
+        An identifier, unique to the calendar home, that specifies a location
+        where attachments are to be stored for this object.
+
+        @return: the value of the last segment of the C{X-APPLE-DROPBOX}
+            property.
+
+        @rtype: C{string}
+        """
+
+
+    def createAttachmentWithName(name, contentType):
+        """
+        Add an attachment to this calendar object.
+
+        @param name: An identifier, unique to this L{ICalendarObject}, which
+            names the attachment for future retrieval.
+
+        @type name: C{str}
+
+        @param contentType: a slash-separated content type.
+
+        @type contentType: C{str}
+
+        @return: the same type as L{IAttachment.store} returns.
+        """
+
+
+    def attachmentWithName(name):
+        """
+        Retrieve an attachment from this calendar object.
+
+        @param name: An identifier, unique to this L{ICalendarObject}, which
+            names the attachment for future retrieval.
+
+        @type name: C{str}
+        """
+        # FIXME: MIME-type?
+
+
+    def attachments():
+        """
+        List all attachments on this calendar object.
+
+        @return: an iterable of L{IAttachment}s
+        """
+
+
+    def removeAttachmentWithName(name):
+        """
+        Delete an attachment with the given name.
+
+        @param name: The basename of the attachment (i.e. the last segment of
+            its URI) as given to L{attachmentWithName}.
+        @type name: C{str}
+        """
+
+
+
+class IAttachment(Interface):
+    """
+    Information associated with an attachment to a calendar object.
+    """
+
+    def name():
+        """
+        A short name, unique to this attachment's L{ICalendarObject}.
+
+        @rtype: C{str}
+        """
+
+
+    def contentType():
+        """
+        A slash-separated content type of the body of this attachment.
+
+        @rtype: C{str}
+        """
+
+
+    def md5():
+        """
+        The MD5 hex digest of this attachment's contents.
+
+        @rtype: C{str}
+        """
+
+
+    def store(contentType):
+        """
+        @param contentType: The content type of the data which will be stored.
+        @type contentType: C{str}
+
+        @return: An L{ITransport}/L{IConsumer} provider that will store the
+            bytes passed to its 'write' method.
+
+            The caller of C{store} must call C{loseConnection} on its result to
+            indicate that the attachment upload was successfully completed.  If
+            the transaction associated with this upload is committed or aborted
+            before C{loseConnection} is called, the upload will be presumed to
+            have failed, and no attachment data will be stored.
+        """
+        # If you do a big write()/loseConnection(), how do you tell when the
+        # data has actually been written?  you don't: commit() ought to return
+        # a deferred anyway, and any un-flushed attachment data needs to be
+        # dealt with by that too.
+
+
+    def retrieve(protocol):
+        """
+        Retrieve the content of this attachment into a protocol instance.
+
+        @param protocol: A protocol which will receive the contents of the
+            attachment to its C{dataReceived} method, and then a notification
+            that the stream is complete to its C{connectionLost} method.
+        @type protocol: L{IProtocol}
+        """
+
+

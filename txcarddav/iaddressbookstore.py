@@ -18,62 +18,34 @@
 Address book store interfaces
 """
 
+from zope.interface import Interface
+from txdav.common.icommondatastore import ICommonTransaction
+
 __all__ = [
+    # Classes
+    "IAddressBookTransaction",
+    "IAddressBookHome",
+    "IAddressBook",
+    "IAddressBookObject",
 ]
 
-from zope.interface import Interface #, Attribute
-
-from twext.icalendar import Component
-from txdav.idav import IPropertyStore
-
-#
-# Exceptions
-#
-
-class AddressBookStoreError(RuntimeError):
+class IAddressBookTransaction(ICommonTransaction):
     """
-    Address book store generic error.
+    Transaction interface that addressbook stores must provide.
     """
 
-class AlreadyExistsError(AddressBookStoreError):
-    """
-    Attempt to create an object that already exists.
-    """
+    def addressbookHomeWithUID(uid, create=False):
+        """
+        Retrieve the addressbook home for the principal with the given C{uid}.
 
-class AddressBookAlreadyExistsError(AlreadyExistsError):
-    """
-    Address book already exists.
-    """
+        If C{create} is C{True}, create the addressbook home if it doesn't
+        already exist.
 
-class ContactCardNameAlreadyExistsError(AlreadyExistsError):
-    """
-    A contact card with the requested name already exists.
-    """
+        @return: an L{IAddressBookHome} or C{None} if no such addressbook
+            home exists.
+        """
 
-class ContactCardUIDAlreadyExistsError(AlreadyExistsError):
-    """
-    A contact card with the requested UID already exists.
-    """
 
-class NotFoundError(AddressBookStoreError):
-    """
-    Requested data not found.
-    """
-
-class NoSuchAddressBookError(NotFoundError):
-    """
-    The requested address book does not exist.
-    """
-
-class NoSuchContactCardError(NotFoundError):
-    """
-    The requested contact card does not exist.
-    """
-
-class InvalidCardComponentError(AddressBookStoreError):
-    """
-    Invalid card component.
-    """
 
 #
 # Interfaces
@@ -81,152 +53,233 @@ class InvalidCardComponentError(AddressBookStoreError):
 
 class IAddressBookHome(Interface):
     """
-    Address book home
+    AddressBook home
+
+    An addressbook home belongs to a specific principal and contains the
+    addressbooks which that principal has direct access to.  This
+    includes both addressbooks owned by the principal as well as
+    addressbooks that have been shared with and accepts by the principal.
     """
-    def addressBooks(self):
+
+    def uid():
         """
-        Retrieve address books contained in this address book home.
+        Retrieve the unique identifier for this addressbook home.
+
+        @return: a string.
+        """
+
+
+    def addressbooks():
+        """
+        Retrieve addressbooks contained in this addressbook home.
 
         @return: an iterable of L{IAddressBook}s.
         """
 
-    def addressBookWithName(self, name):
+    def addressbookWithName(name):
         """
-        Retrieve the address book with the given C{name} contained in
-        this address book home.
+        Retrieve the addressbook with the given C{name} contained in this
+        addressbook home.
 
         @param name: a string.
-        @return: an L{IAddressBook} or C{None} if no such address book
+        @return: an L{IAddressBook} or C{None} if no such addressbook
             exists.
         """
 
-    def createAddressBookWithName(self, name):
+    def createAddressBookWithName(name):
         """
-        Create an address book with the given C{name} in this address
-        book home.
+        Create an addressbook with the given C{name} in this addressbook
+        home.
 
         @param name: a string.
-        @raise AddressBookAlreadyExistsError: if an address book
-            with the given C{name} already exists.
+        @raise AddressBookAlreadyExistsError: if an addressbook with the
+            given C{name} already exists.
         """
 
-    def properties(self):
+    def removeAddressBookWithName(name):
         """
-        Retrieve the property store for this address book home.
+        Remove the addressbook with the given C{name} from this addressbook
+        home.  If this addressbook home owns the addressbook, also remove
+        the addressbook from all addressbook homes.
+
+        @param name: a string.
+        @raise NoSuchAddressBookObjectError: if no such addressbook exists.
+        """
+
+    def properties():
+        """
+        Retrieve the property store for this addressbook home.
 
         @return: an L{IPropertyStore}.
         """
+
 
 class IAddressBook(Interface):
     """
-    Address book
+    AddressBook
+
+    An addressbook is a container for addressbook objects (contacts),
+    An addressbook belongs to a specific principal but may be
+    shared with other principals, granting them read-only or
+    read/write access.
     """
-    def contactCards(self):
-        """
-        Retrieve the contact cards contains in this address book.
 
-        @return: an iterable of L{IContactCard}s.
+    def name():
+        """
+        Identify this addressbook uniquely, as with
+        L{IAddressBookHome.addressbookWithName}.
+
+        @return: the name of this addressbook.
+        @rtype: C{str}
         """
 
-    def contactCardWithName(self, name):
+    def rename(name):
         """
-        Retrieve the contact card with the given C{name} in this
-        address book.
+        Change the name of this addressbook.
+        """
+
+    def ownerAddressBookHome():
+        """
+        Retrieve the addressbook home for the owner of this addressbook.
+        AddressBooks may be shared from one (the owner's) addressbook home
+        to other (the sharee's) addressbook homes.
+
+        @return: an L{IAddressBookHome}.
+        """
+
+    def addressbookObjects():
+        """
+        Retrieve the addressbook objects contained in this addressbook.
+
+        @return: an iterable of L{IAddressBookObject}s.
+        """
+
+    def addressbookObjectWithName(name):
+        """
+        Retrieve the addressbook object with the given C{name} contained
+        in this addressbook.
 
         @param name: a string.
-        @return: an L{IContactCard} or C{None} is no such contact card
-            exists.
+        @return: an L{IAddressBookObject} or C{None} if no such addressbook
+            object exists.
         """
 
-    def contactCardWithUID(self, uid):
+    def addressbookObjectWithUID(uid):
         """
-        Retrieve the contact card with the given C{uid} in this
-        address book.
+        Retrieve the addressbook object with the given C{uid} contained
+        in this addressbook.
 
         @param uid: a string.
-        @return: an L{IContactCard} or C{None} is no such contact card
-            exists.
+        @return: an L{IAddressBookObject} or C{None} if no such addressbook
+            object exists.
         """
 
-    def createContactCardWithName(self, name):
+    def createAddressBookObjectWithName(name, component):
         """
-        Create a contact card with the given C{name} in this address
-        book from the given C{component}.
+        Create an addressbook component with the given C{name} in this
+        addressbook from the given C{component}.
 
         @param name: a string.
-        @param component: a C{VCARD} L{Component}.
-        @raise ContactCardNameAlreadyExistsError: if a contact card
-            with the given C{name} already exists.
-        @raise ContactCardUIDAlreadyExistsError: if a contact card
-            with the same UID as the given C{component} already
+        @param component: a C{VCARD} L{Component}
+        @raise AddressBookObjectNameAlreadyExistsError: if an addressbook
+            object with the given C{name} already exists.
+        @raise AddressBookObjectUIDAlreadyExistsError: if an addressbook
+            object with the same UID as the given C{component} already
             exists.
-        @raise InvalidCardComponentError: if the given C{component} is
-            not a valid C{VCARD} L{Component} for a contact card.
+        @raise InvalidAddressBookComponentError: if the given
+            C{component} is not a valid C{VCARD} L{VComponent} for
+            an addressbook object.
         """
 
-    def syncToken(self):
+    def removeAddressBookObjectWithName(name):
         """
-        Retrieve the current sync token for this address book.
+        Remove the addressbook object with the given C{name} from this
+        addressbook.
 
-        @return: a sync token.
+        @param name: a string.
+        @raise NoSuchAddressBookObjectError: if no such addressbook object
+            exists.
         """
 
-    def contactCardsSinceToken(self, token):
+    def removeAddressBookObjectWithUID(uid):
         """
-        Retrieve all contact cards in this address book that have
+        Remove the addressbook object with the given C{uid} from this
+        addressbook.
+
+        @param uid: a string.
+        @raise NoSuchAddressBookObjectError: if the addressbook object does
+            not exist.
+        """
+
+    def syncToken():
+        """
+        Retrieve the current sync token for this addressbook.
+
+        @return: a string containing a sync token.
+        """
+
+    def addressbookObjectsSinceToken(token):
+        """
+        Retrieve all addressbook objects in this addressbook that have
         changed since the given C{token} was last valid.
 
-        @return: a 3-tuple containing an iterable of L{IContactCard}s
-            that have changed, an iterable of uids that have been
-            removed, and the current sync token.
+        @param token: a sync token.
+        @return: a 3-tuple containing an iterable of
+            L{IAddressBookObject}s that have changed, an iterable of uids
+            that have been removed, and the current sync token.
         """
 
-    def properties(self):
+    def properties():
         """
-        Retrieve the property store for this address book.
+        Retrieve the property store for this addressbook.
 
         @return: an L{IPropertyStore}.
         """
 
-class IContactCard(Interface):
+
+class IAddressBookObject(Interface):
     """
-    Contact card
+    AddressBook object
+
+    An addressbook object describes a contact (vCard).
     """
-    def setComponent(self):
-        """
-        Rewrite this contact card to match the given C{component}.
-        C{component} must have the same UID as this contact card.
 
-        @param component: a C{VCARD} L{Component}.
-        @raise InvalidCardComponentError: if the given C{component} is
-            not a valid C{VCARD} L{Component} for a contact card.
+    def setComponent(component):
         """
+        Rewrite this addressbook object to match the given C{component}.
+        C{component} must have the same UID as this addressbook object.
 
-    def component(self):
-        """
-        Retrieve the contact component for this contact card.
-
-        @return: a C{VCARD} L{Component}.
+        @param component: a C{VCARD} L{VComponent}.
+        @raise InvalidAddressBookComponentError: if the given
+            C{component} is not a valid C{VCARD} L{VComponent} for
+            an addressbook object.
         """
 
-    def vCardText(self):
+    def component():
         """
-        Retrieve the vCard text data for this contact card.
+        Retrieve the addressbook component for this addressbook object.
 
-        @return: a string containing vCard data for a single vCard
-            contact.
+        @return: a C{VCARD} L{VComponent}.
         """
 
-    def uid(self):
+    def vCardText():
         """
-        Retrieve the UID for this contact card.
+        Retrieve the vCard text data for this addressbook object.
+
+        @return: a string containing vCard data for a single
+            addressbook object.
+        """
+
+    def uid():
+        """
+        Retrieve the UID for this addressbook object.
 
         @return: a string containing a UID.
         """
 
-    def properties(self):
+    def properties():
         """
-        Retrieve the property store for this contact card.
+        Retrieve the property store for this addressbook object.
 
         @return: an L{IPropertyStore}.
         """

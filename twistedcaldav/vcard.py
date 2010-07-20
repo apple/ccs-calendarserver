@@ -19,6 +19,7 @@ vCard Utilities
 """
 
 __all__ = [
+    "InvalidVCardDataError",
     "Property",
     "Component",
 ]
@@ -34,6 +35,9 @@ from twext.web2.stream import IStream
 from twext.web2.dav.util import allDataFromStream
 
 vCardProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
+
+class InvalidVCardDataError(ValueError):
+    pass
 
 class Property (object):
     """
@@ -133,9 +137,9 @@ class Component (object):
         try:
             return clazz(None, vobject=readComponents(stream).next())
         except vParseError, e:
-            raise ValueError(e)
+            raise InvalidVCardDataError(e)
         except StopIteration, e:
-            raise ValueError(e)
+            raise InvalidVCardDataError(e)
 
     @classmethod
     def fromIStream(clazz, stream):
@@ -255,7 +259,7 @@ class Component (object):
         """
         properties = tuple(self.properties(name))
         if len(properties) == 1: return properties[0]
-        if len(properties) > 1: raise ValueError("More than one %s property in component %r" % (name, self))
+        if len(properties) > 1: raise InvalidVCardDataError("More than one %s property in component %r" % (name, self))
         return None
         
     def properties(self, name=None):
@@ -282,7 +286,7 @@ class Component (object):
     def propertyValue(self, name):
         properties = tuple(self.properties(name))
         if len(properties) == 1: return properties[0].value()
-        if len(properties) > 1: raise ValueError("More than one %s property in component %r" % (name, self))
+        if len(properties) > 1: raise InvalidVCardDataError("More than one %s property in component %r" % (name, self))
         return None
 
 
@@ -306,7 +310,7 @@ class Component (object):
             return result
 
         elif len(properties) > 1:
-            raise ValueError("More than one %s property in component %r" % (name, self))
+            raise InvalidVCardDataError("More than one %s property in component %r" % (name, self))
         else:
             return None
 
@@ -339,14 +343,14 @@ class Component (object):
         """
         @raise ValueError: if the given vcard data is not valid.
         """
-        if self.name() != "VCARD": raise ValueError("Not a vcard")
+        if self.name() != "VCARD": raise InvalidVCardDataError("Not a vcard")
 
         version = self.propertyValue("VERSION")
-        if version != "3.0": raise ValueError("Not a version 2.0 vCard (version=%s)" % (version,))
+        if version != "3.0": raise InvalidVCardDataError("Not a version 2.0 vCard (version=%s)" % (version,))
 
         uid = self.propertyValue("UID")
         if uid is None:
-            raise ValueError("All vCards must have UIDs")
+            raise InvalidVCardDataError("All vCards must have UIDs")
 
     def transformAllFromNative(self):
         self._vobject = self._vobject.transformFromNative()

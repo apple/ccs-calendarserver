@@ -75,11 +75,11 @@ class WebDAVElement (object):
     protected          = False         # See RFC 3253 section 1.4.1
     unregistered       = False         # Subclass of factory; doesn't register
 
-    def qname(self):
-        return (self.namespace, self.name)
+    def qname(cls):
+        return (cls.namespace, cls.name)
 
-    def sname(self):
-        return "{%s}%s" % (self.namespace, self.name)
+    def sname(cls):
+        return "{%s}%s" % (cls.namespace, cls.name)
 
     qname = classmethod(qname)
     sname = classmethod(sname)

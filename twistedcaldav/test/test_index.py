@@ -30,6 +30,31 @@ import twistedcaldav.test.util
 import datetime
 import os
 
+
+class MinimalResourceReplacement(object):
+    """
+    Provide the minimal set of attributes and methods from CalDAVFile required
+    by L{Index}.
+    """
+
+    def __init__(self, filePath):
+        self.fp = filePath
+
+
+    def isCalendarCollection(self):
+        return True
+
+
+    def getChild(self, name):
+        # FIXME: this should really return something with a child method
+        return self.fp.child(name)
+
+
+    def initSyncToken(self):
+        pass
+
+
+
 class SQLIndexTests (twistedcaldav.test.util.TestCase):
     """
     Test abstract SQL DB class
@@ -38,7 +63,10 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(SQLIndexTests, self).setUp()
         self.site.resource.isCalendarCollection = lambda: True
-        self.db = Index(self.site.resource)
+        self.indexDirPath = self.site.resource.fp
+        # FIXME: since this resource lies about isCalendarCollection, it doesn't
+        # have all the associated backend machinery to actually get children.
+        self.db = Index(MinimalResourceReplacement(self.indexDirPath))
 
 
     def test_reserve_uid_ok(self):
@@ -231,7 +259,7 @@ END:VCALENDAR
             revision += 1
             calendar = Component.fromString(calendar_txt)
             if ok:
-                f = open(os.path.join(self.site.resource.fp.path, name), "w")
+                f = open(os.path.join(self.indexDirPath.path, name), "w")
                 f.write(calendar_txt)
                 del f
 
@@ -405,7 +433,7 @@ END:VCALENDAR
             revision += 1
             calendar = Component.fromString(calendar_txt)
 
-            f = open(os.path.join(self.site.resource.fp.path, name), "w")
+            f = open(os.path.join(self.indexDirPath.path, name), "w")
             f.write(calendar_txt)
             del f
 
@@ -804,7 +832,7 @@ END:VCALENDAR
             revision += 1
             calendar = Component.fromString(calendar_txt)
 
-            f = open(os.path.join(self.site.resource.fp.path, name), "w")
+            f = open(os.path.join(self.indexDirPath.path, name), "w")
             f.write(calendar_txt)
             del f
 

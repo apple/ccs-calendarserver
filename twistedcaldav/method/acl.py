@@ -41,7 +41,7 @@ def http_ACL(self, request):
     # homes cannot have ACL's set, and calendar/address object resources too.
     #
 
-    if self.fp.exists():
+    if self.exists():
         if isinstance(self, CalendarHomeFile) or isinstance(self, AddressBookHomeFile):
             raise HTTPError(responsecode.NOT_ALLOWED)
 
