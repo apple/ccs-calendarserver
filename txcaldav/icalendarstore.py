@@ -207,7 +207,7 @@ class ICalendar(Interface):
 
         @param name: a string.
         @param component: a C{VCALENDAR} L{Component}
-        @raise CalendarObjectNameAlreadyExistsError: if a calendar
+        @raise ObjectResourceNameAlreadyExistsError: if a calendar
             object with the given C{name} already exists.
         @raise CalendarObjectUIDAlreadyExistsError: if a calendar
             object with the same UID as the given C{component} already

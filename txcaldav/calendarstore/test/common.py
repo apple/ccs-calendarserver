@@ -667,11 +667,17 @@ class CommonTests(object):
         L{CalendarObjectNameAlreadyExistsError} if a calendar object with the
         given name already exists in that calendar.
         """
+        print 'getting calendar under test'
+        cal = self.calendarUnderTest()
+        print 'parsing component'
+        comp = VComponent.fromString(event4_text)
+        print 'checking raise'
         self.assertRaises(
             ObjectResourceNameAlreadyExistsError,
-            self.calendarUnderTest().createCalendarObjectWithName,
-            "1.ics", VComponent.fromString(event4_text)
+            cal.createCalendarObjectWithName,
+            "1.ics", comp
         )
+        print 'done'
 
 
     def test_createCalendarObjectWithName_invalid(self):

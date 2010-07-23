@@ -91,16 +91,6 @@ class IPropertyStore(IMapping):
     # FIXME: the type for values isn't quite right, there should be some more
     # specific interface for that.
 
-    def flush():
-        """
-        Write out any pending changes.
-        """
-
-    def abort():
-        """
-        Abort any pending changes.
-        """
-
 
 
 class IDataStore(Interface):
