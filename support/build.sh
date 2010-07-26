@@ -85,20 +85,23 @@ init_build () {
 
   # Find a command that can hash up a string for us
   if type -t openssl > /dev/null; then
-    hash="hash";
-    hash () { openssl dgst -md5; }
+    hash="md5";
+    hash () { openssl dgst -md5 "$@"; }
   elif type -t md5 > /dev/null; then
     hash="md5";
+    hash () { md5 "$@"; }
   elif type -t md5sum > /dev/null; then
-    hash="md5sum";
+    hash="md5";
+    hash () { md5sum "$@"; }
   elif type -t cksum > /dev/null; then
     hash="hash";
-    hash () { cksum | cut -f 1 -d " "; }
+    hash () { cksum "$@" | cut -f 1 -d " "; }
   elif type -t sum > /dev/null; then
     hash="hash";
-    hash () { sum | cut -f 1 -d " "; }
+    hash () { sum "$@" | cut -f 1 -d " "; }
   else
     hash="";
+    hash () { echo "INTERNAL ERROR: No hash function."; exit 1; }
   fi;
 
   if [ -n "${install}" ] && ! echo "${install}" | grep '^/' > /dev/null; then
@@ -190,16 +193,16 @@ www_get () {
     if [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
       mkdir -p "${cache_deps}";
 
-      cache_file="${cache_deps}/${name}-$(echo "${url}" | "${hash}")-$(basename "${url}")";
+      cache_file="${cache_deps}/${name}-$(echo "${url}" | hash)-$(basename "${url}")";
 
       if [ ! -f "${cache_file}" ]; then
 	echo "Downloading ${name}...";
 	curl -L "${url}" -o "${cache_file}";
       fi;
 
-      if [ -n "${md5}" ]; then
+      if [ -n "${md5}" ] && [ "${hash}" == "md5" ]; then
 	echo "Checking MD5 sum for ${name}...";
-	local sum="$(md5 "${cache_file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
+	local sum="$(hash "${cache_file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
 	if [ "${md5}" != "${sum}" ]; then
 	  echo "ERROR: MD5 sum for cache file ${cache_file} ${sum} != ${md5}. Corrupt file?";
 	  exit 1;
@@ -279,7 +282,7 @@ svn_get () {
     }
 
     if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
-      local cache_file="${cache_deps}/${name}-$(echo "${uri}" | "${hash}")@r${revision}.tgz";
+      local cache_file="${cache_deps}/${name}-$(echo "${uri}" | hash)@r${revision}.tgz";
 
       mkdir -p "${cache_deps}";
 
