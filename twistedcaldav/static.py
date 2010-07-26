@@ -1228,7 +1228,7 @@ class CalendarHomeFile(AutoProvisioningFileMixIn, SharedHomeMixin,
 
                     propVal = customxml.PubSubPushTransportsProperty(*children)
                     nodeCacher = getNodeCacher()
-                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
+                    d = nodeCacher.createNode(self.clientNotifier, nodeName)
                     # In either case we're going to return the value
                     d.addBoth(lambda ignored: propVal)
                     return d
@@ -1245,7 +1245,7 @@ class CalendarHomeFile(AutoProvisioningFileMixIn, SharedHomeMixin,
                     nodeName = getPubSubPath(id, pubSubConfiguration)
                     propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
                     nodeCacher = getNodeCacher()
-                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
+                    d = nodeCacher.createNode(self.clientNotifier, nodeName)
                     # In either case we're going to return the xmpp-uri value
                     d.addBoth(lambda ignored: propVal)
                     return d
@@ -1262,7 +1262,7 @@ class CalendarHomeFile(AutoProvisioningFileMixIn, SharedHomeMixin,
                     propVal = customxml.PubSubXMPPURIProperty(
                         getPubSubXMPPURI(id, pubSubConfiguration))
                     nodeCacher = getNodeCacher()
-                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
+                    d = nodeCacher.createNode(self.clientNotifier, nodeName)
                     # In either case we're going to return the xmpp-uri value
                     d.addBoth(lambda ignored: propVal)
                     return d
@@ -1880,7 +1880,7 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, Directory
 
                     propVal = customxml.PubSubPushTransportsProperty(*children)
                     nodeCacher = getNodeCacher()
-                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
+                    d = nodeCacher.createNode(self.clientNotifier, nodeName)
                     # In either case we're going to return the value
                     d.addBoth(lambda ignored: propVal)
                     return d
@@ -1897,7 +1897,7 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, Directory
                     nodeName = getPubSubPath(id, pubSubConfiguration)
                     propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
                     nodeCacher = getNodeCacher()
-                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
+                    d = nodeCacher.createNode(self.clientNotifier, nodeName)
                     # In either case we're going to return the xmpp-uri value
                     d.addBoth(lambda ignored: propVal)
                     return d
@@ -1914,7 +1914,7 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, Directory
                     propVal = customxml.PubSubXMPPURIProperty(
                         getPubSubXMPPURI(id, pubSubConfiguration))
                     nodeCacher = getNodeCacher()
-                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
+                    d = nodeCacher.createNode(self.clientNotifier, nodeName)
                     # In either case we're going to return the xmpp-uri value
                     d.addBoth(lambda ignored: propVal)
                     return d

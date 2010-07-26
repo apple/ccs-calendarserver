@@ -330,6 +330,19 @@ class NodeCacher(Memcacher, LoggingMixIn):
             self.log_debug("Giving up!")
             raise NodeCreationException("Could not create node %s" % (nodeName,))
 
+    def createNode(self, notifier, nodeName):
+        """
+        Check with memcached to see if this node is known to exist, and if
+        not, request it be created (without waiting)
+        """
+        def _nodeExistenceChecked(result):
+            if not result:
+                notifier.notify(op="create")
+
+        d = self.nodeExists(nodeName)
+        d.addCallback(_nodeExistenceChecked)
+        return d
+
 
 _nodeCacher = None
 

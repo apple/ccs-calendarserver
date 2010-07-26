@@ -409,10 +409,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
                     nodeName = getPubSubPath(id, pubSubConfiguration)
                     propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
                     nodeCacher = getNodeCacher()
-                    try:
-                        (yield nodeCacher.waitForNode(self.clientNotifier, nodeName))
-                    except NodeCreationException:
-                        pass
+                    (yield nodeCacher.createNode(self.clientNotifier, nodeName))
                     returnValue(propVal)
 
                 else:
