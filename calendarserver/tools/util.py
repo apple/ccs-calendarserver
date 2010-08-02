@@ -39,7 +39,7 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
-from twistedcaldav.notify import installNotificationClient
+from twistedcaldav.notify import NotifierFactory
 from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
@@ -64,8 +64,17 @@ def getDirectory():
         def getPrincipalCollection(self):
             if not hasattr(self, "_principalCollection"):
 
+                if config.Notifications.Enabled:
+                    notifierFactory = NotifierFactory(
+                        config.Notifications.InternalNotificationHost,
+                        config.Notifications.InternalNotificationPort,
+                    )
+                else:
+                    notifierFactory = None
+
                 # Need a data store
-                _newStore = CommonDataStore(FilePath(config.DocumentRoot), True, False)
+                _newStore = CommonDataStore(FilePath(config.DocumentRoot), 
+                    notifierFactory, True, False)
 
                 #
                 # Instantiating a CalendarHomeProvisioningResource with a directory
@@ -208,15 +217,6 @@ def setupMemcached(config):
     )
     autoDisableMemcached(config)
 
-def setupNotifications(config):
-    #
-    # Connect to notifications
-    #
-    if config.Notifications.Enabled:
-        installNotificationClient(
-            config.Notifications.InternalNotificationHost,
-            config.Notifications.InternalNotificationPort,
-        )
 
 def checkDirectory(dirpath, description, access=None, create=None):
     if not os.path.exists(dirpath):

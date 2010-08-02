@@ -109,7 +109,7 @@ from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.vcardindex import AddressBookIndex
 from twistedcaldav.notify import getPubSubConfiguration, getPubSubXMPPURI
 from twistedcaldav.notify import getPubSubHeartbeatURI, getPubSubPath
-from twistedcaldav.notify import ClientNotifier, getNodeCacher
+from twistedcaldav.notify import Notifier, getNodeCacher
 from twistedcaldav.notifications import NotificationCollectionResource,\
     NotificationResource
 
@@ -1045,9 +1045,6 @@ class CalendarHomeFile(AutoProvisioningFileMixIn, SharedHomeMixin,
 
         self.associateWithTransaction(transaction)
 
-        # TODO: when calendar home gets a resourceID( ) method, remove
-        # the "id=record.uid" keyword from this call:
-        self.clientNotifier = ClientNotifier(self, id=record.uid)
         storeHome = transaction.calendarHomeWithUID(record.uid)
         if storeHome is not None:
             created = False
@@ -1129,8 +1126,6 @@ class CalendarHomeFile(AutoProvisioningFileMixIn, SharedHomeMixin,
 
         if cls is not None:
             child = cls(self.fp.child(name).path, self)
-            child.clientNotifier = self.clientNotifier.clone(child,
-                label="collection")
             return child
         return self.createSimilarFile(self.fp.child(name).path)
 
@@ -1145,8 +1140,6 @@ class CalendarHomeFile(AutoProvisioningFileMixIn, SharedHomeMixin,
             path, self,
         )
         self.propagateTransaction(similar)
-        similar.clientNotifier = self.clientNotifier.clone(similar,
-            label="collection")
         return similar
 
     def createSimilarFile(self, path):
@@ -1174,8 +1167,6 @@ class CalendarHomeFile(AutoProvisioningFileMixIn, SharedHomeMixin,
                     path, principalCollections=self.principalCollections()
                 )
             self.propagateTransaction(similar)
-            similar.clientNotifier = self.clientNotifier.clone(similar,
-                label="collection")
             return similar
 
     def getChild(self, name):
@@ -1725,7 +1716,7 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, Directory
 
         # TODO: when addressbook home gets a resourceID( ) method, remove
         # the "id=record.uid" keyword from this call:
-        self.clientNotifier = ClientNotifier(self, id=record.uid)
+        # self.clientNotifier = ClientNotifier(self, id=record.uid)
         self._newStoreAddressBookHome = (
             transaction.addressbookHomeWithUID(record.uid, create=True)
         )
@@ -1785,8 +1776,6 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, Directory
 
         if cls is not None:
             child = cls(self.fp.child(name).path, self)
-            child.clientNotifier = self.clientNotifier.clone(child,
-                label="collection")
             return child
         return self.createSimilarFile(self.fp.child(name).path)
 
@@ -1826,8 +1815,6 @@ class AddressBookHomeFile (AutoProvisioningFileMixIn, SharedHomeMixin, Directory
                     path, principalCollections=self.principalCollections()
                 )
             self.propagateTransaction(similar)
-            similar.clientNotifier = self.clientNotifier.clone(similar,
-                label="collection")
             return similar
 
     def getChild(self, name):
@@ -1997,15 +1984,13 @@ class GlobalAddressBookFile (ReadOnlyResourceMixIn, GlobalAddressBookResource, C
     """
     def __init__(self, path, principalCollections):
         CalDAVFile.__init__(self, path, principalCollections=principalCollections)
-        self.clientNotifier = ClientNotifier(self)
+        # self.clientNotifier = ClientNotifier(self)
 
     def createSimilarFile(self, path):
         if self.comparePath(path):
             return self
         else:
             similar = CalDAVFile(path, principalCollections=self.principalCollections())
-            similar.clientNotifier = self.clientNotifier.clone(similar,
-                label="collection")
             return similar
 
 ##

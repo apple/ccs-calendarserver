@@ -46,6 +46,7 @@ from twext.web2.http_headers import MimeType
 from twext.web2.dav.element.base import WebDAVUnknownElement
 from twext.python.vcomponent import VComponent
 
+from twistedcaldav.notify import Notifier
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -381,7 +382,11 @@ class CommonTests(object):
                 ],
                 davxml.ResourceType.calendar) #@UndefinedVariable
         checkProperties()
+
         self.commit()
+
+        # Make sure notification fired after commit
+        self.assertTrue(self.notifierFactory.compare([("update", "home1")]))
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = self.homeUnderTest()
@@ -412,11 +417,18 @@ class CommonTests(object):
         exists.
         """
         home = self.homeUnderTest()
+
         # FIXME: test transactions
         for name in home1_calendarNames:
             self.assertNotIdentical(home.calendarWithName(name), None)
             home.removeCalendarWithName(name)
             self.assertEquals(home.calendarWithName(name), None)
+
+        self.commit()
+
+        # Make sure notification fired after commit
+        self.assertTrue(self.notifierFactory.compare(
+            [("update", "home1"), ("update", "home1"), ("update", "home1")]))
 
 
     def test_removeCalendarWithName_absent(self):
@@ -513,6 +525,20 @@ class CommonTests(object):
                 None
             )
 
+        # Make sure notifications are fired after commit
+        self.commit()
+        self.assertTrue(
+            self.notifierFactory.compare(
+                [
+                    ("update", "home1"),
+                    ("update", "calendar_1"),
+                    ("update", "home1"),
+                    ("update", "calendar_1"),
+                    ("update", "home1"),
+                    ("update", "calendar_1"),
+                ]
+            )
+        )
 
     def test_removeCalendarObjectWithName_exists(self):
         """
@@ -660,6 +686,18 @@ class CommonTests(object):
         calendarObject = calendar1.calendarObjectWithName(name)
         self.assertEquals(calendarObject.component(), component)
 
+        self.commit()
+
+        # Make sure notifications fire after commit
+        self.assertTrue(
+            self.notifierFactory.compare(
+                [
+                    ("update", "home1"),
+                    ("update", "calendar_1"),
+                ]
+            )
+        )
+
 
     def test_createCalendarObjectWithName_exists(self):
         """
@@ -753,6 +791,18 @@ class CommonTests(object):
         # Also check a new instance
         calendarObject = calendar1.calendarObjectWithName("1.ics")
         self.assertEquals(calendarObject.component(), component)
+
+        self.commit()
+
+        # Make sure notification fired after commit
+        self.assertTrue(
+            self.notifierFactory.compare(
+                [
+                    ("update", "home1"),
+                    ("update", "calendar_1"),
+                ]
+            )
+        )
 
 
     def checkPropertiesMethod(self, thunk):
@@ -1025,3 +1075,22 @@ END:VCALENDAR
         self.assertRaises(AlreadyFinishedError, txn.abort)
 
 
+
+class StubNotifierFactory(object):
+
+    """ For testing push notifications without an XMPP server """
+
+    def __init__(self):
+        self.reset()
+
+    def newNotifier(self, label="default", id=None):
+        return Notifier(self, label=label, id=id)
+
+    def send(self, op, id):
+        self._history.append((op, id))
+
+    def reset(self):
+        self._history = []
+
+    def compare(self, expected):
+        return self._history == expected

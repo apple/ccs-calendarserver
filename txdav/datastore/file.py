@@ -148,6 +148,7 @@ class DataStoreTransaction(LoggingMixIn):
         self._dataStore = dataStore
         self._termination = None
         self._operations = []
+        self._postCommitOperations = []
         self._tracker = _CommitTracker(name)
 
 
@@ -202,4 +203,8 @@ class DataStoreTransaction(LoggingMixIn):
                         self.log_error("Cannot undo DataStoreTransaction")
                 raise
 
+        for operation in self._postCommitOperations:
+            operation()
 
+    def postCommit(self, operation):
+        self._postCommitOperations.append(operation)

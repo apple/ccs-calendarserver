@@ -33,7 +33,7 @@ from txcaldav.calendarstore.file import CalendarStore, CalendarHome
 from txcaldav.calendarstore.file import Calendar, CalendarObject
 
 from txcaldav.calendarstore.test.common import (
-    CommonTests, event4_text, event1modified_text)
+    CommonTests, event4_text, event1modified_text, StubNotifierFactory)
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -48,6 +48,7 @@ testUnimplemented = lambda f: _todo(f, "Test unimplemented")
 todo = lambda why: lambda f: _todo(f, why)
 
 
+
 def setUpCalendarStore(test):
     test.root = FilePath(test.mktemp())
     test.root.createDirectory()
@@ -57,7 +58,8 @@ def setUpCalendarStore(test):
     calendarPath.parent().makedirs()
     storePath.copyTo(calendarPath)
 
-    test.calendarStore = CalendarStore(storeRootPath)
+    test.notifierFactory = StubNotifierFactory()
+    test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory)
     test.txn = test.calendarStore.newTransaction()
     assert test.calendarStore is not None, "No calendar store?"
 

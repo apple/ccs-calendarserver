@@ -142,3 +142,15 @@ class ITransaction(Interface):
         @raise AlreadyFinishedError: The transaction was already finished with
             an 'abort' or 'commit' and cannot be committed again.
         """
+
+
+    def postCommit(operation):
+        """
+        Registers an operation to be executed after the transaction is
+        committed.
+
+        postCommit can be called multiple times, and operations are executed
+        in the order which they were registered.
+
+        @param operation: a callable.
+        """

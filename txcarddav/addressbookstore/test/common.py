@@ -39,6 +39,7 @@ from txcarddav.iaddressbookstore import (
     IAddressBook, IAddressBookTransaction
 )
 from twistedcaldav.vcard import Component as VComponent
+from twistedcaldav.notify import Notifier
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2.dav import davxml
@@ -337,6 +338,9 @@ class CommonTests(object):
         checkProperties()
         self.commit()
 
+        # Make sure notification fired after commit
+        self.assertTrue(self.notifierFactory.compare([("update", "home1")]))
+
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = self.homeUnderTest()
         self.assertNotIdentical(home.addressbookWithName(name), None)
@@ -371,6 +375,12 @@ class CommonTests(object):
             self.assertNotIdentical(home.addressbookWithName(name), None)
             home.removeAddressBookWithName(name)
             self.assertEquals(home.addressbookWithName(name), None)
+
+        self.commit()
+
+        # Make sure notification fired after commit
+        self.assertTrue(self.notifierFactory.compare(
+            [("update", "home1"), ("update", "home1"), ("update", "home1")]))
 
 
     def test_removeAddressBookWithName_absent(self):
@@ -481,6 +491,21 @@ class CommonTests(object):
             self.assertIdentical(
                 addressbook.addressbookObjectWithName(name), None
             )
+
+        # Make sure notifications are fired after commit
+        self.commit()
+        self.assertTrue(
+            self.notifierFactory.compare(
+                [
+                    ("update", "home1"),
+                    ("update", "addressbook_1"),
+                    ("update", "home1"),
+                    ("update", "addressbook_1"),
+                    ("update", "home1"),
+                    ("update", "addressbook_1"),
+                ]
+            )
+        )
 
 
     def test_removeAddressBookObjectWithName_absent(self):
@@ -601,6 +626,18 @@ class CommonTests(object):
         addressbookObject = addressbook1.addressbookObjectWithName(name)
         self.assertEquals(addressbookObject.component(), component)
 
+        self.commit()
+
+        # Make sure notifications fire after commit
+        self.assertTrue(
+            self.notifierFactory.compare(
+                [
+                    ("update", "home1"),
+                    ("update", "addressbook_1"),
+                ]
+            )
+        )
+
 
     def test_createAddressBookObjectWithName_exists(self):
         """
@@ -695,6 +732,17 @@ class CommonTests(object):
         addressbookObject = addressbook1.addressbookObjectWithName("1.vcf")
         self.assertEquals(addressbookObject.component(), component)
 
+        self.commit()
+
+        # Make sure notification fired after commit
+        self.assertTrue(
+            self.notifierFactory.compare(
+                [
+                    ("update", "home1"),
+                    ("update", "addressbook_1"),
+                ]
+            )
+        )
 
     def checkPropertiesMethod(self, thunk):
         """
@@ -780,3 +828,23 @@ class CommonTests(object):
         )
 
 
+
+
+class StubNotifierFactory(object):
+
+    """ For testing push notifications without an XMPP server """
+
+    def __init__(self):
+        self.reset()
+
+    def newNotifier(self, label="default", id=None):
+        return Notifier(self, label=label, id=id)
+
+    def send(self, op, id):
+        self._history.append((op, id))
+
+    def reset(self):
+        self._history = []
+
+    def compare(self, expected):
+        return self._history == expected

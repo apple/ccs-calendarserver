@@ -17,7 +17,7 @@
 ##
 
 from calendarserver.tools.principals import updateRecord
-from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications, checkDirectory
+from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, checkDirectory
 from getopt import getopt, GetoptError
 from grp import getgrnam
 from pwd import getpwnam
@@ -130,7 +130,6 @@ def main():
         except DirectoryError, e:
             abort(e)
         setupMemcached(config)
-        setupNotifications(config)
     except ConfigurationError, e:
         abort(e)
 

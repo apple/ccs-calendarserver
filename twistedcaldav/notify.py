@@ -26,9 +26,6 @@ The notification server process is implemented as a twistd plugin
 services -- one handling the internal channel between icalserver
 and notification server, the other handling the external channel
 between notification server and a remote consumer.
-
-The icalserver tap creates a NotificationClient object at startup;
-it deals with passing along notifications to the notification server.
 """
 
 # TODO: add CalDAVTester test for examining new xmpp-uri property
@@ -59,28 +56,26 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav import memcachepool
 
 __all__ = [
-    "ClientNotifier",
     "Coalescer",
-    "getNodeCacher",
-    "getNotificationClient",
-    "getPubSubConfiguration",
-    "getPubSubHeartbeatURI",
-    "getPubSubPath",
-    "getPubSubXMPPURI",
     "INotifier",
-    "installNotificationClient",
     "InternalNotificationFactory",
     "InternalNotificationProtocol",
-    "NotificationClient",
     "NotificationClientFactory",
     "NotificationClientLineProtocol",
     "NotificationServiceMaker",
+    "Notifier",
+    "NotifierFactory",
     "SimpleLineNotificationFactory",
     "SimpleLineNotificationProtocol",
     "SimpleLineNotifier",
     "SimpleLineNotifierService",
     "XMPPNotificationFactory",
     "XMPPNotifier",
+    "getNodeCacher",
+    "getPubSubConfiguration",
+    "getPubSubHeartbeatURI",
+    "getPubSubPath",
+    "getPubSubXMPPURI",
 ]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -111,16 +106,16 @@ sasl.get_mechanisms = get_mechanisms
 # Classes used within calendarserver itself
 #
 
-class ClientNotifier(LoggingMixIn):
+class Notifier(LoggingMixIn):
     """
     Provides a hook for sending changs notifications to the
-    L{NotificationClient}.
+    L{NotifierFactory}.
     """
 
-    def __init__(self, resource, label="default", id=None, configOverride=None):
-        self.ids = { label : (resource, self.normalizeID(id)) }
+    def __init__(self, notifierFactory, label="default", id=None):
+        self._notifierFactory = notifierFactory
+        self._ids = { label : self.normalizeID(id) }
         self._notify = True
-        self.config = configOverride or config
 
     def normalizeID(self, id):
         urn = "urn:uuid:"
@@ -131,46 +126,35 @@ class ClientNotifier(LoggingMixIn):
             pass
         return id
 
-    def addResource(self, resource, label="default", id=None):
-        self.ids[label] = (resource, self.normalizeID(id))
-
     def enableNotify(self, arg):
-        self.log_debug("enableNotify: %s" % (self.ids['default'][1],))
+        self.log_debug("enableNotify: %s" % (self._ids['default'][1],))
         self._notify = True
 
     def disableNotify(self):
-        self.log_debug("disableNotify: %s" % (self.ids['default'][1],))
+        self.log_debug("disableNotify: %s" % (self._ids['default'][1],))
         self._notify = False
 
     def notify(self, op="update"):
-        if self.config.Notifications.Enabled:
-            notificationClient = getNotificationClient()
-            for label, (resource, id) in self.ids.iteritems():
-                if id is None:
-                    id = self.getID(label=label)
-                if id is not None:
-                    if self._notify:
-                        self.log_debug("Notifications are enabled: %s %s %s" %
-                            (op, label, id))
-                        notificationClient.send(op, id)
-                    else:
-                        self.log_debug("Skipping notification for: %s" % (id,))
+        for label, id in self._ids.iteritems():
+            if id is None:
+                id = self.getID(label=label)
+            if id is not None:
+                if self._notify:
+                    self.log_debug("Notifications are enabled: %s %s %s" %
+                        (op, label, id))
+                    self._notifierFactory.send(op, id)
+                else:
+                    self.log_debug("Skipping notification for: %s" % (id,))
 
-    def clone(self, resource, label="default", id=None):
-        newNotifier = self.__class__(None, configOverride=self.config)
-        newNotifier.ids = self.ids.copy()
-        newNotifier.ids[label] = (resource, id)
+    def clone(self, label="default", id=None):
+        newNotifier = self.__class__(self._notifierFactory)
+        newNotifier._ids = self._ids.copy()
+        newNotifier._ids[label] = id
         return newNotifier
 
     def getID(self, label="default"):
-        resource, id = self.ids.get(label, (None, None))
-        if id is not None:
-            return id
-        if resource is not None:
-            id = self.normalizeID(resource.resourceID())
-            self.ids[label] = (resource, id)
-            return id
-        return None
+        return self._ids.get(label, None)
+
 
 class NotificationClientLineProtocol(LineReceiver, LoggingMixIn):
     """
@@ -226,13 +210,12 @@ class NotificationClientFactory(ReconnectingClientFactory,
         return p
 
 
-class NotificationClient(LoggingMixIn):
+class NotifierFactory(LoggingMixIn):
     """
-    Notification Client
+    Notifier Factory
 
-    Forwards on notifications from ClientNotifiers to the
-    notification server.  A NotificationClient is installed by the tap at
-    startup.
+    Creates Notifier instances and forwards notifications from them to the
+    gateway.
     """
 
     def __init__(self, host, port, reactor=None):
@@ -275,15 +258,9 @@ class NotificationClient(LoggingMixIn):
     def removeObserver(self, observer):
         self.observers.remove(observer)
 
+    def newNotifier(self, label="default", id=None):
+        return Notifier(self, label=label, id=id)
 
-_notificationClient = None
-
-def installNotificationClient(host, port, klass=NotificationClient, reactor=None):
-    global _notificationClient
-    _notificationClient = klass(host, port, reactor=reactor)
-
-def getNotificationClient():
-    return _notificationClient
 
 
 

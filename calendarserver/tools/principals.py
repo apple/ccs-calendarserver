@@ -37,7 +37,7 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
 from twistedcaldav.directory import augment
 
-from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications, booleanArgument, checkDirectory
+from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached,  booleanArgument, checkDirectory
 
 __all__ = [
     "principalForPrincipalID", "proxySubprincipal", "addProxy", "removeProxy",
@@ -248,7 +248,6 @@ def main():
         except DirectoryError, e:
             abort(e)
         setupMemcached(config)
-        setupNotifications(config)
     except ConfigurationError, e:
         abort(e)
 

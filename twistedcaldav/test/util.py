@@ -103,7 +103,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         path.createDirectory()
 
         # Need a data store
-        _newStore = CommonDataStore(self.site.resource.fp, True, False)
+        _newStore = CommonDataStore(self.site.resource.fp, None, True, False)
 
         self.calendarCollection = CalendarHomeProvisioningFile(
             path,
@@ -306,7 +306,7 @@ class HomeTestCase(TestCase):
         self.createStockDirectoryService()
 
         # Need a data store
-        _newStore = CommonDataStore(fp, True, False)
+        _newStore = CommonDataStore(fp, None, True, False)
 
         self.homeProvisioner = CalendarHomeProvisioningFile(
             os.path.join(fp.path, "calendars"),
@@ -372,7 +372,7 @@ class AddressBookHomeTestCase(TestCase):
         self.createStockDirectoryService()
 
         # Need a data store
-        _newStore = CommonDataStore(fp, True, False)
+        _newStore = CommonDataStore(fp, None, True, False)
 
         self.homeProvisioner = AddressBookHomeProvisioningFile(
             os.path.join(fp.path, "addressbooks"),

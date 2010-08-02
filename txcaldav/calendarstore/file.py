@@ -68,8 +68,8 @@ CalendarStoreTransaction = CommonStoreTransaction
 class CalendarHome(CommonHome):
     implements(ICalendarHome)
 
-    def __init__(self, uid, path, calendarStore, transaction):
-        super(CalendarHome, self).__init__(uid, path, calendarStore, transaction)
+    def __init__(self, uid, path, calendarStore, transaction, notifier):
+        super(CalendarHome, self).__init__(uid, path, calendarStore, transaction, notifier)
 
         self._childClass = Calendar
 
@@ -123,7 +123,7 @@ class Calendar(CommonHomeChild):
     """
     implements(ICalendar)
 
-    def __init__(self, name, calendarHome, realName=None):
+    def __init__(self, name, calendarHome, notifier, realName=None):
         """
         Initialize a calendar pointing at a path on disk.
 
@@ -138,8 +138,8 @@ class Calendar(CommonHomeChild):
         will eventually have on disk.
         @type realName: C{str}
         """
-
-        super(Calendar, self).__init__(name, calendarHome, realName)
+        super(Calendar, self).__init__(name, calendarHome, notifier,
+            realName=realName)
 
         self._index = Index(self)
         self._invites = Invites(self)
@@ -264,6 +264,8 @@ class CalendarObject(CommonObjectResource):
                     self._path.remove()
             return undo
         self._transaction.addOperation(do, "set calendar component %r" % (self.name(),))
+        if self._calendar._notifier:
+            self._transaction.postCommit(self._calendar._notifier.notify)
 
     def component(self):
         if self._component is not None:

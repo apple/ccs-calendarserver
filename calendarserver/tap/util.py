@@ -45,7 +45,7 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.directory.wiki import WikiDirectoryService
-from twistedcaldav.notify import installNotificationClient
+from twistedcaldav.notify import NotifierFactory
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.simpleresource import SimpleResource
 from twistedcaldav.static import CalendarHomeProvisioningFile
@@ -202,15 +202,6 @@ def getRootResource(config, resources=None):
     )
 
     #
-    # Configure NotificationClient
-    #
-    if config.Notifications.Enabled:
-        installNotificationClient(
-            config.Notifications.InternalNotificationHost,
-            config.Notifications.InternalNotificationPort,
-        )
-
-    #
     # Configure the Site and Wrappers
     #
     credentialFactories = []
@@ -281,8 +272,21 @@ def getRootResource(config, resources=None):
 
     principalCollection = principalResourceClass("/principals/", directory)
 
+    #
+    # Configure NotifierFactory
+    #
+    if config.Notifications.Enabled:
+        notifierFactory = NotifierFactory(
+            config.Notifications.InternalNotificationHost,
+            config.Notifications.InternalNotificationPort,
+        )
+    else:
+        notifierFactory = None
+
+
     # Need a data store
-    _newStore = CommonDataStore(FilePath(config.DocumentRoot), config.EnableCalDAV, config.EnableCardDAV)
+    _newStore = CommonDataStore(FilePath(config.DocumentRoot),
+        notifierFactory, config.EnableCalDAV, config.EnableCardDAV)
 
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: %r" % (calendarResourceClass,))
