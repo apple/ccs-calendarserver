@@ -656,9 +656,6 @@ class CalDAVFile (LinkFollowerMixIn, CalDAVResource, DAVFile):
         except:
             return fail(Failure())
 
-        if hasattr(self, 'clientNotifier'):
-            self.clientNotifier.notify(op="update")
-
         return succeed(True)
 
     ##

@@ -324,7 +324,8 @@ class CommonHome(LoggingMixIn):
         childPath = self._path.child(name)
         if childPath.isdir():
             if self._notifier:
-                notifier = self._notifier.clone(label="collection", id=name)
+                childID = "%s/%s" % (self.uid(), name)
+                notifier = self._notifier.clone(label="collection", id=childID)
             else:
                 notifier = None
             existingChild = self._childClass(name, self, notifier)

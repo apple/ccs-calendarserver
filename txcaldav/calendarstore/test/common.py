@@ -531,11 +531,11 @@ class CommonTests(object):
             self.notifierFactory.compare(
                 [
                     ("update", "home1"),
-                    ("update", "calendar_1"),
+                    ("update", "home1/calendar_1"),
                     ("update", "home1"),
-                    ("update", "calendar_1"),
+                    ("update", "home1/calendar_1"),
                     ("update", "home1"),
-                    ("update", "calendar_1"),
+                    ("update", "home1/calendar_1"),
                 ]
             )
         )
@@ -693,7 +693,7 @@ class CommonTests(object):
             self.notifierFactory.compare(
                 [
                     ("update", "home1"),
-                    ("update", "calendar_1"),
+                    ("update", "home1/calendar_1"),
                 ]
             )
         )
@@ -799,7 +799,7 @@ class CommonTests(object):
             self.notifierFactory.compare(
                 [
                     ("update", "home1"),
-                    ("update", "calendar_1"),
+                    ("update", "home1/calendar_1"),
                 ]
             )
         )
