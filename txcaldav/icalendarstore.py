@@ -21,6 +21,7 @@ Calendar store interfaces
 """
 
 from zope.interface import Interface
+from txdav.idav import INotifier
 
 
 __all__ = [
@@ -63,7 +64,7 @@ class ICalendarTransaction(ICommonTransaction):
 # Interfaces
 #
 
-class ICalendarHome(Interface):
+class ICalendarHome(INotifier):
     """
     An L{ICalendarHome} is a collection of calendars which belongs to a
     specific principal and contains the calendars which that principal has
@@ -140,7 +141,7 @@ class ICalendarHome(Interface):
         """
 
 
-class ICalendar(Interface):
+class ICalendar(INotifier):
     """
     Calendar
 

@@ -439,6 +439,11 @@ class CommonHome(LoggingMixIn):
         self._transaction.addOperation(props.flush, "flush home properties")
         return props
 
+    def notifierID(self, label="default"):
+        if self._notifier:
+            return self._notifier.getID(label)
+        else:
+            return None
 
 class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     """
@@ -670,6 +675,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     def _doValidate(self, component):
         raise NotImplementedError
+
+    def notifierID(self, label="default"):
+        if self._notifier:
+            return self._notifier.getID(label)
+        else:
+            return None
 
 
 class CommonObjectResource(LoggingMixIn, FancyEqMixin):

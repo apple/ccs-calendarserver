@@ -399,21 +399,30 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
         isvirt = (yield self.isVirtualShare(request))
 
         if self.isCalendarCollection() or self.isAddressBookCollection():
+
             # Push notification DAV property "pushkey"
             if qname == customxml.PubSubXMPPPushKeyProperty.qname():
-                pubSubConfiguration = getPubSubConfiguration(config)
-                if (pubSubConfiguration['enabled'] and
-                    getattr(self, "clientNotifier", None) is not None):
-                    label = "collection" if isvirt else "default"
-                    id = self.clientNotifier.getID(label=label)
-                    nodeName = getPubSubPath(id, pubSubConfiguration)
-                    propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
-                    nodeCacher = getNodeCacher()
-                    (yield nodeCacher.createNode(self.clientNotifier, nodeName))
-                    returnValue(propVal)
 
-                else:
-                    returnValue(customxml.PubSubXMPPPushKeyProperty())
+                # FIXME: is there a better way to get back to the associated
+                # datastore object?
+                dataObject = None
+                for attr in ("_newStoreCalendar", "_newStoreAddressBook"):
+                    if hasattr(self, attr):
+                        dataObject = getattr(self, attr)
+                if dataObject:
+                    label = "collection" if isvirt else "default"
+                    notifierID = dataObject.notifierID(label=label)
+                    if notifierID is not None:
+                        print "XYZZY notifierID", notifierID
+
+                        pubSubConfiguration = getPubSubConfiguration(config)
+                        nodeName = getPubSubPath(notifierID, pubSubConfiguration)
+                        propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
+                        # nodeCacher = getNodeCacher()
+                        # (yield nodeCacher.createNode(self.clientNotifier, nodeName))
+                        returnValue(propVal)
+
+                returnValue(customxml.PubSubXMPPPushKeyProperty())
 
 
         if isvirt:

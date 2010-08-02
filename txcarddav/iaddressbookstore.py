@@ -20,6 +20,7 @@ Address book store interfaces
 
 from zope.interface import Interface
 from txdav.common.icommondatastore import ICommonTransaction
+from txdav.idav import INotifier
 
 __all__ = [
     # Classes
@@ -51,7 +52,7 @@ class IAddressBookTransaction(ICommonTransaction):
 # Interfaces
 #
 
-class IAddressBookHome(Interface):
+class IAddressBookHome(INotifier):
     """
     AddressBook home
 
@@ -114,7 +115,7 @@ class IAddressBookHome(Interface):
         """
 
 
-class IAddressBook(Interface):
+class IAddressBook(INotifier):
     """
     AddressBook
 

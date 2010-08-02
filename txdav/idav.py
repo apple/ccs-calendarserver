@@ -154,3 +154,30 @@ class ITransaction(Interface):
 
         @param operation: a callable.
         """
+
+class INotifier(Interface):
+    """
+    Push notification interface
+    """
+
+    def notifierID(label):
+        """
+        Return a push notification id.
+
+        Data store objects can have an associated Notifier object which is
+        responsible for the actual communication with the outside world.
+        Clients determine what notification service to subscribe to by
+        querying the server for various DAV properties.  These properties
+        include unique IDs from each resource, and the source of truth for
+        these IDs is the data store.  This method returns the notification
+        related ID for a given data store object.
+
+        Sharing introduces the need for a data store object to have multiple
+        notifier IDs because a subscriber sees the ID for the particular
+        collection being shared while the sharer sees the ID of the parent
+        home.  Therefore there is a label parameter to identify which ID is
+        being requested: "default" (what a sharer sees), or "collection"
+        for the collection itself (what a subscriber sees).
+
+        @return: a string (or None if notifications are disabled)
+        """
