@@ -236,16 +236,15 @@ class CalDAVOptions (Options, LoggingMixIn):
             
     def loadConfiguration(self):
         if not os.path.exists(self["config"]):
-            self.log_info("Config file %s not found, using defaults"
-                          % (self["config"],))
+            print "Config file %s not found. Exiting." % (self["config"],)
+            sys.exit(1)
 
-        self.log_info("Reading configuration from file: %s"
-                      % (self["config"],))
+        print "Reading configuration from file: %s" % (self["config"],)
 
         try:
             config.load(self["config"])
         except ConfigurationError, e:
-            log.err("Invalid configuration: %s" % (e,))
+            print "Invalid configuration: %s" % (e,)
             sys.exit(1)
 
         config.updateDefaults(self.overrides)
