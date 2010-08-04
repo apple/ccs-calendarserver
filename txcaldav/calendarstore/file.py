@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txcaldav.calendarstore.util import validateCalendarComponent,\
+    dropboxIDFromCalendarObject
 
 """
 File calendar store.
@@ -52,10 +54,10 @@ from txcaldav.icalendarstore import ICalendar, ICalendarObject
 from txcaldav.icalendarstore import ICalendarHome
 
 
-from txdav.common.datastore.file import CommonDataStore, CommonStoreTransaction, \
-    CommonHome, CommonHomeChild, CommonObjectResource
-from txdav.common.icommondatastore import InvalidObjectResourceError, \
-    NoSuchObjectResourceError, InternalDataStoreError
+from txdav.common.datastore.file import (CommonDataStore, 
+    CommonStoreTransaction, CommonHome, CommonHomeChild, CommonObjectResource)
+from txdav.common.icommondatastore import (NoSuchObjectResourceError,
+    InternalDataStoreError)
 from txdav.datastore.file import writeOperation, hidden
 from txdav.propertystore.base import PropertyName
 
@@ -183,12 +185,6 @@ class Calendar(CommonHomeChild):
             ),
         )
 
-    def _doValidate(self, component):
-        # FIXME: should be separate class, not separate case!
-        if self.name() == 'inbox':
-            component.validateComponentsForCalDAV(True)
-        else:
-            component.validateForCalDAV()
 
 
 class CalendarObject(CommonObjectResource):
@@ -211,23 +207,7 @@ class CalendarObject(CommonObjectResource):
 
     @writeOperation
     def setComponent(self, component):
-        if not isinstance(component, VComponent):
-            raise TypeError(type(component))
-
-        try:
-            if component.resourceUID() != self.uid():
-                raise InvalidObjectResourceError(
-                    "UID may not change (%s != %s)" % (
-                        component.resourceUID(), self.uid()
-                     )
-                )
-        except NoSuchObjectResourceError:
-            pass
-
-        try:
-            self._calendar._doValidate(component)
-        except InvalidICalendarDataError, e:
-            raise InvalidObjectResourceError(e)
+        validateCalendarComponent(self, self._calendar, component)
 
         newRevision = self._calendar._updateSyncToken() # FIXME: test
         self._calendar.retrieveOldIndex().addResource(
@@ -362,22 +342,7 @@ class CalendarObject(CommonObjectResource):
 
 
     def dropboxID(self):
-        # FIXME: direct tests
-        dropboxProperty = self.component().getFirstPropertyInAnyComponent("X-APPLE-DROPBOX")
-        if dropboxProperty is not None:
-            componentDropboxID = dropboxProperty.value().split("/")[-1]
-            return componentDropboxID
-        attachProperty = self.component().getFirstPropertyInAnyComponent("ATTACH")
-        if attachProperty is not None:
-            # Make sure the value type is URI
-            valueType = attachProperty.params().get("VALUE", ("TEXT",))
-            if valueType[0] == "URI": 
-                # FIXME: more aggressive checking to see if this URI is really the
-                # 'right' URI.  Maybe needs to happen in the front end.
-                attachPath = attachProperty.value().split("/")[-2]
-                return attachPath
-        
-        return self.uid() + ".dropbox"
+        return dropboxIDFromCalendarObject(self)
 
 
     def _dropboxPath(self):

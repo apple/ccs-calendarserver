@@ -1,4 +1,4 @@
-# -*- test-case-name: txcaldav.calendarstore.test.test_postgres -*-
+# -*- test-case-name: txcaldav.calendarstore.test.test_postgres.SQLStorageTests -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -26,15 +26,21 @@ __all__ = [
     "CalendarObject",
 ]
 
+from inspect import getargspec
+
 from twisted.python.modules import getModule
 from twisted.application.service import Service
-from txdav.idav import IDataStore
+from txcaldav.calendarstore.util import validateCalendarComponent,\
+    dropboxIDFromCalendarObject
+from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError,\
+    HomeChildNameAlreadyExistsError, NoSuchHomeChildError,\
+    NoSuchObjectResourceError
+from txdav.idav import IDataStore, AlreadyFinishedError
 from zope.interface.declarations import implements
 from txcaldav.icalendarstore import ICalendarTransaction, ICalendarHome, \
     ICalendar, ICalendarObject
 from txdav.propertystore.base import AbstractPropertyStore, PropertyName
 from twext.web2.dav.element.parser import WebDAVDocument
-from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.propertystore.none import PropertyStore
 
 from twext.python.vcomponent import VComponent
@@ -55,15 +61,79 @@ _ATTACHMENTS_MODE_WRITE = 1
 _BIND_MODE_OWN = 0
 
 
-class PropertyStore(AbstractPropertyStore):
-    """
-    
-    """
 
-    def __init__(self, cursor, connection, resourceID):
+def _getarg(argname, argspec, args, kw):
+    """
+    Get an argument from some arguments.
+
+    @param argname: The name of the argument to retrieve.
+
+    @param argspec: The result of L{inspect.getargspec}.
+
+    @param args: positional arguments passed to the function specified by
+        argspec.
+
+    @param kw: keyword arguments passed to the function specified by
+        argspec.
+
+    @return: The value of the argument named by 'argname'.
+    """
+    argnames = argspec[0]
+    try:
+        argpos = argnames.index(argname)
+    except ValueError:
+        argpos = None
+    if argpos is not None:
+        if len(args) > argpos:
+            return args[argpos]
+    if argname in kw:
+        return kw[argname]
+    else:
+        raise TypeError("could not find key argument %r in %r/%r (%r)" %
+            (argname, args, kw, argpos)
+        )
+
+
+
+def memoized(keyArgument, memoAttribute):
+    """
+    Decorator which memoizes the result of a method on that method's instance.
+
+    @param keyArgument: The name of the 'key' argument.
+
+    @type keyArgument: C{str}
+
+    @param memoAttribute: The name of the attribute on the instance which
+        should be used for memoizing the result of this method; the attribute
+        itself must be a dictionary.
+
+    @type memoAttribute: C{str}
+    """
+    def decorate(thunk):
+        spec = getargspec(thunk)
+        def outer(*a, **kw):
+            self = a[0]
+            memo = getattr(self, memoAttribute)
+            key = _getarg(keyArgument, spec, a, kw)
+            if key in memo:
+                return memo[key]
+            result = thunk(*a, **kw)
+            if result is not None:
+                memo[key] = result
+            return result
+        return outer
+    return decorate
+
+
+
+class PropertyStore(AbstractPropertyStore):
+
+    def __init__(self, peruser, defaultuser, cursor, connection, resourceID):
+        super(PropertyStore, self).__init__(peruser, defaultuser)
         self._cursor = cursor
         self._connection = connection
         self._resourceID = resourceID
+
 
     def _getitem_uid(self, key, uid):
         self._cursor.execute(
@@ -109,14 +179,19 @@ class PostgresCalendarObject(object):
         self._calendar = calendar
         self._name = name
         self._resourceID = resid
+        self._calendarText = None
 
 
     def uid(self):
         return self.component().resourceUID()
-    
-    
+
+
+    def organizer(self):
+        return self.component().getOrganizer()
+
+
     def dropboxID(self):
-        return self.uid() + ".dropbox"
+        return dropboxIDFromCalendarObject(self)
 
 
     def name(self):
@@ -124,10 +199,15 @@ class PostgresCalendarObject(object):
 
 
     def iCalendarText(self):
-        c = self._calendar._cursor()
-        c.execute("select ICALENDAR_TEXT from CALENDAR_OBJECT where "
-                  "RESOURCE_ID = %s", [self._resourceID])
-        return c.fetchall()[0][0]
+        if self._calendarText is None:
+            c = self._calendar._cursor()
+            c.execute("select ICALENDAR_TEXT from CALENDAR_OBJECT where "
+                      "RESOURCE_ID = %s", [self._resourceID])
+            text = c.fetchall()[0][0]
+            self._calendarText = text
+            return text
+        else:
+            return self._calendarText
 
 
     def component(self):
@@ -139,16 +219,23 @@ class PostgresCalendarObject(object):
 
 
     def properties(self):
-        return PropertyStore(self._calendar._cursor(),
+        return PropertyStore(
+            self.uid(),
+            self.uid(),
+            self._calendar._cursor(),
             self._calendar._home._txn._connection,
-            self._resourceID)
+            self._resourceID
+        )
 
 
     def setComponent(self, component):
+        validateCalendarComponent(self, self._calendar, component)
+        calendarText = str(component)
         self._calendar._cursor().execute(
             "update CALENDAR_OBJECT set ICALENDAR_TEXT = %s "
-            "where RESOURCE_ID = %s", [str(component), self._resourceID]
+            "where RESOURCE_ID = %s", [calendarText, self._resourceID]
         )
+        self._calendarText = calendarText
 
 
     def createAttachmentWithName(self, name, contentType):
@@ -169,9 +256,6 @@ class PostgresCalendarObject(object):
 
 
 class PostgresCalendar(object):
-    """
-    
-    """
 
     implements(ICalendar)
 
@@ -180,6 +264,7 @@ class PostgresCalendar(object):
         self._home = home
         self._name = name
         self._resourceID = resourceID
+        self._objects = {}
 
 
     def _cursor(self):
@@ -190,7 +275,19 @@ class PostgresCalendar(object):
         return self._name
 
     def rename(self, name):
-        raise NotImplementedError()
+        oldName = self._name
+        c = self._cursor()
+        c.execute(
+            "update CALENDAR_BIND set CALENDAR_RESOURCE_NAME = %s "
+            "where CALENDAR_RESOURCE_ID = %s AND "
+            "CALENDAR_HOME_RESOURCE_ID = %s",
+            [name, self._resourceID, self._home._resourceID]
+        )
+        self._name = name
+        # update memos
+        del self._home._calendars[oldName]
+        self._home._calendars[name] = self
+
 
     def ownerCalendarHome(self):
         return self._home
@@ -208,6 +305,7 @@ class PostgresCalendar(object):
             yield self.calendarObjectWithName(name)
 
 
+    @memoized('name', '_objects')
     def calendarObjectWithName(self, name):
         c = self._cursor()
         c.execute("select RESOURCE_ID from CALENDAR_OBJECT where "
@@ -233,35 +331,62 @@ class PostgresCalendar(object):
 
 
     def createCalendarObjectWithName(self, name, component):
-        str(component)
         c = self._cursor()
         c.execute(
-"""
-insert into CALENDAR_OBJECT
-(CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID,
- ICALENDAR_TYPE, ATTACHMENTS_MODE)
- values
-(%s, %s, %s, %s, %s, %s)
-"""
-,
-# should really be filling out more fields: ORGANIZER, ORGANIZER_OBJECT,
-# a correct ATTACHMENTS_MODE based on X-APPLE-DROPBOX
-[self._resourceID, name, str(component), component.resourceUID(),
-component.resourceType(), _ATTACHMENTS_MODE_WRITE])
+            "select RESOURCE_NAME from CALENDAR_OBJECT where "
+            " RESOURCE_NAME = %s AND CALENDAR_RESOURCE_ID = %s",
+            [name, self._resourceID]
+        )
+        rows = c.fetchall()
+        if rows:
+            raise ObjectResourceNameAlreadyExistsError()
+
+        calendarObject = PostgresCalendarObject(self, name, None)
+        calendarObject.component = lambda : component
+
+        validateCalendarComponent(calendarObject, self, component)
+
+        componentText = str(component)
+        c.execute(
+            """
+            insert into CALENDAR_OBJECT
+            (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID,
+             ICALENDAR_TYPE, ATTACHMENTS_MODE)
+             values
+            (%s, %s, %s, %s, %s, %s)
+            """,
+            # should really be filling out more fields: ORGANIZER, ORGANIZER_OBJECT,
+            # a correct ATTACHMENTS_MODE based on X-APPLE-DROPBOX
+            [self._resourceID, name, componentText, component.resourceUID(),
+            component.resourceType(), _ATTACHMENTS_MODE_WRITE]
+        )
 
 
     def removeCalendarObjectWithName(self, name):
         c = self._cursor()
-        c.execute("delete from CALENDAR_OBJECT where RESOURCE_NAME = %s and ",
+        c.execute("delete from CALENDAR_OBJECT where RESOURCE_NAME = %s and "
                   "CALENDAR_RESOURCE_ID = %s",
                   [name, self._resourceID])
+        if c.rowcount == 0:
+            raise NoSuchObjectResourceError()
+        self._objects.pop(name, None)
 
 
     def removeCalendarObjectWithUID(self, uid):
         c = self._cursor()
-        c.execute("delete from CALENDAR_OBJECT where ICALENDAR_UID = %s and ",
+        c.execute(
+            "select RESOURCE_NAME from CALENDAR_OBJECT where "
+            "ICALENDAR_UID = %s AND CALENDAR_RESOURCE_ID = %s",
+            [uid, self._resourceID]
+        )
+        rows = c.fetchall()
+        if not rows:
+            raise NoSuchObjectResourceError()
+        name = rows[0][0]
+        c.execute("delete from CALENDAR_OBJECT where ICALENDAR_UID = %s and "
                   "CALENDAR_RESOURCE_ID = %s",
                   [uid, self._resourceID])
+        self._objects.pop(name, None)
 
 
     def syncToken(self):
@@ -280,17 +405,25 @@ component.resourceType(), _ATTACHMENTS_MODE_WRITE])
 
 
     def properties(self):
-        return PropertyStore(self._cursor(), self._home._txn._connection,
-                             self._resourceID)
+        ownerUID = self.ownerCalendarHome().uid()
+        return PropertyStore(
+            ownerUID,
+            ownerUID,
+            self._cursor(), self._home._txn._connection,
+            self._resourceID
+        )
 
 
 
 class PostgresCalendarHome(object):
+
     implements(ICalendarHome)
+
     def __init__(self, transaction, ownerUID, resourceID):
         self._txn = transaction
         self._ownerUID = ownerUID
         self._resourceID = resourceID
+        self._calendars = {}
 
 
     def uid(self):
@@ -316,11 +449,12 @@ class PostgresCalendarHome(object):
             [self._resourceID,
             _BIND_STATUS_DECLINED, ]
         )
-        names = c.fetchall()
+        names = [row[0] for row in c.fetchall()]
         for name in names:
             yield self.calendarWithName(name)
 
 
+    @memoized('name', '_calendars')
     def calendarWithName(self, name):
         """
         Retrieve the calendar with the given C{name} contained in this
@@ -351,8 +485,18 @@ class PostgresCalendarHome(object):
                     return calendarObject
 
 
+    @memoized('name', '_calendars')
     def createCalendarWithName(self, name):
         c = self._txn._cursor
+        c.execute(
+            "select CALENDAR_RESOURCE_NAME from CALENDAR_BIND where "
+            "CALENDAR_RESOURCE_NAME = %s AND "
+            "CALENDAR_HOME_RESOURCE_ID = %s",
+            [name, self._resourceID]
+        )
+        rows = c.fetchall()
+        if rows:
+            raise HomeChildNameAlreadyExistsError()
         c.execute("select nextval('RESOURCE_ID_SEQ')")
         resourceID = c.fetchall()[0][0]
         c.execute("insert into CALENDAR (SYNC_TOKEN, RESOURCE_ID) values "
@@ -360,14 +504,14 @@ class PostgresCalendarHome(object):
                   ['uninitialized', resourceID])
 
         c.execute("""
-        insert into CALENDAR_BIND (
-            CALENDAR_HOME_RESOURCE_ID,
-            CALENDAR_RESOURCE_ID, CALENDAR_RESOURCE_NAME, CALENDAR_MODE,
-            SEEN_BY_OWNER, SEEN_BY_SHAREE, STATUS) values (
-        %s, %s, %s, %s, %s, %s, %s)
-        """,
-        [self._resourceID, resourceID, name, _BIND_MODE_OWN, True, True,
-        _BIND_STATUS_ACCEPTED])
+            insert into CALENDAR_BIND (
+                CALENDAR_HOME_RESOURCE_ID,
+                CALENDAR_RESOURCE_ID, CALENDAR_RESOURCE_NAME, CALENDAR_MODE,
+                SEEN_BY_OWNER, SEEN_BY_SHAREE, STATUS) values (
+            %s, %s, %s, %s, %s, %s, %s)
+            """,
+            [self._resourceID, resourceID, name, _BIND_MODE_OWN, True, True,
+             _BIND_STATUS_ACCEPTED])
 
 
     def removeCalendarWithName(self, name):
@@ -375,14 +519,23 @@ class PostgresCalendarHome(object):
         c.execute(
             "delete from CALENDAR_BIND where CALENDAR_RESOURCE_NAME = %s and "
             "CALENDAR_HOME_RESOURCE_ID = %s",
-            [name, self._resourceID])
-        # FIXME: the schema should probably cascade the delete when the last
-        # bind is deleted.
+            [name, self._resourceID]
+        )
+        self._calendars.pop(name, None)
+        if c.rowcount == 0:
+            raise NoSuchHomeChildError()
+        # FIXME: the schema should probably cascade the calendar delete when
+        # the last bind is deleted.
 
 
     def properties(self):
-        return PropertyStore(self._txn._cursor, self._txn._connection,
-                             self._resourceID)
+        return PropertyStore(
+            self.uid(),
+            self.uid(),
+            self._txn._cursor,
+            self._txn._connection,
+            self._resourceID
+        )
 
 
 
@@ -395,8 +548,17 @@ class PostgresCalendarTransaction(object):
     def __init__(self, connection):
         self._connection = connection
         self._cursor = connection.cursor()
+        self._completed = False
+        self._homes = {}
 
 
+    def __del__(self):
+        if not self._completed:
+            self._connection.rollback()
+            self._connection.close()
+
+
+    @memoized('uid', '_homes')
     def calendarHomeWithUID(self, uid, create=False):
         self._cursor.execute(
             "select RESOURCE_ID from CALENDAR_HOME where OWNER_UID = %s",
@@ -415,14 +577,30 @@ class PostgresCalendarTransaction(object):
         return PostgresCalendarHome(self, uid, resid)
 
 
+    def notificationsWithUID(self, uid):
+        """
+        Implement notificationsWithUID.
+        """
+        raise NotImplementedError("no notifications collection yet")
+
+
     def abort(self):
-        self._connection.rollback()
-        self._connection.close()
+        if not self._completed:
+            self._completed = True
+            self._connection.rollback()
+            self._connection.close()
+        else:
+            raise AlreadyFinishedError()
 
 
     def commit(self):
-        self._connection.commit()
-        self._connection.close()
+        if not self._completed:
+            self._completed = True
+            self._connection.commit()
+            self._connection.close()
+        else:
+            raise AlreadyFinishedError()
+
 
 
 class PostgresStore(Service, object):
