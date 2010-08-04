@@ -156,6 +156,7 @@ class CommonTests(object):
                 "2.ics": cal1Root.child("2.ics").getContent(),
                 "3.ics": cal1Root.child("3.ics").getContent()
             },
+            "calendar_2": {},
             "calendar_empty": {},
             "not_a_calendar": None
         },
@@ -267,7 +268,7 @@ class CommonTests(object):
         L{ICommonStoreTransaction}, L{ICalendarTransaction}, and their
         respectively required attributes.
         """
-        txn = self.storeUnderTest().newTransaction()
+        txn = self.transactionUnderTest()
         self.assertProvides(ICommonTransaction, txn)
         self.assertProvides(ICalendarTransaction, txn)
 
@@ -302,9 +303,8 @@ class CommonTests(object):
         provides L{ICalendarHome} and has a C{uid()} method that returns the
         same value that was passed in.
         """
-        calendarHome = (self.storeUnderTest().newTransaction()
+        calendarHome = (self.transactionUnderTest()
                         .calendarHomeWithUID("home1"))
-
         self.assertEquals(calendarHome.uid(), "home1")
         self.assertProvides(ICalendarHome, calendarHome)
 
@@ -314,11 +314,8 @@ class CommonTests(object):
         L{ICommonStoreTransaction.calendarHomeWithUID} should return C{None}
         when asked for a non-existent calendar home.
         """
-        self.assertEquals(
-            self.storeUnderTest().newTransaction()
-            .calendarHomeWithUID("xyzzy"),
-            None
-        )
+        txn = self.transactionUnderTest()
+        self.assertEquals(txn.calendarHomeWithUID("xyzzy"), None)
 
 
     def test_calendarWithName_exists(self):
@@ -329,6 +326,8 @@ class CommonTests(object):
         home = self.homeUnderTest()
         for name in home1_calendarNames:
             calendar = home.calendarWithName(name)
+            if calendar is None:
+                self.fail("calendar %r didn't exist" % (name,))
             self.assertProvides(ICalendar, calendar)
             self.assertEquals(calendar.name(), name)
 
@@ -667,17 +666,13 @@ class CommonTests(object):
         L{CalendarObjectNameAlreadyExistsError} if a calendar object with the
         given name already exists in that calendar.
         """
-        print 'getting calendar under test'
         cal = self.calendarUnderTest()
-        print 'parsing component'
         comp = VComponent.fromString(event4_text)
-        print 'checking raise'
         self.assertRaises(
             ObjectResourceNameAlreadyExistsError,
             cal.createCalendarObjectWithName,
             "1.ics", comp
         )
-        print 'done'
 
 
     def test_createCalendarObjectWithName_invalid(self):
@@ -732,8 +727,9 @@ class CommonTests(object):
             create=True
         )
         def readOtherTxn():
-            return self.savedStore.newTransaction().calendarHomeWithUID(
-                noHomeUID)
+            otherTxn = self.savedStore.newTransaction()
+            self.addCleanup(otherTxn.commit)
+            return otherTxn.calendarHomeWithUID(noHomeUID)
         self.assertProvides(ICalendarHome, calendarHome)
         # A concurrent transaction shouldn't be able to read it yet:
         self.assertIdentical(readOtherTxn(), None)
@@ -886,7 +882,7 @@ END:VCALENDAR
     def test_dropboxID(self):
         """
         L{ICalendarObject.dropboxID} should synthesize its dropbox from the X
-        -APPLE-DROPBOX property.
+        -APPLE-DROPBOX property, if available.
         """
         cal = self.calendarUnderTest()
         cal.createCalendarObjectWithName("drop.ics", VComponent.fromString(
