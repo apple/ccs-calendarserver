@@ -13,17 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.datastore.subpostgres import PostgresService
-from twisted.internet.defer import inlineCallbacks, Deferred
-from twisted.application.service import Service
 
 """
 Tests for txdav.datastore.subpostgres.
 """
 
-from twext.python.filepath import CachingFilePath
 from twisted.trial.unittest import TestCase
 
+from twext.python.filepath import CachingFilePath
+
+from txdav.datastore.subpostgres import PostgresService
+from twisted.internet.defer import inlineCallbacks, Deferred
+from twisted.application.service import Service
 
 class SubprocessStartup(TestCase):
     """
@@ -41,26 +42,33 @@ class SubprocessStartup(TestCase):
 
         test = self
         class SimpleService(Service):
+
             instances = []
             rows = []
             ready = Deferred()
+
             def __init__(self, connectionFactory):
                 self.connection = connectionFactory()
                 test.addCleanup(self.connection.close)
-                print 'CREATING simpleservice'
                 self.instances.append(self)
 
+
             def startService(self):
-                print 'STARTING simpleservice'
                 cursor = self.connection.cursor()
-                cursor.execute(
-                    "insert into test_dummy_table values ('dummy')"
-                )
-                cursor.close()
-                self.ready.callback(None)
+                try:
+                    cursor.execute(
+                        "insert into test_dummy_table values ('dummy')"
+                    )
+                except:
+                    self.ready.errback()
+                else:
+                    self.ready.callback(None)
+                finally:
+                    cursor.close()
+
 
         svc = PostgresService(
-            CachingFilePath("database"),
+            CachingFilePath("../_postgres_test_db"),
             SimpleService,
             "create table TEST_DUMMY_TABLE (stub varchar)",
             "dummy_db"
@@ -72,5 +80,5 @@ class SubprocessStartup(TestCase):
         connection = SimpleService.instances[0].connection
         cursor = connection.cursor()
         cursor.execute("select * from test_dummy_table")
-        values = list(cursor)
+        values = cursor.fetchall()
         self.assertEquals(values, [["dummy"]])

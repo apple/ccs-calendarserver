@@ -14,20 +14,45 @@
 # limitations under the License.
 ##
 
+"""
+Tests for txcaldav.calendarstore.postgres, mostly based on
+L{txcaldav.calendarstore.test.common}.
+"""
+
+
 from txcaldav.calendarstore.test.common import CommonTests
 
 from twisted.trial import unittest
-from txdav.datastore.subpostgres import PostgresService
+from txdav.datastore.subpostgres import PostgresService, \
+    DiagnosticConnectionWrapper
 from txcaldav.calendarstore.postgres import PostgresStore, v1_schema
 from twisted.internet.defer import Deferred
 from twisted.internet import reactor
 from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
 from twisted.internet.task import deferLater
+from twisted.python import log
+import gc
+
+
+
+def allInstancesOf(cls):
+    for o in gc.get_referrers(cls):
+        if isinstance(o, cls):
+            yield o
+
+
+
+def dumpConnectionStatus():
+    print '+++ ALL CONNECTIONS +++'
+    for connection in allInstancesOf(DiagnosticConnectionWrapper):
+        print connection.label, connection.state
+    print '--- CONNECTIONS END ---'
 
 
 
 sharedService = None
+currentTestID = None
 
 class SQLStorageTests(CommonTests, unittest.TestCase):
     """
@@ -36,52 +61,74 @@ class SQLStorageTests(CommonTests, unittest.TestCase):
 
     def setUp(self):
         global sharedService
+        global currentTestID
+        currentTestID = self.id()
         if sharedService is None:
             ready = Deferred()
             def getReady(connectionFactory):
                 global calendarStore
-                calendarStore = PostgresStore(connectionFactory)
-                self.populate()
-                ready.callback(None)
+                try:
+                    calendarStore = PostgresStore(
+                        lambda label=None: connectionFactory(
+                            label or currentTestID
+                        )
+                    )
+                except:
+                    ready.errback()
+                    raise
+                else:
+                    self.cleanAndPopulate().chainDeferred(ready)
                 return calendarStore
             sharedService = PostgresService(
-                CachingFilePath("pg"), getReady, v1_schema, "caldav"
+                CachingFilePath("../_test_postgres_db"),
+                getReady, v1_schema, "caldav"
             )
             sharedService.startService()
             def startStopping():
-                for pipe in sharedService.monitor.transport.pipes.values():
-                    pipe.startReading()
-                    pipe.startWriting()
-                sharedService.stopService()
-            reactor.addSystemEventTrigger(
+                log.msg("Starting stopping.")
+                sharedService.unpauseMonitor()
+                dumpConnectionStatus()
+                return sharedService.stopService()
+            reactor.addSystemEventTrigger(#@UndefinedVariable
                 "before", "shutdown", startStopping)
             return ready
         else:
-            cleanupConn = calendarStore.connectionFactory()
-            cursor = cleanupConn.cursor()
-            cursor.execute("delete from RESOURCE_PROPERTY")
-            cursor.execute("delete from ATTACHMENT")
-            cursor.execute("delete from CALENDAR_OBJECT")
-            cursor.execute("delete from CALENDAR_BIND")
-            cursor.execute("delete from CALENDAR")
-            cursor.execute("delete from CALENDAR_HOME")
-            cleanupConn.commit()
-            cleanupConn.close()
-            self.populate()
-            for pipe in sharedService.monitor.transport.pipes.values():
-                pipe.startReading()
-                pipe.startWriting()
-            # I need to allow the log buffer to unspool.
-            return deferLater(reactor, 0.1, lambda : None)
+            return self.cleanAndPopulate()
+
+
+    def cleanAndPopulate(self):
+        """
+        Delete everything from the database, then clean it up.
+        """
+        dumpConnectionStatus()
+        cleanupConn = calendarStore.connectionFactory(
+            "%s schema-cleanup" % (self.id(),)
+        )
+        cursor = cleanupConn.cursor()
+        cursor.execute("delete from RESOURCE_PROPERTY")
+        cleanupConn.commit()
+        cursor.execute("delete from ATTACHMENT")
+        cleanupConn.commit()
+        cursor.execute("delete from CALENDAR_OBJECT")
+        cleanupConn.commit()
+        cursor.execute("delete from CALENDAR_BIND")
+        cleanupConn.commit()
+        cursor.execute("delete from CALENDAR")
+        cleanupConn.commit()
+        cursor.execute("delete from CALENDAR_HOME")
+        cleanupConn.commit()
+        cleanupConn.close()
+        self.populate()
+        sharedService.unpauseMonitor()
+        # I need to allow the log buffer to unspool.
+        return deferLater(reactor, 0.1, lambda : None)
 
 
     def tearDown(self):
+        super(SQLStorageTests, self).tearDown()
         def stopit():
-            for pipe in sharedService.monitor.transport.pipes.values():
-                pipe.stopReading()
-                pipe.stopWriting()
+            sharedService.pauseMonitor()
         return deferLater(reactor, 0.1, stopit)
-
 
 
     def populate(self):
