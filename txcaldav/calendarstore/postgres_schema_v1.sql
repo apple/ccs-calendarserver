@@ -103,6 +103,7 @@ insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (1, 'write');
 ----------------
 
 create table TIME_RANGE (
+  CALENDAR_RESOURCE_ID        varchar(255) not null references CALENDAR,
   CALENDAR_OBJECT_RESOURCE_ID varchar(255) not null references CALENDAR_OBJECT,
   FLOATING                    bool         not null,
   START_DATE                  date         not null,
