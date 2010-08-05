@@ -919,6 +919,26 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResource,
 
         return completionDeferred
 
+    @inlineCallbacks
+    def findSpecialCollectionsFaster(self, type, depth, request, callback, privileges=None):
+        assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
+
+        if depth != "0" and self.isCollection():
+            basepath = request.urlForResource(self)
+            for childname in self.listChildren():
+                childpath = joinURL(basepath, childname)
+                child = (yield request.locateResource(childpath))
+                if privileges:
+                    try:
+                        child.checkPrivileges(request, privileges)
+                    except AccessDeniedError:
+                        continue
+                if child.isSpecialCollection(type):
+                    callback(child, childpath)
+                elif child.isCollection():
+                    if depth == "infinity":
+                        yield child.findSpecialCollectionsFaster(type, depth, request, callback, privileges)                
+
     def createCalendar(self, request):
         """
         See L{ICalDAVResource.createCalendar}.
