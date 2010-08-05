@@ -56,8 +56,8 @@ from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
-from twistedcaldav.directory.util import NotFilePath
-from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVFile, DAVPrincipalResource
+from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVPrincipalResource,\
+    DAVResourceWithChildrenMixin
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav import caldavxml, customxml
@@ -69,10 +69,6 @@ log = Logger()
 
 # Use __underbars__ convention to avoid conflicts with directory resource types.
 uidsResourceName = "__uids__"
-
-# FIXME: These should not be tied to DAVFile
-# The reason that they is that web2.dav only implements DAV methods on
-# DAVFile instead of DAVResource.  That should change.
 
 class PermissionsMixIn (ReadOnlyResourceMixIn):
     def defaultAccessControlList(self):
@@ -131,7 +127,6 @@ def cuAddressConverter(origCUAddr):
 class DirectoryProvisioningResource (
     PermissionsMixIn,
     CalendarPrincipalCollectionResource,
-    DAVFile,
 ):
     def __init__(self, url, directory):
         """
@@ -141,7 +136,7 @@ class DirectoryProvisioningResource (
         assert url.endswith("/"), "Collection URL must end in '/'"
 
         CalendarPrincipalCollectionResource.__init__(self, url)
-        DAVFile.__init__(self, NotFilePath(isdir=True))
+        DAVResourceWithChildrenMixin.__init__(self)
 
         self.directory = IDirectoryService(directory)
 
@@ -507,7 +502,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     def principalCollections(self):
         return self.parent.principalCollections()
 
-class DirectoryPrincipalResource (PermissionsMixIn, DAVPrincipalResource, DAVFile):
+class DirectoryPrincipalResource (PermissionsMixIn, DAVPrincipalResource):
     """
     Directory principal resource.
     """
@@ -526,7 +521,7 @@ class DirectoryPrincipalResource (PermissionsMixIn, DAVPrincipalResource, DAVFil
         @param parent: the parent of this resource.
         @param record: the L{IDirectoryRecord} that this resource represents.
         """
-        super(DirectoryPrincipalResource, self).__init__(NotFilePath(isdir=True))
+        super(DirectoryPrincipalResource, self).__init__()
 
         if self.isCollection():
             slash = "/"
@@ -936,7 +931,6 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
 
     def calendarHome(self, request):
         # FIXME: self.record.service.calendarHomesCollection smells like a hack
-        # See CalendarHomeProvisioningFile.__init__()
         service = self.record.service
         if hasattr(service, "calendarHomesCollection"):
             return service.calendarHomesCollection.homeForDirectoryRecord(self.record, request)
@@ -960,7 +954,6 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
 
     def addressBookHome(self, request):
         # FIXME: self.record.service.addressBookHomesCollection smells like a hack
-        # See AddressBookHomeProvisioningFile.__init__()
         service = self.record.service
         if hasattr(service, "addressBookHomesCollection"):
             return service.addressBookHomesCollection.homeForDirectoryRecord(self.record, request)

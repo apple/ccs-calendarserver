@@ -33,8 +33,9 @@ from getopt import getopt, GetoptError
 from os.path import dirname, abspath
 
 from twistedcaldav.config import ConfigurationError
-from twistedcaldav.resource import isPseudoCalendarCollectionResource
-from twistedcaldav.static import CalDAVFile, CalendarHomeFile
+from twistedcaldav.resource import isPseudoCalendarCollectionResource,\
+    CalendarHomeResource
+from twistedcaldav.static import CalDAVFile
 from twistedcaldav.directory.directory import DirectoryService
 
 from calendarserver.tools.util import loadConfig, getDirectory, dummyDirectoryRecord
@@ -104,7 +105,7 @@ def main():
         elif opt in ("-H", "--home"):
             path = abspath(arg)
             parent = CalDAVFile(dirname(abspath(path)))
-            calendarHome = CalendarHomeFile(arg, parent, dummyDirectoryRecord)
+            calendarHome = CalendarHomeResource(arg, parent, dummyDirectoryRecord)
             checkExists(calendarHome)
             calendarHomes.add(calendarHome)
 

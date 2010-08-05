@@ -22,21 +22,17 @@ __all__ = [
     "DirectoryBackedAddressBookResource",
 ]
 
-
-
 from twext.python.log import Logger
-from twisted.internet.defer import succeed, inlineCallbacks, maybeDeferred, returnValue
-from twisted.python.reflect import namedClass
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.http import HTTPError, StatusResponse
 
+from twisted.internet.defer import succeed, inlineCallbacks, maybeDeferred, returnValue
+from twisted.python.reflect import namedClass
+
 from twistedcaldav.config import config
 from twistedcaldav.resource import CalDAVResource
-
-
-
 
 log = Logger()
 
@@ -47,13 +43,36 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
     Directory-backed address book
     """
 
-    def __init__(self):
+    def __init__(self, principalCollections):
 
-        CalDAVResource.__init__(self)
+        CalDAVResource.__init__(self, principalCollections=principalCollections)
 
         self.directory = None       # creates directory attribute
 
+        # create with permissions, similar to CardDAVOptions in tap.py
+        # FIXME:  /Directory does not need to be in file system unless debug-only caching options are used
+#        try:
+#            os.mkdir(path)
+#            os.chmod(path, 0750)
+#            if config.UserName and config.GroupName:
+#                import pwd
+#                import grp
+#                uid = pwd.getpwnam(config.UserName)[2]
+#                gid = grp.getgrnam(config.GroupName)[2]
+#                os.chown(path, uid, gid)
+# 
+#            log.msg("Created %s" % (path,))
+#            
+#        except (OSError,), e:
+#            # this is caused by multiprocessor race and is harmless
+#            if e.errno != errno.EEXIST:
+#                raise
+
         
+    def makeChild(self, name):
+        from twistedcaldav.simpleresource import SimpleCalDAVResource
+        return SimpleCalDAVResource(principalCollections=self.principalCollections())
+
     def provisionDirectory(self):
         if self.directory is None:
             directoryClass = namedClass(config.DirectoryAddressBook.type)
@@ -94,8 +113,8 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
            ),
         )
 
-    def resourceType(self, request):
-        return succeed(davxml.ResourceType.addressbook)
+    def resourceType(self):
+        return davxml.ResourceType.addressbook
 
     def isDirectoryBackedAddressBookCollection(self):
         return True

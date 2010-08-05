@@ -128,7 +128,6 @@ class Properties(HomeTestCase):
 
             query = davxml.PropertyFind(
                         davxml.PropertyContainer(
-                            davxml.GETETag(),
                             caldavxml.SupportedCalendarData(),
                             caldavxml.SupportedCalendarComponentSet(),
                             davxml.SupportedReportSet(),

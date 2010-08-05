@@ -62,7 +62,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
         """
         Run a free busy report on the specified calendar collection
         accumulating the free busy info for later processing.
-        @param calresource: the L{CalDAVFile} for a calendar collection.
+        @param calresource: the L{CalDAVResource} for a calendar collection.
         @param uri: the uri for the calendar collecton resource.
         """
         

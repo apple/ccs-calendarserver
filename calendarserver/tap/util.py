@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-
 __all__ = [
     "getRootResource",
     "FakeRequest",
@@ -24,37 +23,38 @@ import errno
 import os
 from time import sleep
 
-from twisted.python.reflect import namedClass
-from twisted.internet.reactor import addSystemEventTrigger
-from twisted.cred.portal import Portal
-from twext.web2.http_headers import Headers
-from twext.web2.dav import auth
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.python.log import Logger
 from twext.web2.auth.basic import BasicCredentialFactory
+from twext.web2.dav import auth
+from twext.web2.http_headers import Headers
 from twext.web2.resource import RedirectResource
 from twext.web2.static import File as FileResource
-from twext.python.filepath import CachingFilePath as FilePath
 
-from twext.python.log import Logger
+from twisted.cred.portal import Portal
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.reactor import addSystemEventTrigger
+from twisted.python.reflect import namedClass
 
 from twistedcaldav import memcachepool
+from twistedcaldav.bind import doBind
 from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
+from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.internal import InternalDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.sudo import SudoDirectoryService
-from twistedcaldav.directory.util import NotFilePath
 from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.notify import NotifierFactory
+from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
+from twistedcaldav.schedule import IScheduleInboxResource
 from twistedcaldav.simpleresource import SimpleResource
-from twistedcaldav.static import CalendarHomeProvisioningFile
-from twistedcaldav.static import IScheduleInboxFile
-from twistedcaldav.static import TimezoneServiceFile
-from twistedcaldav.static import AddressBookHomeProvisioningFile, DirectoryBackedAddressBookFile
 from twistedcaldav.timezones import TimezoneCache
+from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.util import getMemorySize, getNCPU
-from twisted.internet.defer import inlineCallbacks, returnValue
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -82,19 +82,22 @@ def getRootResource(config, resources=None):
     tuples containing: path, resource class, __init__ args list, and optional
     authentication scheme ("basic" or "digest").
     """
+    
+    # FIXME: this is only here to workaround circular imports
+    doBind()
 
     #
     # Default resource classes
     #
     rootResourceClass            = RootResource
     principalResourceClass       = DirectoryPrincipalProvisioningResource
-    calendarResourceClass        = CalendarHomeProvisioningFile
-    iScheduleResourceClass       = IScheduleInboxFile
-    timezoneServiceResourceClass = TimezoneServiceFile
+    calendarResourceClass        = DirectoryCalendarHomeProvisioningResource
+    iScheduleResourceClass       = IScheduleInboxResource
+    timezoneServiceResourceClass = TimezoneServiceResource
     webCalendarResourceClass     = WebCalendarResource
     webAdminResourceClass        = WebAdminResource
-    addressBookResourceClass     = AddressBookHomeProvisioningFile
-    directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookFile
+    addressBookResourceClass     = DirectoryAddressBookHomeProvisioningResource
+    directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
 
     #
     # Setup the Directory
@@ -181,7 +184,7 @@ def getRootResource(config, resources=None):
         raise
 
     #
-    # Setup the PoxyDB Service
+    # Setup the ProxyDB Service
     #
     proxydbClass = namedClass(config.ProxyDBService.type)
 
@@ -291,16 +294,16 @@ def getRootResource(config, resources=None):
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: %r" % (calendarResourceClass,))
         calendarCollection = calendarResourceClass(
-            os.path.join(config.DocumentRoot, "calendars"),
-            directory, "/calendars/",
+            directory,
+            "/calendars/",
             _newStore,
         )
 
     if config.EnableCardDAV:
         log.info("Setting up address book collection: %r" % (addressBookResourceClass,))
         addressBookCollection = addressBookResourceClass(
-            os.path.join(config.DocumentRoot, "addressbooks"),
-            directory, "/addressbooks/",
+            directory,
+            "/addressbooks/",
             _newStore,
         )
 
@@ -309,7 +312,6 @@ def getRootResource(config, resources=None):
             log.info("Setting up directory address book: %r" % (directoryBackedAddressBookResourceClass,))
 
             directoryBackedAddressBookCollection = directoryBackedAddressBookResourceClass(
-                directoryPath,
                 principalCollections=(principalCollection,)
             )
             addSystemEventTrigger("after", "startup", directoryBackedAddressBookCollection.provisionDirectory)
@@ -373,7 +375,6 @@ def getRootResource(config, resources=None):
                       % (timezoneServiceResourceClass,))
 
         timezoneService = timezoneServiceResourceClass(
-            NotFilePath(isfile=True),
             root,
         )
         root.putChild("timezones", timezoneService)
@@ -384,7 +385,6 @@ def getRootResource(config, resources=None):
                       % (iScheduleResourceClass,))
 
         ischedule = iScheduleResourceClass(
-            NotFilePath(isfile=True),
             root,
         )
         root.putChild("ischedule", ischedule)

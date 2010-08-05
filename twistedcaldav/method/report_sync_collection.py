@@ -60,7 +60,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
         Return the specified properties on the specified resource.
         @param request: the L{IRequest} for the current request.
         @param props: a list of property elements or qname tuples for the properties of interest.
-        @param resource: the L{DAVFile} for the targeted resource.
+        @param resource: the L{DAVResource} for the targeted resource.
         @return: a map of OK and NOT FOUND property values.
         """
         properties_by_status = {

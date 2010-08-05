@@ -30,7 +30,7 @@ class AccountingITIP (twistedcaldav.test.util.TestCase):
         super(AccountingITIP, self).setUp()
         config.AccountingCategories.iTIP = True
         config.AccountingPrincipals = ["*",]
-        config.AccountingLogRoot = self.mkdtemp("accounting")[0]
+        os.mkdir(config.AccountingLogRoot)
 
     class _Principal(object):
         
@@ -59,7 +59,7 @@ class AccountingITIP (twistedcaldav.test.util.TestCase):
         """
         
         # Make log root a file
-        config.AccountingLogRoot = os.path.abspath(self.mktemp())
+        config.AccountingLogRoot = "other"
         open(config.AccountingLogRoot, "w").close()
         emitAccounting("iTIP", self._Principal("1234-5678"), "bogus")
 
@@ -70,7 +70,6 @@ class AccountingHTTP (twistedcaldav.test.util.TestCase):
         super(AccountingHTTP, self).setUp()
         config.AccountingCategories.HTTP = True
         config.AccountingPrincipals = ["*",]
-        config.AccountingLogRoot = self.mkdtemp("accounting")[0]
 
     def test_channel_request(self):
         """

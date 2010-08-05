@@ -47,14 +47,17 @@ from twistedcaldav.config import config, ConfigDict
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
-from twistedcaldav.directory.sudo import SudoDirectoryService
+from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.directory import UnknownRecordTypeError
+from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.test.util import TestCase
 
 from calendarserver.tap.caldav import (
     CalDAVOptions, CalDAVServiceMaker, CalDAVService, GroupOwnedUNIXServer,
     DelayedStartupProcessMonitor, DelayedStartupLineLogger, TwistdSlaveProcess
 )
+from calendarserver.provision.root import RootResource
 
 
 # Points to top of source tree.
@@ -698,7 +701,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         site = self.getSite()
         root = site.resource.resource.resource
 
-        self.failUnless(isinstance(root, CalDAVServiceMaker.rootResourceClass))
+        self.failUnless(isinstance(root, RootResource))
 
     def test_principalResource(self):
         """
@@ -709,7 +712,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
 
         self.failUnless(isinstance(
             root.getChild("principals"),
-            CalDAVServiceMaker.principalResourceClass
+            DirectoryPrincipalProvisioningResource
         ))
 
     def test_calendarResource(self):
@@ -721,7 +724,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
 
         self.failUnless(isinstance(
             root.getChild("calendars"),
-            CalDAVServiceMaker.calendarResourceClass
+            DirectoryCalendarHomeProvisioningResource
         ))
 
 

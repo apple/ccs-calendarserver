@@ -173,19 +173,6 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertFalse(hasattr(db, "_db_connection"))
         db._db_close()
         
-    def test_ignore_db_files(self):
-        """
-        Make sure database files are not listed as children.
-        """
-        colpath = self.site.resource.fp.path
-        fd = open(os.path.join(colpath, db_prefix + "sqlite"), "w")
-        fd.close()
-        fd = open(os.path.join(colpath, "test"), "w")
-        fd.close()
-        children = self.site.resource.listChildren()
-        self.assertTrue("test" in children)
-        self.assertFalse(db_prefix + "sqlite" in children)
-
     def test_duplicate_create(self):
         dbname = self.mktemp()
         

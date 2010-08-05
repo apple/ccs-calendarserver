@@ -135,16 +135,16 @@ class StoreCalendarObjectResource(object):
         Function that does common PUT/COPY/MOVE behavior.
         
         @param request:           the L{twext.web2.server.Request} for the current HTTP request.
-        @param source:            the L{CalDAVFile} for the source resource to copy from, or None if source data
+        @param source:            the L{CalDAVResource} for the source resource to copy from, or None if source data
             is to be read from the request.
         @param source_uri:        the URI for the source resource.
-        @param destination:       the L{CalDAVFile} for the destination resource to copy into.
+        @param destination:       the L{CalDAVResource} for the destination resource to copy into.
         @param destination_uri:   the URI for the destination resource.
         @param calendar:          the C{str} or L{Component} calendar data if there is no source, None otherwise.
         @param sourcecal:         True if the source resource is in a calendar collection, False otherwise.
         @param destinationcal:    True if the destination resource is in a calendar collection, False otherwise
-        @param sourceparent:      the L{CalDAVFile} for the source resource's parent collection, or None if source is None.
-        @param destinationparent: the L{CalDAVFile} for the destination resource's parent collection.
+        @param sourceparent:      the L{CalDAVResource} for the source resource's parent collection, or None if source is None.
+        @param destinationparent: the L{CalDAVResource} for the destination resource's parent collection.
         @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
         @param isiTIP:                True if relaxed calendar data validation is to be done, False otherwise.
         @param allowImplicitSchedule: True if implicit scheduling should be attempted, False otherwise.
@@ -674,7 +674,7 @@ class StoreCalendarObjectResource(object):
             if do_implicit_action and self.allowImplicitSchedule:
 
                 # Cannot do implicit in sharee's shared calendar
-                isvirt = (yield self.destinationparent.isVirtualShare(self.request))
+                isvirt = self.destinationparent.isVirtualShare()
                 if isvirt:
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,

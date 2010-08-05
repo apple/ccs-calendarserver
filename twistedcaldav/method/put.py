@@ -31,8 +31,8 @@ from twext.web2.dav.http import ErrorResponse
 from twistedcaldav.caldavxml import caldav_namespace
 
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
-from twistedcaldav.resource import isPseudoCalendarCollectionResource
-from twistedcaldav.static import CalDAVFile
+from twistedcaldav.resource import isPseudoCalendarCollectionResource,\
+    CalDAVResource
 
 log = Logger()
 
@@ -118,7 +118,7 @@ def http_PUT(self, request):
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     else:
-        result = (yield super(CalDAVFile, self).http_PUT(request))
+        result = (yield super(CalDAVResource, self).http_PUT(request))
 
         if not hasattr(request, "extendedLogItems"):
             request.extendedLogItems = {}

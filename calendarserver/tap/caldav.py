@@ -28,7 +28,7 @@ import sys
 from time import time
 
 from subprocess import Popen, PIPE
-from pwd import getpwnam, getpwuid
+from pwd import getpwuid
 from grp import getgrnam
 from OpenSSL.SSL import Error as SSLError
 import OpenSSL
@@ -67,14 +67,10 @@ except ImportError:
 
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
-from twistedcaldav.static import CalendarHomeProvisioningFile
-from twistedcaldav.static import IScheduleInboxFile
-from twistedcaldav.static import TimezoneServiceFile
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
 
@@ -89,9 +85,6 @@ except ImportError:
 from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
-from calendarserver.provision.root import RootResource
-from calendarserver.webadmin.resource import WebAdminResource
-from calendarserver.webcal.resource import WebCalendarResource
 from calendarserver.tap.util import getRootResource, computeProcessCount
 from calendarserver.tools.util import checkDirectory
 
@@ -371,18 +364,6 @@ class CalDAVServiceMaker (LoggingMixIn):
     description = "Darwin Calendar Server"
     options = CalDAVOptions
 
-    #
-    # Default resource classes
-    #
-    rootResourceClass            = RootResource
-    principalResourceClass       = DirectoryPrincipalProvisioningResource
-    calendarResourceClass        = CalendarHomeProvisioningFile
-    iScheduleResourceClass       = IScheduleInboxFile
-    imipResourceClass            = IMIPReplyInboxResource
-    timezoneServiceResourceClass = TimezoneServiceFile
-    webCalendarResourceClass     = WebCalendarResource
-    webAdminResourceClass        = WebAdminResource
-    
     #
     # Default tap names
     #

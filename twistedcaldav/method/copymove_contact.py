@@ -193,7 +193,7 @@ def checkForAddressBookAction(self, request):
         sourceadbk:        True if source is in an addressbook collection, False otherwise
         sourceparent:     The parent resource for the source
         destination_uri:  The URI of the destination resource
-        destination:      CalDAVFile of destination if special processing required,
+        destination:      CalDAVResource of destination if special processing required,
         None otherwise
         destinationadbk:   True if the destination is in an addressbook collection,
             False otherwise

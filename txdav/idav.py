@@ -25,6 +25,7 @@ __all__ = [
     "IPropertyName",
     "IPropertyStore",
     "IDataStore",
+    "IDataStoreResource",
 ]
 
 from zope.interface import Attribute, Interface
@@ -119,7 +120,62 @@ class IDataStore(Interface):
         """
 
 
+class IDataStoreResource(Interface):
+    """
+    An L{IDataStoreResource} are the objects stored in an L{IDataStore}.
+    """
+    
+    def name():
+        """
+        Identify the name of the object
 
+        @return: the name of this object.
+        @rtype: C{str}
+        """
+
+    def contentType():
+        """
+        The content type of the object's content.
+
+        @rtype: L{MimeType}
+        """
+
+
+    def md5():
+        """
+        The MD5 hex digest of this object's content.
+
+        @rtype: C{str}
+        """
+
+    def size():
+        """
+        The octet-size of this object's content.
+
+        @rtype: C{int}
+        """
+
+    def created():
+        """
+        The creation date-time stamp of this object.
+
+        @rtype: C{int}
+        """
+
+    def modified():
+        """
+        The last modification date-time stamp of this object.
+
+        @rtype: C{int}
+        """
+
+    def properties():
+        """
+        Retrieve the property store for this object.
+
+        @return: an L{IPropertyStore}.
+        """
+    
 class ITransaction(Interface):
     """
     Transaction that can be aborted and either succeeds or fails in

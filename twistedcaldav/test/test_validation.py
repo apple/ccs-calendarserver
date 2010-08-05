@@ -24,11 +24,11 @@ from twisted.trial.unittest import TestCase
 from twext.web2.test.test_server import SimpleRequest
 from twext.web2.http import HTTPError
 
-from twistedcaldav.static import CalDAVFile
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.caldavxml import MaxAttendeesPerInstance
+from twistedcaldav.resource import CalDAVResource
 
 class TestCopyMoveValidation(TestCase):
     """
@@ -39,14 +39,11 @@ class TestCopyMoveValidation(TestCase):
         """
         Set up some CalDAV stuff.
         """
-        
-        class CalDAVFileWithName(CalDAVFile):
-            
-            def name(self):
-                return self.fp.basename()
 
-        self.destination = CalDAVFileWithName(self.mktemp())
-        self.destinationParent = CalDAVFileWithName(self.mktemp())
+        self.destination = CalDAVResource()
+        self.destination.name = lambda : '1'
+        self.destinationParent = CalDAVResource()
+        self.destinationParent.name = lambda : '2'
         self.sampleCalendar = Component.fromString("""
 BEGIN:VCALENDAR
 VERSION:2.0

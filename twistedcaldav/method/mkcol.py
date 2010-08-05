@@ -35,9 +35,9 @@ from twext.web2.http import StatusResponse
 
 from twistedcaldav import caldavxml, carddavxml, mkcolxml
 from twistedcaldav.config import config
-from twistedcaldav.resource import isAddressBookCollectionResource
+from twistedcaldav.resource import isAddressBookCollectionResource,\
+    CalDAVResource
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
-from twistedcaldav.static import CalDAVFile
 
 log = Logger()
 
@@ -182,6 +182,6 @@ def http_MKCOL(self, request):
     
     else:
         # No request body so it is a standard MKCOL
-        result = yield super(CalDAVFile, self).http_MKCOL(request)
+        result = yield super(CalDAVResource, self).http_MKCOL(request)
         returnValue(result)
 

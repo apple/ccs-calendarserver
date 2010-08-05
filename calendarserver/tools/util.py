@@ -22,7 +22,7 @@ __all__ = [
     "booleanArgument",
 ]
 
-import os, sys
+import os
 from time import sleep
 import socket
 from pwd import getpwnam
@@ -38,9 +38,8 @@ from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.notify import NotifierFactory
-from twistedcaldav.static import CalendarHomeProvisioningFile
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 from txdav.common.datastore.file import CommonDataStore
@@ -77,13 +76,13 @@ def getDirectory():
                     notifierFactory, True, False)
 
                 #
-                # Instantiating a CalendarHomeProvisioningResource with a directory
+                # Instantiating a DirectoryCalendarHomeProvisioningResource with a directory
                 # will register it with the directory (still smells like a hack).
                 #
                 # We need that in order to locate calendar homes via the directory.
                 #
-                from twistedcaldav.static import CalendarHomeProvisioningFile
-                CalendarHomeProvisioningFile(os.path.join(config.DocumentRoot, "calendars"), self, "/calendars/", _newStore)
+                from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
+                DirectoryCalendarHomeProvisioningResource(self, "/calendars/", _newStore)
 
                 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
                 self._principalCollection = DirectoryPrincipalProvisioningResource("/principals/", self)
@@ -152,8 +151,8 @@ def getDirectory():
     # Need a data store
     _newStore = CommonDataStore(FilePath(config.DocumentRoot), True, False)
 
-    calendarCollection = CalendarHomeProvisioningFile(
-        os.path.join(config.DocumentRoot, "calendars"),
+    from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
+    calendarCollection = DirectoryCalendarHomeProvisioningResource(
         aggregate, "/calendars/",
         _newStore,
     )

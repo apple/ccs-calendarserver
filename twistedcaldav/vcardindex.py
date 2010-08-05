@@ -221,7 +221,7 @@ class AddressBookIndex(AbstractSQLDatabase):
 
     def __init__(self, resource):
         """
-        @param resource: the L{twistedcaldav.static.CalDAVFile} resource to
+        @param resource: the L{CalDAVResource} resource to
             index. C{resource} must be an addressbook collection (ie.
             C{resource.isAddressBookCollection()} returns C{True}.)
         """

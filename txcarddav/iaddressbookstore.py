@@ -18,9 +18,9 @@
 Address book store interfaces
 """
 
-from zope.interface import Interface
 from txdav.common.icommondatastore import ICommonTransaction
 from txdav.idav import INotifier
+from txdav.idav import IDataStoreResource
 
 __all__ = [
     # Classes
@@ -52,7 +52,7 @@ class IAddressBookTransaction(ICommonTransaction):
 # Interfaces
 #
 
-class IAddressBookHome(INotifier):
+class IAddressBookHome(INotifier, IDataStoreResource):
     """
     AddressBook home
 
@@ -107,15 +107,8 @@ class IAddressBookHome(INotifier):
         @raise NoSuchAddressBookObjectError: if no such addressbook exists.
         """
 
-    def properties():
-        """
-        Retrieve the property store for this addressbook home.
 
-        @return: an L{IPropertyStore}.
-        """
-
-
-class IAddressBook(INotifier):
+class IAddressBook(INotifier, IDataStoreResource):
     """
     AddressBook
 
@@ -124,15 +117,6 @@ class IAddressBook(INotifier):
     shared with other principals, granting them read-only or
     read/write access.
     """
-
-    def name():
-        """
-        Identify this addressbook uniquely, as with
-        L{IAddressBookHome.addressbookWithName}.
-
-        @return: the name of this addressbook.
-        @rtype: C{str}
-        """
 
     def rename(name):
         """
@@ -230,15 +214,8 @@ class IAddressBook(INotifier):
             that have been removed, and the current sync token.
         """
 
-    def properties():
-        """
-        Retrieve the property store for this addressbook.
 
-        @return: an L{IPropertyStore}.
-        """
-
-
-class IAddressBookObject(Interface):
+class IAddressBookObject(IDataStoreResource):
     """
     AddressBook object
 
@@ -276,11 +253,4 @@ class IAddressBookObject(Interface):
         Retrieve the UID for this addressbook object.
 
         @return: a string containing a UID.
-        """
-
-    def properties():
-        """
-        Retrieve the property store for this addressbook object.
-
-        @return: an L{IPropertyStore}.
         """

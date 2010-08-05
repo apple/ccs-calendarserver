@@ -596,7 +596,7 @@ class XMPPNotifier(LoggingMixIn):
 
     Uses pubsub XMPP requests to let subscribers know when there
     has been a change made to a DAV resource (currently just
-    CalendarHomeFiles).  Uses XMPP login info from the config file
+    CalendarHomeResources).  Uses XMPP login info from the config file
     to determine which pubsub service to connect to.  When it's
     time to send a notification, XMPPNotifier computes a node path
     corresponding to the DAV resource and emits a publish request

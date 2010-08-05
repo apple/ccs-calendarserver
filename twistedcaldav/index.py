@@ -113,7 +113,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
 
     def __init__(self, resource):
         """
-        @param resource: the L{twistedcaldav.static.CalDAVFile} resource to
+        @param resource: the L{CalDAVResource} resource to
             index. C{resource} must be a calendar collection (ie.
             C{resource.isPseudoCalendarCollection()} returns C{True}.)
         """
@@ -419,7 +419,7 @@ class CalendarIndex (AbstractCalendarIndex):
 
     def __init__(self, resource):
         """
-        @param resource: the L{twistedcaldav.static.CalDAVFile} resource to
+        @param resource: the L{CalDAVResource} resource to
             index.
         """
         super(CalendarIndex, self).__init__(resource)
@@ -920,7 +920,7 @@ class Index (CalendarIndex):
 
     def __init__(self, resource):
         """
-        @param resource: the L{twistedcaldav.static.CalDAVFile} resource to
+        @param resource: the L{CalDAVResource} resource to
             index. C{resource} must be a calendar collection (i.e.
             C{resource.isPseudoCalendarCollection()} returns C{True}.)
         """

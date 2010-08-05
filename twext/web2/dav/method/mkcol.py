@@ -53,14 +53,14 @@ def http_MKCOL(self, request):
     yield x
     x.getResult()
 
-    if self.fp.exists():
+    if self.exists():
         log.err("Attempt to create collection where file exists: %s"
-                % (self.fp.path,))
+                % (self,))
         raise HTTPError(responsecode.NOT_ALLOWED)
 
     if not parent.isCollection():
         log.err("Attempt to create collection with non-collection parent: %s"
-                % (self.fp.path,))
+                % (self,))
         raise HTTPError(StatusResponse(
             responsecode.CONFLICT,
             "Parent resource is not a collection."

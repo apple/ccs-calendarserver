@@ -25,27 +25,69 @@ __all__ = [
     "IScheduleInboxResource",
 ]
 
-from twext.web2.dav.http import ErrorResponse
 
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.element.extensions import SyncCollection
+from twext.web2.dav.element.rfc2518 import HRef
+from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
+from twext.web2.dav.noneprops import NonePropertyStore
+from twext.web2.dav.resource import davPrivilegeSet
 from twext.web2.dav.util import joinURL, normalizeURL
 from twext.web2.http import HTTPError
 from twext.web2.http import Response
 from twext.web2.http_headers import MimeType
 
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+
 from twistedcaldav import caldavxml
-from twext.web2.dav.element.rfc2518 import HRef
-from txdav.propertystore.base import PropertyName
 from twistedcaldav.caldavxml import caldav_namespace, Opaque,\
     CalendarFreeBusySet, ScheduleCalendarTransp
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.resource import CalDAVResource
+from twistedcaldav.extensions import DAVResource
+from twistedcaldav.resource import CalDAVResource, ReadOnlyNoCopyResourceMixIn
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler, IScheduleScheduler
+
+from txdav.propertystore.base import PropertyName
+
+def _schedulePrivilegeSet(deliver):
+    edited = False
+
+    top_supported_privileges = []
+
+    for supported_privilege in davPrivilegeSet.childrenOfType(davxml.SupportedPrivilege):
+        all_privilege = supported_privilege.childOfType(davxml.Privilege)
+        if isinstance(all_privilege.children[0], davxml.All):
+            all_description = supported_privilege.childOfType(davxml.Description)
+            all_supported_privileges = list(supported_privilege.childrenOfType(davxml.SupportedPrivilege))
+            all_supported_privileges.append(
+                davxml.SupportedPrivilege(
+                    davxml.Privilege(caldavxml.ScheduleDeliver() if deliver else caldavxml.ScheduleSend()),
+                    davxml.Description("schedule privileges for current principal", **{"xml:lang": "en"}),
+                ),
+            )
+            if config.Scheduling.CalDAV.OldDraftCompatibility:
+                all_supported_privileges.append(
+                    davxml.SupportedPrivilege(
+                        davxml.Privilege(caldavxml.Schedule()),
+                        davxml.Description("old-style schedule privileges for current principal", **{"xml:lang": "en"}),
+                    ),
+                )
+            top_supported_privileges.append(
+                davxml.SupportedPrivilege(all_privilege, all_description, *all_supported_privileges)
+            )
+            edited = True
+        else:
+            top_supported_privileges.append(supported_privilege)
+
+    assert edited, "Structure of davPrivilegeSet changed in a way that I don't know how to extend for schedulePrivilegeSet"
+
+    return davxml.SupportedPrivilegeSet(*top_supported_privileges)
+
+deliverSchedulePrivilegeSet = _schedulePrivilegeSet(True)
+sendSchedulePrivilegeSet = _schedulePrivilegeSet(False)
 
 class CalendarSchedulingCollectionResource (CalDAVResource):
     """
@@ -60,7 +102,7 @@ class CalendarSchedulingCollectionResource (CalDAVResource):
         """
         assert parent is not None
 
-        CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
+        super(CalendarSchedulingCollectionResource, self).__init__(principalCollections=parent.principalCollections())
 
         self.parent = parent
 
@@ -97,24 +139,8 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             (caldav_namespace, "schedule-default-calendar-URL"),
         )
 
-    def resourceType(self, request):
-        return succeed(davxml.ResourceType.scheduleInbox)
-
-    def defaultAccessControlList(self):
-        
-        privs = (
-            davxml.Privilege(caldavxml.ScheduleDeliver()),
-        )
-        if config.Scheduling.CalDAV.OldDraftCompatibility:
-            privs += (davxml.Privilege(caldavxml.Schedule()),)
-
-        return davxml.ACL(
-            # CalDAV:schedule-deliver for any authenticated user
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(*privs),
-            ),
-        )
+    def resourceType(self):
+        return davxml.ResourceType.scheduleInbox
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -128,7 +154,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             if not self.hasDeadProperty(property):
                 top = self.parent.url()
                 values = []
-                for cal in self.parent._newStoreCalendarHome.calendars():
+                for cal in self.parent._newStoreHome.calendars():
                     prop = cal.properties().get(PropertyName.fromString(ScheduleCalendarTransp.sname())) 
                     if prop == ScheduleCalendarTransp(Opaque()):
                         values.append(HRef(joinURL(top, cal.name())))
@@ -235,7 +261,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         defaultCalendarURL = joinURL(calendarHomeURL, "calendar")
         defaultCalendar = (yield request.locateResource(defaultCalendarURL))
         if defaultCalendar is None or not defaultCalendar.exists():
-            getter = iter(self.parent._newStoreCalendarHome.calendars())
+            getter = iter(self.parent._newStoreHome.calendars())
             # FIXME: the back-end should re-provision a default calendar here.
             # Really, the dead property shouldn't be necessary, and this should
             # be entirely computed by a back-end method like 'defaultCalendar()'
@@ -255,12 +281,66 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             davxml.HRef(defaultCalendarURL))
         )
 
+    ##
+    # ACL
+    ##
+
+    def supportedPrivileges(self, request):
+        return succeed(deliverSchedulePrivilegeSet)
+
+    def defaultAccessControlList(self):
+        
+        privs = (
+            davxml.Privilege(caldavxml.ScheduleDeliver()),
+        )
+        if config.Scheduling.CalDAV.OldDraftCompatibility:
+            privs += (davxml.Privilege(caldavxml.Schedule()),)
+
+        return davxml.ACL(
+            # CalDAV:schedule-deliver for any authenticated user
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(*privs),
+            ),
+        )
+
 class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     """
     CalDAV schedule Outbox resource.
 
     Extends L{DAVResource} to provide CalDAV functionality.
     """
+
+    def resourceType(self):
+        return davxml.ResourceType.scheduleOutbox
+
+    @inlineCallbacks
+    def http_POST(self, request):
+        """
+        The CalDAV POST method.
+    
+        This uses a generator function yielding either L{waitForDeferred} objects or L{Response} objects.
+        This allows for code that follows a 'linear' execution pattern rather than having to use nested
+        L{Deferred} callbacks. The logic is easier to follow this way plus we don't run into deep nesting
+        issues which the other approach would have with large numbers of recipients.
+        """
+        # Check authentication and access controls
+        yield self.authorize(request, (caldavxml.ScheduleSend(),))
+
+        # This is a local CALDAV scheduling operation.
+        scheduler = CalDAVScheduler(request, self)
+
+        # Do the POST processing treating
+        result = (yield scheduler.doSchedulingViaPOST())
+        returnValue(result.response())
+
+
+    ##
+    # ACL
+    ##
+
+    def supportedPrivileges(self, request):
+        return succeed(sendSchedulePrivilegeSet)
 
     def defaultAccessControlList(self):
         if config.EnableProxyPrincipals:
@@ -283,30 +363,14 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         else:
             return super(ScheduleOutboxResource, self).defaultAccessControlList()
 
-    def resourceType(self, request):
-        return succeed(davxml.ResourceType.scheduleOutbox)
+    def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_query):
+        return succeed(MultiStatusResponse(()))
+        
+    def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multiget):
+        responses = [davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)) for href in multiget.resources]
+        return succeed(MultiStatusResponse((responses)))
 
-    @inlineCallbacks
-    def http_POST(self, request):
-        """
-        The CalDAV POST method.
-    
-        This uses a generator function yielding either L{waitForDeferred} objects or L{Response} objects.
-        This allows for code that follows a 'linear' execution pattern rather than having to use nested
-        L{Deferred} callbacks. The logic is easier to follow this way plus we don't run into deep nesting
-        issues which the other approach would have with large numbers of recipients.
-        """
-        # Check authentication and access controls
-        yield self.authorize(request, (caldavxml.ScheduleSend(),))
-
-        # This is a local CALDAV scheduling operation.
-        scheduler = CalDAVScheduler(request, self)
-
-        # Do the POST processing treating
-        result = (yield scheduler.doSchedulingViaPOST())
-        returnValue(result.response())
-
-class IScheduleInboxResource (CalDAVResource):
+class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
     """
     iSchedule Inbox resource.
 
@@ -319,29 +383,23 @@ class IScheduleInboxResource (CalDAVResource):
         """
         assert parent is not None
 
-        CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
+        DAVResource.__init__(self, principalCollections=parent.principalCollections())
 
         self.parent = parent
 
-    def defaultAccessControlList(self):
-        privs = (
-            davxml.Privilege(davxml.Read()),
-            davxml.Privilege(caldavxml.ScheduleDeliver()),
-        )
-        if config.Scheduling.CalDAV.OldDraftCompatibility:
-            privs += (davxml.Privilege(caldavxml.Schedule()),)
+    def deadProperties(self):
+        if not hasattr(self, "_dead_properties"):
+            self._dead_properties = NonePropertyStore(self)
+        return self._dead_properties
 
-        return davxml.ACL(
-            # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
-            davxml.ACE(
-                davxml.Principal(davxml.All()),
-                davxml.Grant(*privs),
-                davxml.Protected(),
-            ),
-        )
+    def etag(self):
+        return None
 
-    def resourceType(self, request):
-        return succeed(davxml.ResourceType.ischeduleinbox)
+    def checkPreconditions(self, request):
+        return None
+
+    def resourceType(self):
+        return davxml.ResourceType.ischeduleinbox
 
     def isCollection(self):
         return False
@@ -381,3 +439,27 @@ class IScheduleInboxResource (CalDAVResource):
         # Do the POST processing treating this as a non-local schedule
         result = (yield scheduler.doSchedulingViaPOST(use_request_headers=True))
         returnValue(result.response())
+
+    ##
+    # ACL
+    ##
+
+    def supportedPrivileges(self, request):
+        return succeed(deliverSchedulePrivilegeSet)
+
+    def defaultAccessControlList(self):
+        privs = (
+            davxml.Privilege(davxml.Read()),
+            davxml.Privilege(caldavxml.ScheduleDeliver()),
+        )
+        if config.Scheduling.CalDAV.OldDraftCompatibility:
+            privs += (davxml.Privilege(caldavxml.Schedule()),)
+
+        return davxml.ACL(
+            # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
+            davxml.ACE(
+                davxml.Principal(davxml.All()),
+                davxml.Grant(*privs),
+                davxml.Protected(),
+            ),
+        )

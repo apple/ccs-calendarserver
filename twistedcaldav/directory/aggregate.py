@@ -83,7 +83,6 @@ class AggregateDirectoryService(DirectoryService):
 
     #
     # Define calendarHomesCollection as a property so we can set it on contained services
-    # See CalendarHomeProvisioningFile.__init__()
     #
     def _getCalendarHomesCollection(self):
         return self._calendarHomesCollection
@@ -97,7 +96,6 @@ class AggregateDirectoryService(DirectoryService):
 
     #
     # Define addressBookHomesCollection as a property so we can set it on contained services
-    # See AddressBookHomeProvisioningFile.__init__()
     #
     def _getAddressBookHomesCollection(self):
         return self._addressBookHomesCollection

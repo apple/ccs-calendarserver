@@ -46,8 +46,8 @@ def http_PROPPATCH(self, request):
     """
     Respond to a PROPPATCH request. (RFC 2518, section 8.2)
     """
-    if not self.fp.exists():
-        log.err("File not found: %s" % (self.fp.path,))
+    if not self.exists():
+        log.err("File not found: %s" % (self.path,))
         raise HTTPError(responsecode.NOT_FOUND)
 
     x = waitForDeferred(self.authorize(request, (davxml.WriteProperties(),)))

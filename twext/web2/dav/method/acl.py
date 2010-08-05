@@ -45,8 +45,8 @@ def http_ACL(self, request):
     """
     Respond to a ACL request. (RFC 3744, section 8.1)
     """
-    if not self.fp.exists():
-        log.err("File not found: %s" % (self.fp.path,))
+    if not self.exists():
+        log.err("File not found: %s" % (self,))
         yield responsecode.NOT_FOUND
         return
 

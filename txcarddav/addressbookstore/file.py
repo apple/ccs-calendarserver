@@ -64,6 +64,7 @@ class AddressBookHome(CommonHome):
         self._childClass = AddressBook
 
     addressbooks = CommonHome.children
+    listAddressbooks = CommonHome.listChildren
     addressbookWithName = CommonHome.childWithName
     createAddressBookWithName = CommonHome.createChildWithName
     removeAddressBookWithName = CommonHome.removeChildWithName
@@ -113,6 +114,7 @@ class AddressBook(CommonHomeChild):
 
     ownerAddressBookHome = CommonHomeChild.ownerHome
     addressbookObjects = CommonHomeChild.objectResources
+    listAddressbookObjects = CommonHomeChild.listObjectResources
     addressbookObjectWithName = CommonHomeChild.objectResourceWithName
     addressbookObjectWithUID = CommonHomeChild.objectResourceWithUID
     createAddressBookObjectWithName = CommonHomeChild.createObjectResourceWithName
@@ -213,7 +215,7 @@ class AddressBookObject(CommonObjectResource):
     def component(self):
         if self._component is not None:
             return self._component
-        text = self.vCardText()
+        text = self.text()
 
         try:
             component = VComponent.fromString(text)
@@ -225,7 +227,7 @@ class AddressBookObject(CommonObjectResource):
         return component
 
 
-    def vCardText(self):
+    def text(self):
         if self._component is not None:
             return str(self._component)
         try:
@@ -251,6 +253,7 @@ class AddressBookObject(CommonObjectResource):
             )
         return text
 
+    vCardText = text
 
     def uid(self):
         if not hasattr(self, "_uid"):

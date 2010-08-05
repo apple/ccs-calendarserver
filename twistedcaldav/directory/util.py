@@ -20,8 +20,9 @@ Utilities.
 
 __all__ = [
     "uuidFromName",
-    "NotFilePath",
 ]
+
+from txdav.idav import AlreadyFinishedError
 
 from uuid import UUID, uuid5
 
@@ -38,146 +39,40 @@ def uuidFromName(namespace, name):
 
     return str(uuid5(UUID(namespace), name))
 
-import errno
-import time
-from twext.python.filepath import CachingFilePath as FilePath
-
-class NotFilePath(FilePath):
+def transactionFromRequest(request, newStore):
     """
-    Dummy placeholder for FilePath for when we don't actually want a file.
-    Pretends to be an empty file or directory.
+    Return the associated transaction from the given HTTP request, creating a
+    new one from the given data store if none has yet been associated.
+
+    Also, if the request was not previously associated with a transaction, add
+    a failsafe transaction-abort response filter to abort any transaction which
+    has not been committed or aborted by the resource which responds to the
+    request.
+
+    @param request: The request to inspect.
+    @type request: L{IRequest}
+
+    @param newStore: The store to create a transaction from.
+    @type newStore: L{IDataStore}
+
+    @return: a transaction that should be used to read and write data
+        associated with the request.
+    @rtype: L{ITransaction} (and possibly L{ICalendarTransaction} and
+        L{IAddressBookTransaction} as well.
     """
-    def __init__(self, isfile=False, isdir=False, islink=False):
-        assert isfile or isdir or islink
+    TRANSACTION_KEY = '_newStoreTransaction'
+    transaction = getattr(request, TRANSACTION_KEY, None)
+    if transaction is None:
+        transaction = newStore.newTransaction(repr(request))
+        def abortIfUncommitted(request, response):
+            try:
+                transaction.abort()
+            except AlreadyFinishedError:
+                pass
+            return response
+        abortIfUncommitted.handleErrors = True
+        request.addResponseFilter(abortIfUncommitted)
+        setattr(request, TRANSACTION_KEY, transaction)
+    return transaction
 
-        self._isfile = isfile
-        self._isdir  = isdir
-        self._islink = islink
 
-        self._time = time.time()
-
-    def __cmp__(self, other):
-        if not isinstance(other, self.__class__):
-            return NotImplemented
-        return cmp(
-            ( self.isdir(),  self.isfile(),  self.islink()),
-            (other.isdir(), other.isfile(), other.islink()),
-        )
-
-    def __repr__(self):
-        types = []
-        if self.isdir():
-            types.append("dir")
-        if self.isfile():
-            types.append("file")
-        if self.islink():
-            types.append("link")
-        if types:
-            return "<%s (%s)>" % (self.__class__.__name__, ",".join(types))
-        else:
-            return "<%s>" % (self.__class__.__name__,)
-
-    def _unimplemented(self, *args):
-        try:
-            raise NotImplementedError("NotFilePath isn't really a FilePath: psych!")
-        except NotImplementedError:
-            from twisted.python.failure import Failure
-            Failure().printTraceback()
-            raise
-
-    child                  = _unimplemented
-    preauthChild           = _unimplemented
-    siblingExtensionSearch = _unimplemented
-    siblingExtension       = _unimplemented
-    open                   = _unimplemented
-    clonePath              = _unimplemented # Cuz I think it's dumb
-
-    def childSearchPreauth(self, *paths):
-        return ()
-
-    def splitext(self):
-        return ("", "")
-
-    def basename(self):
-        return ""
-
-    def dirname(self):
-        return ""
-
-    def changed(self):
-        pass
-
-    def restat(self, reraise=True):
-        pass
-
-    def getsize(self):
-        return 0
-
-    def _time(self):
-        return self._time
-
-    # FIXME: Maybe we should have separate ctime, mtime, atime. Meh.
-    getModificationTime = _time
-    getStatusChangeTime = _time
-    getAccessTime       = _time
-
-    def exists(self):
-        return True
-
-    def isdir(self):
-        return self._isdir
-
-    def isfile(self):
-        return self._isfile
-
-    def islink(self):
-        return self._islink
-
-    def isabs(self):
-        return True
-
-    def listdir(self):
-        return ()
-
-    def touch(self):
-        self._time = time.time()
-
-    def _notAllowed(self):
-        raise OSError(errno.EACCES, "Permission denied")
-
-    remove     = _notAllowed
-    setContent = _notAllowed
-
-    def globChildren(self, pattern):
-        return ()
-
-    def parent(self):
-        return self.__class__(isdir=True)
-
-    def createDirectory(self):
-        if self.isdir():
-            raise OSError(errno.EEXIST, "File exists")
-        else:
-            return self._notAllowed
-
-    makedirs = createDirectory
-
-    def create(self):
-        if self.isfile():
-            raise OSError(errno.EEXIST, "File exists")
-        else:
-            return self._notAllowed
-
-    def temporarySibling(self):
-        return self.__class__(isfile=True)
-
-    def copyTo(self, destination):
-        if self.isdir():
-            if not destination.isdir():
-                destination.createDirectory()
-        elif self.isfile():
-            destination.open("w").close()
-        else:
-            raise NotImplementedError()
-
-    moveTo = _notAllowed

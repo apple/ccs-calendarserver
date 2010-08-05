@@ -74,7 +74,7 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
 
             allow = response.headers.getHeader("allow")
             if not allow: self.fail("no Allow header: %s" % (response.headers,))
-            self.assertIn("MKCALENDAR", allow, "no MKCALENDAR support")
+            self.assertNotIn("MKCALENDAR", allow, "no MKCALENDAR support")
 
         request = SimpleRequest(self.site, "OPTIONS", "/")
 

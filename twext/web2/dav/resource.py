@@ -1356,7 +1356,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         This implementation returns a supported privilege set
         containing only the DAV:all privilege.
         """
-        return succeed(allPrivilegeSet)
+        return succeed(davPrivilegeSet)
 
     def currentPrivileges(self, request):
         """

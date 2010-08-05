@@ -21,6 +21,7 @@ Extensions to web2.dav
 
 __all__ = [
     "DAVResource",
+    "DAVResourceWithChildren",
     "DAVPrincipalResource",
     "DAVFile",
     "ReadOnlyWritePropertiesResourceMixIn",
@@ -60,7 +61,7 @@ from twext.python.log import Logger, LoggingMixIn
 import twistedcaldav
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.util import Alternator, printTracebacks
+from twistedcaldav.util import Alternator
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.method.report import http_REPORT
@@ -515,7 +516,7 @@ class DirectoryRenderingMixIn(object):
         for name in sorted(self.listChildren()):
             child = self.getChild(name)
 
-            url, name, size, lastModified, contentType = (yield self.getChildDirectoryEntry(child, name, request))
+            url, name, size, lastModified, contentType = self.getChildDirectoryEntry(child, name, request)
 
             # FIXME: gray out resources that are not readable
             output.append(
@@ -624,7 +625,6 @@ class DirectoryRenderingMixIn(object):
         result = (yield gotProperties(qnames))
         returnValue(result)
 
-    @inlineCallbacks
     def getChildDirectoryEntry(self, child, name, request):
         def orNone(value, default="?", f=None):
             if value is None:
@@ -635,7 +635,7 @@ class DirectoryRenderingMixIn(object):
                 return value
             
         url = urllib.quote(name, '/')
-        if isinstance(child, SuperDAVFile) and child.isCollection():
+        if isinstance(child, DAVResource) and child.isCollection():
             url += "/"
             name += "/"
 
@@ -643,7 +643,7 @@ class DirectoryRenderingMixIn(object):
             size = child.contentLength()
             lastModified = child.lastModified()
             rtypes = []
-            fullrtype = (yield child.resourceType(request))
+            fullrtype = child.resourceType()
             for rtype in fullrtype.children:
                 rtypes.append(rtype.name)
             if rtypes:
@@ -663,8 +663,16 @@ class DirectoryRenderingMixIn(object):
             size = None
             lastModified = None
             contentType = None
+            if hasattr(child, "resourceType"):
+                rtypes = []
+                fullrtype = child.resourceType()
+                for rtype in fullrtype.children:
+                    rtypes.append(rtype.name)
+                if rtypes:
+                    contentType = "(%s)" % (", ".join(rtypes),)
+                
 
-        returnValue((
+        return ((
             url,
             name,
             orNone(size),
@@ -686,6 +694,9 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn,
     """
     http_REPORT = http_REPORT
 
+    def davComplianceClasses(self):
+        return ("1", "access-control") # Add "2" when we have locking
+
     def render(self, request):
         if not self.exists():
             return responsecode.NOT_FOUND
@@ -694,14 +705,61 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn,
             return self.renderDirectory(request)
         return super(DAVResource, self).render(request)
 
-
-    def resourceType(self, request):
+    def resourceType(self):
         # Allow live property to be overridden by dead property
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
-            return succeed(self.deadProperties().get((dav_namespace, "resourcetype")))
-        return succeed(davxml.ResourceType())
+            return self.deadProperties().get((dav_namespace, "resourcetype"))
+        return davxml.ResourceType(davxml.Collection()) if self.isCollection() else davxml.ResourceType()
 
+    def contentType(self):
+        return MimeType("httpd", "unix-directory") if self.isCollection() else None
 
+class DAVResourceWithChildrenMixin (object):
+    """
+    Bits needed from twext.web2.static
+    """
+
+    def __init__(self, principalCollections=None):
+        self.putChildren = {}
+        super(DAVResourceWithChildrenMixin, self).__init__(principalCollections=principalCollections)
+
+    def putChild(self, name, child):
+        """
+        Register a child with the given name with this resource.
+        @param name: the name of the child (a URI path segment)
+        @param child: the child to register
+        """
+        self.putChildren[name] = child
+
+    def getChild(self, name):
+        """
+        Look up a child resource.
+        @return: the child of this resource with the given name.
+        """
+        if name == "":
+            return self
+
+        result = self.putChildren.get(name, None)
+        if not result:
+            result = self.makeChild(name)
+        return result
+
+    def makeChild(self, name):
+        # Subclasses with real children need to override this and return the appropriate object
+        return None
+
+    def listChildren(self):
+        """
+        @return: a sequence of the names of all known children of this resource.
+        """
+        return self.putChildren.keys()
+
+    def locateChild(self, req, segments):
+        """
+        See L{IResource}C{.locateChild}.
+        """
+        # If getChild() finds a child resource, return it
+        return (self.getChild(segments[0]), segments[1:])
 
 class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
                             SuperDAVPrincipalResource, LoggingMixIn,
@@ -719,6 +777,14 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
 
     http_REPORT = http_REPORT
 
+    def render(self, request):
+        if not self.exists():
+            return responsecode.NOT_FOUND
+
+        if self.isCollection():
+            return self.renderDirectory(request)
+        return super(DAVResource, self).render(request)
+
     @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
@@ -730,7 +796,7 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
 
         if namespace == dav_namespace:
             if name == "resourcetype":
-                rtype = (yield self.resourceType(request))
+                rtype = self.resourceType()
                 returnValue(rtype)
 
         elif namespace == calendarserver_namespace:
@@ -772,14 +838,14 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
     def expandedGroupMemberships(self):
         return succeed(())
 
-    def resourceType(self, request):
+    def resourceType(self):
         # Allow live property to be overridden by dead property
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
-            return succeed(self.deadProperties().get((dav_namespace, "resourcetype")))
+            return self.deadProperties().get((dav_namespace, "resourcetype"))
         if self.isCollection():
-            return succeed(davxml.ResourceType(davxml.Principal(), davxml.Collection()))
+            return davxml.ResourceType(davxml.Principal(), davxml.Collection())
         else:
-            return succeed(davxml.ResourceType(davxml.Principal()))
+            return davxml.ResourceType(davxml.Principal())
 
 
 
@@ -788,24 +854,14 @@ class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn,
     """
     Extended L{twext.web2.dav.static.DAVFile} implementation.
     """
-    def readProperty(self, property, request):
-        if type(property) is tuple:
-            qname = property
-        else:
-            qname = property.qname()
 
-        if qname == (dav_namespace, "resourcetype"):
-            return self.resourceType(request)
-
-        return super(DAVFile, self).readProperty(property, request)
-
-    def resourceType(self, request):
+    def resourceType(self):
         # Allow live property to be overridden by dead property
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
-            return succeed(self.deadProperties().get((dav_namespace, "resourcetype")))
+            return self.deadProperties().get((dav_namespace, "resourcetype"))
         if self.isCollection():
-            return succeed(davxml.ResourceType.collection)
-        return succeed(davxml.ResourceType.empty)
+            return davxml.ResourceType.collection
+        return davxml.ResourceType.empty
 
     def render(self, request):
         if not self.fp.exists():

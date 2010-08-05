@@ -45,7 +45,7 @@ class AddressBookMultiget (AddressBookHomeTestCase):
         okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
         okuids[:] = okuids[1:5]
 
-        baduids = ["12345@example.com", "67890@example.com"]
+        baduids = ["12345%40example.com", "67890%40example.com"]
 
         return self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids)
 
@@ -55,7 +55,7 @@ class AddressBookMultiget (AddressBookHomeTestCase):
         """
         okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
 
-        baduids = ["12345@example.com", "67890@example.com"]
+        baduids = ["12345%40example.com", "67890%40example.com"]
 
         return self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids)
 
@@ -75,7 +75,7 @@ class AddressBookMultiget (AddressBookHomeTestCase):
 
         okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
 
-        baduids = ["12345@example.com", "67890@example.com"]
+        baduids = ["12345%40example.com", "67890%40example.com"]
 
         d = self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids)
         d.addCallbacks(_restoreValueOK, _restoreValueError)
@@ -97,7 +97,7 @@ class AddressBookMultiget (AddressBookHomeTestCase):
 
         okuids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
 
-        baduids = ["12345@example.com", "67890@example.com"]
+        baduids = ["12345%40example.com", "67890%40example.com"]
 
         return self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids, withData=False)
 

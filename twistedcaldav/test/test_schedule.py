@@ -14,8 +14,6 @@
 # limitations under the License.
 ##
 
-import os
-
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.dav import davxml
@@ -24,7 +22,6 @@ from twext.web2.stream import MemoryStream
 from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import caldavxml
-from twistedcaldav.static import ScheduleInboxFile
 
 from twistedcaldav.test.util import HomeTestCase
 
@@ -38,8 +35,6 @@ class Properties (HomeTestCase):
         """
 
         inbox_uri  = "/inbox/"
-        #inbox_path = os.path.join(self.docroot, "inbox")
-        #self.site.resource.putChild("inbox", ScheduleInboxFile(inbox_path, self.site.resource))
 
         def propfind_cb(response):
             response = IResponse(response)
@@ -78,7 +73,6 @@ class Properties (HomeTestCase):
 
         query = davxml.PropertyFind(
                     davxml.PropertyContainer(
-                        davxml.GETETag(),
                         caldavxml.CalendarFreeBusySet(),
                     ),
                 )
