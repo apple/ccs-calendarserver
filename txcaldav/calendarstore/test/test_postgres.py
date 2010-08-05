@@ -87,7 +87,6 @@ class SQLStorageTests(CommonTests, unittest.TestCase):
             def startStopping():
                 log.msg("Starting stopping.")
                 sharedService.unpauseMonitor()
-                dumpConnectionStatus()
                 return sharedService.stopService()
             reactor.addSystemEventTrigger(#@UndefinedVariable
                 "before", "shutdown", startStopping)
@@ -100,7 +99,6 @@ class SQLStorageTests(CommonTests, unittest.TestCase):
         """
         Delete everything from the database, then clean it up.
         """
-        dumpConnectionStatus()
         cleanupConn = calendarStore.connectionFactory(
             "%s schema-cleanup" % (self.id(),)
         )

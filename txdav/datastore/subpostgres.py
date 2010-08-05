@@ -180,7 +180,20 @@ class PostgresService(MultiService):
         )
         w = DiagnosticConnectionWrapper(connection, label)
         c = w.cursor()
+        # Turn on standard conforming strings.  This option is _required_ if
+        # you want to get correct behavior out of parameter-passing with the
+        # pgdb module.  If it is not set then the server is potentially
+        # vulnerable to certain types of SQL injection.
         c.execute("set standard_conforming_strings=on")
+
+        # Abort any second that takes more than 2 seconds (2000ms) to execute.
+        # This is necessary as a temporary workaround since it's hypothetically
+        # possible that different database operations could block each other,
+        # while executing SQL in the same process (in the same thread, since
+        # SQL executes in the main thread now).  It's preferable to see some
+        # exceptions while we're in this state than to have the entire worker
+        # process hang.
+        c.execute("set statement_timeout=2000")
         w.commit()
         c.close()
         return w
