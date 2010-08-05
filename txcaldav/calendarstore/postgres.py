@@ -20,28 +20,35 @@ PostgreSQL data store.
 """
 
 __all__ = [
-    "CalendarStore",
-    "CalendarHome",
-    "Calendar",
-    "CalendarObject",
+    "PostgresCalendarStore",
+    "PostgresCalendarHome",
+    "PostgresCalendar",
+    "PostgresCalendarObject",
 ]
 
 from inspect import getargspec
+from zope.interface.declarations import implements
 
 from twisted.python.modules import getModule
 from twisted.application.service import Service
-from txcaldav.calendarstore.util import validateCalendarComponent,\
-    dropboxIDFromCalendarObject
-from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError,\
-    HomeChildNameAlreadyExistsError, NoSuchHomeChildError,\
-    NoSuchObjectResourceError
+
 from txdav.idav import IDataStore, AlreadyFinishedError
-from zope.interface.declarations import implements
-from txcaldav.icalendarstore import ICalendarTransaction, ICalendarHome, \
-    ICalendar, ICalendarObject
+
+from txdav.common.icommondatastore import (
+    ObjectResourceNameAlreadyExistsError, HomeChildNameAlreadyExistsError,
+    NoSuchHomeChildError, NoSuchObjectResourceError)
+from txcaldav.calendarstore.util import (validateCalendarComponent,
+    dropboxIDFromCalendarObject)
+
+
+from txcaldav.icalendarstore import (ICalendarTransaction, ICalendarHome,
+    ICalendar, ICalendarObject)
 from txdav.propertystore.base import AbstractPropertyStore, PropertyName
-from twext.web2.dav.element.parser import WebDAVDocument
 from txdav.propertystore.none import PropertyStore
+
+from twext.web2.http_headers import MimeType
+from twext.web2.dav.element.parser import WebDAVDocument
+
 
 from twext.python.vcomponent import VComponent
 
@@ -253,6 +260,28 @@ class PostgresCalendarObject(object):
     def removeAttachmentWithName(self, name):
         pass
 
+    # IDataStoreResource
+    def contentType(self):
+        """
+        The content type of Calendar objects is text/calendar.
+        """
+        return MimeType.fromString("text/calendar")
+
+
+    def md5(self):
+        return None
+
+
+    def size(self):
+        return 0
+
+
+    def created(self):
+        return None
+
+
+    def modified(self):
+        return None
 
 
 class PostgresCalendar(object):
@@ -271,8 +300,13 @@ class PostgresCalendar(object):
         return self._home._txn._cursor
 
 
+    def notifierID(self, label="default"):
+        return None
+
+
     def name(self):
         return self._name
+
 
     def rename(self, name):
         oldName = self._name
@@ -350,13 +384,14 @@ class PostgresCalendar(object):
         c.execute(
             """
             insert into CALENDAR_OBJECT
-            (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID,
-             ICALENDAR_TYPE, ATTACHMENTS_MODE)
+            (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT,
+             ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE)
              values
             (%s, %s, %s, %s, %s, %s)
             """,
-            # should really be filling out more fields: ORGANIZER, ORGANIZER_OBJECT,
-            # a correct ATTACHMENTS_MODE based on X-APPLE-DROPBOX
+            # should really be filling out more fields: ORGANIZER,
+            # ORGANIZER_OBJECT, a correct ATTACHMENTS_MODE based on X-APPLE-
+            # DROPBOX
             [self._resourceID, name, componentText, component.resourceUID(),
             component.resourceType(), _ATTACHMENTS_MODE_WRITE]
         )
@@ -414,6 +449,30 @@ class PostgresCalendar(object):
         )
 
 
+    # IDataStoreResource
+    def contentType(self):
+        """
+        The content type of Calendar objects is text/calendar.
+        """
+        return MimeType.fromString("text/calendar")
+
+
+    def md5(self):
+        return None
+
+
+    def size(self):
+        return 0
+
+
+    def created(self):
+        return None
+
+
+    def modified(self):
+        return None
+
+
 
 class PostgresCalendarHome(object):
 
@@ -433,6 +492,13 @@ class PostgresCalendarHome(object):
         @return: a string.
         """
         return self._ownerUID
+
+
+    def name(self):
+        """
+        Implement L{IDataStoreResource.name} to return the uid.
+        """
+        return self.uid()
 
 
     def calendars(self):
@@ -538,6 +604,34 @@ class PostgresCalendarHome(object):
         )
 
 
+    # IDataStoreResource
+    def contentType(self):
+        """
+        The content type of Calendar objects is text/calendar.
+        """
+        return MimeType.fromString("text/calendar")
+
+
+    def md5(self):
+        return None
+
+
+    def size(self):
+        return 0
+
+
+    def created(self):
+        return None
+
+
+    def modified(self):
+        return None
+
+
+    def notifierID(self, label="default"):
+        return None
+
+
 
 class PostgresCalendarTransaction(object):
     """
@@ -600,6 +694,13 @@ class PostgresCalendarTransaction(object):
             self._connection.close()
         else:
             raise AlreadyFinishedError()
+
+
+    def postCommit(self):
+        """
+        Run things after 'commit.'
+        """
+        # FIXME: implement.
 
 
 
