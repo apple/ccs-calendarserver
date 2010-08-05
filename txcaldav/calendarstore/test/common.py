@@ -211,6 +211,10 @@ class CommonTests(object):
         self.lastTransaction = None
 
 
+    def setUp(self):
+        self.notifierFactory = StubNotifierFactory()
+
+
     def tearDown(self):
         if self.lastTransaction is not None:
             self.commit()

@@ -60,6 +60,7 @@ class SQLStorageTests(CommonTests, unittest.TestCase):
     """
 
     def setUp(self):
+        super(SQLStorageTests, self).setUp()
         global sharedService
         global currentTestID
         currentTestID = self.id()
