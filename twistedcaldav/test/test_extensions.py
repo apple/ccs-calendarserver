@@ -164,7 +164,7 @@ class DirectoryListingTest(TestCase):
         def addUnicodeChild(davFile):
             m = MetaDataMixin()
             m.contentType = lambda: MimeType.fromString('text/plain')
-            m.resourceType = lambda r: succeed(davxml.ResourceType())
+            m.resourceType = lambda: davxml.ResourceType()
             m.isCollection = lambda: False
             davFile.putChild(unicodeChildName, m)
         yield self.doDirectoryTest([nonASCIIFilename], addUnicodeChild,

@@ -26,7 +26,7 @@ from twext.web2.dav.fileop import rmdir
 from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import caldavxml
-from twistedcaldav.test.util import HomeTestCase
+from twistedcaldav.test.util import HomeTestCase, todo
 
 class MKCALENDAR (HomeTestCase):
     """
@@ -150,6 +150,7 @@ END:VCALENDAR
         request.stream = MemoryStream(mk.toxml())
         return self.send(request, do_test)
 
+    @todo("Remove: Does not make sense with new store")
     def test_make_calendar_no_parent(self):
         """
         Make calendar with no parent
@@ -167,6 +168,7 @@ END:VCALENDAR
         request = SimpleRequest(self.site, "MKCALENDAR", uri)
         return self.send(request, do_test)
 
+    @todo("Remove: Does not make sense with new store")
     def test_make_calendar_on_resource(self):
         """
         Make calendar on existing resource

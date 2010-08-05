@@ -34,7 +34,8 @@ from twistedcaldav.caldavxml import ScheduleTag
 from twistedcaldav.customxml import TwistedCalendarAccessProperty,\
     calendarserver_namespace
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
-from twistedcaldav.resource import isPseudoCalendarCollectionResource
+from twistedcaldav.resource import isPseudoCalendarCollectionResource,\
+    CalDAVResource
 
 @inlineCallbacks
 def http_GET(self, request):
@@ -97,5 +98,5 @@ def http_GET(self, request):
                 returnValue(response)
 
     # Do normal GET behavior
-    response = (yield super(CalDAVFile, self).http_GET(request))
+    response = (yield super(CalDAVResource, self).http_GET(request))
     returnValue(response)

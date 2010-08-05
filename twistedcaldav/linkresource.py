@@ -18,14 +18,23 @@ from twext.python.log import LoggingMixIn
 
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 
-from twistedcaldav.resource import CalDAVComplianceMixIn
 from twext.web2.http import HTTPError
 from twext.web2 import responsecode
 from twext.web2.resource import WrapperResource
+from twistedcaldav.config import config
+from twext.web2.dav import davxml
 
 __all__ = [
     "LinkResource",
 ]
+
+# FIXME: copied from resource.py to avoid circular dependency
+class CalDAVComplianceMixIn(object):
+    def davComplianceClasses(self):
+        return (
+            tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses())
+            + config.CalDAVComplianceClasses
+        )
 
 """
 A resource that is a soft-link to another.
@@ -55,11 +64,8 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource, LoggingMixIn):
     def isCollection(self):
         return True
 
-    @inlineCallbacks
-    def resourceType(self, request):
-        hosted = (yield self.linkedResource(request))
-        result = (yield hosted.resourceType(request))
-        returnValue(result)
+    def resourceType(self):
+        return self._linkedResource.resourceType() if hasattr(self, "_linkedResource") else davxml.ResourceType.link
         
     def locateChild(self, request, segments):
         

@@ -26,6 +26,8 @@ from twext.web2.dav.http import ErrorResponse
 
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
+from twext.web2.dav.method.propfind import http_PROPFIND
+from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.http import HTTPError
 from twext.web2.http import Response
 from twext.web2.http import XMLResponse
@@ -36,14 +38,15 @@ from twisted.internet.defer import succeed
 
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.extensions import DAVResource
 from twistedcaldav.ical import parse_date_or_datetime
 from twistedcaldav.ical import tzexpand
-from twistedcaldav.resource import CalDAVResource
+from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 from twistedcaldav.timezones import TimezoneException
 from twistedcaldav.timezones import listTZs
 from twistedcaldav.timezones import readTZ
 
-class TimezoneServiceResource (CalDAVResource):
+class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
     """
     Timezone Service resource.
 
@@ -56,10 +59,24 @@ class TimezoneServiceResource (CalDAVResource):
         """
         assert parent is not None
 
-        CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
+        DAVResource.__init__(self, principalCollections=parent.principalCollections())
 
         self.parent = parent
         self.cache = {}
+
+    def deadProperties(self):
+        if not hasattr(self, "_dead_properties"):
+            self._dead_properties = NonePropertyStore(self)
+        return self._dead_properties
+
+    def etag(self):
+        return None
+
+    def checkPreconditions(self, request):
+        return None
+
+    def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
+        return succeed(None)
 
     def defaultAccessControlList(self):
         return davxml.ACL(
@@ -73,8 +90,8 @@ class TimezoneServiceResource (CalDAVResource):
             ),
         )
 
-    def resourceType(self, request):
-        return succeed(davxml.ResourceType.timezones)
+    def resourceType(self):
+        return davxml.ResourceType.timezones
 
     def isCollection(self):
         return False
@@ -98,6 +115,8 @@ class TimezoneServiceResource (CalDAVResource):
         response = Response(200, {}, output)
         response.headers.setHeader("content-type", MimeType("text", "html"))
         return response
+
+    http_PROPFIND = http_PROPFIND
 
     def http_GET(self, request):
         """

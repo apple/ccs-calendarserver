@@ -14,13 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.common.icommondatastore import ICommonTransaction
 
 """
 Calendar store interfaces
 """
 
+from txdav.common.icommondatastore import ICommonTransaction
+from txdav.idav import IDataStoreResource
+
 from zope.interface import Interface
+from txdav.idav import INotifier
 
 
 __all__ = [
@@ -63,7 +66,7 @@ class ICalendarTransaction(ICommonTransaction):
 # Interfaces
 #
 
-class ICalendarHome(Interface):
+class ICalendarHome(INotifier, IDataStoreResource):
     """
     An L{ICalendarHome} is a collection of calendars which belongs to a
     specific principal and contains the calendars which that principal has
@@ -130,17 +133,12 @@ class ICalendarHome(Interface):
 
         @param name: a string.
         @raise NoSuchCalendarObjectError: if no such calendar exists.
-        """
-
-    def properties():
-        """
-        Retrieve the property store for this calendar home.
 
         @return: an L{IPropertyStore}.
         """
 
 
-class ICalendar(Interface):
+class ICalendar(INotifier, IDataStoreResource):
     """
     Calendar
 
@@ -149,15 +147,6 @@ class ICalendar(Interface):
     shared with other principals, granting them read-only or
     read/write access.
     """
-
-    def name():
-        """
-        Identify this calendar uniquely, as with
-        L{ICalendarHome.calendarWithName}.
-
-        @return: the name of this calendar.
-        @rtype: C{str}
-        """
 
     def rename(name):
         """
@@ -267,15 +256,8 @@ class ICalendar(Interface):
             that have been removed, and the current sync token.
         """
 
-    def properties():
-        """
-        Retrieve the property store for this calendar.
 
-        @return: an L{IPropertyStore}.
-        """
-
-
-class ICalendarObject(Interface):
+class ICalendarObject(IDataStoreResource):
     """
     Calendar object
 
@@ -333,14 +315,6 @@ class ICalendarObject(Interface):
 
         @return: a URI string.
         """
-
-    def properties():
-        """
-        Retrieve the property store for this calendar object.
-
-        @return: an L{IPropertyStore}.
-        """
-
 
     def dropboxID():
         """
@@ -402,34 +376,10 @@ class ICalendarObject(Interface):
 
 
 
-class IAttachment(Interface):
+class IAttachment(IDataStoreResource):
     """
     Information associated with an attachment to a calendar object.
     """
-
-    def name():
-        """
-        A short name, unique to this attachment's L{ICalendarObject}.
-
-        @rtype: C{str}
-        """
-
-
-    def contentType():
-        """
-        A slash-separated content type of the body of this attachment.
-
-        @rtype: C{str}
-        """
-
-
-    def md5():
-        """
-        The MD5 hex digest of this attachment's contents.
-
-        @rtype: C{str}
-        """
-
 
     def store(contentType):
         """

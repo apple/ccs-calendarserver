@@ -325,7 +325,7 @@ class PubSubXMPPPushKeyProperty (davxml.WebDAVTextElement):
 
 class PubSubXMPPURIProperty (davxml.WebDAVTextElement):
     """
-    A calendarhomefile property to indicate the pubsub XMPP URI to subscribe to
+    A calendar home property to indicate the pubsub XMPP URI to subscribe to
     for notifications.
     """
     namespace = calendarserver_namespace
@@ -335,7 +335,7 @@ class PubSubXMPPURIProperty (davxml.WebDAVTextElement):
 
 class PubSubHeartbeatProperty (davxml.WebDAVElement):
     """
-    A calendarhomefile property to indicate the pubsub XMPP URI to subscribe to
+    A calendar home property to indicate the pubsub XMPP URI to subscribe to
     for server heartbeats.
     """
     namespace = calendarserver_namespace
@@ -361,7 +361,7 @@ class PubSubHeartbeatMinutesProperty (davxml.WebDAVTextElement):
 
 class PubSubXMPPServerProperty (davxml.WebDAVTextElement):
     """
-    A calendarhomefile property to indicate the pubsub XMPP hostname to
+    A calendar home property to indicate the pubsub XMPP hostname to
     contact for notifications.
     """
     namespace = calendarserver_namespace
@@ -973,6 +973,14 @@ class NotificationType (davxml.WebDAVElement):
         (calendarserver_namespace, "invite-reply")          : (0, None),
     }
 
+class Link (davxml.WebDAVEmptyElement):
+    """
+    Denotes a linked resource.
+    """
+    namespace = calendarserver_namespace
+    name = "link"
+
+
 ##
 # Extensions to davxml.ResourceType
 ##
@@ -988,3 +996,4 @@ davxml.ResourceType.notification = davxml.ResourceType(davxml.Collection(), Noti
 davxml.ResourceType.sharedownercalendar = davxml.ResourceType(davxml.Collection(), caldavxml.Calendar(), SharedOwner())
 davxml.ResourceType.sharedcalendar = davxml.ResourceType(davxml.Collection(), caldavxml.Calendar(), Shared())
 davxml.ResourceType.sharedaddressbook = davxml.ResourceType(davxml.Collection(), carddavxml.AddressBook(), Shared())
+davxml.ResourceType.link = davxml.ResourceType(Link())

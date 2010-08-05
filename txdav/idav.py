@@ -25,6 +25,7 @@ __all__ = [
     "IPropertyName",
     "IPropertyStore",
     "IDataStore",
+    "IDataStoreResource",
 ]
 
 from zope.interface import Attribute, Interface
@@ -109,7 +110,62 @@ class IDataStore(Interface):
         """
 
 
+class IDataStoreResource(Interface):
+    """
+    An L{IDataStoreResource} are the objects stored in an L{IDataStore}.
+    """
+    
+    def name():
+        """
+        Identify the name of the object
 
+        @return: the name of this object.
+        @rtype: C{str}
+        """
+
+    def contentType():
+        """
+        The content type of the object's content.
+
+        @rtype: L{MimeType}
+        """
+
+
+    def md5():
+        """
+        The MD5 hex digest of this object's content.
+
+        @rtype: C{str}
+        """
+
+    def size():
+        """
+        The octet-size of this object's content.
+
+        @rtype: C{int}
+        """
+
+    def created():
+        """
+        The creation date-time stamp of this object.
+
+        @rtype: C{int}
+        """
+
+    def modified():
+        """
+        The last modification date-time stamp of this object.
+
+        @rtype: C{int}
+        """
+
+    def properties():
+        """
+        Retrieve the property store for this object.
+
+        @return: an L{IPropertyStore}.
+        """
+    
 class ITransaction(Interface):
     """
     Transaction that can be aborted and either succeeds or fails in
@@ -131,4 +187,43 @@ class ITransaction(Interface):
 
         @raise AlreadyFinishedError: The transaction was already finished with
             an 'abort' or 'commit' and cannot be committed again.
+        """
+
+
+    def postCommit(operation):
+        """
+        Registers an operation to be executed after the transaction is
+        committed.
+
+        postCommit can be called multiple times, and operations are executed
+        in the order which they were registered.
+
+        @param operation: a callable.
+        """
+
+class INotifier(Interface):
+    """
+    Push notification interface
+    """
+
+    def notifierID(label):
+        """
+        Return a push notification id.
+
+        Data store objects can have an associated Notifier object which is
+        responsible for the actual communication with the outside world.
+        Clients determine what notification service to subscribe to by
+        querying the server for various DAV properties.  These properties
+        include unique IDs from each resource, and the source of truth for
+        these IDs is the data store.  This method returns the notification
+        related ID for a given data store object.
+
+        Sharing introduces the need for a data store object to have multiple
+        notifier IDs because a subscriber sees the ID for the particular
+        collection being shared while the sharer sees the ID of the parent
+        home.  Therefore there is a label parameter to identify which ID is
+        being requested: "default" (what a sharer sees), or "collection"
+        for the collection itself (what a subscriber sees).
+
+        @return: a string (or None if notifications are disabled)
         """

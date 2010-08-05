@@ -19,7 +19,7 @@
 from calendarserver.tap.util import FakeRequest
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.principals import removeProxy
-from calendarserver.tools.util import loadConfig, setupMemcached, setupNotifications
+from calendarserver.tools.util import loadConfig, setupMemcached
 from datetime import date, timedelta, datetime
 from getopt import getopt, GetoptError
 from grp import getgrnam
@@ -101,7 +101,6 @@ def shared_main(configFileName, method, *args, **kwds):
             print "Error: %s" % (e,)
             return
         setupMemcached(config)
-        setupNotifications(config)
     except ConfigurationError, e:
         print "Error: %s" % (e,)
         return

@@ -36,17 +36,17 @@ from twext.web2.dav.util import parentForURL
 
 def http_OPTIONS(self, request):
     d = authorize(self, request)
-    d.addCallback(lambda _: super(twext.web2.dav.static.DAVFile, self).http_OPTIONS(request))
+    d.addCallback(lambda _: super(twext.web2.dav.resource.DAVResource, self).http_OPTIONS(request))
     return d
 
 def http_HEAD(self, request):
     d = authorize(self, request)
-    d.addCallback(lambda _: super(twext.web2.dav.static.DAVFile, self).http_HEAD(request))
+    d.addCallback(lambda _: super(twext.web2.dav.resource.DAVResource, self).http_HEAD(request))
     return d
 
 def http_GET(self, request):
     d = authorize(self, request)
-    d.addCallback(lambda _: super(twext.web2.dav.static.DAVFile, self).http_GET(request))
+    d.addCallback(lambda _: super(twext.web2.dav.resource.DAVResource, self).http_GET(request))
     return d
 
 def authorize(self, request):

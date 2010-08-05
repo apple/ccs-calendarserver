@@ -203,16 +203,6 @@ class CollectionContents(HomeTestCase):
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
         return self.send(request, mkcalendar_cb)
 
-    def test_ignore_dot_files(self):
-        """
-        Make sure database files are not listed as children.
-        """
-        colpath = self.site.resource.fp
-        colpath.child("._bogus").touch()
-        colpath.child("bogus").touch()
-        children = self.site.resource.listChildren()
-        self.assertTrue("bogus" in children)
-        self.assertFalse("._bogus" in children)
 
     def test_fail_dot_file_put_in_calendar(self):
         """

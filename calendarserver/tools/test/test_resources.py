@@ -67,7 +67,7 @@ class StubAugmentService(object):
     records = {}
 
     @classmethod
-    def getAugmentRecord(cls, guid):
+    def getAugmentRecord(cls, guid, recordType):
         if not cls.records.has_key(guid):
             record = StubAugmentRecord(guid=guid)
             cls.records[guid] = record

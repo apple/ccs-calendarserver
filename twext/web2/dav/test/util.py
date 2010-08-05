@@ -93,6 +93,9 @@ class TestFile (DAVFile):
 
         return self._dead_properties
 
+    def parent(self):
+        return TestFile(self.fp.parent())
+
 class TestCase (unittest.TestCase):
     resource_class = TestFile
 

@@ -38,7 +38,7 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.datastore.file import DataStoreTransaction, DataStore, writeOperation, \
-    hidden, isValidName, cached
+    hidden, isValidName, cached, FileMetaDataMixin
 from txdav.idav import IDataStore
 from txdav.propertystore.base import PropertyName
 from txdav.propertystore.xattr import PropertyStore
@@ -64,7 +64,8 @@ class CommonDataStore(DataStore):
     """
     implements(IDataStore)
 
-    def __init__(self, path, enableCalendars=True, enableAddressBooks=True):
+    def __init__(self, path, notifierFactory, enableCalendars=True,
+        enableAddressBooks=True):
         """
         Create a store.
 
@@ -75,6 +76,7 @@ class CommonDataStore(DataStore):
         super(CommonDataStore, self).__init__(path)
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
+        self._notifierFactory = notifierFactory
         self._transactionClass = CommonStoreTransaction
 
     def newTransaction(self, name='no name'):
@@ -83,7 +85,7 @@ class CommonDataStore(DataStore):
 
         @see Transaction
         """
-        return self._transactionClass(self, name, self.enableCalendars, self.enableAddressBooks)
+        return self._transactionClass(self, name, self.enableCalendars, self.enableAddressBooks, self._notifierFactory)
 
 class CommonStoreTransaction(DataStoreTransaction):
     """
@@ -95,7 +97,8 @@ class CommonStoreTransaction(DataStoreTransaction):
 
     _homeClass = {}
 
-    def __init__(self, dataStore, name, enableCalendars, enableAddressBooks):
+    def __init__(self, dataStore, name, enableCalendars, enableAddressBooks,
+        notifierFactory):
         """
         Initialize a transaction; do not call this directly, instead call
         L{DataStore.newTransaction}.
@@ -114,6 +117,7 @@ class CommonStoreTransaction(DataStoreTransaction):
         self._homes[ECALENDARTYPE] = {}
         self._homes[EADDRESSBOOKTYPE] = {}
         self._notifications = {}
+        self._notifierFactory = notifierFactory
 
         extraInterfaces = []
         if enableCalendars:
@@ -130,10 +134,10 @@ class CommonStoreTransaction(DataStoreTransaction):
 
 
     def calendarHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(ECALENDARTYPE, uid, create)
+        return self.homeWithUID(ECALENDARTYPE, uid, create=create)
 
     def addressbookHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create)
+        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
     def homeWithUID(self, storeType, uid, create=False):
         if (uid, self) in self._homes[storeType]:
@@ -174,13 +178,9 @@ class CommonStoreTransaction(DataStoreTransaction):
                 homePath = childPath.temporarySibling()
                 createDirectory(homePath)
                 def do():
-                    def lastly():
-                        homePath.moveTo(childPath)
-                        # home._path = homePath
-                        # do this _after_ all other file operations
-                        home._path = childPath
-                        return lambda : None
-                    self.addOperation(lastly, "create home finalize")
+                    homePath.moveTo(childPath)
+                    # do this _after_ all other file operations
+                    home._path = childPath
                     return lambda : None
                 self.addOperation(do, "create home UID %r" % (uid,))
 
@@ -189,7 +189,13 @@ class CommonStoreTransaction(DataStoreTransaction):
         else:
             homePath = childPath
 
-        home = self._homeClass[storeType](uid, homePath, self._dataStore, self)
+        if self._notifierFactory:
+            notifier = self._notifierFactory.newNotifier(id=uid)
+        else:
+            notifier = None
+
+        home = self._homeClass[storeType](uid, homePath, self._dataStore, self,
+            notifier)
         self._homes[storeType][(uid, self)] = home
         if creating:
             home.created()
@@ -205,65 +211,75 @@ class CommonStoreTransaction(DataStoreTransaction):
             return self._notifications[(uid, self)]
 
         home = self.homeWithUID(self._notificationHomeType, uid, create=True)
-        notificationPath = home._path.child("notification")
-        if not notificationPath.isdir():
-            notificationPath = self.createNotifcationCollection(home, notificationPath)
+        if (uid, self) in self._notifications:
+            return self._notifications[(uid, self)]
 
-        notifications = NotificationCollection(notificationPath.basename(), home)
+        notificationCollectionName = "notification"
+        if not home._path.child(notificationCollectionName).isdir():
+            notifications = self._createNotificationCollection(home, notificationCollectionName)
+        else:
+            notifications = NotificationCollection(notificationCollectionName, home)
         self._notifications[(uid, self)] = notifications
         return notifications
 
-    def createNotifcationCollection(self, home, notificationPath):
 
-        if notificationPath.isdir():
-            return notificationPath
-
-        name = notificationPath.basename()
-
-        temporary = hidden(notificationPath.temporarySibling())
+    def _createNotificationCollection(self, home, collectionName):
+        # FIXME: this is a near-copy of CommonHome.createChildWithName.
+        temporary = hidden(home._path.child(collectionName).temporarySibling())
         temporary.createDirectory()
-        # In order for the index to work (which is doing real file ops on disk
-        # via SQLite) we need to create a real directory _immediately_.
-
-        # FIXME: some way to roll this back.
+        temporaryName = temporary.basename()
 
         c = NotificationCollection(temporary.basename(), home)
+
         def do():
+            childPath = home._path.child(collectionName)
+            temporary = childPath.sibling(temporaryName)
             try:
                 props = c.properties()
-                temporary.moveTo(notificationPath)
-                c._name = name
+                temporary.moveTo(childPath)
+                c._name = collectionName
                 # FIXME: _lots_ of duplication of work here.
                 props.flush()
             except (IOError, OSError), e:
-                if e.errno == EEXIST and notificationPath.isdir():
-                    raise HomeChildNameAlreadyExistsError(name)
+                if e.errno == EEXIST and childPath.isdir():
+                    raise HomeChildNameAlreadyExistsError(collectionName)
                 raise
             # FIXME: direct tests, undo for index creation
             # Return undo
-            return lambda: notificationPath.remove()
+            return lambda: home._path.child(collectionName).remove()
 
-        self.addOperation(do, "create child %r" % (name,))
+        self.addOperation(do, "create notification child %r" %
+                          (collectionName,))
         props = c.properties()
         props[PropertyName(*ResourceType.qname())] = c.resourceType()
-        return temporary
+        return c
+
+
 
 class StubResource(object):
     """
     Just enough resource to keep the shared sql DB classes going.
     """
-    def __init__(self, stubit):
-        self.fp = stubit._path
+    def __init__(self, commonHome):
+        self._commonHome = commonHome
 
-class CommonHome(LoggingMixIn):
+
+    @property
+    def fp(self):
+        return self._commonHome._path
+
+
+
+class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
     _childClass = None
 
-    def __init__(self, uid, path, dataStore, transaction):
+    def __init__(self, uid, path, dataStore, transaction, notifier):
         self._dataStore = dataStore
         self._uid = self._peruser_uid = uid
         self._path = path
         self._transaction = transaction
+        self._notifier = notifier
         self._shares = SharedCollectionsDatabase(StubResource(self))
         self._newChildren = {}
         self._removedChildren = set()
@@ -277,8 +293,10 @@ class CommonHome(LoggingMixIn):
     def uid(self):
         return self._uid
 
+
     def peruser_uid(self):
         return self._peruser_uid
+
 
     def _updateSyncToken(self, reset=False):
         "Stub for updating sync token."
@@ -291,12 +309,30 @@ class CommonHome(LoggingMixIn):
         """
         return self._shares
 
+
     def children(self):
+        """
+        Return a set of the child resource objects.
+        """
         return set(self._newChildren.itervalues()) | set(
             self.childWithName(name)
             for name in self._path.listdir()
             if not name.startswith(".")
         )
+
+
+    def listChildren(self):
+        """
+        Return a set of the names of the child resources.
+        """
+        return sorted(set(
+            [child.name() for child in self._newChildren.itervalues()]
+        ) | set(
+            name
+            for name in self._path.listdir()
+            if not name.startswith(".")
+        ))
+
 
     def childWithName(self, name):
         child = self._newChildren.get(name)
@@ -312,7 +348,12 @@ class CommonHome(LoggingMixIn):
 
         childPath = self._path.child(name)
         if childPath.isdir():
-            existingChild = self._childClass(name, self)
+            if self._notifier:
+                childID = "%s/%s" % (self.uid(), name)
+                notifier = self._notifier.clone(label="collection", id=childID)
+            else:
+                notifier = None
+            existingChild = self._childClass(name, self, notifier)
             self._cachedChildren[name] = existingChild
             return existingChild
         else:
@@ -330,15 +371,22 @@ class CommonHome(LoggingMixIn):
             raise HomeChildNameAlreadyExistsError(name)
 
         temporary = hidden(childPath.temporarySibling())
+        temporaryName = temporary.basename()
         temporary.createDirectory()
         # In order for the index to work (which is doing real file ops on disk
         # via SQLite) we need to create a real directory _immediately_.
 
         # FIXME: some way to roll this back.
 
-        c = self._newChildren[name] = self._childClass(temporary.basename(), self, name)
+        if self._notifier:
+            notifier = self._notifier.clone(label="collection", id=name)
+        else:
+            notifier = None
+        c = self._newChildren[name] = self._childClass(temporary.basename(), self, notifier, realName=name)
         c.retrieveOldIndex().create()
         def do():
+            childPath = self._path.child(name)
+            temporary = childPath.sibling(temporaryName)
             try:
                 props = c.properties()
                 temporary.moveTo(childPath)
@@ -351,15 +399,19 @@ class CommonHome(LoggingMixIn):
                 raise
             # FIXME: direct tests, undo for index creation
             # Return undo
-            return lambda: childPath.remove()
+            return lambda: self._path.child(childPath.basename()).remove()
 
         self._transaction.addOperation(do, "create child %r" % (name,))
+        if self._notifier:
+            self._transaction.postCommit(self._notifier.notify)
         props = c.properties()
         props[PropertyName(*ResourceType.qname())] = c.resourceType()
         self.createdChild(c)
 
+
     def createdChild(self, child):
         pass
+
 
     @writeOperation
     def removeChildWithName(self, name):
@@ -393,7 +445,6 @@ class CommonHome(LoggingMixIn):
                     self.log_error("Unable to delete trashed child at %s: %s" % (trash.fp, e))
 
             transaction.addOperation(cleanup, "remove child backup %r" % (name,))
-
             def undo():
                 trash.moveTo(childPath)
 
@@ -403,6 +454,9 @@ class CommonHome(LoggingMixIn):
         self._transaction.addOperation(
             do, "prepare child remove %r" % (name,)
         )
+
+        if self._notifier:
+            self._transaction.postCommit(self._notifier.notify)
 
     # @cached
     def properties(self):
@@ -414,8 +468,14 @@ class CommonHome(LoggingMixIn):
         self._transaction.addOperation(props.flush, "flush home properties")
         return props
 
+    def notifierID(self, label="default"):
+        if self._notifier:
+            return self._notifier.getID(label)
+        else:
+            return None
 
-class CommonHomeChild(LoggingMixIn, FancyEqMixin):
+
+class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     """
     """
 
@@ -423,7 +483,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     _objectResourceClass = None
 
-    def __init__(self, name, home, realName=None):
+    def __init__(self, name, home, notifier, realName=None):
         """
         Initialize an home child pointing at a path on disk.
 
@@ -440,6 +500,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         """
         self._name = name
         self._home = home
+        self._notifier = notifier
         self._peruser_uid = home._peruser_uid
         self._transaction = home._transaction
         self._newObjectResources = {}
@@ -496,6 +557,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._transaction.addOperation(doIt, "rename home child %r -> %r" %
                                        (oldName, name))
 
+        if self._notifier:
+            self._transaction.postCommit(self._notifier.notify)
 
     def ownerHome(self):
         return self._home
@@ -505,6 +568,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self.properties().setPerUserUID(uid)
 
     def objectResources(self):
+        """
+        Return a list of object resource objects.
+        """
         return sorted((
             self.objectResourceWithName(name)
             for name in (
@@ -514,6 +580,21 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 set(self._removedObjectResources)
             )),
             key=lambda calObj: calObj.name()
+        )
+
+
+    def listObjectResources(self):
+        """
+        Return a list of object resource names.
+        """
+        return sorted((
+            name
+            for name in (
+                set(self._newObjectResources.iterkeys()) |
+                set(name for name in self._path.listdir()
+                    if not name.startswith(".")) -
+                set(self._removedObjectResources)
+            ))
         )
 
 
@@ -560,6 +641,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         objectResource.setComponent(component)
         self._cachedObjectResources[name] = objectResource
 
+        # Note: setComponent triggers a notification, so we don't need to
+        # call notify( ) here like we do for object removal.
+
 
     @writeOperation
     def removeObjectResourceWithName(self, name):
@@ -578,6 +662,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 return lambda: None
             self._transaction.addOperation(do, "remove object resource object %r" %
                                            (name,))
+            if self._notifier:
+                self._transaction.postCommit(self._notifier.notify)
         else:
             raise NoSuchObjectResourceError(name)
 
@@ -593,7 +679,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
 
     def _updateSyncToken(self, reset=False):
-        # FIXME: add locking a-la CalDAVFile.bumpSyncToken
+        # FIXME: add locking a-la CalDAVResource.bumpSyncToken
         # FIXME: tests for desired concurrency properties
         ctag = PropertyName.fromString(GETCTag.sname())
         props = self.properties()
@@ -638,8 +724,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     def _doValidate(self, component):
         raise NotImplementedError
 
+    def notifierID(self, label="default"):
+        if self._notifier:
+            return self._notifier.getID(label)
+        else:
+            return None
 
-class CommonObjectResource(LoggingMixIn, FancyEqMixin):
+
+class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     """
     @ivar _path: The path of the file on disk
 
@@ -662,10 +754,6 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path.path)
-
-
-    def name(self):
-        return self._path.basename()
 
 
     @writeOperation
@@ -740,6 +828,7 @@ class NotificationCollection(CommonHomeChild):
         return ResourceType.notification
 
     notificationObjects = CommonHomeChild.objectResources
+    listNotificationObjects = CommonHomeChild.listObjectResources
     notificationObjectWithName = CommonHomeChild.objectResourceWithName
     removeNotificationObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
     notificationObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken

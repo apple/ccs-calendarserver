@@ -104,7 +104,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
         """
         Run a query on the specified address book collection
         accumulating the query responses.
-        @param addrresource: the L{CalDAVFile} for an address book collection.
+        @param addrresource: the L{CalDAVResource} for an address book collection.
         @param uri: the uri for the address book collecton resource.
         """
         
@@ -117,7 +117,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
         def queryAddressBookObjectResource(resource, uri, name, vcard, query_ok = False):
             """
             Run a query on the specified vcard.
-            @param resource: the L{CalDAVFile} for the vcard.
+            @param resource: the L{CalDAVResource} for the vcard.
             @param uri: the uri of the resource.
             @param name: the name of the resource.
             @param vcard: the L{Component} vcard read from the resource.

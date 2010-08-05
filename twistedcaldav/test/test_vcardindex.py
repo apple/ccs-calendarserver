@@ -24,6 +24,30 @@ import twistedcaldav.test.util
 
 import os
 
+class MinimalResourceReplacement(object):
+    """
+    Provide the minimal set of attributes and methods from CalDAVFile required
+    by L{Index}.
+    """
+
+    def __init__(self, filePath):
+        self.fp = filePath
+
+
+    def isAddressBookCollection(self):
+        return True
+
+
+    def getChild(self, name):
+        # FIXME: this should really return something with a child method
+        return self.fp.child(name)
+
+
+    def initSyncToken(self):
+        pass
+
+
+
 class SQLIndexTests (twistedcaldav.test.util.TestCase):
     """
     Test abstract SQL DB class
@@ -32,7 +56,10 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(SQLIndexTests, self).setUp()
         self.site.resource.isAddressBookCollection = lambda: True
-        self.db = AddressBookIndex(self.site.resource)
+        self.indexDirPath = self.site.resource.fp
+        # FIXME: since this resource lies about isCalendarCollection, it doesn't
+        # have all the associated backend machinery to actually get children.
+        self.db = AddressBookIndex(MinimalResourceReplacement(self.indexDirPath))
 
 
     def test_reserve_uid_ok(self):

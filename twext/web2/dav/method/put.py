@@ -93,7 +93,7 @@ def http_PUT(self, request):
     """
     Respond to a PUT request. (RFC 2518, section 8.7)
     """
-    log.msg("Writing request stream to %s" % (self.fp.path,))
+    log.msg("Writing request stream to %s" % (self,))
 
     #
     # Don't pass in the request URI, since PUT isn't specified to be able

@@ -58,12 +58,13 @@ class AddressBookHome(CommonHome):
 
     implements(IAddressBookHome)
 
-    def __init__(self, uid, path, addressbookStore, transaction):
-        super(AddressBookHome, self).__init__(uid, path, addressbookStore, transaction)
+    def __init__(self, uid, path, addressbookStore, transaction, notifier):
+        super(AddressBookHome, self).__init__(uid, path, addressbookStore, transaction, notifier)
 
         self._childClass = AddressBook
 
     addressbooks = CommonHome.children
+    listAddressbooks = CommonHome.listChildren
     addressbookWithName = CommonHome.childWithName
     createAddressBookWithName = CommonHome.createChildWithName
     removeAddressBookWithName = CommonHome.removeChildWithName
@@ -81,7 +82,7 @@ class AddressBook(CommonHomeChild):
     """
     implements(IAddressBook)
 
-    def __init__(self, name, addressbookHome, realName=None):
+    def __init__(self, name, addressbookHome, notifier, realName=None):
         """
         Initialize an addressbook pointing at a path on disk.
 
@@ -97,7 +98,8 @@ class AddressBook(CommonHomeChild):
         @type realName: C{str}
         """
         
-        super(AddressBook, self).__init__(name, addressbookHome, realName)
+        super(AddressBook, self).__init__(name, addressbookHome, notifier,
+            realName=realName)
 
         self._index = Index(self)
         self._invites = Invites(self)
@@ -112,6 +114,7 @@ class AddressBook(CommonHomeChild):
 
     ownerAddressBookHome = CommonHomeChild.ownerHome
     addressbookObjects = CommonHomeChild.objectResources
+    listAddressbookObjects = CommonHomeChild.listObjectResources
     addressbookObjectWithName = CommonHomeChild.objectResourceWithName
     addressbookObjectWithUID = CommonHomeChild.objectResourceWithUID
     createAddressBookObjectWithName = CommonHomeChild.createObjectResourceWithName
@@ -204,12 +207,15 @@ class AddressBookObject(CommonObjectResource):
                     self._path.remove()
             return undo
         self._transaction.addOperation(do, "set addressbook component %r" % (self.name(),))
+        if self._addressbook._notifier:
+            self._transaction.postCommit(self._addressbook._notifier.notify)
+
 
 
     def component(self):
         if self._component is not None:
             return self._component
-        text = self.vCardText()
+        text = self.text()
 
         try:
             component = VComponent.fromString(text)
@@ -221,7 +227,7 @@ class AddressBookObject(CommonObjectResource):
         return component
 
 
-    def vCardText(self):
+    def text(self):
         if self._component is not None:
             return str(self._component)
         try:
@@ -247,6 +253,7 @@ class AddressBookObject(CommonObjectResource):
             )
         return text
 
+    vCardText = text
 
     def uid(self):
         if not hasattr(self, "_uid"):

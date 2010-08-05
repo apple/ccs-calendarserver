@@ -14,13 +14,14 @@
 # limitations under the License.
 ##
 
+__all__ = [
+    "SharedCollectionResource",
+]
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.linkresource import LinkResource
 
-__all__ = [
-    "SharedCollectionResource",
-]
 
 """
 Sharing behavior
@@ -40,6 +41,12 @@ class SharedCollectionResource(LinkResource):
         
         if not hasattr(self, "_linkedResource"):
             self._linkedResource = (yield request.locateResource(self.share.hosturl))
+            
+            # FIXME: this is awkward - because we are "mutation" this object into a virtual share
+            # we must not cache the resource at this URL, otherwise an access of the owner's resource
+            # will return the same virtually shared one which would be wrong.
+            request._forgetResource(self._linkedResource, self.share.hosturl)
+
             ownerPrincipal = (yield self.parent.ownerPrincipal(request))
             self._linkedResource.setVirtualShare(ownerPrincipal, self.share)
         returnValue(self._linkedResource)

@@ -152,7 +152,7 @@ def http_MOVE(self, request):
     #
     # Let's play it safe for now and ignore broken clients.
     #
-    if self.fp.isdir() and depth != "infinity":
+    if self.isCollection() and depth != "infinity":
         msg = "Client sent illegal depth header value for MOVE: %s" % (depth,)
         log.err(msg)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
@@ -192,7 +192,7 @@ def prepareForCopy(self, request):
     #
 
     if not self.exists():
-        log.err("File not found: %s" % (self.fp.path,))
+        log.err("File not found: %s" % (self,))
         raise HTTPError(StatusResponse(
             responsecode.NOT_FOUND,
             "Source resource %s not found." % (request.uri,)
@@ -250,7 +250,7 @@ def _prepareForCopy(destination, destination_uri, request, depth):
 
     if destination.exists() and not overwrite:
         log.err("Attempt to %s onto existing file without overwrite flag enabled: %s"
-                % (request.method, destination.fp.path))
+                % (request.method, destination))
         raise HTTPError(StatusResponse(
             responsecode.PRECONDITION_FAILED,
             "Destination %s already exists." % (destination_uri,)
@@ -260,7 +260,7 @@ def _prepareForCopy(destination, destination_uri, request, depth):
     # Make sure destination's parent exists
     #
 
-    if not destination.fp.parent().isdir():
+    if not destination.parent().isCollection():
         log.err("Attempt to %s to a resource with no parent: %s"
                 % (request.method, destination.fp.path))
         raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection."))

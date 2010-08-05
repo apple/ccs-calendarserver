@@ -18,54 +18,21 @@
 Implements a directory-backed principal hierarchy.
 """
 
-__all__ = ["AutoProvisioningResourceMixIn"]
+from twext.web2.dav.util import joinURL
 
-from twisted.internet.defer import maybeDeferred, inlineCallbacks, returnValue
+from twistedcaldav.client.reverseproxy import ReverseProxyResource
 
-class AutoProvisioningResourceMixIn (object):
-    """
-    Adds auto-provisioning to a Resource implementation.
-    """
-    def provision(self):
-        """
-        Provision this resource by creating any required backing store, etc. that
-        must be set up before the resource can be accessed normally.  Specifically,
-        this must have been called before anything that involves I/O happens.
-        This method may be called multiple times; provisioning code should ensure that
-        it handles this properly, typically by returning immediately if the resource is
-        already provisioned (eg. the backing store exists).
-        @return: a deferred or None.
-        """
-        return None
+__all__ = ["DirectoryReverseProxyResource"]
 
-    def provisionChild(self, name):
-        """
-        Creates the child object with the given name.
-        This is basically akin to L{File.createSimilarFile}, but here we know we're
-        creating a child of this resource, and can take certain actions to ensure that
-        it's prepared appropriately and is of the correct class.
-        @param name: the name of the child resource.
-        @return: the newly created (optionally deferred) child, or None of no resource
-            is bound as a child of this resource with the given C{name}.
-        """
-        return None
-
-    @inlineCallbacks
-    def locateChild(self, request, segments):
-        """
-        This implementation calls L{provision}, then super's L{locateChild}, thereby
-        ensuring that looked-up resources are provisioned.
-        """
-        yield maybeDeferred(self.provision)
-
-        name = segments[0]
-        if name != "":
-            # If getChild() finds a child resource, return it
-            child = self.getChild(name)
-            if child is None:
-                child = self.provisionChild(name)
-            if child:
-                returnValue((child, segments[1:],))
+class DirectoryReverseProxyResource(ReverseProxyResource):
+    
+    def __init__(self, parent, record):
+        self.parent = parent
+        self.record = record
         
-        result = (yield super(AutoProvisioningResourceMixIn, self).locateChild(request, segments))
-        returnValue(result)
+        super(DirectoryReverseProxyResource, self).__init__(self.record.hostedAt)
+    
+    def url(self):
+        return joinURL(self.parent.url(), self.record.uid)
+
+

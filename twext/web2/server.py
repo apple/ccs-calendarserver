@@ -445,6 +445,13 @@ class Request(http.Request):
         self._urlsByResource[resource] = url
         return resource
 
+    def _forgetResource(self, resource, url):
+        """
+        Remember the URL of a visited resource.
+        """
+        del self._resourcesByURL[url]
+        del self._urlsByResource[resource]
+
     def urlForResource(self, resource):
         """
         Looks up the URL of the given resource if this resource was found while

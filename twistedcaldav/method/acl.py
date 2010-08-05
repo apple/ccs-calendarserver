@@ -29,8 +29,8 @@ from twext.web2.http import HTTPError
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.resource import isAddressBookCollectionResource,\
-    isPseudoCalendarCollectionResource
-from twistedcaldav.static import AddressBookHomeFile, CalendarHomeFile
+    isPseudoCalendarCollectionResource,\
+    CalendarHomeResource, AddressBookHomeResource, CalDAVResource
 
 log = Logger()
 
@@ -42,7 +42,7 @@ def http_ACL(self, request):
     #
 
     if self.exists():
-        if isinstance(self, CalendarHomeFile) or isinstance(self, AddressBookHomeFile):
+        if isinstance(self, CalendarHomeResource) or isinstance(self, AddressBookHomeResource):
             raise HTTPError(responsecode.NOT_ALLOWED)
 
         parentURL = parentForURL(request.uri)
@@ -51,5 +51,5 @@ def http_ACL(self, request):
             raise HTTPError(responsecode.NOT_ALLOWED)
 
     # Do normal ACL behavior
-    response = (yield super(CalDAVFile, self).http_ACL(request))
+    response = (yield super(CalDAVResource, self).http_ACL(request))
     returnValue(response)

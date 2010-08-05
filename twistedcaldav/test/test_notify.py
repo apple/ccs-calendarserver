@@ -32,59 +32,34 @@ class StubResource(object):
         return self._id
 
 
-class NotificationClientUserTests(TestCase):
 
-    def test_installNotificationClient(self):
-        self.assertEquals(getNotificationClient(), None)
-        self.clock = Clock()
-        installNotificationClient(None, None,
-            klass=StubNotificationClient, reactor=self.clock)
-        notificationClient = getNotificationClient()
-        self.assertNotEquals(notificationClient, None)
+class NotifierTests(TestCase):
 
+    def test_notifier(self):
         enabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
         enabledConfig.Notifications["Enabled"] = True
-        resource = StubResource("test")
-        clientNotifier = ClientNotifier(resource, configOverride=enabledConfig)
-        clientNotifier.notify()
-        self.assertEquals(notificationClient.lines, ["test"])
+        notifier = Notifier(None, id="test")
 
-        notificationClient.clear()
-        clientNotifier = clientNotifier.clone(StubResource("sub"), label="alt")
-        clientNotifier.notify()
-        self.assertEquals(notificationClient.lines, ["test", "sub"])
-
-
-class ClientNotifierTests(TestCase):
-
-    def test_clientNotifier(self):
-        enabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
-        enabledConfig.Notifications["Enabled"] = True
-        resource = StubResource("test")
-        subResource = StubResource("sub")
-        clientNotifier = ClientNotifier(resource, configOverride=enabledConfig)
-
-        self.assertEquals(clientNotifier.ids, {"default": (resource, None)})
-        clone = clientNotifier.clone(subResource, label="alt", id="altID")
+        self.assertEquals(notifier._ids, {"default": "test"})
+        clone = notifier.clone(label="alt", id="altID")
         self.assertEquals("altID", clone.getID(label="alt"))
-        self.assertEquals(clone.ids, {
-            "default" : (resource, None),
-            "alt"     : (subResource, "altID"),
+        self.assertEquals(clone._ids, {
+            "default" : "test",
+            "alt"     : "altID",
         })
-        self.assertEquals("test", clientNotifier.getID())
-        self.assertEquals(clientNotifier.ids, {
-            "default" : (resource, "test"),
+        self.assertEquals("test", notifier.getID())
+        self.assertEquals(notifier._ids, {
+            "default" : "test",
         })
-        self.assertEquals(None, clientNotifier.getID(label="notthere"))
+        self.assertEquals(None, notifier.getID(label="notthere"))
 
-        resource = StubResource("urn:uuid:foo")
-        clientNotifier = ClientNotifier(resource, configOverride=enabledConfig)
-        self.assertEquals("foo", clientNotifier.getID())
+        notifier = Notifier(None, id="urn:uuid:foo")
+        self.assertEquals("foo", notifier.getID())
 
-        clientNotifier.disableNotify()
-        self.assertEquals(clientNotifier._notify, False)
-        clientNotifier.enableNotify(None)
-        self.assertEquals(clientNotifier._notify, True)
+        notifier.disableNotify()
+        self.assertEquals(notifier._notify, False)
+        notifier.enableNotify(None)
+        self.assertEquals(notifier._notify, True)
 
 
 class NotificationClientFactoryTests(TestCase):
@@ -145,11 +120,11 @@ class StubNotificationClientProtocol(object):
         self.factory.connected = False
 
 
-class NotificationClientTests(TestCase):
+class NotifierFactoryTests(TestCase):
 
     def setUp(self):
         TestCase.setUp(self)
-        self.client = NotificationClient(None, None, reactor=Clock())
+        self.client = NotifierFactory(None, None, reactor=Clock())
         self.client.factory = StubNotificationClientFactory()
 
     def test_sendWhileNotConnected(self):

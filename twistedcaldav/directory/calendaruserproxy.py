@@ -42,11 +42,11 @@ from twext.python.log import LoggingMixIn
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
     ADBAPIPostgreSQLMixin
-from twistedcaldav.extensions import DAVFile, DAVPrincipalResource
+from twistedcaldav.extensions import DAVPrincipalResource,\
+    DAVResourceWithChildrenMixin
 from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.resource import CalDAVComplianceMixIn
-from twistedcaldav.directory.util import NotFilePath
 
 class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
     def defaultAccessControlList(self):
@@ -80,7 +80,7 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
-class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixIn, DAVPrincipalResource, DAVFile):
+class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixIn, DAVResourceWithChildrenMixin, DAVPrincipalResource):
     """
     Calendar user proxy principal resource.
     """
@@ -96,7 +96,8 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
 
         url = joinURL(parent.principalURL(), proxyType) + slash
 
-        super(CalendarUserProxyPrincipalResource, self).__init__(NotFilePath(isdir=True), url)
+        super(CalendarUserProxyPrincipalResource, self).__init__()
+        DAVResourceWithChildrenMixin.__init__(self)
 
         self.parent      = parent
         self.proxyType   = proxyType
@@ -128,13 +129,13 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         """
         return ProxyDBService
 
-    def resourceType(self, request):
+    def resourceType(self):
         if self.proxyType == "calendar-proxy-read":
-            return succeed(davxml.ResourceType.calendarproxyread)
+            return davxml.ResourceType.calendarproxyread
         elif self.proxyType == "calendar-proxy-write":
-            return succeed(davxml.ResourceType.calendarproxywrite)
+            return davxml.ResourceType.calendarproxywrite
         else:
-            return super(CalendarUserProxyPrincipalResource, self).resourceType(request)
+            return super(CalendarUserProxyPrincipalResource, self).resourceType()
 
     def isProxyType(self, read_write):
         if (

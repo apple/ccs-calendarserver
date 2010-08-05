@@ -39,13 +39,7 @@ from twistedcaldav.method.copymove_contact import (
 )
 
 from twistedcaldav.resource import isCalendarCollectionResource,\
-    isPseudoCalendarCollectionResource
-
-CalDAVFile = None               # Pacify PyFlakes; this *should* be fixed, but
-                                # it's not actually an undefined name, as the
-                                # bottom of twistedcaldav.static fixes it up
-                                # for us before any functions in this module
-                                # are invoked.
+    isPseudoCalendarCollectionResource, CalDAVResource
 
 log = Logger()
 
@@ -67,7 +61,7 @@ def http_COPY(self, request):
         # Check with CardDAV first (XXX might want to check EnableCardDAV switch?)
         result = yield maybeCOPYContact(self, request)
         if result is KEEP_GOING:
-            result = yield super(CalDAVFile, self).http_COPY(request)
+            result = yield super(CalDAVResource, self).http_COPY(request)
         returnValue(result)
 
     #
@@ -140,7 +134,7 @@ def http_MOVE(self, request):
                 returnValue(result)
 
         # Do default WebDAV action
-        result = (yield super(CalDAVFile, self).http_MOVE(request))
+        result = (yield super(CalDAVResource, self).http_MOVE(request))
         
         if is_calendar_collection:
             # Do some clean up
@@ -215,7 +209,7 @@ def checkForCalendarAction(self, request):
         sourcecal:        True if source is in a calendar collection, False otherwise
         sourceparent:     The parent resource for the source
         destination_uri:  The URI of the destination resource
-        destination:      CalDAVFile of destination if special proccesing required,
+        destination:      CalDAVResource of destination if special processing required,
         None otherwise
         destinationcal:   True if the destination is in a calendar collection,
             False otherwise

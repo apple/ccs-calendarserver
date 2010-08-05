@@ -81,7 +81,7 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
     down from the root. Return a MultiStatus element of all responses.
     
     @param request: the L{IRequest} for the current request.
-    @param resource: the L{CalDAVFile} representing the root to start scanning
+    @param resource: the L{CalDAVResource} representing the root to start scanning
         for calendar collections.
     @param depth: the depth to do the scan.
     @param apply: the function to apply to each calendar collection located
@@ -118,7 +118,7 @@ def applyToAddressBookCollections(resource, request, request_uri, depth, apply, 
     down from the root. Return a MultiStatus element of all responses.
     
     @param request: the L{IRequest} for the current request.
-    @param resource: the L{CalDAVFile} representing the root to start scanning
+    @param resource: the L{CalDAVResource} representing the root to start scanning
         for address book collections.
     @param depth: the depth to do the scan.
     @param apply: the function to apply to each address book collection located
@@ -154,7 +154,7 @@ def responseForHref(request, responses, href, resource, propertiesForResource, p
     @param request: the L{IRequest} for the current request.
     @param responses: the list of responses to append the result of this method to.
     @param href: the L{HRef} element of the resource being targeted.
-    @param resource: the L{CalDAVFile} for the targeted resource.
+    @param resource: the L{CalDAVResource} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -196,7 +196,7 @@ def allPropertiesForResource(request, prop, resource, calendar=None, timezone=No
 
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targeted resource.
+    @param resource: the L{CalDAVResource} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -221,7 +221,7 @@ def propertyNamesForResource(request, prop, resource, calendar=None, timezone=No
     Return property names for all properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targeted resource.
+    @param resource: the L{CalDAVResource} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -246,7 +246,7 @@ def propertyListForResource(request, prop, resource, calendar=None, timezone=Non
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param prop: the L{PropertyContainer} element for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targeted resource.
+    @param resource: the L{CalDAVResource} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -310,7 +310,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
     @param props: a list of property elements or qname tuples for the properties of interest.
-    @param resource: the L{CalDAVFile} for the targeted resource.
+    @param resource: the L{CalDAVResource} for the targeted resource.
     @param calendar: the L{Component} for the calendar for the resource. This may be None
         if the calendar has not already been read in, in which case the resource
         will be used to get the calendar if needed.
@@ -389,7 +389,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     Run a free busy report on the specified calendar collection
     accumulating the free busy info for later processing.
     @param request:     the L{IRequest} for the current request.
-    @param calresource: the L{CalDAVFile} for a calendar collection.
+    @param calresource: the L{CalDAVResource} for a calendar collection.
     @param fbinfo:      the array of busy periods to update.
     @param timerange:   the L{TimeRange} for the query.
     @param matchtotal:  the running total for the number of matches.

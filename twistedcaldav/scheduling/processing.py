@@ -288,7 +288,7 @@ class ImplicitProcessor(object):
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             autoprocessed = self.recipient.principal.getAutoSchedule()
             new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, autoprocessing=autoprocessed)
-            name =  md5(str(new_calendar) + str(time.time()) + default.fp.path).hexdigest() + ".ics"
+            name =  md5(str(new_calendar) + str(time.time()) + defaultURL).hexdigest() + ".ics"
             
             # Handle auto-reply behavior
             if autoprocessed:
@@ -616,15 +616,15 @@ class ImplicitProcessor(object):
         resource or by creating a new one.
         
         @param collURL: the C{str} containing the URL of the calendar collection.
-        @param collection: the L{CalDAVFile} for the calendar collection to store the resource in.
+        @param collection: the L{CalDAVResource} for the calendar collection to store the resource in.
         @param name: the C{str} for the resource name to write into, or {None} to write a new resource.
         @param calendar: the L{Component} calendar to write.
-        @return: L{Deferred} -> L{CalDAVFile}
+        @return: L{Deferred} -> L{CalDAVResource}
         """
         
         # Create a new name if one was not provided
         if name is None:
-            name =  md5(str(calendar) + str(time.time()) + collection.fp.path).hexdigest() + ".ics"
+            name =  md5(str(calendar) + str(time.time()) + collURL).hexdigest() + ".ics"
     
         # Get a resource for the new item
         newchildURL = joinURL(collURL, name)
@@ -655,7 +655,7 @@ class ImplicitProcessor(object):
         @param collURL: the URL of the calendar collection.
         @type name: C{str}
         @param collection: the calendar collection to delete the resource from.
-        @type collection: L{CalDAVFile}
+        @type collection: L{CalDAVResource}
         @param name: the resource name to write into, or {None} to write a new resource.
         @type name: C{str}
         """

@@ -60,7 +60,7 @@ allowedComponents = (
     "VEVENT",
     "VTODO",
     "VTIMEZONE",
-    "VJOURNAL",
+    #"VJOURNAL",
     "VFREEBUSY",
     #"VAVAILABILITY",
 )

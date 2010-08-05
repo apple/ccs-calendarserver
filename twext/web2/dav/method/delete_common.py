@@ -41,8 +41,8 @@ def deleteResource(request, resource, resource_uri, depth="0"):
     """
     Handle a resource delete with proper quota etc updates
     """
-    if not resource.fp.exists():
-        log.err("File not found: %s" % (resource.fp.path,))
+    if not resource.exists():
+        log.err("File not found: %s" % (resource,))
         raise HTTPError(responsecode.NOT_FOUND)
 
     # Do quota checks before we start deleting things

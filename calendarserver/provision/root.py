@@ -19,20 +19,20 @@ __all__ = [
     "RootResource",
 ]
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twext.python.log import Logger
 from twext.web2 import responsecode
+from twext.web2.auth.wrapper import UnauthorizedResponse
 from twext.web2.dav import davxml
 from twext.web2.http import HTTPError, StatusResponse
-from twext.web2.auth.wrapper import UnauthorizedResponse
+
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.xmlrpc import Proxy
 
-from twext.python.log import Logger
-
-from twistedcaldav.resource import CalDAVComplianceMixIn
+from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
-from twistedcaldav.config import config
+from twistedcaldav.resource import CalDAVComplianceMixIn
 
 log = Logger()
 
@@ -69,7 +69,6 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             self.contentFilters.append((addConnectionClose, True))
 
     def deadProperties(self):
-        # FIXME: Same as in static.py's CalDAVFile
         if not hasattr(self, "_dead_properties"):
             # Get the property store from super
             deadProperties = super(RootResource, self).deadProperties()

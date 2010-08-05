@@ -17,6 +17,7 @@
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory.augment import AugmentXMLDB, AugmentSqliteDB,\
     AugmentPostgreSQLDB, AugmentRecord
+from twistedcaldav.directory.directory import DirectoryService
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 import cStringIO
@@ -48,6 +49,13 @@ testRecordWildcardDefault = (
     {"uid":"CCD30AD3-582F-4682-8B65-2EDE92C5656E", "enabled":True,  "hostedAt":"00003", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":True },
 )
 
+testRecordTypeDefault = (
+    ("locations", {"uid":"A4318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "hostedAt":"00004", "enabledForCalendaring":True,  "enabledForAddressBooks":False,  "autoSchedule":True}),
+    ("locations", {"uid":"AA5F935F-3358-4510-A649-B391D63279F2", "enabled":True,  "hostedAt":"00005", "enabledForCalendaring":True, "enabledForAddressBooks":False, "autoSchedule":True}),
+    ("resources", {"uid":"A5318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "hostedAt":"00006", "enabledForCalendaring":True,  "enabledForAddressBooks":False,  "autoSchedule":True}),
+    ("resources", {"uid":"AA6F935F-3358-4510-A649-B391D63279F2", "enabled":True,  "hostedAt":"00007", "enabledForCalendaring":True, "enabledForAddressBooks":False, "autoSchedule":True}),
+)
+
 
 testAddRecords = (
     {"uid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975767", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
@@ -61,18 +69,18 @@ testModifyRecords = (
 class AugmentTests(TestCase):
 
     @inlineCallbacks
-    def _checkRecord(self, db, items):
+    def _checkRecord(self, db, items, recordType=DirectoryService.recordType_users):
         
-        record = (yield db.getAugmentRecord(items["uid"]))
+        record = (yield db.getAugmentRecord(items["uid"], recordType))
         self.assertTrue(record is not None, "Failed record uid: %s" % (items["uid"],))
         
         for k,v in items.iteritems():
             self.assertEqual(getattr(record, k), v, "Failed record uid: %s, attribute: %s" % (items["uid"], k, ))
 
     @inlineCallbacks
-    def _checkRecordExists(self, db, uid):
+    def _checkRecordExists(self, db, uid, recordType=DirectoryService.recordType_users):
         
-        record = (yield db.getAugmentRecord(uid))
+        record = (yield db.getAugmentRecord(uid, recordType))
         self.assertTrue(record is not None, "Failed record uid: %s" % (uid,))
 
 class AugmentTestsMixin(object):
@@ -114,6 +122,31 @@ class AugmentTestsMixin(object):
         # Do a second time to test caching
         for item in testRecordWildcardDefault:
             yield self._checkRecord(db, item)
+
+    @inlineCallbacks
+    def test_read_typed_default(self):
+        """
+        Augments key ("uid" element in xml) can be any of the following, in
+        this order of precedence:
+
+        full uid
+        <recordType>-XX*
+        <recordType>-X*
+        XX*
+        X*
+        <recordType>-Default
+        Default
+        """
+
+        dbpath = os.path.abspath(self.mktemp())
+        db = self._db(dbpath)
+
+        dbxml = AugmentXMLDB((xmlFileDefault,))
+        yield db.addAugmentRecords(dbxml.db.values())
+
+        for recordType, item in testRecordTypeDefault:
+            yield self._checkRecord(db, item, recordType)
+
 
     @inlineCallbacks
     def test_add_modify(self):

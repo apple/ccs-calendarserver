@@ -216,7 +216,7 @@ class HTTPClientPool(LoggingMixIn):
             return result
 
         self.clientBusy(client)
-        d = client.submitRequest(request, closeAfter=False)
+        d = client.submitRequest(request, closeAfter=True)
         d.addCallbacks(_freeClientAfterRequest, _goneClientAfterError)
         return d
 

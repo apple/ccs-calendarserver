@@ -26,21 +26,24 @@ __all__ = [
 from twext.python.log import Logger, LoggingMixIn
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.resource import DAVResource
+
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+
+from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn, CalDAVResource
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
+
 import os
 import types
 
 log = Logger()
 
-class NotificationResource(DAVResource):
+class NotificationResource(CalDAVResource):
     """
     An xml resource in a Notification collection.
     """
     def __init__(self, parent):
         self._parent = parent
-        DAVResource.__init__(self)
+        CalDAVResource.__init__(self)
 
     def principalCollections(self):
         return self._parent.principalCollections()
@@ -61,9 +64,9 @@ class NotificationResource(DAVResource):
         if response == responsecode.NO_CONTENT:
             yield self._parent.removedNotifictionMessage(request, self.resourceName())
         returnValue(response)
-
-class NotificationCollectionResource(DAVResource):
     
+class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource):
+
     def notificationsDB(self):
         
         if not hasattr(self, "_notificationsDB"):
@@ -73,8 +76,8 @@ class NotificationCollectionResource(DAVResource):
     def isCollection(self):
         return True
 
-    def resourceType(self, request):
-        return succeed(davxml.ResourceType.notification)
+    def resourceType(self):
+        return davxml.ResourceType.notification
 
     @inlineCallbacks
     def addNotification(self, request, uid, xmltype, xmldata):
@@ -85,9 +88,6 @@ class NotificationCollectionResource(DAVResource):
 
         # Update database
         self.notificationsDB().addOrUpdateRecord(NotificationRecord(uid, rname, xmltype.name))
-
-    def _writeNotification(self, request, uid, rname, xmltype, xmldata):
-        raise NotImplementedError
 
     def getNotifictionMessages(self, request, componentType=None, returnLatestVersion=True):
         return succeed([])
@@ -101,19 +101,23 @@ class NotificationCollectionResource(DAVResource):
         # See if it exists and delete the resource
         record = self.notificationsDB().recordForUID(uid)
         if record:
-            yield self._deleteNotification(request, record.name)
-            self.notificationsDB().removeRecordForUID(record.uid)
+            yield self.deleteNotification(request, record)
 
+    @inlineCallbacks
     def deleteNotifictionMessageByName(self, request, rname):
 
         # See if it exists and delete the resource
         record = self.notificationsDB().recordForName(rname)
         if record:
-            self._deleteNotification(request, record.name)
-            self.notificationsDB().removeRecordForUID(record.uid)
+            yield self.deleteNotification(request, record)
         
-        return succeed(None)
+        returnValue(None)
 
+    @inlineCallbacks
+    def deleteNotification(self, request, record):
+        yield self._deleteNotification(request, record.name)
+        self.notificationsDB().removeRecordForUID(record.uid)
+        
     def removedNotifictionMessage(self, request, rname):
         self.notificationsDB().removeRecordForName(rname)
         return succeed(None)
@@ -133,7 +137,7 @@ class NotificationsDatabase(AbstractSQLDatabase, LoggingMixIn):
 
     def __init__(self, resource):
         """
-        @param resource: the L{twistedcaldav.static.CalDAVFile} resource for
+        @param resource: the L{CalDAVResource} resource for
             the notifications collection.)
         """
         self.resource = resource

@@ -17,8 +17,8 @@
 """
 CalDAV methods.
 
-Modules in this package are imported by twistedcaldav.static in order to
-bind methods to CalDAVFile.
+Modules in this package are imported by twistedcaldav.resource in order to
+bind methods to CalDAVResource.
 """
 
 __all__ = [

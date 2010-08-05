@@ -32,7 +32,7 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryError
 from twext.web2.dav import davxml
 
-from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, setupNotifications, checkDirectory
+from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, checkDirectory
 from calendarserver.tools.principals import (
     principalForPrincipalID, proxySubprincipal, addProxy, removeProxy,
     ProxyError, ProxyWarning, updateRecord
@@ -118,7 +118,6 @@ def main():
             respondWithError(str(e))
             return
         setupMemcached(config)
-        setupNotifications(config)
     except ConfigurationError, e:
         respondWithError(e)
         return

@@ -133,7 +133,7 @@ class ScheduleViaCalDAV(DeliveryService):
     @inlineCallbacks
     def generateResponse(self, recipient, responses):
         # Hash the iCalendar data for use as the last path element of the URI path
-        name = md5(self.scheduler.calendardata + str(time.time()) + recipient.inbox.fp.path).hexdigest() + ".ics"
+        name = md5(self.scheduler.calendardata + str(time.time()) + recipient.inboxURL).hexdigest() + ".ics"
     
         # Get a resource for the new item
         childURL = joinURL(recipient.inboxURL, name)

@@ -33,7 +33,7 @@ from txcarddav.addressbookstore.file import AddressBookStore, AddressBookHome
 from txcarddav.addressbookstore.file import AddressBook, AddressBookObject
 
 from txcarddav.addressbookstore.test.common import (
-    CommonTests, vcard4_text, vcard1modified_text)
+    CommonTests, vcard4_text, vcard1modified_text, StubNotifierFactory)
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
 
@@ -57,7 +57,8 @@ def setUpAddressBookStore(test):
     addressbookPath.parent().makedirs()
     storePath.copyTo(addressbookPath)
 
-    test.addressbookStore = AddressBookStore(storeRootPath)
+    test.notifierFactory = StubNotifierFactory()
+    test.addressbookStore = AddressBookStore(storeRootPath, test.notifierFactory)
     test.txn = test.addressbookStore.newTransaction()
     assert test.addressbookStore is not None, "No addressbook store?"
 

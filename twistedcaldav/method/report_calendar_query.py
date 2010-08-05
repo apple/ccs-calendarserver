@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.config import config
 
 """
 CalDAV calendar-query report
@@ -37,6 +36,7 @@ from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.caldavxml import caldav_namespace,\
     NumberOfRecurrencesWithinLimits
+from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.index import IndexedSearchException
 from twistedcaldav.instance import TooManyInstancesError
@@ -114,14 +114,14 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         """
         Run a query on the specified calendar collection
         accumulating the query responses.
-        @param calresource: the L{CalDAVFile} for a calendar collection.
+        @param calresource: the L{CalDAVResource} for a calendar collection.
         @param uri: the uri for the calendar collecton resource.
         """
         
         def queryCalendarObjectResource(resource, uri, name, calendar, timezone, query_ok=False, isowner=True):
             """
             Run a query on the specified calendar.
-            @param resource: the L{CalDAVFile} for the calendar.
+            @param resource: the L{CalDAVResource} for the calendar.
             @param uri: the uri of the resource.
             @param name: the name of the resource.
             @param calendar: the L{Component} calendar read from the resource.
@@ -183,7 +183,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     index_query_ok = False
 
                 if not names:
-                    return
+                    returnValue(True)
                   
                 # Now determine which valid resources are readable and which are not
                 ok_resources = []

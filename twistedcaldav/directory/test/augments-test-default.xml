@@ -27,6 +27,34 @@ limitations under the License.
     <hosted-at>00001</hosted-at>
   </record>
   <record>
+    <uid>Location-Default</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <hosted-at>00004</hosted-at>
+    <auto-schedule>true</auto-schedule>
+  </record>
+  <record>
+    <uid>Location-AA*</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <hosted-at>00005</hosted-at>
+    <auto-schedule>true</auto-schedule>
+  </record>
+  <record>
+    <uid>Resource-Default</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <hosted-at>00006</hosted-at>
+    <auto-schedule>true</auto-schedule>
+  </record>
+  <record>
+    <uid>Resource-AA*</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <hosted-at>00007</hosted-at>
+    <auto-schedule>true</auto-schedule>
+  </record>
+  <record>
     <uid>AA*</uid>
     <enable>true</enable>
     <hosted-at>00001</hosted-at>

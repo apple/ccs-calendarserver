@@ -18,7 +18,7 @@ from twext.python.plistlib import writePlist #@UnresolvedImport
 from twext.python.log import logLevelForNamespace
 
 from twistedcaldav.config import config, ConfigDict
-from twistedcaldav.static import CalDAVFile
+from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider,\
     RELATIVE_PATHS
 from twistedcaldav.test.util import TestCase
@@ -241,7 +241,7 @@ class ConfigTests(TestCase):
         self.assertNotIn("Foo", DEFAULT_CONFIG)
 
     def testComplianceClasses(self):
-        resource = CalDAVFile("/")
+        resource = CalDAVResource()
         
         config.EnableProxyPrincipals = True
         self.assertTrue("calendar-proxy" in resource.davComplianceClasses())
