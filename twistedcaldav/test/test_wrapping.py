@@ -273,9 +273,9 @@ class WrappingTests(TestCase):
         C{CalendarHome.calendarWithName}.
         """
         calDavFile = yield self.getResource("calendars/users/wsanchez/calendar")
-        self.commit()
         self.assertEquals(calDavFile.resourceType(),
                           davxml.ResourceType.calendar)
+        self.commit()
 
 
     @inlineCallbacks
