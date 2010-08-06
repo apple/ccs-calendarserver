@@ -383,19 +383,23 @@ class CommonTests(object):
                 calendarProperties[
                     PropertyName.fromString(davxml.ResourceType.sname())
                 ],
-                davxml.ResourceType.calendar) #@UndefinedVariable
+                davxml.ResourceType.calendar
+            ) #@UndefinedVariable
         checkProperties()
 
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(self.notifierFactory.compare([("update", "home1")]))
+        self.assertEquals(self.notifierFactory.history,
+                          [("update", "home1")])
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = self.homeUnderTest()
         self.assertNotIdentical(home.calendarWithName(name), None)
-        home = self.calendarStore.newTransaction().calendarHomeWithUID(
-            "home1")
+
+        otherTxn = self.storeUnderTest().newTransaction()
+        self.addCleanup(otherTxn.commit)
+        home = otherTxn.calendarHomeWithUID("home1")
         # Sanity check: are the properties actually persisted?
         # FIXME: no independent testing of this right now
         checkProperties()
@@ -430,8 +434,10 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(self.notifierFactory.compare(
-            [("update", "home1"), ("update", "home1"), ("update", "home1")]))
+        self.assertEquals(
+            self.notifierFactory.history,
+            [("update", "home1"), ("update", "home1"), ("update", "home1")]
+        )
 
 
     def test_removeCalendarWithName_absent(self):
@@ -459,8 +465,8 @@ class CommonTests(object):
             )
 
         self.assertEquals(
-            list(o.name() for o in calendarObjects),
-            calendar1_objectNames
+            set(list(o.name() for o in calendarObjects)),
+            set(calendar1_objectNames)
         )
 
 
@@ -530,17 +536,16 @@ class CommonTests(object):
 
         # Make sure notifications are fired after commit
         self.commit()
-        self.assertTrue(
-            self.notifierFactory.compare(
-                [
-                    ("update", "home1"),
-                    ("update", "home1/calendar_1"),
-                    ("update", "home1"),
-                    ("update", "home1/calendar_1"),
-                    ("update", "home1"),
-                    ("update", "home1/calendar_1"),
-                ]
-            )
+        self.assertEquals(
+            self.notifierFactory.history,
+            [
+                ("update", "home1"),
+                ("update", "home1/calendar_1"),
+                ("update", "home1"),
+                ("update", "home1/calendar_1"),
+                ("update", "home1"),
+                ("update", "home1/calendar_1"),
+            ]
         )
 
     def test_removeCalendarObjectWithName_exists(self):
@@ -692,13 +697,12 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notifications fire after commit
-        self.assertTrue(
-            self.notifierFactory.compare(
-                [
-                    ("update", "home1"),
-                    ("update", "home1/calendar_1"),
-                ]
-            )
+        self.assertEquals(
+            self.notifierFactory.history,
+            [
+                ("update", "home1"),
+                ("update", "home1/calendar_1"),
+            ]
         )
 
 
@@ -801,13 +805,12 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(
-            self.notifierFactory.compare(
-                [
-                    ("update", "home1"),
-                    ("update", "home1/calendar_1"),
-                ]
-            )
+        self.assertEquals(
+            self.notifierFactory.history,
+            [
+                ("update", "home1"),
+                ("update", "home1/calendar_1"),
+            ]
         )
 
 
@@ -1093,10 +1096,8 @@ class StubNotifierFactory(object):
         return Notifier(self, label=label, id=id)
 
     def send(self, op, id):
-        self._history.append((op, id))
+        self.history.append((op, id))
 
     def reset(self):
-        self._history = []
+        self.history = []
 
-    def compare(self, expected):
-        return self._history == expected

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.interfaces import ITransport
+from twisted.python import hashlib
 
 """
 PostgreSQL data store.
@@ -32,6 +32,11 @@ from zope.interface.declarations import implements
 
 from twisted.python.modules import getModule
 from twisted.application.service import Service
+from twisted.internet.interfaces import ITransport
+from twisted.internet.error import ConnectionLost
+from twisted.python.failure import Failure
+
+from twext.web2.dav.element.rfc2518 import ResourceType
 
 from txdav.idav import IDataStore, AlreadyFinishedError
 
@@ -244,23 +249,63 @@ class PostgresCalendarObject(object):
             "where RESOURCE_ID = %s", [calendarText, self._resourceID]
         )
         self._calendarText = calendarText
+        self._calendar._home._txn.postCommit(self._calendar._notifier.notify)
+
+
+    def _attachmentPath(self, name):
+        return self._calendar._home._txn._store.attachmentsPath.child(
+            "%s-%s-%s-%s.attachment" % (
+                self._calendar._home.uid(), self._calendar.name(),
+                self.name(), name
+            )
+        )
 
 
     def createAttachmentWithName(self, name, contentType):
-        attachment = PostgresAttachment(self, name)
+        path = self._attachmentPath(name)
+        c = self._calendar._cursor()
+        attachment = PostgresAttachment(self, path)
+        c.execute("""
+            insert into ATTACHMENT (CALENDAR_OBJECT_RESOURCE_ID, CONTENT_TYPE,
+            SIZE, MD5, PATH)
+            values (%s, %s, %s, %s, %s)
+            """,
+            [
+                self._resourceID, str(contentType), 0, "",
+                attachment._pathValue()
+            ]
+        )
         return attachment.store(contentType)
 
 
     def attachments(self):
-        return []
+        c = self._calendar._cursor()
+        c.execute("""
+        select PATH from ATTACHMENT where CALENDAR_OBJECT_RESOURCE_ID = %s 
+        """, [self._resourceID])
+        rows = c.fetchall()
+        for row in rows:
+            demangledName = _pathToName(row[0])
+            yield self.attachmentWithName(demangledName)
 
 
     def attachmentWithName(self, name):
-        return None
+        attachment = PostgresAttachment(self, self._attachmentPath(name))
+        if attachment._populate():
+            return attachment
+        else:
+            return None
 
 
     def removeAttachmentWithName(self, name):
-        pass
+        attachment = PostgresAttachment(self, self._attachmentPath(name))
+        self._calendar._home._txn.postCommit(attachment._path.remove)
+        c = self._calendar._cursor()
+        c.execute("""
+        delete from ATTACHMENT where CALENDAR_OBJECT_RESOURCE_ID = %s AND
+        PATH = %s
+        """, [self._resourceID, attachment._pathValue()])
+
 
     # IDataStoreResource
     def contentType(self):
@@ -286,34 +331,108 @@ class PostgresCalendarObject(object):
         return None
 
 
+def _pathToName(path):
+    return path.rsplit(".", 1)[0].split("-", 3)[-1]
 
 class PostgresAttachment(object):
-    
+
     implements(IAttachment)
 
-    def __init__(self, calendarObject, name):
+    def __init__(self, calendarObject, path):
         self._calendarObject = calendarObject
-        self._name = name
+        self._path = path
+
+
+    def _populate(self):
+        """
+        Execute necessary SQL queries to retrieve attributes.
+
+        @return: C{True} if this attachment exists, C{False} otherwise.
+        """
+        c = self._calendarObject._calendar._cursor()
+        c.execute(
+            """
+            select CONTENT_TYPE, MD5 from ATTACHMENT where PATH = %s
+            """, [self._pathValue()])
+        rows = c.fetchall()
+        if not rows:
+            return False
+        self._contentType = MimeType.fromString(rows[0][0])
+        self._md5 = rows[0][1]
+        return True
 
 
     def store(self, contentType):
         return PostgresAttachmentStorageTransport(self, contentType)
 
 
+    def retrieve(self, protocol):
+        protocol.dataReceived(self._path.getContent())
+        protocol.connectionLost(Failure(ConnectionLost()))
+
+
+    def properties(self):
+        pass # stub
+
+
+    # IDataStoreResource
+    def contentType(self):
+        return self._contentType
+
+
+    def md5(self):
+        return self._md5
+
+
+    def size(self):
+        return 0
+
+
+    def created(self):
+        return None
+
+
+    def modified(self):
+        return None
+
+
+    def name(self):
+        return _pathToName(self._pathValue())
+
+
+    def _pathValue(self):
+        """
+        Compute the value which should go into the 'path' column for this
+        attachment.
+        """
+        root = self._calendarObject._calendar._home._txn._store.attachmentsPath
+        return '/'.join(self._path.segmentsFrom(root))
+
+
 
 class PostgresAttachmentStorageTransport(object):
 
     implements(ITransport)
-    
+
     def __init__(self, attachment, contentType):
         self.attachment = attachment
         self.contentType = contentType
+        self.buf = ''
+        self.hash = hashlib.md5()
 
     def write(self, data):
-        pass
+        self.buf += data
+        self.hash.update(data)
 
     def loseConnection(self):
-        pass
+        self.attachment._path.setContent(self.buf)
+        pathValue = self.attachment._pathValue()
+        c = self.attachment._calendarObject._calendar._home._txn._cursor
+        contentTypeString = '%s/%s' % (self.contentType.mediaType,
+                                       self.contentType.mediaSubtype)
+        c.execute("update ATTACHMENT set CONTENT_TYPE = %s, MD5 = %s "
+                  "WHERE PATH = %s",
+                  [contentTypeString, self.hash.hexdigest(), pathValue])
 
 
 
@@ -321,12 +440,12 @@ class PostgresCalendar(object):
 
     implements(ICalendar)
 
-
-    def __init__(self, home, name, resourceID):
+    def __init__(self, home, name, resourceID, notifier):
         self._home = home
         self._name = name
         self._resourceID = resourceID
         self._objects = {}
+        self._notifier = notifier
 
 
     def _cursor(self):
@@ -428,6 +547,7 @@ class PostgresCalendar(object):
             [self._resourceID, name, componentText, component.resourceUID(),
             component.resourceType(), _ATTACHMENTS_MODE_WRITE]
         )
+        self._home._txn.postCommit(self._notifier.notify)
 
 
     def removeCalendarObjectWithName(self, name):
@@ -438,6 +558,7 @@ class PostgresCalendar(object):
         if c.rowcount == 0:
             raise NoSuchObjectResourceError()
         self._objects.pop(name, None)
+        self._home._txn.postCommit(self._notifier.notify)
 
 
     def removeCalendarObjectWithUID(self, uid):
@@ -455,6 +576,7 @@ class PostgresCalendar(object):
                   "CALENDAR_RESOURCE_ID = %s",
                   [uid, self._resourceID])
         self._objects.pop(name, None)
+        self._home._txn.postCommit(self._notifier.notify)
 
 
     def syncToken(self):
@@ -511,11 +633,12 @@ class PostgresCalendarHome(object):
 
     implements(ICalendarHome)
 
-    def __init__(self, transaction, ownerUID, resourceID):
+    def __init__(self, transaction, ownerUID, resourceID, notifier):
         self._txn = transaction
         self._ownerUID = ownerUID
         self._resourceID = resourceID
         self._calendars = {}
+        self._notifier = notifier
 
 
     def uid(self):
@@ -544,7 +667,7 @@ class PostgresCalendarHome(object):
         c.execute(
             "select CALENDAR_RESOURCE_NAME from CALENDAR_BIND where "
             "CALENDAR_HOME_RESOURCE_ID = %s "
-            "AND STATUS != %s",
+            "AND BIND_STATUS != %s",
             [self._resourceID,
             _BIND_STATUS_DECLINED, ]
         )
@@ -571,7 +694,9 @@ class PostgresCalendarHome(object):
         if not data:
             return None
         resourceID = data[0][0]
-        return PostgresCalendar(self, name, resourceID)
+        childID = "%s/%s" % (self.uid(), name)
+        notifier = self._notifier.clone(label="collection", id=childID)
+        return PostgresCalendar(self, name, resourceID, notifier)
 
 
     def calendarObjectWithDropboxID(self, dropboxID):
@@ -584,7 +709,6 @@ class PostgresCalendarHome(object):
                     return calendarObject
 
 
-    @memoized('name', '_calendars')
     def createCalendarWithName(self, name):
         c = self._txn._cursor
         c.execute(
@@ -605,12 +729,17 @@ class PostgresCalendarHome(object):
         c.execute("""
             insert into CALENDAR_BIND (
                 CALENDAR_HOME_RESOURCE_ID,
-                CALENDAR_RESOURCE_ID, CALENDAR_RESOURCE_NAME, CALENDAR_MODE,
-                SEEN_BY_OWNER, SEEN_BY_SHAREE, STATUS) values (
+                CALENDAR_RESOURCE_ID, CALENDAR_RESOURCE_NAME, BIND_MODE,
+                SEEN_BY_OWNER, SEEN_BY_SHAREE, BIND_STATUS) values (
             %s, %s, %s, %s, %s, %s, %s)
             """,
             [self._resourceID, resourceID, name, _BIND_MODE_OWN, True, True,
              _BIND_STATUS_ACCEPTED])
+
+        calendarType = ResourceType.calendar #@UndefinedVariable
+        self.calendarWithName(name).properties()[
+            PropertyName.fromElement(ResourceType)] = calendarType
+        self._txn.postCommit(self._notifier.notify)
 
 
     def removeCalendarWithName(self, name):
@@ -625,6 +754,7 @@ class PostgresCalendarHome(object):
             raise NoSuchHomeChildError()
         # FIXME: the schema should probably cascade the calendar delete when
         # the last bind is deleted.
+        self._txn.postCommit(self._notifier.notify)
 
 
     def properties(self):
@@ -672,11 +802,14 @@ class PostgresCalendarTransaction(object):
     """
     implements(ICalendarTransaction)
 
-    def __init__(self, connection):
+    def __init__(self, store, connection, notifierFactory):
+        self._store = store
         self._connection = connection
         self._cursor = connection.cursor()
         self._completed = False
         self._homes = {}
+        self._postCommitOperations = []
+        self._notifierFactory = notifierFactory
 
 
     def __del__(self):
@@ -701,7 +834,8 @@ class PostgresCalendarTransaction(object):
             )
             return self.calendarHomeWithUID(uid)
         resid = data[0][0]
-        return PostgresCalendarHome(self, uid, resid)
+        notifier = self._notifierFactory.newNotifier(id=uid)
+        return PostgresCalendarHome(self, uid, resid, notifier)
 
 
     def notificationsWithUID(self, uid):
@@ -725,14 +859,17 @@ class PostgresCalendarTransaction(object):
             self._completed = True
             self._connection.commit()
             self._connection.close()
+            for operation in self._postCommitOperations:
+                operation()
         else:
             raise AlreadyFinishedError()
 
 
-    def postCommit(self):
+    def postCommit(self, operation):
         """
         Run things after 'commit.'
         """
+        self._postCommitOperations.append(operation)
         # FIXME: implement.
 
 
@@ -741,10 +878,16 @@ class PostgresStore(Service, object):
 
     implements(IDataStore)
 
-    def __init__(self, connectionFactory):
+    def __init__(self, connectionFactory, notifierFactory, attachmentsPath):
         self.connectionFactory = connectionFactory
+        self.notifierFactory = notifierFactory
+        self.attachmentsPath = attachmentsPath
 
 
     def newTransaction(self):
-        return PostgresCalendarTransaction(self.connectionFactory())
+        return PostgresCalendarTransaction(
+            self,
+            self.connectionFactory(),
+            self.notifierFactory
+        )
 

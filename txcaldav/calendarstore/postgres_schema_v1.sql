@@ -130,11 +130,11 @@ insert into FREE_BUSY_TYPE values (4, 'busy-tentative'  );
 ----------------
 
 create table ATTACHMENT (
-  CALENDAR_OBJECT_RESOURCE_ID varchar(255) not null references CALENDAR_OBJECT,
-  CONTENT_TYPE                varchar(255) not null,
-  SIZE                        int          not null,
-  MD5                         char(32)     not null,
-  PATH                        varchar(255) not null unique
+  CALENDAR_OBJECT_RESOURCE_ID varchar(255)  not null references CALENDAR_OBJECT,
+  CONTENT_TYPE                varchar(255)  not null,
+  SIZE                        int           not null,
+  MD5                         char(32)      not null,
+  PATH                        varchar(1024) not null unique
 );
 
 

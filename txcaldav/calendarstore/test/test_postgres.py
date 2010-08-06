@@ -64,15 +64,23 @@ class SQLStorageTests(CommonTests, unittest.TestCase):
         global sharedService
         global currentTestID
         currentTestID = self.id()
+        dbRoot = CachingFilePath("../_test_postgres_db")
         if sharedService is None:
             ready = Deferred()
             def getReady(connectionFactory):
                 global calendarStore
+                attachmentRoot = dbRoot.child("attachments")
+                try:
+                    attachmentRoot.createDirectory()
+                except OSError:
+                    pass
                 try:
                     calendarStore = PostgresStore(
                         lambda label=None: connectionFactory(
                             label or currentTestID
-                        )
+                        ),
+                        self.notifierFactory,
+                        attachmentRoot
                     )
                 except:
                     ready.errback()
@@ -81,7 +89,7 @@ class SQLStorageTests(CommonTests, unittest.TestCase):
                     self.cleanAndPopulate().chainDeferred(ready)
                 return calendarStore
             sharedService = PostgresService(
-                CachingFilePath("../_test_postgres_db"),
+                dbRoot,
                 getReady, v1_schema, "caldav"
             )
             sharedService.startService()
@@ -93,6 +101,7 @@ class SQLStorageTests(CommonTests, unittest.TestCase):
                 "before", "shutdown", startStopping)
             return ready
         else:
+            calendarStore.notifierFactory = self.notifierFactory
             return self.cleanAndPopulate()
 
 
@@ -147,6 +156,7 @@ class SQLStorageTests(CommonTests, unittest.TestCase):
                                 objectName, VComponent.fromString(objData)
                             )
         populateTxn.commit()
+        self.notifierFactory.history = []
 
 
     def storeUnderTest(self):
