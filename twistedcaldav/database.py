@@ -136,59 +136,113 @@ class AbstractADBAPIDatabase(object):
     def close(self):
         
         if self.initialized:
-            self.pool.close()
+            try:
+                self.pool.close()
+            except Exception, e:
+                log.err("Error whilst closing connection pool: %s" % (e,))
             self.pool = None
             self.initialized = False
 
     @inlineCallbacks
     def clean(self):
         
-        if not self.initialized:
-            yield self.open()
+        # Re-try at least once
+        for _ignore in (0, 1):
+            if not self.initialized:
+                yield self.open()
 
-        yield self._db_empty_data_tables()
+            try:
+                yield self._db_empty_data_tables()
+            except Exception, e:
+                log.err("Error in database clean: %s" % (e,))
+                self.close()
+            else:
+                break
 
     @inlineCallbacks
     def execute(self, sql, *query_params):
         
-        if not self.initialized:
-            yield self.open()
-
-        yield self._db_execute(sql, *query_params)
+        # Re-try at least once
+        for _ignore in (0, 1):
+            if not self.initialized:
+                yield self.open()
+    
+            try:
+                yield self._db_execute(sql, *query_params)
+            except Exception, e:
+                log.err("Error in database execute: %s" % (e,))
+                self.close()
+            else:
+                break
 
     @inlineCallbacks
     def executescript(self, script):
         
-        if not self.initialized:
-            yield self.open()
-
-        yield self._db_execute_script(script)
+        # Re-try at least once
+        for _ignore in (0, 1):
+            if not self.initialized:
+                yield self.open()
+    
+            try:
+                yield self._db_execute_script(script)
+            except Exception, e:
+                log.err("Error in database executescript: %s" % (e,))
+                self.close()
+            else:
+                break
 
     @inlineCallbacks
     def query(self, sql, *query_params):
         
-        if not self.initialized:
-            yield self.open()
+        # Re-try at least once
+        for _ignore in (0, 1):
+            if not self.initialized:
+                yield self.open()
+    
+            try:
+                result = (yield self._db_all_values_for_sql(sql, *query_params))
+            except Exception, e:
+                log.err("Error in database query: %s" % (e,))
+                self.close()
+            else:
+                break
 
-        result = (yield self._db_all_values_for_sql(sql, *query_params))
         returnValue(result)
 
     @inlineCallbacks
     def queryList(self, sql, *query_params):
         
-        if not self.initialized:
-            yield self.open()
+        # Re-try at least once
+        for _ignore in (0, 1):
+            if not self.initialized:
+                yield self.open()
+            
+            try:
+                result = (yield self._db_values_for_sql(sql, *query_params))
+            except Exception, e:
+                log.err("Error in database queryList: %s" % (e,))
+                self.close()
+            else:
+                break
 
-        result = (yield self._db_values_for_sql(sql, *query_params))
         returnValue(result)
 
     @inlineCallbacks
     def queryOne(self, sql, *query_params):
         
-        if not self.initialized:
-            yield self.open()
+        # Re-try at least once
+        for _ignore in (0, 1):
+            if not self.initialized:
+                yield self.open()
+    
+            try:
+                result = (yield self._db_value_for_sql(sql, *query_params))
+            except Exception, e:
+                log.err("Error in database queryOne: %s" % (e,))
+                self.close()
+            else:
+                break
 
-        result = (yield self._db_value_for_sql(sql, *query_params))
         returnValue(result)
 
     def _db_version(self):
