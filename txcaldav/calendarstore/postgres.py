@@ -832,7 +832,9 @@ class PostgresCalendarTransaction(object):
                 "insert into CALENDAR_HOME (OWNER_UID) values (%s)",
                 [uid]
             )
-            return self.calendarHomeWithUID(uid)
+            home = self.calendarHomeWithUID(uid)
+            home.createCalendarWithName("calendar")
+            return home
         resid = data[0][0]
         notifier = self._notifierFactory.newNotifier(id=uid)
         return PostgresCalendarHome(self, uid, resid, notifier)
@@ -884,7 +886,7 @@ class PostgresStore(Service, object):
         self.attachmentsPath = attachmentsPath
 
 
-    def newTransaction(self):
+    def newTransaction(self, label="unlabeled"):
         return PostgresCalendarTransaction(
             self,
             self.connectionFactory(),

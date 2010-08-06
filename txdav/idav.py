@@ -99,9 +99,13 @@ class IDataStore(Interface):
     An L{IDataStore} is a storage of some objects.
     """
 
-    def newTransaction():
+    def newTransaction(label=None):
         """
         Create a new transaction.
+        
+        @param label: A label to assign to this transaction for diagnostic
+            purposes.
+        @type label: C{str}
 
         @return: a new transaction which provides L{ITransaction}, as well as
             sub-interfaces to request appropriate data objects.

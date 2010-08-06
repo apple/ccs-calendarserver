@@ -26,7 +26,7 @@ from twisted.trial import unittest
 from txdav.datastore.subpostgres import PostgresService, \
     DiagnosticConnectionWrapper
 from txcaldav.calendarstore.postgres import PostgresStore, v1_schema
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet import reactor
 from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
@@ -51,100 +51,114 @@ def dumpConnectionStatus():
 
 
 
-sharedService = None
-currentTestID = None
-
-class SQLStorageTests(CommonTests, unittest.TestCase):
+class StoreBuilder(object):
     """
-    File storage tests.
+    Test-fixture-builder which can construct a PostgresStore.
     """
+    sharedService = None
+    currentTestID = None
 
-    def setUp(self):
-        super(SQLStorageTests, self).setUp()
-        global sharedService
-        global currentTestID
-        currentTestID = self.id()
-        dbRoot = CachingFilePath("../_test_postgres_db")
-        if sharedService is None:
+    SHARED_DB_PATH = "../_test_postgres_db"
+
+    def buildStore(self, testCase, notifierFactory):
+        """
+        Do the necessary work to build a store for a particular test case.
+
+        @return: a L{Deferred} which fires with an L{IDataStore}.
+        """
+        currentTestID = testCase.id()
+        dbRoot = CachingFilePath(self.SHARED_DB_PATH)
+        if self.sharedService is None:
             ready = Deferred()
             def getReady(connectionFactory):
-                global calendarStore
                 attachmentRoot = dbRoot.child("attachments")
                 try:
                     attachmentRoot.createDirectory()
                 except OSError:
                     pass
                 try:
-                    calendarStore = PostgresStore(
+                    self.calendarStore = PostgresStore(
                         lambda label=None: connectionFactory(
                             label or currentTestID
                         ),
-                        self.notifierFactory,
+                        notifierFactory,
                         attachmentRoot
                     )
                 except:
                     ready.errback()
                     raise
                 else:
-                    self.cleanAndPopulate().chainDeferred(ready)
-                return calendarStore
-            sharedService = PostgresService(
+                    self.cleanDatabase(testCase)
+                    ready.callback(self.calendarStore)
+                return self.calendarStore
+            self.sharedService = PostgresService(
                 dbRoot,
                 getReady, v1_schema, "caldav"
             )
-            sharedService.startService()
+            self.sharedService.startService()
             def startStopping():
                 log.msg("Starting stopping.")
-                sharedService.unpauseMonitor()
-                return sharedService.stopService()
+                self.sharedService.unpauseMonitor()
+                return self.sharedService.stopService()
             reactor.addSystemEventTrigger(#@UndefinedVariable
                 "before", "shutdown", startStopping)
-            return ready
+            result = ready
         else:
-            calendarStore.notifierFactory = self.notifierFactory
-            return self.cleanAndPopulate()
+            self.calendarStore.notifierFactory = notifierFactory
+            self.cleanDatabase(testCase)
+            result = succeed(self.calendarStore)
+
+        def cleanUp():
+            # FIXME: clean up any leaked connections and report them with an
+            # immediate test failure.
+            def stopit():
+                self.sharedService.pauseMonitor()
+            return deferLater(reactor, 0.1, stopit)
+        testCase.addCleanup(cleanUp)
+        return result
 
 
-    def cleanAndPopulate(self):
-        """
-        Delete everything from the database, then clean it up.
-        """
-        cleanupConn = calendarStore.connectionFactory(
-            "%s schema-cleanup" % (self.id(),)
+    def cleanDatabase(self, testCase):
+        cleanupConn = self.calendarStore.connectionFactory(
+            "%s schema-cleanup" % (testCase.id(),)
         )
         cursor = cleanupConn.cursor()
         cursor.execute("delete from RESOURCE_PROPERTY")
-        cleanupConn.commit()
         cursor.execute("delete from ATTACHMENT")
-        cleanupConn.commit()
         cursor.execute("delete from CALENDAR_OBJECT")
-        cleanupConn.commit()
         cursor.execute("delete from CALENDAR_BIND")
-        cleanupConn.commit()
         cursor.execute("delete from CALENDAR")
-        cleanupConn.commit()
         cursor.execute("delete from CALENDAR_HOME")
         cleanupConn.commit()
         cleanupConn.close()
+
+
+
+theStoreBuilder = StoreBuilder()
+buildStore = theStoreBuilder.buildStore
+
+
+class SQLStorageTests(CommonTests, unittest.TestCase):
+    """
+    File storage tests.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        super(SQLStorageTests, self).setUp()
+        self.calendarStore = yield buildStore(self, self.notifierFactory)
         self.populate()
-        sharedService.unpauseMonitor()
-        # I need to allow the log buffer to unspool.
-        return deferLater(reactor, 0.1, lambda : None)
-
-
-    def tearDown(self):
-        super(SQLStorageTests, self).tearDown()
-        def stopit():
-            sharedService.pauseMonitor()
-        return deferLater(reactor, 0.1, stopit)
 
 
     def populate(self):
-        populateTxn = calendarStore.newTransaction()
+        populateTxn = self.calendarStore.newTransaction()
         for homeUID in self.requirements:
             calendars = self.requirements[homeUID]
             if calendars is not None:
                 home = populateTxn.calendarHomeWithUID(homeUID, True)
+                # We don't want the default calendar to appear unless it's
+                # explicitly listed.
+                home.removeCalendarWithName("calendar")
                 for calendarName in calendars:
                     calendarObjNames = calendars[calendarName]
                     if calendarObjNames is not None:
@@ -163,5 +177,5 @@ class SQLStorageTests(CommonTests, unittest.TestCase):
         """
         Create and return a L{CalendarStore} for testing.
         """
-        return calendarStore
+        return self.calendarStore
 

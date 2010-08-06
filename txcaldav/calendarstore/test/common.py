@@ -144,6 +144,22 @@ event1modified_text = event4_text.replace(
 
 
 
+def assertProvides(testCase, interface, provider):
+    """
+    Verify that C{provider} properly provides C{interface}
+
+    @type interface: L{zope.interface.Interface}
+    @type provider: C{provider}
+    """
+    try:
+        verifyObject(interface, provider)
+    except BrokenMethodImplementation, e:
+        testCase.fail(e)
+    except DoesNotImplement, e:
+        testCase.fail("%r does not provide %s.%s" %
+                      (provider, interface.__module__, interface.getName()))
+
+
 class CommonTests(object):
     """
     Tests for common functionality of interfaces defined in
@@ -243,21 +259,7 @@ class CommonTests(object):
         return self.calendarUnderTest().calendarObjectWithName("1.ics")
 
 
-    def assertProvides(self, interface, provider):
-        """
-        Verify that C{provider} properly provides C{interface}
-
-        @type interface: L{zope.interface.Interface}
-        @type provider: C{provider}
-        """
-        try:
-            verifyObject(interface, provider)
-        except BrokenMethodImplementation, e:
-            self.fail(e)
-        except DoesNotImplement, e:
-            self.fail("%r does not provide %s.%s" %
-                (provider, interface.__module__, interface.getName()))
-
+    assertProvides = assertProvides
 
     def test_calendarStoreProvides(self):
         """
@@ -397,12 +399,12 @@ class CommonTests(object):
         home = self.homeUnderTest()
         self.assertNotIdentical(home.calendarWithName(name), None)
 
-        otherTxn = self.storeUnderTest().newTransaction()
-        self.addCleanup(otherTxn.commit)
-        home = otherTxn.calendarHomeWithUID("home1")
-        # Sanity check: are the properties actually persisted?
-        # FIXME: no independent testing of this right now
+        # Sanity check: are the properties actually persisted?  Check in
+        # subsequent transaction.
         checkProperties()
+
+        # FIXME: no independent testing of the property store's persistence
+        # right now
 
 
     def test_createCalendarWithName_exists(self):
@@ -777,6 +779,9 @@ class CommonTests(object):
             self.addCleanup(otherTxn.commit)
             return otherTxn.calendarHomeWithUID(noHomeUID)
         self.assertProvides(ICalendarHome, calendarHome)
+        # Default calendar should be automatically created.
+        self.assertProvides(ICalendar,
+                            calendarHome.calendarWithName("calendar"))
         # A concurrent transaction shouldn't be able to read it yet:
         self.assertIdentical(readOtherTxn(), None)
         self.commit()

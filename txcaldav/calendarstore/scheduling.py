@@ -153,9 +153,9 @@ class ImplicitStore(object):
         self._calendarStore = calendarStore
 
 
-    def newTransaction(self):
+    def newTransaction(self, label="unlabeled"):
         """
         Wrap an underlying L{ITransaction}.
         """
         return ImplicitTransaction(
-                    self._calendarStore.newTransaction())
+                    self._calendarStore.newTransaction(label))
