@@ -335,20 +335,38 @@ class HomeTestCase(TestCase):
         
         def _defer(user):
             # Commit the transaction
-            self.site.resource._associatedTransaction.commit()
-            self.docroot = user._newStoreHome._path.path
+            self.addCleanup(self.noRenderCommit)
+            # FIXME: nothing should use docroot any more.
+            aPath = getattr(user._newStoreHome, "_path", None)
+            if aPath is not None:
+                self.docroot = aPath.path
 
         return self._refreshRoot().addCallback(_defer)
 
 
+    committed = True
+
+    def noRenderCommit(self):
+        """
+        A resource was retrieved but will not be rendered, so commit.
+        """
+        if not self.committed:
+            self.committed = True
+            self.site.resource._associatedTransaction.commit()
+
+
     @inlineCallbacks
-    def _refreshRoot(self):
+    def _refreshRoot(self, request=None):
         """
         Refresh the user resource positioned at the root of this site, to give
         it a new transaction.
         """
+        self.noRenderCommit()
+        if request is None:
+            request = norequest()
         users = self.homeProvisioner.getChild("users")
-        user, ignored = (yield users.locateChild(norequest(), ["wsanchez"]))
+
+        user, ignored = (yield users.locateChild(request, ["wsanchez"]))
 
         # Force the request to succeed regardless of the implementation of
         # accessControlList.
@@ -359,6 +377,7 @@ class HomeTestCase(TestCase):
         # Fix the site to point directly at the user's calendar home so that we
         # can focus on testing just that rather than hierarchy traversal..
         self.site.resource = user
+        self.committed = False
         returnValue(user)
 
 
@@ -368,9 +387,14 @@ class HomeTestCase(TestCase):
         Override C{send} in order to refresh the 'user' resource each time, to
         get a new transaction to associate with the calendar home.
         """
-        yield self._refreshRoot()
+        self.noRenderCommit()
+        yield self._refreshRoot(request)
         result = (yield super(HomeTestCase, self).send(request, callback))
+        self.committed = True
+        yield self._refreshRoot()
         returnValue(result)
+
+
 
 class AddressBookHomeTestCase(TestCase):
     """
