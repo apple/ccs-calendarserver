@@ -56,6 +56,11 @@ class DiagnosticCursorWrapper(object):
         return self.realCursor.rowcount
 
 
+    @property
+    def description(self):
+        return self.realCursor.description
+
+
     def execute(self, sql, args=()):
         self.connectionWrapper.state = 'executing %r' % (sql,)
         self.realCursor.execute(sql, args)
