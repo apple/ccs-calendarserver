@@ -163,3 +163,57 @@ create table RESOURCE_PROPERTY (
 
   primary key(RESOURCE_ID, NAME, VIEWER_UID)
 );
+
+
+----------------------
+-- AddressBook Home --
+----------------------
+
+create table ADDRESSBOOK_HOME (
+  RESOURCE_ID varchar(255) primary key default nextval('RESOURCE_ID_SEQ'),
+  OWNER_UID   varchar(255) not null unique
+);
+
+
+-----------------
+-- AddressBook --
+-----------------
+
+create table ADDRESSBOOK (
+  RESOURCE_ID varchar(255) primary key default nextval('RESOURCE_ID_SEQ'),
+  SYNC_TOKEN  varchar(255)
+);
+
+
+----------------------
+-- AddressBook Bind --
+----------------------
+
+-- Joins ADDRESSBOOK_HOME and ADDRESSBOOK
+
+create table ADDRESSBOOK_BIND (
+  ADDRESSBOOK_HOME_RESOURCE_ID varchar(255) not null references ADDRESSBOOK_HOME,
+  ADDRESSBOOK_RESOURCE_ID      varchar(255) not null references ADDRESSBOOK,
+  ADDRESSBOOK_RESOURCE_NAME    varchar(255) not null,
+  BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
+  BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
+  SEEN_BY_OWNER             bool         not null,
+  SEEN_BY_SHAREE            bool         not null,
+  MESSAGE                   text,                  -- FIXME: xml?
+
+  primary key(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID),
+  unique(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)
+);
+
+
+create table ADDRESSBOOK_OBJECT (
+  RESOURCE_ID          varchar(255) primary key default nextval('RESOURCE_ID_SEQ'),
+  ADDRESSBOOK_RESOURCE_ID varchar(255) not null references ADDRESSBOOK,
+  RESOURCE_NAME        varchar(255) not null,
+  VCARD_TEXT           text         not null,
+  VCARD_UID            varchar(255) not null,
+  VCARD_TYPE           varchar(255) not null,
+
+  unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME),
+  unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)
+);
