@@ -989,11 +989,15 @@ class SharedHomeMixin(LinkFollowerMixIn):
             self.sharesDB().addOrUpdateRecord(share)
         
         # Set per-user displayname to whatever was given
+        sharedCollection = (yield request.locateResource(hostUrl))
+        ownerPrincipal = (yield self.ownerPrincipal(request))
+        sharedCollection.setVirtualShare(ownerPrincipal, oldShare)
         if displayname:
-            sharedCollection = (yield request.locateResource(hostUrl))
-            ownerPrincipal = (yield self.ownerPrincipal(request))
-            sharedCollection.setVirtualShare(ownerPrincipal, oldShare)
             yield sharedCollection.writeProperty(davxml.DisplayName.fromString(displayname), request)
+            
+        # Calendars always start out transparent
+        if sharedCollection.isCalendarCollection():
+            yield sharedCollection.writeProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()), request)
  
         # Return the URL of the shared collection
         returnValue(XMLResponse(
