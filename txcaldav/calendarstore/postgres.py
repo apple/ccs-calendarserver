@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twisted.internet.interfaces import ITransport
 
 """
 PostgreSQL data store.
@@ -42,7 +43,7 @@ from txcaldav.calendarstore.util import (validateCalendarComponent,
 
 
 from txcaldav.icalendarstore import (ICalendarTransaction, ICalendarHome,
-    ICalendar, ICalendarObject)
+    ICalendar, ICalendarObject, IAttachment)
 from txdav.propertystore.base import AbstractPropertyStore, PropertyName
 from txdav.propertystore.none import PropertyStore
 
@@ -246,7 +247,8 @@ class PostgresCalendarObject(object):
 
 
     def createAttachmentWithName(self, name, contentType):
-        pass
+        attachment = PostgresAttachment(self, name)
+        return attachment.store(contentType)
 
 
     def attachments(self):
@@ -282,6 +284,37 @@ class PostgresCalendarObject(object):
 
     def modified(self):
         return None
+
+
+
+class PostgresAttachment(object):
+    
+    implements(IAttachment)
+
+    def __init__(self, calendarObject, name):
+        self._calendarObject = calendarObject
+        self._name = name
+
+
+    def store(self, contentType):
+        return PostgresAttachmentStorageTransport(self, contentType)
+
+
+
+class PostgresAttachmentStorageTransport(object):
+
+    implements(ITransport)
+    
+    def __init__(self, attachment, contentType):
+        self.attachment = attachment
+        self.contentType = contentType
+
+    def write(self, data):
+        pass
+
+    def loseConnection(self):
+        pass
+
 
 
 class PostgresCalendar(object):

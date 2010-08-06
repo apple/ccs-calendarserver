@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txcaldav.calendarstore.util import validateCalendarComponent,\
-    dropboxIDFromCalendarObject
 
 """
 File calendar store.
@@ -35,6 +33,7 @@ from errno import ENOENT
 
 from twisted.internet.interfaces import ITransport
 from twisted.python.failure import Failure
+
 from txdav.propertystore.xattr import PropertyStore
 
 from twext.python.vcomponent import InvalidICalendarDataError
@@ -42,7 +41,6 @@ from twext.python.vcomponent import VComponent
 from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.http_headers import generateContentType
-
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
@@ -53,9 +51,15 @@ from txcaldav.icalendarstore import IAttachment
 from txcaldav.icalendarstore import ICalendar, ICalendarObject
 from txcaldav.icalendarstore import ICalendarHome
 
+from txcaldav.calendarstore.util import (
+    validateCalendarComponent, dropboxIDFromCalendarObject
+)
 
-from txdav.common.datastore.file import (CommonDataStore, 
-    CommonStoreTransaction, CommonHome, CommonHomeChild, CommonObjectResource)
+from txdav.common.datastore.file import (
+    CommonDataStore, CommonStoreTransaction, CommonHome, CommonHomeChild,
+    CommonObjectResource
+)
+
 from txdav.common.icommondatastore import (NoSuchObjectResourceError,
     InternalDataStoreError)
 from txdav.datastore.file import writeOperation, hidden, FileMetaDataMixin
@@ -425,6 +429,7 @@ class AttachmentStorageTransport(object):
         props[contentTypeKey] = GETContentType(generateContentType(self._contentType))
         props[md5key] = TwistedGETContentMD5.fromString(md5)
         props.flush()
+
 
 
 class Attachment(FileMetaDataMixin):
