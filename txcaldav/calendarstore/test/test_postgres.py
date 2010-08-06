@@ -123,12 +123,21 @@ class StoreBuilder(object):
             "%s schema-cleanup" % (testCase.id(),)
         )
         cursor = cleanupConn.cursor()
-        cursor.execute("delete from RESOURCE_PROPERTY")
-        cursor.execute("delete from ATTACHMENT")
-        cursor.execute("delete from CALENDAR_OBJECT")
-        cursor.execute("delete from CALENDAR_BIND")
-        cursor.execute("delete from CALENDAR")
-        cursor.execute("delete from CALENDAR_HOME")
+        tables = ['RESOURCE_PROPERTY',
+                  'ATTACHMENT',
+                  'ADDRESSBOOK_OBJECT',
+                  'CALENDAR_OBJECT',
+                  'CALENDAR_BIND',
+                  'ADDRESSBOOK_BIND',
+                  'CALENDAR',
+                  'ADDRESSBOOK',
+                  'CALENDAR_HOME',
+                  'ADDRESSBOOK_HOME']
+        for table in tables:
+            try:
+                cursor.execute("delete from "+table)
+            except:
+                log.err()
         cleanupConn.commit()
         cleanupConn.close()
 
