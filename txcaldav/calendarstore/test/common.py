@@ -205,7 +205,7 @@ class CommonTests(object):
             return self.lastTransaction
         if self.savedStore is None:
             self.savedStore = self.storeUnderTest()
-        txn = self.lastTransaction = self.savedStore.newTransaction()
+        txn = self.lastTransaction = self.savedStore.newTransaction(self.id())
         return txn
 
 
@@ -775,7 +775,7 @@ class CommonTests(object):
             create=True
         )
         def readOtherTxn():
-            otherTxn = self.savedStore.newTransaction()
+            otherTxn = self.savedStore.newTransaction(self.id() + "other txn")
             self.addCleanup(otherTxn.commit)
             return otherTxn.calendarHomeWithUID(noHomeUID)
         self.assertProvides(ICalendarHome, calendarHome)
