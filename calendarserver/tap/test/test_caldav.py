@@ -1024,3 +1024,22 @@ class DelayedStartupProcessMonitorTests(TestCase):
         self.assertEquals(oneProcessTransport.childFDs,
                           {0: 'w', 1: 'r', 2: 'r',
                            4: 4})
+
+
+
+class TwistdSlaveProcessTests(TestCase):
+    """
+    Tests for L{TwistdSlaveProcess}.
+    """
+    def test_pidfile(self):
+        """
+        The result of L{TwistdSlaveProcess.getCommandLine} includes an option
+        setting the name of the pidfile to something including the instance id.
+        """
+        slave = TwistdSlaveProcess("/path/to/twistd", "something", "config", 7, [])
+        commandLine = slave.getCommandLine()
+
+        option = 'PIDFile=caldav-instance-7.pid'
+        self.assertIn(option, commandLine)
+        self.assertEquals(commandLine[commandLine.index(option) - 1], '-o')
+

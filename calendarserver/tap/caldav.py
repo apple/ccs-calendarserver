@@ -926,6 +926,19 @@ class TwistdSlaveProcess(object):
     running a C{twistd} plugin, to be used by
     L{DelayedStartupProcessMonitor.addProcessObject}.
 
+    @ivar twistd: The path to the twistd executable to launch.
+    @type twistd: C{str}
+
+    @ivar tapname: The name of the twistd plugin to launch.
+    @type tapname: C{str}
+
+    @ivar id: The instance identifier for this slave process.
+    @type id: C{int}
+
+    @ivar interfaces: A sequence of interface addresses which the process will
+        be configured to bind to.
+    @type interfaces: sequence of C{str}
+
     @ivar inheritFDs: File descriptors to be inherited for calling accept() on
         in the subprocess.
     @type inheritFDs: C{list} of C{int}, or C{None}
@@ -1008,7 +1021,7 @@ class TwistdSlaveProcess(object):
             "-f", self.configFile,
             "-o", "ProcessType=Slave",
             "-o", "BindAddresses=%s" % (",".join(self.interfaces),),
-            "-o", "PIDFile=None",
+            "-o", "PIDFile=caldav-instance-%s.pid" % (self.id,),
             "-o", "ErrorLogFile=None",
             "-o", "ErrorLogEnabled=False",
             "-o", "LogID=%s" % (self.id,),
