@@ -168,6 +168,7 @@ class PostgresService(MultiService):
         MultiService.__init__(self)
         self.subServiceFactory = subServiceFactory
         self.dataStoreDirectory = dataStoreDirectory
+        self.socketDir = self.dataStoreDirectory.child("socket")
         self.databaseName = databaseName
         self.schema = schema
         self.monitor = None
@@ -286,7 +287,6 @@ class PostgresService(MultiService):
     def startService(self):
         MultiService.startService(self)
         clusterDir = self.dataStoreDirectory.child("cluster")
-        self.socketDir = self.dataStoreDirectory.child("socket")
         workingDir = self.dataStoreDirectory.child("working")
         env = self.env = os.environ.copy()
         env.update(PGDATA=clusterDir.path,

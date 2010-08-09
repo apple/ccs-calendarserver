@@ -253,7 +253,8 @@ class PostgresCalendarObject(object):
             "where RESOURCE_ID = %s", [calendarText, self._resourceID]
         )
         self._calendarText = calendarText
-        self._calendar._home._txn.postCommit(self._calendar._notifier.notify)
+        if self._calendar._notifier:
+            self._calendar._home._txn.postCommit(self._calendar._notifier.notify)
 
 
     def _attachmentPath(self, name):
@@ -722,7 +723,8 @@ class PostgresCalendar(object):
             [self._resourceID, name, componentText, component.resourceUID(),
             component.resourceType(), _ATTACHMENTS_MODE_WRITE]
         )
-        self._home._txn.postCommit(self._notifier.notify)
+        if self._notifier:
+            self._home._txn.postCommit(self._notifier.notify)
 
 
     def removeCalendarObjectWithName(self, name):
@@ -734,7 +736,8 @@ class PostgresCalendar(object):
         if self._txn._cursor.rowcount == 0:
             raise NoSuchObjectResourceError()
         self._objects.pop(name, None)
-        self._txn.postCommit(self._notifier.notify)
+        if self._notifier:
+            self._txn.postCommit(self._notifier.notify)
 
 
     def removeCalendarObjectWithUID(self, uid):
@@ -752,7 +755,8 @@ class PostgresCalendar(object):
             [uid, self._resourceID]
         )
         self._objects.pop(name, None)
-        self._home._txn.postCommit(self._notifier.notify)
+        if self._notifier:
+            self._home._txn.postCommit(self._notifier.notify)
 
 
     def syncToken(self):
@@ -883,8 +887,11 @@ class PostgresCalendarHome(object):
         if not data:
             return None
         resourceID = data[0][0]
-        childID = "%s/%s" % (self.uid(), name)
-        notifier = self._notifier.clone(label="collection", id=childID)
+        if self._notifier:
+            childID = "%s/%s" % (self.uid(), name)
+            notifier = self._notifier.clone(label="collection", id=childID)
+        else:
+            notifier = None
         return PostgresCalendar(self, name, resourceID, notifier)
 
 
@@ -928,7 +935,8 @@ class PostgresCalendarHome(object):
         calendarType = ResourceType.calendar #@UndefinedVariable
         self.calendarWithName(name).properties()[
             PropertyName.fromElement(ResourceType)] = calendarType
-        self._txn.postCommit(self._notifier.notify)
+        if self._notifier:
+            self._txn.postCommit(self._notifier.notify)
 
 
     def removeCalendarWithName(self, name):
@@ -942,7 +950,8 @@ class PostgresCalendarHome(object):
             raise NoSuchHomeChildError()
         # FIXME: the schema should probably cascade the calendar delete when
         # the last bind is deleted.
-        self._txn.postCommit(self._notifier.notify)
+        if self._notifier:
+            self._txn.postCommit(self._notifier.notify)
 
 
     def properties(self):
@@ -1037,7 +1046,12 @@ class PostgresCalendarTransaction(object):
             home.createCalendarWithName("calendar")
             return home
         resid = data[0][0]
-        notifier = self._notifierFactory.newNotifier(id=uid)
+
+        if self._notifierFactory:
+            notifier = self._notifierFactory.newNotifier(id=uid)
+        else:
+            notifier = None
+
         return PostgresCalendarHome(self, uid, resid, notifier)
 
 

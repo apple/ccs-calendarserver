@@ -2262,7 +2262,7 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
 
     def createNotificationsCollection(self):
         
-        txn = self._newStoreHome._transaction
+        txn = self._associatedTransaction
         notifications = txn.notificationsWithUID(self._newStoreHome.uid())
 
         from twistedcaldav.storebridge import StoreNotificationCollectionResource

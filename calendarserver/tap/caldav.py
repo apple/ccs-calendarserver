@@ -88,6 +88,10 @@ from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource, computeProcessCount
 from calendarserver.tools.util import checkDirectory
 
+from txcaldav.calendarstore.postgres import PostgresStore, v1_schema
+from txdav.datastore.subpostgres import PostgresService
+from twext.python.filepath import CachingFilePath
+
 log = Logger()
 
 
@@ -698,6 +702,22 @@ class CalDAVServiceMaker (LoggingMixIn):
             )
         loggingService.setName("logging")
         loggingService.setServiceParent(s)
+
+
+        #
+        # Postgres
+        #
+        dbRoot = CachingFilePath(config.DatabaseRoot)
+
+        def subServiceFactory(connectionFactory):
+            return PostgresStore(
+                connectionFactory("FIXME: What label to use here?"),
+                None, # No notifier for master
+                dbRoot.child("attachments")
+            )
+
+        PostgresService(dbRoot, subServiceFactory, v1_schema,
+            "caldav").setServiceParent(s)
 
         monitor = DelayedStartupProcessMonitor()
         monitor.setServiceParent(s)
