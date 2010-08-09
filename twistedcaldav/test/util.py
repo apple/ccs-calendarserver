@@ -382,7 +382,7 @@ class HomeTestCase(TestCase):
 
 
     @inlineCallbacks
-    def send(self, request, callback):
+    def send(self, request, callback=None):
         """
         Override C{send} in order to refresh the 'user' resource each time, to
         get a new transaction to associate with the calendar home.
@@ -452,7 +452,7 @@ class AddressBookHomeTestCase(TestCase):
 
 
     @inlineCallbacks
-    def send(self, request, callback):
+    def send(self, request, callback=None):
         """
         Override C{send} in order to refresh the 'user' resource each time, to
         get a new transaction to associate with the calendar home.
