@@ -499,7 +499,6 @@ class PostgresLegacyInvitesEmulator(object):
 
 
 
-
 class PostgresLegacySharesEmulator(object):
 
     def __init__(self, home):
@@ -580,6 +579,32 @@ class PostgresLegacyIndexEmulator(object):
 
     def __init__(self, calendar):
         self.calendar = calendar
+
+
+    def reserveUID(self, uid):
+        pass
+
+
+    def isAllowedUID(self, uid, *names):
+        """
+        @see: L{twistedcaldav.index.Index.isAllowedUID}
+        """
+        return True
+
+
+    def resourceNameForUID(self, uid):
+        obj = self.calendar.calendarObjectWithUID(uid)
+        if obj is None:
+            return None
+        return obj.name()
+
+
+    def unreserveUID(self, uid):
+        pass
+
+
+    def indexedSearch(self, filter, userid='', fbtype=False):
+        return []
 
 
 class PostgresCalendar(object):
@@ -811,12 +836,14 @@ class PostgresCalendarHome(object):
         return self.uid()
 
 
-    def calendars(self):
+    def listChildren(self):
         """
-        Retrieve calendars contained in this calendar home.
+        Retrieve the names of the children in this calendar home.
 
-        @return: an iterable of L{ICalendar}s.
+        @return: an iterable of C{str}s.
         """
+        # FIXME: not specified on the interface or exercised by the tests, but
+        # required by clients of the implementation!
         rows = self._txn.execSQL(
             "select CALENDAR_RESOURCE_NAME from CALENDAR_BIND where "
             "CALENDAR_HOME_RESOURCE_ID = %s "
@@ -824,6 +851,16 @@ class PostgresCalendarHome(object):
             [self._resourceID, _BIND_STATUS_DECLINED]
         )
         names = [row[0] for row in rows]
+        return names
+
+
+    def calendars(self):
+        """
+        Retrieve calendars contained in this calendar home.
+
+        @return: an iterable of L{ICalendar}s.
+        """
+        names = self.listChildren()
         for name in names:
             yield self.calendarWithName(name)
 
@@ -912,7 +949,7 @@ class PostgresCalendarHome(object):
         return PropertyStore(
             self.uid(),
             self.uid(),
-            self._txn._cursor,
+            self._txn,
             self._resourceID
         )
 
