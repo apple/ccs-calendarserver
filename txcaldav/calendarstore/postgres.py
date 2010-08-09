@@ -152,8 +152,8 @@ class PropertyStore(AbstractPropertyStore):
     def _getitem_uid(self, key, uid):
         rows = self._txn.execSQL(
             "select VALUE from RESOURCE_PROPERTY where "
-            "NAME = %s and VIEWER_UID = %s",
-            [key.toString(), uid])
+            "RESOURCE_ID = %s and NAME = %s and VIEWER_UID = %s",
+            [self._resourceID, key.toString(), uid])
         if not rows:
             raise KeyError(key)
         return WebDAVDocument.fromString(rows[0][0]).root_element
@@ -463,6 +463,10 @@ class PostgresLegacyInvitesEmulator(object):
         return
 
 
+    def remove(self):
+        return
+
+
     def allRecords(self):
         return []
 
@@ -480,11 +484,6 @@ class PostgresLegacyInvitesEmulator(object):
 
     def addOrUpdateRecord(self, record):
         return
-
-#        self._db_execute("""insert or replace into INVITE (INVITEUID, USERID, PRINCIPALURL, NAME, ACCESS, STATE, SUMMARY)
-#            values (:1, :2, :3, :4, :5, :6, :7)
-#            """, record.inviteuid, record.userid, record.principalURL, record.name, record.access, record.state, record.summary,
-#        )
 
 
     def removeRecordForUserID(self, userid):
@@ -573,6 +572,16 @@ class PostgresLegacySharesEmulator(object):
 #        )
 
 
+class PostgresLegacyIndexEmulator(object):
+    """
+    Emulator for L{twistedcaldv.index.Index} and
+    L{twistedcaldv.index.IndexSchedule}.
+    """
+
+    def __init__(self, calendar):
+        self.calendar = calendar
+
+
 class PostgresCalendar(object):
 
     implements(ICalendar)
@@ -592,6 +601,9 @@ class PostgresCalendar(object):
 
     def retrieveOldInvites(self):
         return PostgresLegacyInvitesEmulator(self)
+
+    def retrieveOldIndex(self):
+        return PostgresLegacyIndexEmulator(self)
 
 
     def notifierID(self, label="default"):
