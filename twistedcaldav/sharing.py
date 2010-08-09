@@ -936,8 +936,8 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
 
 class SharedHomeMixin(LinkFollowerMixIn):
     """
-    A mix-in for calendar/addressbook homes that defines the operations for manipulating a sharee's
-    set of shared calendars.
+    A mix-in for calendar/addressbook homes that defines the operations for
+    manipulating a sharee's set of shared calendars.
     """
     
     def sharesDB(self):
@@ -1050,7 +1050,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
     @inlineCallbacks
     def _changeShare(self, request, state, hostUrl, replytoUID, displayname=None):
-        """ Accept an invite to a shared collection """
+        """
+        Accept or decline an invite to a shared collection.
+        """
         
         # Change state in sharer invite
         owner = (yield self.ownerPrincipal(request))
@@ -1071,7 +1073,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
     @inlineCallbacks
     def sendReply(self, request, sharee, sharedCollection, state, hostUrl, replytoUID, displayname=None):
-        
 
         # Locate notifications collection for sharer
         sharer = (yield sharedCollection.ownerPrincipal(request))
