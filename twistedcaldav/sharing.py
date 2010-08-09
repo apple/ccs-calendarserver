@@ -811,15 +811,14 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         self._db()
 
 
-    @property
-    def dbpath(self):
+    def get_dbpath(self):
         return self.resource.fp.child(InvitesDatabase.db_basename).path
 
 
-    @dbpath.setter
-    def dbpath(self, newpath):
+    def set_dbpath(self, newpath):
         pass
 
+    dbpath = property(get_dbpath, set_dbpath)
 
     def allRecords(self):
         
@@ -1185,14 +1184,15 @@ class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
         super(SharedCollectionsDatabase, self).__init__(db_filename, True, autocommit=True)
 
 
-    @property
-    def dbpath(self):
+    def get_dbpath(self):
         return self.resource.fp.child(SharedCollectionsDatabase.db_basename).path
 
 
-    @dbpath.setter
-    def dbpath(self, newpath):
+    def set_dbpath(self, newpath):
         pass
+
+
+    dbpath = property(get_dbpath, set_dbpath)
 
 
     def create(self):
