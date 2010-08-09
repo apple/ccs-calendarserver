@@ -593,6 +593,13 @@ class PostgresLegacyIndexEmulator(object):
         return True
 
 
+    def resourceUIDForName(self, name):
+        obj = self.calendar.calendarObjectWithName(name)
+        if obj is None:
+            return None
+        return obj.uid()
+
+
     def resourceNameForUID(self, uid):
         obj = self.calendar.calendarObjectWithUID(uid)
         if obj is None:
@@ -604,8 +611,9 @@ class PostgresLegacyIndexEmulator(object):
         pass
 
 
-    def indexedSearch(self, filter, userid='', fbtype=False):
+    def indexedSearch(self, filter, useruid='', fbtype=False):
         return []
+
 
 
 class PostgresCalendar(object):
@@ -658,14 +666,18 @@ class PostgresCalendar(object):
         return self._home
 
 
-    def calendarObjects(self):
+    def listCalendarObjects(self):
+        # FIXME: see listChildren
         rows = self._txn.execSQL(
             "select RESOURCE_NAME from "
             "CALENDAR_OBJECT where "
             "CALENDAR_RESOURCE_ID = %s",
             [self._resourceID])
-        for row in rows:
-            name = row[0]
+        return [row[0] for row in rows]
+
+
+    def calendarObjects(self):
+        for name in self.listCalendarObjects():
             yield self.calendarObjectWithName(name)
 
 
@@ -992,6 +1004,57 @@ class PostgresCalendarHome(object):
 
 
 
+class PostgresNotificationsCollection(object):
+
+
+    def __init__(self, txn, uid):
+        self._txn = txn
+        self._uid = uid
+        self._resourceID = 'notifications for %s' % (uid,)
+
+
+    def name(self):
+        return 'notification'
+
+
+    def notificationObjects(self):
+        return []
+
+
+    def notificationObjectWithName(self, name):
+        return None
+
+    def notificationObjectWithUID(self, uid):
+        return None
+
+
+    def writeNotificationObject(self, uid, xmltype, xmldata):
+        return None
+
+
+    def removeNotificationObjectWithName(self, name):
+        return
+
+
+    def removeNotificationObjectWithUID(self, uid):
+        return
+
+
+    def syncToken(self):
+        return 'dummy-sync-token'
+
+    def notificationObjectsSinceToken(self, token):
+        changed = []
+        removed = []
+        token = self.syncToken()
+        return (changed, removed, token)
+
+
+    def properties(self):
+        return PropertyStore(self._uid, self._uid, self._txn, self._resourceID)
+
+
+
 class PostgresCalendarTransaction(object):
     """
     Transaction implementation for postgres database.
@@ -1059,7 +1122,7 @@ class PostgresCalendarTransaction(object):
         """
         Implement notificationsWithUID.
         """
-        raise NotImplementedError("no notifications collection yet")
+        return PostgresNotificationsCollection(self, uid)
 
 
     def abort(self):
