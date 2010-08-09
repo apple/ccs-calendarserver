@@ -37,6 +37,37 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from txcaldav.calendarstore.test.test_postgres import buildStore
 from txcaldav.calendarstore.test.common import StubNotifierFactory
 
+
+@inlineCallbacks
+def addEventsDir(testCase, eventsDir, uri):
+    """
+    Add events to a L{HomeTestCase} from a directory.
+
+    @param testCase: The test case to add events to.
+    @type testCase: L{HomeTestCase}
+
+    @param eventsDir: A directory full of events.
+    @type eventsDir: L{FilePath}
+
+    @param uri: The URI-path of the calendar to insert events into.
+    @type uri: C{str}
+
+    @return: a L{Deferred} which fires with the number of added calendar object
+        resources.
+    """
+    count = 0
+    for child in eventsDir.children():
+        count += 1
+        if child.basename().split(".")[-1] != "ics":
+            continue
+        request = SimpleRequest(testCase.site, "PUT",
+                                uri + "/" + child.basename())
+        request.stream = MemoryStream(child.getContent())
+        yield testCase.send(request)
+    returnValue(count)
+
+
+
 class CalendarQuery (HomeTestCase):
     """
     calendar-query REPORT
@@ -293,6 +324,7 @@ class CalendarQuery (HomeTestCase):
 
         return self.calendar_query(cal_uri, query, got_xml)
 
+
     @inlineCallbacks
     def calendar_query(self, calendar_uri, query, got_xml):
 
@@ -303,13 +335,7 @@ class CalendarQuery (HomeTestCase):
             self.fail("MKCALENDAR failed: %s" % (response.code,))
 
         # Add holiday events to calendar
-        for child in FilePath(self.holidays_dir).children():
-            if child.basename().split(".")[-1] != "ics":
-                continue
-            request = SimpleRequest(self.site, "PUT", calendar_uri + "/" +
-                                    child.basename())
-            request.stream = MemoryStream(child.getContent())
-            response = yield self.send(request)
+        yield addEventsDir(self, FilePath(self.holidays_dir), calendar_uri)
 
         request = SimpleRequest(self.site, "REPORT", calendar_uri)
         request.stream = MemoryStream(query.toxml())
