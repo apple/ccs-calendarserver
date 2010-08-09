@@ -149,6 +149,8 @@ DEFAULT_CONFIG = {
     "UseMetaFD": True,         # Use a 'meta' FD, i.e. an FD to transmit other
                                # FDs to slave processes.
 
+    "UseDatabase" : True,      # True: postgress; False: files
+
     #
     # Types of service provided
     #

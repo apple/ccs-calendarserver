@@ -703,25 +703,22 @@ class CalDAVServiceMaker (LoggingMixIn):
         loggingService.setName("logging")
         loggingService.setServiceParent(s)
 
-
-        #
-        # Postgres
-        #
-        dbRoot = CachingFilePath(config.DatabaseRoot)
-
-        def subServiceFactory(connectionFactory):
-            return PostgresStore(
-                connectionFactory("FIXME: What label to use here?"),
-                None, # No notifier for master
-                dbRoot.child("attachments")
-            )
-
-        PostgresService(dbRoot, subServiceFactory, v1_schema,
-            "caldav").setServiceParent(s)
-
         monitor = DelayedStartupProcessMonitor()
-        monitor.setServiceParent(s)
         s.processMonitor = monitor
+
+        if config.UseDatabase:
+            # Postgres: delay spawning child processes until database is up
+
+            dbRoot = CachingFilePath(config.DatabaseRoot)
+
+            def subServiceFactory(connectionFactory):
+                return monitor
+
+            PostgresService(dbRoot, subServiceFactory, v1_schema,
+                "caldav").setServiceParent(s)
+
+        else:
+            monitor.setServiceParent(s)
 
         parentEnv = {
             "PATH": os.environ.get("PATH", ""),
