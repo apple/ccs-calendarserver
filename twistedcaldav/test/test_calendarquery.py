@@ -34,6 +34,8 @@ from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase
 from twisted.internet.defer import inlineCallbacks, returnValue
+from txcaldav.calendarstore.test.test_postgres import buildStore
+from txcaldav.calendarstore.test.common import StubNotifierFactory
 
 class CalendarQuery (HomeTestCase):
     """
@@ -321,5 +323,17 @@ class CalendarQuery (HomeTestCase):
         returnValue(
             (yield davXMLFromStream(response.stream).addCallback(got_xml))
         )
+
+
+class DatabaseQueryTests(CalendarQuery):
+
+    @inlineCallbacks
+    def setUp(self):
+        self.calendarStore = yield buildStore(self, StubNotifierFactory())
+        yield super(DatabaseQueryTests, self).setUp()
+
+
+    def createDataStore(self):
+        return self.calendarStore
 
 
