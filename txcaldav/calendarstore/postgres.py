@@ -1,4 +1,4 @@
-# -*- test-case-name: txcaldav.calendarstore.test.test_postgres.SQLStorageTests -*- # FIXME: verify
+# -*- test-case-name: txcaldav.calendarstore.test.test_postgres -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -65,21 +65,25 @@ from twext.web2.dav.element.parser import WebDAVDocument
 
 from twext.python.vcomponent import VComponent
 from twistedcaldav.vcard import Component as VCard
+from twistedcaldav.sharing import Invite
 
 
 v1_schema = getModule(__name__).filePath.sibling(
     "postgres_schema_v1.sql").getContent()
 
 
-# these are in the schema, and should probably be discovered from there
-# somehow.
+# FIXME: these constants are in the schema, and should probably be discovered
+# from there somehow.
 
+_BIND_STATUS_INVITED = 0
 _BIND_STATUS_ACCEPTED = 1
 _BIND_STATUS_DECLINED = 2
 
 _ATTACHMENTS_MODE_WRITE = 1
 
 _BIND_MODE_OWN = 0
+_BIND_MODE_READ = 1
+_BIND_MODE_WRITE = 2
 
 
 
@@ -338,8 +342,11 @@ class PostgresCalendarObject(object):
         return None
 
 
+
 def _pathToName(path):
     return path.rsplit(".", 1)[0].split("-", 3)[-1]
+
+
 
 class PostgresAttachment(object):
 
@@ -455,6 +462,10 @@ class PostgresAttachmentStorageTransport(object):
 
 
 class PostgresLegacyInvitesEmulator(object):
+    """
+    Emulator for the implicit interface specified by
+    L{twistedcaldav.sharing.InvitesDatabase}.
+    """
 
 
     def __init__(self, calendar):
@@ -467,42 +478,148 @@ class PostgresLegacyInvitesEmulator(object):
 
 
     def create(self):
-        return
+        "No-op, because the index implicitly always exists in the database."
 
 
     def remove(self):
-        return
+        "No-op, because the index implicitly always exists in the database."
 
 
     def allRecords(self):
-        return []
+        for row in self._txn.execSQL(
+                """
+                select
+                    INVITE.INVITE_UID, INVITE.NAME, INVITE.SENDER_ADDRESS,
+                    CALENDAR_HOME.OWNER_UID, CALENDAR_BIND.BIND_MODE,
+                    CALENDAR_BIND.BIND_STATUS, CALENDAR_BIND.MESSAGE
+                from
+                    INVITE, CALENDAR_HOME, CALENDAR_BIND
+                where
+                    INVITE.RESOURCE_ID = %s and
+                    INVITE.HOME_RESOURCE_ID = 
+                        CALENDAR_HOME.RESOURCE_ID and
+                    CALENDAR_BIND.CALENDAR_RESOURCE_ID =
+                        INVITE.RESOURCE_ID and
+                    CALENDAR_BIND.CALENDAR_HOME_RESOURCE_ID =
+                        INVITE.HOME_RESOURCE_ID
+                order by
+                    INVITE.NAME asc
+                """, [self._calendar._resourceID]):
+            [inviteuid, common_name, userid, ownerUID,
+                bindMode, bindStatus, summary] = row
+            # FIXME: this is really the responsibility of the protocol layer.
+            state = {
+                _BIND_STATUS_INVITED: "NEEDS-ACTION",
+                _BIND_STATUS_ACCEPTED: "ACCEPTED",
+                _BIND_STATUS_DECLINED: "DECLINED"
+            }[bindStatus]
+            access = {
+                _BIND_MODE_READ: "read-only",
+                _BIND_MODE_WRITE: "read-write"
+            }[bindMode]
+            principalURL = "/principals/__uids__/" + ownerUID
+            yield Invite(
+                inviteuid, userid, principalURL, common_name,
+                access, state, summary
+            )
 
 
     def recordForUserID(self, userid):
-        return
+        raise NotImplementedError("recordForUserID")
 
 
     def recordForPrincipalURL(self, principalURL):
-        return None
+        for record in self.allRecords():
+            if record.principalURL == principalURL:
+                return record
 
 
     def recordForInviteUID(self, inviteUID):
-        return None
+        raise NotImplementedError("recordForInviteUID")
+
 
     def addOrUpdateRecord(self, record):
-        return
+        bindMode = {'read-only': _BIND_MODE_READ,
+                    'read-write': _BIND_MODE_WRITE}[record.access]
+        bindStatus = {
+            "NEEDS-ACTION": _BIND_STATUS_INVITED,
+            "ACCEPTED": _BIND_STATUS_ACCEPTED,
+            "DECLINED": _BIND_STATUS_DECLINED,
+        }[record.state]
+        # principalURL is derived from a directory record's principalURL() so
+        # it will always contain the UID.
+        principalUID = record.principalURL.split("/")[-1]
+        shareeHome = self._txn.calendarHomeWithUID(principalUID, create=True)
+        rows = self._txn.execSQL(
+            "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where INVITE_UID = %s",
+            [record.inviteuid]
+        )
+        if rows:
+            [[resourceID, homeResourceID]] = rows
+            # Invite(inviteuid, userid, principalURL, common_name, access, state, summary)
+            self._txn.execSQL("""
+                update CALENDAR_BIND set BIND_MODE = %s,
+                BIND_STATUS = %s, MESSAGE = %s
+                where
+                    CALENDAR_RESOURCE_ID = %s and
+                    CALENDAR_HOME_RESOURCE_ID = %s
+            """, [bindMode, bindStatus, record.summary,
+                resourceID, homeResourceID])
+            self._txn.execSQL("""
+                update INVITE set NAME = %s, SENDER_ADDRESS = %s
+                where INVITE_UID = %s
+                """,
+                [record.name, record.userid, record.inviteuid]
+            )
+        else:
+            self._txn.execSQL(
+                """
+                insert into CALENDAR_BIND
+                (
+                    CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID, 
+                    CALENDAR_RESOURCE_NAME, BIND_MODE, BIND_STATUS,
+                    SEEN_BY_OWNER, SEEN_BY_SHAREE, MESSAGE
+                )
+                values (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                [
+                    shareeHome._resourceID,
+                    self._calendar._resourceID,
+                    None, # this is NULL because it is not bound yet, let's be
+                          # explicit about that.
+                    bindMode,
+                    bindStatus,
+                    False,
+                    False,
+                    record.summary
+                ])
+            self._txn.execSQL(
+                """
+                insert into INVITE (
+                    INVITE_UID, NAME,
+                    HOME_RESOURCE_ID, RESOURCE_ID,
+                    SENDER_ADDRESS
+                )
+                values (%s, %s, %s, %s, %s)
+                """,
+                [
+                    record.inviteuid, record.name,
+                    shareeHome._resourceID, self._calendar._resourceID,
+                    record.userid
+                ])
 
 
     def removeRecordForUserID(self, userid):
-        return
+        raise NotImplementedError("removeRecordForUserID")
 
 
     def removeRecordForPrincipalURL(self, principalURL):
-        return
+        raise NotImplementedError("removeRecordForPrincipalURL")
 
 
     def removeRecordForInviteUID(self, inviteUID):
-        return
+        self._txn.execSQL("delete from INVITE where INVITE_UID = %s",
+                          [inviteUID])
 
 
 
@@ -553,7 +670,7 @@ class PostgresLegacySharesEmulator(object):
 
 
     def addOrUpdateRecord(self, record):
-        pass
+        print record
 
 #        self._db_execute("""insert or replace into SHARES (SHAREUID, SHARETYPE, HOSTURL, LOCALNAME, SUMMARY)
 #            values (:1, :2, :3, :4, :5)
@@ -619,6 +736,29 @@ class PostgresLegacyIndexEmulator(object):
 
     def indexedSearch(self, filter, useruid='', fbtype=False):
         return []
+
+
+    def bruteForceSearch(self):
+        return self._txn.execSQL(
+            "select RESOURCE_NAME, ICALENDAR_UID, ICALENDAR_TYPE from "
+            "CALENDAR_OBJECT where CALENDAR_RESOURCE_ID = %s",
+            [self.calendar._resourceID]
+        )
+
+
+    def resourcesExist(self, names):
+        return list(set(names).intersection(
+            set(self.calendar.listCalendarObjects())))
+
+
+    def resourceExists(self, name):
+        return bool(
+            self._txn.execSQL(
+                "select RESOURCE_NAME from CALENDAR_OBJECT where "
+                "RESOURCE_NAME = %s and CALENDAR_RESOURCE_ID = %s",
+                [name, self.calendar._resourceID]
+            )
+        )
 
 
 
@@ -1330,7 +1470,7 @@ class PostgresAddressBook(object):
         return self._home
 
 
-    def listAddressBookObjects(self):
+    def listAddressbookObjects(self):
         # FIXME: see listChildren
         rows = self._txn.execSQL(
             "select RESOURCE_NAME from "
@@ -1341,7 +1481,7 @@ class PostgresAddressBook(object):
 
 
     def addressbookObjects(self):
-        for name in self.listAddressBookObjects():
+        for name in self.listAddressbookObjects():
             yield self.addressbookObjectWithName(name)
 
 

@@ -124,7 +124,8 @@ class StoreBuilder(object):
             "%s schema-cleanup" % (testCase.id(),)
         )
         cursor = cleanupConn.cursor()
-        tables = ['RESOURCE_PROPERTY',
+        tables = ['INVITE',
+                  'RESOURCE_PROPERTY',
                   'ATTACHMENT',
                   'ADDRESSBOOK_OBJECT',
                   'CALENDAR_OBJECT',

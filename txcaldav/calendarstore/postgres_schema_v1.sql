@@ -25,6 +25,19 @@ create table CALENDAR (
 );
 
 
+------------------------
+-- Sharing Invitation --
+------------------------
+
+create table INVITE (
+    INVITE_UID                  varchar(255) not null,
+    NAME                        varchar(255) not null,
+    SENDER_ADDRESS              varchar(255) not null,
+    HOME_RESOURCE_ID   varchar(255) not null,
+    RESOURCE_ID        varchar(255) not null
+);
+
+
 -------------------
 -- Calendar Bind --
 -------------------
@@ -34,12 +47,16 @@ create table CALENDAR (
 create table CALENDAR_BIND (
   CALENDAR_HOME_RESOURCE_ID varchar(255) not null references CALENDAR_HOME,
   CALENDAR_RESOURCE_ID      varchar(255) not null references CALENDAR,
-  CALENDAR_RESOURCE_NAME    varchar(255) not null,
+  
+  -- An invitation which hasn't been accepted yet will not yet have a resource
+  -- name, so this field may be null.
+  
+  CALENDAR_RESOURCE_NAME    varchar(255),
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
   SEEN_BY_OWNER             bool         not null,
   SEEN_BY_SHAREE            bool         not null,
-  MESSAGE                   text,                  -- FIXME: xml?
+  MESSAGE                   text,
 
   primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID),
   unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME)
@@ -83,8 +100,13 @@ create table CALENDAR_OBJECT (
   ORGANIZER            varchar(255),
   ORGANIZER_OBJECT     varchar(255) references CALENDAR_OBJECT,
 
-  unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME),
-  unique(CALENDAR_RESOURCE_ID, ICALENDAR_UID)
+  unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME)
+
+  -- since the 'inbox' is a 'calendar resource' for the purpose of storing
+  -- calendar objects, this constraint has to be selectively enforced by the
+  -- application layer.
+
+  -- unique(CALENDAR_RESOURCE_ID, ICALENDAR_UID)
 );
 
 -- Enumeration of attachment modes
