@@ -215,28 +215,17 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
                 home = populateTxn.addressbookHomeWithUID(homeUID, True)
                 # We don't want the default addressbook to appear unless it's
                 # explicitly listed.
-
-                # FIXME: why does this addressbook sometimes not exist?
-                try:
-                    home.removeAddressBookWithName("addressbook")
-                except NoSuchHomeChildError:
-                    pass
-
+                home.removeAddressBookWithName("addressbook")
                 for addressbookName in addressbooks:
                     addressbookObjNames = addressbooks[addressbookName]
                     if addressbookObjNames is not None:
-
-                        # FIXME: how can an addressbook already exist?
-                        try:
-                            home.createAddressBookWithName(addressbookName)
-                            addressbook = home.addressbookWithName(addressbookName)
-                            for objectName in addressbookObjNames:
-                                objData = addressbookObjNames[objectName]
-                                addressbook.createAddressBookObjectWithName(
-                                    objectName, VCard.fromString(objData)
-                                )
-                        except HomeChildNameAlreadyExistsError:
-                            pass
+                        home.createAddressBookWithName(addressbookName)
+                        addressbook = home.addressbookWithName(addressbookName)
+                        for objectName in addressbookObjNames:
+                            objData = addressbookObjNames[objectName]
+                            addressbook.createAddressBookObjectWithName(
+                                objectName, VCard.fromString(objData)
+                            )
 
         populateTxn.commit()
         self.notifierFactory.reset()

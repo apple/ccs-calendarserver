@@ -434,9 +434,10 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertEquals(
-            self.notifierFactory.history,
-            [("update", "home1"), ("update", "home1"), ("update", "home1")]
+        self.assertTrue(
+            self.notifierFactory.compare(
+                [("update", "home1"), ("update", "home1"), ("update", "home1")]
+            )
         )
 
 
@@ -536,16 +537,17 @@ class CommonTests(object):
 
         # Make sure notifications are fired after commit
         self.commit()
-        self.assertEquals(
-            self.notifierFactory.history,
-            [
-                ("update", "home1"),
-                ("update", "home1/calendar_1"),
-                ("update", "home1"),
-                ("update", "home1/calendar_1"),
-                ("update", "home1"),
-                ("update", "home1/calendar_1"),
-            ]
+        self.assertTrue(
+            self.notifierFactory.compare(
+                [
+                    ("update", "home1"),
+                    ("update", "home1/calendar_1"),
+                    ("update", "home1"),
+                    ("update", "home1/calendar_1"),
+                    ("update", "home1"),
+                    ("update", "home1/calendar_1"),
+                ]
+            )
         )
 
     def test_removeCalendarObjectWithName_exists(self):
@@ -697,12 +699,13 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notifications fire after commit
-        self.assertEquals(
-            self.notifierFactory.history,
-            [
-                ("update", "home1"),
-                ("update", "home1/calendar_1"),
-            ]
+        self.assertTrue(
+            self.notifierFactory.compare(
+                [
+                    ("update", "home1"),
+                    ("update", "home1/calendar_1"),
+                ]
+            )
         )
 
 
@@ -808,12 +811,13 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertEquals(
-            self.notifierFactory.history,
-            [
-                ("update", "home1"),
-                ("update", "home1/calendar_1"),
-            ]
+        self.assertTrue(
+            self.notifierFactory.compare(
+                [
+                    ("update", "home1"),
+                    ("update", "home1/calendar_1"),
+                ]
+            )
         )
 
 
@@ -1099,8 +1103,11 @@ class StubNotifierFactory(object):
         return Notifier(self, label=label, id=id)
 
     def send(self, op, id):
-        self.history.append((op, id))
+        self._history.append((op, id))
 
     def reset(self):
-        self.history = []
+        self._history = []
+
+    def compare(self, expected):
+        return self._history == expected
 
