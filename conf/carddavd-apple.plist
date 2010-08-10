@@ -555,7 +555,7 @@
           <integer>30</integer>
      	  <!-- approx. maximum number of records returned from a directory service query -->
           <key>maxDSQueryRecords</key>
-          <integer>150</integer> <!-- use 0 to have server calculate the maximum based on MaxAddressBookQueryResults, MaxAddressBookMultigetHrefs keys -->
+          <integer>0</integer> <!-- use 0 to have server calculate the maximum based on MaxAddressBookQueryResults, MaxAddressBookMultigetHrefs keys -->
      	  <!-- ignore system records like "root" when creating vCards -->
           <key>ignoreSystemRecords</key>
           <true/>
