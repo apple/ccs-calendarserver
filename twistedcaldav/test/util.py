@@ -389,9 +389,11 @@ class HomeTestCase(TestCase):
         """
         self.noRenderCommit()
         yield self._refreshRoot(request)
-        result = (yield super(HomeTestCase, self).send(request, callback))
+        result = (yield super(HomeTestCase, self).send(request))
         self.committed = True
         yield self._refreshRoot()
+        if callback is not None:
+            result = yield callback(result)
         returnValue(result)
 
 
