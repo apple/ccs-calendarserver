@@ -48,6 +48,7 @@ from txcaldav.calendarstore.test.test_postgres import buildStore
 from txcaldav.calendarstore.test.common import StubNotifierFactory, \
     assertProvides
 from txcaldav.icalendarstore import ICalendarHome
+from txcarddav.iaddressbookstore import IAddressBookHome
 
 
 
@@ -347,7 +348,7 @@ class WrappingTests(TestCase):
         Creating a AddressBookHomeProvisioningFile will create a paired
         AddressBookStore.
         """
-        self.assertIsInstance(self.addressbookCollection._newStore, AddressBookStore)
+        assertProvides(self, IDataStore, self.addressbookCollection._newStore)
 
 
     @inlineCallbacks
@@ -359,7 +360,7 @@ class WrappingTests(TestCase):
         """
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/")
         self.commit()
-        self.assertIsInstance(calDavFile._newStoreHome, AddressBookHome)
+        assertProvides(self, IAddressBookHome, calDavFile._newStoreHome)
 
 
     @inlineCallbacks
@@ -436,15 +437,4 @@ class DatabaseWrappingTests(WrappingTests):
         return self.calendarStore
 
 
-    def noTest(self):
-        raise SkipTest("no addressbooks yet")
-
-    pathTypes = ['calendar']
-
-    test_createAddressBookStore = noTest
-    test_lookupExistingAddressBook = noTest
-    test_lookupNewAddressBook = noTest
-    test_lookupNewAddressBookObject = noTest
-    test_lookupAddressBookObject = noTest
-    test_lookupAddressBookHome = noTest
 

@@ -463,7 +463,6 @@ class AddressBookHomeTestCase(TestCase):
 
 
 
-
 class InMemoryPropertyStore(object):
     def __init__(self):
         class _FauxPath(object):
