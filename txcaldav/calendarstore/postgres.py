@@ -1,4 +1,4 @@
-# -*- test-case-name: txcaldav.calendarstore.test.test_postgres.SQLStorageTests -*-
+# -*- test-case-name: txcaldav.calendarstore.test.test_postgres.SQLStorageTests -*- # FIXME: verify
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -20,10 +20,13 @@ PostgreSQL data store.
 """
 
 __all__ = [
-    "PostgresCalendarStore",
+    "PostgresStore",
     "PostgresCalendarHome",
     "PostgresCalendar",
     "PostgresCalendarObject",
+    "PostgresAddressBookHome",
+    "PostgresAddressBook",
+    "PostgresAddressBookObject",
 ]
 
 from twisted.python import hashlib
@@ -46,11 +49,13 @@ from txdav.common.icommondatastore import (
     ObjectResourceNameAlreadyExistsError, HomeChildNameAlreadyExistsError,
     NoSuchHomeChildError, NoSuchObjectResourceError)
 from txcaldav.calendarstore.util import (validateCalendarComponent,
-    dropboxIDFromCalendarObject)
+    validateAddressBookComponent, dropboxIDFromCalendarObject)
 
 
 from txcaldav.icalendarstore import (ICalendarTransaction, ICalendarHome,
     ICalendar, ICalendarObject, IAttachment)
+from txcarddav.iaddressbookstore import (IAddressBookTransaction,
+    IAddressBookHome, IAddressBook, IAddressBookObject)
 from txdav.propertystore.base import AbstractPropertyStore, PropertyName
 from txdav.propertystore.none import PropertyStore
 
@@ -1055,11 +1060,11 @@ class PostgresNotificationsCollection(object):
 
 
 
-class PostgresCalendarTransaction(object):
+class PostgresTransaction(object):
     """
     Transaction implementation for postgres database.
     """
-    implements(ICalendarTransaction)
+    implements(ICalendarTransaction, IAddressBookTransaction)
 
     def __init__(self, store, connection, notifierFactory, label):
         # print 'STARTING', label
@@ -1118,6 +1123,32 @@ class PostgresCalendarTransaction(object):
         return PostgresCalendarHome(self, uid, resid, notifier)
 
 
+    @memoized('uid', '_homes')
+    def addressbookHomeWithUID(self, uid, create=False):
+        data = self.execSQL(
+            "select RESOURCE_ID from ADDRESSBOOK_HOME where OWNER_UID = %s",
+            [uid]
+        )
+        if not data:
+            if not create:
+                return None
+            self.execSQL(
+                "insert into ADDRESSBOOK_HOME (OWNER_UID) values (%s)",
+                [uid]
+            )
+            home = self.addressbookHomeWithUID(uid)
+            home.createAddressBookWithName("addressbook")
+            return home
+        resid = data[0][0]
+
+        if self._notifierFactory:
+            notifier = self._notifierFactory.newNotifier(id=uid)
+        else:
+            notifier = None
+
+        return PostgresAddressBookHome(self, uid, resid, notifier)
+
+
     def notificationsWithUID(self, uid):
         """
         Implement notificationsWithUID.
@@ -1154,6 +1185,472 @@ class PostgresCalendarTransaction(object):
         self._postCommitOperations.append(operation)
         # FIXME: implement.
 
+# CARDDAV
+
+class PostgresAddressBookObject(object):
+
+    implements(IAddressBookObject)
+
+    def __init__(self, addressbook, name, resid):
+        self._addressbook = addressbook
+        self._name = name
+        self._resourceID = resid
+        self._vCardText = None
+
+
+    @property
+    def _txn(self):
+        return self._addressbook._txn
+
+
+    def uid(self):
+        return self.component().resourceUID()
+
+
+    def name(self):
+        return self._name
+
+
+    def vCardText(self):
+        if self._vCardText is None:
+            text = self._txn.execSQL(
+                "select VCARD_TEXT from ADDRESSBOOK_OBJECT where "
+                "RESOURCE_ID = %s", [self._resourceID]
+            )[0][0]
+            self._vCardText = text
+            return text
+        else:
+            return self._vCardText
+
+
+    def component(self):
+        return VComponent.fromString(self.vCardText())
+
+
+    def componentType(self):
+        return self.component().mainType()
+
+
+    def properties(self):
+        return PropertyStore(
+            self.uid(),
+            self.uid(),
+            self._txn,
+            self._resourceID
+        )
+
+
+    def setComponent(self, component):
+        validateAddressBookComponent(self, self._calendar, component)
+
+        vCardText = str(component)
+        self._txn.execSQL(
+            "update ADDRESSBOOK_OBJECT set VCARD_TEXT = %s "
+            "where RESOURCE_ID = %s", [vCardText, self._resourceID]
+        )
+        self._vCardText = vCardText
+        if self._calendar._notifier:
+            self._calendar._home._txn.postCommit(self._calendar._notifier.notify)
+
+
+
+    # IDataStoreResource
+    def contentType(self):
+        """
+        The content type of Addressbook objects is text/x-vcard.
+        """
+        return MimeType.fromString("text/x-vcard")
+
+
+    def md5(self):
+        return None
+
+
+    def size(self):
+        return 0
+
+
+    def created(self):
+        return None
+
+
+    def modified(self):
+        return None
+
+
+
+class PostgresAddressBook(object):
+
+    implements(IAddressBook)
+
+    def __init__(self, home, name, resourceID, notifier):
+        self._home = home
+        self._name = name
+        self._resourceID = resourceID
+        self._objects = {}
+        self._notifier = notifier
+
+
+    @property
+    def _txn(self):
+        return self._home._txn
+
+
+    def retrieveOldInvites(self):
+        return PostgresLegacyInvitesEmulator(self)
+
+    def retrieveOldIndex(self):
+        return PostgresLegacyIndexEmulator(self)
+
+
+    def notifierID(self, label="default"):
+        return None
+
+
+    def name(self):
+        return self._name
+
+
+    def rename(self, name):
+        oldName = self._name
+        self._txn.execSQL(
+            "update ADDRESSBOOK_BIND set ADDRESSBOOK_RESOURCE_NAME = %s "
+            "where ADDRESSBOOK_RESOURCE_ID = %s AND "
+            "ADDRESSBOOK_HOME_RESOURCE_ID = %s",
+            [name, self._resourceID, self._home._resourceID]
+        )
+        self._name = name
+        # update memos
+        del self._home._addressbooks[oldName]
+        self._home._addressbooks[name] = self
+
+
+    def ownerAddressBookHome(self):
+        return self._home
+
+
+    def listAddressBookObjects(self):
+        # FIXME: see listChildren
+        rows = self._txn.execSQL(
+            "select RESOURCE_NAME from "
+            "ADDRESSBOOK_OBJECT where "
+            "ADDRESSBOOK_RESOURCE_ID = %s",
+            [self._resourceID])
+        return [row[0] for row in rows]
+
+
+    def addressbookObjects(self):
+        for name in self.listAddressBookObjects():
+            yield self.addressbookObjectWithName(name)
+
+
+    @memoized('name', '_objects')
+    def addressbookObjectWithName(self, name):
+        rows = self._txn.execSQL(
+            "select RESOURCE_ID from ADDRESSBOOK_OBJECT where "
+            "RESOURCE_NAME = %s and ADDRESSBOOK_RESOURCE_ID = %s",
+            [name, self._resourceID]
+        )
+        if not rows:
+            return None
+        resid = rows[0][0]
+        return PostgresAddressBookObject(self, name, resid)
+
+
+    def addressbookObjectWithUID(self, uid):
+        rows = self._txn.execSQL(
+            "select RESOURCE_NAME from ADDRESSBOOK_OBJECT where "
+            "VCARD_UID = %s",
+            [uid]
+        )
+        if not rows:
+            return None
+        name = rows[0][0]
+        return self.addressbookObjectWithName(name)
+
+
+    def createAddressBookObjectWithName(self, name, component):
+        rows = self._txn.execSQL(
+            "select RESOURCE_NAME from ADDRESSBOOK_OBJECT where "
+            " RESOURCE_NAME = %s AND ADDRESSBOOK_RESOURCE_ID = %s",
+            [name, self._resourceID]
+        )
+        if rows:
+            raise ObjectResourceNameAlreadyExistsError()
+
+        addressbookObject = PostgresAddressBookObject(self, name, None)
+        addressbookObject.component = lambda : component
+
+        validateAddressBookComponent(addressbookObject, self, component)
+
+        componentText = str(component)
+        self._txn.execSQL(
+            """
+            insert into ADDRESSBOOK_OBJECT
+            (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME, VCARD_TEXT,
+             VCARD_UID, VCARD_TYPE)
+             values
+            (%s, %s, %s, %s, %s)
+            """,
+            [self._resourceID, name, componentText, component.resourceUID(),
+            "VCARD"] # component.resourceType()]  FIXME: what value(s) here?
+        )
+        if self._notifier:
+            self._home._txn.postCommit(self._notifier.notify)
+
+
+    def removeAddressBookObjectWithName(self, name):
+        self._txn.execSQL(
+            "delete from ADDRESSBOOK_OBJECT where RESOURCE_NAME = %s and "
+            "ADDRESSBOOK_RESOURCE_ID = %s",
+            [name, self._resourceID]
+        )
+        if self._txn._cursor.rowcount == 0:
+            raise NoSuchObjectResourceError()
+        self._objects.pop(name, None)
+        if self._notifier:
+            self._txn.postCommit(self._notifier.notify)
+
+
+    def removeAddressBookObjectWithUID(self, uid):
+        rows = self._txn.execSQL(
+            "select RESOURCE_NAME from ADDRESSBOOK_OBJECT where "
+            "VCARD_UID = %s AND ADDRESSBOOK_RESOURCE_ID = %s",
+            [uid, self._resourceID]
+        )
+        if not rows:
+            raise NoSuchObjectResourceError()
+        name = rows[0][0]
+        self._txn.execSQL(
+            "delete from ADDRESSBOOK_OBJECT where VCARD_UID = %s and "
+            "ADDRESSBOOK_RESOURCE_ID = %s",
+            [uid, self._resourceID]
+        )
+        self._objects.pop(name, None)
+        if self._notifier:
+            self._home._txn.postCommit(self._notifier.notify)
+
+
+    def syncToken(self):
+        return self._txn.execSQL(
+            "select SYNC_TOKEN from ADDRESSBOOK where RESOURCE_ID = %s",
+            [self._resourceID])[0][0]
+
+
+    def addressbookObjectsSinceToken(self, token):
+        raise NotImplementedError()
+
+
+    def properties(self):
+        ownerUID = self.ownerAddressBookHome().uid()
+        return PropertyStore(
+            ownerUID,
+            ownerUID,
+            self._txn,
+            self._resourceID
+        )
+
+
+    # IDataStoreResource
+    def contentType(self):
+        """
+        The content type of Addressbook objects is ???
+        """
+        return None # FIXME: verify
+
+
+    def md5(self):
+        return None
+
+
+    def size(self):
+        return 0
+
+
+    def created(self):
+        return None
+
+
+    def modified(self):
+        return None
+
+
+
+
+class PostgresAddressBookHome(object):
+
+    implements(IAddressBookHome)
+
+    def __init__(self, transaction, ownerUID, resourceID, notifier):
+        self._txn = transaction
+        self._ownerUID = ownerUID
+        self._resourceID = resourceID
+        self._addressbooks = {}
+        self._notifier = notifier
+
+
+    def retrieveOldShares(self):
+        return PostgresLegacySharesEmulator(self)
+
+
+    def uid(self):
+        """
+        Retrieve the unique identifier for this calendar home.
+
+        @return: a string.
+        """
+        return self._ownerUID
+
+
+    def name(self):
+        """
+        Implement L{IDataStoreResource.name} to return the uid.
+        """
+        return self.uid()
+
+
+    def listChildren(self):
+        """
+        Retrieve the names of the children in this addressbook home.
+
+        @return: an iterable of C{str}s.
+        """
+        # FIXME: not specified on the interface or exercised by the tests, but
+        # required by clients of the implementation!
+        rows = self._txn.execSQL(
+            "select ADDRESSBOOK_RESOURCE_NAME from ADDRESS_BIND where "
+            "ADDRESSBOOK_HOME_RESOURCE_ID = %s "
+            "AND BIND_STATUS != %s",
+            [self._resourceID, _BIND_STATUS_DECLINED]
+        )
+        names = [row[0] for row in rows]
+        return names
+
+
+    def addressbooks(self):
+        """
+        Retrieve addressbooks contained in this addressbook home.
+
+        @return: an iterable of L{IAddressBook}s.
+        """
+        names = self.listChildren()
+        for name in names:
+            yield self.addressbookWithName(name)
+
+
+    @memoized('name', '_addressbooks')
+    def addressbookWithName(self, name):
+        """
+        Retrieve the addressbook with the given C{name} contained in this
+        addressbook home.
+
+        @param name: a string.
+        @return: an L{IAddressBook} or C{None} if no such addressbook
+            exists.
+        """
+        data = self._txn.execSQL(
+            "select ADDRESSBOOK_RESOURCE_ID from ADDRESSBOOK_BIND where "
+            "ADDRESSBOOK_RESOURCE_NAME = %s",
+            [name]
+        )
+        if not data:
+            return None
+        resourceID = data[0][0]
+        if self._notifier:
+            childID = "%s/%s" % (self.uid(), name)
+            notifier = self._notifier.clone(label="collection", id=childID)
+        else:
+            notifier = None
+        return PostgresAddressBook(self, name, resourceID, notifier)
+
+
+    def createAddressBookWithName(self, name):
+        rows = self._txn.execSQL(
+            "select ADDRESSBOOK_RESOURCE_NAME from ADDRESSBOOK_BIND where "
+            "ADDRESSBOOK_RESOURCE_NAME = %s AND "
+            "ADDRESSBOOK_HOME_RESOURCE_ID = %s",
+            [name, self._resourceID]
+        )
+        if rows:
+            raise HomeChildNameAlreadyExistsError()
+        rows = self._txn.execSQL("select nextval('RESOURCE_ID_SEQ')")
+        resourceID = rows[0][0]
+        self._txn.execSQL(
+            "insert into ADDRESSBOOK (SYNC_TOKEN, RESOURCE_ID) values "
+            "(%s, %s)",
+            ['uninitialized', resourceID])
+
+        self._txn.execSQL("""
+            insert into ADDRESSBOOK_BIND (
+                ADDRESSBOOK_HOME_RESOURCE_ID,
+                ADDRESSBOOK_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME, BIND_MODE,
+                SEEN_BY_OWNER, SEEN_BY_SHAREE, BIND_STATUS) values (
+            %s, %s, %s, %s, %s, %s, %s)
+            """,
+            [self._resourceID, resourceID, name, _BIND_MODE_OWN, True, True,
+             _BIND_STATUS_ACCEPTED]
+        )
+
+        addressbookType = ResourceType.addressbook #@UndefinedVariable
+        self.addressbookWithName(name).properties()[
+            PropertyName.fromElement(ResourceType)] = addressbookType
+        if self._notifier:
+            self._txn.postCommit(self._notifier.notify)
+
+
+    def removeAddressBookWithName(self, name):
+        self._txn.execSQL(
+            "delete from ADDRESSBOOK_BIND where ADDRESSBOOK_RESOURCE_NAME = %s and "
+            "ADDRESSBOOK_HOME_RESOURCE_ID = %s",
+            [name, self._resourceID]
+        )
+        self._addressbooks.pop(name, None)
+        if self._txn._cursor.rowcount == 0:
+            raise NoSuchHomeChildError()
+        # FIXME: the schema should probably cascade the addressbook delete when
+        # the last bind is deleted.
+        if self._notifier:
+            self._txn.postCommit(self._notifier.notify)
+
+
+    def properties(self):
+        return PropertyStore(
+            self.uid(),
+            self.uid(),
+            self._txn,
+            self._resourceID
+        )
+
+
+    # IDataStoreResource
+    def contentType(self):
+        """
+        The content type of Addressbook home objects is ???
+        """
+        return None # FIXME: verify
+
+
+    def md5(self):
+        return None
+
+
+    def size(self):
+        return 0
+
+
+    def created(self):
+        return None
+
+
+    def modified(self):
+        return None
+
+
+    def notifierID(self, label="default"):
+        return None
+
+
+#
 
 
 class PostgresStore(Service, object):
@@ -1167,7 +1664,7 @@ class PostgresStore(Service, object):
 
 
     def newTransaction(self, label="unlabeled"):
-        return PostgresCalendarTransaction(
+        return PostgresTransaction(
             self,
             self.connectionFactory(),
             self.notifierFactory,

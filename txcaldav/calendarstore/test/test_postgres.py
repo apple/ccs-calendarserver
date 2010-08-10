@@ -20,7 +20,8 @@ L{txcaldav.calendarstore.test.common}.
 """
 
 
-from txcaldav.calendarstore.test.common import CommonTests
+from txcaldav.calendarstore.test.common import CommonTests as CalendarCommonTests
+from txcarddav.addressbookstore.test.common import CommonTests as AddressBookCommonTests
 
 from twisted.trial import unittest
 from txdav.datastore.subpostgres import PostgresService, \
@@ -30,6 +31,7 @@ from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet import reactor
 from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
+from twistedcaldav.vcard import Component as VCard
 from twisted.internet.task import deferLater
 from twisted.python import log
 import gc
@@ -77,7 +79,7 @@ class StoreBuilder(object):
                 except OSError:
                     pass
                 try:
-                    self.calendarStore = PostgresStore(
+                    self.store = PostgresStore(
                         lambda label=None: connectionFactory(
                             label or currentTestID
                         ),
@@ -89,8 +91,8 @@ class StoreBuilder(object):
                     raise
                 else:
                     self.cleanDatabase(testCase)
-                    ready.callback(self.calendarStore)
-                return self.calendarStore
+                    ready.callback(self.store)
+                return self.store
             self.sharedService = PostgresService(
                 dbRoot,
                 getReady, v1_schema, "caldav"
@@ -104,9 +106,9 @@ class StoreBuilder(object):
                 "before", "shutdown", startStopping)
             result = ready
         else:
-            self.calendarStore.notifierFactory = notifierFactory
+            self.store.notifierFactory = notifierFactory
             self.cleanDatabase(testCase)
-            result = succeed(self.calendarStore)
+            result = succeed(self.store)
 
         def cleanUp():
             # FIXME: clean up any leaked connections and report them with an
@@ -119,7 +121,7 @@ class StoreBuilder(object):
 
 
     def cleanDatabase(self, testCase):
-        cleanupConn = self.calendarStore.connectionFactory(
+        cleanupConn = self.store.connectionFactory(
             "%s schema-cleanup" % (testCase.id(),)
         )
         cursor = cleanupConn.cursor()
@@ -147,20 +149,21 @@ theStoreBuilder = StoreBuilder()
 buildStore = theStoreBuilder.buildStore
 
 
-class SQLStorageTests(CommonTests, unittest.TestCase):
+
+class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     """
-    File storage tests.
+    Calendar SQL storage tests.
     """
 
     @inlineCallbacks
     def setUp(self):
-        super(SQLStorageTests, self).setUp()
-        self.calendarStore = yield buildStore(self, self.notifierFactory)
+        super(CalendarSQLStorageTests, self).setUp()
+        self.store = yield buildStore(self, self.notifierFactory)
         self.populate()
 
 
     def populate(self):
-        populateTxn = self.calendarStore.newTransaction()
+        populateTxn = self.store.newTransaction()
         for homeUID in self.requirements:
             calendars = self.requirements[homeUID]
             if calendars is not None:
@@ -186,5 +189,47 @@ class SQLStorageTests(CommonTests, unittest.TestCase):
         """
         Create and return a L{CalendarStore} for testing.
         """
-        return self.calendarStore
+        return self.store
+
+
+class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
+    """
+    AddressBook SQL storage tests.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        super(AddressBookSQLStorageTests, self).setUp()
+        self.store = yield buildStore(self, self.notifierFactory)
+        self.populate()
+
+    def populate(self):
+        populateTxn = self.store.newTransaction()
+        for homeUID in self.requirements:
+            addressbooks = self.requirements[homeUID]
+            if addressbooks is not None:
+                home = populateTxn.addressbookHomeWithUID(homeUID, True)
+                # We don't want the default addressbook to appear unless it's
+                # explicitly listed.
+                home.removeAddressBookWithName("addressbook")
+                for addressbookName in addressbooks:
+                    addressbookObjNames = addressbooks[addressbookName]
+                    if addressbookObjNames is not None:
+                        home.createAddressBookWithName(addressbookName)
+                        addressbook = home.addressbookWithName(addressbookName)
+                        for objectName in addressbookObjNames:
+                            objData = addressbookObjNames[objectName]
+                            addressbook.createAddressBookObjectWithName(
+                                objectName, VCard.fromString(objData)
+                            )
+        populateTxn.commit()
+        self.notifierFactory.history = []
+
+
+
+    def storeUnderTest(self):
+        """
+        Create and return a L{AddressBookStore} for testing.
+        """
+        return self.store
 

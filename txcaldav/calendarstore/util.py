@@ -22,6 +22,8 @@ Utility logic common to multiple backend implementations.
 
 from twext.python.vcomponent import InvalidICalendarDataError
 from twext.python.vcomponent import VComponent
+from twistedcaldav.vcard import Component as VCard
+from twistedcaldav.vcard import InvalidVCardDataError
 
 def validateCalendarComponent(calendarObject, calendar, component):
     """
@@ -84,3 +86,37 @@ def dropboxIDFromCalendarObject(calendarObject):
             return attachPath
     
     return calendarObject.uid() + ".dropbox"
+
+
+def validateAddressBookComponent(addressbookObject, vcard, component):
+    """
+    Validate an addressbook component for a particular addressbook.
+
+    @param addressbookObject: The addressbook object whose component will be replaced.
+    @type addressbookObject: L{IAddressBookObject}
+
+    @param addressbook: The addressbook which the L{IAddressBookObject} is present in.
+    @type addressbook: L{IAddressBook}
+
+    @param component: The VComponent to be validated.
+    @type component: L{VComponent}
+    """
+
+    if not isinstance(component, VCard):
+        raise TypeError(type(component))
+
+    try:
+        if component.resourceUID() != addressbookObject.uid():
+            raise InvalidObjectResourceError(
+                "UID may not change (%s != %s)" % (
+                    component.resourceUID(), addressbookObject.uid()
+                 )
+            )
+    except NoSuchObjectResourceError:
+        pass
+
+    try:
+        component.validForCardDAV()
+    except InvalidVCardDataError, e:
+        raise InvalidObjectResourceError(e)
+

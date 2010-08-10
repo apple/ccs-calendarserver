@@ -169,6 +169,8 @@ class CommonTests(object):
         self.lastTransaction.abort()
         self.lastTransaction = None
 
+    def setUp(self):
+        self.notifierFactory = StubNotifierFactory()
 
     def homeUnderTest(self):
         """
