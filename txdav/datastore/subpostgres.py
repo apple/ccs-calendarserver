@@ -27,6 +27,7 @@ from twisted.python.reflect import namedAny
 from twisted.python import log
 
 pgdb = namedAny("pgdb")
+from pg import DatabaseError
 
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor
@@ -154,7 +155,8 @@ class _PostgresMonitor(ProcessProtocol):
 class PostgresService(MultiService):
 
     def __init__(self, dataStoreDirectory, subServiceFactory,
-                 schema, databaseName='subpostgres', socketDirectory=None):
+                 schema, databaseName='subpostgres', socketDirectory=None,
+                 resetSchema=False):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -168,6 +170,7 @@ class PostgresService(MultiService):
         MultiService.__init__(self)
         self.subServiceFactory = subServiceFactory
         self.dataStoreDirectory = dataStoreDirectory
+        self.resetSchema = resetSchema
         if socketDirectory:
             self.socketDir = socketDirectory
         else:
@@ -217,6 +220,15 @@ class PostgresService(MultiService):
         )
         createDatabaseCursor = createDatabaseConn.cursor()
         createDatabaseCursor.execute("commit")
+
+        if self.resetSchema:
+            try:
+                createDatabaseCursor.execute(
+                    "drop database %s" % (self.databaseName)
+                )
+            except DatabaseError:
+                pass
+
         try:
             createDatabaseCursor.execute(
                 "create database %s" % (self.databaseName)
@@ -225,14 +237,20 @@ class PostgresService(MultiService):
             execSchema = False
         else:
             execSchema = True
+
         createDatabaseCursor.close()
         createDatabaseConn.close()
+
         if execSchema:
             connection = self.produceConnection()
             cursor = connection.cursor()
             cursor.execute(self.schema)
             connection.commit()
             connection.close()
+
+        connection = self.produceConnection()
+        cursor = connection.cursor()
+
         self.subServiceFactory(self.produceConnection).setServiceParent(self)
 
 

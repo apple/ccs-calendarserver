@@ -99,7 +99,8 @@ class StoreBuilder(object):
                 (md5(dbRoot.path).hexdigest()))
             self.sharedService = PostgresService(
                 dbRoot, getReady, v1_schema, "caldav",
-                socketDirectory=socketDirectory
+                socketDirectory=socketDirectory,
+                resetSchema=True
             )
             self.sharedService.startService()
             def startStopping():
