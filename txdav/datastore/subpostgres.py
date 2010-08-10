@@ -273,8 +273,8 @@ class PostgresService(MultiService):
                 "-w",
                 # XXX what are the quoting rules for '-o'?  do I need to repr()
                 # the path here?
-                "-o", "-k '%s' -c standard_conforming_strings=on"
-                % (self.socketDir.path,),
+                "-o", "-c listen_addresses='' -k '%s' -c standard_conforming_strings=on"
+                    % (self.socketDir.path,),
             ],
             self.env
         )
