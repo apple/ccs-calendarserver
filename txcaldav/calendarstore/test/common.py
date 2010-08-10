@@ -240,8 +240,7 @@ class CommonTests(object):
         """
         Get the calendar home detailed by C{requirements['home1']}.
         """
-        return self.transactionUnderTest().calendarHomeWithUID(
-            "home1")
+        return self.transactionUnderTest().calendarHomeWithUID("home1")
 
 
     def calendarUnderTest(self):
@@ -392,8 +391,7 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertEquals(self.notifierFactory.history,
-                          [("update", "home1")])
+        self.assertTrue(self.notifierFactory.compare([("update", "home1")]))
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = self.homeUnderTest()

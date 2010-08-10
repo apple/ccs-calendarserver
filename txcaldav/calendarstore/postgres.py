@@ -1519,7 +1519,7 @@ class PostgresAddressBookHome(object):
         # FIXME: not specified on the interface or exercised by the tests, but
         # required by clients of the implementation!
         rows = self._txn.execSQL(
-            "select ADDRESSBOOK_RESOURCE_NAME from ADDRESS_BIND where "
+            "select ADDRESSBOOK_RESOURCE_NAME from ADDRESSBOOK_BIND where "
             "ADDRESSBOOK_HOME_RESOURCE_ID = %s "
             "AND BIND_STATUS != %s",
             [self._resourceID, _BIND_STATUS_DECLINED]
