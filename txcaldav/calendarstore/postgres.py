@@ -1241,7 +1241,7 @@ class PostgresAddressBookObject(object):
 
 
     def setComponent(self, component):
-        validateAddressBookComponent(self, self._calendar, component)
+        validateAddressBookComponent(self, self._addressbook, component)
 
         vCardText = str(component)
         self._txn.execSQL(
@@ -1249,8 +1249,8 @@ class PostgresAddressBookObject(object):
             "where RESOURCE_ID = %s", [vCardText, self._resourceID]
         )
         self._vCardText = vCardText
-        if self._calendar._notifier:
-            self._calendar._home._txn.postCommit(self._calendar._notifier.notify)
+        if self._addressbook._notifier:
+            self._addressbook._home._txn.postCommit(self._addressbook._notifier.notify)
 
 
 
