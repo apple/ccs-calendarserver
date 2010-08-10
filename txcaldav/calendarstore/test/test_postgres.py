@@ -22,6 +22,7 @@ L{txcaldav.calendarstore.test.common}.
 
 from txcaldav.calendarstore.test.common import CommonTests as CalendarCommonTests
 from txcarddav.addressbookstore.test.common import CommonTests as AddressBookCommonTests
+from txdav.common.icommondatastore import NoSuchHomeChildError, HomeChildNameAlreadyExistsError
 
 from twisted.trial import unittest
 from txdav.datastore.subpostgres import PostgresService, \
@@ -158,19 +159,22 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         super(CalendarSQLStorageTests, self).setUp()
-        self.store = yield buildStore(self, self.notifierFactory)
+        self.calendarStore = yield buildStore(self, self.notifierFactory)
         self.populate()
 
 
     def populate(self):
-        populateTxn = self.store.newTransaction()
+        populateTxn = self.calendarStore.newTransaction()
         for homeUID in self.requirements:
             calendars = self.requirements[homeUID]
             if calendars is not None:
                 home = populateTxn.calendarHomeWithUID(homeUID, True)
                 # We don't want the default calendar to appear unless it's
                 # explicitly listed.
-                home.removeCalendarWithName("calendar")
+                try:
+                    home.removeCalendarWithName("calendar")
+                except NoSuchHomeChildError:
+                    pass
                 for calendarName in calendars:
                     calendarObjNames = calendars[calendarName]
                     if calendarObjNames is not None:
@@ -182,14 +186,14 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
                                 objectName, VComponent.fromString(objData)
                             )
         populateTxn.commit()
-        self.notifierFactory.history = []
+        self.notifierFactory.reset()
 
 
     def storeUnderTest(self):
         """
         Create and return a L{CalendarStore} for testing.
         """
-        return self.store
+        return self.calendarStore
 
 
 class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
@@ -200,30 +204,42 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         super(AddressBookSQLStorageTests, self).setUp()
-        self.store = yield buildStore(self, self.notifierFactory)
+        self.addressbookStore = yield buildStore(self, self.notifierFactory)
         self.populate()
 
     def populate(self):
-        populateTxn = self.store.newTransaction()
+        populateTxn = self.addressbookStore.newTransaction()
         for homeUID in self.requirements:
             addressbooks = self.requirements[homeUID]
             if addressbooks is not None:
                 home = populateTxn.addressbookHomeWithUID(homeUID, True)
                 # We don't want the default addressbook to appear unless it's
                 # explicitly listed.
-                home.removeAddressBookWithName("addressbook")
+
+                # FIXME: why does this addressbook sometimes not exist?
+                try:
+                    home.removeAddressBookWithName("addressbook")
+                except NoSuchHomeChildError:
+                    pass
+
                 for addressbookName in addressbooks:
                     addressbookObjNames = addressbooks[addressbookName]
                     if addressbookObjNames is not None:
-                        home.createAddressBookWithName(addressbookName)
-                        addressbook = home.addressbookWithName(addressbookName)
-                        for objectName in addressbookObjNames:
-                            objData = addressbookObjNames[objectName]
-                            addressbook.createAddressBookObjectWithName(
-                                objectName, VCard.fromString(objData)
-                            )
+
+                        # FIXME: how can an addressbook already exist?
+                        try:
+                            home.createAddressBookWithName(addressbookName)
+                            addressbook = home.addressbookWithName(addressbookName)
+                            for objectName in addressbookObjNames:
+                                objData = addressbookObjNames[objectName]
+                                addressbook.createAddressBookObjectWithName(
+                                    objectName, VCard.fromString(objData)
+                                )
+                        except HomeChildNameAlreadyExistsError:
+                            pass
+
         populateTxn.commit()
-        self.notifierFactory.history = []
+        self.notifierFactory.reset()
 
 
 
@@ -231,5 +247,5 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         """
         Create and return a L{AddressBookStore} for testing.
         """
-        return self.store
+        return self.addressbookStore
 

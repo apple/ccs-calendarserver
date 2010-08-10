@@ -64,6 +64,7 @@ from twext.web2.dav.element.parser import WebDAVDocument
 
 
 from twext.python.vcomponent import VComponent
+from twistedcaldav.vcard import Component as VCard
 
 
 v1_schema = getModule(__name__).filePath.sibling(
@@ -1224,7 +1225,7 @@ class PostgresAddressBookObject(object):
 
 
     def component(self):
-        return VComponent.fromString(self.vCardText())
+        return VCard.fromString(self.vCardText())
 
 
     def componentType(self):

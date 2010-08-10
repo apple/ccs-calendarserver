@@ -117,6 +117,7 @@ class CommonTests(object):
                 "2.vcf": adbk1Root.child("2.vcf").getContent(),
                 "3.vcf": adbk1Root.child("3.vcf").getContent()
             },
+            "addressbook_2": {},
             "addressbook_empty": {},
             "not_a_addressbook": None
         },
