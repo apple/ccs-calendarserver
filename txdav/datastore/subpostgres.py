@@ -19,12 +19,15 @@
 Run and manage PostgreSQL as a subprocess.
 """
 import os
+from hashlib import md5
 
 from twisted.python.procutils import which
 from twisted.internet.utils import getProcessOutput
 from twisted.internet.protocol import ProcessProtocol
 from twisted.python.reflect import namedAny
 from twisted.python import log
+from twext.python.filepath import CachingFilePath
+
 
 pgdb = namedAny("pgdb")
 from pg import DatabaseError
@@ -155,8 +158,7 @@ class _PostgresMonitor(ProcessProtocol):
 class PostgresService(MultiService):
 
     def __init__(self, dataStoreDirectory, subServiceFactory,
-                 schema, databaseName='subpostgres', socketDirectory=None,
-                 resetSchema=False):
+                 schema, databaseName='subpostgres', resetSchema=False):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -171,10 +173,8 @@ class PostgresService(MultiService):
         self.subServiceFactory = subServiceFactory
         self.dataStoreDirectory = dataStoreDirectory
         self.resetSchema = resetSchema
-        if socketDirectory:
-            self.socketDir = socketDirectory
-        else:
-            self.socketDir = self.dataStoreDirectory.child("socket")
+        self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
+            (md5(dataStoreDirectory.path).hexdigest()))
         self.databaseName = databaseName
         self.schema = schema
         self.monitor = None

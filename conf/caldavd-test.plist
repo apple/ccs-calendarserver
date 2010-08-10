@@ -84,7 +84,7 @@
 
     <!-- Database root -->
     <key>DatabaseRoot</key>
-    <string>/tmp/calendar_database</string>
+    <string>Database</string>
 
     <!-- Document root -->
     <key>DocumentRoot</key>
