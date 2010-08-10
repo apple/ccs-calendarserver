@@ -60,13 +60,17 @@ class SharedCollectionMixin(object):
         return self._invitesDB
 
     def inviteProperty(self, request):
-        
-        # Build the CS:invite property from our DB
+        """
+        Calculate the customxml.Invite property (for readProperty) from the
+        invites database.
+        """
+
         def sharedOK(isShared):
             if config.Sharing.Enabled and isShared:
                 self.validateInvites()
                 return customxml.Invite(
-                    *[record.makePropertyElement() for record in self.invitesDB().allRecords()]
+                    *[record.makePropertyElement() for
+                        record in self.invitesDB().allRecords()]
                 )
             else:
                 return None
@@ -526,8 +530,10 @@ class SharedCollectionMixin(object):
         # Locate notifications collection for user
         sharee = self.principalForCalendarUserAddress(record.userid)
         if sharee is None:
-            raise ValueError("sharee is None but userid was valid before")        
-        notifications = self._newStoreParentHome._transaction.notificationsWithUID(sharee.principalUID())
+            raise ValueError("sharee is None but userid was valid before")
+        notifications = self._associatedTransaction.notificationsWithUID(
+            sharee.principalUID()
+        )
         
         # Look for existing notification
         oldnotification = notifications.notificationObjectWithUID(record.inviteuid)
