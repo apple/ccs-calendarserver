@@ -350,7 +350,7 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(self.notifierFactory.compare([("update", "home1")]))
+        self.assertEquals(self.notifierFactory.history, [("update", "home1")])
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = self.homeUnderTest()
@@ -393,8 +393,10 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(self.notifierFactory.compare(
-            [("update", "home1"), ("update", "home1"), ("update", "home1")]))
+        self.assertEquals(
+            self.notifierFactory.history,
+            [("update", "home1"), ("update", "home1"), ("update", "home1")]
+        )
 
 
     def test_removeAddressBookWithName_absent(self):
@@ -508,17 +510,16 @@ class CommonTests(object):
 
         # Make sure notifications are fired after commit
         self.commit()
-        self.assertTrue(
-            self.notifierFactory.compare(
-                [
-                    ("update", "home1"),
-                    ("update", "home1/addressbook_1"),
-                    ("update", "home1"),
-                    ("update", "home1/addressbook_1"),
-                    ("update", "home1"),
-                    ("update", "home1/addressbook_1"),
-                ]
-            )
+        self.assertEquals(
+            self.notifierFactory.history,
+            [
+                ("update", "home1"),
+                ("update", "home1/addressbook_1"),
+                ("update", "home1"),
+                ("update", "home1/addressbook_1"),
+                ("update", "home1"),
+                ("update", "home1/addressbook_1"),
+            ]
         )
 
 
@@ -643,13 +644,12 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notifications fire after commit
-        self.assertTrue(
-            self.notifierFactory.compare(
-                [
-                    ("update", "home1"),
-                    ("update", "home1/addressbook_1"),
-                ]
-            )
+        self.assertEquals(
+            self.notifierFactory.history,
+            [
+                ("update", "home1"),
+                ("update", "home1/addressbook_1"),
+            ]
         )
 
 
@@ -750,13 +750,12 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(
-            self.notifierFactory.compare(
-                [
-                    ("update", "home1"),
-                    ("update", "home1/addressbook_1"),
-                ]
-            )
+        self.assertEquals(
+            self.notifierFactory.history,
+            [
+                ("update", "home1"),
+                ("update", "home1/addressbook_1"),
+            ]
         )
 
     def checkPropertiesMethod(self, thunk):
@@ -856,10 +855,7 @@ class StubNotifierFactory(object):
         return Notifier(self, label=label, id=id)
 
     def send(self, op, id):
-        self._history.append((op, id))
+        self.history.append((op, id))
 
     def reset(self):
-        self._history = []
-
-    def compare(self, expected):
-        return self._history == expected
+        self.history = []
