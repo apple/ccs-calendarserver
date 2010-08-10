@@ -291,14 +291,14 @@ def getRootResource(config, resources=None):
         notifierFactory = None
 
     if config.UseDatabase:
-        _newStore = CommonDataStore(FilePath(config.DocumentRoot),
-            notifierFactory, config.EnableCalDAV, config.EnableCardDAV) 
-    else:
         _dbRoot = CachingFilePath(config.DatabaseRoot)
         _postgresService = PostgresService(_dbRoot, None, v1_schema, "caldav")
         _newStore = PostgresStore(_postgresService.produceConnection,
             notifierFactory, # config.EnableCalDAV, config.EnableCardDAV)
             _dbRoot.child("attachments"))
+    else:
+        _newStore = CommonDataStore(FilePath(config.DocumentRoot),
+            notifierFactory, config.EnableCalDAV, config.EnableCardDAV) 
 
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: %r" % (calendarResourceClass,))
