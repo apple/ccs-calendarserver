@@ -1,4 +1,4 @@
-# -*- test-case-name: txcarddav.addressbookstore -*-
+# -*- test-case-name: txcarddav.addressbookstore,txcaldav.calendarstore.test.test_postgres.AddressBookSQLStorageTests -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -724,7 +724,7 @@ class CommonTests(object):
         self.assertProvides(IAddressBookHome, addressbookHome)
         # A concurrent transaction shouldn't be able to read it yet:
         self.assertIdentical(readOtherTxn(), None)
-        txn.commit()
+        self.commit()
         # But once it's committed, other transactions should see it.
         self.assertProvides(IAddressBookHome, readOtherTxn())
 
