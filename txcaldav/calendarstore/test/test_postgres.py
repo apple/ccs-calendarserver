@@ -19,6 +19,7 @@ Tests for txcaldav.calendarstore.postgres, mostly based on
 L{txcaldav.calendarstore.test.common}.
 """
 
+from hashlib import md5
 
 from txcaldav.calendarstore.test.common import CommonTests as CalendarCommonTests
 from txcarddav.addressbookstore.test.common import CommonTests as AddressBookCommonTests
@@ -94,9 +95,11 @@ class StoreBuilder(object):
                     self.cleanDatabase(testCase)
                     ready.callback(self.store)
                 return self.store
+            socketDirectory = CachingFilePath("/tmp/cs_test_%s" %
+                (md5(dbRoot.path).hexdigest()))
             self.sharedService = PostgresService(
-                dbRoot,
-                getReady, v1_schema, "caldav"
+                dbRoot, getReady, v1_schema, "caldav",
+                socketDirectory=socketDirectory
             )
             self.sharedService.startService()
             def startStopping():

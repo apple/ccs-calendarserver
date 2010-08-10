@@ -154,7 +154,7 @@ class _PostgresMonitor(ProcessProtocol):
 class PostgresService(MultiService):
 
     def __init__(self, dataStoreDirectory, subServiceFactory,
-                 schema, databaseName='subpostgres'):
+                 schema, databaseName='subpostgres', socketDirectory=None):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -168,7 +168,10 @@ class PostgresService(MultiService):
         MultiService.__init__(self)
         self.subServiceFactory = subServiceFactory
         self.dataStoreDirectory = dataStoreDirectory
-        self.socketDir = self.dataStoreDirectory.child("socket")
+        if socketDirectory:
+            self.socketDir = socketDirectory
+        else:
+            self.socketDir = self.dataStoreDirectory.child("socket")
         self.databaseName = databaseName
         self.schema = schema
         self.monitor = None
@@ -292,11 +295,12 @@ class PostgresService(MultiService):
         env.update(PGDATA=clusterDir.path,
                    PGHOST=self.socketDir.path)
         initdb = which("initdb")[0]
+        if not self.socketDir.isdir():
+            self.socketDir.createDirectory()
         if clusterDir.isdir():
             self.startDatabase()
         else:
             self.dataStoreDirectory.createDirectory()
-            self.socketDir.createDirectory()
             workingDir.createDirectory()
             dbInited = getProcessOutput(
                 initdb, [], env, workingDir.path, errortoo=True

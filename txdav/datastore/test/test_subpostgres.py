@@ -18,6 +18,8 @@
 Tests for txdav.datastore.subpostgres.
 """
 
+from hashlib import md5
+
 from twisted.trial.unittest import TestCase
 
 from twext.python.filepath import CachingFilePath
@@ -67,11 +69,15 @@ class SubprocessStartup(TestCase):
                     cursor.close()
 
 
+        dbPath = "../_postgres_test_db"
         svc = PostgresService(
-            CachingFilePath("../_postgres_test_db"),
+            CachingFilePath(dbPath),
             SimpleService,
             "create table TEST_DUMMY_TABLE (stub varchar)",
-            "dummy_db"
+            "dummy_db",
+            socketDirectory=CachingFilePath("/tmp/cs_test_%s" %
+                (md5(dbPath).hexdigest(),)
+            )
         )
 
         svc.startService()
