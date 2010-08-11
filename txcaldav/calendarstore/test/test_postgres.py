@@ -19,13 +19,16 @@ Tests for txcaldav.calendarstore.postgres, mostly based on
 L{txcaldav.calendarstore.test.common}.
 """
 
+import gc
+
 from txcaldav.calendarstore.test.common import CommonTests as CalendarCommonTests
 from txcarddav.addressbookstore.test.common import CommonTests as AddressBookCommonTests
-from txdav.common.icommondatastore import NoSuchHomeChildError, HomeChildNameAlreadyExistsError
+from txdav.common.icommondatastore import (
+    NoSuchHomeChildError, HomeChildNameAlreadyExistsError)
 
 from twisted.trial import unittest
-from txdav.datastore.subpostgres import PostgresService, \
-    DiagnosticConnectionWrapper
+from txdav.datastore.subpostgres import (PostgresService,
+    DiagnosticConnectionWrapper)
 from txcaldav.calendarstore.postgres import PostgresStore, v1_schema
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet import reactor
@@ -34,7 +37,6 @@ from twext.python.vcomponent import VComponent
 from twistedcaldav.vcard import Component as VCard
 from twisted.internet.task import deferLater
 from twisted.python import log
-import gc
 
 
 
