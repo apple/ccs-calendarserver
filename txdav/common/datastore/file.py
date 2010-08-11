@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txcaldav.calendarstore.util import SyncTokenHelper
 
 """
 Common utility functions for a file based datastore.
@@ -26,7 +27,7 @@ from twext.web2.http_headers import generateContentType, MimeType
 from twisted.python.util import FancyEqMixin
 
 from twistedcaldav import customxml
-from twistedcaldav.customxml import GETCTag, NotificationType
+from twistedcaldav.customxml import NotificationType
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.notifications import NotificationsDatabase as OldNotificationIndex
 from twistedcaldav.sharing import SharedCollectionsDatabase
@@ -44,7 +45,6 @@ from txdav.propertystore.base import PropertyName
 from txdav.propertystore.xattr import PropertyStore
 
 from errno import EEXIST, ENOENT
-from uuid import uuid4
 from zope.interface import implements, directlyProvides
 
 ECALENDARTYPE = 0
@@ -475,8 +475,10 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             return None
 
 
-class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
+class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin,
+                      SyncTokenHelper):
     """
+    Common ancestor class of AddressBooks and Calendars.
     """
 
     compareAttributes = '_name _home _transaction'.split()
@@ -676,26 +678,6 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
     def syncToken(self):
         raise NotImplementedError()
-
-
-    def _updateSyncToken(self, reset=False):
-        # FIXME: add locking a-la CalDAVResource.bumpSyncToken
-        # FIXME: tests for desired concurrency properties
-        ctag = PropertyName.fromString(GETCTag.sname())
-        props = self.properties()
-        token = props.get(ctag)
-        if token is None or reset:
-            tokenuuid = uuid4()
-            revision = 1
-        else:
-            # FIXME: no direct tests for update
-            token = str(token)
-            tokenuuid, revision = token.split("#", 1)
-            revision = int(revision) + 1
-        token = "%s#%d" % (tokenuuid, revision)
-        props[ctag] = GETCTag(token)
-        # FIXME: no direct tests for commit
-        return revision
 
 
     def objectResourcesSinceToken(self, token):

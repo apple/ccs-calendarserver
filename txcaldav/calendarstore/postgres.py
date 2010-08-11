@@ -52,7 +52,7 @@ from txdav.common.icommondatastore import (
     ObjectResourceNameAlreadyExistsError, HomeChildNameAlreadyExistsError,
     NoSuchHomeChildError, NoSuchObjectResourceError)
 from txcaldav.calendarstore.util import (validateCalendarComponent,
-    validateAddressBookComponent, dropboxIDFromCalendarObject)
+    validateAddressBookComponent, dropboxIDFromCalendarObject, SyncTokenHelper)
 
 
 from txcaldav.icalendarstore import (ICalendarTransaction, ICalendarHome,
@@ -266,6 +266,8 @@ class PostgresCalendarObject(object):
             "where RESOURCE_ID = %s", [calendarText, self._resourceID]
         )
         self._calendarText = calendarText
+        self._calendar._updateSyncToken()
+
         if self._calendar._notifier:
             self._calendar._home._txn.postCommit(self._calendar._notifier.notify)
 
@@ -541,7 +543,9 @@ class PostgresLegacyInvitesEmulator(object):
 
 
     def recordForInviteUID(self, inviteUID):
-        raise NotImplementedError("recordForInviteUID")
+        for record in self.allRecords():
+            if record.inviteuid == inviteUID:
+                return record
 
 
     def addOrUpdateRecord(self, record):
@@ -618,10 +622,7 @@ class PostgresLegacyInvitesEmulator(object):
 
     def removeRecordForUserID(self, userid):
         rec = self.recordForUserID(userid)
-        self._txn.execSQL(
-            "delete from INVITE where INVITE_UID = %s",
-            [rec.inviteuid]
-        )
+        self.removeRecordForInviteUID(rec.inviteuid)
 
 
     def removeRecordForPrincipalURL(self, principalURL):
@@ -629,8 +630,18 @@ class PostgresLegacyInvitesEmulator(object):
 
 
     def removeRecordForInviteUID(self, inviteUID):
-        self._txn.execSQL("delete from INVITE where INVITE_UID = %s",
-                          [inviteUID])
+        rows = self._txn.execSQL("""
+                select HOME_RESOURCE_ID, RESOURCE_ID from INVITE where
+                INVITE_UID = %s
+            """, [inviteUID])
+        if rows:
+            [[homeID, resourceID]] = rows
+            self._txn.execSQL(
+                "delete from CALENDAR_BIND where "
+                "CALENDAR_HOME_RESOURCE_ID = %s and CALENDAR_RESOURCE_ID = %s",
+                [homeID, resourceID])
+            self._txn.execSQL("delete from INVITE where INVITE_UID = %s",
+                [inviteUID])
 
 
 
@@ -773,7 +784,7 @@ class PostgresLegacyIndexEmulator(object):
 
 
 
-class PostgresCalendar(object):
+class PostgresCalendar(SyncTokenHelper):
 
     implements(ICalendar)
 
@@ -872,6 +883,8 @@ class PostgresCalendar(object):
         if rows:
             raise ObjectResourceNameAlreadyExistsError()
 
+        self._updateSyncToken()
+
         calendarObject = PostgresCalendarObject(self, name, None)
         calendarObject.component = lambda : component
 
@@ -905,6 +918,9 @@ class PostgresCalendar(object):
         if self._txn._cursor.rowcount == 0:
             raise NoSuchObjectResourceError()
         self._objects.pop(name, None)
+
+        self._updateSyncToken()
+
         if self._notifier:
             self._txn.postCommit(self._notifier.notify)
 
@@ -924,6 +940,8 @@ class PostgresCalendar(object):
             [uid, self._resourceID]
         )
         self._objects.pop(name, None)
+        self._updateSyncToken()
+
         if self._notifier:
             self._home._txn.postCommit(self._notifier.notify)
 
@@ -1102,8 +1120,11 @@ class PostgresCalendarHome(object):
         )
 
         calendarType = ResourceType.calendar #@UndefinedVariable
-        self.calendarWithName(name).properties()[
+        newCalendar = self.calendarWithName(name)
+        newCalendar.properties()[
             PropertyName.fromElement(ResourceType)] = calendarType
+        newCalendar._updateSyncToken(True)
+
         if self._notifier:
             self._txn.postCommit(self._notifier.notify)
 

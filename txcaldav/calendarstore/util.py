@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.common.icommondatastore import InvalidObjectResourceError,\
-    NoSuchObjectResourceError
-
 """
 Utility logic common to multiple backend implementations.
 """
@@ -24,6 +21,13 @@ from twext.python.vcomponent import InvalidICalendarDataError
 from twext.python.vcomponent import VComponent
 from twistedcaldav.vcard import Component as VCard
 from twistedcaldav.vcard import InvalidVCardDataError
+
+from txdav.common.icommondatastore import InvalidObjectResourceError,\
+    NoSuchObjectResourceError
+from twistedcaldav.customxml import GETCTag
+from uuid import uuid4
+from txdav.propertystore.base import PropertyName
+
 
 def validateCalendarComponent(calendarObject, calendar, component):
     """
@@ -119,4 +123,33 @@ def validateAddressBookComponent(addressbookObject, vcard, component):
         component.validForCardDAV()
     except InvalidVCardDataError, e:
         raise InvalidObjectResourceError(e)
+
+
+
+class SyncTokenHelper(object):
+    """
+    Implement a basic _updateSyncToken in terms of an object with a property
+    store.  This is a mixin for use by data store implementations.
+    """
+
+    def _updateSyncToken(self, reset=False):
+        # FIXME: add locking a-la CalDAVResource.bumpSyncToken
+        # FIXME: tests for desired concurrency properties
+        ctag = PropertyName.fromString(GETCTag.sname())
+        props = self.properties()
+        token = props.get(ctag)
+        if token is None or reset:
+            tokenuuid = uuid4()
+            revision = 1
+        else:
+            # FIXME: no direct tests for update
+            token = str(token)
+            tokenuuid, revision = token.split("#", 1)
+            revision = int(revision) + 1
+        token = "%s#%d" % (tokenuuid, revision)
+        props[ctag] = GETCTag(token)
+        # FIXME: no direct tests for commit
+        return revision
+
+
 
