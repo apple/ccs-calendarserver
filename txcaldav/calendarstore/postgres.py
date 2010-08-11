@@ -727,6 +727,11 @@ class PostgresLegacyIndexEmulator(object):
         self.calendar = calendar
 
 
+    @property
+    def _txn(self):
+        return self.calendar._txn
+
+
     def reserveUID(self, uid):
         pass
 
