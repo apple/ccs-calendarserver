@@ -269,6 +269,7 @@ DEFAULT_CONFIG = {
     "ErrorLogEnabled"   : True,       # True = use log file, False = stdout
     "ErrorLogRotateMB"  : 10,         # Rotate error log after so many megabytes
     "ErrorLogMaxRotatedFiles"  : 5,   # Retain this many error log files
+    "PostgresLogFile" : "postgres.log",  # Postgres log
     "PIDFile"        : "caldavd.pid",
     "RotateAccessLog"   : False,
     "EnableExtendedAccessLog": True,
@@ -634,6 +635,7 @@ RELATIVE_PATHS = [("ServerRoot", "DataRoot"),
                   ("ConfigRoot", "SudoersFile"),
                   ("LogRoot", "AccessLogFile"),
                   ("LogRoot", "ErrorLogFile"),
+                  ("LogRoot", "PostgresLogFile"),
                   ("LogRoot", "AccountingLogRoot"),
                   ("RunRoot", "PIDFile"),
                   ("RunRoot", "GlobalStatsSocket"),

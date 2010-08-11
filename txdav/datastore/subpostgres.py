@@ -159,7 +159,7 @@ class PostgresService(MultiService):
 
     def __init__(self, dataStoreDirectory, subServiceFactory,
                  schema, databaseName='subpostgres', resetSchema=False,
-                 testMode=False):
+                 logFile="postgres.log", testMode=False):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -177,6 +177,7 @@ class PostgresService(MultiService):
         self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
             (md5(dataStoreDirectory.path).hexdigest()))
         self.databaseName = databaseName
+        self.logFile = logFile
         self.schema = schema
         self.monitor = None
         self.openConnections = []
@@ -300,7 +301,7 @@ class PostgresService(MultiService):
             [
                 pg_ctl,
                 "start",
-                "-l", "logfile",
+                "-l", self.logFile,
                 "-w",
                 # XXX what are the quoting rules for '-o'?  do I need to repr()
                 # the path here?

@@ -715,7 +715,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 return monitor
 
             PostgresService(dbRoot, subServiceFactory, v1_schema,
-                "caldav").setServiceParent(s)
+                "caldav", logFile=config.PostgresLogFile).setServiceParent(s)
 
         else:
             monitor.setServiceParent(s)

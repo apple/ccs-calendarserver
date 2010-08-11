@@ -292,7 +292,8 @@ def getRootResource(config, resources=None):
 
     if config.UseDatabase:
         _dbRoot = CachingFilePath(config.DatabaseRoot)
-        _postgresService = PostgresService(_dbRoot, None, v1_schema, "caldav")
+        _postgresService = PostgresService(_dbRoot, None, v1_schema, "caldav",
+            logFile=config.PostgresLogFile)
         _newStore = PostgresStore(_postgresService.produceConnection,
             notifierFactory, # config.EnableCalDAV, config.EnableCardDAV)
             _dbRoot.child("attachments"))
