@@ -556,10 +556,19 @@ dependencies () {
     "vObject" "vobject" "vobject" \
     "http://svn.osafoundation.org/vobject/trunk";
 
+  #
   # Tool dependencies.  The code itself doesn't depend on these, but
   # they are useful to developers.
+  #
+
   svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
+
   svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes HEAD;
+
+  local pd="pydoctor-0.3";
+  py_dependency \
+    "pydoctor" "pydoctor" "${pd}" \
+    "http://launchpadlibrarian.net/42323121/${pd}.tar.gz";
 
   if "${do_setup}"; then
     cd "${caldav}";
