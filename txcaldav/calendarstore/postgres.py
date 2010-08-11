@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.notifications import NotificationRecord
 
 """
 PostgreSQL data store.
@@ -29,6 +28,8 @@ __all__ = [
     "PostgresAddressBook",
     "PostgresAddressBookObject",
 ]
+
+import StringIO
 
 from twisted.python import hashlib
 from twistedcaldav.sharing import SharedCollectionRecord #@UnusedImport
@@ -68,6 +69,9 @@ from twext.web2.dav.element.parser import WebDAVDocument
 from twext.python.vcomponent import VComponent
 from twistedcaldav.vcard import Component as VCard
 from twistedcaldav.sharing import Invite
+from twistedcaldav.notifications import NotificationRecord
+from twistedcaldav.query.sqlgenerator import sqlgenerator
+from twistedcaldav.index import IndexedSearchException
 
 
 v1_schema = getModule(__name__).filePath.sibling(
@@ -729,6 +733,63 @@ class PostgresLegacySharesEmulator(object):
 #        )
 
 
+
+class postgresqlgenerator(sqlgenerator):
+    """
+    Query generator for postgreSQL indexed searches.  (Currently unused: work
+    in progress.)
+    """
+
+    def __init__(self, expr, calendar):
+        self.TIMESPANDB = "TIME_RANGE"
+        self.TIMESPANTEST = "((TIME_RANGE.FLOAT == 'N' AND TIME_RANGE.START_DATE < %s AND TIME_RANGE.END_DATE > %s) OR (TIME_RANGE.FLOAT == 'Y' AND TIME_RANGE.START_DATE < %s AND TIME_RANGE.END_DATE > %s))"
+        self.TIMESPANTEST_NOEND = "((TIME_RANGE.FLOAT == 'N' AND TIME_RANGE.END_DATE > %s) OR (TIME_RANGE.FLOAT == 'Y' AND TIME_RANGE.END_DATE > %s))"
+        self.TIMESPANTEST_NOSTART = "((TIME_RANGE.FLOAT == 'N' AND TIME_RANGE.START_DATE < %s) OR (TIME_RANGE.FLOAT == 'Y' AND TIME_RANGE.START_DATE < %s))"
+        self.TIMESPANTEST_TAIL_PIECE = " AND TIME_RANGE.CALENDAR_OBJECT_RESOURCE_ID == CALENDAR_OBJECT.RESOURCE_ID"
+
+        super(postgresqlgenerator, self).__init__(expr)
+        self.calendar = calendar
+
+
+    def generate(self):
+        """
+        Generate the actual SQL 'where ...' expression from the passed in
+        expression tree.
+        
+        @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the
+            partial SQL statement, and the C{list} is the list of argument
+            substitutions to use with the SQL API execute method.
+        """
+
+        # Init state
+        self.sout = StringIO.StringIO()
+        self.arguments = []
+        self.usedtimespan = False
+
+        # Generate ' where ...' partial statement
+        self.sout.write(self.WHERE)
+        self.generateExpression(self.expression)
+
+        # Prefix with ' from ...' partial statement
+        select = self.FROM + self.RESOURCEDB
+        if self.usedtimespan:
+            select += ", %s, %s" % (
+                self.TIMESPANDB)
+        select += self.sout.getvalue()
+        return select, self.arguments
+
+
+    def addArgument(self, arg):
+        self.arguments.append(arg)
+        self.sout.write("%s")
+
+
+    def setArgument(self, arg):
+        self.arguments.append(arg)
+        return "%s"
+
+
+
 class PostgresLegacyIndexEmulator(object):
     """
     Emulator for L{twistedcaldv.index.Index} and
@@ -773,8 +834,24 @@ class PostgresLegacyIndexEmulator(object):
         pass
 
 
+    def notExpandedBeyond(self, minDate):
+        """
+        Gives all resources which have not been expanded beyond a given date
+        in the database.  (Unused; see above L{postgresqlgenerator}.
+        """
+        return self._txn.execSQL(
+            "select RESOURCE_NAME from CALENDAR_OBJECT "
+            "where RECURRANCE_MAX < %s and CALENDAR_RESOURCE_ID = %s",
+            [minDate, self.calendar._resourceID]
+        )
+
+
     def indexedSearch(self, filter, useruid='', fbtype=False):
-        return []
+        """
+        Always raise L{IndexedSearchException}, since these indexes are not
+        fully implemented yet.
+        """
+        raise IndexedSearchException()
 
 
     def bruteForceSearch(self):
