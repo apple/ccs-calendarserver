@@ -78,9 +78,8 @@ class INotificationCollection(Interface):
         given C{xmltype}. Create or overwrite are OK.
 
         @param uid: a string.
-        @param xmltype: a string.
+        @param xmltype: a custom XML class (not an instance)
         @param xmldata: a string.
-        @param component: a C{VCARD} L{Component}
         """
 
     def removeNotificationObjectWithName(name):

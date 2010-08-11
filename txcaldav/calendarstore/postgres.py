@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.notifications import NotificationRecord
 
 """
 PostgreSQL data store.
@@ -1168,9 +1169,13 @@ class PostgresNotificationObject(object):
         self._resourceID = resourceID
 
 
+    def name(self):
+        return self.uid() + ".xml"
+
+
     @property
     def _txn(self):
-        return self._home.txn
+        return self._home._txn
 
 
     def setData(self, uid, xmltype, xmldata):
@@ -1185,7 +1190,7 @@ class PostgresNotificationObject(object):
 
     def _fieldQuery(self, field):
         [[data]] = self._txn.execSQL(
-            "select " + field + " from NOTIFICATION where"
+            "select " + field + " from NOTIFICATION where "
             "RESOURCE_ID = %s",
             [self._resourceID])
         return data
@@ -1206,6 +1211,51 @@ class PostgresNotificationObject(object):
                              self._resourceID)
 
 
+    def md5(self):
+        return None
+
+
+    def modified(self):
+        return None
+
+
+    def created(self):
+        return None
+
+
+
+class PostgresLegacyNotificationsEmulator(object):
+    def __init__(self, notificationsCollection):
+        self._collection = notificationsCollection
+
+
+    def _recordForObject(self, notificationObject):
+        return NotificationRecord(
+            notificationObject.uid(),
+            notificationObject.name(),
+            notificationObject._fieldQuery("XML_TYPE"))
+
+
+    def recordForName(self, name):
+        return self._recordForObject(
+            self._collection.notificationObjectWithName(name)
+        )
+
+
+    def recordForUID(self, uid):
+        return self._recordForObject(
+            self._collection.notificationObjectWithUID(uid)
+        )
+
+
+    def removeRecordForUID(self, uid):
+        self._collection.removeNotificationObjectWithUID(uid)
+
+
+    def removeRecordForName(self, name):
+        self._collection.removeNotificationObjectWithName(name)
+
+
 
 class PostgresNotificationsCollection(object):
 
@@ -1217,8 +1267,16 @@ class PostgresNotificationsCollection(object):
         self._resourceID = resourceID
 
 
+    def retrieveOldIndex(self):
+        return PostgresLegacyNotificationsEmulator(self)
+
+
     def name(self):
         return 'notification'
+
+
+    def uid(self):
+        return self._uid
 
 
     def notificationObjects(self):
@@ -1243,17 +1301,22 @@ class PostgresNotificationsCollection(object):
 
 
     def notificationObjectWithUID(self, uid):
-        [[resourceID]] = self._txn.execSQL(
+        rows = self._txn.execSQL(
             "select RESOURCE_ID from NOTIFICATION where NOTIFICATION_UID = %s"
             " and NOTIFICATION_HOME_RESOURCE_ID = %s",
             [uid, self._resourceID])
-        return PostgresNotificationObject(self, resourceID)
+        if rows:
+            [[resourceID]] = rows
+            return PostgresNotificationObject(self, resourceID)
+        else:
+            return None
 
 
     def writeNotificationObject(self, uid, xmltype, xmldata):
+        xmltype = PropertyName.fromElement(xmltype).toString()
         self._txn.execSQL(
-            "insert into NOTIFICATION (NOTIFICATION_UID, XML_TYPE, XML_DATA) "
-            "values (%s, %s, %s)", [uid, xmltype, xmldata])
+            "insert into NOTIFICATION (NOTIFICATION_HOME_RESOURCE_ID, NOTIFICATION_UID, XML_TYPE, XML_DATA) "
+            "values (%s, %s, %s, %s)", [self._resourceID, uid, xmltype, xmldata])
 
 
     def removeNotificationObjectWithName(self, name):
@@ -1378,11 +1441,19 @@ class PostgresTransaction(object):
         """
         Implement notificationsWithUID.
         """
-        [[resourceID]] = self._txn.execSQL(
+        rows = self.execSQL(
             """
             select RESOURCE_ID from NOTIFICATION_HOME where
             OWNER_UID = %s
             """, [uid])
+        if rows:
+            [[resourceID]] = rows
+        else:
+            [[resourceID]] = self.execSQL("select nextval('RESOURCE_ID_SEQ')")
+            resourceID = str(resourceID)
+            self.execSQL(
+                "insert into NOTIFICATION_HOME (RESOURCE_ID, OWNER_UID) "
+                "values (%s, %s)", [resourceID, uid])
         return PostgresNotificationsCollection(self, uid, resourceID)
 
 
