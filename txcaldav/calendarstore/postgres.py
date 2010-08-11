@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.common.inotifications import INotificationCollection, \
-    INotificationObject
 
 """
 PostgreSQL data store.
@@ -46,6 +44,8 @@ from twisted.python.failure import Failure
 from twext.web2.dav.element.rfc2518 import ResourceType
 
 from txdav.idav import IDataStore, AlreadyFinishedError
+from txdav.common.inotifications import (INotificationCollection,
+    INotificationObject)
 
 from txdav.common.icommondatastore import (
     ObjectResourceNameAlreadyExistsError, HomeChildNameAlreadyExistsError,
@@ -63,7 +63,6 @@ from txdav.propertystore.none import PropertyStore
 
 from twext.web2.http_headers import MimeType
 from twext.web2.dav.element.parser import WebDAVDocument
-
 
 from twext.python.vcomponent import VComponent
 from twistedcaldav.vcard import Component as VCard
@@ -529,7 +528,9 @@ class PostgresLegacyInvitesEmulator(object):
 
 
     def recordForUserID(self, userid):
-        raise NotImplementedError("recordForUserID")
+        for record in self.allRecords():
+            if record.userid == userid:
+                return record
 
 
     def recordForPrincipalURL(self, principalURL):
@@ -615,7 +616,11 @@ class PostgresLegacyInvitesEmulator(object):
 
 
     def removeRecordForUserID(self, userid):
-        raise NotImplementedError("removeRecordForUserID")
+        rec = self.recordForUserID(userid)
+        self._txn.execSQL(
+            "delete from INVITE where INVITE_UID = %s",
+            [rec.inviteuid]
+        )
 
 
     def removeRecordForPrincipalURL(self, principalURL):
