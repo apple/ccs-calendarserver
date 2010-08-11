@@ -121,6 +121,7 @@ create table CALENDAR_OBJECT (
   ATTACHMENTS_MODE     int          not null, -- enum CALENDAR_OBJECT_ATTACHMENTS_MODE
   ORGANIZER            varchar(255),
   ORGANIZER_OBJECT     varchar(255) references CALENDAR_OBJECT,
+  RECURRANCE_MAX       date, -- maximum date that recurrences have been expanded to.
 
   unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME)
 
