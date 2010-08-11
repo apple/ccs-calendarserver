@@ -30,11 +30,32 @@ create table CALENDAR (
 ------------------------
 
 create table INVITE (
-    INVITE_UID                  varchar(255) not null,
-    NAME                        varchar(255) not null,
-    SENDER_ADDRESS              varchar(255) not null,
+    INVITE_UID         varchar(255) not null,
+    NAME               varchar(255) not null,
+    SENDER_ADDRESS     varchar(255) not null,
     HOME_RESOURCE_ID   varchar(255) not null,
     RESOURCE_ID        varchar(255) not null
+);
+
+
+---------------------------
+-- Sharing Notifications --
+---------------------------
+
+create table NOTIFICATION_HOME (
+  RESOURCE_ID varchar(255) primary key default nextval('RESOURCE_ID_SEQ'),
+  OWNER_UID   varchar(255) not null unique
+);
+
+
+create table NOTIFICATION (
+  RESOURCE_ID varchar(255)
+        primary key default nextval('RESOURCE_ID_SEQ'),
+  NOTIFICATION_HOME_RESOURCE_ID
+        varchar(255) not null references NOTIFICATION_HOME,
+  NOTIFICATION_UID varchar(255) not null,
+  XML_TYPE varchar not null,
+  XML_DATA varchar not null
 );
 
 
@@ -83,6 +104,7 @@ create table CALENDAR_BIND_STATUS (
 insert into CALENDAR_BIND_STATUS values (0, 'invited' );
 insert into CALENDAR_BIND_STATUS values (1, 'accepted');
 insert into CALENDAR_BIND_STATUS values (2, 'declined');
+insert into CALENDAR_BIND_STATUS values (3, 'invalid');
 
 
 ---------------------

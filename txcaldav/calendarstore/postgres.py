@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.common.inotifications import INotificationCollection, \
+    INotificationObject
 
 """
 PostgreSQL data store.
@@ -78,6 +80,7 @@ v1_schema = getModule(__name__).filePath.sibling(
 _BIND_STATUS_INVITED = 0
 _BIND_STATUS_ACCEPTED = 1
 _BIND_STATUS_DECLINED = 2
+_BIND_STATUS_INVALID = 3
 
 _ATTACHMENTS_MODE_WRITE = 1
 
@@ -511,7 +514,8 @@ class PostgresLegacyInvitesEmulator(object):
             state = {
                 _BIND_STATUS_INVITED: "NEEDS-ACTION",
                 _BIND_STATUS_ACCEPTED: "ACCEPTED",
-                _BIND_STATUS_DECLINED: "DECLINED"
+                _BIND_STATUS_DECLINED: "DECLINED",
+                _BIND_STATUS_INVALID: "INVALID",
             }[bindStatus]
             access = {
                 _BIND_MODE_READ: "read-only",
@@ -545,6 +549,7 @@ class PostgresLegacyInvitesEmulator(object):
             "NEEDS-ACTION": _BIND_STATUS_INVITED,
             "ACCEPTED": _BIND_STATUS_ACCEPTED,
             "DECLINED": _BIND_STATUS_DECLINED,
+            "INVALID": _BIND_STATUS_INVALID,
         }[record.state]
         # principalURL is derived from a directory record's principalURL() so
         # it will always contain the UID.
@@ -1150,13 +1155,61 @@ class PostgresCalendarHome(object):
 
 
 
+class PostgresNotificationObject(object):
+    implements(INotificationObject)
+
+    def __init__(self, home, resourceID):
+        self._home = home
+        self._resourceID = resourceID
+
+
+    @property
+    def _txn(self):
+        return self._home.txn
+
+
+    def setData(self, uid, xmltype, xmldata):
+        return self._txn.execSQL(
+            """
+            update NOTIFICATION set NOTIFICATION_UID = %s, XML_TYPE = %s,
+            XML_DATA = %s where RESOURCE_ID = %s
+            """,
+            [uid, xmltype, xmldata, self._resourceID]
+        )
+
+
+    def _fieldQuery(self, field):
+        [[data]] = self._txn.execSQL(
+            "select " + field + " from NOTIFICATION where"
+            "RESOURCE_ID = %s",
+            [self._resourceID])
+        return data
+
+
+    def xmldata(self):
+        return self._fieldQuery("XML_DATA")
+
+
+    def uid(self):
+        return self._fieldQuery("NOTIFICATION_UID")
+
+
+    def properties(self):
+        return PropertyStore(self._home.uid(),
+                             self._home.uid(),
+                             self._txn,
+                             self._resourceID)
+
+
+
 class PostgresNotificationsCollection(object):
 
+    implements(INotificationCollection)
 
-    def __init__(self, txn, uid):
+    def __init__(self, txn, uid, resourceID):
         self._txn = txn
         self._uid = uid
-        self._resourceID = 'notifications for %s' % (uid,)
+        self._resourceID = resourceID
 
 
     def name(self):
@@ -1164,30 +1217,54 @@ class PostgresNotificationsCollection(object):
 
 
     def notificationObjects(self):
-        return []
+        for [uid] in self._txn.execSQL(
+                "select (NOTIFICATION_UID) "
+                "from NOTIFICATION "
+                "where NOTIFICATION_HOME_RESOURCE_ID = %s",
+                [self._resourceID]):
+            yield self.notificationObjectWithUID(uid)
+
+
+    def _nameToUID(self, name):
+        """
+        Based on the file-backed implementation, the 'name' is just uid +
+        ".xml".
+        """
+        return name.rsplit(".", 1)[0]
 
 
     def notificationObjectWithName(self, name):
-        return None
+        return self.notificationObjectWithUID(self._nameToUID(name))
+
 
     def notificationObjectWithUID(self, uid):
-        return None
+        [[resourceID]] = self._txn.execSQL(
+            "select RESOURCE_ID from NOTIFICATION where NOTIFICATION_UID = %s"
+            " and NOTIFICATION_HOME_RESOURCE_ID = %s",
+            [uid, self._resourceID])
+        return PostgresNotificationObject(self, resourceID)
 
 
     def writeNotificationObject(self, uid, xmltype, xmldata):
-        return None
+        self._txn.execSQL(
+            "insert into NOTIFICATION (NOTIFICATION_UID, XML_TYPE, XML_DATA) "
+            "values (%s, %s, %s)", [uid, xmltype, xmldata])
 
 
     def removeNotificationObjectWithName(self, name):
-        return
+        self.removeNotificationObjectWithUID(self._nameToUID(name))
 
 
     def removeNotificationObjectWithUID(self, uid):
-        return
+        self._txn.execSQL(
+            "delete from NOTIFICATION where NOTIFICATION_UID = %s and "
+            "NOTIFICATION_HOME_RESOURCE_ID = %s",
+            [uid, self._resourceID])
 
 
     def syncToken(self):
         return 'dummy-sync-token'
+
 
     def notificationObjectsSinceToken(self, token):
         changed = []
@@ -1197,7 +1274,9 @@ class PostgresNotificationsCollection(object):
 
 
     def properties(self):
-        return PropertyStore(self._uid, self._uid, self._txn, self._resourceID)
+        return PropertyStore(
+            self._uid, self._uid, self._txn, self._resourceID
+        )
 
 
 
@@ -1294,7 +1373,12 @@ class PostgresTransaction(object):
         """
         Implement notificationsWithUID.
         """
-        return PostgresNotificationsCollection(self, uid)
+        [[resourceID]] = self._txn.execSQL(
+            """
+            select RESOURCE_ID from NOTIFICATION_HOME where
+            OWNER_UID = %s
+            """, [uid])
+        return PostgresNotificationsCollection(self, uid, resourceID)
 
 
     def abort(self):
