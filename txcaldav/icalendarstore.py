@@ -381,6 +381,14 @@ class ICalendarObject(IDataStoreResource):
         """
 
 
+    def attendeesCanManageAttachments():
+        """
+        Are attendees allowed to manage attachments?
+
+        @return: C{True} if they can, C{False} if they can't.
+        """
+
+
 
 class IAttachment(IDataStoreResource):
     """

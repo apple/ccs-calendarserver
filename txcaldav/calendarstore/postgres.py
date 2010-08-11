@@ -62,7 +62,7 @@ from txcarddav.iaddressbookstore import (IAddressBookTransaction,
 from txdav.propertystore.base import AbstractPropertyStore, PropertyName
 from txdav.propertystore.none import PropertyStore
 
-from twext.web2.http_headers import MimeType
+from twext.web2.http_headers import MimeType, generateContentType
 from twext.web2.dav.element.parser import WebDAVDocument
 
 from twext.python.vcomponent import VComponent
@@ -277,7 +277,12 @@ class PostgresCalendarObject(object):
 
 
     def _attachmentPath(self, name):
-        return self._calendar._home._txn._store.attachmentsPath.child(
+        attachmentRoot = self._calendar._home._txn._store.attachmentsPath
+        try:
+            attachmentRoot.createDirectory()
+        except:
+            pass
+        return attachmentRoot.child(
             "%s-%s-%s-%s.attachment" % (
                 self._calendar._home.uid(), self._calendar.name(),
                 self.name(), name
@@ -294,7 +299,7 @@ class PostgresCalendarObject(object):
             values (%s, %s, %s, %s, %s)
             """,
             [
-                self._resourceID, str(contentType), 0, "",
+                self._resourceID, generateContentType(contentType), 0, "",
                 attachment._pathValue()
             ]
         )
@@ -349,6 +354,10 @@ class PostgresCalendarObject(object):
 
     def modified(self):
         return None
+
+
+    def attendeesCanManageAttachments(self):
+        return self.component().hasPropertyInAnyComponent("X-APPLE-DROPBOX")
 
 
 
@@ -460,8 +469,7 @@ class PostgresAttachmentStorageTransport(object):
     def loseConnection(self):
         self.attachment._path.setContent(self.buf)
         pathValue = self.attachment._pathValue()
-        contentTypeString = '%s/%s' % (self.contentType.mediaType,
-                                       self.contentType.mediaSubtype)
+        contentTypeString = generateContentType(self.contentType)
         self._txn.execSQL(
             "update ATTACHMENT set CONTENT_TYPE = %s, MD5 = %s "
             "WHERE PATH = %s",
