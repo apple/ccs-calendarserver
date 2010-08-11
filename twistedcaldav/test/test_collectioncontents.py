@@ -58,7 +58,7 @@ class CollectionContents(HomeTestCase):
         # Tests in this suite assume that the root resource is a calendar home.
         # FIXME: there should be a centralized way of saying 'make this look
         # like a calendar home'
-        super(CollectionContents, self).setUp()
+        return super(CollectionContents, self).setUp()
 
 
     def test_collection_in_calendar(self):
@@ -166,9 +166,7 @@ class CollectionContents(HomeTestCase):
         with the data from given stream and verifies that the response code from the
         PUT request matches the given response_code.
         """
-        calendar_path, calendar_uri = self.mkdtemp("calendar")
-        calPath = FilePath(calendar_path)
-        calPath.remove()
+        ignored, calendar_uri = self.mkdtemp("calendar")
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -205,9 +203,7 @@ class CollectionContents(HomeTestCase):
         """
         Make (regular) collection in calendar
         """
-        calendar_path, calendar_uri = self.mkdtemp("dot_file_in_calendar")
-        calPath = FilePath(calendar_path)
-        calPath.remove()
+        ignored, calendar_uri = self.mkdtemp("dot_file_in_calendar")
 
         def mkcalendar_cb(response):
             response = IResponse(response)
