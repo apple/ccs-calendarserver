@@ -662,7 +662,7 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
 
     def __repr__(self):
         return "<Calendar Collection Resource %r:%r>" % (
-            self._newStoreCalendar.ownerHome().uid(),
+            self._newStoreCalendar.ownerCalendarHome().uid(),
             self._newStoreCalendar.name())
 
 
