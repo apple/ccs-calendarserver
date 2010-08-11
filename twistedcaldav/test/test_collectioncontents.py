@@ -225,7 +225,7 @@ class CollectionContents(HomeTestCase):
             request = SimpleRequest(self.site, "PUT", event_uri)
             request.headers.setHeader("content-type", MimeType("text", "calendar"))
             request.stream = MemoryStream(calendar)
-            self.send(request, put_cb)
+            return self.send(request, put_cb)
 
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
         return self.send(request, mkcalendar_cb)
