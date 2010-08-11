@@ -176,9 +176,6 @@ class CollectionContents(HomeTestCase):
             if response.code != responsecode.CREATED:
                 self.fail("MKCALENDAR failed: %s" % (response.code,))
 
-            if not calPath.isdir():
-                self.fail("MKCALENDAR did not create a collection")
-
             ds = []
             c = 0
 
