@@ -494,8 +494,6 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
                     label = "collection" if isvirt else "default"
                     notifierID = dataObject.notifierID(label=label)
                     if notifierID is not None:
-                        print "XYZZY notifierID", notifierID
-
                         pubSubConfiguration = getPubSubConfiguration(config)
                         nodeName = getPubSubPath(notifierID, pubSubConfiguration)
                         propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
@@ -1401,9 +1399,6 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
         except:
             return fail(Failure())
 
-        if hasattr(self, 'clientNotifier'):
-            self.clientNotifier.notify(op="update")
-
         return succeed(True)
 
     #
@@ -2294,79 +2289,59 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
             qname = property.qname()
 
         if qname == (customxml.calendarserver_namespace, "push-transports"):
-            pubSubConfiguration = getPubSubConfiguration(config)
-            if (pubSubConfiguration['enabled'] and
-                getattr(self, "clientNotifier", None) is not None):
-                    id = self.clientNotifier.getID()
-                    nodeName = getPubSubPath(id, pubSubConfiguration)
-                    children = []
-                    if pubSubConfiguration['aps-bundle-id']:
-                        children.append(
-                            customxml.PubSubTransportProperty(
-                                customxml.PubSubSubscriptionProperty(
-                                    davxml.HRef(
-                                        pubSubConfiguration['subscription-url']
-                                    ),
+            notifierID = self._newStoreHome.notifierID()
+            if notifierID is not None:
+                pubSubConfiguration = getPubSubConfiguration(config)
+                children = []
+                if pubSubConfiguration['aps-bundle-id']:
+                    children.append(
+                        customxml.PubSubTransportProperty(
+                            customxml.PubSubSubscriptionProperty(
+                                davxml.HRef(
+                                    pubSubConfiguration['subscription-url']
                                 ),
-                                customxml.PubSubAPSBundleIDProperty(
-                                    pubSubConfiguration['aps-bundle-id']
-                                ),
-                                type="APSD",
-                            )
+                            ),
+                            customxml.PubSubAPSBundleIDProperty(
+                                pubSubConfiguration['aps-bundle-id']
+                            ),
+                            type="APSD",
                         )
-                    if pubSubConfiguration['xmpp-server']:
-                        children.append(
-                            customxml.PubSubTransportProperty(
-                                customxml.PubSubXMPPServerProperty(
-                                    pubSubConfiguration['xmpp-server']
-                                ),
-                                customxml.PubSubXMPPURIProperty(
-                                    getPubSubXMPPURI(id, pubSubConfiguration)
-                                ),
-                                type="XMPP",
-                            )
+                    )
+                if pubSubConfiguration['xmpp-server']:
+                    children.append(
+                        customxml.PubSubTransportProperty(
+                            customxml.PubSubXMPPServerProperty(
+                                pubSubConfiguration['xmpp-server']
+                            ),
+                            customxml.PubSubXMPPURIProperty(
+                                getPubSubXMPPURI(notifierID, pubSubConfiguration)
+                            ),
+                            type="XMPP",
                         )
+                    )
 
-                    propVal = customxml.PubSubPushTransportsProperty(*children)
-                    nodeCacher = getNodeCacher()
-                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
-                    # In either case we're going to return the value
-                    d.addBoth(lambda ignored: propVal)
-                    return d
+                return succeed(customxml.PubSubPushTransportsProperty(*children))
 
 
             else:
                 return succeed(customxml.PubSubPushTransportsProperty())
 
         if qname == (customxml.calendarserver_namespace, "pushkey"):
-            pubSubConfiguration = getPubSubConfiguration(config)
-            if pubSubConfiguration['enabled']:
-                if getattr(self, "clientNotifier", None) is not None:
-                    id = self.clientNotifier.getID()
-                    nodeName = getPubSubPath(id, pubSubConfiguration)
-                    propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
-                    nodeCacher = getNodeCacher()
-                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
-                    # In either case we're going to return the xmpp-uri value
-                    d.addBoth(lambda ignored: propVal)
-                    return d
+            notifierID = self._newStoreHome.notifierID()
+            if notifierID is not None:
+                pubSubConfiguration = getPubSubConfiguration(config)
+                nodeName = getPubSubPath(notifierID, pubSubConfiguration)
+                return succeed(customxml.PubSubXMPPPushKeyProperty(nodeName))
             else:
                 return succeed(customxml.PubSubXMPPPushKeyProperty())
 
 
         if qname == (customxml.calendarserver_namespace, "xmpp-uri"):
-            pubSubConfiguration = getPubSubConfiguration(config)
-            if pubSubConfiguration['enabled']:
-                if getattr(self, "clientNotifier", None) is not None:
-                    id = self.clientNotifier.getID()
-                    nodeName = getPubSubPath(id, pubSubConfiguration)
-                    propVal = customxml.PubSubXMPPURIProperty(
-                        getPubSubXMPPURI(id, pubSubConfiguration))
-                    nodeCacher = getNodeCacher()
-                    d = nodeCacher.waitForNode(self.clientNotifier, nodeName)
-                    # In either case we're going to return the xmpp-uri value
-                    d.addBoth(lambda ignored: propVal)
-                    return d
+            notifierID = self._newStoreHome.notifierID()
+            if notifierID is not None:
+                pubSubConfiguration = getPubSubConfiguration(config)
+                return succeed(customxml.PubSubXMPPURIProperty(
+                    getPubSubXMPPURI(notifierID, pubSubConfiguration)))
             else:
                 return succeed(customxml.PubSubXMPPURIProperty())
 
