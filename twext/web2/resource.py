@@ -117,13 +117,13 @@ class RenderMixin(object):
         response.headers.setHeader("allow", self.allowedMethods())
         return response
 
-    def http_TRACE(self, request):
-        """
-        Respond to a TRACE request.
-        @param request: the request to process.
-        @return: an object adaptable to L{iweb.IResponse}.
-        """
-        return server.doTrace(request)
+#    def http_TRACE(self, request):
+#        """
+#        Respond to a TRACE request.
+#        @param request: the request to process.
+#        @return: an object adaptable to L{iweb.IResponse}.
+#        """
+#        return server.doTrace(request)
 
     def http_HEAD(self, request):
         """
