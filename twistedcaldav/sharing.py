@@ -343,8 +343,9 @@ class SharedCollectionMixin(object):
 
     def validUserIDForShare(self, userid):
         """
-        Test the user id to see if it is a valid identifier for sharing and return a "normalized"
-        form for our own use (e.g. convert mailto: to urn:uuid).
+        Test the user id to see if it is a valid identifier for sharing and
+        return a "normalized" form for our own use (e.g. convert mailto: to
+        urn:uuid).
 
         @param userid: the userid to test
         @type userid: C{str}
@@ -582,7 +583,7 @@ class SharedCollectionMixin(object):
         def _handleErrorResponse(error):
             if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
                 return error.value.response
-            return Response(code=responsecode.BAD_REQUEST)
+            return error
 
         def _handleInvite(invitedoc):
             def _handleInviteSet(inviteset):
@@ -1111,7 +1112,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         def _handleErrorResponse(error):
             if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
                 return error.value.response
-            return Response(code=responsecode.BAD_REQUEST)
+            return error
 
         def _handleInviteReply(invitereplydoc):
             """ Handle a user accepting or declining a sharing invite """
