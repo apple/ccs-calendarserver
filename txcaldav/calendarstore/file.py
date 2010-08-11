@@ -222,6 +222,10 @@ class CalendarObject(CommonObjectResource):
         return self._parentCollection
 
 
+    def calendar(self):
+        return self._calendar
+
+
     @writeOperation
     def setComponent(self, component):
         validateCalendarComponent(self, self._calendar, component)

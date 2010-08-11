@@ -1,3 +1,4 @@
+# -*- test-case-name: txcarddav.addressbookstore,txcaldav.calendarstore.test.test_postgres.AddressBookSQLStorageTests -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -221,6 +222,13 @@ class IAddressBookObject(IDataStoreResource):
 
     An addressbook object describes a contact (vCard).
     """
+
+    def addressbook():
+        """
+        @return: The address book which this address book object is a part of.
+        @rtype: L{IAddressBook}
+        """
+
 
     def setComponent(component):
         """

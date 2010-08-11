@@ -229,6 +229,10 @@ class PostgresCalendarObject(object):
         return self._name
 
 
+    def calendar(self):
+        return self._calendar
+
+
     def iCalendarText(self):
         if self._calendarText is None:
             text = self._txn.execSQL(
@@ -1032,6 +1036,10 @@ class PostgresCalendarHome(object):
         return self.uid()
 
 
+    def transaction(self):
+        return self._txn
+
+
     def listChildren(self):
         """
         Retrieve the names of the children in this calendar home.
@@ -1392,6 +1400,10 @@ class PostgresTransaction(object):
         self._label = label
 
 
+    def store(self):
+        return self._store
+
+
     def __repr__(self):
         return 'PG-TXN<%s>' % (self._label,)
 
@@ -1536,6 +1548,10 @@ class PostgresAddressBookObject(object):
 
     def name(self):
         return self._name
+
+
+    def addressbook(self):
+        return self._addressbook
 
 
     def vCardText(self):

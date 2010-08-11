@@ -265,6 +265,12 @@ class ICalendarObject(IDataStoreResource):
     object.
     """
 
+    def calendar():
+        """
+        @return: The calendar which this calendar object is a part of.
+        @rtype: L{ICalendar}
+        """
+
     def setComponent(component):
         """
         Rewrite this calendar object to match the given C{component}.

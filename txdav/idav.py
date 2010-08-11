@@ -68,7 +68,7 @@ class IPropertyName(Interface):
     Property name.
     """
     namespace = Attribute("Namespace")
-    name      = Attribute("Name")
+    name = Attribute("Name")
 
     def toString():
         """
@@ -118,7 +118,7 @@ class IDataStoreResource(Interface):
     """
     An L{IDataStoreResource} are the objects stored in an L{IDataStore}.
     """
-    
+
     def name():
         """
         Identify the name of the object
@@ -169,7 +169,9 @@ class IDataStoreResource(Interface):
 
         @return: an L{IPropertyStore}.
         """
-    
+
+
+
 class ITransaction(Interface):
     """
     Transaction that can be aborted and either succeeds or fails in
@@ -204,6 +206,16 @@ class ITransaction(Interface):
 
         @param operation: a callable.
         """
+
+
+    def store():
+        """
+        The store that this transaction was initiated from.
+
+        @rtype: L{IDataStore}
+        """
+
+
 
 class INotifier(Interface):
     """
