@@ -73,6 +73,7 @@ class SubprocessStartup(TestCase):
             SimpleService,
             "create table TEST_DUMMY_TABLE (stub varchar)",
             "dummy_db",
+            testMode=True
         )
 
         svc.startService()

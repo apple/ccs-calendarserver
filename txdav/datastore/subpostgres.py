@@ -158,7 +158,8 @@ class _PostgresMonitor(ProcessProtocol):
 class PostgresService(MultiService):
 
     def __init__(self, dataStoreDirectory, subServiceFactory,
-                 schema, databaseName='subpostgres', resetSchema=False):
+                 schema, databaseName='subpostgres', resetSchema=False,
+                 testMode=False):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -179,6 +180,18 @@ class PostgresService(MultiService):
         self.schema = schema
         self.monitor = None
         self.openConnections = []
+
+        # FIXME: By default there is very little (4MB) shared memory available,
+        # so at the moment I am lowering these postgres config options to allow
+        # multiple servers to run.  We might want to look into raising
+        # kern.sysv.shmmax.
+        # See: http://www.postgresql.org/docs/8.4/static/kernel-resources.html
+        if testMode:
+            self.sharedBuffers = 16
+            self.maxConnections = 2
+        else:
+            self.sharedBuffers = 30
+            self.maxConnections = 20
 
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):
@@ -291,8 +304,8 @@ class PostgresService(MultiService):
                 "-w",
                 # XXX what are the quoting rules for '-o'?  do I need to repr()
                 # the path here?
-                "-o", "-c listen_addresses='' -k '%s' -c standard_conforming_strings=on"
-                    % (self.socketDir.path,),
+                "-o", "-c listen_addresses='' -k '%s' -c standard_conforming_strings=on -c shared_buffers=%d -c max_connections=%d"
+                    % (self.socketDir.path, self.sharedBuffers, self.maxConnections),
             ],
             self.env
         )

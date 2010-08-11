@@ -96,7 +96,8 @@ class StoreBuilder(object):
                     ready.callback(self.store)
                 return self.store
             self.sharedService = PostgresService(
-                dbRoot, getReady, v1_schema, "caldav", resetSchema=True
+                dbRoot, getReady, v1_schema, "caldav", resetSchema=True,
+                testMode=True
             )
             self.sharedService.startService()
             def startStopping():
