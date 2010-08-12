@@ -28,7 +28,7 @@ import sys
 from time import time
 
 from subprocess import Popen, PIPE
-from pwd import getpwuid
+from pwd import getpwuid, getpwnam
 from grp import getgrnam
 from OpenSSL.SSL import Error as SSLError
 import OpenSSL
@@ -685,6 +685,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         logger = AMPLoggingFactory(
             RotatingFileAccessLoggingObserver(config.AccessLogFile)
         )
+
         if config.GroupName:
             try:
                 gid = getgrnam(config.GroupName).gr_gid
@@ -692,6 +693,15 @@ class CalDAVServiceMaker (LoggingMixIn):
                 raise ConfigurationError("Invalid group name: %s" % (config.GroupName,))
         else:
             gid = os.getgid()
+
+        if config.UserName:
+            try:
+                uid = getpwnam(config.UserName).pw_uid
+            except KeyError, e:
+                raise ConfigurationError("Invalid user name: %s" % (config.UserName,))
+        else:
+            uid = os.getuid()
+
         if config.ControlSocket:
             loggingService = GroupOwnedUNIXServer(
                 gid, config.ControlSocket, logger, mode=0660
@@ -714,8 +724,16 @@ class CalDAVServiceMaker (LoggingMixIn):
             def subServiceFactory(connectionFactory):
                 return monitor
 
+            if os.getuid() == 0: # Only override if root
+                postgresUID = uid
+                postgresGID = gid
+            else:
+                postgresUID = None
+                postgresGID = None
+
             PostgresService(dbRoot, subServiceFactory, v1_schema,
-                "caldav", logFile=config.PostgresLogFile).setServiceParent(s)
+                "caldav", logFile=config.PostgresLogFile,
+                uid=postgresUID, gid=postgresGID).setServiceParent(s)
 
         else:
             monitor.setServiceParent(s)

@@ -159,7 +159,8 @@ class PostgresService(MultiService):
 
     def __init__(self, dataStoreDirectory, subServiceFactory,
                  schema, databaseName='subpostgres', resetSchema=False,
-                 logFile="postgres.log", testMode=False):
+                 logFile="postgres.log", testMode=False,
+                 uid=None, gid=None):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -178,6 +179,8 @@ class PostgresService(MultiService):
             (md5(dataStoreDirectory.path).hexdigest()))
         self.databaseName = databaseName
         self.logFile = logFile
+        self.uid = uid
+        self.gid = gid
         self.schema = schema
         self.monitor = None
         self.openConnections = []
@@ -308,7 +311,8 @@ class PostgresService(MultiService):
                 "-o", "-c listen_addresses='' -k '%s' -c standard_conforming_strings=on -c shared_buffers=%d -c max_connections=%d"
                     % (self.socketDir.path, self.sharedBuffers, self.maxConnections),
             ],
-            self.env
+            self.env,
+            uid=self.uid, gid=self.gid,
         )
         self.monitor = monitor
         def gotReady(result):
@@ -332,8 +336,12 @@ class PostgresService(MultiService):
         if clusterDir.isdir():
             self.startDatabase()
         else:
-            self.dataStoreDirectory.createDirectory()
-            workingDir.createDirectory()
+            if not self.dataStoreDirectory.isdir():
+                self.dataStoreDirectory.createDirectory()
+            if not clusterDir.isdir():
+                clusterDir.createDirectory()
+            if not workingDir.isdir():
+                workingDir.createDirectory()
             dbInited = getProcessOutput(
                 initdb, [], env, workingDir.path, errortoo=True
             )
