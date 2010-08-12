@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import DeferredList
+from twisted.internet.defer import inlineCallbacks
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
@@ -58,16 +58,14 @@ class CollectionContents(HomeTestCase):
         # Tests in this suite assume that the root resource is a calendar home.
         # FIXME: there should be a centralized way of saying 'make this look
         # like a calendar home'
-        super(CollectionContents, self).setUp()
+        return super(CollectionContents, self).setUp()
 
 
     def test_collection_in_calendar(self):
         """
         Make (regular) collection in calendar
         """
-        calendar_path, calendar_uri = self.mkdtemp("collection_in_calendar")
-        calPath = FilePath(calendar_path)
-        calPath.remove()
+        calendar_uri = "/collection_in_calendar/"
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -166,39 +164,32 @@ class CollectionContents(HomeTestCase):
         with the data from given stream and verifies that the response code from the
         PUT request matches the given response_code.
         """
-        calendar_path, calendar_uri = self.mkdtemp("calendar")
-        calPath = FilePath(calendar_path)
-        calPath.remove()
+        calendar_uri = "/testing_calendar/"
 
+
+        @inlineCallbacks
         def mkcalendar_cb(response):
             response = IResponse(response)
 
             if response.code != responsecode.CREATED:
                 self.fail("MKCALENDAR failed: %s" % (response.code,))
 
-            if not calPath.isdir():
-                self.fail("MKCALENDAR did not create a collection")
-
-            ds = []
             c = 0
 
             for stream, response_code in work:
-                def put_cb(response, stream=stream, response_code=response_code):
-                    response = IResponse(response)
-
-                    if response.code != response_code:
-                        self.fail("Incorrect response to %s: %s (!= %s)" % (what, response.code, response_code))
 
                 dst_uri = "/".join([calendar_uri, "dst%d.ics" % (c,)])
                 request = SimpleRequest(self.site, "PUT", dst_uri)
                 request.headers.setHeader("if-none-match", "*")
                 request.headers.setHeader("content-type", MimeType("text", "calendar"))
                 request.stream = stream
-                ds.append(self.send(request, put_cb))
+                response = yield self.send(request)
+                response = IResponse(response)
+
+                if response.code != response_code:
+                    self.fail("Incorrect response to %s: %s (!= %s)" % (what, response.code, response_code))
 
                 c += 1
-
-            return DeferredList(ds)
 
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
         return self.send(request, mkcalendar_cb)
@@ -208,9 +199,7 @@ class CollectionContents(HomeTestCase):
         """
         Make (regular) collection in calendar
         """
-        calendar_path, calendar_uri = self.mkdtemp("dot_file_in_calendar")
-        calPath = FilePath(calendar_path)
-        calPath.remove()
+        calendar_uri = "/dot_file_in_calendar/"
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -236,7 +225,7 @@ class CollectionContents(HomeTestCase):
             request = SimpleRequest(self.site, "PUT", event_uri)
             request.headers.setHeader("content-type", MimeType("text", "calendar"))
             request.stream = MemoryStream(calendar)
-            self.send(request, put_cb)
+            return self.send(request, put_cb)
 
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
         return self.send(request, mkcalendar_cb)

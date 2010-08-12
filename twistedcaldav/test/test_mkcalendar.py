@@ -26,7 +26,7 @@ from twext.web2.dav.fileop import rmdir
 from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import caldavxml
-from twistedcaldav.test.util import HomeTestCase, todo
+from twistedcaldav.test.util import HomeTestCase
 
 class MKCALENDAR (HomeTestCase):
     """
@@ -150,46 +150,6 @@ END:VCALENDAR
         request.stream = MemoryStream(mk.toxml())
         return self.send(request, do_test)
 
-    @todo("Remove: Does not make sense with new store")
-    def test_make_calendar_no_parent(self):
-        """
-        Make calendar with no parent
-        """
-        uri  = "/no/parent/for/calendar/"
-
-        def do_test(response):
-            response = IResponse(response)
-
-            if response.code != responsecode.CONFLICT:
-                self.fail("Incorrect response to MKCALENDAR with no parent: %s" % (response.code,))
-
-            # FIXME: Check for CalDAV:calendar-collection-location-ok element
-
-        request = SimpleRequest(self.site, "MKCALENDAR", uri)
-        return self.send(request, do_test)
-
-    @todo("Remove: Does not make sense with new store")
-    def test_make_calendar_on_resource(self):
-        """
-        Make calendar on existing resource
-        """
-        uri  = "/calendar_on_resource/"
-        path = os.path.join(self.docroot, uri[1:])
-
-        if not os.path.exists(path):
-            f = open(path[:-1], 'w')
-            f.close()
-
-        def do_test(response):
-            response = IResponse(response)
-
-            if response.code != responsecode.NOT_ALLOWED:
-                self.fail("Incorrect response to MKCALENDAR on existing resource: %s" % (response.code,))
-
-            # FIXME: Check for DAV:resource-must-be-null element
-
-        request = SimpleRequest(self.site, "MKCALENDAR", uri)
-        return self.send(request, do_test)
 
     def test_make_calendar_on_collection(self):
         """

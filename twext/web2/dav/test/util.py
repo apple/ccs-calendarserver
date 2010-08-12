@@ -200,7 +200,8 @@ class TestCase (unittest.TestCase):
 
         return (os.path.abspath(path), uri)
 
-    def send(self, request, callback):
+
+    def send(self, request, callback=None):
         log.msg("Sending %s request for URI %s" % (request.method, request.uri))
 
         d = request.locateResource(request.uri)

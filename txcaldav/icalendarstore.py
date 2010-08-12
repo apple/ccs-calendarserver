@@ -196,7 +196,7 @@ class ICalendar(INotifier, IDataStoreResource):
 
         @param name: a string.
         @param component: a C{VCALENDAR} L{Component}
-        @raise CalendarObjectNameAlreadyExistsError: if a calendar
+        @raise ObjectResourceNameAlreadyExistsError: if a calendar
             object with the given C{name} already exists.
         @raise CalendarObjectUIDAlreadyExistsError: if a calendar
             object with the same UID as the given C{component} already
@@ -264,6 +264,12 @@ class ICalendarObject(IDataStoreResource):
     A calendar object describes an event, to-do, or other iCalendar
     object.
     """
+
+    def calendar():
+        """
+        @return: The calendar which this calendar object is a part of.
+        @rtype: L{ICalendar}
+        """
 
     def setComponent(component):
         """
@@ -372,6 +378,14 @@ class ICalendarObject(IDataStoreResource):
         @param name: The basename of the attachment (i.e. the last segment of
             its URI) as given to L{attachmentWithName}.
         @type name: C{str}
+        """
+
+
+    def attendeesCanManageAttachments():
+        """
+        Are attendees allowed to manage attachments?
+
+        @return: C{True} if they can, C{False} if they can't.
         """
 
 

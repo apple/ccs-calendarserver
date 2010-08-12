@@ -144,6 +144,22 @@ event1modified_text = event4_text.replace(
 
 
 
+def assertProvides(testCase, interface, provider):
+    """
+    Verify that C{provider} properly provides C{interface}
+
+    @type interface: L{zope.interface.Interface}
+    @type provider: C{provider}
+    """
+    try:
+        verifyObject(interface, provider)
+    except BrokenMethodImplementation, e:
+        testCase.fail(e)
+    except DoesNotImplement, e:
+        testCase.fail("%r does not provide %s.%s" %
+                      (provider, interface.__module__, interface.getName()))
+
+
 class CommonTests(object):
     """
     Tests for common functionality of interfaces defined in
@@ -157,6 +173,7 @@ class CommonTests(object):
                 "2.ics": cal1Root.child("2.ics").getContent(),
                 "3.ics": cal1Root.child("3.ics").getContent()
             },
+            "calendar_2": {},
             "calendar_empty": {},
             "not_a_calendar": None
         },
@@ -188,7 +205,7 @@ class CommonTests(object):
             return self.lastTransaction
         if self.savedStore is None:
             self.savedStore = self.storeUnderTest()
-        txn = self.lastTransaction = self.savedStore.newTransaction()
+        txn = self.lastTransaction = self.savedStore.newTransaction(self.id())
         return txn
 
 
@@ -210,6 +227,10 @@ class CommonTests(object):
         self.lastTransaction = None
 
 
+    def setUp(self):
+        self.notifierFactory = StubNotifierFactory()
+
+
     def tearDown(self):
         if self.lastTransaction is not None:
             self.commit()
@@ -219,8 +240,7 @@ class CommonTests(object):
         """
         Get the calendar home detailed by C{requirements['home1']}.
         """
-        return self.transactionUnderTest().calendarHomeWithUID(
-            "home1")
+        return self.transactionUnderTest().calendarHomeWithUID("home1")
 
 
     def calendarUnderTest(self):
@@ -238,21 +258,7 @@ class CommonTests(object):
         return self.calendarUnderTest().calendarObjectWithName("1.ics")
 
 
-    def assertProvides(self, interface, provider):
-        """
-        Verify that C{provider} properly provides C{interface}
-
-        @type interface: L{zope.interface.Interface}
-        @type provider: C{provider}
-        """
-        try:
-            verifyObject(interface, provider)
-        except BrokenMethodImplementation, e:
-            self.fail(e)
-        except DoesNotImplement, e:
-            self.fail("%r does not provide %s.%s" %
-                (provider, interface.__module__, interface.getName()))
-
+    assertProvides = assertProvides
 
     def test_calendarStoreProvides(self):
         """
@@ -268,7 +274,7 @@ class CommonTests(object):
         L{ICommonStoreTransaction}, L{ICalendarTransaction}, and their
         respectively required attributes.
         """
-        txn = self.storeUnderTest().newTransaction()
+        txn = self.transactionUnderTest()
         self.assertProvides(ICommonTransaction, txn)
         self.assertProvides(ICalendarTransaction, txn)
 
@@ -303,9 +309,8 @@ class CommonTests(object):
         provides L{ICalendarHome} and has a C{uid()} method that returns the
         same value that was passed in.
         """
-        calendarHome = (self.storeUnderTest().newTransaction()
+        calendarHome = (self.transactionUnderTest()
                         .calendarHomeWithUID("home1"))
-
         self.assertEquals(calendarHome.uid(), "home1")
         self.assertProvides(ICalendarHome, calendarHome)
 
@@ -315,11 +320,8 @@ class CommonTests(object):
         L{ICommonStoreTransaction.calendarHomeWithUID} should return C{None}
         when asked for a non-existent calendar home.
         """
-        self.assertEquals(
-            self.storeUnderTest().newTransaction()
-            .calendarHomeWithUID("xyzzy"),
-            None
-        )
+        txn = self.transactionUnderTest()
+        self.assertEquals(txn.calendarHomeWithUID("xyzzy"), None)
 
 
     def test_calendarWithName_exists(self):
@@ -330,6 +332,8 @@ class CommonTests(object):
         home = self.homeUnderTest()
         for name in home1_calendarNames:
             calendar = home.calendarWithName(name)
+            if calendar is None:
+                self.fail("calendar %r didn't exist" % (name,))
             self.assertProvides(ICalendar, calendar)
             self.assertEquals(calendar.name(), name)
 
@@ -380,22 +384,25 @@ class CommonTests(object):
                 calendarProperties[
                     PropertyName.fromString(davxml.ResourceType.sname())
                 ],
-                davxml.ResourceType.calendar) #@UndefinedVariable
+                davxml.ResourceType.calendar
+            ) #@UndefinedVariable
         checkProperties()
 
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(self.notifierFactory.compare([("update", "home1")]))
+        self.assertEquals(self.notifierFactory.history, [("update", "home1")])
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = self.homeUnderTest()
         self.assertNotIdentical(home.calendarWithName(name), None)
-        home = self.calendarStore.newTransaction().calendarHomeWithUID(
-            "home1")
-        # Sanity check: are the properties actually persisted?
-        # FIXME: no independent testing of this right now
+
+        # Sanity check: are the properties actually persisted?  Check in
+        # subsequent transaction.
         checkProperties()
+
+        # FIXME: no independent testing of the property store's persistence
+        # right now
 
 
     def test_createCalendarWithName_exists(self):
@@ -427,8 +434,10 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(self.notifierFactory.compare(
-            [("update", "home1"), ("update", "home1"), ("update", "home1")]))
+        self.assertEquals(
+            self.notifierFactory.history,
+            [("update", "home1"), ("update", "home1"), ("update", "home1")]
+        )
 
 
     def test_removeCalendarWithName_absent(self):
@@ -456,8 +465,8 @@ class CommonTests(object):
             )
 
         self.assertEquals(
-            list(o.name() for o in calendarObjects),
-            calendar1_objectNames
+            set(list(o.name() for o in calendarObjects)),
+            set(calendar1_objectNames)
         )
 
 
@@ -527,17 +536,16 @@ class CommonTests(object):
 
         # Make sure notifications are fired after commit
         self.commit()
-        self.assertTrue(
-            self.notifierFactory.compare(
-                [
-                    ("update", "home1"),
-                    ("update", "home1/calendar_1"),
-                    ("update", "home1"),
-                    ("update", "home1/calendar_1"),
-                    ("update", "home1"),
-                    ("update", "home1/calendar_1"),
-                ]
-            )
+        self.assertEquals(
+            self.notifierFactory.history,
+            [
+                ("update", "home1"),
+                ("update", "home1/calendar_1"),
+                ("update", "home1"),
+                ("update", "home1/calendar_1"),
+                ("update", "home1"),
+                ("update", "home1/calendar_1"),
+            ]
         )
 
     def test_removeCalendarObjectWithName_exists(self):
@@ -689,13 +697,12 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notifications fire after commit
-        self.assertTrue(
-            self.notifierFactory.compare(
-                [
-                    ("update", "home1"),
-                    ("update", "home1/calendar_1"),
-                ]
-            )
+        self.assertEquals(
+            self.notifierFactory.history,
+            [
+                ("update", "home1"),
+                ("update", "home1/calendar_1"),
+            ]
         )
 
 
@@ -705,10 +712,12 @@ class CommonTests(object):
         L{CalendarObjectNameAlreadyExistsError} if a calendar object with the
         given name already exists in that calendar.
         """
+        cal = self.calendarUnderTest()
+        comp = VComponent.fromString(event4_text)
         self.assertRaises(
             ObjectResourceNameAlreadyExistsError,
-            self.calendarUnderTest().createCalendarObjectWithName,
-            "1.ics", VComponent.fromString(event4_text)
+            cal.createCalendarObjectWithName,
+            "1.ics", comp
         )
 
 
@@ -764,9 +773,13 @@ class CommonTests(object):
             create=True
         )
         def readOtherTxn():
-            return self.savedStore.newTransaction().calendarHomeWithUID(
-                noHomeUID)
+            otherTxn = self.savedStore.newTransaction(self.id() + "other txn")
+            self.addCleanup(otherTxn.commit)
+            return otherTxn.calendarHomeWithUID(noHomeUID)
         self.assertProvides(ICalendarHome, calendarHome)
+        # Default calendar should be automatically created.
+        self.assertProvides(ICalendar,
+                            calendarHome.calendarWithName("calendar"))
         # A concurrent transaction shouldn't be able to read it yet:
         self.assertIdentical(readOtherTxn(), None)
         self.commit()
@@ -795,13 +808,12 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(
-            self.notifierFactory.compare(
-                [
-                    ("update", "home1"),
-                    ("update", "home1/calendar_1"),
-                ]
-            )
+        self.assertEquals(
+            self.notifierFactory.history,
+            [
+                ("update", "home1"),
+                ("update", "home1/calendar_1"),
+            ]
         )
 
 
@@ -930,7 +942,7 @@ END:VCALENDAR
     def test_dropboxID(self):
         """
         L{ICalendarObject.dropboxID} should synthesize its dropbox from the X
-        -APPLE-DROPBOX property.
+        -APPLE-DROPBOX property, if available.
         """
         cal = self.calendarUnderTest()
         cal.createCalendarObjectWithName("drop.ics", VComponent.fromString(
@@ -1087,10 +1099,7 @@ class StubNotifierFactory(object):
         return Notifier(self, label=label, id=id)
 
     def send(self, op, id):
-        self._history.append((op, id))
+        self.history.append((op, id))
 
     def reset(self):
-        self._history = []
-
-    def compare(self, expected):
-        return self._history == expected
+        self.history = []

@@ -196,17 +196,17 @@ www_get () {
       cache_file="${cache_deps}/${name}-$(echo "${url}" | hash)-$(basename "${url}")";
 
       if [ ! -f "${cache_file}" ]; then
-	echo "Downloading ${name}...";
-	curl -L "${url}" -o "${cache_file}";
+        echo "Downloading ${name}...";
+        curl -L "${url}" -o "${cache_file}";
       fi;
 
       if [ -n "${md5}" ] && [ "${hash}" == "md5" ]; then
-	echo "Checking MD5 sum for ${name}...";
-	local sum="$(hash "${cache_file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
-	if [ "${md5}" != "${sum}" ]; then
-	  echo "ERROR: MD5 sum for cache file ${cache_file} ${sum} != ${md5}. Corrupt file?";
-	  exit 1;
-	fi;
+        echo "Checking MD5 sum for ${name}...";
+        local sum="$(hash "${cache_file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
+        if [ "${md5}" != "${sum}" ]; then
+          echo "ERROR: MD5 sum for cache file ${cache_file} ${sum} != ${md5}. Corrupt file?";
+          exit 1;
+        fi;
       fi;
 
       echo "Unpacking ${name} from cache...";
@@ -287,13 +287,13 @@ svn_get () {
       mkdir -p "${cache_deps}";
 
       if [ -f "${cache_file}" ]; then
-	echo "Unpacking ${name} from cache...";
-	mkdir -p "${path}";
-	tar -C "${path}" -xvzf "${cache_file}";
+        echo "Unpacking ${name} from cache...";
+        mkdir -p "${path}";
+        tar -C "${path}" -xvzf "${cache_file}";
       else
-	checkout;
-	echo "Caching ${name}...";
-	tar -C "${path}" -cvzf "${cache_file}" .;
+        checkout;
+        echo "Caching ${name}...";
+        tar -C "${path}" -cvzf "${cache_file}" .;
       fi;
     else
       checkout;

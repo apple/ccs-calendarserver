@@ -660,6 +660,12 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
         self._initializeWithCalendar(calendar, home)
 
 
+    def __repr__(self):
+        return "<Calendar Collection Resource %r:%r>" % (
+            self._newStoreCalendar.ownerCalendarHome().uid(),
+            self._newStoreCalendar.name())
+
+
     def name(self):
         return self._newStoreCalendar.name()
 
@@ -944,16 +950,18 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         the given request's resource-lookup mapping, transaction, and re-look-
         up my calendar object in a new transaction.
 
-        Return the new transaction so it can be committed.
+        @return: the new transaction so it can be committed.
         """
         # FIXME: private names from 'file' implementation; maybe there should
         # be a public way to do this?  or maybe we should just have a real
         # queue.
         objectName = self._newStoreObject.name()
-        calendarName = self._newStoreObject._calendar.name()
-        homeUID = self._newStoreObject._calendar._calendarHome.uid()
-        store = self._newStoreObject._transaction.store()
-        txn = store.newTransaction("new transaction for " + self._newStoreObject.name())
+        calendar = self._newStoreObject.calendar()
+        calendarName = calendar.name()
+        ownerHome = calendar.ownerCalendarHome()
+        homeUID = ownerHome.uid()
+        txn = ownerHome.transaction().store().newTransaction(
+            "new transaction for " + self._newStoreObject.name())
         newObject = (txn.calendarHomeWithUID(homeUID)
                         .calendarWithName(calendarName)
                         .calendarObjectWithName(objectName))
@@ -1551,33 +1559,9 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
         self._initializeWithObject(Object)
 
 
-    def inNewTransaction(self, request):
-        """
-        Implicit auto-replies need to span multiple transactions.  Clean out the
-        given request's resource-lookup mapping, transaction, and re-look-up my
-        addressbook object in a new transaction.
-
-        Return the new transaction so it can be committed.
-        """
-        # FIXME: private names from 'file' implementation; maybe there should be
-        # a public way to do this?  or maybe we should just have a real queue.
-        objectName = self._newStoreObject.name()
-        Name = self._newStoreObject._addressbook.name()
-        homeUID = self._newStoreObject._addressbook._addressbookHome.uid()
-        store = self._newStoreObject._transaction.store()
-        txn = store.newTransaction("new AB transaction for " + self._newStoreObject.name())
-        newObject = (txn.addressbookHomeWithUID(homeUID)
-                        .addressbookWithName(Name)
-                        .addressbookObjectWithName(objectName))
-        request._newStoreTransaction = txn
-        request._resourcesByURL.clear()
-        request._urlsByResource.clear()
-        self._initializeWithObject(newObject)
-        return txn
-
-
     def isCollection(self):
         return False
+
 
     def exists(self):
         # FIXME: Tests

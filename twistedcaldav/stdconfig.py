@@ -149,6 +149,8 @@ DEFAULT_CONFIG = {
     "UseMetaFD": True,         # Use a 'meta' FD, i.e. an FD to transmit other
                                # FDs to slave processes.
 
+    "UseDatabase" : True,      # True: postgress; False: files
+
     #
     # Types of service provided
     #
@@ -160,6 +162,7 @@ DEFAULT_CONFIG = {
     #
     "ServerRoot"              : "/Library/CalendarServer",
     "DataRoot"                : "Data",
+    "DatabaseRoot"            : "Database",
     "DocumentRoot"            : "Documents",
     "ConfigRoot"              : "/etc/caldavd",
     "LogRoot"                 : "/var/log/caldavd",
@@ -266,6 +269,7 @@ DEFAULT_CONFIG = {
     "ErrorLogEnabled"   : True,       # True = use log file, False = stdout
     "ErrorLogRotateMB"  : 10,         # Rotate error log after so many megabytes
     "ErrorLogMaxRotatedFiles"  : 5,   # Retain this many error log files
+    "PostgresLogFile" : "postgres.log",  # Postgres log
     "PIDFile"        : "caldavd.pid",
     "RotateAccessLog"   : False,
     "EnableExtendedAccessLog": True,
@@ -627,9 +631,11 @@ RELATIVE_PATHS = [("ServerRoot", "DataRoot"),
                   ("ServerRoot", "ConfigRoot"),
                   ("ServerRoot", "LogRoot"),
                   ("ServerRoot", "RunRoot"),
+                  ("DataRoot", "DatabaseRoot"),
                   ("ConfigRoot", "SudoersFile"),
                   ("LogRoot", "AccessLogFile"),
                   ("LogRoot", "ErrorLogFile"),
+                  ("LogRoot", "PostgresLogFile"),
                   ("LogRoot", "AccountingLogRoot"),
                   ("RunRoot", "PIDFile"),
                   ("RunRoot", "GlobalStatsSocket"),

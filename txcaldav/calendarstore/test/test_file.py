@@ -18,6 +18,10 @@
 File calendar store tests.
 """
 
+# FIXME: all test cases in this file aside from FileStorageTests should be
+# deleted and replaced with either implementation-specific methods on
+# FileStorageTests, or implementation-agnostic methods on CommonTests.
+
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.trial import unittest
 
@@ -33,7 +37,7 @@ from txcaldav.calendarstore.file import CalendarStore, CalendarHome
 from txcaldav.calendarstore.file import Calendar, CalendarObject
 
 from txcaldav.calendarstore.test.common import (
-    CommonTests, event4_text, event1modified_text, StubNotifierFactory)
+    CommonTests, event4_text, event1modified_text)
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -58,7 +62,6 @@ def setUpCalendarStore(test):
     calendarPath.parent().makedirs()
     storePath.copyTo(calendarPath)
 
-    test.notifierFactory = StubNotifierFactory()
     test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory)
     test.txn = test.calendarStore.newTransaction()
     assert test.calendarStore is not None, "No calendar store?"
@@ -84,6 +87,8 @@ class CalendarStoreTest(unittest.TestCase):
     Test cases for L{CalendarStore}.
     """
 
+    notifierFactory = None
+
     def setUp(self):
         setUpCalendarStore(self)
 
@@ -102,6 +107,7 @@ class CalendarStoreTest(unittest.TestCase):
 
 class CalendarHomeTest(unittest.TestCase):
 
+    notifierFactory = None
     def setUp(self):
         setUpHome1(self)
 
@@ -157,6 +163,8 @@ class CalendarHomeTest(unittest.TestCase):
 
 
 class CalendarTest(unittest.TestCase):
+
+    notifierFactory = None
 
     def setUp(self):
         setUpCalendar1(self)
@@ -400,6 +408,8 @@ class CalendarTest(unittest.TestCase):
 
 
 class CalendarObjectTest(unittest.TestCase):
+    notifierFactory = None
+
     def setUp(self):
         setUpCalendar1(self)
         self.object1 = self.calendar1.calendarObjectWithName("1.ics")

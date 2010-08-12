@@ -18,17 +18,20 @@ from twistedcaldav.ical import Component
 from twisted.trial.unittest import SkipTest
 
 import os
-import shutil
+
+from twext.python.filepath import CachingFilePath as FilePath
 
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
-from twext.web2.dav.fileop import rmdir
+
 from twext.web2.test.test_server import SimpleRequest
 
 import twistedcaldav.test.util
 from twistedcaldav import caldavxml
-from twistedcaldav.index import db_basename
+
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twistedcaldav.test.test_calendarquery import addEventsDir
 
 class FreeBusyQuery (twistedcaldav.test.util.TestCase):
     """
@@ -73,47 +76,35 @@ class FreeBusyQuery (twistedcaldav.test.util.TestCase):
         )
 
         query = caldavxml.FreeBusyQuery(query_timerange,)
-        
+
         def got_calendar(calendar):
             pass
 
         return self.free_busy_query(cal_uri, query, got_calendar)
 
+
+    @inlineCallbacks
     def free_busy_query(self, calendar_uri, query, got_calendar):
-        calendar_path = os.path.join(self.docroot, calendar_uri[1:])
-
-        if os.path.exists(calendar_path): rmdir(calendar_path)
-
-        def do_report(response):
-            response = IResponse(response)
-
-            if response.code != responsecode.CREATED:
-                self.fail("MKCALENDAR failed: %s" % (response.code,))
-
-            # Add holiday events to calendar
-            # We're cheating by simply copying the files in
-            for filename in os.listdir(self.holidays_dir):
-                if os.path.splitext(filename)[1] != ".ics": continue
-                path = os.path.join(self.holidays_dir, filename)
-                shutil.copy(path, calendar_path)
-
-            # Delete the index because we cheated
-            index_path = os.path.join(calendar_path, db_basename)
-            if os.path.isfile(index_path): os.remove(index_path)
-
-            request = SimpleRequest(self.site, "REPORT", calendar_uri)
-            request.stream = MemoryStream(query.toxml())
-
-            def do_test(response):
-                response = IResponse(response)
-
-                if response.code != responsecode.OK:
-                    self.fail("REPORT failed: %s" % (response.code,))
-
-                return Component.fromIStream(response.stream).addCallback(got_calendar)
-
-            return self.send(request, do_test, calendar_path)
 
         request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
+        response = yield self.send(request)
+        response = IResponse(response)
 
-        return self.send(request, do_report, calendar_path)
+        if response.code != responsecode.CREATED:
+            self.fail("MKCALENDAR failed: %s" % (response.code,))
+
+        yield addEventsDir(self, FilePath(self.holidays_dir), calendar_uri)
+
+        request = SimpleRequest(self.site, "REPORT", calendar_uri)
+        request.stream = MemoryStream(query.toxml())
+        response = yield self.send(request)
+        response = IResponse(response)
+
+        if response.code != responsecode.OK:
+            self.fail("REPORT failed: %s" % (response.code,))
+
+        result = yield Component.fromIStream(response.stream).addCallback(
+            got_calendar
+        )
+        returnValue(result)
+

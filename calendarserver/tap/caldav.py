@@ -28,7 +28,7 @@ import sys
 from time import time
 
 from subprocess import Popen, PIPE
-from pwd import getpwuid
+from pwd import getpwuid, getpwnam
 from grp import getgrnam
 from OpenSSL.SSL import Error as SSLError
 import OpenSSL
@@ -87,6 +87,10 @@ from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource, computeProcessCount
 from calendarserver.tools.util import checkDirectory
+
+from txcaldav.calendarstore.postgres import v1_schema
+from txdav.datastore.subpostgres import PostgresService
+from twext.python.filepath import CachingFilePath
 
 log = Logger()
 
@@ -681,6 +685,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         logger = AMPLoggingFactory(
             RotatingFileAccessLoggingObserver(config.AccessLogFile)
         )
+
         if config.GroupName:
             try:
                 gid = getgrnam(config.GroupName).gr_gid
@@ -688,6 +693,15 @@ class CalDAVServiceMaker (LoggingMixIn):
                 raise ConfigurationError("Invalid group name: %s" % (config.GroupName,))
         else:
             gid = os.getgid()
+
+        if config.UserName:
+            try:
+                uid = getpwnam(config.UserName).pw_uid
+            except KeyError, e:
+                raise ConfigurationError("Invalid user name: %s" % (config.UserName,))
+        else:
+            uid = os.getuid()
+
         if config.ControlSocket:
             loggingService = GroupOwnedUNIXServer(
                 gid, config.ControlSocket, logger, mode=0660
@@ -700,8 +714,29 @@ class CalDAVServiceMaker (LoggingMixIn):
         loggingService.setServiceParent(s)
 
         monitor = DelayedStartupProcessMonitor()
-        monitor.setServiceParent(s)
         s.processMonitor = monitor
+
+        if config.UseDatabase:
+            # Postgres: delay spawning child processes until database is up
+
+            dbRoot = CachingFilePath(config.DatabaseRoot)
+
+            def subServiceFactory(connectionFactory):
+                return monitor
+
+            if os.getuid() == 0: # Only override if root
+                postgresUID = uid
+                postgresGID = gid
+            else:
+                postgresUID = None
+                postgresGID = None
+
+            PostgresService(dbRoot, subServiceFactory, v1_schema,
+                "caldav", logFile=config.PostgresLogFile,
+                uid=postgresUID, gid=postgresGID).setServiceParent(s)
+
+        else:
+            monitor.setServiceParent(s)
 
         parentEnv = {
             "PATH": os.environ.get("PATH", ""),

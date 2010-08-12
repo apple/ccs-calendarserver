@@ -33,6 +33,7 @@ from errno import ENOENT
 
 from twisted.internet.interfaces import ITransport
 from twisted.python.failure import Failure
+
 from txdav.propertystore.xattr import PropertyStore
 
 from twext.python.vcomponent import InvalidICalendarDataError
@@ -40,7 +41,6 @@ from twext.python.vcomponent import VComponent
 from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.http_headers import generateContentType
-
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
@@ -51,11 +51,17 @@ from txcaldav.icalendarstore import IAttachment
 from txcaldav.icalendarstore import ICalendar, ICalendarObject
 from txcaldav.icalendarstore import ICalendarHome
 
+from txcaldav.calendarstore.util import (
+    validateCalendarComponent, dropboxIDFromCalendarObject
+)
 
-from txdav.common.datastore.file import CommonDataStore, CommonStoreTransaction, \
-    CommonHome, CommonHomeChild, CommonObjectResource
-from txdav.common.icommondatastore import InvalidObjectResourceError, \
-    NoSuchObjectResourceError, InternalDataStoreError
+from txdav.common.datastore.file import (
+    CommonDataStore, CommonStoreTransaction, CommonHome, CommonHomeChild,
+    CommonObjectResource
+)
+
+from txdav.common.icommondatastore import (NoSuchObjectResourceError,
+    InternalDataStoreError)
 from txdav.datastore.file import writeOperation, hidden, FileMetaDataMixin
 from txdav.propertystore.base import PropertyName
 
@@ -196,12 +202,6 @@ class Calendar(CommonHomeChild):
             ),
         )
 
-    def _doValidate(self, component):
-        # FIXME: should be separate class, not separate case!
-        if self.name() == 'inbox':
-            component.validateComponentsForCalDAV(True)
-        else:
-            component.validateForCalDAV()
 
 
 class CalendarObject(CommonObjectResource):
@@ -222,25 +222,13 @@ class CalendarObject(CommonObjectResource):
         return self._parentCollection
 
 
+    def calendar(self):
+        return self._calendar
+
+
     @writeOperation
     def setComponent(self, component):
-        if not isinstance(component, VComponent):
-            raise TypeError(type(component))
-
-        try:
-            if component.resourceUID() != self.uid():
-                raise InvalidObjectResourceError(
-                    "UID may not change (%s != %s)" % (
-                        component.resourceUID(), self.uid()
-                     )
-                )
-        except NoSuchObjectResourceError:
-            pass
-
-        try:
-            self._calendar._doValidate(component)
-        except InvalidICalendarDataError, e:
-            raise InvalidObjectResourceError(e)
+        validateCalendarComponent(self, self._calendar, component)
 
         newRevision = self._calendar._updateSyncToken() # FIXME: test
         self._calendar.retrieveOldIndex().addResource(
@@ -378,22 +366,7 @@ class CalendarObject(CommonObjectResource):
 
 
     def dropboxID(self):
-        # FIXME: direct tests
-        dropboxProperty = self.component().getFirstPropertyInAnyComponent("X-APPLE-DROPBOX")
-        if dropboxProperty is not None:
-            componentDropboxID = dropboxProperty.value().split("/")[-1]
-            return componentDropboxID
-        attachProperty = self.component().getFirstPropertyInAnyComponent("ATTACH")
-        if attachProperty is not None:
-            # Make sure the value type is URI
-            valueType = attachProperty.params().get("VALUE", ("TEXT",))
-            if valueType[0] == "URI":
-                # FIXME: more aggressive checking to see if this URI is really the
-                # 'right' URI.  Maybe needs to happen in the front end.
-                attachPath = attachProperty.value().split("/")[-2]
-                return attachPath
-
-        return self.uid() + ".dropbox"
+        return dropboxIDFromCalendarObject(self)
 
 
     def _dropboxPath(self):
@@ -460,6 +433,7 @@ class AttachmentStorageTransport(object):
         props[contentTypeKey] = GETContentType(generateContentType(self._contentType))
         props[md5key] = TwistedGETContentMD5.fromString(md5)
         props.flush()
+
 
 
 class Attachment(FileMetaDataMixin):

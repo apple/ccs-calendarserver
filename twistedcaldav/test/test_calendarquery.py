@@ -15,23 +15,58 @@
 ##
 
 import os
-import shutil
 
 from twisted.trial.unittest import SkipTest
+
+from twext.python.filepath import CachingFilePath as FilePath
+
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 from twext.web2.dav import davxml
-from twext.web2.dav.fileop import rmdir
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import caldavxml
 from twistedcaldav import ical
-from twistedcaldav.index import db_basename
+
 from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase
+from twisted.internet.defer import inlineCallbacks, returnValue
+from txcaldav.calendarstore.test.test_postgres import buildStore
+from txcaldav.calendarstore.test.common import StubNotifierFactory
+
+
+@inlineCallbacks
+def addEventsDir(testCase, eventsDir, uri):
+    """
+    Add events to a L{HomeTestCase} from a directory.
+
+    @param testCase: The test case to add events to.
+    @type testCase: L{HomeTestCase}
+
+    @param eventsDir: A directory full of events.
+    @type eventsDir: L{FilePath}
+
+    @param uri: The URI-path of the calendar to insert events into.
+    @type uri: C{str}
+
+    @return: a L{Deferred} which fires with the number of added calendar object
+        resources.
+    """
+    count = 0
+    for child in eventsDir.children():
+        count += 1
+        if child.basename().split(".")[-1] != "ics":
+            continue
+        request = SimpleRequest(testCase.site, "PUT",
+                                uri + "/" + child.basename())
+        request.stream = MemoryStream(child.getContent())
+        yield testCase.send(request)
+    returnValue(count)
+
+
 
 class CalendarQuery (HomeTestCase):
     """
@@ -180,7 +215,8 @@ class CalendarQuery (HomeTestCase):
         All events.
         (CalDAV-access-09, section 7.6.8)
         """
-        uids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.holidays_dir)) if r[1] == ".ics"]
+        uids = [r[0] for r in (os.path.splitext(f) for f in
+                os.listdir(self.holidays_dir)) if r[1] == ".ics"]
 
         return self.simple_event_query("/calendar_query_events/", None, uids)
 
@@ -288,41 +324,42 @@ class CalendarQuery (HomeTestCase):
 
         return self.calendar_query(cal_uri, query, got_xml)
 
+
+    @inlineCallbacks
     def calendar_query(self, calendar_uri, query, got_xml):
-        calendar_path = os.path.join(self.docroot, calendar_uri[1:])
 
-        if os.path.exists(calendar_path): rmdir(calendar_path)
+        response = yield self.send(SimpleRequest(self.site, "MKCALENDAR", calendar_uri))
+        response = IResponse(response)
 
-        mkrequest = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
+        if response.code != responsecode.CREATED:
+            self.fail("MKCALENDAR failed: %s" % (response.code,))
 
-        def do_report(response):
-            response = IResponse(response)
+        # Add holiday events to calendar
+        yield addEventsDir(self, FilePath(self.holidays_dir), calendar_uri)
 
-            if response.code != responsecode.CREATED:
-                self.fail("MKCALENDAR failed: %s" % (response.code,))
+        request = SimpleRequest(self.site, "REPORT", calendar_uri)
+        request.stream = MemoryStream(query.toxml())
+        response = yield self.send(request)
 
-            # Add holiday events to calendar
-            # We're cheating by simply copying the files in
-            for filename in os.listdir(self.holidays_dir):
-                if os.path.splitext(filename)[1] != ".ics": continue
-                path = os.path.join(self.holidays_dir, filename)
-                shutil.copy(path, calendar_path)
+        response = IResponse(response)
 
-            # Delete the index because we cheated
-            index_path = os.path.join(calendar_path, db_basename)
-            if os.path.isfile(index_path): os.remove(index_path)
+        if response.code != responsecode.MULTI_STATUS:
+            self.fail("REPORT failed: %s" % (response.code,))
 
-            request = SimpleRequest(self.site, "REPORT", calendar_uri)
-            request.stream = MemoryStream(query.toxml())
+        returnValue(
+            (yield davXMLFromStream(response.stream).addCallback(got_xml))
+        )
 
-            def do_test(response):
-                response = IResponse(response)
 
-                if response.code != responsecode.MULTI_STATUS:
-                    self.fail("REPORT failed: %s" % (response.code,))
+class DatabaseQueryTests(CalendarQuery):
 
-                return davXMLFromStream(response.stream).addCallback(got_xml)
+    @inlineCallbacks
+    def setUp(self):
+        self.calendarStore = yield buildStore(self, StubNotifierFactory())
+        yield super(DatabaseQueryTests, self).setUp()
 
-            return self.send(request, do_test)
 
-        return self.send(mkrequest, do_report)
+    def createDataStore(self):
+        return self.calendarStore
+
+

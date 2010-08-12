@@ -25,6 +25,8 @@ from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase, norequest
 from twistedcaldav.resource import CalDAVResource
+from txcaldav.calendarstore.test.test_postgres import buildStore
+from txcaldav.calendarstore.test.common import StubNotifierFactory
 
 
 class SharingTests(HomeTestCase):
@@ -54,7 +56,7 @@ class SharingTests(HomeTestCase):
         
         def displayName(self):
             return self.displayname
-            
+
 
     @inlineCallbacks
     def setUp(self):
@@ -63,17 +65,23 @@ class SharingTests(HomeTestCase):
         self.patch(config.Sharing, "Enabled", True)
         self.patch(config.Sharing.Calendars, "Enabled", True)
 
-        self.resource = (
-            yield self.site.resource.locateChild(norequest(), ["calendar"])
-        )[0]
-        self.site.resource.putChild("calendar", self.resource)
-
         CalDAVResource.validUserIDForShare = self._fakeValidUserID
         CalDAVResource.validUserIDWithCommonNameForShare = self._fakeValidUserID
         CalDAVResource.sendInvite = lambda self, record, request: succeed(True)
         CalDAVResource.removeInvite = lambda self, record, request: succeed(True)
 
         CalDAVResource.principalForCalendarUserAddress = lambda self, cuaddr: SharingTests.FakePrincipal(cuaddr)
+
+
+    @inlineCallbacks
+    def _refreshRoot(self, request=None):
+        if request is None:
+            request = norequest()
+        result = yield super(SharingTests, self)._refreshRoot(request)
+        self.resource = (
+            yield self.site.resource.locateChild(request, ["calendar"])
+        )[0]
+        returnValue(result)
 
 
     def _fakeValidUserID(self, userid, *args):
@@ -400,7 +408,7 @@ class SharingTests(HomeTestCase):
 
     @inlineCallbacks
     def test_POSTaddRemoveSameInvitee(self):
-        
+
         self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
@@ -448,9 +456,9 @@ class SharingTests(HomeTestCase):
             ),
         ))
 
+
     @inlineCallbacks
     def test_POSTaddInvalidInvitee(self):
-        
         self.resource.upgradeToShare()
 
         response = (yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
@@ -464,7 +472,6 @@ class SharingTests(HomeTestCase):
 """,
             responsecode.MULTI_STATUS
         ))
-        
         self.assertEqual(
             str(response.stream.read()).replace("\r\n", "\n"),
             """<?xml version='1.0' encoding='UTF-8'?>
@@ -475,9 +482,12 @@ class SharingTests(HomeTestCase):
   </response>
 </multistatus>"""
         )
-
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
-        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite())
+
+        self.assertEquals(
+            self._clearUIDElementValue(propInvite), customxml.Invite()
+        )
+
 
     @inlineCallbacks
     def test_POSTremoveInvalidInvitee(self):
@@ -530,3 +540,18 @@ class SharingTests(HomeTestCase):
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite())
+
+
+
+class DatabaseSharingTests(SharingTests):
+
+    @inlineCallbacks
+    def setUp(self):
+        self.calendarStore = yield buildStore(self, StubNotifierFactory())
+        yield super(DatabaseSharingTests, self).setUp()
+
+
+    def createDataStore(self):
+        return self.calendarStore
+
+

@@ -1,4 +1,3 @@
-##
 # Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,20 +14,18 @@
 ##
 
 import os
-import shutil
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 from twext.web2.dav import davxml
-from twext.web2.dav.fileop import rmdir
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import caldavxml
 from twistedcaldav import ical
-from twistedcaldav.index import db_basename
 from twistedcaldav.test.util import HomeTestCase, todo
 from twistedcaldav.config import config
 
@@ -247,52 +244,40 @@ END:VCALENDAR
 
         return self.calendar_query(cal_uri, query, got_xml, data, no_init)
 
+    @inlineCallbacks
     def calendar_query(self, calendar_uri, query, got_xml, data, no_init):
-        calendar_path = os.path.join(self.docroot, calendar_uri[1:])
 
-        if not no_init and os.path.exists(calendar_path): rmdir(calendar_path)
+        if not no_init:
+            response = yield self.send(SimpleRequest(self.site, "MKCALENDAR",
+                calendar_uri))
+            response = IResponse(response)
+            if response.code != responsecode.CREATED:
+                self.fail("MKCALENDAR failed: %s" % (response.code,))
 
-        def do_report(response):
-            if not no_init:
-                response = IResponse(response)
-    
-                if response.code != responsecode.CREATED:
-                    self.fail("MKCALENDAR failed: %s" % (response.code,))
-    
-                if data:
-                    for filename, icaldata in data.iteritems():
-                        path = os.path.join(calendar_path, filename + ".ics")
-                        f = open(path, "w")
-                        f.write(icaldata)
-                        f.close()
-                else:
-                    # Add holiday events to calendar
-                    # We're cheating by simply copying the files in
-                    for filename in os.listdir(self.holidays_dir):
-                        if os.path.splitext(filename)[1] != ".ics": continue
-                        path = os.path.join(self.holidays_dir, filename)
-                        shutil.copy(path, calendar_path)
-    
-                # Delete the index because we cheated
-                index_path = os.path.join(calendar_path, db_basename)
-                if os.path.isfile(index_path): os.remove(index_path)
+            if data:
+                for filename, icaldata in data.iteritems():
+                    request = SimpleRequest(self.site, "PUT",
+                        calendar_uri + "/" + filename + ".ics")
+                    request.stream = MemoryStream(icaldata)
+                    yield self.send(request)
+            else:
+                # Add holiday events to calendar
+                for child in FilePath(self.holidays_dir).children():
+                    if os.path.splitext(child.basename())[1] != ".ics": continue
+                    request = SimpleRequest(self.site, "PUT",
+                        calendar_uri + "/" + child.basename())
+                    request.stream = MemoryStream(child.getContent())
+                    yield self.send(request)
 
-            request = SimpleRequest(self.site, "REPORT", calendar_uri)
-            request.stream = MemoryStream(query.toxml())
+        request = SimpleRequest(self.site, "REPORT", calendar_uri)
+        request.stream = MemoryStream(query.toxml())
+        response = yield self.send(request)
 
-            def do_test(response):
-                response = IResponse(response)
+        response = IResponse(response)
 
-                if response.code != responsecode.MULTI_STATUS:
-                    self.fail("REPORT failed: %s" % (response.code,))
+        if response.code != responsecode.MULTI_STATUS:
+            self.fail("REPORT failed: %s" % (response.code,))
 
-                return davXMLFromStream(response.stream).addCallback(got_xml)
-
-            return self.send(request, do_test)
-
-        if no_init:
-            return do_report(None)
-        else:
-            request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
-    
-            return self.send(request, do_report)
+        returnValue(
+            (yield davXMLFromStream(response.stream).addCallback(got_xml))
+        )

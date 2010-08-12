@@ -19,10 +19,12 @@ Tests for the interaction between model-level and protocol-level logic.
 """
 
 
+from twisted.trial.unittest import SkipTest
+
 from twext.web2.server import Request
 from twext.web2.responsecode import UNAUTHORIZED
 from twext.web2.http_headers import Headers
-from txdav.idav import AlreadyFinishedError
+from txdav.idav import AlreadyFinishedError, IDataStore
 
 from twext.web2.dav import davxml
 from twistedcaldav.config import config
@@ -37,11 +39,17 @@ from twistedcaldav.storebridge import ProtoCalendarCollectionResource, \
 
 from twistedcaldav.test.util import TestCase
 
-from txcaldav.calendarstore.file import CalendarStore, CalendarHome
 from txcaldav.calendarstore.test.test_file import event4_text
 
 from txcarddav.addressbookstore.file import AddressBookStore, AddressBookHome
 from txcarddav.addressbookstore.test.test_file import vcard4_text
+
+from txcaldav.calendarstore.test.test_postgres import buildStore
+from txcaldav.calendarstore.test.common import StubNotifierFactory, \
+    assertProvides
+from txcaldav.icalendarstore import ICalendarHome
+from txcarddav.iaddressbookstore import IAddressBookHome
+
 
 
 class FakeChanRequest(object):
@@ -62,7 +70,6 @@ class FakeChanRequest(object):
         return '127.0.0.1'
     def finish(self):
         pass
-
 
 
 
@@ -188,6 +195,9 @@ class WrappingTests(TestCase):
         return req
 
 
+    pathTypes = ['calendar', 'addressbook']
+
+
     @inlineCallbacks
     def test_autoRevertUnCommitted(self):
         """
@@ -196,7 +206,7 @@ class WrappingTests(TestCase):
         commit them.  This can happen, for example, with resources that are
         children of non-existent (proto-)resources.
         """
-        for pathType in ['calendar', 'addressbook']:
+        for pathType in self.pathTypes:
             req = self.requestForPath('/%ss/users/wsanchez/%s/forget/it'
                                       % (pathType, pathType))
             yield req.process()
@@ -211,7 +221,7 @@ class WrappingTests(TestCase):
         Sanity check and integration test: an unauthorized request of calendar
         and addressbook resources results in an L{UNAUTHORIZED} response code.
         """
-        for pathType in ['calendar', 'addressbook']:
+        for pathType in self.pathTypes:
             req = self.requestForPath('/%ss/users/wsanchez/%s/'
                                       % (pathType, pathType))
             yield req.process()
@@ -223,7 +233,7 @@ class WrappingTests(TestCase):
         Creating a DirectoryCalendarHomeProvisioningResource will create a paired
         CalendarStore.
         """
-        self.assertIsInstance(self.calendarCollection._newStore, CalendarStore)
+        assertProvides(self, IDataStore, self.calendarCollection._newStore)
 
 
     @inlineCallbacks
@@ -235,7 +245,7 @@ class WrappingTests(TestCase):
         """
         calDavFile = yield self.getResource("calendars/users/wsanchez/")
         self.commit()
-        self.assertIsInstance(calDavFile._newStoreHome, CalendarHome)
+        assertProvides(self, ICalendarHome, calDavFile._newStoreHome)
 
 
     @inlineCallbacks
@@ -264,9 +274,9 @@ class WrappingTests(TestCase):
         C{CalendarHome.calendarWithName}.
         """
         calDavFile = yield self.getResource("calendars/users/wsanchez/calendar")
-        self.commit()
         self.assertEquals(calDavFile.resourceType(),
                           davxml.ResourceType.calendar)
+        self.commit()
 
 
     @inlineCallbacks
@@ -338,7 +348,7 @@ class WrappingTests(TestCase):
         Creating a AddressBookHomeProvisioningFile will create a paired
         AddressBookStore.
         """
-        self.assertIsInstance(self.addressbookCollection._newStore, AddressBookStore)
+        assertProvides(self, IDataStore, self.addressbookCollection._newStore)
 
 
     @inlineCallbacks
@@ -350,7 +360,7 @@ class WrappingTests(TestCase):
         """
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/")
         self.commit()
-        self.assertIsInstance(calDavFile._newStoreHome, AddressBookHome)
+        assertProvides(self, IAddressBookHome, calDavFile._newStoreHome)
 
 
     @inlineCallbacks
@@ -412,3 +422,19 @@ class WrappingTests(TestCase):
         self.commit()
         self.assertEquals(calDavFileAddressBook._principalCollections,
                           frozenset([self.principalsResource]))
+
+
+
+class DatabaseWrappingTests(WrappingTests):
+
+    @inlineCallbacks
+    def setUp(self):
+        self.calendarStore = yield buildStore(self, StubNotifierFactory())
+        super(DatabaseWrappingTests, self).setUp()
+
+
+    def createDataStore(self):
+        return self.calendarStore
+
+
+

@@ -68,7 +68,7 @@ class IPropertyName(Interface):
     Property name.
     """
     namespace = Attribute("Namespace")
-    name      = Attribute("Name")
+    name = Attribute("Name")
 
     def toString():
         """
@@ -92,16 +92,6 @@ class IPropertyStore(IMapping):
     # FIXME: the type for values isn't quite right, there should be some more
     # specific interface for that.
 
-    def flush():
-        """
-        Write out any pending changes.
-        """
-
-    def abort():
-        """
-        Abort any pending changes.
-        """
-
 
 
 class IDataStore(Interface):
@@ -109,9 +99,13 @@ class IDataStore(Interface):
     An L{IDataStore} is a storage of some objects.
     """
 
-    def newTransaction():
+    def newTransaction(label=None):
         """
         Create a new transaction.
+        
+        @param label: A label to assign to this transaction for diagnostic
+            purposes.
+        @type label: C{str}
 
         @return: a new transaction which provides L{ITransaction}, as well as
             sub-interfaces to request appropriate data objects.
@@ -124,7 +118,7 @@ class IDataStoreResource(Interface):
     """
     An L{IDataStoreResource} are the objects stored in an L{IDataStore}.
     """
-    
+
     def name():
         """
         Identify the name of the object
@@ -175,7 +169,9 @@ class IDataStoreResource(Interface):
 
         @return: an L{IPropertyStore}.
         """
-    
+
+
+
 class ITransaction(Interface):
     """
     Transaction that can be aborted and either succeeds or fails in
@@ -210,6 +206,16 @@ class ITransaction(Interface):
 
         @param operation: a callable.
         """
+
+
+    def store():
+        """
+        The store that this transaction was initiated from.
+
+        @rtype: L{IDataStore}
+        """
+
+
 
 class INotifier(Interface):
     """

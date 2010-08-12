@@ -60,13 +60,17 @@ class SharedCollectionMixin(object):
         return self._invitesDB
 
     def inviteProperty(self, request):
-        
-        # Build the CS:invite property from our DB
+        """
+        Calculate the customxml.Invite property (for readProperty) from the
+        invites database.
+        """
+
         def sharedOK(isShared):
             if config.Sharing.Enabled and isShared:
                 self.validateInvites()
                 return customxml.Invite(
-                    *[record.makePropertyElement() for record in self.invitesDB().allRecords()]
+                    *[record.makePropertyElement() for
+                        record in self.invitesDB().allRecords()]
                 )
             else:
                 return None
@@ -339,8 +343,9 @@ class SharedCollectionMixin(object):
 
     def validUserIDForShare(self, userid):
         """
-        Test the user id to see if it is a valid identifier for sharing and return a "normalized"
-        form for our own use (e.g. convert mailto: to urn:uuid).
+        Test the user id to see if it is a valid identifier for sharing and
+        return a "normalized" form for our own use (e.g. convert mailto: to
+        urn:uuid).
 
         @param userid: the userid to test
         @type userid: C{str}
@@ -526,8 +531,10 @@ class SharedCollectionMixin(object):
         # Locate notifications collection for user
         sharee = self.principalForCalendarUserAddress(record.userid)
         if sharee is None:
-            raise ValueError("sharee is None but userid was valid before")        
-        notifications = self._newStoreParentHome._transaction.notificationsWithUID(sharee.principalUID())
+            raise ValueError("sharee is None but userid was valid before")
+        notifications = self._associatedTransaction.notificationsWithUID(
+            sharee.principalUID()
+        )
         
         # Look for existing notification
         oldnotification = notifications.notificationObjectWithUID(record.inviteuid)
@@ -576,7 +583,7 @@ class SharedCollectionMixin(object):
         def _handleErrorResponse(error):
             if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
                 return error.value.response
-            return Response(code=responsecode.BAD_REQUEST)
+            return error
 
         def _handleInvite(invitedoc):
             def _handleInviteSet(inviteset):
@@ -935,8 +942,8 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
 
 class SharedHomeMixin(LinkFollowerMixIn):
     """
-    A mix-in for calendar/addressbook homes that defines the operations for manipulating a sharee's
-    set of shared calendars.
+    A mix-in for calendar/addressbook homes that defines the operations for
+    manipulating a sharee's set of shared calendars.
     """
     
     def sharesDB(self):
@@ -1053,7 +1060,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
     @inlineCallbacks
     def _changeShare(self, request, state, hostUrl, replytoUID, displayname=None):
-        """ Accept an invite to a shared collection """
+        """
+        Accept or decline an invite to a shared collection.
+        """
         
         # Change state in sharer invite
         owner = (yield self.ownerPrincipal(request))
@@ -1074,7 +1083,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
     @inlineCallbacks
     def sendReply(self, request, sharee, sharedCollection, state, hostUrl, replytoUID, displayname=None):
-        
 
         # Locate notifications collection for sharer
         sharer = (yield sharedCollection.ownerPrincipal(request))
@@ -1107,7 +1115,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         def _handleErrorResponse(error):
             if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
                 return error.value.response
-            return Response(code=responsecode.BAD_REQUEST)
+            return error
 
         def _handleInviteReply(invitereplydoc):
             """ Handle a user accepting or declining a sharing invite """

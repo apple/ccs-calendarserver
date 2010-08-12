@@ -152,6 +152,11 @@ class AddressBookObject(CommonObjectResource):
     def _addressbook(self):
         return self._parentCollection
 
+
+    def addressbook(self):
+        return self._addressbook
+
+
     @writeOperation
     def setComponent(self, component):
         if not isinstance(component, VComponent):
