@@ -96,8 +96,8 @@ install::
 	$(_v) gzip -9 -f "$(DSTROOT)$(MANDIR)/man8/"*.[0-9]
 	@echo "Installing launchd config..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/$(Project)"
-	$(_v) $(INSTALL_DIRECTORY) -m 0755 "$(DSTROOT)$(VARDIR)/log/caldavd"
-	$(_v) $(INSTALL_DIRECTORY) -m 0755 "$(DSTROOT)$(VARDIR)/log/carddavd"
+	$(_v) $(INSTALL_DIRECTORY) -o calendar -g calendar -m 0755 "$(DSTROOT)$(VARDIR)/log/caldavd"
+	$(_v) $(INSTALL_DIRECTORY) -o calendar -g calendar -m 0755 "$(DSTROOT)$(VARDIR)/log/carddavd"
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/calendarserver.plist" "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/addressbookserver.plist" "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.addressbookserver.addressbookserver.plist"
