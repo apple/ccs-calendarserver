@@ -22,8 +22,8 @@ import os
 from hashlib import md5
 
 from twisted.python.procutils import which
-from twisted.internet.utils import getProcessOutput
 from twisted.internet.protocol import ProcessProtocol
+from twisted.internet.error import ProcessDone
 from twisted.python.reflect import namedAny
 from twisted.python import log
 from twext.python.filepath import CachingFilePath
@@ -152,6 +152,76 @@ class _PostgresMonitor(ProcessProtocol):
         log.msg("postgres process ended %r" % (reason,))
         self.lineReceiver.connectionLost(reason)
         self.completionDeferred.callback(None)
+
+
+class ErrorOutput(Exception):
+    """
+    The process produced some error output and exited with a non-zero exit
+    code.
+    """
+
+
+class CapturingProcessProtocol(ProcessProtocol):
+    """
+    A L{ProcessProtocol} that captures its output and error.
+
+    @ivar output: a C{list} of all C{str}s received to stderr.
+
+    @ivar error: a C{list} of all C{str}s received to stderr.
+    """
+
+    def __init__(self, deferred, inputData):
+        """
+        Initialize a L{CapturingProcessProtocol}.
+
+        @param deferred: the L{Deferred} to fire when the process is complete.
+
+        @param inputData: a C{str} to feed to the subprocess's stdin.
+        """
+        self.deferred = deferred
+        self.input = inputData
+        self.output = []
+        self.error = []
+
+
+    def connectionMade(self):
+        """
+        The process started; feed its input on stdin.
+        """
+        if self.input is not None:
+            self.transport.write(self.input)
+            self.transport.closeStdin()
+
+
+    def outReceived(self, data):
+        """
+        Some output was received on stdout.
+        """
+        self.output.append(data)
+
+
+    def errReceived(self, data):
+        """
+        Some output was received on stderr.
+        """
+        self.error.append(data)
+        # Attempt to exit promptly if a traceback is displayed, so we don't
+        # deal with timeouts.
+        lines = ''.join(self.error).split("\n")
+        if len(lines) > 1:
+            errorReportLine = lines[-2].split(": ", 1)
+            if len(errorReportLine) == 2 and ' ' not in errorReportLine[0] and '\t' not in errorReportLine[0]:
+                self.transport.signalProcess("TERM")
+
+
+    def processEnded(self, why):
+        """
+        The process is over, fire the Deferred with the output.
+        """
+        if why.check(ProcessDone) and not self.error:
+            self.deferred.callback(''.join(self.output))
+        else:
+            self.deferred.errback(ErrorOutput(''.join(self.error)))
 
 
 
@@ -333,17 +403,21 @@ class PostgresService(MultiService):
         initdb = which("initdb")[0]
         if not self.socketDir.isdir():
             self.socketDir.createDirectory()
-        if clusterDir.isdir():
+        if self.uid and self.gid:
+            os.chown(self.socketDir.path, self.uid, self.gid)
+        if self.dataStoreDirectory.isdir():
             self.startDatabase()
         else:
-            if not self.dataStoreDirectory.isdir():
-                self.dataStoreDirectory.createDirectory()
-            if not clusterDir.isdir():
-                clusterDir.createDirectory()
-            if not workingDir.isdir():
-                workingDir.createDirectory()
-            dbInited = getProcessOutput(
-                initdb, [], env, workingDir.path, errortoo=True
+            self.dataStoreDirectory.createDirectory()
+            workingDir.createDirectory()
+            if self.uid and self.gid:
+                os.chown(self.dataStoreDirectory.path, self.uid, self.gid)
+                os.chown(workingDir.path, self.uid, self.gid)
+            dbInited = Deferred()
+            reactor.spawnProcess(
+                CapturingProcessProtocol(dbInited, None),
+                initdb, [], env, workingDir.path,
+                uid=self.uid, gid=self.gid,
             )
             def doCreate(result):
                 self.startDatabase()
@@ -362,7 +436,8 @@ class PostgresService(MultiService):
             pg_ctl = which("pg_ctl")[0]
             reactor.spawnProcess(monitor, pg_ctl,
                 [pg_ctl, '-l', 'logfile', 'stop'],
-                self.env
+                self.env,
+                uid=self.uid, gid=self.gid,
             )
             return monitor.completionDeferred
         return d.addCallback(superStopped)
