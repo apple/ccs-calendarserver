@@ -19,6 +19,7 @@
 Run and manage PostgreSQL as a subprocess.
 """
 import os
+import pwd
 from hashlib import md5
 
 from twisted.python.procutils import which
@@ -197,15 +198,12 @@ class CapturingProcessProtocol(ProcessProtocol):
         """
         Some output was received on stdout.
         """
-        print "OUTRECV", data
         self.output.append(data)
-
 
     def errReceived(self, data):
         """
         Some output was received on stderr.
         """
-        print "ERRRECV", data
         self.output.append(data)
 
 
@@ -265,9 +263,14 @@ class PostgresService(MultiService):
         """
         if databaseName is None:
             databaseName = self.databaseName
-        connection = pgdb.connect(
-            "%s:dbname=%s" % (self.socketDir.path, databaseName)
-        )
+
+        if self.uid is not None:
+            dsn = "%s:dbname=%s:%s" % (self.socketDir.path, databaseName,
+                pwd.getpwuid(self.uid).pw_name)
+        else:
+            dsn = "%s:dbname=%s" % (self.socketDir.path, databaseName)
+        connection = pgdb.connect(dsn)
+
         w = DiagnosticConnectionWrapper(connection, label)
         c = w.cursor()
         # Turn on standard conforming strings.  This option is _required_ if
@@ -405,10 +408,9 @@ class PostgresService(MultiService):
                 os.chown(self.dataStoreDirectory.path, self.uid, self.gid)
                 os.chown(workingDir.path, self.uid, self.gid)
             dbInited = Deferred()
-            print "RUNNING INITDB", initdb, env, workingDir.path, self.uid, self.gid
             reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
-                initdb, [], env, workingDir.path,
+                initdb, [initdb], env, workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
             def doCreate(result):
