@@ -1056,7 +1056,7 @@ class TwistdSlaveProcess(object):
             "-f", self.configFile,
             "-o", "ProcessType=Slave",
             "-o", "BindAddresses=%s" % (",".join(self.interfaces),),
-            "-o", "PIDFile=caldav-instance-%s.pid" % (self.id,),
+            "-o", "PIDFile=%s-instance-%s.pid" % (self.tapname, self.id,),
             "-o", "ErrorLogFile=None",
             "-o", "ErrorLogEnabled=False",
             "-o", "LogID=%s" % (self.id,),

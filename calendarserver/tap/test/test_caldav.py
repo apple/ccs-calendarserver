@@ -1039,7 +1039,7 @@ class TwistdSlaveProcessTests(TestCase):
         slave = TwistdSlaveProcess("/path/to/twistd", "something", "config", 7, [])
         commandLine = slave.getCommandLine()
 
-        option = 'PIDFile=caldav-instance-7.pid'
+        option = 'PIDFile=something-instance-7.pid'
         self.assertIn(option, commandLine)
         self.assertEquals(commandLine[commandLine.index(option) - 1], '-o')
 
