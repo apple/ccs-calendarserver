@@ -197,6 +197,7 @@ class CapturingProcessProtocol(ProcessProtocol):
         """
         Some output was received on stdout.
         """
+        print "OUTRECV", data
         self.output.append(data)
 
 
@@ -204,25 +205,15 @@ class CapturingProcessProtocol(ProcessProtocol):
         """
         Some output was received on stderr.
         """
-        self.error.append(data)
-        # Attempt to exit promptly if a traceback is displayed, so we don't
-        # deal with timeouts.
-        lines = ''.join(self.error).split("\n")
-        if len(lines) > 1:
-            errorReportLine = lines[-2].split(": ", 1)
-            if len(errorReportLine) == 2 and ' ' not in errorReportLine[0] and '\t' not in errorReportLine[0]:
-                self.transport.signalProcess("TERM")
+        print "ERRRECV", data
+        self.output.append(data)
 
 
     def processEnded(self, why):
         """
         The process is over, fire the Deferred with the output.
         """
-        if why.check(ProcessDone) and not self.error:
-            self.deferred.callback(''.join(self.output))
-        else:
-            self.deferred.errback(ErrorOutput(''.join(self.error)))
-
+        self.deferred.callback(''.join(self.output))
 
 
 class PostgresService(MultiService):
@@ -414,6 +405,7 @@ class PostgresService(MultiService):
                 os.chown(self.dataStoreDirectory.path, self.uid, self.gid)
                 os.chown(workingDir.path, self.uid, self.gid)
             dbInited = Deferred()
+            print "RUNNING INITDB", initdb, env, workingDir.path, self.uid, self.gid
             reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
                 initdb, [], env, workingDir.path,
