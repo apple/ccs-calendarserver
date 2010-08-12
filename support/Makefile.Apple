@@ -46,16 +46,17 @@ PyKerberos::            $(BuildDirectory)/PyKerberos
 PyOpenDirectory::       $(BuildDirectory)/PyOpenDirectory
 PyXML-0.8.4::           $(BuildDirectory)/PyXML-0.8.4
 vobject::               $(BuildDirectory)/vobject
+PyGreSQL-4.0::          $(BuildDirectory)/PyGreSQL-4.0
 $(Project)::            $(BuildDirectory)/$(Project)
 
-build:: PyKerberos PyOpenDirectory PyXML-0.8.4 vobject $(Project)
+build:: PyKerberos PyOpenDirectory PyXML-0.8.4 vobject PyGreSQL-4.0 $(Project)
 
 setup:
 	$(_v) ./run -g
 
-prep:: setup CalDAVTester.tgz PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz vobject.tgz
+prep:: setup CalDAVTester.tgz PyKerberos.tgz PyOpenDirectory.tgz PyXML-0.8.4.tgz vobject.tgz PyGreSQL-4.0.tgz
 
-PyKerberos PyOpenDirectory PyXML-0.8.4 vobject $(Project)::
+PyKerberos PyOpenDirectory PyXML-0.8.4 vobject PyGreSQL-4.0 $(Project)::
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
@@ -70,6 +71,7 @@ install:: build
 	$(_v) cd $(BuildDirectory)/PyOpenDirectory  && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyXML-0.8.4      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/vobject          && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/PyGreSQL-4.0     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(ETCDIR)/caldavd/caldavd.plist"
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-partitioning-primary.plist" "$(DSTROOT)$(ETCDIR)/caldavd/caldavd-partitioning-primary.plist"
