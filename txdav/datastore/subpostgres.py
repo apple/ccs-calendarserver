@@ -234,7 +234,7 @@ class PostgresService(MultiService):
         self.subServiceFactory = subServiceFactory
         self.dataStoreDirectory = dataStoreDirectory
         self.resetSchema = resetSchema
-        self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
+        self.socketDir = CachingFilePath("/var/run/ccs_postgres_%s/" %
             (md5(dataStoreDirectory.path).hexdigest()))
         self.databaseName = databaseName
         self.logFile = logFile
