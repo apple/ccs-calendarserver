@@ -1166,8 +1166,8 @@ class PostgresCalendarHome(object):
         """
         data = self._txn.execSQL(
             "select CALENDAR_RESOURCE_ID from CALENDAR_BIND where "
-            "CALENDAR_RESOURCE_NAME = %s",
-            [name]
+            "CALENDAR_RESOURCE_NAME = %s and CALENDAR_HOME_RESOURCE_ID = %s",
+            [name, self._resourceID]
         )
         if not data:
             return None

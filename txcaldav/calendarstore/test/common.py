@@ -1087,6 +1087,36 @@ END:VCALENDAR
         self.assertRaises(AlreadyFinishedError, txn.abort)
 
 
+    def test_dontLeakCalendars(self):
+        """
+        Calendars in one user's calendar home should not show up in another
+        user's calendar home.
+        """
+        home2 = self.transactionUnderTest().calendarHomeWithUID(
+            "home2", create=True)
+        self.assertIdentical(home2.calendarWithName("calendar_1"), None)
+
+
+    def test_dontLeakObjects(self):
+        """
+        Calendar objects in one user's calendar should not show up in another
+        user's via uid or name queries.
+        """
+        home1 = self.homeUnderTest()
+        home2 = self.transactionUnderTest().calendarHomeWithUID(
+            "home2", create=True)
+        calendar1 = home1.calendarWithName("calendar_1")
+        calendar2 = home2.calendarWithName("calendar")
+        objects = list(home2.calendarWithName("calendar").calendarObjects())
+        self.assertEquals(objects, [])
+        for resourceName in self.requirements['home1']['calendar_1'].keys():
+            obj = calendar1.calendarObjectWithName(resourceName)
+            self.assertIdentical(
+                calendar2.calendarObjectWithName(resourceName), None)
+            self.assertIdentical(
+                calendar2.calendarObjectWithUID(obj.uid()), None)
+
+
 
 class StubNotifierFactory(object):
 
