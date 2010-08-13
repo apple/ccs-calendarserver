@@ -842,6 +842,35 @@ class CommonTests(object):
         )
 
 
+    def test_dontLeakAddressbooks(self):
+        """
+        Addressbooks in one user's addressbook home should not show up in another
+        user's addressbook home.
+        """
+        home2 = self.transactionUnderTest().addressbookHomeWithUID(
+            "home2", create=True)
+        self.assertIdentical(home2.addressbookWithName("addressbook_1"), None)
+
+
+    def test_dontLeakObjects(self):
+        """
+        Addressbook objects in one user's addressbook should not show up in another
+        user's via uid or name queries.
+        """
+        home1 = self.homeUnderTest()
+        home2 = self.transactionUnderTest().addressbookHomeWithUID(
+            "home2", create=True)
+        addressbook1 = home1.addressbookWithName("addressbook_1")
+        addressbook2 = home2.addressbookWithName("addressbook")
+        objects = list(home2.addressbookWithName("addressbook").addressbookObjects())
+        self.assertEquals(objects, [])
+        for resourceName in self.requirements['home1']['addressbook_1'].keys():
+            obj = addressbook1.addressbookObjectWithName(resourceName)
+            self.assertIdentical(
+                addressbook2.addressbookObjectWithName(resourceName), None)
+            self.assertIdentical(
+                addressbook2.addressbookObjectWithUID(obj.uid()), None)
+
 
 
 class StubNotifierFactory(object):

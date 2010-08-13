@@ -1978,8 +1978,9 @@ class PostgresAddressBookHome(object):
         """
         data = self._txn.execSQL(
             "select ADDRESSBOOK_RESOURCE_ID from ADDRESSBOOK_BIND where "
-            "ADDRESSBOOK_RESOURCE_NAME = %s",
-            [name]
+            "ADDRESSBOOK_RESOURCE_NAME = %s and "
+            "ADDRESSBOOK_HOME_RESOURCE_ID = %s",
+            [name, self._resourceID]
         )
         if not data:
             return None
