@@ -72,7 +72,7 @@ from twistedcaldav.sharing import Invite
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.query.sqlgenerator import sqlgenerator
 from twistedcaldav.index import IndexedSearchException
-
+from twistedcaldav.customxml import NotificationType
 
 v1_schema = getModule(__name__).filePath.sibling(
     "postgres_schema_v1.sql").getContent()
@@ -1298,6 +1298,7 @@ class PostgresNotificationObject(object):
 
 
     def setData(self, uid, xmltype, xmldata):
+        self.properties()[PropertyName(*NotificationType.qname())] = NotificationType(xmltype)
         return self._txn.execSQL(
             """
             update NOTIFICATION set NOTIFICATION_UID = %s, XML_TYPE = %s,
@@ -1436,7 +1437,8 @@ class PostgresNotificationsCollection(object):
         self._txn.execSQL(
             "insert into NOTIFICATION (NOTIFICATION_HOME_RESOURCE_ID, NOTIFICATION_UID, XML_TYPE, XML_DATA) "
             "values (%s, %s, %s, %s)", [self._resourceID, uid, xmltype, xmldata])
-
+        notificationObject = self.notificationObjectWithUID(uid)
+        notificationObject.properties()[PropertyName(*NotificationType.qname())] = NotificationType(xmltype)
 
     def removeNotificationObjectWithName(self, name):
         self.removeNotificationObjectWithUID(self._nameToUID(name))
