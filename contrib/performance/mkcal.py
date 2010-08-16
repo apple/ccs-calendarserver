@@ -279,7 +279,7 @@ class DTraceCollector(object):
             self.dtraces[p] = reactor.spawnProcess(
                 IOMeasureConsumer(d),
                 "/usr/sbin/dtrace",
-                ["/usr/sbin/dtrace", "-p", str(p), "-s", "io_measure.d"])
+                ["/usr/sbin/dtrace", "-q", "-p", str(p), "-s", "io_measure.d"])
             d.addCallback(self._cleanup, p)
             d.addCallback(self._parse)
             finished.append(d)
