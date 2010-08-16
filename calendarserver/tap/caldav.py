@@ -671,7 +671,32 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         return service
 
-    makeService_Single   = makeService_Slave
+    def makeService_Single(self, options):
+        #
+        # Change default log level to "info" as its useful to have
+        # that during startup
+        #
+
+        service = self.makeService_Slave(options)
+        if config.UseDatabase:
+            # Postgres
+
+            dbRoot = CachingFilePath(config.DatabaseRoot)
+
+            monitor = DelayedStartupProcessMonitor()
+            service.processMonitor = monitor
+
+            def subServiceFactory(connectionFactory):
+                return monitor
+
+            postgresUID = None
+            postgresGID = None
+
+            PostgresService(dbRoot, subServiceFactory, v1_schema,
+                "caldav", logFile=config.PostgresLogFile,
+                uid=postgresUID, gid=postgresGID).setServiceParent(service)
+                
+        return service
 
     def makeService_Combined(self, options):
         s = ErrorLoggingMultiService()
