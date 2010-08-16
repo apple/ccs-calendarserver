@@ -30,10 +30,10 @@ class TestResource (RenderMixin):
             return responsecode.INTERNAL_SERVER_ERROR
         return responsecode.NO_CONTENT
 
-    http_BLEARGH       = _handler
+    http_BLEARGH = _handler
     http_HUCKHUCKBLORP = _handler
-    http_SWEETHOOKUPS  = _handler
-    http_HOOKUPS       = _handler
+    http_SWEETHOOKUPS = _handler
+    http_HOOKUPS = _handler
 
     def preconditions_BLEARGH(self, request):
         raise PreconditionError()
@@ -64,7 +64,7 @@ class RenderMixInTestCase (unittest.TestCase):
     Test RenderMixin.
     """
     _my_allowed_methods = set((
-        "HEAD", "OPTIONS", "TRACE", "GET",
+        "HEAD", "OPTIONS", "GET",
         "BLEARGH", "HUCKHUCKBLORP",
         "SWEETHOOKUPS", "HOOKUPS",
     ))
@@ -144,6 +144,9 @@ class RenderMixInTestCase (unittest.TestCase):
         """
         response = generateResponse("TRACE")
         self.assertEquals(response.code, responsecode.OK)
+
+    test_TRACE_status.skip = "TRACE is disabled now."
+
 
     def test_TRACE_body(self):
         """
