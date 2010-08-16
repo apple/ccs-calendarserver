@@ -12,13 +12,13 @@
 io:::start
 /args[0]->b_flags & B_READ/
 {
-        printf("B_READ %d\n\1", args[0]->b_bcount);
+	printf("B_READ %d\n\1", args[0]->b_bcount);
 }
 
 io:::start
 /!(args[0]->b_flags & B_READ)/
 {
-        printf("B_WRITE %d\n\1", args[0]->b_bcount);
+	printf("B_WRITE %d\n\1", args[0]->b_bcount);
 }
 
 /*
@@ -27,8 +27,8 @@ io:::start
 
 pid$target:_sqlite3.so:_pysqlite_query_execute:entry
 {
-        self->executing = 1;
-        self->sql = "";
+	self->executing = 1;
+	self->sql = "";
 	printf("EXECUTE ENTRY %d\n\1", timestamp);
 }
 
@@ -42,18 +42,18 @@ pid$target:_sqlite3.so:_pysqlite_query_execute:return
 pid$target::PyString_AsString:return
 /self->executing/
 {
-        self->sql = copyinstr(arg1);
-        self->executing = 0;
+	self->sql = copyinstr(arg1);
+	self->executing = 0;
 }
 
 pid$target:_sqlite3.so:pysqlite_cursor_iternext:entry
 {
-        printf("ITERNEXT ENTRY %d\n\1", timestamp);
+	printf("ITERNEXT ENTRY %d\n\1", timestamp);
 }
 
 pid$target:_sqlite3.so:pysqlite_cursor_iternext:return
 {
-        printf("ITERNEXT RETURN %d\n\1", timestamp);
+	printf("ITERNEXT RETURN %d\n\1", timestamp);
 }
 
 /*
