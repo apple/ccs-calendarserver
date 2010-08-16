@@ -24,14 +24,13 @@ from hashlib import md5
 
 from twisted.python.procutils import which
 from twisted.internet.protocol import ProcessProtocol
-from twisted.internet.error import ProcessDone
+
 from twisted.python.reflect import namedAny
 from twisted.python import log
 from twext.python.filepath import CachingFilePath
 
 
 pgdb = namedAny("pgdb")
-from pg import DatabaseError
 
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor
@@ -284,14 +283,14 @@ class PostgresService(MultiService):
         # vulnerable to certain types of SQL injection.
         c.execute("set standard_conforming_strings=on")
 
-        # Abort any second that takes more than 2 seconds (2000ms) to execute.
-        # This is necessary as a temporary workaround since it's hypothetically
-        # possible that different database operations could block each other,
-        # while executing SQL in the same process (in the same thread, since
-        # SQL executes in the main thread now).  It's preferable to see some
-        # exceptions while we're in this state than to have the entire worker
-        # process hang.
-        c.execute("set statement_timeout=2000")
+        # Abort any second that takes more than 30 seconds (30000ms) to
+        # execute. This is necessary as a temporary workaround since it's
+        # hypothetically possible that different database operations could
+        # block each other, while executing SQL in the same process (in the
+        # same thread, since SQL executes in the main thread now).  It's
+        # preferable to see some exceptions while we're in this state than to
+        # have the entire worker process hang.
+        c.execute("set statement_timeout=30000")
         w.commit()
         c.close()
         return w
@@ -312,7 +311,7 @@ class PostgresService(MultiService):
                 createDatabaseCursor.execute(
                     "drop database %s" % (self.databaseName)
                 )
-            except DatabaseError:
+            except pgdb.DatabaseError:
                 pass
 
         try:
