@@ -94,7 +94,7 @@
     <string>Data</string>
 
     <!-- Database root -->
-    <key>DatabseRoot</key>
+    <key>DatabaseRoot</key>
     <string>AddressbookDatabase</string>
 
     <!-- Document root -->
