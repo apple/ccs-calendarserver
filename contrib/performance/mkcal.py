@@ -213,10 +213,14 @@ class Duration(_Statistic):
     pass
 
 
+class SQLDuration(_Statistic):
+    def summarize(self, data):
+        data = [interval for (sql, interval) in data]
+        return _Statistic.summarize(self, data)
+
 
 class Bytes(_Statistic):
     pass
-
 
 
 class DTraceCollector(object):
@@ -232,43 +236,60 @@ class DTraceCollector(object):
         return {
             Bytes('read'): self._read,
             Bytes('write'): self._write,
-            Duration('execute'): self._execute,
-            Duration('iternext'): self._iternext,
+            SQLDuration('execute'): self._execute,
+            SQLDuration('iternext'): self._iternext,
             }
 
 
     def _parse(self, dtrace):
         file('dtrace.log', 'a').write(dtrace)
 
+        self.sql = self.start = None
+        for L in dtrace.split('\n\1'):
 
-        start = None
-        for L in dtrace.splitlines():
-            parts = L.split(None)
-            if len(parts) >= 4:
-                event = parts[2]
-                func, stage = event.split(':')
-                value = int(parts[3])
-                if stage == 'entry':
-                    start = value
-                elif stage == 'return':
-                    if start is None:
-                        print func, 'return without entry at', parts[3]
-                        continue
-                    end = int(parts[3])
-                    diff = end - start
-                    if func == '_pysqlite_query_execute':
+            # dtrace puts some extra newlines in the output sometimes.  Get rid of them.
+            L = L.strip()
+            if not L:
+                continue
+
+            op, rest = L.split(None, 1)
+            getattr(self, '_op_' + op)(op, rest)
+        self.sql = self.start = None
+
+
+    def _op_EXECUTE(self, cmd, rest):
+        which, when = rest.split(None, 1)
+        if which == 'SQL':
+            self.sql = when
+            return
+
+        when = int(when)
+        if which == 'ENTRY':
+            self.start = when
+        elif which == 'RETURN':
+            if self.start is None:
+                print 'return without entry at', when, 'in', cmd
+            else:
+                diff = when - self.start
+                if diff < 0:
+                    print 'Completely bogus EXECUTE', self.start, when
+                else:        
+                    if cmd == 'EXECUTE':
                         accum = self._execute
-                    elif func == 'pysqlite_cursor_iternext':
+                    elif cmd == 'ITERNEXT':
                         accum = self._iternext
-                    else:
-                        continue
-                    if diff < 0:
-                        print 'Completely bogus dealie', func, start, end
-                    else:
-                        accum.append(diff)
-                    start = None
-                else:
-                    continue
+
+                    accum.append((self.sql, diff))
+                    self.start = None
+                    self.sql = None
+    _op_ITERNEXT = _op_EXECUTE
+
+    def _op_B_READ(self, cmd, rest):
+        self._read.append(int(rest))
+
+
+    def _op_B_WRITE(self, cmd, rest):
+        self._write.append(int(rest))
 
 
     def __enter__(self):
@@ -346,6 +367,8 @@ def main():
 
 if __name__ == '__main__':
     from twisted.python.log import err
+    from twisted.python.failure import startDebugMode
+    startDebugMode()
     d = main()
     d.addErrback(err)
     d.addCallback(lambda ign: reactor.stop())
