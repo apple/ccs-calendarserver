@@ -2237,6 +2237,7 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
             if cls is NotificationCollectionResource:
                 return self.createNotificationsCollection()
             child = self._provisionedChildren[name](self)
+            self.propagateTransaction(child)
             self.putChild(name, child)
             return child
         

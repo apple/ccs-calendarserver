@@ -19,8 +19,6 @@ Tests for the interaction between model-level and protocol-level logic.
 """
 
 
-from twisted.trial.unittest import SkipTest
-
 from twext.web2.server import Request
 from twext.web2.responsecode import UNAUTHORIZED
 from twext.web2.http_headers import Headers
@@ -41,7 +39,6 @@ from twistedcaldav.test.util import TestCase
 
 from txcaldav.calendarstore.test.test_file import event4_text
 
-from txcarddav.addressbookstore.file import AddressBookStore, AddressBookHome
 from txcarddav.addressbookstore.test.test_file import vcard4_text
 
 from txcaldav.calendarstore.test.test_postgres import buildStore
@@ -75,7 +72,7 @@ class FakeChanRequest(object):
 
 class WrappingTests(TestCase):
     """
-    Tests for L{twistedcaldav.static.CalDAVFile} creating the appropriate type
+    Tests for L{twistedcaldav.static.CalDAVResource} creating the appropriate type
     of txcaldav.calendarstore.file underlying object when it can determine what
     type it really represents.
     """
@@ -239,7 +236,7 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupCalendarHome(self):
         """
-        When a L{CalDAVFile} representing an existing calendar home is looked
+        When a L{CalDAVResource} representing an existing calendar home is looked
         up in a CalendarHomeResource, it will create a corresponding
         L{CalendarHome} via C{newTransaction().calendarHomeWithUID}.
         """
@@ -268,7 +265,7 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupExistingCalendar(self):
         """
-        When a L{CalDAVFile} representing an existing calendar collection is
+        When a L{CalDAVResource} representing an existing calendar collection is
         looked up in a L{CalendarHomeResource} representing a calendar home, it
         will create a corresponding L{Calendar} via
         C{CalendarHome.calendarWithName}.
@@ -282,7 +279,7 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupNewCalendar(self):
         """
-        When a L{CalDAVFile} which represents a not-yet-created calendar
+        When a L{CalDAVResource} which represents a not-yet-created calendar
         collection is looked up in a L{CalendarHomeResource} representing a calendar
         home, it will initially have a new storage backend set to C{None}, but
         when the calendar is created via a protocol action, the backend will be
@@ -297,7 +294,7 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupSpecial(self):
         """
-        When a L{CalDAVFile} I{not} representing a calendar collection - one of
+        When a L{CalDAVResource} I{not} representing a calendar collection - one of
         the special collections, like the dropbox or freebusy URLs - is looked
         up in a L{CalendarHomeResource} representing a calendar home, it will I{not}
         create a corresponding L{Calendar} via C{CalendarHome.calendarWithName}.
@@ -313,10 +310,32 @@ class WrappingTests(TestCase):
 
 
     @inlineCallbacks
+    def test_transactionPropagation(self):
+        """
+        L{CalendarHomeResource} propagates its transaction to all of its
+        children.
+        """
+        variousNames = ['dropbox', 'freebusy', 'notifications',
+                        'inbox', 'outbox', 'calendar']
+        homeResource = yield self.getResource("calendars/users/wsanchez")
+        homeTransaction = homeResource._associatedTransaction
+        self.assertNotIdentical(homeTransaction, None)
+        self.addCleanup(self.commit)
+        for name in variousNames:
+            homeChild = yield self.getResource(
+                "calendars/users/wsanchez/" + name)
+            self.assertIdentical(
+                homeChild._associatedTransaction,
+                homeTransaction,
+                "transaction mismatch on %s; %r is not %r " %
+                    (name, homeChild._associatedTransaction, homeTransaction))
+
+
+    @inlineCallbacks
     def test_lookupCalendarObject(self):
         """
-        When a L{CalDAVFile} representing an existing calendar object is looked
-        up on a L{CalDAVFile} representing a calendar collection, a parallel
+        When a L{CalDAVResource} representing an existing calendar object is looked
+        up on a L{CalDAVResource} representing a calendar collection, a parallel
         L{CalendarObject} will be created (with a matching FilePath).
         """
         self.populateOneObject("1.ics", event4_text)
@@ -331,8 +350,8 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupNewCalendarObject(self):
         """
-        When a L{CalDAVFile} representing a new calendar object on a
-        L{CalDAVFile} representing an existing calendar collection, the list of
+        When a L{CalDAVResource} representing a new calendar object on a
+        L{CalDAVResource} representing an existing calendar collection, the list of
         principal collections will be propagated down to it.
         """
         calDavFileCalendar = yield self.getResource(
@@ -354,7 +373,7 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupAddressBookHome(self):
         """
-        When a L{CalDAVFile} representing an existing addressbook home is looked up
+        When a L{CalDAVResource} representing an existing addressbook home is looked up
         in a AddressBookHomeFile, it will create a corresponding L{AddressBookHome}
         via C{newTransaction().addressbookHomeWithUID}.
         """
@@ -366,7 +385,7 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupExistingAddressBook(self):
         """
-        When a L{CalDAVFile} representing an existing addressbook collection is
+        When a L{CalDAVResource} representing an existing addressbook collection is
         looked up in a L{AddressBookHomeFile} representing a addressbook home, it will
         create a corresponding L{AddressBook} via C{AddressBookHome.addressbookWithName}.
         """
@@ -379,7 +398,7 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupNewAddressBook(self):
         """
-        When a L{CalDAVFile} which represents a not-yet-created addressbook
+        When a L{CalDAVResource} which represents a not-yet-created addressbook
         collection is looked up in a L{AddressBookHomeFile} representing a addressbook
         home, it will initially have a new storage backend set to C{None}, but
         when the addressbook is created via a protocol action, the backend will be
@@ -396,8 +415,8 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupAddressBookObject(self):
         """
-        When a L{CalDAVFile} representing an existing addressbook object is looked
-        up on a L{CalDAVFile} representing a addressbook collection, a parallel
+        When a L{CalDAVResource} representing an existing addressbook object is looked
+        up on a L{CalDAVResource} representing a addressbook collection, a parallel
         L{AddressBookObject} will be created (with a matching FilePath).
         """
         self.populateOneAddressBookObject("1.vcf", vcard4_text)
@@ -412,8 +431,8 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupNewAddressBookObject(self):
         """
-        When a L{CalDAVFile} representing a new addressbook object on a
-        L{CalDAVFile} representing an existing addressbook collection, the list of
+        When a L{CalDAVResource} representing a new addressbook object on a
+        L{CalDAVResource} representing an existing addressbook collection, the list of
         principal collections will be propagated down to it.
         """
         calDavFileAddressBook = yield self.getResource(
