@@ -215,8 +215,14 @@ class Duration(_Statistic):
 
 class SQLDuration(_Statistic):
     def summarize(self, data):
-        data = [interval for (sql, interval) in data]
-        return _Statistic.summarize(self, data)
+        statements = {}
+        intervals = []
+        for (sql, interval) in data:
+            intervals.append(interval)
+            statements[sql] = statements.get(sql, 0) + 1
+        for statement, count in statements.iteritems():
+            print count, ':', statement.replace('\n', ' ')
+        return _Statistic.summarize(self, intervals)
 
 
 class Bytes(_Statistic):
@@ -280,8 +286,8 @@ class DTraceCollector(object):
                         accum = self._iternext
 
                     accum.append((self.sql, diff))
-                    self.start = None
-                    self.sql = None
+                self.start = None
+
     _op_ITERNEXT = _op_EXECUTE
 
     def _op_B_READ(self, cmd, rest):
