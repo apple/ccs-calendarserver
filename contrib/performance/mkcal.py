@@ -177,16 +177,17 @@ def measure(pids, events, samples):
 
     # Now sample it a bunch of times
     data = []
-    with DTraceCollector(pids) as dtrace:
-        for i in range(samples):
-            before = time()
-            response = yield agent.request(
-                method, uri, headers, body)
-            yield readBody(response)
-            after = time()
-            data.append(after - before)
-    stats = {Duration('urlopen time'): data}
-    stats.update((yield dtrace))
+    dtrace = DTraceCollector(pids)
+    yield dtrace.start()
+    for i in range(samples):
+        before = time()
+        response = yield agent.request(
+            method, uri, headers, body)
+        yield readBody(response)
+        after = time()
+        data.append(after - before)
+    stats = yield dtrace.stop()
+    stats[Duration('urlopen time')] = data
     returnValue(stats)
 
 
@@ -227,6 +228,15 @@ class SQLDuration(_Statistic):
 
 class Bytes(_Statistic):
     pass
+
+
+
+class DTraceBug(Exception):
+    """
+    Represents some kind of problem related to a shortcoming in dtrace
+    itself.
+    """
+
 
 
 class DTraceCollector(object):
@@ -298,19 +308,33 @@ class DTraceCollector(object):
         self._write.append(int(rest))
 
 
-    def __enter__(self):
-        finished = []
+    def start(self):
+        ready = []
+        self.finished = []
         self.dtraces = {}
         for p in self.pids:
-            d = Deferred()
-            self.dtraces[p] = reactor.spawnProcess(
-                IOMeasureConsumer(d),
-                "/usr/sbin/dtrace",
-                ["/usr/sbin/dtrace", "-q", "-p", str(p), "-s", "io_measure.d"])
-            d.addCallback(self._cleanup, p)
-            d.addCallback(self._parse)
-            finished.append(d)
-        return gatherResults(finished).addCallback(lambda ign: self.stats())
+            started, stopped = self._startDTrace(p)
+            ready.append(started)
+            self.finished.append(stopped)
+        return gatherResults(ready)
+
+
+    def _startDTrace(self, pid):
+        started = Deferred()
+        stopped = Deferred()
+        self.dtraces[pid] = reactor.spawnProcess(
+            IOMeasureConsumer(started, stopped),
+            "/usr/sbin/dtrace",
+            ["/usr/sbin/dtrace", "-q", "-p", str(pid), "-s",
+             "io_measure.d"])
+        def eintr(reason):
+            reason.trap(DTraceBug)
+            print 'Dtrace startup failed (', reason.getErrorMessage(), '), retrying.'
+            return self._startDTrace(pid)
+        started.addErrback(eintr)
+        stopped.addCallback(self._cleanup, pid)
+        stopped.addCallback(self._parse)
+        return started, stopped
 
 
     def _cleanup(self, passthrough, pid):
@@ -318,26 +342,44 @@ class DTraceCollector(object):
         return passthrough
 
 
-    def __exit__(self, type, value, traceback):
+    def stop(self):
         for proc in self.dtraces.itervalues():
             proc.signalProcess(SIGINT)
+        d = gatherResults(self.finished)
+        d.addCallback(lambda ign: self.stats())
+        return d
 
 
 
 class IOMeasureConsumer(ProcessProtocol):
-    def __init__(self, done):
+    def __init__(self, started, done):
+        self.started = started
         self.done = done
 
 
     def connectionMade(self):
         self.out = StringIO()
+        self._out = ''
+        self._err = ''
 
 
     def errReceived(self, bytes):
-        print bytes
+        self._err += bytes
+        if 'Interrupted system call' in self._err:
+            started = self.started
+            self.started = None
+            started.errback(DTraceBug(self._err))
+
 
     def outReceived(self, bytes):
-        self.out.write(bytes)
+        if self.started is None:
+            self.out.write(bytes)
+        else:
+            self._out += bytes
+            if self._out == 'READY\n':
+                started = self.started
+                self.started = None
+                started.callback(None)
 
 
     def processEnded(self, reason):

@@ -4,6 +4,14 @@
  */
 
 #pragma D option switchrate=10hz
+#pragma D option strsize=1024
+
+dtrace:::BEGIN
+{
+	/* Let the watcher know things are alright.
+	 */
+	printf("READY\n");
+}
 
 /*
  * Low-level I/O stuff
