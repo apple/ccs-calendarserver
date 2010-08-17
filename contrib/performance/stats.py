@@ -1,4 +1,6 @@
 
+NANO = 1000000000.0
+
 
 def mean(samples):
     return sum(samples) / len(samples)
@@ -15,6 +17,8 @@ def stddev(samples):
 
 
 class _Statistic(object):
+    commands = ['summarize']
+
     def __init__(self, name):
         self.name = name
 
@@ -39,6 +43,8 @@ class Duration(_Statistic):
 
 
 class SQLDuration(_Statistic):
+    commands = ['summarize', 'statements']
+
     def summarize(self, data):
         statements = {}
         intervals = []
@@ -50,9 +56,12 @@ class SQLDuration(_Statistic):
         return _Statistic.summarize(self, intervals)
 
 
+    def statements(self, data):
+        statements = {}
+        for (sql, interval) in data:
+            statements.setdefault(sql, []).append(interval)
+        for s in statements:
+            print sum(statements[s]) / NANO, 'seconds:', s
 
 class Bytes(_Statistic):
     pass
-
-
-

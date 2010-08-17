@@ -187,11 +187,12 @@ def benchmark(argv):
 
     for stat, survey, parameter in stuff:
         print 'Surveying', stat
+        statistics[stat] = {}
         for p in parameter:
             print 'Parameter at', p
             dtrace = DTraceCollector(pids)
             data = yield survey(dtrace, p, 100)
-            statistics[stat] = data
+            statistics[stat][p] = data
 
     fObj = file(datetime.now().isoformat(), 'w')
     dump(statistics, fObj, 2)
