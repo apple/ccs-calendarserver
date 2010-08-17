@@ -78,3 +78,13 @@ pid$target::PQexec:return
 {
 	printf("EXECUTE RETURN %d\n\1", timestamp);
 }
+
+pid$target::pgsource_fetch:entry
+{
+	printf("ITERNEXT ENTRY %d\n\1", timestamp);
+}
+
+pid$target::pgsource_fetch:return
+{
+	printf("ITERNEXT RETURN %d\n\1", timestamp);
+}
