@@ -7,10 +7,11 @@ import sys
 
 from subprocess import PIPE, Popen
 from signal import SIGINT
+from pickle import dump
 
 from urllib2 import HTTPDigestAuthHandler
 from uuid import uuid1, uuid4
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from time import time
 from StringIO import StringIO
 
@@ -146,7 +147,7 @@ class StringProducer(object):
 
 
 @inlineCallbacks
-def measure(pids, events, samples):
+def measure(dtrace, events, samples):
     # First set things up
     account = CalDAVAccount(
         "localhost:8008", user="user01", pswd="user01", root="/", principal="/")
@@ -177,7 +178,6 @@ def measure(pids, events, samples):
 
     # Now sample it a bunch of times
     data = []
-    dtrace = DTraceCollector(pids)
     yield dtrace.start()
     for i in range(samples):
         before = time()
@@ -197,10 +197,10 @@ class _Statistic(object):
 
 
     def summarize(self, data):
-        print 'mean', self.name, mean(data)
-        print 'median', self.name, median(data)
-        print 'stddev', self.name, stddev(data)
-        print 'sum', self.name, sum(data)
+        print self.name, 'mean', mean(data)
+        print self.name, 'median', median(data)
+        print self.name, 'stddev', stddev(data)
+        print self.name, 'sum', sum(data)
 
 
     def write(self, basename, data):
@@ -383,7 +383,10 @@ class IOMeasureConsumer(ProcessProtocol):
 
 
     def processEnded(self, reason):
-        self.done.callback(self.out.getvalue())
+        if self.started is None:
+            self.done.callback(self.out.getvalue())
+        else:
+            self.started.errback(RuntimeError("Exited too soon"))
 
 
 def mean(samples):
@@ -399,18 +402,30 @@ def stddev(samples):
     variance = sum([(datum - m) ** 2 for datum in samples]) / len(samples)
     return variance ** 0.5
 
+
 @inlineCallbacks
 def main():
     # Figure out which pids we are benchmarking.
     pids = map(int, sys.argv[1:])
 
-    for numEvents in [1, 100]: #, 1000]:#, 10000]:
-        print 'Testing', numEvents, 'events'
-        data = yield measure(pids, numEvents, 100)
-        for k, v in data.iteritems():
-            if v:
-                k.summarize(v)
-                k.write('vfreebusy.%%s.%d' % (numEvents,), v)
+    parameters = [1, 10, 100]
+    stuff = [
+        ('vfreebusy', measure, parameters),
+        ]
+
+    statistics = {}
+
+    for stat, survey, parameter in stuff:
+        print 'Surveying', stat
+        for p in parameter:
+            print 'Parameter at', p
+            dtrace = DTraceCollector(pids)
+            data = yield survey(dtrace, p, 100)
+            statistics[stat] = data
+
+    fObj = file(datetime.now().isoformat(), 'w')
+    dump(statistics, fObj, 2)
+    fObj.close()
 
 
 if __name__ == '__main__':
