@@ -73,22 +73,37 @@ class INotificationCollection(Interface):
 
     def writeNotificationObject(uid, xmltype, xmldata):
         """
-        Write a notification with the given C{uid} in this
-        notification collection from the given C{xmldata} with
-        given C{xmltype}. Create or overwrite are OK.
+        Write a notification with the given C{uid} in this notification
+        collection from the given C{xmldata} with given C{xmltype}.  If a
+        L{INotificationObject} with the same uid already exists in this
+        L{INotificationCollection}, it will be overwritten.
 
-        @param uid: a string.
-        @param xmltype: a custom XML class (not an instance)
-        @param xmldata: a string.
+        @param uid: a string uniquely identifying the notification to be
+            written.
+        @type uid: C{str}
+
+        @param xmltype: the node within the notification payload, emptied of
+            its children, to indicate the type of notification and fill out the
+            C{CS:notificationtype} property.
+            
+        @type xmltype: an instance of
+            L{twext.web2.dav.element.base.WebDAVElement},
+            most likely a subclass like L{twistedcaldav.customxml.InviteReply},
+            L{twistedcaldav.customxml.InviteRemove}, etc.
+
+        @param xmldata: the serialized representation of the C{CS:notification}
+            node.
+        @type xmldata: C{str}
         """
 
     def removeNotificationObjectWithName(name):
         """
         Remove the notification object with the given C{name} from this
         notification collection. If C{deleteOnly} is C{True} then do not
-        
 
         @param name: a string.
+        @type name: C{str}
+
         @raise NoSuchObjectResourceError: if no such NoSuchObjectResourceError object
             exists.
         """
