@@ -903,7 +903,10 @@ class PostgresCalendar(SyncTokenHelper):
 
 
     def notifierID(self, label="default"):
-        return None
+        if self._notifier:
+            return self._notifier.getID(label)
+        else:
+            return None
 
 
     def name(self):
@@ -1276,7 +1279,10 @@ class PostgresCalendarHome(object):
 
 
     def notifierID(self, label="default"):
-        return None
+        if self._notifier:
+            return self._notifier.getID(label)
+        else:
+            return None
 
 
 
@@ -1734,7 +1740,10 @@ class PostgresAddressBook(object):
 
 
     def notifierID(self, label="default"):
-        return None
+        if self._notifier:
+            return self._notifier.getID(label)
+        else:
+            return None
 
 
     def name(self):
@@ -2078,7 +2087,10 @@ class PostgresAddressBookHome(object):
 
 
     def notifierID(self, label="default"):
-        return None
+        if self._notifier:
+            return self._notifier.getID(label)
+        else:
+            return None
 
 
 #

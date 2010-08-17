@@ -303,6 +303,13 @@ class CommonTests(object):
         self.assertProvides(ICalendarObject, self.calendarObjectUnderTest())
 
 
+    def test_notifierID(self):
+        home = self.homeUnderTest()
+        self.assertEquals(home.notifierID(), "home1")
+        calendar = home.calendarWithName("calendar_1")
+        self.assertEquals(calendar.notifierID(), "home1")
+        self.assertEquals(calendar.notifierID(label="collection"), "home1/calendar_1")
+
     def test_calendarHomeWithUID_exists(self):
         """
         Finding an existing calendar home by UID results in an object that

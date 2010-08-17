@@ -262,6 +262,13 @@ class CommonTests(object):
         """
         self.assertProvides(IAddressBookObject, self.addressbookObjectUnderTest())
 
+    def test_notifierID(self):
+        home = self.homeUnderTest()
+        self.assertEquals(home.notifierID(), "home1")
+        addressbook = home.addressbookWithName("addressbook_1")
+        self.assertEquals(addressbook.notifierID(), "home1")
+        self.assertEquals(addressbook.notifierID(label="collection"), "home1/addressbook_1")
+
 
     def test_addressbookHomeWithUID_exists(self):
         """
