@@ -48,7 +48,9 @@ class IOMeasureConsumer(ProcessProtocol):
             self.out.write(bytes)
         else:
             self._out += bytes
-            if self._out == 'READY\n':
+            if self._out.startswith('READY\n'):
+                self.out.write(self._out[len('READY\n'):])
+                del self._out
                 started = self.started
                 self.started = None
                 started.callback(None)
