@@ -10,7 +10,7 @@ create sequence RESOURCE_ID_SEQ;
 -------------------
 
 create table CALENDAR_HOME (
-  RESOURCE_ID varchar(255) primary key default nextval('RESOURCE_ID_SEQ'),
+  RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'),
   OWNER_UID   varchar(255) not null unique
 );
 
@@ -20,7 +20,7 @@ create table CALENDAR_HOME (
 --------------
 
 create table CALENDAR (
-  RESOURCE_ID varchar(255) primary key default nextval('RESOURCE_ID_SEQ'),
+  RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'),
   SYNC_TOKEN  varchar(255)
 );
 
@@ -33,8 +33,8 @@ create table INVITE (
     INVITE_UID         varchar(255) not null,
     NAME               varchar(255) not null,
     SENDER_ADDRESS     varchar(255) not null,
-    HOME_RESOURCE_ID   varchar(255) not null,
-    RESOURCE_ID        varchar(255) not null
+    HOME_RESOURCE_ID   integer      not null,
+    RESOURCE_ID        integer      not null
 );
 
 
@@ -43,19 +43,17 @@ create table INVITE (
 ---------------------------
 
 create table NOTIFICATION_HOME (
-  RESOURCE_ID varchar(255) primary key default nextval('RESOURCE_ID_SEQ'),
+  RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'),
   OWNER_UID   varchar(255) not null unique
 );
 
 
 create table NOTIFICATION (
-  RESOURCE_ID varchar(255)
-        primary key default nextval('RESOURCE_ID_SEQ'),
-  NOTIFICATION_HOME_RESOURCE_ID
-        varchar(255) not null references NOTIFICATION_HOME,
-  NOTIFICATION_UID varchar(255) not null,
-  XML_TYPE varchar not null,
-  XML_DATA varchar not null
+  RESOURCE_ID                   integer      primary key default nextval('RESOURCE_ID_SEQ'),
+  NOTIFICATION_HOME_RESOURCE_ID integer      not null references NOTIFICATION_HOME,
+  NOTIFICATION_UID              varchar(255) not null,
+  XML_TYPE                      varchar      not null,
+  XML_DATA                      varchar      not null
 );
 
 
@@ -66,8 +64,8 @@ create table NOTIFICATION (
 -- Joins CALENDAR_HOME and CALENDAR
 
 create table CALENDAR_BIND (
-  CALENDAR_HOME_RESOURCE_ID varchar(255) not null references CALENDAR_HOME,
-  CALENDAR_RESOURCE_ID      varchar(255) not null references CALENDAR,
+  CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
+  CALENDAR_RESOURCE_ID      integer      not null references CALENDAR,
   
   -- An invitation which hasn't been accepted yet will not yet have a resource
   -- name, so this field may be null.
@@ -75,8 +73,8 @@ create table CALENDAR_BIND (
   CALENDAR_RESOURCE_NAME    varchar(255),
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
-  SEEN_BY_OWNER             bool         not null,
-  SEEN_BY_SHAREE            bool         not null,
+  SEEN_BY_OWNER             boolean      not null,
+  SEEN_BY_SHAREE            boolean      not null,
   MESSAGE                   text,
 
   primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID),
@@ -86,7 +84,7 @@ create table CALENDAR_BIND (
 -- Enumeration of calendar bind modes
 
 create table CALENDAR_BIND_MODE (
-  ID          int         primary key,
+  ID          integer     primary key,
   DESCRIPTION varchar(16) not null unique
 );
 
@@ -97,7 +95,7 @@ insert into CALENDAR_BIND_MODE values (2, 'write');
 -- Enumeration of statuses
 
 create table CALENDAR_BIND_STATUS (
-  ID          int         primary key,
+  ID          integer     primary key,
   DESCRIPTION varchar(16) not null unique
 );
 
@@ -112,16 +110,16 @@ insert into CALENDAR_BIND_STATUS values (3, 'invalid');
 ---------------------
 
 create table CALENDAR_OBJECT (
-  RESOURCE_ID          varchar(255) primary key default nextval('RESOURCE_ID_SEQ'),
-  CALENDAR_RESOURCE_ID varchar(255) not null references CALENDAR,
+  RESOURCE_ID          integer      primary key default nextval('RESOURCE_ID_SEQ'),
+  CALENDAR_RESOURCE_ID integer      not null references CALENDAR,
   RESOURCE_NAME        varchar(255) not null,
   ICALENDAR_TEXT       text         not null,
   ICALENDAR_UID        varchar(255) not null,
   ICALENDAR_TYPE       varchar(255) not null,
-  ATTACHMENTS_MODE     int          not null, -- enum CALENDAR_OBJECT_ATTACHMENTS_MODE
+  ATTACHMENTS_MODE     integer      not null, -- enum CALENDAR_OBJECT_ATTACHMENTS_MODE
   ORGANIZER            varchar(255),
-  ORGANIZER_OBJECT     varchar(255) references CALENDAR_OBJECT,
-  RECURRANCE_MAX       date, -- maximum date that recurrences have been expanded to.
+  ORGANIZER_OBJECT     integer      references CALENDAR_OBJECT,
+  RECURRANCE_MAX       date,        -- maximum date that recurrences have been expanded to.
 
   unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME)
 
@@ -135,7 +133,7 @@ create table CALENDAR_OBJECT (
 -- Enumeration of attachment modes
 
 create table CALENDAR_OBJECT_ATTACHMENTS_MODE (
-  ID          int         primary key,
+  ID          integer     primary key,
   DESCRIPTION varchar(16) not null unique
 );
 
@@ -143,24 +141,32 @@ insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (0, 'read' );
 insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (1, 'write');
 
 
+-----------------
+-- Instance ID --
+-----------------
+
+create sequence INSTANCE_ID_SEQ;
+
+
 ----------------
 -- Time Range --
 ----------------
 
 create table TIME_RANGE (
-  CALENDAR_RESOURCE_ID        varchar(255) not null references CALENDAR,
-  CALENDAR_OBJECT_RESOURCE_ID varchar(255) not null references CALENDAR_OBJECT,
-  FLOATING                    bool         not null,
-  START_DATE                  date         not null,
-  END_DATE                    date         not null,
-  FBTYPE                      integer      not null, -- enum FREE_BUSY_TYPE
-  TRANSPARENT                 bool         not null
+  INSTANCE_ID                 integer        primary key default nextval('INSTANCE_ID_SEQ'),
+  CALENDAR_RESOURCE_ID        integer        not null references CALENDAR,
+  CALENDAR_OBJECT_RESOURCE_ID integer        not null references CALENDAR_OBJECT on delete cascade,
+  FLOATING                    boolean        not null,
+  START_DATE                  timestamp      not null,
+  END_DATE                    timestamp      not null,
+  FBTYPE                      integer        not null,
+  TRANSPARENT                 boolean        not null
 );
 
 -- Enumeration of free/busy types
 
 create table FREE_BUSY_TYPE (
-  ID          int         primary key,
+  ID          integer     primary key,
   DESCRIPTION varchar(16) not null unique
 );
 
@@ -171,14 +177,25 @@ insert into FREE_BUSY_TYPE values (3, 'busy-unavailable');
 insert into FREE_BUSY_TYPE values (4, 'busy-tentative'  );
 
 
+------------------
+-- Transparency --
+------------------
+
+create table TRANSPARENCY (
+  TIME_RANGE_INSTANCE_ID      integer      not null references TIME_RANGE on delete cascade,
+  USER_ID                     varchar(255) not null,
+  TRANSPARENT                 boolean      not null
+);
+
+
 ----------------
 -- Attachment --
 ----------------
 
 create table ATTACHMENT (
-  CALENDAR_OBJECT_RESOURCE_ID varchar(255)  not null references CALENDAR_OBJECT,
+  CALENDAR_OBJECT_RESOURCE_ID integer       not null references CALENDAR_OBJECT,
   CONTENT_TYPE                varchar(255)  not null,
-  SIZE                        int           not null,
+  SIZE                        integer       not null,
   MD5                         char(32)      not null,
   PATH                        varchar(1024) not null unique
 );
@@ -189,7 +206,7 @@ create table ATTACHMENT (
 ------------------
 
 create table ITIP_MESSAGE (
-  CALENDAR_RESOURCE_ID varchar(255) not null references CALENDAR,
+  CALENDAR_RESOURCE_ID integer      not null references CALENDAR,
   ICALENDAR_TEXT       text         not null,
   ICALENDAR_UID        varchar(255) not null,
   MD5                  char(32)     not null,
@@ -202,7 +219,7 @@ create table ITIP_MESSAGE (
 -----------------------
 
 create table RESOURCE_PROPERTY (
-  RESOURCE_ID varchar(255) not null, -- foreign key: *.RESOURCE_ID
+  RESOURCE_ID integer      not null, -- foreign key: *.RESOURCE_ID
   NAME        varchar(255) not null,
   VALUE       text         not null, -- FIXME: xml?
   VIEWER_UID  varchar(255),
@@ -216,7 +233,7 @@ create table RESOURCE_PROPERTY (
 ----------------------
 
 create table ADDRESSBOOK_HOME (
-  RESOURCE_ID varchar(255) primary key default nextval('RESOURCE_ID_SEQ'),
+  RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'),
   OWNER_UID   varchar(255) not null unique
 );
 
@@ -226,7 +243,7 @@ create table ADDRESSBOOK_HOME (
 -----------------
 
 create table ADDRESSBOOK (
-  RESOURCE_ID varchar(255) primary key default nextval('RESOURCE_ID_SEQ'),
+  RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'),
   SYNC_TOKEN  varchar(255)
 );
 
@@ -238,14 +255,14 @@ create table ADDRESSBOOK (
 -- Joins ADDRESSBOOK_HOME and ADDRESSBOOK
 
 create table ADDRESSBOOK_BIND (
-  ADDRESSBOOK_HOME_RESOURCE_ID varchar(255) not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID      varchar(255) not null references ADDRESSBOOK,
+  ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
+  ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK,
   ADDRESSBOOK_RESOURCE_NAME    varchar(255) not null,
-  BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
-  BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
-  SEEN_BY_OWNER             bool         not null,
-  SEEN_BY_SHAREE            bool         not null,
-  MESSAGE                   text,                  -- FIXME: xml?
+  BIND_MODE                    integer      not null, -- enum CALENDAR_BIND_MODE
+  BIND_STATUS                  integer      not null, -- enum CALENDAR_BIND_STATUS
+  SEEN_BY_OWNER                boolean      not null,
+  SEEN_BY_SHAREE               boolean      not null,
+  MESSAGE                      text,                  -- FIXME: xml?
 
   primary key(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID),
   unique(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)
@@ -253,12 +270,12 @@ create table ADDRESSBOOK_BIND (
 
 
 create table ADDRESSBOOK_OBJECT (
-  RESOURCE_ID          varchar(255) primary key default nextval('RESOURCE_ID_SEQ'),
-  ADDRESSBOOK_RESOURCE_ID varchar(255) not null references ADDRESSBOOK,
-  RESOURCE_NAME        varchar(255) not null,
-  VCARD_TEXT           text         not null,
-  VCARD_UID            varchar(255) not null,
-  VCARD_TYPE           varchar(255) not null,
+  RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),
+  ADDRESSBOOK_RESOURCE_ID integer      not null references ADDRESSBOOK,
+  RESOURCE_NAME           varchar(255) not null,
+  VCARD_TEXT              text         not null,
+  VCARD_UID               varchar(255) not null,
+  VCARD_TYPE              varchar(255) not null,
 
   unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME),
   unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)

@@ -499,12 +499,12 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                             continue
                         
                 # Apply a timezone to any floating times
-                fbstart = datetime.datetime.strptime(start[:-6], "%Y-%m-%d %H:%M:%S")
+                fbstart = datetime.datetime.strptime(start[:19], "%Y-%m-%d %H:%M:%S")
                 if float == 'Y':
                     fbstart = fbstart.replace(tzinfo=tzinfo)
                 else:
                     fbstart = fbstart.replace(tzinfo=utc)
-                fbend =datetime.datetime.strptime(end[:-6], "%Y-%m-%d %H:%M:%S")
+                fbend =datetime.datetime.strptime(end[:19], "%Y-%m-%d %H:%M:%S")
                 if float == 'Y':
                     fbend = fbend.replace(tzinfo=tzinfo)
                 else:

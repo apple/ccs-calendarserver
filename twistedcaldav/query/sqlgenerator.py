@@ -46,14 +46,21 @@ class sqlgenerator(object):
     INOP           = " IN "
     NOTINOP        = " NOT IN "
 
+    FIELDS         = {
+        "TYPE": "RESOURCE.TYPE",
+        "UID":  "RESOURCE.UID",
+    }
+
     TIMESPANTEST         = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s AND TIMESPAN.END > %s))"
     TIMESPANTEST_NOEND   = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.END > %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.END > %s))"
     TIMESPANTEST_NOSTART = "((TIMESPAN.FLOAT == 'N' AND TIMESPAN.START < %s) OR (TIMESPAN.FLOAT == 'Y' AND TIMESPAN.START < %s))"
     TIMESPANTEST_TAIL_PIECE = " AND TIMESPAN.RESOURCEID == RESOURCE.RESOURCEID"
-    TIMESPANTEST_JOIN_ON_PIECE = "TIMESPAN.INSTANCEID == TRANSPARENCY.INSTANCEID AND TRANSPARENCY.PERUSERID == '%s'"
+    TIMESPANTEST_JOIN_ON_PIECE = "TIMESPAN.INSTANCEID == TRANSPARENCY.INSTANCEID AND TRANSPARENCY.PERUSERID == %s"
 
-    def __init__(self, expr):
+    def __init__(self, expr, calendarid, userid):
         self.expression = expr
+        self.calendarid = calendarid
+        self.userid = userid if userid else ""
         self.usedtimespan = False
         
     def generate(self):
@@ -67,21 +74,27 @@ class sqlgenerator(object):
         # Init state
         self.sout = StringIO.StringIO()
         self.arguments = []
+        self.substitutions = []
         self.usedtimespan = False
         
         # Generate ' where ...' partial statement
         self.sout.write(self.WHERE)
         self.generateExpression(self.expression)
-
+            
         # Prefix with ' from ...' partial statement
         select = self.FROM + self.RESOURCEDB
         if self.usedtimespan:
+            self.frontArgument(self.userid)
             select += ", %s, %s LEFT OUTER JOIN %s ON (%s)" % (
                 self.TIMESPANDB,
                 self.PERUSERDB,
                 self.TRANSPARENCYDB,
-                self.TIMESPANTEST_JOIN_ON_PIECE)
+                self.TIMESPANTEST_JOIN_ON_PIECE
+            )
         select += self.sout.getvalue()
+        
+        select = select % tuple(self.substitutions)
+
         return select, self.arguments
         
     def generateExpression(self, expr):
@@ -99,6 +112,7 @@ class sqlgenerator(object):
             # Wipe out the ' where ...' clause so everything is matched
             self.sout.truncate(0)
             self.arguments = []
+            self.substitutions = []
             self.usedtimespan = False
         
         # NOT
@@ -129,19 +143,22 @@ class sqlgenerator(object):
         # time-range
         elif isinstance(expr, expression.timerangeExpression):
             if expr.start and expr.end:
-                arg1 = self.setArgument(expr.end)
-                arg2 = self.setArgument(expr.start)
-                arg3 = self.setArgument(expr.endfloat)
-                arg4 = self.setArgument(expr.startfloat)
-                test = self.TIMESPANTEST % (arg1, arg2, arg3, arg4)
+                self.setArgument(expr.end)
+                self.setArgument(expr.start)
+                self.setArgument(expr.endfloat)
+                self.setArgument(expr.startfloat)
+                test = self.TIMESPANTEST
             elif expr.start and expr.end is None:
-                arg1 = self.setArgument(expr.start)
-                arg2 = self.setArgument(expr.startfloat)
-                test = self.TIMESPANTEST_NOEND % (arg1, arg2)
+                self.setArgument(expr.start)
+                self.setArgument(expr.startfloat)
+                test = self.TIMESPANTEST_NOEND
             elif not expr.start and expr.end:
-                arg1 = self.setArgument(expr.end)
-                arg2 = self.setArgument(expr.endfloat)
-                test = self.TIMESPANTEST_NOSTART % (arg1, arg2)
+                self.setArgument(expr.end)
+                self.setArgument(expr.endfloat)
+                test = self.TIMESPANTEST_NOSTART
+                
+            if self.calendarid:
+                self.setArgument(self.calendarid)
             test += self.TIMESPANTEST_TAIL_PIECE
             self.sout.write(test)
             self.usedtimespan = True
@@ -150,13 +167,13 @@ class sqlgenerator(object):
         elif isinstance(expr, expression.containsExpression):
             self.sout.write(expr.field)
             self.sout.write(self.CONTAINSOP)
-            self.addArgument(expr.text)
+            self.addArgument(self.containsArgument(expr.text))
         
         # NOT CONTAINS
         elif isinstance(expr, expression.notcontainsExpression):
             self.sout.write(expr.field)
             self.sout.write(self.NOTCONTAINSOP)
-            self.addArgument(expr.text)
+            self.addArgument(self.containsArgument(expr.text))
         
         # IS
         elif isinstance(expr, expression.isExpression):
@@ -194,7 +211,7 @@ class sqlgenerator(object):
 
     def generateSubExpression(self, expression):
         """
-        Generate an SQL expression possibly in paranethesis if its a compound expression.
+        Generate an SQL expression possibly in parenthesis if its a compound expression.
 
         @param expression: the L{baseExpression} to write out.
         @return: C{True} if the TIMESPAN table is used, C{False} otherwise.
@@ -214,7 +231,8 @@ class sqlgenerator(object):
         
         # Append argument to the list and add the appropriate substitution string to the output stream.
         self.arguments.append(arg)
-        self.sout.write(":" + str(len(self.arguments)))
+        self.substitutions.append(":" + str(len(self.arguments)))
+        self.sout.write("%s")
     
     def setArgument(self, arg):
         """
@@ -225,8 +243,21 @@ class sqlgenerator(object):
         
         # Append argument to the list and add the appropriate substitution string to the output stream.
         self.arguments.append(arg)
-        return ":" + str(len(self.arguments))
+        self.substitutions.append(":" + str(len(self.arguments)))
 
+    def frontArgument(self, arg):
+        """
+        
+        @param arg: the C{str} of the argument to add
+        @return: C{str} for argument substitution text
+        """
+        
+        # Append argument to the list and add the appropriate substitution string to the output stream.
+        self.arguments.insert(0, arg)
+        self.substitutions.append(":" + str(len(self.arguments)))
+
+    def containsArgument(self, arg):
+        return "*%s*" % (arg,)
 
 if __name__ == "__main__":
     

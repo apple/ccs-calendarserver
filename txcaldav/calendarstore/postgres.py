@@ -29,19 +29,20 @@ __all__ = [
     "PostgresAddressBookObject",
 ]
 
+import datetime
 import StringIO
 
-from twisted.python import hashlib
 from twistedcaldav.sharing import SharedCollectionRecord #@UnusedImport
 
 from inspect import getargspec
 from zope.interface.declarations import implements
 
-from twisted.python.modules import getModule
 from twisted.application.service import Service
-from twisted.internet.interfaces import ITransport
 from twisted.internet.error import ConnectionLost
+from twisted.internet.interfaces import ITransport
+from twisted.python import hashlib
 from twisted.python.failure import Failure
+from twisted.python.modules import getModule
 
 from twext.web2.dav.element.rfc2518 import ResourceType
 
@@ -66,17 +67,25 @@ from txdav.propertystore.none import PropertyStore
 from twext.web2.http_headers import MimeType, generateContentType
 from twext.web2.dav.element.parser import WebDAVDocument
 
+from twext.python.log import Logger
 from twext.python.vcomponent import VComponent
-from twistedcaldav.vcard import Component as VCard
-from twistedcaldav.sharing import Invite
-from twistedcaldav.notifications import NotificationRecord
-from twistedcaldav.query.sqlgenerator import sqlgenerator
-from twistedcaldav.index import IndexedSearchException
+
 from twistedcaldav.customxml import NotificationType
+from twistedcaldav.dateops import normalizeForIndex
+from twistedcaldav.index import IndexedSearchException
+from twistedcaldav.instance import InvalidOverriddenInstanceError
+from twistedcaldav.notifications import NotificationRecord
+from twistedcaldav.query import calendarqueryfilter, calendarquery
+from twistedcaldav.query.sqlgenerator import sqlgenerator
+from twistedcaldav.sharing import Invite
+from twistedcaldav.vcard import Component as VCard
+
+from vobject.icalendar import utc
 
 v1_schema = getModule(__name__).filePath.sibling(
     "postgres_schema_v1.sql").getContent()
 
+log = Logger()
 
 # FIXME: these constants are in the schema, and should probably be discovered
 # from there somehow.
@@ -92,6 +101,39 @@ _BIND_MODE_OWN = 0
 _BIND_MODE_READ = 1
 _BIND_MODE_WRITE = 2
 
+
+#
+# Duration into the future through which recurrences are expanded in the index
+# by default.  This is a caching parameter which affects the size of the index;
+# it does not affect search results beyond this period, but it may affect
+# performance of such a search.
+#
+default_future_expansion_duration = datetime.timedelta(days=365*1)
+
+#
+# Maximum duration into the future through which recurrences are expanded in the
+# index.  This is a caching parameter which affects the size of the index; it
+# does not affect search results beyond this period, but it may affect
+# performance of such a search.
+#
+# When a search is performed on a time span that goes beyond that which is
+# expanded in the index, we have to open each resource which may have data in
+# that time period.  In order to avoid doing that multiple times, we want to
+# cache those results.  However, we don't necessarily want to cache all
+# occurrences into some obscenely far-in-the-future date, so we cap the caching
+# period.  Searches beyond this period will always be relatively expensive for
+# resources with occurrences beyond this period.
+#
+maximum_future_expansion_duration = datetime.timedelta(days=365*5)
+
+icalfbtype_to_indexfbtype = {
+    "UNKNOWN"         : 0,
+    "FREE"            : 1,
+    "BUSY"            : 2,
+    "BUSY-UNAVAILABLE": 3,
+    "BUSY-TENTATIVE"  : 4,
+}
+indexfbtype_to_icalfbtype = dict([(v, k) for k,v in icalfbtype_to_indexfbtype.iteritems()])
 
 
 def _getarg(argname, argspec, args, kw):
@@ -268,17 +310,189 @@ class PostgresCalendarObject(object):
 
     def setComponent(self, component):
         validateCalendarComponent(self, self._calendar, component)
-        calendarText = str(component)
-        self._txn.execSQL(
-            "update CALENDAR_OBJECT set ICALENDAR_TEXT = %s "
-            "where RESOURCE_ID = %s", [calendarText, self._resourceID]
-        )
-        self._calendarText = calendarText
+        
+        self.updateDatabase(component)
+
         self._calendar._updateSyncToken()
 
         if self._calendar._notifier:
             self._calendar._home._txn.postCommit(self._calendar._notifier.notify)
 
+    def updateDatabase(self, component, expand_until=None, reCreate=False, inserting=False):
+        """
+        Update the database tables for the new data being written.
+
+        @param component: calendar data to store
+        @type component: L{Component}
+        """
+        
+        # Decide how far to expand based on the component
+        master = component.masterComponent()
+        if master is None or not component.isRecurring() and not component.isRecurringUnbounded():
+            # When there is no master we have a set of overridden components - index them all.
+            # When there is one instance - index it.
+            # When bounded - index all.
+            expand = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+        else:
+            if expand_until:
+                expand = expand_until
+            else:
+                expand = datetime.date.today() + default_future_expansion_duration
+    
+            if expand > (datetime.date.today() + maximum_future_expansion_duration):
+                raise IndexedSearchException
+
+        try:
+            instances = component.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
+        except InvalidOverriddenInstanceError, e:
+            log.err("Invalid instance %s when indexing %s in %s" % (e.rid, self._name, self.resource,))
+            raise
+
+        componentText = str(component)
+        self._calendarText = componentText
+        organizer = component.getOrganizer()
+        if not organizer:
+            organizer = ""
+
+        # CALENDAR_OBJECT table update
+        if inserting:
+            self._resourceID = self._txn.execSQL(
+                """
+                insert into CALENDAR_OBJECT
+                (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX)
+                 values
+                (%s, %s, %s, %s, %s, %s, %s, %s)
+                 returning RESOURCE_ID
+                """,
+                # FIXME: correct ATTACHMENTS_MODE based on X-APPLE-
+                # DROPBOX
+                [
+                    self._calendar._resourceID,
+                    self._name,
+                    componentText,
+                    component.resourceUID(),
+                    component.resourceType(),
+                    _ATTACHMENTS_MODE_WRITE,
+                    organizer,
+                    normalizeForIndex(instances.limit) if instances.limit else None,
+                ]
+            )[0][0]
+        else:
+            self._txn.execSQL(
+                """
+                update CALENDAR_OBJECT set
+                (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX)
+                 =
+                (%s, %s, %s, %s, %s, %s)
+                 where RESOURCE_ID = %s
+                """,
+                # should really be filling out more fields: ORGANIZER,
+                # ORGANIZER_OBJECT, a correct ATTACHMENTS_MODE based on X-APPLE-
+                # DROPBOX
+                [
+                    componentText,
+                    component.resourceUID(),
+                    component.resourceType(),
+                    _ATTACHMENTS_MODE_WRITE,
+                    organizer,
+                    normalizeForIndex(instances.limit) if instances.limit else None,
+                    self._resourceID
+                ]
+            )
+            
+            # Need to wipe the existing time-range for this and rebuild
+            self._txn.execSQL(
+                """
+                delete from TIME_RANGE where CALENDAR_OBJECT_RESOURCE_ID = %s
+                """,
+                [
+                    self._resourceID,
+                ],
+            )
+            
+
+        # CALENDAR_OBJECT table update
+        for key in instances:
+            instance = instances[key]
+            start = instance.start.replace(tzinfo=utc)
+            end = instance.end.replace(tzinfo=utc)
+            float = instance.start.tzinfo is None
+            transp = instance.component.propertyValue("TRANSP") == "TRANSPARENT"
+            instanceid = self._txn.execSQL(
+                """
+                insert into TIME_RANGE
+                (CALENDAR_RESOURCE_ID, CALENDAR_OBJECT_RESOURCE_ID, FLOATING, START_DATE, END_DATE, FBTYPE, TRANSPARENT)
+                 values
+                (%s, %s, %s, %s, %s, %s, %s)
+                 returning
+                INSTANCE_ID
+                """,
+                [
+                    self._calendar._resourceID,
+                    self._resourceID,
+                    float,
+                    start,
+                    end,
+                    icalfbtype_to_indexfbtype.get(instance.component.getFBType(), icalfbtype_to_indexfbtype["FREE"]),
+                    transp,
+                ],
+            )[0][0]
+            peruserdata = component.perUserTransparency(instance.rid)
+            for useruid, transp in peruserdata:
+                self._txn.execSQL(
+                    """
+                    insert into TRANSPARENCY
+                    (TIME_RANGE_INSTANCE_ID, USER_ID, TRANSPARENT)
+                     values
+                    (%s, %s, %s)
+                    """,
+                    [
+                        instanceid,
+                        useruid,
+                        transp,
+                    ],
+                )
+
+        # Special - for unbounded recurrence we insert a value for "infinity"
+        # that will allow an open-ended time-range to always match it.
+        if component.isRecurringUnbounded():
+            start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+            end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
+            float = False
+            instanceid = self._txn.execSQL(
+                """
+                insert into TIME_RANGE
+                (CALENDAR_RESOURCE_ID, CALENDAR_OBJECT_RESOURCE_ID, FLOATING, START_DATE, END_DATE, FBTYPE, TRANSPARENT)
+                 values
+                (%s, %s, %s, %s, %s, %s, %s)
+                 returning
+                INSTANCE_ID
+                """,
+                [
+                    self._calendar._resourceID,
+                    self._resourceID,
+                    float,
+                    start,
+                    end,
+                    icalfbtype_to_indexfbtype["UNKNOWN"],
+                    True,
+                ],
+            )[0][0]
+            peruserdata = component.perUserTransparency(None)
+            for useruid, transp in peruserdata:
+                self._txn.execSQL(
+                    """
+                    insert into TRANSPARENCY
+                    (TIME_RANGE_INSTANCE_ID, USER_ID, TRANSPARENT)
+                     values
+                    (%s, %s, %s)
+                    """,
+                    [
+                        instanceid,
+                        useruid,
+                        transp,
+                    ],
+                )
 
     def _attachmentPath(self, name):
         attachmentRoot = self._calendar._home._txn._store.attachmentsPath
@@ -740,15 +954,24 @@ class postgresqlgenerator(sqlgenerator):
     in progress.)
     """
 
-    def __init__(self, expr, calendar):
-        self.TIMESPANDB = "TIME_RANGE"
-        self.TIMESPANTEST = "((TIME_RANGE.FLOAT == 'N' AND TIME_RANGE.START_DATE < %s AND TIME_RANGE.END_DATE > %s) OR (TIME_RANGE.FLOAT == 'Y' AND TIME_RANGE.START_DATE < %s AND TIME_RANGE.END_DATE > %s))"
-        self.TIMESPANTEST_NOEND = "((TIME_RANGE.FLOAT == 'N' AND TIME_RANGE.END_DATE > %s) OR (TIME_RANGE.FLOAT == 'Y' AND TIME_RANGE.END_DATE > %s))"
-        self.TIMESPANTEST_NOSTART = "((TIME_RANGE.FLOAT == 'N' AND TIME_RANGE.START_DATE < %s) OR (TIME_RANGE.FLOAT == 'Y' AND TIME_RANGE.START_DATE < %s))"
-        self.TIMESPANTEST_TAIL_PIECE = " AND TIME_RANGE.CALENDAR_OBJECT_RESOURCE_ID == CALENDAR_OBJECT.RESOURCE_ID"
+    ISOP           = " = "
+    CONTAINSOP     = " LIKE "
+    NOTCONTAINSOP  = " NOT LIKE "
+    FIELDS         = {
+        "TYPE": "CALENDAR_OBJECT.ICALENDAR_TYPE",
+        "UID":  "CALENDAR_OBJECT.ICALENDAR_UID",
+    }
 
-        super(postgresqlgenerator, self).__init__(expr)
-        self.calendar = calendar
+    def __init__(self, expr, calendarid, userid):
+        self.RESOURCEDB = "CALENDAR_OBJECT"
+        self.TIMESPANDB = "TIME_RANGE"
+        self.TIMESPANTEST = "((TIME_RANGE.FLOATING = FALSE AND TIME_RANGE.START_DATE < %s AND TIME_RANGE.END_DATE > %s) OR (TIME_RANGE.FLOATING = TRUE AND TIME_RANGE.START_DATE < %s AND TIME_RANGE.END_DATE > %s))"
+        self.TIMESPANTEST_NOEND = "((TIME_RANGE.FLOATING = FALSE AND TIME_RANGE.END_DATE > %s) OR (TIME_RANGE.FLOATING = TRUE AND TIME_RANGE.END_DATE > %s))"
+        self.TIMESPANTEST_NOSTART = "((TIME_RANGE.FLOATING = FALSE AND TIME_RANGE.START_DATE < %s) OR (TIME_RANGE.FLOATING = TRUE AND TIME_RANGE.START_DATE < %s))"
+        self.TIMESPANTEST_TAIL_PIECE = " AND TIME_RANGE.CALENDAR_OBJECT_RESOURCE_ID = CALENDAR_OBJECT.RESOURCE_ID AND CALENDAR_OBJECT.CALENDAR_RESOURCE_ID = %s"
+        self.TIMESPANTEST_JOIN_ON_PIECE = "TIME_RANGE.INSTANCE_ID = TRANSPARENCY.TIME_RANGE_INSTANCE_ID AND TRANSPARENCY.USER_ID = %s"
+
+        super(postgresqlgenerator, self).__init__(expr, calendarid, userid)
 
 
     def generate(self):
@@ -764,6 +987,7 @@ class postgresqlgenerator(sqlgenerator):
         # Init state
         self.sout = StringIO.StringIO()
         self.arguments = []
+        self.substitutions = []
         self.usedtimespan = False
 
         # Generate ' where ...' partial statement
@@ -773,21 +997,34 @@ class postgresqlgenerator(sqlgenerator):
         # Prefix with ' from ...' partial statement
         select = self.FROM + self.RESOURCEDB
         if self.usedtimespan:
-            select += ", %s, %s" % (
-                self.TIMESPANDB)
+            self.frontArgument(self.userid)
+            select += ", %s LEFT OUTER JOIN %s ON (%s)" % (
+                self.TIMESPANDB,
+                self.TRANSPARENCYDB,
+                self.TIMESPANTEST_JOIN_ON_PIECE
+            )
         select += self.sout.getvalue()
+        
+        select = select % tuple(self.substitutions)
+
         return select, self.arguments
 
 
     def addArgument(self, arg):
         self.arguments.append(arg)
+        self.substitutions.append("%s")
         self.sout.write("%s")
-
 
     def setArgument(self, arg):
         self.arguments.append(arg)
-        return "%s"
+        self.substitutions.append("%s")
 
+    def frontArgument(self, arg):
+        self.arguments.insert(0, arg)
+        self.substitutions.insert(0, "%s")
+
+    def containsArgument(self, arg):
+        return "%%%s%%" % (arg,)
 
 
 class PostgresLegacyIndexEmulator(object):
@@ -842,16 +1079,83 @@ class PostgresLegacyIndexEmulator(object):
         return self._txn.execSQL(
             "select RESOURCE_NAME from CALENDAR_OBJECT "
             "where RECURRANCE_MAX < %s and CALENDAR_RESOURCE_ID = %s",
-            [minDate, self.calendar._resourceID]
+            [normalizeForIndex(minDate), self.calendar._resourceID]
         )
 
 
+    def testAndUpdateIndex(self, minDate):
+        # Find out if the index is expanded far enough
+        names = self.notExpandedBeyond(minDate)
+
+        # Actually expand recurrence max
+        for name in names:
+            self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
+            self.reExpandResource(name, minDate)
+
     def indexedSearch(self, filter, useruid='', fbtype=False):
         """
-        Always raise L{IndexedSearchException}, since these indexes are not
-        fully implemented yet.
+        Finds resources matching the given qualifiers.
+        @param filter: the L{Filter} for the calendar-query to execute.
+        @return: an iterable of tuples for each resource matching the
+            given C{qualifiers}. The tuples are C{(name, uid, type)}, where
+            C{name} is the resource name, C{uid} is the resource UID, and
+            C{type} is the resource iCalendar component type.x
         """
-        raise IndexedSearchException()
+
+        # Make sure we have a proper Filter element and get the partial SQL
+        # statement to use.
+        if isinstance(filter, calendarqueryfilter.Filter):
+            qualifiers = calendarquery.sqlcalendarquery(filter, self.calendar._resourceID, useruid, generator=postgresqlgenerator)
+            if qualifiers is not None:
+                # Determine how far we need to extend the current expansion of
+                # events. If we have an open-ended time-range we will expand one
+                # year past the start. That should catch bounded recurrences - unbounded
+                # will have been indexed with an "infinite" value always included.
+                maxDate, isStartDate = filter.getmaxtimerange()
+                if maxDate:
+                    maxDate = maxDate.date()
+                    if isStartDate:
+                        maxDate += datetime.timedelta(days=365)
+                    self.testAndUpdateIndex(maxDate)
+            else:
+                # We cannot handler this filter in an indexed search
+                raise IndexedSearchException()
+
+        else:
+            qualifiers = None
+
+        # Perform the search
+        if qualifiers is None:
+            rowiter = self._txn.execSQL(
+                "select RESOURCE_NAME, ICALENDAR_UID, ICALENDAR_TYPE from CALENDAR_OBJECT where CALENDAR_RESOURCE_ID = %s",
+                [self.calendar._resourceID,],
+            )
+        else:
+            if fbtype:
+                # For a free-busy time-range query we return all instances
+                rowiter = self._txn.execSQL(
+                    """select DISTINCT
+                        CALENDAR_OBJECT.RESOURCE_NAME, CALENDAR_OBJECT.ICALENDAR_UID, CALENDAR_OBJECT.ICALENDAR_TYPE, CALENDAR_OBJECT.ORGANIZER,
+                        TIME_RANGE.FLOATING, TIME_RANGE.START_DATE, TIME_RANGE.END_DATE, TIME_RANGE.FBTYPE, TIME_RANGE.TRANSPARENT, TRANSPARENCY.TRANSPARENT""" + 
+                    qualifiers[0],
+                    qualifiers[1]
+                )
+            else:
+                rowiter = self._txn.execSQL(
+                    "select DISTINCT CALENDAR_OBJECT.RESOURCE_NAME, CALENDAR_OBJECT.ICALENDAR_UID, CALENDAR_OBJECT.ICALENDAR_TYPE" +
+                    qualifiers[0],
+                    qualifiers[1]
+                )
+
+        # Check result for missing resources
+
+        for row in rowiter:
+            if fbtype:
+                row = list(row)
+                if row[9]:
+                    row[8] = row[9]
+                del row[9]
+            yield row
 
 
     def bruteForceSearch(self):
@@ -980,28 +1284,15 @@ class PostgresCalendar(SyncTokenHelper):
         if rows:
             raise ObjectResourceNameAlreadyExistsError()
 
-        self._updateSyncToken()
-
         calendarObject = PostgresCalendarObject(self, name, None)
         calendarObject.component = lambda : component
 
         validateCalendarComponent(calendarObject, self, component)
 
-        componentText = str(component)
-        self._txn.execSQL(
-            """
-            insert into CALENDAR_OBJECT
-            (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT,
-             ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE)
-             values
-            (%s, %s, %s, %s, %s, %s)
-            """,
-            # should really be filling out more fields: ORGANIZER,
-            # ORGANIZER_OBJECT, a correct ATTACHMENTS_MODE based on X-APPLE-
-            # DROPBOX
-            [self._resourceID, name, componentText, component.resourceUID(),
-            component.resourceType(), _ATTACHMENTS_MODE_WRITE]
-        )
+        calendarObject.updateDatabase(component, inserting=True)
+
+        self._updateSyncToken()
+
         if self._notifier:
             self._home._txn.postCommit(self._notifier.notify)
 

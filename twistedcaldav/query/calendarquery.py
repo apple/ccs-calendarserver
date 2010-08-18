@@ -31,14 +31,7 @@ from twistedcaldav.query import expression, sqlgenerator, calendarqueryfilter
 
 # SQL Index column (field) names
 
-FIELD_TYPE = "RESOURCE.TYPE"
-FIELD_UID  = "RESOURCE.UID"
-#FIELD_RECURRENCE_ID = "RESOURCE.RECURRENCE-ID"
-#FIELD_SUMMARY = "RESOURCE.SUMMARY"
-#FIELD_DESCRIPTION = "RESOURCE.DESCRIPTION"
-#FIELD_LOCATION = "RESOURCE.LOCATION"
-
-def calendarquery(filter):
+def calendarquery(filter, fields):
     """
     Convert the supplied calendar-query into an expression tree.
 
@@ -59,11 +52,11 @@ def calendarquery(filter):
         for _ignore in [x for x in vcalfilter.filters if not isinstance(x, calendarqueryfilter.ComponentFilter)]:
             raise ValueError
         
-        return compfilterListExpression(vcalfilter.filters)
+        return compfilterListExpression(vcalfilter.filters, fields)
     else:
         return expression.allExpression()
 
-def compfilterListExpression(compfilters):
+def compfilterListExpression(compfilters, fields):
     """
     Create an expression for a list of comp-filter elements.
     
@@ -72,11 +65,11 @@ def compfilterListExpression(compfilters):
     """
     
     if len(compfilters) == 1:
-        return compfilterExpression(compfilters[0])
+        return compfilterExpression(compfilters[0], fields)
     else:
-        return expression.orExpression([compfilterExpression(c) for c in compfilters])
+        return expression.orExpression([compfilterExpression(c, fields) for c in compfilters])
 
-def compfilterExpression(compfilter):
+def compfilterExpression(compfilter, fields):
     """
     Create an expression for a single comp-filter element.
     
@@ -87,13 +80,13 @@ def compfilterExpression(compfilter):
     # Handle is-not-defined case
     if not compfilter.defined:
         # Test for TYPE != <<component-type name>>
-        return expression.isnotExpression(FIELD_TYPE, compfilter.filter_name, True)
+        return expression.isnotExpression(fields["TYPE"], compfilter.filter_name, True)
         
     expressions = []
     if isinstance(compfilter.filter_name, str):
-        expressions.append(expression.isExpression(FIELD_TYPE, compfilter.filter_name, True))
+        expressions.append(expression.isExpression(fields["TYPE"], compfilter.filter_name, True))
     else:
-        expressions.append(expression.inExpression(FIELD_TYPE, compfilter.filter_name, True))
+        expressions.append(expression.inExpression(fields["TYPE"], compfilter.filter_name, True))
     
     # Handle time-range    
     if compfilter.qualifier and isinstance(compfilter.qualifier, calendarqueryfilter.TimeRange):
@@ -103,7 +96,7 @@ def compfilterExpression(compfilter):
     # Handle properties - we can only do UID right now
     props = []
     for p in [x for x in compfilter.filters if isinstance(x, calendarqueryfilter.PropertyFilter)]:
-        props.append(propfilterExpression(p))
+        props.append(propfilterExpression(p, fields))
     if len(props) > 1:
         propsExpression = expression.orExpression[props]
     elif len(props) == 1:
@@ -133,7 +126,7 @@ def compfilterExpression(compfilter):
     # Now build return expression
     return expression.andExpression(expressions)
 
-def propfilterExpression(propfilter):
+def propfilterExpression(propfilter, fields):
     """
     Create an expression for a single prop-filter element.
     
@@ -148,7 +141,7 @@ def propfilterExpression(propfilter):
     # Handle is-not-defined case
     if not propfilter.defined:
         # Test for <<field>> != "*"
-        return expression.isExpression(FIELD_UID, "", True)
+        return expression.isExpression(fields["UID"], "", True)
     
     # Handle time-range - we cannot do this with our Index right now
     if propfilter.qualifier and isinstance(propfilter.qualifier, calendarqueryfilter.TimeRange):
@@ -158,9 +151,9 @@ def propfilterExpression(propfilter):
     tm = None
     if propfilter.qualifier and isinstance(propfilter.qualifier, calendarqueryfilter.TextMatch):
         if propfilter.qualifier.negate:
-            tm = expression.notcontainsExpression(propfilter.filter_name, propfilter.qualifier.text, propfilter.qualifier.caseless)
+            tm = expression.notcontainsExpression(fields[propfilter.filter_name], propfilter.qualifier.text, propfilter.qualifier.caseless)
         else:
-            tm = expression.containsExpression(propfilter.filter_name, propfilter.qualifier.text, propfilter.qualifier.caseless)
+            tm = expression.containsExpression(fields[propfilter.filter_name], propfilter.qualifier.text, propfilter.qualifier.caseless)
     
     # Handle embedded parameters - we do not right now as our Index does not handle them
     params = []
@@ -210,7 +203,7 @@ def getTimerangeArguments(timerange):
         str(endfloat) if endfloat else None,
     )
 
-def sqlcalendarquery(filter):
+def sqlcalendarquery(filter, calendarid=None, userid=None, generator=sqlgenerator.sqlgenerator):
     """
     Convert the supplied calendar-query into a oartial SQL statement.
 
@@ -220,8 +213,8 @@ def sqlcalendarquery(filter):
             Or return C{None} if it is not possible to create an SQL query to fully match the calendar-query.
     """
     try:
-        expression = calendarquery(filter)
-        sql = sqlgenerator.sqlgenerator(expression)
+        expression = calendarquery(filter, generator.FIELDS)
+        sql = generator(expression, calendarid, userid)
         return sql.generate()
     except ValueError:
         return None
