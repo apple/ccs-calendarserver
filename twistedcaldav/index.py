@@ -304,7 +304,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         @return: an iterable of tuples for each resource matching the
             given C{qualifiers}. The tuples are C{(name, uid, type)}, where
             C{name} is the resource name, C{uid} is the resource UID, and
-            C{type} is the resource iCalendar component type.x
+            C{type} is the resource iCalendar component type.
         """
 
         # Make sure we have a proper Filter element and get the partial SQL
