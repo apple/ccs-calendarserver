@@ -71,10 +71,12 @@ from twext.web2.dav.element.parser import WebDAVDocument
 from twext.python.log import Logger, LoggingMixIn
 from twext.python.vcomponent import VComponent
 
+from twistedcaldav.config import config
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import normalizeForIndex
-from twistedcaldav.index import IndexedSearchException
+from twistedcaldav.index import IndexedSearchException, ReservationError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
+from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.query import calendarqueryfilter, calendarquery
 from twistedcaldav.query.sqlgenerator import sqlgenerator
@@ -1054,9 +1056,127 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
     L{twistedcaldv.index.IndexSchedule}.
     """
 
+    class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
+        def __init__(self, index, cachePool=None):
+            self.index = index
+            self._cachePool = cachePool
+    
+        def _key(self, uid):
+            return 'reservation:%s' % (
+                hashlib.md5('%s:%s' % (uid,
+                                       self.index.calendar._resourceID)).hexdigest())
+    
+        def reserveUID(self, uid):
+            uid = uid.encode('utf-8')
+            self.log_debug("Reserving UID %r @ %r" % (
+                    uid,
+                    self.index.calendar))
+    
+            def _handleFalse(result):
+                if result is False:
+                    raise ReservationError(
+                        "UID %s already reserved for calendar collection %s."
+                        % (uid, self.index.calendar._name)
+                        )
+    
+            d = self.getCachePool().add(self._key(uid),
+                                        'reserved',
+                                        expireTime=config.UIDReservationTimeOut)
+            d.addCallback(_handleFalse)
+            return d
+    
+    
+        def unreserveUID(self, uid):
+            uid = uid.encode('utf-8')
+            self.log_debug("Unreserving UID %r @ %r" % (
+                    uid,
+                    self.index.calendar))
+    
+            def _handleFalse(result):
+                if result is False:
+                    raise ReservationError(
+                        "UID %s is not reserved for calendar collection %s."
+                        % (uid, self.index.calendar._resourceID)
+                        )
+    
+            d =self.getCachePool().delete(self._key(uid))
+            d.addCallback(_handleFalse)
+            return d
+    
+    
+        def isReservedUID(self, uid):
+            uid = uid.encode('utf-8')
+            self.log_debug("Is reserved UID %r @ %r" % (
+                    uid,
+                    self.index.calendar))
+    
+            def _checkValue((flags, value)):
+                if value is None:
+                    return False
+                else:
+                    return True
+    
+            d = self.getCachePool().get(self._key(uid))
+            d.addCallback(_checkValue)
+            return d
+
+    class DummyUIDReserver(LoggingMixIn):
+        
+        def __init__(self, index):
+            self.index = index
+            self.reservations = set()
+
+        def _key(self, uid):
+            return 'reservation:%s' % (
+                hashlib.md5('%s:%s' % (uid,
+                                       self.index.calendar._resourceID)).hexdigest())
+    
+        def reserveUID(self, uid):
+            uid = uid.encode('utf-8')
+            self.log_debug("Reserving UID %r @ %r" % (
+                    uid,
+                    self.index.calendar))
+    
+            key = self._key(uid)
+            if key in self.reservations:
+                raise ReservationError(
+                    "UID %s already reserved for calendar collection %s."
+                    % (uid, self.index.calendar._name)
+                    )
+            self.reservations.add(key)
+            return succeed(None)
+    
+    
+        def unreserveUID(self, uid):
+            uid = uid.encode('utf-8')
+            self.log_debug("Unreserving UID %r @ %r" % (
+                    uid,
+                    self.index.calendar))
+
+            key = self._key(uid)
+            if key in self.reservations:
+                self.reservations.remove(key)    
+            return succeed(None)
+    
+    
+        def isReservedUID(self, uid):
+            uid = uid.encode('utf-8')
+            self.log_debug("Is reserved UID %r @ %r" % (
+                    uid,
+                    self.index.calendar))
+            key = self._key(uid)
+            return succeed(key in self.reservations)    
+
     def __init__(self, calendar):
         self.calendar = calendar
-
+        if (
+            hasattr(config, "Memcached") and
+            config.Memcached.Pools.Default.ClientEnabled
+        ):
+            self.reserver = PostgresLegacyIndexEmulator.MemcachedUIDReserver(self)
+        else:
+            # This is only used with unit tests
+            self.reserver = PostgresLegacyIndexEmulator.DummyUIDReserver(self)
 
     @property
     def _txn(self):
@@ -1064,19 +1184,42 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
 
 
     def reserveUID(self, uid):
-        return succeed(None)
+        if self.calendar._name == "inbox":
+            return succeed(None)
+        else:
+            return self.reserver.reserveUID(uid)
 
 
     def unreserveUID(self, uid):
-        return succeed(None)
+        if self.calendar._name == "inbox":
+            return succeed(None)
+        else:
+            return self.reserver.unreserveUID(uid)
+
+
+    def isReservedUID(self, uid):
+        if self.calendar._name == "inbox":
+            return succeed(False)
+        else:
+            return self.reserver.isReservedUID(uid)
 
 
     def isAllowedUID(self, uid, *names):
         """
-        @see: L{twistedcaldav.index.Index.isAllowedUID}
+        Checks to see whether to allow an operation which would add the
+        specified UID to the index.  Specifically, the operation may not
+        violate the constraint that UIDs must be unique.
+        @param uid: the UID to check
+        @param names: the names of resources being replaced or deleted by the
+            operation; UIDs associated with these resources are not checked.
+        @return: True if the UID is not in the index and is not reserved,
+            False otherwise.
         """
-        return True
-
+        if self.calendar._name == "inbox":
+            return True
+        else:
+            rname = self.resourceNameForUID(uid)
+            return (rname is None or rname in names)
 
     def resourceUIDForName(self, name):
         obj = self.calendar.calendarObjectWithName(name)
