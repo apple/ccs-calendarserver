@@ -15,6 +15,11 @@
 # limitations under the License.
 ##
 
+"""
+Sharing behavior
+"""
+
+
 __all__ = [
     "SharedCollectionMixin",
 ]
@@ -43,21 +48,11 @@ import datetime
 import os
 import types
 
-"""
-Sharing behavior
-"""
-
 # Types of sharing mode
 SHARETYPE_INVITE = "I"  # Invite based sharing
 SHARETYPE_DIRECT = "D"  # Direct linking based sharing
 
 class SharedCollectionMixin(object):
-    
-    def invitesDB(self):
-        
-        if not hasattr(self, "_invitesDB"):
-            self._invitesDB = InvitesDatabase(self)
-        return self._invitesDB
 
     def inviteProperty(self, request):
         """
@@ -946,11 +941,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
     manipulating a sharee's set of shared calendars.
     """
     
-    def sharesDB(self):
-        
-        if not hasattr(self, "_sharesDB"):
-            self._sharesDB = SharedCollectionsDatabase(self)
-        return self._sharesDB
 
     def provisionShare(self, name):
         
