@@ -38,7 +38,8 @@ from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2 import http_headers
 from twext.web2 import http
-from twext.web2.http import Request, RedirectResponse
+from twext.web2.http import RedirectResponse
+from twext.web2.server import Request
 
 from twistedcaldav.config import config
 from twistedcaldav import accounting
@@ -77,17 +78,21 @@ class SSLRedirectRequest(Request):
     """ For redirecting HTTP to HTTPS port """
 
     def process(self):
-        if config.SSLPort == 443:
-            location = (
-                "https://%s%s"
-                % (config.ServerHostName, self.uri)
-            )
+        ignored, secure = self.chanRequest.getHostInfo()
+        if not secure:
+            if config.SSLPort == 443:
+                location = (
+                    "https://%s%s"
+                    % (config.ServerHostName, self.uri)
+                )
+            else:
+                location = (
+                    "https://%s:%d%s"
+                    % (config.ServerHostName, config.SSLPort, self.uri)
+                )
+            self.writeResponse(RedirectResponse(location))
         else:
-            location = (
-                "https://%s:%d%s"
-                % (config.ServerHostName, config.SSLPort, self.uri)
-            )
-        self.writeResponse(RedirectResponse(location))
+            return super(SSLRedirectRequest, self).process()
 
 # >%
 

@@ -521,30 +521,24 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         service = CalDAVService(logObserver)
 
-        site = Site(rootResource)
+        underlyingSite = Site(rootResource)
+        requestFactory = underlyingSite
+
+        if config.RedirectHTTPToHTTPS:
+            def requestFactory(*args, **kw):
+                return SSLRedirectRequest(site=underlyingSite, *args, **kw)
 
         httpFactory = LimitingHTTPFactory(
-            site,
+            requestFactory,
             maxRequests=config.MaxRequests,
             maxAccepts=config.MaxAccepts,
             betweenRequestsTimeOut=config.IdleConnectionTimeOut,
             vary=True,
         )
-        if config.RedirectHTTPToHTTPS:
-            redirectFactory = LimitingHTTPFactory(
-                SSLRedirectRequest,
-                maxRequests=config.MaxRequests,
-                maxAccepts=config.MaxAccepts,
-                betweenRequestsTimeOut=config.IdleConnectionTimeOut,
-                vary=True,
-            )
 
         def updateFactory(configDict):
             httpFactory.maxRequests = configDict.MaxRequests
             httpFactory.maxAccepts = configDict.MaxAccepts
-            if config.RedirectHTTPToHTTPS:
-                redirectFactory.maxRequests = configDict.MaxRequests
-                redirectFactory.maxAccepts = configDict.MaxAccepts
 
         config.addPostUpdateHooks((updateFactory,))
 
@@ -571,12 +565,9 @@ class CalDAVServiceMaker (LoggingMixIn):
 
                 if config.RedirectHTTPToHTTPS:
                     self.log_info("Redirecting to HTTPS port %s" % (config.SSLPort,))
-                    useFactory = redirectFactory
-                else:
-                    useFactory = httpFactory
 
                 MaxAcceptTCPServer(
-                    fd, useFactory,
+                    fd, httpFactory,
                     backlog=config.ListenBacklog,
                     inherit=True
                 ).setServiceParent(service)
@@ -597,7 +588,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 contextFactory = None
 
             ReportingHTTPService(
-                site, fd, contextFactory
+                requestFactory, fd, contextFactory
             ).setServiceParent(service)
 
         else: # Not inheriting, therefore we open our own:
@@ -650,16 +641,14 @@ class CalDAVServiceMaker (LoggingMixIn):
                         self.log_info("Redirecting HTTP port %s to HTTPS port %s"
                             % (port, config.SSLPort)
                         )
-                        useFactory = redirectFactory
                     else:
                         self.log_info(
                             "Adding server at %s:%s"
                             % (bindAddress, port)
                         )
-                        useFactory = httpFactory
 
                     MaxAcceptTCPServer(
-                        int(port), useFactory,
+                        int(port), httpFactory,
                         interface=bindAddress,
                         backlog=config.ListenBacklog,
                         inherit=False
