@@ -67,7 +67,7 @@ from txdav.propertystore.none import PropertyStore
 from twext.web2.http_headers import MimeType, generateContentType
 from twext.web2.dav.element.parser import WebDAVDocument
 
-from twext.python.log import Logger
+from twext.python.log import Logger, LoggingMixIn
 from twext.python.vcomponent import VComponent
 
 from twistedcaldav.customxml import NotificationType
@@ -133,7 +133,14 @@ icalfbtype_to_indexfbtype = {
     "BUSY-UNAVAILABLE": 3,
     "BUSY-TENTATIVE"  : 4,
 }
-indexfbtype_to_icalfbtype = dict([(v, k) for k,v in icalfbtype_to_indexfbtype.iteritems()])
+
+indexfbtype_to_icalfbtype = {
+    0: '?',
+    1: 'F',
+    2: 'B',
+    3: 'U',
+    4: 'T',
+}
 
 
 def _getarg(argname, argspec, args, kw):
@@ -1040,7 +1047,7 @@ class postgresqlgenerator(sqlgenerator):
         return "%%%s%%" % (arg,)
 
 
-class PostgresLegacyIndexEmulator(object):
+class PostgresLegacyIndexEmulator(LoggingMixIn):
     """
     Emulator for L{twistedcaldv.index.Index} and
     L{twistedcaldv.index.IndexSchedule}.
@@ -1089,12 +1096,20 @@ class PostgresLegacyIndexEmulator(object):
         Gives all resources which have not been expanded beyond a given date
         in the database.  (Unused; see above L{postgresqlgenerator}.
         """
-        return self._txn.execSQL(
+        return [row[0] for row in self._txn.execSQL(
             "select RESOURCE_NAME from CALENDAR_OBJECT "
             "where RECURRANCE_MAX < %s and CALENDAR_RESOURCE_ID = %s",
             [normalizeForIndex(minDate), self.calendar._resourceID]
-        )
+        )]
 
+
+    def reExpandResource(self, name, expand_until):
+        """
+        Given a resource name, remove it from the database and re-add it
+        with a longer expansion.
+        """
+        obj = self.calendar.calendarObjectWithName(name)
+        obj.updateDatabase(obj.component(), expand_until=expand_until, reCreate=True)
 
     def testAndUpdateIndex(self, minDate):
         # Find out if the index is expanded far enough
@@ -1165,8 +1180,9 @@ class PostgresLegacyIndexEmulator(object):
         for row in rowiter:
             if fbtype:
                 row = list(row)
-                if row[9]:
-                    row[8] = row[9]
+                row[4] = 'Y' if row[4] else 'N'
+                row[7] = indexfbtype_to_icalfbtype[row[7]]
+                row[8] = 'T' if row[9] else 'F'
                 del row[9]
             yield row
 
@@ -1276,16 +1292,18 @@ class PostgresCalendar(SyncTokenHelper):
         return PostgresCalendarObject(self, name, resid)
 
 
+    @memoized('uid', '_objects')
     def calendarObjectWithUID(self, uid):
         rows = self._txn.execSQL(
-            "select RESOURCE_NAME from CALENDAR_OBJECT where "
-            "ICALENDAR_UID = %s",
-            [uid]
+            "select RESOURCE_ID, RESOURCE_NAME from CALENDAR_OBJECT where "
+            "ICALENDAR_UID = %s and CALENDAR_RESOURCE_ID = %s",
+            [uid, self._resourceID]
         )
         if not rows:
             return None
-        name = rows[0][0]
-        return self.calendarObjectWithName(name)
+        resid = rows[0][0]
+        name = rows[0][1]
+        return PostgresCalendarObject(self, name, resid)
 
 
     def createCalendarObjectWithName(self, name, component):
