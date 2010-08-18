@@ -2016,6 +2016,8 @@ class PostgresAddressBookObject(object):
     def setComponent(self, component):
         validateAddressBookComponent(self, self._addressbook, component)
 
+        self._addressbook._updateSyncToken()
+
         vCardText = str(component)
         self._txn.execSQL(
             "update ADDRESSBOOK_OBJECT set VCARD_TEXT = %s "
@@ -2036,11 +2038,11 @@ class PostgresAddressBookObject(object):
 
 
     def md5(self):
-        return None
+        return hashlib.md5(self.vCardText()).hexdigest()
 
 
     def size(self):
-        return 0
+        return len(self.vCardText())
 
 
     def created(self):
@@ -2128,7 +2130,7 @@ class PostgresLegacyABIndexEmulator(object):
 
 
 
-class PostgresAddressBook(object):
+class PostgresAddressBook(SyncTokenHelper):
 
     implements(IAddressBook)
 
@@ -2247,6 +2249,9 @@ class PostgresAddressBook(object):
             [self._resourceID, name, componentText, component.resourceUID(),
             "VCARD"] # component.resourceType()]  FIXME: what value(s) here?
         )
+
+        self._updateSyncToken()
+
         if self._notifier:
             self._home._txn.postCommit(self._notifier.notify)
 
@@ -2260,6 +2265,9 @@ class PostgresAddressBook(object):
         if self._txn._cursor.rowcount == 0:
             raise NoSuchObjectResourceError()
         self._objects.pop(name, None)
+
+        self._updateSyncToken()
+
         if self._notifier:
             self._txn.postCommit(self._notifier.notify)
 
@@ -2279,6 +2287,8 @@ class PostgresAddressBook(object):
             [uid, self._resourceID]
         )
         self._objects.pop(name, None)
+        self._updateSyncToken()
+
         if self._notifier:
             self._home._txn.postCommit(self._notifier.notify)
 
@@ -2445,8 +2455,11 @@ class PostgresAddressBookHome(object):
         )
 
         addressbookType = ResourceType.addressbook #@UndefinedVariable
-        self.addressbookWithName(name).properties()[
+        newAddressbook = self.addressbookWithName(name)
+        newAddressbook.properties()[
             PropertyName.fromElement(ResourceType)] = addressbookType
+        newAddressbook._updateSyncToken(True)
+
         if self._notifier:
             self._txn.postCommit(self._notifier.notify)
 
