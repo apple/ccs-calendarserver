@@ -111,7 +111,7 @@ _BIND_MODE_WRITE = 2
 # it does not affect search results beyond this period, but it may affect
 # performance of such a search.
 #
-default_future_expansion_duration = datetime.timedelta(days=365*1)
+default_future_expansion_duration = datetime.timedelta(days=365 * 1)
 
 #
 # Maximum duration into the future through which recurrences are expanded in the
@@ -127,7 +127,7 @@ default_future_expansion_duration = datetime.timedelta(days=365*1)
 # period.  Searches beyond this period will always be relatively expensive for
 # resources with occurrences beyond this period.
 #
-maximum_future_expansion_duration = datetime.timedelta(days=365*5)
+maximum_future_expansion_duration = datetime.timedelta(days=365 * 5)
 
 icalfbtype_to_indexfbtype = {
     "UNKNOWN"         : 0,
@@ -320,7 +320,7 @@ class PostgresCalendarObject(object):
 
     def setComponent(self, component):
         validateCalendarComponent(self, self._calendar, component)
-        
+
         self.updateDatabase(component)
 
         self._calendar._updateSyncToken()
@@ -335,7 +335,7 @@ class PostgresCalendarObject(object):
         @param component: calendar data to store
         @type component: L{Component}
         """
-        
+
         # Decide how far to expand based on the component
         master = component.masterComponent()
         if master is None or not component.isRecurring() and not component.isRecurringUnbounded():
@@ -348,7 +348,7 @@ class PostgresCalendarObject(object):
                 expand = expand_until
             else:
                 expand = datetime.date.today() + default_future_expansion_duration
-    
+
             if expand > (datetime.date.today() + maximum_future_expansion_duration):
                 raise IndexedSearchException
 
@@ -409,7 +409,7 @@ class PostgresCalendarObject(object):
                     self._resourceID
                 ]
             )
-            
+
             # Need to wipe the existing time-range for this and rebuild
             self._txn.execSQL(
                 """
@@ -419,7 +419,7 @@ class PostgresCalendarObject(object):
                     self._resourceID,
                 ],
             )
-            
+
 
         # CALENDAR_OBJECT table update
         for key in instances:
@@ -815,8 +815,8 @@ class PostgresLegacyInvitesEmulator(object):
         principalUID = record.principalURL.split("/")[-1]
         shareeHome = self._txn.calendarHomeWithUID(principalUID, create=True)
         rows = self._txn.execSQL(
-            "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where INVITE_UID = %s",
-            [record.inviteuid]
+            "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where SENDER_ADDRESS = %s",
+            [record.userid]
         )
         if rows:
             [[resourceID, homeResourceID]] = rows
@@ -830,10 +830,10 @@ class PostgresLegacyInvitesEmulator(object):
             """, [bindMode, bindStatus, record.summary,
                 resourceID, homeResourceID])
             self._txn.execSQL("""
-                update INVITE set NAME = %s, SENDER_ADDRESS = %s
-                where INVITE_UID = %s
+                update INVITE set NAME = %s, INVITE_UID = %s
+                where SENDER_ADDRESS = %s
                 """,
-                [record.name, record.userid, record.inviteuid]
+                [record.name, record.inviteuid, record.userid]
             )
         else:
             self._txn.execSQL(
@@ -977,10 +977,10 @@ class postgresqlgenerator(sqlgenerator):
     in progress.)
     """
 
-    ISOP           = " = "
-    CONTAINSOP     = " LIKE "
-    NOTCONTAINSOP  = " NOT LIKE "
-    FIELDS         = {
+    ISOP = " = "
+    CONTAINSOP = " LIKE "
+    NOTCONTAINSOP = " NOT LIKE "
+    FIELDS = {
         "TYPE": "CALENDAR_OBJECT.ICALENDAR_TYPE",
         "UID":  "CALENDAR_OBJECT.ICALENDAR_UID",
     }
@@ -1027,7 +1027,7 @@ class postgresqlgenerator(sqlgenerator):
                 self.TIMESPANTEST_JOIN_ON_PIECE
             )
         select += self.sout.getvalue()
-        
+
         select = select % tuple(self.substitutions)
 
         return select, self.arguments
@@ -1060,68 +1060,68 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
         def __init__(self, index, cachePool=None):
             self.index = index
             self._cachePool = cachePool
-    
+
         def _key(self, uid):
             return 'reservation:%s' % (
                 hashlib.md5('%s:%s' % (uid,
                                        self.index.calendar._resourceID)).hexdigest())
-    
+
         def reserveUID(self, uid):
             uid = uid.encode('utf-8')
             self.log_debug("Reserving UID %r @ %r" % (
                     uid,
                     self.index.calendar))
-    
+
             def _handleFalse(result):
                 if result is False:
                     raise ReservationError(
                         "UID %s already reserved for calendar collection %s."
                         % (uid, self.index.calendar._name)
                         )
-    
+
             d = self.getCachePool().add(self._key(uid),
                                         'reserved',
                                         expireTime=config.UIDReservationTimeOut)
             d.addCallback(_handleFalse)
             return d
-    
-    
+
+
         def unreserveUID(self, uid):
             uid = uid.encode('utf-8')
             self.log_debug("Unreserving UID %r @ %r" % (
                     uid,
                     self.index.calendar))
-    
+
             def _handleFalse(result):
                 if result is False:
                     raise ReservationError(
                         "UID %s is not reserved for calendar collection %s."
                         % (uid, self.index.calendar._resourceID)
                         )
-    
-            d =self.getCachePool().delete(self._key(uid))
+
+            d = self.getCachePool().delete(self._key(uid))
             d.addCallback(_handleFalse)
             return d
-    
-    
+
+
         def isReservedUID(self, uid):
             uid = uid.encode('utf-8')
             self.log_debug("Is reserved UID %r @ %r" % (
                     uid,
                     self.index.calendar))
-    
+
             def _checkValue((flags, value)):
                 if value is None:
                     return False
                 else:
                     return True
-    
+
             d = self.getCachePool().get(self._key(uid))
             d.addCallback(_checkValue)
             return d
 
     class DummyUIDReserver(LoggingMixIn):
-        
+
         def __init__(self, index):
             self.index = index
             self.reservations = set()
@@ -1130,13 +1130,13 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
             return 'reservation:%s' % (
                 hashlib.md5('%s:%s' % (uid,
                                        self.index.calendar._resourceID)).hexdigest())
-    
+
         def reserveUID(self, uid):
             uid = uid.encode('utf-8')
             self.log_debug("Reserving UID %r @ %r" % (
                     uid,
                     self.index.calendar))
-    
+
             key = self._key(uid)
             if key in self.reservations:
                 raise ReservationError(
@@ -1145,8 +1145,8 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
                     )
             self.reservations.add(key)
             return succeed(None)
-    
-    
+
+
         def unreserveUID(self, uid):
             uid = uid.encode('utf-8')
             self.log_debug("Unreserving UID %r @ %r" % (
@@ -1155,17 +1155,17 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
 
             key = self._key(uid)
             if key in self.reservations:
-                self.reservations.remove(key)    
+                self.reservations.remove(key)
             return succeed(None)
-    
-    
+
+
         def isReservedUID(self, uid):
             uid = uid.encode('utf-8')
             self.log_debug("Is reserved UID %r @ %r" % (
                     uid,
                     self.index.calendar))
             key = self._key(uid)
-            return succeed(key in self.reservations)    
+            return succeed(key in self.reservations)
 
     def __init__(self, calendar):
         self.calendar = calendar
@@ -1300,7 +1300,7 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
         if qualifiers is None:
             rowiter = self._txn.execSQL(
                 "select RESOURCE_NAME, ICALENDAR_UID, ICALENDAR_TYPE from CALENDAR_OBJECT where CALENDAR_RESOURCE_ID = %s",
-                [self.calendar._resourceID,],
+                [self.calendar._resourceID, ],
             )
         else:
             if fbtype:
@@ -1308,7 +1308,7 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
                 rowiter = self._txn.execSQL(
                     """select DISTINCT
                         CALENDAR_OBJECT.RESOURCE_NAME, CALENDAR_OBJECT.ICALENDAR_UID, CALENDAR_OBJECT.ICALENDAR_TYPE, CALENDAR_OBJECT.ORGANIZER,
-                        TIME_RANGE.FLOATING, TIME_RANGE.START_DATE, TIME_RANGE.END_DATE, TIME_RANGE.FBTYPE, TIME_RANGE.TRANSPARENT, TRANSPARENCY.TRANSPARENT""" + 
+                        TIME_RANGE.FLOATING, TIME_RANGE.START_DATE, TIME_RANGE.END_DATE, TIME_RANGE.FBTYPE, TIME_RANGE.TRANSPARENT, TRANSPARENCY.TRANSPARENT""" +
                     qualifiers[0],
                     qualifiers[1]
                 )
