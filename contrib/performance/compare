@@ -1,0 +1,3 @@
+#!/usr/bin/python
+from compare import main
+main()
