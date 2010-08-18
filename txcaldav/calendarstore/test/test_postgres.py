@@ -23,8 +23,7 @@ import gc
 
 from txcaldav.calendarstore.test.common import CommonTests as CalendarCommonTests
 from txcarddav.addressbookstore.test.common import CommonTests as AddressBookCommonTests
-from txdav.common.icommondatastore import (
-    NoSuchHomeChildError, HomeChildNameAlreadyExistsError)
+from txdav.common.icommondatastore import NoSuchHomeChildError
 
 from twisted.trial import unittest
 from txdav.datastore.subpostgres import (PostgresService,
@@ -137,7 +136,9 @@ class StoreBuilder(object):
                   'CALENDAR',
                   'ADDRESSBOOK',
                   'CALENDAR_HOME',
-                  'ADDRESSBOOK_HOME']
+                  'ADDRESSBOOK_HOME',
+                  'NOTIFICATION',
+                  'NOTIFICATION_HOME']
         for table in tables:
             try:
                 cursor.execute("delete from "+table)

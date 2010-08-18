@@ -55,7 +55,11 @@ create table NOTIFICATION (
   NOTIFICATION_HOME_RESOURCE_ID integer      not null references NOTIFICATION_HOME,
   NOTIFICATION_UID              varchar(255) not null,
   XML_TYPE                      varchar      not null,
-  XML_DATA                      varchar      not null
+  XML_DATA                      varchar      not null,
+  CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+
+  unique(NOTIFICATION_UID, NOTIFICATION_HOME_RESOURCE_ID)
 );
 
 

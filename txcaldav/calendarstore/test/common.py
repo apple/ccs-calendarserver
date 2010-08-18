@@ -304,14 +304,34 @@ class CommonTests(object):
         """
         self.assertProvides(ICalendarObject, self.calendarObjectUnderTest())
 
-    def test_notificationObjectProvides(self):
+
+    def notificationUnderTest(self):
         txn = self.transactionUnderTest()
         notifications = txn.notificationsWithUID("home1")
         inviteNotification = InviteNotification()
         notifications.writeNotificationObject("abc", inviteNotification,
             inviteNotification.toxml())
         notificationObject = notifications.notificationObjectWithUID("abc")
+        return notificationObject
+
+
+
+    def test_notificationObjectProvides(self):
+        """
+        The objects retrieved from the notification home (the object returned
+        from L{notificationsWithUID}) provide L{INotificationObject}.
+        """
+        notificationObject = self.notificationUnderTest()
         self.assertProvides(INotificationObject, notificationObject)
+
+
+    def test_notificationObjectModified(self):
+        """
+        The objects retrieved from the notification home have a C{modified}
+        method which returns the timestamp of their last modification.
+        """
+        notification = self.notificationUnderTest()
+        self.assertIsInstance(notification.modified(), int)
 
 
     def test_notifierID(self):

@@ -1817,18 +1817,24 @@ class PostgresNotificationObject(object):
 
 
     def md5(self):
-        return None
+        return hashlib.md5(self.xmldata()).hexdigest()
 
 
     def modified(self):
-        return None
+        modified = self._txn.execSQL(
+            "select extract(EPOCH from MODIFIED) from NOTIFICATION where "
+            "RESOURCE_ID = %s", [self._resourceID]
+        )[0][0]
+        return int(modified)
 
 
     def created(self):
         return None
 
+
     def size(self):
         return len(self.xmldata())
+
 
 
 class PostgresLegacyNotificationsEmulator(object):
