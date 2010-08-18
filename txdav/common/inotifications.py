@@ -19,6 +19,7 @@ Common notification interfaces
 """
 
 from zope.interface.interface import Interface
+from txdav.idav import IDataStoreResource
 
 
 __all__ = [
@@ -144,7 +145,7 @@ class INotificationCollection(Interface):
         """
 
 
-class INotificationObject(Interface):
+class INotificationObject(IDataStoreResource):
     """
     Notification object
 
@@ -175,11 +176,4 @@ class INotificationObject(Interface):
         Retrieve the UID for this notification object.
 
         @return: a string containing a UID.
-        """
-
-    def properties():
-        """
-        Retrieve the property store for this notification object.
-
-        @return: an L{IPropertyStore}.
         """

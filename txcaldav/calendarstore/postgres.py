@@ -1297,6 +1297,12 @@ class PostgresNotificationObject(object):
     def name(self):
         return self.uid() + ".xml"
 
+    def contentType(self):
+        """
+        The content type of NotificationObjects is text/xml.
+        """
+        return MimeType.fromString("text/xml")
+
 
     @property
     def _txn(self):
@@ -1304,7 +1310,7 @@ class PostgresNotificationObject(object):
 
 
     def setData(self, uid, xmltype, xmldata):
-        self.properties()[PropertyName(*NotificationType.qname())] = NotificationType(xmltype)
+        self.properties()[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
         return self._txn.execSQL(
             """
             update NOTIFICATION set NOTIFICATION_UID = %s, XML_TYPE = %s,
@@ -1348,6 +1354,8 @@ class PostgresNotificationObject(object):
     def created(self):
         return None
 
+    def size(self):
+        return len(self.xmldata())
 
 
 class PostgresLegacyNotificationsEmulator(object):
@@ -1439,12 +1447,12 @@ class PostgresNotificationsCollection(object):
 
 
     def writeNotificationObject(self, uid, xmltype, xmldata):
-        xmltype = PropertyName.fromElement(xmltype).toString()
+        xmltypeString = xmltype.toxml()
         self._txn.execSQL(
             "insert into NOTIFICATION (NOTIFICATION_HOME_RESOURCE_ID, NOTIFICATION_UID, XML_TYPE, XML_DATA) "
-            "values (%s, %s, %s, %s)", [self._resourceID, uid, xmltype, xmldata])
+            "values (%s, %s, %s, %s)", [self._resourceID, uid, xmltypeString, xmldata])
         notificationObject = self.notificationObjectWithUID(uid)
-        notificationObject.properties()[PropertyName(*NotificationType.qname())] = NotificationType(xmltype)
+        notificationObject.properties()[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
 
     def removeNotificationObjectWithName(self, name):
         self.removeNotificationObjectWithUID(self._nameToUID(name))

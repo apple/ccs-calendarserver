@@ -35,6 +35,7 @@ from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
+from txdav.common.inotifications import INotificationObject
 
 from txcaldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
@@ -47,6 +48,7 @@ from twext.web2.dav.element.base import WebDAVUnknownElement
 from twext.python.vcomponent import VComponent
 
 from twistedcaldav.notify import Notifier
+from twistedcaldav.customxml import InviteNotification
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -301,6 +303,15 @@ class CommonTests(object):
         L{ICalendarObject} and its required attributes.
         """
         self.assertProvides(ICalendarObject, self.calendarObjectUnderTest())
+
+    def test_notificationObjectProvides(self):
+        txn = self.transactionUnderTest()
+        notifications = txn.notificationsWithUID("home1")
+        inviteNotification = InviteNotification()
+        notifications.writeNotificationObject("abc", inviteNotification,
+            inviteNotification.toxml())
+        notificationObject = notifications.notificationObjectWithUID("abc")
+        self.assertProvides(INotificationObject, notificationObject)
 
 
     def test_notifierID(self):

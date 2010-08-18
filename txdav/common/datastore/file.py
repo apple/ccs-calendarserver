@@ -907,7 +907,8 @@ class NotificationObject(CommonObjectResource):
 
         props = self.properties()
         props[PropertyName(*GETContentType.qname())] = GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset":"utf-8"})))
-        props[PropertyName(*NotificationType.qname())] = NotificationType(xmltype)
+        props[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
+
 
         # FIXME: the property store's flush() method may already have been
         # added to the transaction, but we need to add it again to make sure it
