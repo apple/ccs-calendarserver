@@ -381,9 +381,9 @@ class PostgresCalendarObject(object):
             self._txn.execSQL(
                 """
                 update CALENDAR_OBJECT set
-                (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX)
+                (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX, MODIFIED)
                  =
-                (%s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
                  where RESOURCE_ID = %s
                 """,
                 # should really be filling out more fields: ORGANIZER,
@@ -563,15 +563,26 @@ class PostgresCalendarObject(object):
 
 
     def size(self):
-        return 0
+        size = self._txn.execSQL(
+            "select character_length(ICALENDAR_TEXT) from CALENDAR_OBJECT where "
+            "RESOURCE_ID = %s", [self._resourceID]
+        )[0][0]
+        return size
 
 
     def created(self):
-        return None
-
+        created = self._txn.execSQL(
+            "select extract(EPOCH from CREATED) from CALENDAR_OBJECT where "
+            "RESOURCE_ID = %s", [self._resourceID]
+        )[0][0]
+        return int(created)
 
     def modified(self):
-        return None
+        modified = self._txn.execSQL(
+            "select extract(EPOCH from MODIFIED) from CALENDAR_OBJECT where "
+            "RESOURCE_ID = %s", [self._resourceID]
+        )[0][0]
+        return int(modified)
 
 
     def attendeesCanManageAttachments(self):
@@ -606,12 +617,15 @@ class PostgresAttachment(object):
         """
         rows = self._txn.execSQL(
             """
-            select CONTENT_TYPE, MD5 from ATTACHMENT where PATH = %s
+            select CONTENT_TYPE, SIZE, MD5, extract(EPOCH from CREATED), extract(EPOCH from MODIFIED) from ATTACHMENT where PATH = %s
             """, [self._pathValue()])
         if not rows:
             return False
         self._contentType = MimeType.fromString(rows[0][0])
-        self._md5 = rows[0][1]
+        self._size = rows[0][1]
+        self._md5 = rows[0][2]
+        self._created = int(rows[0][3])
+        self._modified = int(rows[0][4])
         return True
 
 
@@ -638,15 +652,14 @@ class PostgresAttachment(object):
 
 
     def size(self):
-        return 0
+        return self._size
 
 
     def created(self):
-        return None
-
+        return self._created
 
     def modified(self):
-        return None
+        return self._modified
 
 
     def name(self):
@@ -689,9 +702,9 @@ class PostgresAttachmentStorageTransport(object):
         pathValue = self.attachment._pathValue()
         contentTypeString = generateContentType(self.contentType)
         self._txn.execSQL(
-            "update ATTACHMENT set CONTENT_TYPE = %s, MD5 = %s "
+            "update ATTACHMENT set CONTENT_TYPE = %s, SIZE = %s, MD5 = %s, MODIFIED = timezone('UTC', CURRENT_TIMESTAMP) "
             "WHERE PATH = %s",
-            [contentTypeString, self.hash.hexdigest(), pathValue]
+            [contentTypeString, len(self.buf), self.hash.hexdigest(), pathValue]
         )
 
 
@@ -1375,12 +1388,18 @@ class PostgresCalendar(SyncTokenHelper):
 
 
     def created(self):
-        return None
-
+        created = self._txn.execSQL(
+            "select extract(EPOCH from CREATED) from CALENDAR where "
+            "RESOURCE_ID = %s", [self._resourceID]
+        )[0][0]
+        return int(created)
 
     def modified(self):
-        return None
-
+        modified = self._txn.execSQL(
+            "select extract(EPOCH from MODIFIED) from CALENDAR where "
+            "RESOURCE_ID = %s", [self._resourceID]
+        )[0][0]
+        return int(modified)
 
 
 class PostgresCalendarHome(object):

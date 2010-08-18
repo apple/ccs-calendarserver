@@ -21,7 +21,9 @@ create table CALENDAR_HOME (
 
 create table CALENDAR (
   RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'),
-  SYNC_TOKEN  varchar(255)
+  SYNC_TOKEN  varchar(255),
+  CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
 
@@ -120,6 +122,8 @@ create table CALENDAR_OBJECT (
   ORGANIZER            varchar(255),
   ORGANIZER_OBJECT     integer      references CALENDAR_OBJECT,
   RECURRANCE_MAX       date,        -- maximum date that recurrences have been expanded to.
+  CREATED              timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED             timestamp default timezone('UTC', CURRENT_TIMESTAMP),
 
   unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME)
 
@@ -197,6 +201,8 @@ create table ATTACHMENT (
   CONTENT_TYPE                varchar(255)  not null,
   SIZE                        integer       not null,
   MD5                         char(32)      not null,
+  CREATED                     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED                    timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   PATH                        varchar(1024) not null unique
 );
 
