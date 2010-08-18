@@ -34,8 +34,9 @@ def main():
     stat, first = select(first, *sys.argv[3:])
     stat, second = select(second, *sys.argv[3:])
 
-    if ttest_1samp(second, stats.mean(first))[1][0] < 0.05:
-        print 'same' # failed to reject the null hypothesis
+    p =ttest_1samp(second, stats.mean(first))[1][0]
+    if p < 0.05:
+        print 'different', p # rejected the null hypothesis
     else:
-        print 'different' # rejected the null hypothesis
+        print 'same', p # failed to reject the null hypothesis
 
