@@ -42,6 +42,7 @@ from twisted.internet.error import ConnectionLost
 from twisted.internet.interfaces import ITransport
 from twisted.python import hashlib
 from twisted.python.failure import Failure
+from twisted.internet.defer import succeed
 from twisted.python.modules import getModule
 
 from twext.web2.dav.element.rfc2518 import ResourceType
@@ -1063,7 +1064,11 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
 
 
     def reserveUID(self, uid):
-        pass
+        return succeed(None)
+
+
+    def unreserveUID(self, uid):
+        return succeed(None)
 
 
     def isAllowedUID(self, uid, *names):
@@ -1085,10 +1090,6 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
         if obj is None:
             return None
         return obj.name()
-
-
-    def unreserveUID(self, uid):
-        pass
 
 
     def notExpandedBeyond(self, minDate):
@@ -2051,6 +2052,82 @@ class PostgresAddressBookObject(object):
 
 
 
+class PostgresLegacyABIndexEmulator(object):
+    """
+    Emulator for L{twistedcaldv.index.Index} and
+    L{twistedcaldv.index.IndexSchedule}.
+    """
+
+    def __init__(self, addressbook):
+        self.addressbook = addressbook
+
+
+    @property
+    def _txn(self):
+        return self.addressbook._txn
+
+
+    def reserveUID(self, uid):
+        return succeed(None)
+
+
+    def unreserveUID(self, uid):
+        return succeed(None)
+
+
+    def isAllowedUID(self, uid, *names):
+        """
+        @see: L{twistedcaldav.index.Index.isAllowedUID}
+        """
+        return True
+
+
+    def resourceUIDForName(self, name):
+        obj = self.addressbook.addressbookObjectWithName(name)
+        if obj is None:
+            return None
+        return obj.uid()
+
+
+    def resourceNameForUID(self, uid):
+        obj = self.addressbook.addressbookObjectWithUID(uid)
+        if obj is None:
+            return None
+        return obj.name()
+
+
+    def indexedSearch(self, filter, useruid='', fbtype=False):
+        """
+        Always raise L{IndexedSearchException}, since these indexes are not
+        fully implemented yet.
+        """
+        raise IndexedSearchException()
+
+
+    def bruteForceSearch(self):
+        return self._txn.execSQL(
+            "select RESOURCE_NAME, VCARD_UID, VCARD_TYPE from "
+            "ADDRESSBOOK_OBJECT where ADDRESSBOOK_RESOURCE_ID = %s",
+            [self.addressbook._resourceID]
+        )
+
+
+    def resourcesExist(self, names):
+        return list(set(names).intersection(
+            set(self.addressbook.listAddressbookObjects())))
+
+
+    def resourceExists(self, name):
+        return bool(
+            self._txn.execSQL(
+                "select RESOURCE_NAME from ADDRESSBOOK_OBJECT where "
+                "RESOURCE_NAME = %s and ADDRESSBOOK_RESOURCE_ID = %s",
+                [name, self.addressbook._resourceID]
+            )
+        )
+
+
+
 class PostgresAddressBook(object):
 
     implements(IAddressBook)
@@ -2072,7 +2149,7 @@ class PostgresAddressBook(object):
         return PostgresLegacyInvitesEmulator(self)
 
     def retrieveOldIndex(self):
-        return PostgresLegacyIndexEmulator(self)
+        return PostgresLegacyABIndexEmulator(self)
 
 
     def notifierID(self, label="default"):
