@@ -1,0 +1,4 @@
+#!/usr/bin/python
+
+from report import main
+main()
