@@ -34,9 +34,11 @@ def main():
     stat, first = select(first, *sys.argv[3:])
     stat, second = select(second, *sys.argv[3:])
 
-    p =ttest_1samp(second, stats.mean(first))[1][0]
-    if p < 0.05:
-        print 'different', p # rejected the null hypothesis
+    fmean = stats.mean(first)
+    p = 1 - ttest_1samp(second, fmean)[1][0]
+    if p >= 0.95:
+        # rejected the null hypothesis
+        print sys.argv[1], 'mean of', fmean, 'differs from', sys.argv[2], 'mean of', stats.mean(second), '(%2.0f%%)' % (p * 100,)
     else:
-        print 'same', p # failed to reject the null hypothesis
-
+        # failed to reject the null hypothesis
+        print 'cannot prove means differ (%2.0f%%)' % (p * 100,)
