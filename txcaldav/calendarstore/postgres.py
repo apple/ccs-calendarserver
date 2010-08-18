@@ -1360,6 +1360,7 @@ class PostgresCalendar(SyncTokenHelper):
             [uid, self._resourceID]
         )
         self._objects.pop(name, None)
+        self._objects.pop(uid, None)
         self._updateSyncToken()
 
         if self._notifier:
