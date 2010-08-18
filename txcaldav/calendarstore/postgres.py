@@ -565,7 +565,7 @@ class PostgresCalendarObject(object):
         """
         The content type of Calendar objects is text/calendar.
         """
-        return MimeType.fromString("text/calendar")
+        return MimeType.fromString("text/calendar; charset=utf-8")
 
 
     def md5(self):
@@ -1539,7 +1539,7 @@ class PostgresCalendar(SyncTokenHelper):
         """
         The content type of Calendar objects is text/calendar.
         """
-        return MimeType.fromString("text/calendar")
+        return MimeType.fromString("text/calendar; charset=utf-8")
 
 
     def md5(self):
@@ -1732,7 +1732,7 @@ class PostgresCalendarHome(object):
         """
         The content type of Calendar objects is text/calendar.
         """
-        return MimeType.fromString("text/calendar")
+        return None
 
 
     def md5(self):
