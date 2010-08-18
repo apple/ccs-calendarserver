@@ -1,4 +1,5 @@
 import sys
+from os.path import dirname
 
 from signal import SIGINT
 from pickle import dump
@@ -149,11 +150,20 @@ class DTraceCollector(object):
         self.dtraces[pid] = reactor.spawnProcess(
             IOMeasureConsumer(started, stopped),
             "/usr/sbin/dtrace",
-            ["/usr/sbin/dtrace", "-q", "-p", str(pid), "-s",
-             "io_measure.d"])
+            ["/usr/sbin/dtrace", 
+             # process preprocessor macros
+             "-C",
+             # search for include targets in the source directory containing this file
+             "-I", dirname(__file__),
+             # suppress most implicitly generated output (which would mess up our parser)
+             "-q",
+             # make this pid the target
+             "-p", str(pid),
+             # load this script
+             "-s", "io_measure.d"])
         def eintr(reason):
             reason.trap(DTraceBug)
-            print 'Dtrace startup failed (', reason.getErrorMessage(), '), retrying.'
+            print 'Dtrace startup failed (', reason.getErrorMessage().strip(), '), retrying.'
             return self._startDTrace(pid)
         started.addErrback(eintr)
         stopped.addCallback(self._cleanup, pid)
