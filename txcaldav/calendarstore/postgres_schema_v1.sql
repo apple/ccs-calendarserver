@@ -197,7 +197,7 @@ create table TRANSPARENCY (
 ----------------
 
 create table ATTACHMENT (
-  CALENDAR_OBJECT_RESOURCE_ID integer       not null references CALENDAR_OBJECT,
+  CALENDAR_OBJECT_RESOURCE_ID integer       not null references CALENDAR_OBJECT on delete cascade,
   CONTENT_TYPE                varchar(255)  not null,
   SIZE                        integer       not null,
   MD5                         char(32)      not null,
