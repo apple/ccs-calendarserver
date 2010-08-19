@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txcaldav.calendarstore.util import SyncTokenHelper
 
 """
 Common utility functions for a file based datastore.
@@ -43,6 +42,8 @@ from txdav.datastore.file import DataStoreTransaction, DataStore, writeOperation
 from txdav.idav import IDataStore
 from txdav.propertystore.base import PropertyName
 from txdav.propertystore.xattr import PropertyStore
+
+from txcaldav.calendarstore.util import SyncTokenHelper
 
 from errno import EEXIST, ENOENT
 from zope.interface import implements, directlyProvides
@@ -807,7 +808,7 @@ class NotificationCollection(CommonHomeChild):
         self._objectResourceClass = NotificationObject
 
     def resourceType(self):
-        return ResourceType.notification
+        return ResourceType.notification #@UndefinedVariable
 
     notificationObjects = CommonHomeChild.objectResources
     listNotificationObjects = CommonHomeChild.listObjectResources
@@ -865,6 +866,13 @@ class NotificationObject(CommonObjectResource):
     def __init__(self, name, notifications):
 
         super(NotificationObject, self).__init__(name, notifications)
+
+
+    def modified(self):
+        if not self._path.exists():
+            from twisted.internet import reactor
+            return int(reactor.seconds())
+        return super(NotificationObject, self).modified()
 
 
     @property
