@@ -65,7 +65,8 @@ class IOMeasureConsumer(ProcessProtocol):
 
 
 class DTraceCollector(object):
-    def __init__(self, pids):
+    def __init__(self, script, pids):
+        self._dScript = script
         self.pids = pids
         self._read = []
         self._write = []
@@ -160,7 +161,7 @@ class DTraceCollector(object):
              # make this pid the target
              "-p", str(pid),
              # load this script
-             "-s", "io_measure.d"])
+             "-s", self._dScript])
         def eintr(reason):
             reason.trap(DTraceBug)
             print 'Dtrace startup failed (', reason.getErrorMessage().strip(), '), retrying.'
@@ -202,7 +203,7 @@ def benchmark(argv):
         statistics[stat] = {}
         for p in parameter:
             print 'Parameter at', p
-            dtrace = DTraceCollector(pids)
+            dtrace = DTraceCollector("io_measure.d", pids)
             data = yield survey(dtrace, p, 100)
             statistics[stat][p] = data
 
