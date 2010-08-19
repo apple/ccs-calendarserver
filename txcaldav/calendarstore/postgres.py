@@ -2184,7 +2184,7 @@ class PostgresAddressBookObject(object):
         """
 
         componentText = str(component)
-        self._vcardText = componentText
+        self._vCardText = componentText
 
         # CALENDAR_OBJECT table update
         if inserting:
