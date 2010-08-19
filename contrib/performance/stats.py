@@ -1,4 +1,6 @@
 
+import sqlparse
+
 NANO = 1000000000.0
 
 
@@ -45,20 +47,45 @@ class Duration(_Statistic):
 class SQLDuration(_Statistic):
     commands = ['summarize', 'statements']
 
+    def _substitute(self, expression, replacement):
+        try:
+            expression.tokens
+        except AttributeError:
+            return
+
+        for i, token in enumerate(expression.tokens):
+            if sqlparse.tokens.is_token_subtype(token.ttype, sqlparse.tokens.Literal):
+                expression.tokens[i] = replacement
+            elif token.is_whitespace():
+                expression.tokens[i] = sqlparse.sql.Token('Whitespace', ' ')
+            else:
+                self._substitute(token, replacement)
+
+
+    def normalize(self, sql):
+        (statement,) = sqlparse.parse(sql)
+        # Replace any literal values with placeholders
+        qmark = sqlparse.sql.Token('Operator', '?')
+        self._substitute(statement, qmark)
+        return sqlparse.format(statement.to_unicode().encode('ascii'))
+
+
     def summarize(self, data):
         statements = {}
         intervals = []
         for (sql, interval) in data:
+            sql = self.normalize(sql)
             intervals.append(interval)
             statements[sql] = statements.get(sql, 0) + 1
         for statement, count in statements.iteritems():
-            print count, ':', statement.replace('\n', ' ')
+            print count, ':', statement
         return _Statistic.summarize(self, intervals)
 
 
     def statements(self, data):
         statements = {}
         for (sql, interval) in data:
+            sql = self.normalize(sql)
             statements.setdefault(sql, []).append(interval)
         
         byTime = []
@@ -68,7 +95,7 @@ class SQLDuration(_Statistic):
         byTime.reverse()
 
         for (time, statement) in byTime:
-            print time / NANO * 1000, 'ms:', statement.replace('\n', ' ')
+            print time / NANO * 1000, 'ms:', statement
 
 class Bytes(_Statistic):
     pass
