@@ -148,7 +148,7 @@ class DTraceCollector(object):
     def _startDTrace(self, pid):
         started = Deferred()
         stopped = Deferred()
-        self.dtraces[pid] = reactor.spawnProcess(
+        process = reactor.spawnProcess(
             IOMeasureConsumer(started, stopped),
             "/usr/sbin/dtrace",
             ["/usr/sbin/dtrace", 
@@ -166,9 +166,16 @@ class DTraceCollector(object):
             reason.trap(DTraceBug)
             print 'Dtrace startup failed (', reason.getErrorMessage().strip(), '), retrying.'
             return self._startDTrace(pid)
-        started.addErrback(eintr)
-        stopped.addCallback(self._cleanup, pid)
-        stopped.addCallback(self._parse)
+        def ready(passthrough):
+            # Once the dtrace process is ready, save the state and
+            # have the stopped Deferred deal with the results.  We
+            # don't want to do either of these for failed dtrace
+            # processes.
+            self.dtraces[pid] = process
+            stopped.addCallback(self._cleanup, pid)
+            stopped.addCallback(self._parse)
+            return passthrough
+        started.addCallbacks(ready, eintr)
         return started, stopped
 
 
