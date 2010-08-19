@@ -71,6 +71,7 @@ from twext.web2.dav.element.parser import WebDAVDocument
 from twext.python.log import Logger, LoggingMixIn
 from twext.python.vcomponent import VComponent
 
+from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import normalizeForIndex
@@ -78,7 +79,8 @@ from twistedcaldav.index import IndexedSearchException, ReservationError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
-from twistedcaldav.query import calendarqueryfilter, calendarquery
+from twistedcaldav.query import calendarqueryfilter, calendarquery,\
+    addressbookquery
 from twistedcaldav.query.sqlgenerator import sqlgenerator
 from twistedcaldav.sharing import Invite
 from twistedcaldav.vcard import Component as VCard
@@ -1050,133 +1052,133 @@ class postgresqlgenerator(sqlgenerator):
         return "%%%s%%" % (arg,)
 
 
+class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
+    def __init__(self, index, cachePool=None):
+        self.index = index
+        self._cachePool = cachePool
+
+    def _key(self, uid):
+        return 'reservation:%s' % (
+            hashlib.md5('%s:%s' % (uid,
+                                   self.index.resource._resourceID)).hexdigest())
+
+    def reserveUID(self, uid):
+        uid = uid.encode('utf-8')
+        self.log_debug("Reserving UID %r @ %r" % (
+                uid,
+                self.index.resource))
+
+        def _handleFalse(result):
+            if result is False:
+                raise ReservationError(
+                    "UID %s already reserved for calendar collection %s."
+                    % (uid, self.index.resource._name)
+                    )
+
+        d = self.getCachePool().add(self._key(uid),
+                                    'reserved',
+                                    expireTime=config.UIDReservationTimeOut)
+        d.addCallback(_handleFalse)
+        return d
+
+
+    def unreserveUID(self, uid):
+        uid = uid.encode('utf-8')
+        self.log_debug("Unreserving UID %r @ %r" % (
+                uid,
+                self.index.resource))
+
+        def _handleFalse(result):
+            if result is False:
+                raise ReservationError(
+                    "UID %s is not reserved for calendar collection %s."
+                    % (uid, self.index.resource._resourceID)
+                    )
+
+        d = self.getCachePool().delete(self._key(uid))
+        d.addCallback(_handleFalse)
+        return d
+
+
+    def isReservedUID(self, uid):
+        uid = uid.encode('utf-8')
+        self.log_debug("Is reserved UID %r @ %r" % (
+                uid,
+                self.index.resource))
+
+        def _checkValue((flags, value)):
+            if value is None:
+                return False
+            else:
+                return True
+
+        d = self.getCachePool().get(self._key(uid))
+        d.addCallback(_checkValue)
+        return d
+
+class DummyUIDReserver(LoggingMixIn):
+
+    def __init__(self, index):
+        self.index = index
+        self.reservations = set()
+
+    def _key(self, uid):
+        return 'reservation:%s' % (
+            hashlib.md5('%s:%s' % (uid,
+                                   self.index.resource._resourceID)).hexdigest())
+
+    def reserveUID(self, uid):
+        uid = uid.encode('utf-8')
+        self.log_debug("Reserving UID %r @ %r" % (
+                uid,
+                self.index.resource))
+
+        key = self._key(uid)
+        if key in self.reservations:
+            raise ReservationError(
+                "UID %s already reserved for calendar collection %s."
+                % (uid, self.index.resource._name)
+                )
+        self.reservations.add(key)
+        return succeed(None)
+
+
+    def unreserveUID(self, uid):
+        uid = uid.encode('utf-8')
+        self.log_debug("Unreserving UID %r @ %r" % (
+                uid,
+                self.index.resource))
+
+        key = self._key(uid)
+        if key in self.reservations:
+            self.reservations.remove(key)
+        return succeed(None)
+
+
+    def isReservedUID(self, uid):
+        uid = uid.encode('utf-8')
+        self.log_debug("Is reserved UID %r @ %r" % (
+                uid,
+                self.index.resource))
+        key = self._key(uid)
+        return succeed(key in self.reservations)
+
 class PostgresLegacyIndexEmulator(LoggingMixIn):
     """
     Emulator for L{twistedcaldv.index.Index} and
     L{twistedcaldv.index.IndexSchedule}.
     """
 
-    class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
-        def __init__(self, index, cachePool=None):
-            self.index = index
-            self._cachePool = cachePool
-
-        def _key(self, uid):
-            return 'reservation:%s' % (
-                hashlib.md5('%s:%s' % (uid,
-                                       self.index.calendar._resourceID)).hexdigest())
-
-        def reserveUID(self, uid):
-            uid = uid.encode('utf-8')
-            self.log_debug("Reserving UID %r @ %r" % (
-                    uid,
-                    self.index.calendar))
-
-            def _handleFalse(result):
-                if result is False:
-                    raise ReservationError(
-                        "UID %s already reserved for calendar collection %s."
-                        % (uid, self.index.calendar._name)
-                        )
-
-            d = self.getCachePool().add(self._key(uid),
-                                        'reserved',
-                                        expireTime=config.UIDReservationTimeOut)
-            d.addCallback(_handleFalse)
-            return d
-
-
-        def unreserveUID(self, uid):
-            uid = uid.encode('utf-8')
-            self.log_debug("Unreserving UID %r @ %r" % (
-                    uid,
-                    self.index.calendar))
-
-            def _handleFalse(result):
-                if result is False:
-                    raise ReservationError(
-                        "UID %s is not reserved for calendar collection %s."
-                        % (uid, self.index.calendar._resourceID)
-                        )
-
-            d = self.getCachePool().delete(self._key(uid))
-            d.addCallback(_handleFalse)
-            return d
-
-
-        def isReservedUID(self, uid):
-            uid = uid.encode('utf-8')
-            self.log_debug("Is reserved UID %r @ %r" % (
-                    uid,
-                    self.index.calendar))
-
-            def _checkValue((flags, value)):
-                if value is None:
-                    return False
-                else:
-                    return True
-
-            d = self.getCachePool().get(self._key(uid))
-            d.addCallback(_checkValue)
-            return d
-
-    class DummyUIDReserver(LoggingMixIn):
-
-        def __init__(self, index):
-            self.index = index
-            self.reservations = set()
-
-        def _key(self, uid):
-            return 'reservation:%s' % (
-                hashlib.md5('%s:%s' % (uid,
-                                       self.index.calendar._resourceID)).hexdigest())
-
-        def reserveUID(self, uid):
-            uid = uid.encode('utf-8')
-            self.log_debug("Reserving UID %r @ %r" % (
-                    uid,
-                    self.index.calendar))
-
-            key = self._key(uid)
-            if key in self.reservations:
-                raise ReservationError(
-                    "UID %s already reserved for calendar collection %s."
-                    % (uid, self.index.calendar._name)
-                    )
-            self.reservations.add(key)
-            return succeed(None)
-
-
-        def unreserveUID(self, uid):
-            uid = uid.encode('utf-8')
-            self.log_debug("Unreserving UID %r @ %r" % (
-                    uid,
-                    self.index.calendar))
-
-            key = self._key(uid)
-            if key in self.reservations:
-                self.reservations.remove(key)
-            return succeed(None)
-
-
-        def isReservedUID(self, uid):
-            uid = uid.encode('utf-8')
-            self.log_debug("Is reserved UID %r @ %r" % (
-                    uid,
-                    self.index.calendar))
-            key = self._key(uid)
-            return succeed(key in self.reservations)
-
     def __init__(self, calendar):
-        self.calendar = calendar
+        self.resource = self.calendar = calendar
         if (
             hasattr(config, "Memcached") and
             config.Memcached.Pools.Default.ClientEnabled
         ):
-            self.reserver = PostgresLegacyIndexEmulator.MemcachedUIDReserver(self)
+            self.reserver = MemcachedUIDReserver(self)
         else:
             # This is only used with unit tests
-            self.reserver = PostgresLegacyIndexEmulator.DummyUIDReserver(self)
+            self.reserver = DummyUIDReserver(self)
 
     @property
     def _txn(self):
@@ -2166,42 +2168,156 @@ class PostgresAddressBookObject(object):
     def setComponent(self, component):
         validateAddressBookComponent(self, self._addressbook, component)
 
+        self.updateDatabase(component)
+
         self._addressbook._updateSyncToken()
 
-        vCardText = str(component)
-        self._txn.execSQL(
-            "update ADDRESSBOOK_OBJECT set VCARD_TEXT = %s "
-            "where RESOURCE_ID = %s", [vCardText, self._resourceID]
-        )
-        self._vCardText = vCardText
         if self._addressbook._notifier:
             self._addressbook._home._txn.postCommit(self._addressbook._notifier.notify)
 
+    def updateDatabase(self, component, expand_until=None, reCreate=False, inserting=False):
+        """
+        Update the database tables for the new data being written.
 
+        @param component: calendar data to store
+        @type component: L{Component}
+        """
+
+        componentText = str(component)
+        self._vcardText = componentText
+
+        # CALENDAR_OBJECT table update
+        if inserting:
+            self._resourceID = self._txn.execSQL(
+                """
+                insert into ADDRESSBOOK_OBJECT
+                (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME, VCARD_TEXT, VCARD_UID)
+                 values
+                (%s, %s, %s, %s)
+                 returning RESOURCE_ID
+                """,
+                [
+                    self._addressbook._resourceID,
+                    self._name,
+                    componentText,
+                    component.resourceUID(),
+                ]
+            )[0][0]
+        else:
+            self._txn.execSQL(
+                """
+                update ADDRESSBOOK set
+                (VCARD_TEXT, VCARD_UID, MODIFIED)
+                 =
+                (%s, %s, timezone('UTC', CURRENT_TIMESTAMP))
+                 where RESOURCE_ID = %s
+                """,
+                [
+                    componentText,
+                    component.resourceUID(),
+                    self._resourceID
+                ]
+            )
 
     # IDataStoreResource
     def contentType(self):
         """
         The content type of Addressbook objects is text/x-vcard.
         """
-        return MimeType.fromString("text/x-vcard")
+        return MimeType.fromString("text/vcard; charset=utf-8")
 
 
     def md5(self):
-        return hashlib.md5(self.vCardText()).hexdigest()
+        return None
 
 
     def size(self):
-        return len(self.vCardText())
+        size = self._txn.execSQL(
+            "select character_length(VCARD_TEXT) from ADDRESSBOOK_OBJECT where "
+            "RESOURCE_ID = %s", [self._resourceID]
+        )[0][0]
+        return size
 
 
     def created(self):
-        return None
+        created = self._txn.execSQL(
+            "select extract(EPOCH from CREATED) from ADDRESSBOOK_OBJECT where "
+            "RESOURCE_ID = %s", [self._resourceID]
+        )[0][0]
+        return int(created)
 
 
     def modified(self):
-        return None
+        modified = self._txn.execSQL(
+            "select extract(EPOCH from MODIFIED) from ADDRESSBOOK_OBJECT where "
+            "RESOURCE_ID = %s", [self._resourceID]
+        )[0][0]
+        return int(modified)
 
+
+
+class postgresqladbkgenerator(sqlgenerator):
+    """
+    Query generator for postgreSQL indexed searches.  (Currently unused: work
+    in progress.)
+    """
+
+    ISOP = " = "
+    CONTAINSOP = " LIKE "
+    NOTCONTAINSOP = " NOT LIKE "
+    FIELDS = {
+        "UID":  "ADDRESSBOOK_OBJECT.VCARD_UID",
+    }
+
+    def __init__(self, expr, addressbookid):
+        self.RESOURCEDB = "ADDRESSBOOK_OBJECT"
+
+        super(postgresqladbkgenerator, self).__init__(expr, addressbookid)
+
+
+    def generate(self):
+        """
+        Generate the actual SQL 'where ...' expression from the passed in
+        expression tree.
+        
+        @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the
+            partial SQL statement, and the C{list} is the list of argument
+            substitutions to use with the SQL API execute method.
+        """
+
+        # Init state
+        self.sout = StringIO.StringIO()
+        self.arguments = []
+        self.substitutions = []
+
+        # Generate ' where ...' partial statement
+        self.sout.write(self.WHERE)
+        self.generateExpression(self.expression)
+
+        # Prefix with ' from ...' partial statement
+        select = self.FROM + self.RESOURCEDB
+        select += self.sout.getvalue()
+
+        select = select % tuple(self.substitutions)
+
+        return select, self.arguments
+
+
+    def addArgument(self, arg):
+        self.arguments.append(arg)
+        self.substitutions.append("%s")
+        self.sout.write("%s")
+
+    def setArgument(self, arg):
+        self.arguments.append(arg)
+        self.substitutions.append("%s")
+
+    def frontArgument(self, arg):
+        self.arguments.insert(0, arg)
+        self.substitutions.insert(0, "%s")
+
+    def containsArgument(self, arg):
+        return "%%%s%%" % (arg,)
 
 
 class PostgresLegacyABIndexEmulator(object):
@@ -2211,7 +2327,15 @@ class PostgresLegacyABIndexEmulator(object):
     """
 
     def __init__(self, addressbook):
-        self.addressbook = addressbook
+        self.resource = self.addressbook = addressbook
+        if (
+            hasattr(config, "Memcached") and
+            config.Memcached.Pools.Default.ClientEnabled
+        ):
+            self.reserver = MemcachedUIDReserver(self)
+        else:
+            # This is only used with unit tests
+            self.reserver = DummyUIDReserver(self)
 
 
     @property
@@ -2220,18 +2344,30 @@ class PostgresLegacyABIndexEmulator(object):
 
 
     def reserveUID(self, uid):
-        return succeed(None)
+        return self.reserver.reserveUID(uid)
 
 
     def unreserveUID(self, uid):
-        return succeed(None)
+        return self.reserver.unreserveUID(uid)
+
+
+    def isReservedUID(self, uid):
+        return self.reserver.isReservedUID(uid)
 
 
     def isAllowedUID(self, uid, *names):
         """
-        @see: L{twistedcaldav.index.Index.isAllowedUID}
+        Checks to see whether to allow an operation which would add the
+        specified UID to the index.  Specifically, the operation may not
+        violate the constraint that UIDs must be unique.
+        @param uid: the UID to check
+        @param names: the names of resources being replaced or deleted by the
+            operation; UIDs associated with these resources are not checked.
+        @return: True if the UID is not in the index and is not reserved,
+            False otherwise.
         """
-        return True
+        rname = self.resourceNameForUID(uid)
+        return (rname is None or rname in names)
 
 
     def resourceUIDForName(self, name):
@@ -2248,6 +2384,44 @@ class PostgresLegacyABIndexEmulator(object):
         return obj.name()
 
 
+    def searchValid(self, filter):
+        if isinstance(filter, carddavxml.Filter):
+            qualifiers = addressbookquery.sqladdressbookquery(filter)
+        else:
+            qualifiers = None
+            
+        return qualifiers is not None
+
+    def search(self, filter):
+        """
+        Finds resources matching the given qualifiers.
+        @param filter: the L{Filter} for the addressbook-query to execute.
+        @return: an iterable of tuples for each resource matching the
+            given C{qualifiers}. The tuples are C{(name, uid, type)}, where
+            C{name} is the resource name, C{uid} is the resource UID, and
+            C{type} is the resource iCalendar component type.x
+        """
+        
+        # Make sure we have a proper Filter element and get the partial SQL statement to use.
+        if isinstance(filter, carddavxml.Filter):
+            qualifiers = addressbookquery.sqladdressbookquery(filter, self.addressbook._resourceID, generator=postgresqladbkgenerator)
+        else:
+            qualifiers = None
+        if qualifiers is not None:
+            rowiter = self._txn.execSQL(
+                "select DISTINCT ADDRESSBOOK_OBJECT.RESOURCE_NAME, ADDRESSBOOK_OBJECT.VCARD_UID" +
+                qualifiers[0],
+                qualifiers[1]
+            )
+        else:
+            rowiter = self._txn.execSQL(
+                "select RESOURCE_NAME, VCARD_UID from ADDRESSBOOK_OBJECT where ADDRESSBOOK_RESOURCE_ID = %s",
+                [self.addressbook._resourceID, ],
+            )
+            
+        for row in rowiter:
+            yield row
+
     def indexedSearch(self, filter, useruid='', fbtype=False):
         """
         Always raise L{IndexedSearchException}, since these indexes are not
@@ -2258,7 +2432,7 @@ class PostgresLegacyABIndexEmulator(object):
 
     def bruteForceSearch(self):
         return self._txn.execSQL(
-            "select RESOURCE_NAME, VCARD_UID, VCARD_TYPE from "
+            "select RESOURCE_NAME, VCARD_UID from "
             "ADDRESSBOOK_OBJECT where ADDRESSBOOK_RESOURCE_ID = %s",
             [self.addressbook._resourceID]
         )
@@ -2361,16 +2535,18 @@ class PostgresAddressBook(SyncTokenHelper):
         return PostgresAddressBookObject(self, name, resid)
 
 
+    @memoized('uid', '_objects')
     def addressbookObjectWithUID(self, uid):
         rows = self._txn.execSQL(
-            "select RESOURCE_NAME from ADDRESSBOOK_OBJECT where "
-            "VCARD_UID = %s",
-            [uid]
+            "select RESOURCE_ID, RESOURCE_NAME from ADDRESSBOOK_OBJECT where "
+            "VCARD_UID = %s and ADDRESSBOOK_RESOURCE_ID = %s",
+            [uid, self._resourceID]
         )
         if not rows:
             return None
-        name = rows[0][0]
-        return self.addressbookObjectWithName(name)
+        resid = rows[0][0]
+        name = rows[0][1]
+        return PostgresAddressBookObject(self, name, resid)
 
 
     def createAddressBookObjectWithName(self, name, component):
@@ -2387,18 +2563,7 @@ class PostgresAddressBook(SyncTokenHelper):
 
         validateAddressBookComponent(addressbookObject, self, component)
 
-        componentText = str(component)
-        self._txn.execSQL(
-            """
-            insert into ADDRESSBOOK_OBJECT
-            (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME, VCARD_TEXT,
-             VCARD_UID, VCARD_TYPE)
-             values
-            (%s, %s, %s, %s, %s)
-            """,
-            [self._resourceID, name, componentText, component.resourceUID(),
-            "VCARD"] # component.resourceType()]  FIXME: what value(s) here?
-        )
+        addressbookObject.updateDatabase(component, inserting=True)
 
         self._updateSyncToken()
 
@@ -2437,6 +2602,7 @@ class PostgresAddressBook(SyncTokenHelper):
             [uid, self._resourceID]
         )
         self._objects.pop(name, None)
+        self._objects.pop(uid, None)
         self._updateSyncToken()
 
         if self._notifier:
@@ -2480,11 +2646,19 @@ class PostgresAddressBook(SyncTokenHelper):
 
 
     def created(self):
-        return None
+        created = self._txn.execSQL(
+            "select extract(EPOCH from CREATED) from ADDRESSBOOK where "
+            "RESOURCE_ID = %s", [self._resourceID]
+        )[0][0]
+        return int(created)
 
 
     def modified(self):
-        return None
+        modified = self._txn.execSQL(
+            "select extract(EPOCH from MODIFIED) from ADDRESSBOOK where "
+            "RESOURCE_ID = %s", [self._resourceID]
+        )[0][0]
+        return int(modified)
 
 
 

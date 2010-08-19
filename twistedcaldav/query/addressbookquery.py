@@ -31,10 +31,7 @@ from twistedcaldav import carddavxml
 
 # SQL Index column (field) names
 
-FIELD_TYPE      = "RESOURCE.TYPE"
-FIELD_UID       = "RESOURCE.UID"
-
-def addressbookquery(filter):
+def addressbookquery(filter, fields):
     """
     Convert the supplied addressbook-query into an expression tree.
 
@@ -45,11 +42,11 @@ def addressbookquery(filter):
     
     # Top-level filter contains zero or more prop-filter element
     if len(filter.children) > 0:
-        return propfilterListExpression(filter.children)
+        return propfilterListExpression(filter.children, fields)
     else:
         return expression.allExpression()
 
-def propfilterListExpression(propfilters):
+def propfilterListExpression(propfilters, fields):
     """
     Create an expression for a list of prop-filter elements.
     
@@ -58,11 +55,11 @@ def propfilterListExpression(propfilters):
     """
     
     if len(propfilters) == 1:
-        return propfilterExpression(propfilters[0])
+        return propfilterExpression(propfilters[0], fields)
     else:
-        return expression.orExpression([propfilterExpression(c) for c in propfilters])
+        return expression.orExpression([propfilterExpression(c, fields) for c in propfilters])
 
-def propfilterExpression(propfilter):
+def propfilterExpression(propfilter, fields):
     """
     Create an expression for a single prop-filter element.
     
@@ -77,15 +74,15 @@ def propfilterExpression(propfilter):
     # Handle is-not-defined case
     if not propfilter.defined:
         # Test for <<field>> != "*"
-        return expression.isExpression(FIELD_UID, "", True)
+        return expression.isExpression(fields["UID"], "", True)
     
     # Handle text-match
     tm = None
     if propfilter.qualifier and isinstance(propfilter.qualifier, carddavxml.TextMatch):
         if propfilter.qualifier.negate:
-            tm = expression.notcontainsExpression(propfilter.filter_name, str(propfilter.qualifier), propfilter.qualifier)
+            tm = expression.notcontainsExpression(fields[propfilter.filter_name], str(propfilter.qualifier), propfilter.qualifier)
         else:
-            tm = expression.containsExpression(propfilter.filter_name, str(propfilter.qualifier), propfilter.qualifier)
+            tm = expression.containsExpression(fields[propfilter.filter_name], str(propfilter.qualifier), propfilter.qualifier)
     
     # Handle embedded parameters - we do not right now as our Index does not handle them
     params = []
@@ -108,7 +105,7 @@ def propfilterExpression(propfilter):
     else:
         return None
 
-def sqladdressbookquery(filter):
+def sqladdressbookquery(filter, addressbookid=None, generator=sqlgenerator.sqlgenerator):
     """
     Convert the supplied addressbook-query into a partial SQL statement.
 
@@ -118,8 +115,8 @@ def sqladdressbookquery(filter):
             Or return C{None} if it is not possible to create an SQL query to fully match the addressbook-query.
     """
     try:
-        expression = addressbookquery(filter)
-        sql = sqlgenerator.sqlgenerator(expression)
+        expression = addressbookquery(filter, generator.FIELDS)
+        sql = generator(expression, addressbookid)
         return sql.generate()
     except ValueError:
         return None

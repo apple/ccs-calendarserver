@@ -253,8 +253,10 @@ create table ADDRESSBOOK_HOME (
 -----------------
 
 create table ADDRESSBOOK (
-  RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'),
-  SYNC_TOKEN  varchar(255)
+  RESOURCE_ID integer       primary key default nextval('RESOURCE_ID_SEQ'),
+  SYNC_TOKEN  varchar(255),
+  CREATED     timestamp     default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED    timestamp     default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
 
@@ -285,7 +287,8 @@ create table ADDRESSBOOK_OBJECT (
   RESOURCE_NAME           varchar(255) not null,
   VCARD_TEXT              text         not null,
   VCARD_UID               varchar(255) not null,
-  VCARD_TYPE              varchar(255) not null,
+  CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
   unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME),
   unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)
