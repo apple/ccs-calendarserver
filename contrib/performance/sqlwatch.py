@@ -2,6 +2,7 @@
 import sys, os, signal, time
 from pprint import pprint
 
+from twisted.python.log import err
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet import reactor
@@ -53,6 +54,9 @@ def collect(pids):
 
 
 def main():
+    from twisted.python.failure import startDebugMode
+    startDebugMode()
+
     pids = []
     for pidfile in os.listdir(sys.argv[1]):
         if pidfile.startswith('caldav-instance-'):
@@ -61,5 +65,6 @@ def main():
             pid = int(pidtext)
             pids.append(pid)
     d = collect(pids)
+    d.addErrback(err, "Problem collecting SQL")
     d.addBoth(lambda ign: reactor.stop())
     reactor.run(installSignalHandlers=False)

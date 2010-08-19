@@ -2,7 +2,7 @@
 /*
  * Make almost all query strings fit.
  */
-#pragma D option strsize=1024
+#pragma D option strsize=8192
 
 dtrace:::BEGIN
 {
