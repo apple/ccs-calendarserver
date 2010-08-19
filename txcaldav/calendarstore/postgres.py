@@ -1885,6 +1885,7 @@ class PostgresNotificationCollection(object):
         self._txn = txn
         self._uid = uid
         self._resourceID = resourceID
+        self._notifications = {}
 
 
     def retrieveOldIndex(self):
@@ -1920,6 +1921,7 @@ class PostgresNotificationCollection(object):
         return self.notificationObjectWithUID(self._nameToUID(name))
 
 
+    @memoized('uid', '_notifications')
     def notificationObjectWithUID(self, uid):
         rows = self._txn.execSQL(
             "select RESOURCE_ID from NOTIFICATION where NOTIFICATION_UID = %s"
@@ -1939,6 +1941,7 @@ class PostgresNotificationCollection(object):
             "values (%s, %s, %s, %s)", [self._resourceID, uid, xmltypeString, xmldata])
         notificationObject = self.notificationObjectWithUID(uid)
         notificationObject.properties()[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
+
 
     def removeNotificationObjectWithName(self, name):
         self.removeNotificationObjectWithUID(self._nameToUID(name))
@@ -1981,7 +1984,9 @@ class PostgresTransaction(object):
         self._connection = connection
         self._cursor = connection.cursor()
         self._completed = False
-        self._homes = {}
+        self._calendarHomes = {}
+        self._addressbookHomes = {}
+        self._notificationHomes = {}
         self._postCommitOperations = []
         self._notifierFactory = notifierFactory
         self._label = label
@@ -2010,7 +2015,7 @@ class PostgresTransaction(object):
             self._connection.close()
 
 
-    @memoized('uid', '_homes')
+    @memoized('uid', '_calendarHomes')
     def calendarHomeWithUID(self, uid, create=False):
         data = self.execSQL(
             "select RESOURCE_ID from CALENDAR_HOME where OWNER_UID = %s",
@@ -2036,7 +2041,7 @@ class PostgresTransaction(object):
         return PostgresCalendarHome(self, uid, resid, notifier)
 
 
-    @memoized('uid', '_homes')
+    @memoized('uid', '_addressbookHomes')
     def addressbookHomeWithUID(self, uid, create=False):
         data = self.execSQL(
             "select RESOURCE_ID from ADDRESSBOOK_HOME where OWNER_UID = %s",
@@ -2062,6 +2067,7 @@ class PostgresTransaction(object):
         return PostgresAddressBookHome(self, uid, resid, notifier)
 
 
+    @memoized('uid', '_notificationHomes')
     def notificationsWithUID(self, uid):
         """
         Implement notificationsWithUID.
