@@ -2206,7 +2206,7 @@ class PostgresAddressBookObject(object):
         else:
             self._txn.execSQL(
                 """
-                update ADDRESSBOOK set
+                update ADDRESSBOOK_OBJECT set
                 (VCARD_TEXT, VCARD_UID, MODIFIED)
                  =
                 (%s, %s, timezone('UTC', CURRENT_TIMESTAMP))
