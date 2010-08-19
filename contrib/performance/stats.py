@@ -47,6 +47,13 @@ class Duration(_Statistic):
 class SQLDuration(_Statistic):
     commands = ['summarize', 'statements']
 
+    def _is_literal(self, token):
+        if sqlparse.tokens.is_token_subtype(token.ttype, sqlparse.tokens.Literal):
+            return True
+        if token.ttype == sqlparse.tokens.Keyword and token.value in (u'True', u'False'):
+            return True
+        return False
+
     def _substitute(self, expression, replacement):
         try:
             expression.tokens
@@ -54,7 +61,7 @@ class SQLDuration(_Statistic):
             return
 
         for i, token in enumerate(expression.tokens):
-            if sqlparse.tokens.is_token_subtype(token.ttype, sqlparse.tokens.Literal):
+            if self._is_literal(token):
                 expression.tokens[i] = replacement
             elif token.is_whitespace():
                 expression.tokens[i] = sqlparse.sql.Token('Whitespace', ' ')
@@ -90,12 +97,17 @@ class SQLDuration(_Statistic):
         
         byTime = []
         for statement, times in statements.iteritems():
-            byTime.append((sum(times), statement))
+            byTime.append((sum(times), len(times), statement))
         byTime.sort()
         byTime.reverse()
 
-        for (time, statement) in byTime:
-            print time / NANO * 1000, 'ms:', statement
+        if byTime:
+            header = '%10s %10s %10s %s'
+            row = '%10.5f %10.5f %10d %s'
+            print header % ('TOTAL MS', 'PERCALL MS', 'NCALLS', 'STATEMENT')
+            for (time, count, statement) in byTime:
+                time = time / NANO * 1000
+                print row % (time, time / count, count, statement)
 
 class Bytes(_Statistic):
     pass

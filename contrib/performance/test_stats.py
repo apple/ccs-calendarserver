@@ -19,3 +19,9 @@ class SQLDurationTests(TestCase):
             self.stat.normalize('SELECT foo + 1 FROM bar'),
             'SELECT foo + ? FROM bar')
 
+
+    def test_normalize_boolean(self):
+        self.assertEquals(
+            self.stat.normalize('SELECT foo FROM bar WHERE True'),
+            'SELECT foo FROM bar WHERE ?')
+
