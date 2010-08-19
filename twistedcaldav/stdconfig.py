@@ -356,6 +356,7 @@ DEFAULT_CONFIG = {
         "name":    "directory",
         "MaxQueryResults": 1000,
     },
+    "EnableSearchAddressBook": True, # /directory resource exists
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
 
     "GlobalAddressBook": {

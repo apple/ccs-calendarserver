@@ -318,7 +318,7 @@ def getRootResource(config, resources=None):
         )
 
         directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
-        if config.DirectoryAddressBook.Enabled:
+        if config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook:
             log.info("Setting up directory address book: %r" % (directoryBackedAddressBookResourceClass,))
 
             directoryBackedAddressBookCollection = directoryBackedAddressBookResourceClass(
@@ -351,7 +351,7 @@ def getRootResource(config, resources=None):
         root.putChild("calendars", calendarCollection)
     if config.EnableCardDAV:
         root.putChild('addressbooks', addressBookCollection)
-        if config.DirectoryAddressBook.Enabled:
+        if config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook:
             root.putChild(config.DirectoryAddressBook.name, directoryBackedAddressBookCollection)
 
     # /.well-known
