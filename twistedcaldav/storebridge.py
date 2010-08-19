@@ -386,7 +386,7 @@ class DropboxCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome
+        return davxml.ResourceType.dropboxhome #@UndefinedVariable
 
 
     def listChildren(self):
@@ -431,7 +431,7 @@ class CalendarObjectDropbox(_GetChildHelper):
 
 
     def resourceType(self):
-        return davxml.ResourceType.dropbox
+        return davxml.ResourceType.dropbox #@UndefinedVariable
 
 
     def getChild(self, name):
@@ -1991,7 +1991,7 @@ class StoreNotificationObjectFile(NotificationResource):
 
         try:
 
-            storeNotifications = self._newStoreObject._notificationCollection
+            storeNotifications = self._newStoreObject.notificationCollection()
 
             # Do delete
 

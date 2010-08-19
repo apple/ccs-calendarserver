@@ -334,12 +334,24 @@ class CommonTests(object):
         self.assertIsInstance(notification.modified(), int)
 
 
+    def test_notificationObjectParent(self):
+        """
+        L{INotificationObject.notificationCollection} returns the
+        L{INotificationCollection} that the object was retrieved from.
+        """
+        txn = self.transactionUnderTest()
+        collection = txn.notificationsWithUID("home1")
+        notification = self.notificationUnderTest()
+        self.assertIdentical(collection, notification.notificationCollection())
+
+
     def test_notifierID(self):
         home = self.homeUnderTest()
         self.assertEquals(home.notifierID(), "home1")
         calendar = home.calendarWithName("calendar_1")
         self.assertEquals(calendar.notifierID(), "home1")
         self.assertEquals(calendar.notifierID(label="collection"), "home1/calendar_1")
+
 
     def test_calendarHomeWithUID_exists(self):
         """
@@ -422,8 +434,8 @@ class CommonTests(object):
                 calendarProperties[
                     PropertyName.fromString(davxml.ResourceType.sname())
                 ],
-                davxml.ResourceType.calendar
-            ) #@UndefinedVariable
+                davxml.ResourceType.calendar #@UndefinedVariable
+            )
         checkProperties()
 
         self.commit()

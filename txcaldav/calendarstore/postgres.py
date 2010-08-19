@@ -79,7 +79,7 @@ from twistedcaldav.index import IndexedSearchException, ReservationError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
-from twistedcaldav.query import calendarqueryfilter, calendarquery,\
+from twistedcaldav.query import calendarqueryfilter, calendarquery, \
     addressbookquery
 from twistedcaldav.query.sqlgenerator import sqlgenerator
 from twistedcaldav.sharing import Invite
@@ -1769,8 +1769,13 @@ class PostgresNotificationObject(object):
         self._resourceID = resourceID
 
 
+    def notificationCollection(self):
+        return self._home
+
+
     def name(self):
         return self.uid() + ".xml"
+
 
     def contentType(self):
         """
@@ -1872,7 +1877,7 @@ class PostgresLegacyNotificationsEmulator(object):
 
 
 
-class PostgresNotificationsCollection(object):
+class PostgresNotificationCollection(object):
 
     implements(INotificationCollection)
 
@@ -2074,7 +2079,7 @@ class PostgresTransaction(object):
             self.execSQL(
                 "insert into NOTIFICATION_HOME (RESOURCE_ID, OWNER_UID) "
                 "values (%s, %s)", [resourceID, uid])
-        return PostgresNotificationsCollection(self, uid, resourceID)
+        return PostgresNotificationCollection(self, uid, resourceID)
 
 
     def abort(self):
@@ -2389,7 +2394,7 @@ class PostgresLegacyABIndexEmulator(object):
             qualifiers = addressbookquery.sqladdressbookquery(filter)
         else:
             qualifiers = None
-            
+
         return qualifiers is not None
 
     def search(self, filter):
@@ -2401,7 +2406,7 @@ class PostgresLegacyABIndexEmulator(object):
             C{name} is the resource name, C{uid} is the resource UID, and
             C{type} is the resource iCalendar component type.x
         """
-        
+
         # Make sure we have a proper Filter element and get the partial SQL statement to use.
         if isinstance(filter, carddavxml.Filter):
             qualifiers = addressbookquery.sqladdressbookquery(filter, self.addressbook._resourceID, generator=postgresqladbkgenerator)
@@ -2418,7 +2423,7 @@ class PostgresLegacyABIndexEmulator(object):
                 "select RESOURCE_NAME, VCARD_UID from ADDRESSBOOK_OBJECT where ADDRESSBOOK_RESOURCE_ID = %s",
                 [self.addressbook._resourceID, ],
             )
-            
+
         for row in rowiter:
             yield row
 

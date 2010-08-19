@@ -864,8 +864,11 @@ class NotificationObject(CommonObjectResource):
     implements(INotificationObject)
 
     def __init__(self, name, notifications):
-
         super(NotificationObject, self).__init__(name, notifications)
+
+
+    def notificationCollection(self):
+        return self._parentCollection
 
 
     def modified(self):
@@ -875,15 +878,11 @@ class NotificationObject(CommonObjectResource):
         return super(NotificationObject, self).modified()
 
 
-    @property
-    def _notificationCollection(self):
-        return self._parentCollection
-
     @writeOperation
     def setData(self, uid, xmltype, xmldata):
 
         rname = uid + ".xml"
-        self._notificationCollection.retrieveOldIndex().addOrUpdateRecord(
+        self._parentCollection.retrieveOldIndex().addOrUpdateRecord(
             NotificationRecord(uid, rname, xmltype.name)
         )
 

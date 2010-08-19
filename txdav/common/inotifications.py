@@ -177,3 +177,13 @@ class INotificationObject(IDataStoreResource):
 
         @return: a string containing a UID.
         """
+
+
+    def notificationCollection():
+        """
+        @return: the parent L{INotificationCollection} which this
+            L{INotificationObject} was retrieved from.
+
+        @rtype: L{INotificationCollection}
+        """
+
