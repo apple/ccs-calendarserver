@@ -60,8 +60,15 @@ class SQLDuration(_Statistic):
         statements = {}
         for (sql, interval) in data:
             statements.setdefault(sql, []).append(interval)
-        for s in statements:
-            print sum(statements[s]) / NANO, 'seconds:', s
+        
+        byTime = []
+        for statement, times in statements.iteritems():
+            byTime.append((sum(times), statement))
+        byTime.sort()
+        byTime.reverse()
+
+        for (time, statement) in byTime:
+            print time / NANO * 1000, 'ms:', statement.replace('\n', ' ')
 
 class Bytes(_Statistic):
     pass
