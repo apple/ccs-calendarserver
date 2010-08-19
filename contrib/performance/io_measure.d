@@ -7,13 +7,6 @@
 
 #include "sql_measure.d"
 
-dtrace:::BEGIN
-{
-	/* Let the watcher know things are alright.
-	 */
-	printf("READY\n");
-}
-
 /*
  * Low-level I/O stuff
  */

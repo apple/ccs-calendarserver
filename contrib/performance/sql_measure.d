@@ -4,6 +4,13 @@
  */
 #pragma D option strsize=1024
 
+dtrace:::BEGIN
+{
+	/* Let the watcher know things are alright.
+	 */
+	printf("READY\n");
+}
+
 /*
  * SQLite3 stuff
  */
