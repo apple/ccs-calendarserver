@@ -779,7 +779,6 @@ class PostgresLegacyInvitesEmulator(object):
                 _BIND_MODE_WRITE: "read-write"
             }[bindMode]
             principalURL = "/principals/__uids__/%s/" % (ownerUID,)
-            print 'I am generating a principal URL that looks like this: %r from an ownerUID of this: %r' % (principalURL, ownerUID)
             yield Invite(
                 inviteuid, userid, principalURL, common_name,
                 access, state, summary
@@ -816,7 +815,6 @@ class PostgresLegacyInvitesEmulator(object):
         # principalURL is derived from a directory record's principalURL() so
         # it will always contain the UID.
         principalUID = record.principalURL.split("/")[-2]
-        print 'I am computing a principal UID which looks like this: %r from a principal URL that looks like this: %r' % (principalUID, record.principalURL)
         shareeHome = self._txn.calendarHomeWithUID(principalUID, create=True)
         rows = self._txn.execSQL(
             "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where SENDER_ADDRESS = %s",
