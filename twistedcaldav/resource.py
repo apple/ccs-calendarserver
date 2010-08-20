@@ -30,8 +30,6 @@ __all__ = [
 ]
 
 from urlparse import urlsplit
-from uuid import uuid4
-import datetime
 import urllib
 import uuid
 
@@ -45,7 +43,6 @@ from twext.web2.dav.http import ErrorResponse
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, succeed, maybeDeferred, fail
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python.failure import Failure
 
 from twext.web2 import responsecode, http, http_headers
 from twext.web2.dav import davxml
@@ -55,7 +52,8 @@ from twext.web2.dav.idav import IDAVPrincipalCollectionResource
 from twext.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource,\
     davPrivilegeSet
 from twext.web2.dav.resource import TwistedACLInheritable
-from twext.web2.dav.util import joinURL, parentForURL, normalizeURL
+from twext.web2.dav.util import joinURL, parentForURL, normalizeURL,\
+    unimplemented
 from twext.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
@@ -80,8 +78,6 @@ from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.index import SyncTokenValidException, Index
 from twistedcaldav.linkresource import LinkResource
-from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
-from twistedcaldav.notify import getNodeCacher
 from twistedcaldav.notify import getPubSubConfiguration, getPubSubPath,\
     getPubSubXMPPURI, getPubSubHeartbeatURI
 from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
@@ -1032,7 +1028,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
                     if depth == "infinity":
                         yield child.findSpecialCollectionsFaster(type, depth, request, callback, privileges)                
 
-    def createCalendar(self, request):
+    def createdCalendar(self, request):
         """
         See L{ICalDAVResource.createCalendar}.
         This implementation raises L{NotImplementedError}; a subclass must
@@ -1256,7 +1252,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
             lastpath = path.split("/")[-1]
             
             parent = (yield request.locateResource(parentForURL(myurl)))
-            if parent:
+            if parent and isinstance(parent, CalDAVResource):
                 canonical_parent = (yield parent.canonicalURL(request))
                 self._canonical_url = joinURL(canonical_parent, lastpath)
             else:
