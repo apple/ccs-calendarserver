@@ -206,24 +206,25 @@ class DTraceCollector(object):
 
 
 @inlineCallbacks
-def benchmark(directory, name, measure):
+def benchmark(directory, label, benchmarks):
     # Figure out which pids we are benchmarking.
     pids = instancePIDs(directory)
 
-    parameters = [1, 10, 20]
-    samples = 5
+    parameters = [1, 9, 81]
+    samples = 100
 
     statistics = {}
 
-    statistics[name] = {}
-    for p in parameters:
-        print 'Parameter at', p
-        dtrace = DTraceCollector("io_measure.d", pids)
-        data = yield measure(dtrace, p, samples)
-        statistics[name][p] = data
+    for (name, measure) in benchmarks:
+        statistics[name] = {}
+        for p in parameters:
+            print 'Parameter at', p
+            dtrace = DTraceCollector("io_measure.d", pids)
+            data = yield measure(dtrace, p, samples)
+            statistics[name][p] = data
 
     fObj = file(
-        '%s-%s' % (name, datetime.now().isoformat()), 'w')
+        '%s-%s' % (label, datetime.now().isoformat()), 'w')
     dump(statistics, fObj, 2)
     fObj.close()
 
@@ -233,7 +234,8 @@ def main():
     from twisted.python.failure import startDebugMode
     startDebugMode()
     d = benchmark(
-        sys.argv[1], sys.argv[2], namedAny(sys.argv[2]).measure)
+        sys.argv[1], sys.argv[2],
+        [(arg, namedAny(arg).measure) for arg in sys.argv[3:]])
     d.addErrback(err)
     d.addCallback(lambda ign: reactor.stop())
     reactor.run()
