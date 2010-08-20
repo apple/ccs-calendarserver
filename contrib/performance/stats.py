@@ -12,10 +12,23 @@ def median(samples):
     return sorted(samples)[len(samples) / 2]
 
 
+def residuals(samples, from_):
+    return [from_ - s for s in samples]
+
+
 def stddev(samples):
     m = mean(samples)
-    variance = sum([(datum - m) ** 2 for datum in samples]) / len(samples)
+    variance = sum([datum ** 2 for datum in residuals(samples, m)]) / len(samples)
     return variance ** 0.5
+
+
+def mad(samples):
+    """
+    Return the median absolute deviation of the given data set.
+    """
+    med = median(samples)
+    res = map(abs, residuals(samples, med))
+    return median(res)
 
 
 class _Statistic(object):
@@ -29,6 +42,7 @@ class _Statistic(object):
         print self.name, 'mean', mean(data)
         print self.name, 'median', median(data)
         print self.name, 'stddev', stddev(data)
+        print self.name, 'median absolute deviation', mad(data)
         print self.name, 'sum', sum(data)
 
 
