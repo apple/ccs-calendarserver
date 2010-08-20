@@ -33,7 +33,7 @@ This module provides XML element definitions for use with WebDAV.
 See RFC 5842: http://www.ietf.org/rfc/rfc5842.txt
 """
 
-class ResourceID (WebDAVTextElement):
+class ResourceID (WebDAVElement):
     """
     Unique identifier for a resource
     """
