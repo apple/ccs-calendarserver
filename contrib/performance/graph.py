@@ -12,8 +12,9 @@ def main():
 
     data = []
     for fname in sys.argv[1:]:
+        fname, bench, param, stat = fname.split(',')
         stats, samples = select(
-            pickle.load(file(fname)), 'vfreebusy', 1, 'urlopen time')
+            pickle.load(file(fname)), bench, param, stat)
         data.append(samples)
         if data:
             assert len(samples) == len(data[0])
