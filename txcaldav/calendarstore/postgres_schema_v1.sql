@@ -290,7 +290,11 @@ create table ADDRESSBOOK (
 create table ADDRESSBOOK_BIND (
   ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
   ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK,
-  ADDRESSBOOK_RESOURCE_NAME    varchar(255) not null,
+
+  -- An invitation which hasn't been accepted yet will not yet have a resource
+  -- name, so this field may be null.
+
+  ADDRESSBOOK_RESOURCE_NAME    varchar(255),
   BIND_MODE                    integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                  integer      not null, -- enum CALENDAR_BIND_STATUS
   SEEN_BY_OWNER                boolean      not null,

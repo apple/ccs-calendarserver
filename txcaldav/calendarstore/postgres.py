@@ -2575,6 +2575,305 @@ class PostgresLegacyABIndexEmulator(object):
         )
 
 
+class PostgresLegacyABInvitesEmulator(object):
+    """
+    Emulator for the implicit interface specified by
+    L{twistedcaldav.sharing.InvitesDatabase}.
+    """
+
+
+    def __init__(self, addressbook):
+        self._addressbook = addressbook
+
+
+    @property
+    def _txn(self):
+        return self._addressbook._txn
+
+
+    def create(self):
+        "No-op, because the index implicitly always exists in the database."
+
+
+    def remove(self):
+        "No-op, because the index implicitly always exists in the database."
+
+
+    def allRecords(self):
+        for row in self._txn.execSQL(
+                """
+                select
+                    INVITE.INVITE_UID, INVITE.NAME, INVITE.RECIPIENT_ADDRESS,
+                    ADDRESSBOOK_HOME.OWNER_UID, ADDRESSBOOK_BIND.BIND_MODE,
+                    ADDRESSBOOK_BIND.BIND_STATUS, ADDRESSBOOK_BIND.MESSAGE
+                from
+                    INVITE, ADDRESSBOOK_HOME, ADDRESSBOOK_BIND
+                where
+                    INVITE.RESOURCE_ID = %s and
+                    INVITE.HOME_RESOURCE_ID = 
+                        ADDRESSBOOK_HOME.RESOURCE_ID and
+                    ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID =
+                        INVITE.RESOURCE_ID and
+                    ADDRESSBOOK_BIND.ADDRESSBOOK_HOME_RESOURCE_ID =
+                        INVITE.HOME_RESOURCE_ID
+                order by
+                    INVITE.NAME asc
+                """, [self._addressbook._resourceID]):
+            [inviteuid, common_name, userid, ownerUID,
+                bindMode, bindStatus, summary] = row
+            # FIXME: this is really the responsibility of the protocol layer.
+            state = {
+                _BIND_STATUS_INVITED: "NEEDS-ACTION",
+                _BIND_STATUS_ACCEPTED: "ACCEPTED",
+                _BIND_STATUS_DECLINED: "DECLINED",
+                _BIND_STATUS_INVALID: "INVALID",
+            }[bindStatus]
+            access = {
+                _BIND_MODE_READ: "read-only",
+                _BIND_MODE_WRITE: "read-write"
+            }[bindMode]
+            principalURL = "/principals/__uids__/%s/" % (ownerUID,)
+            yield Invite(
+                inviteuid, userid, principalURL, common_name,
+                access, state, summary
+            )
+
+
+    def recordForUserID(self, userid):
+        for record in self.allRecords():
+            if record.userid == userid:
+                return record
+
+
+    def recordForPrincipalURL(self, principalURL):
+        for record in self.allRecords():
+            if record.principalURL == principalURL:
+                return record
+
+
+    def recordForInviteUID(self, inviteUID):
+        for record in self.allRecords():
+            if record.inviteuid == inviteUID:
+                return record
+
+
+    def addOrUpdateRecord(self, record):
+        bindMode = {'read-only': _BIND_MODE_READ,
+                    'read-write': _BIND_MODE_WRITE}[record.access]
+        bindStatus = {
+            "NEEDS-ACTION": _BIND_STATUS_INVITED,
+            "ACCEPTED": _BIND_STATUS_ACCEPTED,
+            "DECLINED": _BIND_STATUS_DECLINED,
+            "INVALID": _BIND_STATUS_INVALID,
+        }[record.state]
+        # principalURL is derived from a directory record's principalURL() so
+        # it will always contain the UID.  The form is '/principals/__uids__/x'
+        # (and may contain a trailing slash).
+        principalUID = record.principalURL.split("/")[3]
+        shareeHome = self._txn.addressbookHomeWithUID(principalUID, create=True)
+        rows = self._txn.execSQL(
+            "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where RECIPIENT_ADDRESS = %s",
+            [record.userid]
+        )
+        if rows:
+            [[resourceID, homeResourceID]] = rows
+            # Invite(inviteuid, userid, principalURL, common_name, access, state, summary)
+            self._txn.execSQL("""
+                update ADDRESSBOOK_BIND set BIND_MODE = %s,
+                BIND_STATUS = %s, MESSAGE = %s
+                where
+                    ADDRESSBOOK_RESOURCE_ID = %s and
+                    ADDRESSBOOK_HOME_RESOURCE_ID = %s
+            """, [bindMode, bindStatus, record.summary,
+                resourceID, homeResourceID])
+            self._txn.execSQL("""
+                update INVITE set NAME = %s, INVITE_UID = %s
+                where RECIPIENT_ADDRESS = %s
+                """,
+                [record.name, record.inviteuid, record.userid]
+            )
+        else:
+            self._txn.execSQL(
+                """
+                insert into INVITE (
+                    INVITE_UID, NAME,
+                    HOME_RESOURCE_ID, RESOURCE_ID,
+                    RECIPIENT_ADDRESS
+                )
+                values (%s, %s, %s, %s, %s)
+                """,
+                [
+                    record.inviteuid, record.name,
+                    shareeHome._resourceID, self._addressbook._resourceID,
+                    record.userid
+                ])
+            self._txn.execSQL(
+                """
+                insert into ADDRESSBOOK_BIND
+                (
+                    ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID, 
+                    ADDRESSBOOK_RESOURCE_NAME, BIND_MODE, BIND_STATUS,
+                    SEEN_BY_OWNER, SEEN_BY_SHAREE, MESSAGE
+                )
+                values (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                [
+                    shareeHome._resourceID,
+                    self._addressbook._resourceID,
+                    None, # this is NULL because it is not bound yet, let's be
+                          # explicit about that.
+                    bindMode,
+                    bindStatus,
+                    False,
+                    False,
+                    record.summary
+                ])
+
+
+    def removeRecordForUserID(self, userid):
+        rec = self.recordForUserID(userid)
+        self.removeRecordForInviteUID(rec.inviteuid)
+
+
+    def removeRecordForPrincipalURL(self, principalURL):
+        raise NotImplementedError("removeRecordForPrincipalURL")
+
+
+    def removeRecordForInviteUID(self, inviteUID):
+        rows = self._txn.execSQL("""
+                select HOME_RESOURCE_ID, RESOURCE_ID from INVITE where
+                INVITE_UID = %s
+            """, [inviteUID])
+        if rows:
+            [[homeID, resourceID]] = rows
+            self._txn.execSQL(
+                "delete from ADDRESSBOOK_BIND where "
+                "ADDRESSBOOK_HOME_RESOURCE_ID = %s and ADDRESSBOOK_RESOURCE_ID = %s",
+                [homeID, resourceID])
+            self._txn.execSQL("delete from INVITE where INVITE_UID = %s",
+                [inviteUID])
+
+
+
+class PostgresLegacyABSharesEmulator(object):
+
+    def __init__(self, home):
+        self._home = home
+
+
+    @property
+    def _txn(self):
+        return self._home._txn
+
+
+    def create(self):
+        pass
+
+
+    def remove(self):
+        pass
+
+
+    def allRecords(self):
+        # This should have been a smart join that got all these columns at
+        # once, but let's not bother to fix it, since the actual query we
+        # _want_ to do (just look for addressbook binds in a particular homes) is
+        # much simpler anyway; we should just do that.
+        shareRows = self._txn.execSQL(
+            """
+            select ADDRESSBOOK_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME, MESSAGE
+            from ADDRESSBOOK_BIND
+                where ADDRESSBOOK_HOME_RESOURCE_ID = %s and
+                BIND_MODE != %s and
+                ADDRESSBOOK_RESOURCE_NAME is not null
+            """, [self._home._resourceID, _BIND_MODE_OWN])
+        for resourceID, resourceName, summary in shareRows:
+            [[shareuid]] = self._txn.execSQL(
+                """
+                select INVITE_UID
+                from INVITE
+                where RESOURCE_ID = %s and HOME_RESOURCE_ID = %s
+                """, [resourceID, self._home._resourceID])
+            sharetype = 'I'
+            [[ownerHomeID, ownerResourceName]] = self._txn.execSQL(
+                """
+                select ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME
+                from ADDRESSBOOK_BIND
+                where ADDRESSBOOK_RESOURCE_ID = %s and
+                    BIND_MODE = %s
+                """, [resourceID, _BIND_MODE_OWN]
+                )
+            [[ownerUID]] = self._txn.execSQL(
+                "select OWNER_UID from ADDRESSBOOK_HOME where RESOURCE_ID = %s",
+                [ownerHomeID])
+            hosturl = '/addressbooks/__uids__/%s/%s' % (
+                ownerUID, ownerResourceName
+            )
+            localname = resourceName
+            record = SharedCollectionRecord(
+                shareuid, sharetype, hosturl, localname, summary
+            )
+            yield record
+
+
+    def _search(self, **kw):
+        [[key, value]] = kw.items()
+        for record in self.allRecords():
+            if getattr(record, key) == value:
+                return record
+
+    def recordForLocalName(self, localname):
+        return self._search(localname=localname)
+
+    def recordForShareUID(self, shareUID):
+        return self._search(shareuid=shareUID)
+
+
+    def addOrUpdateRecord(self, record):
+#        print '*** SHARING***: Adding or updating this record:'
+#        import pprint
+#        pprint.pprint(record.__dict__)
+        # record.hosturl -> /addressbooks/__uids__/<uid>/<addressbookname>
+        splithost = record.hosturl.split('/')
+        ownerUID = splithost[3]
+        ownerAddressBookName = splithost[4]
+        ownerHome = self._txn.addressbookHomeWithUID(ownerUID)
+        ownerAddressBook = ownerHome.addressbookWithName(ownerAddressBookName)
+        addressbookResourceID = ownerAddressBook._resourceID
+
+        # There needs to be a bind already, one that corresponds to the
+        # invitation.  The invitation's UID is the same as the share UID.  I
+        # just need to update its 'localname', i.e.
+        # ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME.
+
+        self._txn.execSQL(
+            """
+            update ADDRESSBOOK_BIND set ADDRESSBOOK_RESOURCE_NAME = %s
+            where ADDRESSBOOK_HOME_RESOURCE_ID = %s and ADDRESSBOOK_RESOURCE_ID = %s
+            """,
+            [record.localname, self._home._resourceID, addressbookResourceID]
+        )
+
+
+    def removeRecordForLocalName(self, localname):
+        self._txn.execSQL(
+            "delete from ADDRESSBOOK_BIND where ADDRESSBOOK_RESOURCE_NAME = %s "
+            "and ADDRESSBOOK_HOME_RESOURCE_ID = %s",
+            [localname, self._home._resourceID]
+        )
+
+
+    def removeRecordForShareUID(self, shareUID):
+        pass
+#        c = self._home._cursor()
+#        c.execute(
+#            "delete from ADDRESSBOOK_BIND where ADDRESSBOOK_RESOURCE_NAME = %s "
+#            "and ADDRESSBOOK_HOME_RESOURCE_ID = %s",
+#            [self._home._resourceID]
+#        )
+
+
+
 
 class PostgresAddressBook(AddressbookSyncTokenHelper):
 
@@ -2598,7 +2897,7 @@ class PostgresAddressBook(AddressbookSyncTokenHelper):
 
 
     def retrieveOldInvites(self):
-        return PostgresLegacyInvitesEmulator(self)
+        return PostgresLegacyABInvitesEmulator(self)
 
     def retrieveOldIndex(self):
         return PostgresLegacyABIndexEmulator(self)
@@ -2794,7 +3093,7 @@ class PostgresAddressBookHome(object):
 
 
     def retrieveOldShares(self):
-        return PostgresLegacySharesEmulator(self)
+        return PostgresLegacyABSharesEmulator(self)
 
 
     def uid(self):
