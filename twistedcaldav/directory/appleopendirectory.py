@@ -556,18 +556,6 @@ class OpenDirectoryService(CachingDirectoryService):
     def queryDirectory(self, recordTypes, indexType, indexKey,
         lookupMethod=opendirectory.queryRecordsWithAttribute_list):
         
-        attrs = [
-            dsattributes.kDS1AttrGeneratedUID,
-            dsattributes.kDSNAttrRecordName,
-            dsattributes.kDSNAttrAltSecurityIdentities,
-            dsattributes.kDSNAttrRecordType,
-            dsattributes.kDS1AttrDistinguishedName,
-            dsattributes.kDS1AttrFirstName,
-            dsattributes.kDS1AttrLastName,
-            dsattributes.kDSNAttrEMailAddress,
-            dsattributes.kDSNAttrMetaNodeLocation,
-        ]
-
         origIndexKey = indexKey
         if indexType == self.INDEX_TYPE_CUA:
             # The directory doesn't contain CUAs, so we need to convert
@@ -589,49 +577,68 @@ class OpenDirectoryService(CachingDirectoryService):
         query = dsquery.match(queryattr, indexKey, dsattributes.eDSExact)
 
 
-        listRecordTypes = []
+        results = []
         for recordType in recordTypes:
+
+            attrs = [
+                dsattributes.kDS1AttrGeneratedUID,
+                dsattributes.kDSNAttrRecordName,
+                dsattributes.kDSNAttrAltSecurityIdentities,
+                dsattributes.kDSNAttrRecordType,
+                dsattributes.kDS1AttrDistinguishedName,
+                dsattributes.kDS1AttrFirstName,
+                dsattributes.kDS1AttrLastName,
+                dsattributes.kDSNAttrEMailAddress,
+                dsattributes.kDSNAttrMetaNodeLocation,
+            ]
+
             if recordType == DirectoryService.recordType_users:
-                listRecordTypes.append(dsattributes.kDSStdRecordTypeUsers)
-    
+                listRecordTypes = [dsattributes.kDSStdRecordTypeUsers]
+
             elif recordType == DirectoryService.recordType_groups:
-                if queryattr != dsattributes.kDSNAttrEMailAddress:
-                    listRecordTypes.append(dsattributes.kDSStdRecordTypeGroups)
-                    attrs.append(dsattributes.kDSNAttrGroupMembers)
-                    attrs.append(dsattributes.kDSNAttrNestedGroups)
-    
+
+                if queryattr == dsattributes.kDSNAttrEMailAddress:
+                    continue
+
+                listRecordTypes = [dsattributes.kDSStdRecordTypeGroups]
+                attrs.append(dsattributes.kDSNAttrGroupMembers)
+                attrs.append(dsattributes.kDSNAttrNestedGroups)
+
             else:
                 raise UnknownRecordTypeError("Unknown OpenDirectory record type: %s" % (recordType))
 
 
-        try:
-            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
-                self.directory,
-                query.attribute,
-                query.value,
-                query.matchType,
-                False,
-                listRecordTypes,
-                attrs,
-            ))
-            results = lookupMethod(
-                self.directory,
-                query.attribute,
-                query.value,
-                query.matchType,
-                False,
-                listRecordTypes,
-                attrs,
-            )
-            self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
+            try:
+                self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                    self.directory,
+                    query.attribute,
+                    query.value,
+                    query.matchType,
+                    False,
+                    listRecordTypes,
+                    attrs,
+                ))
+                results.extend(
+                    lookupMethod(
+                        self.directory,
+                        query.attribute,
+                        query.value,
+                        query.matchType,
+                        False,
+                        listRecordTypes,
+                        attrs,
+                    )
+                )
 
-        except opendirectory.ODError, ex:
-            if ex.message[1] == -14140 or ex.message[1] == -14200:
-                # Unsupported attribute on record - don't fail
-                return
-            else:
-                self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
-                raise
+            except opendirectory.ODError, ex:
+                if ex.message[1] == -14140 or ex.message[1] == -14200:
+                    # Unsupported attribute on record - don't fail
+                    return
+                else:
+                    self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
+                    raise
+
+        self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
 
 
         enabledRecords = []

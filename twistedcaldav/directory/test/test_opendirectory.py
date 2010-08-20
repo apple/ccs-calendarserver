@@ -144,19 +144,23 @@ else:
         def test_queryDirectorySingleGUID(self):
             """ Test for lookup on existing and non-existing GUIDs """
 
-            def lookupMethod(obj, attr, value, matchType, casei, recordType, attributes, count=0):
+            def lookupMethod(obj, attr, value, matchType, casei, recordTypes, attributes, count=0):
 
-                data = [
-                    {
-                        dsattributes.kDS1AttrGeneratedUID : "1234567890",
-                        dsattributes.kDSNAttrRecordName : ["user1", "User 1"],
-                        dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
-                    },
-                ]
+                data = {
+                    "dsRecTypeStandard:Users" : [
+                        {
+                            dsattributes.kDS1AttrGeneratedUID : "1234567890",
+                            dsattributes.kDSNAttrRecordName : ["user1", "User 1"],
+                            dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                        },
+                    ],
+                    "dsRecTypeStandard:Groups" : [],
+                }
                 results = []
-                for entry in data:
-                    if entry[attr] == value:
-                        results.append(("", entry))
+                for recordType in recordTypes:
+                    for entry in data[recordType]:
+                        if entry[attr] == value:
+                            results.append(("", entry))
                 return results
 
             recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups]
@@ -197,26 +201,29 @@ else:
             """ Test for lookup on local users, ensuring they do get
                 faulted in """
 
-            def lookupMethod(obj, attr, value, matchType, casei, recordType, attributes, count=0):
-
-                data = [
-                    {
-                        dsattributes.kDS1AttrGeneratedUID : "1234567890",
-                        dsattributes.kDSNAttrRecordName : ["user1", "User 1"],
-                        dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
-                        dsattributes.kDSNAttrMetaNodeLocation : "/Local/Default",
-                    },
-                    {
-                        dsattributes.kDS1AttrGeneratedUID : "987654321",
-                        dsattributes.kDSNAttrRecordName : ["user2", "User 2"],
-                        dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
-                        dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
-                    },
-                ]
+            def lookupMethod(obj, attr, value, matchType, casei, recordTypes, attributes, count=0):
+                data = {
+                    "dsRecTypeStandard:Users" : [
+                        {
+                            dsattributes.kDS1AttrGeneratedUID : "1234567890",
+                            dsattributes.kDSNAttrRecordName : ["user1", "User 1"],
+                            dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                            dsattributes.kDSNAttrMetaNodeLocation : "/Local/Default",
+                        },
+                        {
+                            dsattributes.kDS1AttrGeneratedUID : "987654321",
+                            dsattributes.kDSNAttrRecordName : ["user2", "User 2"],
+                            dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeUsers,
+                            dsattributes.kDSNAttrMetaNodeLocation : "/LDAPv3/127.0.0.1",
+                        },
+                    ],
+                    "dsRecTypeStandard:Groups" : [],
+                }
                 results = []
-                for entry in data:
-                    if entry[attr] == value:
-                        results.append(("", entry))
+                for recordType in recordTypes:
+                    for entry in data[recordType]:
+                        if entry[attr] == value:
+                            results.append(("", entry))
                 return results
 
             recordTypes = [DirectoryService.recordType_users, DirectoryService.recordType_groups]
