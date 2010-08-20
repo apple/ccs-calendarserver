@@ -1,2 +1,2 @@
 #!/bin/bash
-sudo PYTHONPATH=$PYTHONPATH:../../../vobject/:../../../../CalDAVClientLibrary/trunk/src:../../../Twisted/ "$@"
+PYTHONPATH=$PYTHONPATH:../../../vobject/:../../../../CalDAVClientLibrary/trunk/src:../../../Twisted/ "$@"
