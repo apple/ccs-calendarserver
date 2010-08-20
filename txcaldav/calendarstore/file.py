@@ -170,7 +170,7 @@ class Calendar(CommonHomeChild):
 
 
     def resourceType(self):
-        return ResourceType.calendar
+        return ResourceType.calendar #@UndefinedVariable
 
 
     ownerCalendarHome = CommonHomeChild.ownerHome
@@ -458,18 +458,8 @@ class Attachment(FileMetaDataMixin):
 
 
     def properties(self):
-        """
-        Create and return a private xattr L{PropertyStore} for storing some of
-        the data about this L{Attachment}.  This is private because attachments
-        do not (currently) require arbitrary dead property storage, but older
-        servers did store useful information about attachments in xattr
-        properties in the filesystem.
-        """
-        return PropertyStore(
-            self._calendarObject._parentCollection._home.peruser_uid(),
-            self._calendarObject._parentCollection._home.uid(),
-            lambda :self._path
-        )
+        uid = self._calendarObject._parentCollection._home.uid()
+        return PropertyStore(uid, uid, lambda :self._path)
 
 
     def store(self, contentType):
