@@ -1,4 +1,4 @@
-import shlex
+import shlex, urlparse
 
 from twisted.web.http_headers import Headers
 
@@ -19,9 +19,17 @@ class AuthHandlerAgent(object):
     def __init__(self, agent, authinfo):
         self._agent = agent
         self._authinfo = authinfo
+        self._challenged = {}
+
+
+    def _authKey(self, method, uri):
+        return urlparse.urlparse(uri)[:2]
 
 
     def request(self, method, uri, headers=None, bodyProducer=None):
+        key = self._authKey(method, uri)
+        if key in self._challenged:
+            return self._respondToChallenge(self._challenged[key], method, uri, headers, bodyProducer)
         d = self._agent.request(method, uri, headers, bodyProducer)
         d.addCallback(self._authenticate, method, uri, headers, bodyProducer)
         return d
@@ -35,6 +43,17 @@ class AuthHandlerAgent(object):
             return BasicChallenge(**args)
         return None
 
+    
+    def _respondToChallenge(self, challenge, method, uri, headers, bodyProducer):
+        if headers is None:
+            headers = Headers()
+        else:
+            headers = Headers(dict(headers.getAllRawHeaders()))
+        for k, vs in challenge.response(uri, self._authinfo).iteritems():
+            for v in vs:
+                headers.addRawHeader(k, v)
+        return self._agent.request(method, uri, headers, bodyProducer)
+
 
     def _authenticate(self, response, method, uri, headers, bodyProducer):
         if response.code == 401:
@@ -47,17 +66,8 @@ class AuthHandlerAgent(object):
                 challenge = self._parse(auth)
                 if challenge is None:
                     continue
-
-                if headers is None:
-                    headers = Headers()
-                else:
-                    headers = Headers(dict(headers.getAllRawHeaders()))
-                for k, vs in challenge.response(uri, self._authinfo).iteritems():
-                    for v in vs:
-                        headers.addRawHeader(k, v)
-
-                return self._agent.request(method, uri, headers, bodyProducer)
-
+                self._challenged[self._authKey(method, uri)] = challenge
+                return self._respondToChallenge(challenge, method, uri, headers, bodyProducer)
         return response
 
 
