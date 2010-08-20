@@ -817,9 +817,8 @@ class NotificationCollection(CommonHomeChild):
     notificationObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
 
     def notificationObjectWithUID(self, uid):
-
-        record = self.retrieveOldIndex().recordForUID(uid)
-        return self.notificationObjectWithName(record.name) if record else None
+        name = uid + ".xml"
+        return self.notificationObjectWithName(name)
 
     def writeNotificationObject(self, uid, xmltype, xmldata):
         name = uid + ".xml"
@@ -886,6 +885,8 @@ class NotificationObject(CommonObjectResource):
             NotificationRecord(uid, rname, xmltype.name)
         )
 
+        self._xmldata = xmldata
+
         def do():
             backup = None
             if self._path.exists():
@@ -924,7 +925,12 @@ class NotificationObject(CommonObjectResource):
         # manipulation methods won't work.
         self._transaction.addOperation(self.properties().flush, "post-update property flush")
 
+
+    _xmldata = None
+
     def xmldata(self):
+        if self._xmldata is not None:
+            return self._xmldata
         try:
             fh = self._path.open()
         except IOError, e:

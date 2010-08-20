@@ -778,7 +778,8 @@ class PostgresLegacyInvitesEmulator(object):
                 _BIND_MODE_READ: "read-only",
                 _BIND_MODE_WRITE: "read-write"
             }[bindMode]
-            principalURL = "/principals/__uids__/" + ownerUID
+            principalURL = "/principals/__uids__/%s/" % (ownerUID,)
+            print 'I am generating a principal URL that looks like this: %r from an ownerUID of this: %r' % (principalURL, ownerUID)
             yield Invite(
                 inviteuid, userid, principalURL, common_name,
                 access, state, summary
@@ -814,7 +815,8 @@ class PostgresLegacyInvitesEmulator(object):
         }[record.state]
         # principalURL is derived from a directory record's principalURL() so
         # it will always contain the UID.
-        principalUID = record.principalURL.split("/")[-1]
+        principalUID = record.principalURL.split("/")[-2]
+        print 'I am computing a principal UID which looks like this: %r from a principal URL that looks like this: %r' % (principalUID, record.principalURL)
         shareeHome = self._txn.calendarHomeWithUID(principalUID, create=True)
         rows = self._txn.execSQL(
             "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where SENDER_ADDRESS = %s",
@@ -1936,9 +1938,16 @@ class PostgresNotificationCollection(object):
 
     def writeNotificationObject(self, uid, xmltype, xmldata):
         xmltypeString = xmltype.toxml()
-        self._txn.execSQL(
-            "insert into NOTIFICATION (NOTIFICATION_HOME_RESOURCE_ID, NOTIFICATION_UID, XML_TYPE, XML_DATA) "
-            "values (%s, %s, %s, %s)", [self._resourceID, uid, xmltypeString, xmldata])
+        existing = self._txn.execSQL("select NOTIFICATION_UID from NOTIFICATION where NOTIFICATION_HOME_RESOURCE_ID = %s and NOTIFICATION_UID = %s",
+            [self._resourceID, uid])
+        if existing:
+            self._txn.execSQL(
+                "update NOTIFICATION set XML_TYPE = %s, XML_DATA = %s where NOTIFICATION_HOME_RESOURCE_ID = %s and NOTIFICATION_UID = %s",
+                [xmltypeString, xmldata, self._resourceID, uid])
+        else:
+            self._txn.execSQL(
+                "insert into NOTIFICATION (NOTIFICATION_HOME_RESOURCE_ID, NOTIFICATION_UID, XML_TYPE, XML_DATA) "
+                "values (%s, %s, %s, %s)", [self._resourceID, uid, xmltypeString, xmldata])
         notificationObject = self.notificationObjectWithUID(uid)
         notificationObject.properties()[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
 

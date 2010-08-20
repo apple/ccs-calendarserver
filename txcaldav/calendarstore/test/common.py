@@ -48,7 +48,7 @@ from twext.web2.dav.element.base import WebDAVUnknownElement
 from twext.python.vcomponent import VComponent
 
 from twistedcaldav.notify import Notifier
-from twistedcaldav.customxml import InviteNotification
+from twistedcaldav.customxml import InviteNotification, InviteSummary
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -315,7 +315,6 @@ class CommonTests(object):
         return notificationObject
 
 
-
     def test_notificationObjectProvides(self):
         """
         The objects retrieved from the notification home (the object returned
@@ -323,6 +322,24 @@ class CommonTests(object):
         """
         notificationObject = self.notificationUnderTest()
         self.assertProvides(INotificationObject, notificationObject)
+
+
+    def test_replaceNotification(self):
+        """
+        L{INotificationCollection.writeNotificationObject} will silently
+        overwrite the notification object.
+        """
+        notifications = self.transactionUnderTest().notificationsWithUID(
+            "home1"
+        )
+        inviteNotification = InviteNotification()
+        notifications.writeNotificationObject("abc", inviteNotification,
+            inviteNotification.toxml())
+        inviteNotification2 = InviteNotification(InviteSummary("a summary"))
+        notifications.writeNotificationObject(
+            "abc", inviteNotification, inviteNotification2.toxml())
+        abc = notifications.notificationObjectWithUID("abc")
+        self.assertEquals(abc.xmldata(), inviteNotification2.toxml())
 
 
     def test_notificationObjectModified(self):
