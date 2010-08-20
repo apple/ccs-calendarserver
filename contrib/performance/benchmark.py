@@ -212,7 +212,7 @@ def benchmark(directory, label, benchmarks):
     pids = instancePIDs(directory)
 
     parameters = [1, 9, 81]
-    samples = 100
+    samples = 200
 
     statistics = {}
 
