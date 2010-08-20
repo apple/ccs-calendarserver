@@ -922,39 +922,85 @@ class PostgresLegacySharesEmulator(object):
 
 
     def allRecords(self):
-        return []
-#        c = self._home._txn._cursor
-#        c.execute(
-#            "select CALENDAR_RESOURCE_ID, CALENDAR_HOME_RESOURCE_ID from "
-#            "CALENDAR_BIND where CALENDAR_BIND"
-#            "",
-#            [self._home.uid()])
-#        ownedShares = c.fetchall()
-#        for row in rows:
-#            [calendarResourceID] = row
-#            shareuid = 
-#            yield SharedCollectionRecord(
-#                shareuid, sharetype, hosturl, localname, summary
-#            )
+        # This should have been a smart join that got all these columns at
+        # once, but let's not bother to fix it, since the actual query we
+        # _want_ to do (just look for calendar binds in a particular homes) is
+        # much simpler anyway; we should just do that.
+        shareRows = self._txn.execSQL(
+            """
+            select CALENDAR_RESOURCE_ID, CALENDAR_RESOURCE_NAME, MESSAGE
+            from CALENDAR_BIND
+                where CALENDAR_HOME_RESOURCE_ID = %s and
+                BIND_MODE != %s and
+                CALENDAR_RESOURCE_NAME is not null
+            """, [self._home._resourceID, _BIND_MODE_OWN])
+        for resourceID, resourceName, summary in shareRows:
+            [[shareuid]] = self._txn.execSQL(
+                """
+                select INVITE_UID
+                from INVITE
+                where RESOURCE_ID = %s and HOME_RESOURCE_ID = %s
+                """, [resourceID, self._home._resourceID])
+            sharetype = 'I'
+            [[ownerHomeID, ownerResourceName]] = self._txn.execSQL(
+                """
+                select CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME
+                from CALENDAR_BIND
+                where CALENDAR_RESOURCE_ID = %s and
+                    BIND_MODE = %s
+                """, [resourceID, _BIND_MODE_OWN]
+                )
+            [[ownerUID]] = self._txn.execSQL(
+                "select OWNER_UID from CALENDAR_HOME where RESOURCE_ID = %s",
+                [ownerHomeID])
+            hosturl = '/calendars/__uids__/%s/%s' % (
+                ownerUID, ownerResourceName
+            )
+            localname = resourceName
+            record = SharedCollectionRecord(
+                shareuid, sharetype, hosturl, localname, summary
+            )
+            yield record
 
+
+    def _search(self, **kw):
+        [[key, value]] = kw.items()
+        for record in self.allRecords():
+            if getattr(record, key) == value:
+                return record
 
     def recordForLocalName(self, localname):
-        return None
-#        c = self._home._txn.cursor()
-#        return SharedCollectionRecord(shareuid, sharetype, hosturl, localname, summary)
-
+        return self._search(localname=localname)
 
     def recordForShareUID(self, shareUID):
-        pass
+        return self._search(shareuid=shareUID)
 
 
     def addOrUpdateRecord(self, record):
-        print record
+#        print '*** SHARING***: Adding or updating this record:'
+#        import pprint
+#        pprint.pprint(record.__dict__)
+        # record.hosturl -> /calendars/__uids__/<uid>/<calendarname>
+        splithost = record.hosturl.split('/')
+        ownerUID = splithost[3]
+        ownerCalendarName = splithost[4]
+        ownerHome = self._txn.calendarHomeWithUID(ownerUID)
+        ownerCalendar = ownerHome.calendarWithName(ownerCalendarName)
+        calendarResourceID = ownerCalendar._resourceID
 
-#        self._db_execute("""insert or replace into SHARES (SHAREUID, SHARETYPE, HOSTURL, LOCALNAME, SUMMARY)
-#            values (:1, :2, :3, :4, :5)
-#            """, record.shareuid, record.sharetype, record.hosturl, record.localname, record.summary,
-#        )
+        # There needs to be a bind already, one that corresponds to the
+        # invitation.  The invitation's UID is the same as the share UID.  I
+        # just need to update its 'localname', i.e.
+        # CALENDAR_BIND.CALENDAR_RESOURCE_NAME.
+
+        self._txn.execSQL(
+            """
+            update CALENDAR_BIND set CALENDAR_RESOURCE_NAME = %s
+            where CALENDAR_HOME_RESOURCE_ID = %s and CALENDAR_RESOURCE_ID = %s
+            """,
+            [record.localname, self._home._resourceID, calendarResourceID]
+        )
+
 
     def removeRecordForLocalName(self, localname):
         self._txn.execSQL(
@@ -1404,7 +1450,7 @@ class PostgresCalendar(CalendarSyncTokenHelper):
 
 
     def setSharingUID(self, uid):
-        pass
+        self.properties()._setPerUserUID(uid)
 
 
     def retrieveOldInvites(self):
@@ -1639,8 +1685,9 @@ class PostgresCalendarHome(object):
         rows = self._txn.execSQL(
             "select CALENDAR_RESOURCE_NAME from CALENDAR_BIND where "
             "CALENDAR_HOME_RESOURCE_ID = %s "
-            "AND BIND_STATUS != %s",
-            [self._resourceID, _BIND_STATUS_DECLINED]
+            "and BIND_MODE = %s ",
+            # Right now, we only show owned calendars.
+            [self._resourceID, _BIND_MODE_OWN]
         )
         names = [row[0] for row in rows]
         return names
@@ -1669,8 +1716,9 @@ class PostgresCalendarHome(object):
         """
         data = self._txn.execSQL(
             "select CALENDAR_RESOURCE_ID from CALENDAR_BIND where "
-            "CALENDAR_RESOURCE_NAME = %s and CALENDAR_HOME_RESOURCE_ID = %s",
-            [name, self._resourceID]
+            "CALENDAR_RESOURCE_NAME = %s and CALENDAR_HOME_RESOURCE_ID = %s "
+            "and BIND_MODE = %s",
+            [name, self._resourceID, _BIND_MODE_OWN]
         )
         if not data:
             return None
@@ -2546,7 +2594,7 @@ class PostgresAddressBook(AddressbookSyncTokenHelper):
 
 
     def setSharingUID(self, uid):
-        pass
+        self.properties()._setPerUserUID(uid)
 
 
     def retrieveOldInvites(self):
