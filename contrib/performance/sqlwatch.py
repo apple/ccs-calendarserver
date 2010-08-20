@@ -7,7 +7,7 @@ from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet import reactor
 
-from benchmark import DTraceCollector
+from benchmark import DTraceCollector, instancePIDs
 
 
 class Stop(Exception):
@@ -34,8 +34,9 @@ def waitForInterrupt():
 
 
 @inlineCallbacks
-def collect(pids):
+def collect(directory):
     while True:
+        pids = instancePIDs(directory)
         dtrace = DTraceCollector("sql_measure.d", pids)
         print 'Starting'
         yield dtrace.start()
@@ -56,15 +57,7 @@ def collect(pids):
 def main():
     from twisted.python.failure import startDebugMode
     startDebugMode()
-
-    pids = []
-    for pidfile in os.listdir(sys.argv[1]):
-        if pidfile.startswith('caldav-instance-'):
-            pidpath = os.path.join(sys.argv[1], pidfile)
-            pidtext = file(pidpath).read()
-            pid = int(pidtext)
-            pids.append(pid)
-    d = collect(pids)
+    d = collect(sys.argv[1])
     d.addErrback(err, "Problem collecting SQL")
     d.addBoth(lambda ign: reactor.stop())
     reactor.run(installSignalHandlers=False)

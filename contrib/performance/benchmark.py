@@ -1,4 +1,4 @@
-import sys
+import sys, os
 from os.path import dirname
 
 from signal import SIGINT
@@ -7,6 +7,7 @@ from pickle import dump
 from datetime import datetime
 from StringIO import StringIO
 
+from twisted.python.reflect import namedAny
 from twisted.internet.protocol import ProcessProtocol
 from twisted.internet.defer import (
     Deferred, inlineCallbacks, gatherResults)
@@ -62,6 +63,17 @@ class IOMeasureConsumer(ProcessProtocol):
             self.done.callback(self.out.getvalue())
         else:
             self.started.errback(RuntimeError("Exited too soon"))
+
+
+def instancePIDs(directory):
+    pids = []
+    for pidfile in os.listdir(directory):
+        if pidfile.startswith('caldav-instance-'):
+            pidpath = os.path.join(directory, pidfile)
+            pidtext = file(pidpath).read()
+            pid = int(pidtext)
+            pids.append(pid)
+    return pids
 
 
 class DTraceCollector(object):
@@ -194,27 +206,24 @@ class DTraceCollector(object):
 
 
 @inlineCallbacks
-def benchmark(argv):
+def benchmark(directory, name, measure):
     # Figure out which pids we are benchmarking.
-    pids = map(int, argv)
+    pids = instancePIDs(directory)
 
-    parameters = [1, 10, 100]
-    stuff = [
-        ('vfreebusy', vfreebusy.measure, parameters),
-        ]
+    parameters = [1, 10, 20]
+    samples = 5
 
     statistics = {}
 
-    for stat, survey, parameter in stuff:
-        print 'Surveying', stat
-        statistics[stat] = {}
-        for p in parameter:
-            print 'Parameter at', p
-            dtrace = DTraceCollector("io_measure.d", pids)
-            data = yield survey(dtrace, p, 100)
-            statistics[stat][p] = data
+    statistics[name] = {}
+    for p in parameters:
+        print 'Parameter at', p
+        dtrace = DTraceCollector("io_measure.d", pids)
+        data = yield measure(dtrace, p, samples)
+        statistics[name][p] = data
 
-    fObj = file(datetime.now().isoformat(), 'w')
+    fObj = file(
+        '%s-%s' % (name, datetime.now().isoformat()), 'w')
     dump(statistics, fObj, 2)
     fObj.close()
 
@@ -223,7 +232,8 @@ def main():
     from twisted.python.log import err
     from twisted.python.failure import startDebugMode
     startDebugMode()
-    d = benchmark(sys.argv[1:])
+    d = benchmark(
+        sys.argv[1], sys.argv[2], namedAny(sys.argv[2]).measure)
     d.addErrback(err)
     d.addCallback(lambda ign: reactor.stop())
     reactor.run()
