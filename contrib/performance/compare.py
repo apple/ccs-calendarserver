@@ -2,6 +2,8 @@ import sys, pickle
 
 import stats
 
+from benchlib import load_stats
+
 try:
     from scipy.stats import ttest_1samp
 except ImportError:
@@ -20,25 +22,15 @@ except ImportError:
             [p, None])
 
 
-def select(statistics, benchmark, parameter, statistic):
-    for stat, samples in statistics[benchmark][int(parameter)].iteritems():
-        if stat.name == statistic:
-            return (stat, samples)
-    raise ValueError("Unknown statistic %r" % (statistic,))
-
-
 def main():
-    first = pickle.load(file(sys.argv[1]))
-    second = pickle.load(file(sys.argv[2]))
-
-    stat, first = select(first, *sys.argv[3:])
-    stat, second = select(second, *sys.argv[3:])
+    [(stat, first), (stat, second)] = load_stats(sys.argv[1:])
 
     fmean = stats.mean(first)
+    smean = stats.mean(second)
     p = 1 - ttest_1samp(second, fmean)[1][0]
     if p >= 0.95:
         # rejected the null hypothesis
-        print sys.argv[1], 'mean of', fmean, 'differs from', sys.argv[2], 'mean of', stats.mean(second), '(%2.0f%%)' % (p * 100,)
+        print sys.argv[1], 'mean of', fmean, 'differs from', sys.argv[2], 'mean of', smean, '(%2.0f%%)' % (p * 100,)
     else:
         # failed to reject the null hypothesis
-        print 'cannot prove means differ (%2.0f%%)' % (p * 100,)
+        print 'cannot prove means (%s, %s) differ (%2.0f%%)' % (fmean, smean, p * 100,)

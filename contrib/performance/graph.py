@@ -4,20 +4,13 @@ import sys, pickle
 from matplotlib import pyplot
 import numpy
 
-from compare import select
+from benchlib import load_stats
 
 def main():
     fig = pyplot.figure()
     ax = fig.add_subplot(111)
 
-    data = []
-    for fname in sys.argv[1:]:
-        fname, bench, param, stat = fname.split(',')
-        stats, samples = select(
-            pickle.load(file(fname)), bench, param, stat)
-        data.append(samples)
-        if data:
-            assert len(samples) == len(data[0])
+    data = [samples for (stat, samples) in load_stats(sys.argv[1:])]
 
     bars = []
     color = iter('rgbcmy').next

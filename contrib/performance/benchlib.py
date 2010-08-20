@@ -1,4 +1,4 @@
-
+import pickle
 from time import time
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -73,3 +73,22 @@ def sample(dtrace, samples, agent, paramgen):
     stats = yield dtrace.stop()
     stats[Duration('urlopen time')] = data
     returnValue(stats)
+
+
+def select(statistics, benchmark, parameter, statistic):
+    for stat, samples in statistics[benchmark][int(parameter)].iteritems():
+        if stat.name == statistic:
+            return (stat, samples)
+    raise ValueError("Unknown statistic %r" % (statistic,))
+
+
+def load_stats(statfiles):
+    data = []
+    for fname in statfiles:
+        fname, bench, param, stat = fname.split(',')
+        stats, samples = select(
+            pickle.load(file(fname)), bench, param, stat)
+        data.append((stats, samples))
+        if data:
+            assert len(samples) == len(data[0][1])
+    return data
