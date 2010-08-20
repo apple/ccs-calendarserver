@@ -1,15 +1,14 @@
+
 """
-Benchmark a server's handling of VFREEBUSY requests.
+Benchmark a server's handling of event creation and modification.
 """
+
+from itertools import count
 
 from urllib2 import HTTPDigestAuthHandler
 from uuid import uuid4
 from datetime import datetime, timedelta
 
-from protocol.url import URL
-
-from twisted.internet.defer import (
-    inlineCallbacks)
 from twisted.internet import reactor
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
@@ -25,56 +24,51 @@ VERSION:2.0
 CALSCALE:GREGORIAN
 PRODID:-//Apple Inc.//iCal 4.0.3//EN
 BEGIN:VTIMEZONE
-TZID:America/New_York
+TZID:America/Los_Angeles
 BEGIN:STANDARD
 DTSTART:20071104T020000
 RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-TZNAME:EST
-TZOFFSETFROM:-0400
-TZOFFSETTO:-0500
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
 END:STANDARD
 BEGIN:DAYLIGHT
 DTSTART:20070311T020000
 RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
-TZNAME:EDT
-TZOFFSETFROM:-0500
-TZOFFSETTO:-0400
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
 END:DAYLIGHT
 END:VTIMEZONE
 %(VEVENTS)s\
 END:VCALENDAR
 """
 
-vfreebusy = """\
-BEGIN:VCALENDAR
-CALSCALE:GREGORIAN
-VERSION:2.0
-METHOD:REQUEST
-PRODID:-//Apple Inc.//iCal 4.0.3//EN
-BEGIN:VFREEBUSY
-UID:81F582C8-4E7F-491C-85F4-E541864BE0FA
-DTEND:20100730T150000Z
-ATTENDEE:urn:uuid:user02
-DTSTART:20100730T140000Z
-X-CALENDARSERVER-MASK-UID:EC75A61B-08A3-44FD-BFBB-2457BBD0D490
-DTSTAMP:20100729T174751Z
-ORGANIZER:mailto:user01@example.com
-SUMMARY:Availability for urn:uuid:user02
-END:VFREEBUSY
-END:VCALENDAR
+attendee = """\
+ATTENDEE;CN=User %(SEQUENCE)02d;CUTYPE=INDIVIDUAL;EMAIL=user%(SEQUENCE)02d@example.com;PARTSTAT=NE
+ EDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:use
+ r%(SEQUENCE)02d
 """
+
+def makeAttendees(count):
+    return '\n'.join([
+            attendee % {'SEQUENCE': n} for n in range(2, count + 2)])
+
 
 def formatDate(d):
     return ''.join(filter(str.isalnum, d.isoformat()))
 
-def makeEvent(i):
+
+def makeEvent(i, attendeeCount):
     s = """\
 BEGIN:VEVENT
 UID:%(UID)s
-DTSTART;TZID=America/New_York:%(START)s
-DTEND;TZID=America/New_York:%(END)s
+DTSTART;TZID=America/Los_Angeles:%(START)s
+DTEND;TZID=America/Los_Angeles:%(END)s
+%(ATTENDEES)s\
 CREATED:20100729T193912Z
 DTSTAMP:20100729T195557Z
+ORGANIZER;CN=User 03;EMAIL=user03@example.com:urn:uuid:user03
 SEQUENCE:%(SEQUENCE)s
 SUMMARY:STUFF IS THINGS
 TRANSP:OPAQUE
@@ -89,31 +83,23 @@ END:VEVENT
             'START': formatDate(base + i * interval),
             'END': formatDate(base + i * interval + duration),
             'SEQUENCE': i,
+            'ATTENDEES': makeAttendees(attendeeCount),
             },
         }
 
 
-def makeEvents(n):
-    return [makeEvent(i) for i in range(n)]
-
-
-def measure(dtrace, events, samples):
+def measure(dtrace, attendeeCount, samples):
     user = password = "user01"
     host = "localhost"
     port = 8008
     root = "/"
     principal = "/"
-    calendar = "vfreebusy-benchmark"
+    calendar = "event-creation-benchmark"
 
     # First set things up
-    account = initialize(host, port, user, password, root, principal, calendar)
+    initialize(host, port, user, password, root, principal, calendar)
 
-    base = "/calendars/users/%s/%s/foo-%%d.ics" % (user, calendar)
-    for i, cal in enumerate(makeEvents(events)):
-        account.session.writeData(
-            URL(base % (i,)), cal, "text/calendar")
-
-    # CalDAVClientLibrary can't seem to POST things.
+    # CalDAVClientLibrary can't seem to POST things.  Use Twisted instead.
     authinfo = HTTPDigestAuthHandler()
     authinfo.add_password(
         realm="Test Realm",
@@ -122,11 +108,17 @@ def measure(dtrace, events, samples):
         passwd=password)
 
     agent = AuthHandlerAgent(Agent(reactor), authinfo)
-    method = 'POST'
-    uri = 'http://localhost:8008/calendars/__uids__/user01/outbox/'
+    method = 'PUT'
+    uri = 'http://%s:%d/calendars/__uids__/%s/%s/foo-%%d.ics' % (
+        host, port, user, calendar)
     headers = Headers({"content-type": ["text/calendar"]})
-    body = StringProducer(vfreebusy)
 
+    # An infinite stream of VEVENTs to PUT to the server.
+    events = ((i, makeEvent(i, attendeeCount)) for i in count(2))
+
+    # Sample it a bunch of times
     return sample(
         dtrace, samples, 
-        agent, lambda: (method, uri, headers, body))
+        agent, ((method, uri % (i,), headers, StringProducer(body))
+                for (i, body)
+                in events).next)
