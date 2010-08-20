@@ -108,25 +108,23 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
         PropertyName.fromElement(TwistedQuotaRootProperty),
     ))
 
-    def __init__(self, peruser, defaultuser):
+    def __init__(self, defaultuser):
         """
         Instantiate the property store for a user. The default is the default user
         (owner) property to read in the case of global or shadowable properties.
-
-        @param peruser: the user uid
-        @type peruser: C{str}
 
         @param defaultuser: the default user uid
         @type defaultuser: C{str}
         """
         
-        self._peruser = peruser
-        self._defaultuser = defaultuser
+        self._peruser = self._defaultuser = defaultuser
         self._shadowableKeys = set(AbstractPropertyStore._defaultShadowableKeys)
         self._globalKeys = set(AbstractPropertyStore._defaultGlobalKeys)
 
-    def setPerUserUID(self, uid):
+
+    def _setPerUserUID(self, uid):
         self._peruser = uid
+
 
     def setSpecialProperties(self, shadowableKeys, globalKeys):
         self._shadowableKeys.update(shadowableKeys)

@@ -19,10 +19,10 @@
 Calendar store interfaces
 """
 
-from txdav.common.icommondatastore import ICommonTransaction
+from txdav.common.icommondatastore import ICommonTransaction,\
+    IShareableCollection
 from txdav.idav import IDataStoreResource
 
-from zope.interface import Interface
 from txdav.idav import INotifier
 
 
@@ -138,7 +138,7 @@ class ICalendarHome(INotifier, IDataStoreResource):
         """
 
 
-class ICalendar(INotifier, IDataStoreResource):
+class ICalendar(INotifier, IShareableCollection, IDataStoreResource):
     """
     Calendar
 

@@ -56,7 +56,7 @@ from txdav.common.icommondatastore import (
     NoSuchHomeChildError, NoSuchObjectResourceError)
 from txcaldav.calendarstore.util import (validateCalendarComponent,
     validateAddressBookComponent, dropboxIDFromCalendarObject, SyncTokenHelper)
-
+from txdav.datastore.file import cached
 
 from txcaldav.icalendarstore import (ICalendarTransaction, ICalendarHome,
     ICalendar, ICalendarObject, IAttachment)
@@ -214,8 +214,8 @@ def memoized(keyArgument, memoAttribute):
 
 class PropertyStore(AbstractPropertyStore):
 
-    def __init__(self, peruser, defaultuser, txn, resourceID):
-        super(PropertyStore, self).__init__(peruser, defaultuser)
+    def __init__(self, defaultuser, txn, resourceID):
+        super(PropertyStore, self).__init__(defaultuser)
         self._txn = txn
         self._resourceID = resourceID
 
@@ -311,9 +311,9 @@ class PostgresCalendarObject(object):
         return self.component().mainType()
 
 
+    @cached
     def properties(self):
         return PropertyStore(
-            self.uid(),
             self.uid(),
             self._txn,
             self._resourceID
@@ -749,7 +749,7 @@ class PostgresLegacyInvitesEmulator(object):
         for row in self._txn.execSQL(
                 """
                 select
-                    INVITE.INVITE_UID, INVITE.NAME, INVITE.SENDER_ADDRESS,
+                    INVITE.INVITE_UID, INVITE.NAME, INVITE.RECIPIENT_ADDRESS,
                     CALENDAR_HOME.OWNER_UID, CALENDAR_BIND.BIND_MODE,
                     CALENDAR_BIND.BIND_STATUS, CALENDAR_BIND.MESSAGE
                 from
@@ -813,11 +813,12 @@ class PostgresLegacyInvitesEmulator(object):
             "INVALID": _BIND_STATUS_INVALID,
         }[record.state]
         # principalURL is derived from a directory record's principalURL() so
-        # it will always contain the UID.
-        principalUID = record.principalURL.split("/")[-2]
+        # it will always contain the UID.  The form is '/principals/__uids__/x'
+        # (and may contain a trailing slash).
+        principalUID = record.principalURL.split("/")[3]
         shareeHome = self._txn.calendarHomeWithUID(principalUID, create=True)
         rows = self._txn.execSQL(
-            "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where SENDER_ADDRESS = %s",
+            "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where RECIPIENT_ADDRESS = %s",
             [record.userid]
         )
         if rows:
@@ -833,11 +834,25 @@ class PostgresLegacyInvitesEmulator(object):
                 resourceID, homeResourceID])
             self._txn.execSQL("""
                 update INVITE set NAME = %s, INVITE_UID = %s
-                where SENDER_ADDRESS = %s
+                where RECIPIENT_ADDRESS = %s
                 """,
                 [record.name, record.inviteuid, record.userid]
             )
         else:
+            self._txn.execSQL(
+                """
+                insert into INVITE (
+                    INVITE_UID, NAME,
+                    HOME_RESOURCE_ID, RESOURCE_ID,
+                    RECIPIENT_ADDRESS
+                )
+                values (%s, %s, %s, %s, %s)
+                """,
+                [
+                    record.inviteuid, record.name,
+                    shareeHome._resourceID, self._calendar._resourceID,
+                    record.userid
+                ])
             self._txn.execSQL(
                 """
                 insert into CALENDAR_BIND
@@ -858,20 +873,6 @@ class PostgresLegacyInvitesEmulator(object):
                     False,
                     False,
                     record.summary
-                ])
-            self._txn.execSQL(
-                """
-                insert into INVITE (
-                    INVITE_UID, NAME,
-                    HOME_RESOURCE_ID, RESOURCE_ID,
-                    SENDER_ADDRESS
-                )
-                values (%s, %s, %s, %s, %s)
-                """,
-                [
-                    record.inviteuid, record.name,
-                    shareeHome._resourceID, self._calendar._resourceID,
-                    record.userid
                 ])
 
 
@@ -1374,6 +1375,10 @@ class PostgresCalendar(SyncTokenHelper):
         return self._home._txn
 
 
+    def setSharingUID(self, uid):
+        pass
+
+
     def retrieveOldInvites(self):
         return PostgresLegacyInvitesEmulator(self)
 
@@ -1526,11 +1531,10 @@ class PostgresCalendar(SyncTokenHelper):
         raise NotImplementedError()
 
 
+    @cached
     def properties(self):
-        ownerUID = self.ownerCalendarHome().uid()
         return PropertyStore(
-            ownerUID,
-            ownerUID,
+            self.ownerCalendarHome().uid(),
             self._txn,
             self._resourceID
         )
@@ -1720,9 +1724,9 @@ class PostgresCalendarHome(object):
             self._txn.postCommit(self._notifier.notify)
 
 
+    @cached
     def properties(self):
         return PropertyStore(
-            self.uid(),
             self.uid(),
             self._txn,
             self._resourceID
@@ -1816,11 +1820,13 @@ class PostgresNotificationObject(object):
         return self._fieldQuery("NOTIFICATION_UID")
 
 
+    @cached
     def properties(self):
-        return PropertyStore(self._home.uid(),
-                             self._home.uid(),
-                             self._txn,
-                             self._resourceID)
+        return PropertyStore(
+            self._home.uid(),
+            self._txn,
+            self._resourceID
+        )
 
 
     def md5(self):
@@ -1972,9 +1978,12 @@ class PostgresNotificationCollection(object):
         return (changed, removed, token)
 
 
+    @cached
     def properties(self):
         return PropertyStore(
-            self._uid, self._uid, self._txn, self._resourceID
+            self._uid,
+            self._txn,
+            self._resourceID
         )
 
 
@@ -2174,9 +2183,9 @@ class PostgresAddressBookObject(object):
         return self.component().mainType()
 
 
+    @cached
     def properties(self):
         return PropertyStore(
-            self.uid(),
             self.uid(),
             self._txn,
             self._resourceID
@@ -2489,6 +2498,10 @@ class PostgresAddressBook(SyncTokenHelper):
         return self._home._txn
 
 
+    def setSharingUID(self, uid):
+        pass
+
+
     def retrieveOldInvites(self):
         return PostgresLegacyInvitesEmulator(self)
 
@@ -2637,11 +2650,10 @@ class PostgresAddressBook(SyncTokenHelper):
         raise NotImplementedError()
 
 
+    @cached
     def properties(self):
-        ownerUID = self.ownerAddressBookHome().uid()
         return PropertyStore(
-            ownerUID,
-            ownerUID,
+            self.ownerAddressBookHome().uid(),
             self._txn,
             self._resourceID
         )
@@ -2821,9 +2833,9 @@ class PostgresAddressBookHome(object):
             self._txn.postCommit(self._notifier.notify)
 
 
+    @cached
     def properties(self):
         return PropertyStore(
-            self.uid(),
             self.uid(),
             self._txn,
             self._resourceID

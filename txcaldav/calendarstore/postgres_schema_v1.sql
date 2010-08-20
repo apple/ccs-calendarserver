@@ -34,7 +34,7 @@ create table CALENDAR (
 create table INVITE (
     INVITE_UID         varchar(255) not null,
     NAME               varchar(255) not null,
-    SENDER_ADDRESS     varchar(255) not null,
+    RECIPIENT_ADDRESS  varchar(255) not null,
     HOME_RESOURCE_ID   integer      not null,
     RESOURCE_ID        integer      not null
 );

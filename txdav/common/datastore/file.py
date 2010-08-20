@@ -460,7 +460,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         # FIXME: needs tests for actual functionality
         # FIXME: needs to be cached
         # FIXME: transaction tests
-        props = PropertyStore(self.uid(), self.uid(), lambda : self._path)
+        props = PropertyStore(self.uid(), lambda : self._path)
         self._transaction.addOperation(props.flush, "flush home properties")
         return props
 
@@ -499,7 +499,6 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin,
         self._name = name
         self._home = home
         self._notifier = notifier
-        self._peruser_uid = home.uid()
         self._transaction = home._transaction
         self._newObjectResources = {}
         self._cachedObjectResources = {}
@@ -561,9 +560,10 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin,
     def ownerHome(self):
         return self._home
 
+
     def setSharingUID(self, uid):
-        self._peruser_uid = uid
-        self.properties().setPerUserUID(uid)
+        self.properties()._setPerUserUID(uid)
+
 
     def objectResources(self):
         """
@@ -685,17 +685,22 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin,
     def properties(self):
         # FIXME: needs direct tests - only covered by store tests
         # FIXME: transactions
-        props = PropertyStore(
-            self._peruser_uid, self._home.uid(), lambda: self._path
-        )
+        props = PropertyStore(self._home.uid(), lambda: self._path)
         self.initPropertyStore(props)
 
-        self._transaction.addOperation(props.flush, "flush object resource properties")
+        self._transaction.addOperation(props.flush,
+                                       "flush object resource properties")
         return props
 
 
     def initPropertyStore(self, props):
-        pass
+        """
+        A hook for subclasses to override in order to set up their property
+        store after it's been created.
+
+        @param props: the L{PropertyStore} from C{properties()}.
+        """
+
 
     def _doValidate(self, component):
         raise NotImplementedError
@@ -751,7 +756,7 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     @cached
     def properties(self):
         uid = self._parentCollection._home.uid()
-        props = PropertyStore(uid, uid, lambda : self._path)
+        props = PropertyStore(uid, lambda : self._path)
         self._transaction.addOperation(props.flush, "object properties flush")
         return props
 

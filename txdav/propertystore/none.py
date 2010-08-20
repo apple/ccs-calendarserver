@@ -31,8 +31,8 @@ class PropertyStore(AbstractPropertyStore):
     
     properties = {}
 
-    def __init__(self, peruser, defaultuser):
-        super(PropertyStore, self).__init__(peruser, defaultuser)
+    def __init__(self, defaultuser):
+        super(PropertyStore, self).__init__(defaultuser)
 
         self.modified = {}
         self.removed = set()

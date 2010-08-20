@@ -84,13 +84,13 @@ class PropertyStore(AbstractPropertyStore):
     }
     _namespaceExpand = dict([ (v, k) for k, v in _namespaceCompress.iteritems() ])
 
-    def __init__(self, peruser, defaultuser, pathFactory):
+    def __init__(self, defaultuser, pathFactory):
         """
         Initialize a L{PropertyStore}.
 
         @param pathFactory: a 0-arg callable that returns the L{CachingFilePath} to set extended attributes on.
         """
-        super(PropertyStore, self).__init__(peruser, defaultuser)
+        super(PropertyStore, self).__init__(defaultuser)
 
         self._pathFactory = pathFactory
         # self.attrs = xattr(path.path)

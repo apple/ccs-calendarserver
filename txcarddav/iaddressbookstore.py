@@ -19,7 +19,8 @@
 Address book store interfaces
 """
 
-from txdav.common.icommondatastore import ICommonTransaction
+from txdav.common.icommondatastore import ICommonTransaction,\
+    IShareableCollection
 from txdav.idav import INotifier
 from txdav.idav import IDataStoreResource
 
@@ -109,7 +110,7 @@ class IAddressBookHome(INotifier, IDataStoreResource):
         """
 
 
-class IAddressBook(INotifier, IDataStoreResource):
+class IAddressBook(INotifier, IShareableCollection, IDataStoreResource):
     """
     AddressBook
 

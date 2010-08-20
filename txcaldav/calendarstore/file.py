@@ -459,7 +459,7 @@ class Attachment(FileMetaDataMixin):
 
     def properties(self):
         uid = self._calendarObject._parentCollection._home.uid()
-        return PropertyStore(uid, uid, lambda :self._path)
+        return PropertyStore(uid, lambda :self._path)
 
 
     def store(self, contentType):
