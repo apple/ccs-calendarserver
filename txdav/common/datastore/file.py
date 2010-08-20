@@ -277,7 +277,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
     def __init__(self, uid, path, dataStore, transaction, notifier):
         self._dataStore = dataStore
-        self._uid = self._peruser_uid = uid
+        self._uid = uid
         self._path = path
         self._transaction = transaction
         self._notifier = notifier
@@ -293,10 +293,6 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
     def uid(self):
         return self._uid
-
-
-    def peruser_uid(self):
-        return self._peruser_uid
 
 
     def _updateSyncToken(self, reset=False):
@@ -464,8 +460,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         # FIXME: needs tests for actual functionality
         # FIXME: needs to be cached
         # FIXME: transaction tests
-        props = PropertyStore(self.peruser_uid(), self.uid(),
-                              lambda : self._path)
+        props = PropertyStore(self.uid(), self.uid(), lambda : self._path)
         self._transaction.addOperation(props.flush, "flush home properties")
         return props
 
@@ -504,7 +499,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin,
         self._name = name
         self._home = home
         self._notifier = notifier
-        self._peruser_uid = home._peruser_uid
+        self._peruser_uid = home.uid()
         self._transaction = home._transaction
         self._newObjectResources = {}
         self._cachedObjectResources = {}
@@ -691,9 +686,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin,
         # FIXME: needs direct tests - only covered by store tests
         # FIXME: transactions
         props = PropertyStore(
-            self._peruser_uid,
-            self._home.uid(),
-            lambda: self._path
+            self._peruser_uid, self._home.uid(), lambda: self._path
         )
         self.initPropertyStore(props)
 
@@ -757,11 +750,8 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
     @cached
     def properties(self):
-        props = PropertyStore(
-            self._parentCollection._home.peruser_uid(),
-            self._parentCollection._home.uid(),
-            lambda : self._path
-        )
+        uid = self._parentCollection._home.uid()
+        props = PropertyStore(uid, uid, lambda : self._path)
         self._transaction.addOperation(props.flush, "object properties flush")
         return props
 
