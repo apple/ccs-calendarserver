@@ -20,8 +20,8 @@ create table CALENDAR_HOME (
 --------------
 
 create table CALENDAR (
-  RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'),
-  SYNC_TOKEN  varchar(255),
+  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ'),
+  REVISION    integer   default 0,
   CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
@@ -211,6 +211,27 @@ create table ATTACHMENT (
 );
 
 
+------------------------------
+-- Calendar Object Revision --
+------------------------------
+
+create sequence CALENDAR_OBJECT_REVISION_SEQ;
+
+
+-------------------------------
+-- Calendar Object Revisions --
+-------------------------------
+
+create table CALENDAR_OBJECT_REVISIONS (
+  CALENDAR_RESOURCE_ID integer      not null references CALENDAR on delete cascade,
+  RESOURCE_NAME        varchar(255) not null,
+  REVISION             integer      not null,
+  DELETED              boolean      not null,
+
+  unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME)
+);
+
+
 ------------------
 -- iTIP Message --
 ------------------
@@ -253,10 +274,10 @@ create table ADDRESSBOOK_HOME (
 -----------------
 
 create table ADDRESSBOOK (
-  RESOURCE_ID integer       primary key default nextval('RESOURCE_ID_SEQ'),
-  SYNC_TOKEN  varchar(255),
-  CREATED     timestamp     default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED    timestamp     default timezone('UTC', CURRENT_TIMESTAMP)
+  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ'),
+  REVISION    integer   default 0,
+  CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
 
@@ -293,3 +314,25 @@ create table ADDRESSBOOK_OBJECT (
   unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME),
   unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)
 );
+
+------------------------------
+-- AddressBook Object Revision --
+------------------------------
+
+create sequence ADDRESSBOOK_OBJECT_REVISION_SEQ;
+
+
+-------------------------------
+-- AddressBook Object Revisions --
+-------------------------------
+
+create table ADDRESSBOOK_OBJECT_REVISIONS (
+  ADDRESSBOOK_RESOURCE_ID integer      not null references ADDRESSBOOK on delete cascade,
+  RESOURCE_NAME           varchar(255) not null,
+  REVISION                integer      not null,
+  DELETED                 boolean      not null,
+
+  unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME)
+);
+
+

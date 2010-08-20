@@ -254,19 +254,17 @@ END:VCALENDAR
             ),
         )
 
-        revision = 0
         for description, name, calendar_txt, reCreate, ok in data:
-            revision += 1
             calendar = Component.fromString(calendar_txt)
             if ok:
                 f = open(os.path.join(self.indexDirPath.path, name), "w")
                 f.write(calendar_txt)
                 del f
 
-                self.db.addResource(name, calendar, revision, reCreate=reCreate)
+                self.db.addResource(name, calendar, reCreate=reCreate)
                 self.assertTrue(self.db.resourceExists(name), msg=description)
             else:
-                self.assertRaises(InvalidOverriddenInstanceError, self.db.addResource, name, calendar, revision)
+                self.assertRaises(InvalidOverriddenInstanceError, self.db.addResource, name, calendar)
                 self.assertFalse(self.db.resourceExists(name), msg=description)
 
         self.db._db_recreate()
@@ -428,16 +426,14 @@ END:VCALENDAR
             ),
         )
 
-        revision = 0
         for description, name, calendar_txt, trstart, trend, organizer, instances in data:
-            revision += 1
             calendar = Component.fromString(calendar_txt)
 
             f = open(os.path.join(self.indexDirPath.path, name), "w")
             f.write(calendar_txt)
             del f
 
-            self.db.addResource(name, calendar, revision)
+            self.db.addResource(name, calendar)
             self.assertTrue(self.db.resourceExists(name), msg=description)
 
             # Create fake filter element to match time-range
@@ -827,16 +823,14 @@ END:VCALENDAR
             ),
         )
 
-        revision = 0
         for description, name, calendar_txt, trstart, trend, organizer, peruserinstances in data:
-            revision += 1
             calendar = Component.fromString(calendar_txt)
 
             f = open(os.path.join(self.indexDirPath.path, name), "w")
             f.write(calendar_txt)
             del f
 
-            self.db.addResource(name, calendar, revision)
+            self.db.addResource(name, calendar)
             self.assertTrue(self.db.resourceExists(name), msg=description)
 
             # Create fake filter element to match time-range
@@ -863,8 +857,7 @@ END:VCALENDAR
     
                 self.assertEqual(set(instances), index_results, msg="%s, user:%s" % (description, useruid,))
 
-            revision += 1
-            self.db.deleteResource(name, revision)
+            self.db.deleteResource(name)
 
     def test_index_revisions(self):
         data1 = """BEGIN:VCALENDAR
@@ -910,17 +903,17 @@ END:VCALENDAR
 """
 
         calendar = Component.fromString(data1)
-        self.db.addResource("data1.ics", calendar, 1)
+        self.db.addResource("data1.ics", calendar)
         calendar = Component.fromString(data2)
-        self.db.addResource("data2.ics", calendar, 2)
+        self.db.addResource("data2.ics", calendar)
         calendar = Component.fromString(data3)
-        self.db.addResource("data3.ics", calendar, 3)
-        self.db.deleteResource("data3.ics", 4)
+        self.db.addResource("data3.ics", calendar)
+        self.db.deleteResource("data3.ics")
 
         tests = (
             (0, (["data1.ics", "data2.ics",], [],)),
-            (1, (["data2.ics",], [],)),
-            (2, ([], [],)),
+            (1, (["data2.ics",], ["data3.ics",],)),
+            (2, ([], ["data3.ics",],)),
             (3, ([], ["data3.ics",],)),
             (4, ([], [],)),
             (5, ([], [],)),

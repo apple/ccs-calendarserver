@@ -119,10 +119,6 @@ def maybeMOVEContact(self, request):
     result, sourceadbk, sourceparent, destination_uri, destination, destinationadbk, destinationparent = (yield checkForAddressBookAction(self, request))
     if not result or not destinationadbk:
 
-        # assume it will work and dirty caches
-        if isAddressBookCollectionResource(self):
-            yield self.updateCTag()
-            
         # Do default WebDAV action
         returnValue(KEEP_GOING)
         

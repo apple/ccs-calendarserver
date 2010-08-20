@@ -24,9 +24,6 @@ from twistedcaldav.vcard import InvalidVCardDataError
 
 from txdav.common.icommondatastore import InvalidObjectResourceError,\
     NoSuchObjectResourceError
-from twistedcaldav.customxml import GETCTag
-from uuid import uuid4
-from txdav.propertystore.base import PropertyName
 
 
 def validateCalendarComponent(calendarObject, calendar, component):
@@ -126,30 +123,183 @@ def validateAddressBookComponent(addressbookObject, vcard, component):
 
 
 
-class SyncTokenHelper(object):
+class CalendarSyncTokenHelper(object):
     """
-    Implement a basic _updateSyncToken in terms of an object with a property
-    store.  This is a mixin for use by data store implementations.
+    This is a mixin for use by data store implementations.
     """
 
-    def _updateSyncToken(self, reset=False):
-        # FIXME: add locking a-la CalDAVResource.bumpSyncToken
-        # FIXME: tests for desired concurrency properties
-        ctag = PropertyName.fromString(GETCTag.sname())
-        props = self.properties()
-        token = props.get(ctag)
-        if token is None or reset:
-            tokenuuid = uuid4()
-            revision = 1
-        else:
-            # FIXME: no direct tests for update
-            token = str(token)
-            tokenuuid, revision = token.split("#", 1)
-            revision = int(revision) + 1
-        token = "%s#%d" % (tokenuuid, revision)
-        props[ctag] = GETCTag(token)
-        # FIXME: no direct tests for commit
-        return revision
+    def syncToken(self):
+        revision = self._txn.execSQL(
+            "select REVISION from CALENDAR where RESOURCE_ID = %s",
+            [self._resourceID])[0][0]
+        return "%s#%s" % (self._resourceID, revision,)
 
+    def _updateSyncToken(self):
+        
+        self._txn.execSQL("""
+            update CALENDAR
+            set (REVISION)
+            = (nextval('CALENDAR_OBJECT_REVISION_SEQ'))
+            where RESOURCE_ID = %s
+            """,
+            [self._resourceID]
+        )
 
+    def _insertRevision(self, name):
+        self._changeRevision("insert", name)
 
+    def _updateRevision(self, name):
+        self._changeRevision("update", name)
+
+    def _deleteRevision(self, name):
+        self._changeRevision("delete", name)
+
+    def _changeRevision(self, action, name):
+        
+        nextrevision = self._txn.execSQL("""
+            select nextval('CALENDAR_OBJECT_REVISION_SEQ')
+            """
+        )
+
+        if action == "delete":
+            self._txn.execSQL("""
+                update CALENDAR_OBJECT_REVISIONS
+                set (REVISION, DELETED) = (%s, TRUE)
+                where CALENDAR_RESOURCE_ID = %s and RESOURCE_NAME = %s
+                """,
+                [nextrevision, self._resourceID, name]
+            )
+            self._txn.execSQL("""    
+                update CALENDAR
+                set (REVISION) = (%s)
+                where RESOURCE_ID = %s
+                """,
+                [nextrevision, self._resourceID]
+            )
+        elif action == "update":
+            self._txn.execSQL("""
+                update CALENDAR_OBJECT_REVISIONS
+                set (REVISION) = (%s)
+                where CALENDAR_RESOURCE_ID = %s and RESOURCE_NAME = %s
+                """,
+                [nextrevision, self._resourceID, name]
+            )
+            self._txn.execSQL("""    
+                update CALENDAR
+                set (REVISION) = (%s)
+                where RESOURCE_ID = %s
+                """,
+                [nextrevision, self._resourceID]
+            )
+        elif action == "insert":
+            self._txn.execSQL("""
+                delete from CALENDAR_OBJECT_REVISIONS
+                where CALENDAR_RESOURCE_ID = %s and RESOURCE_NAME = %s
+                """,
+                [self._resourceID, name,]
+            )
+            self._txn.execSQL("""
+                insert into CALENDAR_OBJECT_REVISIONS
+                (CALENDAR_RESOURCE_ID, RESOURCE_NAME, REVISION, DELETED)
+                values (%s, %s, %s, FALSE)
+                """,
+                [self._resourceID, name, nextrevision]
+            )
+            self._txn.execSQL("""    
+                update CALENDAR
+                set (REVISION) = (%s)
+                where RESOURCE_ID = %s
+                """,
+                [nextrevision, self._resourceID]
+            )
+
+class AddressbookSyncTokenHelper(object):
+    """
+    This is a mixin for use by data store implementations.
+    """
+
+    def syncToken(self):
+        revision = self._txn.execSQL(
+            "select REVISION from ADDRESSBOOK where RESOURCE_ID = %s",
+            [self._resourceID])[0][0]
+        return "%s#%s" % (self._resourceID, revision,)
+
+    def _updateSyncToken(self):
+        
+        self._txn.execSQL("""
+            update ADDRESSBOOK
+            set (REVISION)
+            = (nextval('ADDRESSBOOK_OBJECT_REVISION_SEQ'))
+            where RESOURCE_ID = %s
+            """,
+            [self._resourceID]
+        )
+
+    def _insertRevision(self, name):
+        self._changeRevision("insert", name)
+
+    def _updateRevision(self, name):
+        self._changeRevision("update", name)
+
+    def _deleteRevision(self, name):
+        self._changeRevision("delete", name)
+
+    def _changeRevision(self, action, name):
+        
+        nextrevision = self._txn.execSQL("""
+            select nextval('ADDRESSBOOK_OBJECT_REVISION_SEQ')
+            """
+        )
+
+        if action == "delete":
+            self._txn.execSQL("""
+                update ADDRESSBOOK_OBJECT_REVISIONS
+                set (REVISION, DELETED) = (%s, TRUE)
+                where ADDRESSBOOK_RESOURCE_ID = %s and RESOURCE_NAME = %s
+                """,
+                [nextrevision, self._resourceID, name]
+            )
+            self._txn.execSQL("""    
+                update ADDRESSBOOK
+                set (REVISION) = (%s)
+                where RESOURCE_ID = %s
+                """,
+                [nextrevision, self._resourceID]
+            )
+        elif action == "update":
+            self._txn.execSQL("""
+                update ADDRESSBOOK_OBJECT_REVISIONS
+                set (REVISION) = (%s)
+                where ADDRESSBOOK_RESOURCE_ID = %s and RESOURCE_NAME = %s
+                """,
+                [nextrevision, self._resourceID, name]
+            )
+            self._txn.execSQL("""    
+                update ADDRESSBOOK
+                set (REVISION) = (%s)
+                where RESOURCE_ID = %s
+                """,
+                [nextrevision, self._resourceID]
+            )
+        elif action == "insert":
+            self._txn.execSQL("""
+                delete from ADDRESSBOOK_OBJECT_REVISIONS
+                where ADDRESSBOOK_RESOURCE_ID = %s and RESOURCE_NAME = %s
+                """,
+                [self._resourceID, name,]
+            )
+            self._txn.execSQL("""
+                insert into ADDRESSBOOK_OBJECT_REVISIONS
+                (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME, REVISION, DELETED)
+                values (%s, %s, %s, FALSE)
+                """,
+                [self._resourceID, name, nextrevision]
+            )
+            self._txn.execSQL("""    
+                update ADDRESSBOOK
+                set (REVISION) = (%s)
+                where RESOURCE_ID = %s
+                """,
+                [nextrevision, self._resourceID]
+            )
+        

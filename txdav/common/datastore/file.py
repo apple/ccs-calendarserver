@@ -20,7 +20,8 @@ Common utility functions for a file based datastore.
 """
 
 from twext.python.log import LoggingMixIn
-from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
+from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType, HRef
+from twext.web2.dav.element.rfc5842 import ResourceID
 from twext.web2.http_headers import generateContentType, MimeType
 
 from twisted.python.util import FancyEqMixin
@@ -43,10 +44,10 @@ from txdav.idav import IDataStore
 from txdav.propertystore.base import PropertyName
 from txdav.propertystore.xattr import PropertyStore
 
-from txcaldav.calendarstore.util import SyncTokenHelper
-
 from errno import EEXIST, ENOENT
 from zope.interface import implements, directlyProvides
+
+import uuid
 
 ECALENDARTYPE = 0
 EADDRESSBOOKTYPE = 1
@@ -295,10 +296,8 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         return self._uid
 
 
-    def _updateSyncToken(self, reset=False):
-        "Stub for updating sync token."
-        # FIXME: actually update something
-
+    def transaction(self):
+        return self._transaction
 
     def retrieveOldShares(self):
         """
@@ -471,8 +470,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             return None
 
 
-class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin,
-                      SyncTokenHelper):
+class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     """
     Common ancestor class of AddressBooks and Calendars.
     """
@@ -543,7 +541,6 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin,
 
     @writeOperation
     def rename(self, name):
-        self._updateSyncToken()
         oldName = self.name()
         self._renamedName = name
         self._home._newChildren[name] = self
@@ -553,6 +550,8 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin,
             return lambda : None # FIXME: revert
         self._transaction.addOperation(doIt, "rename home child %r -> %r" %
                                        (oldName, name))
+
+        self.retrieveOldIndex().bumpRevision()
 
         if self._notifier:
             self._transaction.postCommit(self._notifier.notify)
@@ -648,8 +647,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin,
         if name.startswith("."):
             raise NoSuchObjectResourceError(name)
 
-        newRevision = self._updateSyncToken() # FIXME: Test
-        self.retrieveOldIndex().deleteResource(name, newRevision)
+        self.retrieveOldIndex().deleteResource(name)
 
         objectResourcePath = self._path.child(name)
         if objectResourcePath.isfile():
@@ -673,7 +671,13 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin,
 
 
     def syncToken(self):
-        raise NotImplementedError()
+        
+        try:
+            urnuuid = str(self.properties()[PropertyName.fromElement(ResourceID)].children[0])
+        except KeyError:
+            urnuuid = uuid.uuid4().urn
+            self.properties()[PropertyName(*ResourceID.qname())] = ResourceID(HRef.fromString(urnuuid))
+        return "%s#%s" % (urnuuid[9:], self.retrieveOldIndex().lastRevision())
 
 
     def objectResourcesSinceToken(self, token):

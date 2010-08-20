@@ -354,6 +354,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
             baseProperties += (
                 caldavxml.SupportedCalendarComponentSet.qname(),
                 caldavxml.SupportedCalendarData.qname(),
+                customxml.GETCTag.qname(),
             )
 
         if self.isCalendarCollection():
@@ -366,6 +367,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
             baseProperties += (
                 davxml.ResourceID.qname(),
                 carddavxml.SupportedAddressData.qname(),
+                customxml.GETCTag.qname(),
                 customxml.PubSubXMPPPushKeyProperty.qname(),
             )
 
@@ -531,6 +533,11 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
 
         elif qname == davxml.ResourceID.qname():
             returnValue(davxml.ResourceID(davxml.HRef.fromString(self.resourceID())))
+
+        elif qname == customxml.GETCTag.qname() and (
+            self.isPseudoCalendarCollection() or self.isAddressBookCollection()
+        ):
+            returnValue(customxml.GETCTag.fromString(self.getSyncToken()))
 
         elif qname == davxml.SyncToken.qname() and config.EnableSyncReport and (
             self.isPseudoCalendarCollection() or self.isAddressBookCollection()
@@ -1305,7 +1312,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
 
     def whatchanged(self, client_token):
         
-        current_token = str(self.readDeadProperty(customxml.GETCTag))
+        current_token = self.getSyncToken()
         current_uuid, current_revision = current_token.split("#", 1)
         current_revision = int(current_revision)
 
@@ -1331,75 +1338,11 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
 
         return changed, removed, current_token
 
-    @inlineCallbacks
-    def bumpSyncToken(self):
-        """
-        Increment the sync-token which is also the ctag.
-        
-        return: a deferred that returns the new revision number
-        """
-        assert self.isCollection()
-        
-        # Need to lock
-        lock = MemcacheLock("ResourceLock", self.resourceID(), timeout=60.0)
-        try:
-            try:
-                yield lock.acquire()
-            except MemcacheLockTimeoutError:
-                raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (self.uri,)))
-
-            try:
-                token = str(self.readDeadProperty(customxml.GETCTag))
-                caluuid, revision = token.split("#", 1)
-                revision = int(revision) + 1
-                token = "%s#%d" % (caluuid, revision,)
-    
-            except (HTTPError, ValueError):
-                # Initialise it
-                caluuid = uuid4()
-                revision = 1
-                token = "%s#%d" % (caluuid, revision,)
-    
-            yield self.updateCTag(token)
-            returnValue(revision)
-        finally:
-            yield lock.clean()
-
-    def initSyncToken(self):
-        """
-        Create a new sync-token which is also the ctag.
-        """
-        # FIXME: new implementation is in txcaldav.file, this should be
-        # deleted.
-        assert self.isCollection()
-        # Initialise it
-        caluuid = uuid4()
-        revision = 1
-        token = "%s#%d" % (caluuid, revision,)
-        try:
-            self.writeDeadProperty(customxml.GETCTag(token))
-        except:
-            return fail(Failure())
-
     def getSyncToken(self):
         """
         Return current sync-token value.
         """
-        assert self.isCollection()
-        
-        return str(self.readDeadProperty(customxml.GETCTag))
-
-    def updateCTag(self, token=None):
-        assert self.isCollection()
-        
-        if not token:
-            token = str(datetime.datetime.now())
-        try:
-            self.writeDeadProperty(customxml.GETCTag(token))
-        except:
-            return fail(Failure())
-
-        return succeed(True)
+        raise NotImplementedError
 
     #
     # Stuff from CalDAVFile

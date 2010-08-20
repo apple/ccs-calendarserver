@@ -177,9 +177,8 @@ class AddressBookObject(CommonObjectResource):
         except InvalidVCardDataError, e:
             raise InvalidObjectResourceError(e)
 
-        newRevision = self._addressbook._updateSyncToken() # FIXME: test
         self._addressbook.retrieveOldIndex().addResource(
-            self.name(), component, newRevision
+            self.name(), component
         )
 
         self._component = component

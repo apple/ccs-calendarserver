@@ -310,6 +310,22 @@ class StoreScheduleInboxResource(_CalendarChildHelper, ScheduleInboxResource):
         )
 
 
+    def name(self):
+        return self._newStoreCalendar.name()
+
+    def etag(self):
+        return ETag(self._newStoreCalendar.md5())
+
+    def lastModified(self):
+        return self._newStoreCalendar.modified()
+
+    def creationDate(self):
+        return self._newStoreCalendar.created()
+
+    def getSyncToken(self):
+        return self._newStoreCalendar.syncToken()
+
+    
     def provisionFile(self):
         pass
 
@@ -677,6 +693,9 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
 
     def creationDate(self):
         return self._newStoreCalendar.created()
+
+    def getSyncToken(self):
+        return self._newStoreCalendar.syncToken()
 
     def isCollection(self):
         return True
@@ -1311,6 +1330,9 @@ class AddressBookCollectionResource(_AddressBookChildHelper, CalDAVResource):
 
     def creationDate(self):
         return self._newStoreAddressBook.created()
+
+    def getSyncToken(self):
+        return self._newStoreAddressBook.syncToken()
 
     def isCollection(self):
         return True

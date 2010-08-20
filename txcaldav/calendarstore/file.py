@@ -58,7 +58,7 @@ from txcaldav.calendarstore.util import (
 from txdav.common.datastore.file import (
     CommonDataStore, CommonStoreTransaction, CommonHome, CommonHomeChild,
     CommonObjectResource
-)
+, CommonStubResource)
 
 from txdav.common.icommondatastore import (NoSuchObjectResourceError,
     InternalDataStoreError)
@@ -230,9 +230,8 @@ class CalendarObject(CommonObjectResource):
     def setComponent(self, component):
         validateCalendarComponent(self, self._calendar, component)
 
-        newRevision = self._calendar._updateSyncToken() # FIXME: test
         self._calendar.retrieveOldIndex().addResource(
-            self.name(), component, newRevision
+            self.name(), component
         )
 
         self._component = component
@@ -480,26 +479,17 @@ class Attachment(FileMetaDataMixin):
 
 
 
-class CalendarStubResource(object):
+class CalendarStubResource(CommonStubResource):
     """
     Just enough resource to keep the calendar's sql DB classes going.
     """
-
-    def __init__(self, calendar):
-        self.calendar = calendar
-
-
-    @property
-    def fp(self):
-        return self.calendar._path
-
 
     def isCalendarCollection(self):
         return True
 
 
     def getChild(self, name):
-        calendarObject = self.calendar.calendarObjectWithName(name)
+        calendarObject = self.resource.calendarObjectWithName(name)
         if calendarObject:
             class ChildResource(object):
                 def __init__(self, calendarObject):
@@ -511,16 +501,6 @@ class CalendarStubResource(object):
             return ChildResource(calendarObject)
         else:
             return None
-
-
-    def bumpSyncToken(self, reset=False):
-        # FIXME: needs direct tests
-        return self.calendar._updateSyncToken(reset)
-
-
-    def initSyncToken(self):
-        # FIXME: needs direct tests
-        self.bumpSyncToken(True)
 
 
 

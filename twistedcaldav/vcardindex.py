@@ -300,7 +300,7 @@ class AddressBookIndex(AbstractSQLDatabase):
             if name is not None and self.resource.getChild(name_utf8) is None:
                 # Clean up
                 log.err("Stale resource record found for child %s with UID %s in %s" % (name, uid, self.resource))
-                self._delete_from_db(name, uid, None)
+                self._delete_from_db(name, uid, False)
                 self._db_commit()
             else:
                 resources.append(name_utf8)
@@ -332,7 +332,7 @@ class AddressBookIndex(AbstractSQLDatabase):
 
         return uid
 
-    def addResource(self, name, vcard, revision, fast=False):
+    def addResource(self, name, vcard, fast=False):
         """
         Adding or updating an existing resource.
         To check for an update we attempt to get an existing UID
@@ -345,12 +345,12 @@ class AddressBookIndex(AbstractSQLDatabase):
         """
         oldUID = self.resourceUIDForName(name)
         if oldUID is not None:
-            self._delete_from_db(name, oldUID, None)
-        self._add_to_db(name, vcard, revision)
+            self._delete_from_db(name, oldUID, False)
+        self._add_to_db(name, vcard)
         if not fast:
             self._db_commit()
 
-    def deleteResource(self, name, revision):
+    def deleteResource(self, name):
         """
         Remove this resource from the index.
         @param name: the name of the resource to add.
@@ -358,7 +358,7 @@ class AddressBookIndex(AbstractSQLDatabase):
         """
         uid = self.resourceUIDForName(name)
         if uid is not None:
-            self._delete_from_db(name, uid, revision)
+            self._delete_from_db(name, uid)
             self._db_commit()
     
     def resourceExists(self, name):
@@ -387,16 +387,15 @@ class AddressBookIndex(AbstractSQLDatabase):
     
     def whatchanged(self, revision):
 
-        results = [(name.encode("utf-8"), created, wasdeleted) for name, created, wasdeleted in self._db_execute("select NAME, CREATEDREVISION, WASDELETED from REVISIONS where REVISION > :1", revision)]
+        results = [(name.encode("utf-8"), deleted) for name, deleted in self._db_execute("select NAME, DELETED from REVISIONS where REVISION > :1", revision)]
         results.sort(key=lambda x:x[1])
         
         changed = []
         deleted = []
-        for name, created, wasdeleted in results:
+        for name, wasdeleted in results:
             if name:
                 if wasdeleted == 'Y':
-                    # Don't report items that were created/deleted since the requested revision
-                    if created <= revision:
+                    if revision:
                         deleted.append(name)
                 else:
                     changed.append(name)
@@ -404,6 +403,25 @@ class AddressBookIndex(AbstractSQLDatabase):
                 raise SyncTokenValidException
         
         return changed, deleted,
+
+    def lastRevision(self):
+        return self._db_value_for_sql(
+            "select REVISION from REVISION_SEQUENCE"
+        )
+
+    def bumpRevision(self, fast=False):
+        self._db_execute(
+            """
+            update REVISION_SEQUENCE set REVISION = REVISION + 1
+            """,
+        )
+        if not fast:
+            self._db_commit()
+        return self._db_value_for_sql(
+            """
+            select REVISION from REVISION_SEQUENCE
+            """,
+        )
 
     def searchValid(self, filter):
         if isinstance(filter, carddavxml.Filter):
@@ -512,11 +530,22 @@ class AddressBookIndex(AbstractSQLDatabase):
         #
         q.execute(
             """
+            create table REVISION_SEQUENCE (
+                REVISION        integer
+            )
+            """
+        )
+        q.execute(
+            """
+            insert into REVISION_SEQUENCE (REVISION) values (0)
+            """
+        )
+        q.execute(
+            """
             create table REVISIONS (
                 NAME            text unique,
                 REVISION        integer default 0,
-                CREATEDREVISION integer default 0,
-                WASDELETED      text(1) default "N"
+                DELETED         text(1) default "N"
             )
             """
         )
@@ -570,16 +599,13 @@ class AddressBookIndex(AbstractSQLDatabase):
                     log.err("Non-addressbook resource: %s" % (name,))
                 else:
                     #log.msg("Indexing resource: %s" % (name,))
-                    self.addResource(name, vcard, 0, True)
+                    self.addResource(name, vcard, True)
             finally:
                 stream.close()
         
         # Do commit outside of the loop for better performance
         if do_commit:
             self._db_commit()
-
-        # Need sync-token
-        self.resource.initSyncToken()
 
     def _db_can_upgrade(self, old_version):
         """
@@ -596,6 +622,18 @@ class AddressBookIndex(AbstractSQLDatabase):
 
         # When going to version 2+ all we need to do is add revision table and index
         if old_version < 2:
+            q.execute(
+                """
+                create table REVISION_SEQUENCE (
+                    REVISION        integer
+                )
+                """
+            )
+            q.execute(
+                """
+                insert into REVISION_SEQUENCE (REVISION) values (0)
+                """
+            )
             q.execute(
                 """
                 create table REVISIONS (
@@ -620,7 +658,7 @@ class AddressBookIndex(AbstractSQLDatabase):
             )
                 
 
-    def _add_to_db(self, name, vcard, revision, cursor = None):
+    def _add_to_db(self, name, vcard, cursor = None):
         """
         Records the given address book resource in the index with the given name.
         Resource names and UIDs must both be unique; only one resource name may
@@ -640,28 +678,24 @@ class AddressBookIndex(AbstractSQLDatabase):
             """, name, uid,
         )
 
-        if revision is not None:
-            created = self._db_value_for_sql("select CREATEDREVISION from REVISIONS where NAME = :1", name)
-            if created is None:
-                created = revision
-            self._db_execute(
-                """
-                insert or replace into REVISIONS (NAME, REVISION, CREATEDREVISION, WASDELETED)
-                values (:1, :2, :3, :4)
-                """, name, revision, revision, 'N',
-            )
+        self._db_execute(
+            """
+            insert or replace into REVISIONS (NAME, REVISION, DELETED)
+            values (:1, :2, :3)
+            """, name, self.bumpRevision(fast=True), 'N',
+        )
     
-    def _delete_from_db(self, name, uid, revision):
+    def _delete_from_db(self, name, uid, dorevision=True):
         """
         Deletes the specified entry from all dbs.
         @param name: the name of the resource to delete.
         @param uid: the uid of the resource to delete.
         """
         self._db_execute("delete from RESOURCE where NAME = :1", name)
-        if revision is not None:
+        if dorevision:
             self._db_execute(
                 """
-                update REVISIONS SET REVISION = :1, WASDELETED = :2
+                update REVISIONS SET REVISION = :1, DELETED = :2
                 where NAME = :3
-                """, revision, 'Y', name
+                """, self.bumpRevision(fast=True), 'Y', name
             )

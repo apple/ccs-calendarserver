@@ -190,7 +190,10 @@ class AbstractSQLDatabase (object):
             self._db_init_data_tables(q)
             self._db_recreate(False)
 
-        q.execute("commit")
+        try:
+            q.execute("commit")
+        except DatabaseError:
+            pass
 
         self._db_connection.isolation_level = old_isolation
 

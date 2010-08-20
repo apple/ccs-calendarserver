@@ -55,7 +55,8 @@ from txdav.common.icommondatastore import (
     ObjectResourceNameAlreadyExistsError, HomeChildNameAlreadyExistsError,
     NoSuchHomeChildError, NoSuchObjectResourceError)
 from txcaldav.calendarstore.util import (validateCalendarComponent,
-    validateAddressBookComponent, dropboxIDFromCalendarObject, SyncTokenHelper)
+    validateAddressBookComponent, dropboxIDFromCalendarObject, CalendarSyncTokenHelper,
+    AddressbookSyncTokenHelper)
 from txdav.datastore.file import cached
 
 from txcaldav.icalendarstore import (ICalendarTransaction, ICalendarHome,
@@ -75,7 +76,8 @@ from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import normalizeForIndex
-from twistedcaldav.index import IndexedSearchException, ReservationError
+from twistedcaldav.index import IndexedSearchException, ReservationError,\
+    SyncTokenValidException
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
@@ -324,8 +326,7 @@ class PostgresCalendarObject(object):
         validateCalendarComponent(self, self._calendar, component)
 
         self.updateDatabase(component)
-
-        self._calendar._updateSyncToken()
+        self._calendar._updateRevision(self._name)
 
         if self._calendar._notifier:
             self._calendar._home._txn.postCommit(self._calendar._notifier.notify)
@@ -1267,6 +1268,33 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
             self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
             self.reExpandResource(name, minDate)
 
+    def whatchanged(self, revision):
+
+        results = [
+            (name.encode("utf-8"), deleted)
+            for name, deleted in
+            self._txn.execSQL(
+                """select RESOURCE_NAME, DELETED from CALENDAR_OBJECT_REVISIONS
+                   where REVISION > %s and CALENDAR_RESOURCE_ID = %s""",
+                [revision, self.calendar._resourceID],
+            )
+        ]
+        results.sort(key=lambda x:x[1])
+        
+        changed = []
+        deleted = []
+        for name, wasdeleted in results:
+            if name:
+                if wasdeleted:
+                    if revision:
+                        deleted.append(name)
+                else:
+                    changed.append(name)
+            else:
+                raise SyncTokenValidException
+        
+        return changed, deleted,
+
     def indexedSearch(self, filter, useruid='', fbtype=False):
         """
         Finds resources matching the given qualifiers.
@@ -1358,7 +1386,7 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
 
 
 
-class PostgresCalendar(SyncTokenHelper):
+class PostgresCalendar(CalendarSyncTokenHelper):
 
     implements(ICalendar)
 
@@ -1409,6 +1437,7 @@ class PostgresCalendar(SyncTokenHelper):
         # update memos
         del self._home._calendars[oldName]
         self._home._calendars[name] = self
+        self._updateSyncToken()
 
 
     def ownerCalendarHome(self):
@@ -1472,8 +1501,7 @@ class PostgresCalendar(SyncTokenHelper):
         validateCalendarComponent(calendarObject, self, component)
 
         calendarObject.updateDatabase(component, inserting=True)
-
-        self._updateSyncToken()
+        self._insertRevision(name)
 
         if self._notifier:
             self._home._txn.postCommit(self._notifier.notify)
@@ -1488,8 +1516,7 @@ class PostgresCalendar(SyncTokenHelper):
         if self._txn._cursor.rowcount == 0:
             raise NoSuchObjectResourceError()
         self._objects.pop(name, None)
-
-        self._updateSyncToken()
+        self._deleteRevision(name)
 
         if self._notifier:
             self._txn.postCommit(self._notifier.notify)
@@ -1511,16 +1538,10 @@ class PostgresCalendar(SyncTokenHelper):
         )
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
-        self._updateSyncToken()
+        self._deleteRevision(name)
 
         if self._notifier:
             self._home._txn.postCommit(self._notifier.notify)
-
-
-    def syncToken(self):
-        return self._txn.execSQL(
-            "select SYNC_TOKEN from CALENDAR where RESOURCE_ID = %s",
-            [self._resourceID])[0][0]
 
 
     def calendarObjectsInTimeRange(self, start, end, timeZone):
@@ -1684,9 +1705,9 @@ class PostgresCalendarHome(object):
         rows = self._txn.execSQL("select nextval('RESOURCE_ID_SEQ')")
         resourceID = rows[0][0]
         self._txn.execSQL(
-            "insert into CALENDAR (SYNC_TOKEN, RESOURCE_ID) values "
-            "(%s, %s)",
-            ['uninitialized', resourceID])
+            "insert into CALENDAR (RESOURCE_ID) values "
+            "(%s)",
+            [resourceID])
 
         self._txn.execSQL("""
             insert into CALENDAR_BIND (
@@ -1703,7 +1724,7 @@ class PostgresCalendarHome(object):
         newCalendar = self.calendarWithName(name)
         newCalendar.properties()[
             PropertyName.fromElement(ResourceType)] = calendarType
-        newCalendar._updateSyncToken(True)
+        newCalendar._updateSyncToken()
 
         if self._notifier:
             self._txn.postCommit(self._notifier.notify)
@@ -2196,8 +2217,7 @@ class PostgresAddressBookObject(object):
         validateAddressBookComponent(self, self._addressbook, component)
 
         self.updateDatabase(component)
-
-        self._addressbook._updateSyncToken()
+        self._addressbook._updateRevision(self._name)
 
         if self._addressbook._notifier:
             self._addressbook._home._txn.postCommit(self._addressbook._notifier.notify)
@@ -2411,6 +2431,33 @@ class PostgresLegacyABIndexEmulator(object):
         return obj.name()
 
 
+    def whatchanged(self, revision):
+
+        results = [
+            (name.encode("utf-8"), deleted)
+            for name, deleted in
+            self._txn.execSQL(
+                """select RESOURCE_NAME, DELETED from ADDRESSBOOK_OBJECT_REVISIONS
+                   where REVISION > %s and ADDRESSBOOK_RESOURCE_ID = %s""",
+                [revision, self.addressbook._resourceID],
+            )
+        ]
+        results.sort(key=lambda x:x[1])
+        
+        changed = []
+        deleted = []
+        for name, wasdeleted in results:
+            if name:
+                if wasdeleted:
+                    if revision:
+                        deleted.append(name)
+                else:
+                    changed.append(name)
+            else:
+                raise SyncTokenValidException
+        
+        return changed, deleted,
+
     def searchValid(self, filter):
         if isinstance(filter, carddavxml.Filter):
             qualifiers = addressbookquery.sqladdressbookquery(filter)
@@ -2481,7 +2528,7 @@ class PostgresLegacyABIndexEmulator(object):
 
 
 
-class PostgresAddressBook(SyncTokenHelper):
+class PostgresAddressBook(AddressbookSyncTokenHelper):
 
     implements(IAddressBook)
 
@@ -2532,6 +2579,7 @@ class PostgresAddressBook(SyncTokenHelper):
         # update memos
         del self._home._addressbooks[oldName]
         self._home._addressbooks[name] = self
+        self._updateSyncToken()
 
 
     def ownerAddressBookHome(self):
@@ -2595,8 +2643,7 @@ class PostgresAddressBook(SyncTokenHelper):
         validateAddressBookComponent(addressbookObject, self, component)
 
         addressbookObject.updateDatabase(component, inserting=True)
-
-        self._updateSyncToken()
+        self._insertRevision(name)
 
         if self._notifier:
             self._home._txn.postCommit(self._notifier.notify)
@@ -2611,8 +2658,7 @@ class PostgresAddressBook(SyncTokenHelper):
         if self._txn._cursor.rowcount == 0:
             raise NoSuchObjectResourceError()
         self._objects.pop(name, None)
-
-        self._updateSyncToken()
+        self._deleteRevision(name)
 
         if self._notifier:
             self._txn.postCommit(self._notifier.notify)
@@ -2634,16 +2680,10 @@ class PostgresAddressBook(SyncTokenHelper):
         )
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
-        self._updateSyncToken()
+        self._deleteRevision(name)
 
         if self._notifier:
             self._home._txn.postCommit(self._notifier.notify)
-
-
-    def syncToken(self):
-        return self._txn.execSQL(
-            "select SYNC_TOKEN from ADDRESSBOOK where RESOURCE_ID = %s",
-            [self._resourceID])[0][0]
 
 
     def addressbookObjectsSinceToken(self, token):
@@ -2793,9 +2833,9 @@ class PostgresAddressBookHome(object):
         rows = self._txn.execSQL("select nextval('RESOURCE_ID_SEQ')")
         resourceID = rows[0][0]
         self._txn.execSQL(
-            "insert into ADDRESSBOOK (SYNC_TOKEN, RESOURCE_ID) values "
-            "(%s, %s)",
-            ['uninitialized', resourceID])
+            "insert into ADDRESSBOOK (RESOURCE_ID) values "
+            "(%s)",
+            [resourceID])
 
         self._txn.execSQL("""
             insert into ADDRESSBOOK_BIND (
@@ -2812,7 +2852,7 @@ class PostgresAddressBookHome(object):
         newAddressbook = self.addressbookWithName(name)
         newAddressbook.properties()[
             PropertyName.fromElement(ResourceType)] = addressbookType
-        newAddressbook._updateSyncToken(True)
+        newAddressbook._updateSyncToken()
 
         if self._notifier:
             self._txn.postCommit(self._notifier.notify)

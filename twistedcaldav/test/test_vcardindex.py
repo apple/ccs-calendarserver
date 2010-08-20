@@ -134,15 +134,13 @@ END:VCARD
             ),
         )
 
-        revision = 0
         for description, name, vcard_txt in data:
-            revision += 1
             calendar = Component.fromString(vcard_txt)
             f = open(os.path.join(self.site.resource.fp.path, name), "w")
             f.write(vcard_txt)
             del f
 
-            self.db.addResource(name, calendar, revision)
+            self.db.addResource(name, calendar)
             self.assertTrue(self.db.resourceExists(name), msg=description)
 
         self.db._db_recreate()
@@ -179,17 +177,17 @@ END:VCARD
 """
 
         vcard = Component.fromString(data1)
-        self.db.addResource("data1.vcf", vcard, 1)
+        self.db.addResource("data1.vcf", vcard)
         vcard = Component.fromString(data2)
-        self.db.addResource("data2.vcf", vcard, 2)
+        self.db.addResource("data2.vcf", vcard)
         vcard = Component.fromString(data3)
-        self.db.addResource("data3.vcf", vcard, 3)
-        self.db.deleteResource("data3.vcf", 4)
+        self.db.addResource("data3.vcf", vcard)
+        self.db.deleteResource("data3.vcf")
 
         tests = (
             (0, (["data1.vcf", "data2.vcf",], [],)),
-            (1, (["data2.vcf",], [],)),
-            (2, ([], [],)),
+            (1, (["data2.vcf",], ["data3.vcf",],)),
+            (2, ([], ["data3.vcf",],)),
             (3, ([], ["data3.vcf",],)),
             (4, ([], [],)),
             (5, ([], [],)),
