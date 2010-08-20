@@ -9,6 +9,7 @@ from urllib2 import HTTPDigestAuthHandler
 from uuid import uuid4
 from datetime import datetime, timedelta
 
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet import reactor
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
@@ -88,6 +89,7 @@ END:VEVENT
         }
 
 
+@inlineCallbacks
 def measure(dtrace, attendeeCount, samples):
     user = password = "user01"
     host = "localhost"
@@ -96,18 +98,17 @@ def measure(dtrace, attendeeCount, samples):
     principal = "/"
     calendar = "event-creation-benchmark"
 
-    # First set things up
-    initialize(host, port, user, password, root, principal, calendar)
-
-    # CalDAVClientLibrary can't seem to POST things.  Use Twisted instead.
     authinfo = HTTPDigestAuthHandler()
     authinfo.add_password(
         realm="Test Realm",
         uri="http://%s:%d/" % (host, port),
         user=user,
         passwd=password)
-
     agent = AuthHandlerAgent(Agent(reactor), authinfo)
+
+    # First set things up
+    yield initialize(agent, host, port, user, password, root, principal, calendar)
+
     method = 'PUT'
     uri = 'http://%s:%d/calendars/__uids__/%s/%s/foo-%%d.ics' % (
         host, port, user, calendar)
@@ -117,8 +118,10 @@ def measure(dtrace, attendeeCount, samples):
     events = ((i, makeEvent(i, attendeeCount)) for i in count(2))
 
     # Sample it a bunch of times
-    return sample(
+    samples = yield sample(
         dtrace, samples, 
         agent, ((method, uri % (i,), headers, StringProducer(body))
                 for (i, body)
                 in events).next)
+    returnValue(samples)
+

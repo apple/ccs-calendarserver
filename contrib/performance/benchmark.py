@@ -5,16 +5,15 @@ from signal import SIGINT
 from pickle import dump
 
 from datetime import datetime
-from StringIO import StringIO
 
 from twisted.python.reflect import namedAny
 from twisted.internet.protocol import ProcessProtocol
+from twisted.protocols.basic import LineReceiver
 from twisted.internet.defer import (
     Deferred, inlineCallbacks, gatherResults)
 from twisted.internet import reactor
 
 from stats import SQLDuration, Bytes
-import vfreebusy
 
 
 class DTraceBug(Exception):
@@ -26,13 +25,13 @@ class DTraceBug(Exception):
 
 
 class IOMeasureConsumer(ProcessProtocol):
-    def __init__(self, started, done):
+    def __init__(self, started, done, parser):
         self.started = started
         self.done = done
+        self.parser = parser
 
 
     def connectionMade(self):
-        self.out = StringIO()
         self._out = ''
         self._err = ''
 
@@ -47,11 +46,11 @@ class IOMeasureConsumer(ProcessProtocol):
 
     def outReceived(self, bytes):
         if self.started is None:
-            self.out.write(bytes)
+            self.parser.dataReceived(bytes)
         else:
             self._out += bytes
             if self._out.startswith('READY\n'):
-                self.out.write(self._out[len('READY\n'):])
+                self.parser.dataReceived(self._out[len('READY\n'):])
                 del self._out
                 started = self.started
                 self.started = None
@@ -60,7 +59,7 @@ class IOMeasureConsumer(ProcessProtocol):
 
     def processEnded(self, reason):
         if self.started is None:
-            self.done.callback(self.out.getvalue())
+            self.done.callback(None)
         else:
             self.started.errback(RuntimeError("Exited too soon"))
 
@@ -74,6 +73,60 @@ def instancePIDs(directory):
             pid = int(pidtext)
             pids.append(pid)
     return pids
+
+
+class _DTraceParser(LineReceiver):
+    delimiter = '\n\1'
+
+    sql = None
+    start = None
+
+    def __init__(self, collector):
+        self.collector = collector
+
+
+    def lineReceived(self, dtrace):
+        # dtrace puts some extra newlines in the output sometimes.  Get rid of them.
+        dtrace = dtrace.strip()
+        if dtrace:
+            op, rest = dtrace.split(None, 1)
+            getattr(self, '_op_' + op)(op, rest)
+
+
+    def _op_EXECUTE(self, cmd, rest):
+        which, when = rest.split(None, 1)
+        if which == 'SQL':
+            self.sql = when
+            return
+
+        when = int(when)
+        if which == 'ENTRY':
+            self.start = when
+        elif which == 'RETURN':
+            if self.start is None:
+                print 'return without entry at', when, 'in', cmd
+            else:
+                diff = when - self.start
+                if diff < 0:
+                    print 'Completely bogus EXECUTE', self.start, when
+                else:        
+                    if cmd == 'EXECUTE':
+                        accum = self.collector._execute
+                    elif cmd == 'ITERNEXT':
+                        accum = self.collector._iternext
+
+                    accum.append((self.sql, diff))
+                self.start = None
+
+    _op_ITERNEXT = _op_EXECUTE
+
+    def _op_B_READ(self, cmd, rest):
+        self.collector._read.append(int(rest))
+
+
+    def _op_B_WRITE(self, cmd, rest):
+        self.collector._write.append(int(rest))
+
 
 
 class DTraceCollector(object):
@@ -95,57 +148,6 @@ class DTraceCollector(object):
             }
 
 
-    def _parse(self, dtrace):
-        file('dtrace.log', 'a').write(dtrace)
-
-        self.sql = self.start = None
-        for L in dtrace.split('\n\1'):
-
-            # dtrace puts some extra newlines in the output sometimes.  Get rid of them.
-            L = L.strip()
-            if not L:
-                continue
-
-            op, rest = L.split(None, 1)
-            getattr(self, '_op_' + op)(op, rest)
-        self.sql = self.start = None
-
-
-    def _op_EXECUTE(self, cmd, rest):
-        which, when = rest.split(None, 1)
-        if which == 'SQL':
-            self.sql = when
-            return
-
-        when = int(when)
-        if which == 'ENTRY':
-            self.start = when
-        elif which == 'RETURN':
-            if self.start is None:
-                print 'return without entry at', when, 'in', cmd
-            else:
-                diff = when - self.start
-                if diff < 0:
-                    print 'Completely bogus EXECUTE', self.start, when
-                else:        
-                    if cmd == 'EXECUTE':
-                        accum = self._execute
-                    elif cmd == 'ITERNEXT':
-                        accum = self._iternext
-
-                    accum.append((self.sql, diff))
-                self.start = None
-
-    _op_ITERNEXT = _op_EXECUTE
-
-    def _op_B_READ(self, cmd, rest):
-        self._read.append(int(rest))
-
-
-    def _op_B_WRITE(self, cmd, rest):
-        self._write.append(int(rest))
-
-
     def start(self):
         ready = []
         self.finished = []
@@ -161,7 +163,7 @@ class DTraceCollector(object):
         started = Deferred()
         stopped = Deferred()
         process = reactor.spawnProcess(
-            IOMeasureConsumer(started, stopped),
+            IOMeasureConsumer(started, stopped, _DTraceParser(self)),
             "/usr/sbin/dtrace",
             ["/usr/sbin/dtrace", 
              # process preprocessor macros
@@ -185,7 +187,6 @@ class DTraceCollector(object):
             # processes.
             self.dtraces[pid] = process
             stopped.addCallback(self._cleanup, pid)
-            stopped.addCallback(self._parse)
             return passthrough
         started.addCallbacks(ready, eintr)
         return started, stopped

@@ -8,8 +8,7 @@ from datetime import datetime, timedelta
 
 from protocol.url import URL
 
-from twisted.internet.defer import (
-    inlineCallbacks)
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet import reactor
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
@@ -97,6 +96,7 @@ def makeEvents(n):
     return [makeEvent(i) for i in range(n)]
 
 
+@inlineCallbacks
 def measure(dtrace, events, samples):
     user = password = "user01"
     host = "localhost"
@@ -105,28 +105,28 @@ def measure(dtrace, events, samples):
     principal = "/"
     calendar = "vfreebusy-benchmark"
 
-    # First set things up
-    account = initialize(host, port, user, password, root, principal, calendar)
-
-    base = "/calendars/users/%s/%s/foo-%%d.ics" % (user, calendar)
-    for i, cal in enumerate(makeEvents(events)):
-        account.session.writeData(
-            URL(base % (i,)), cal, "text/calendar")
-
-    # CalDAVClientLibrary can't seem to POST things.
     authinfo = HTTPDigestAuthHandler()
     authinfo.add_password(
         realm="Test Realm",
         uri="http://%s:%d/" % (host, port),
         user=user,
         passwd=password)
-
     agent = AuthHandlerAgent(Agent(reactor), authinfo)
+
+    # First set things up
+    account = yield initialize(agent, host, port, user, password, root, principal, calendar)
+
+    base = "/calendars/users/%s/%s/foo-%%d.ics" % (user, calendar)
+    for i, cal in enumerate(makeEvents(events)):
+        yield account.writeData(URL(base % (i,)), cal, "text/calendar")
+
     method = 'POST'
-    uri = 'http://localhost:8008/calendars/__uids__/user01/outbox/'
+    uri = 'http://localhost:8008/calendars/__uids__/%s/outbox/' % (user,)
     headers = Headers({"content-type": ["text/calendar"]})
     body = StringProducer(vfreebusy)
 
-    return sample(
+    samples = yield sample(
         dtrace, samples, 
         agent, lambda: (method, uri, headers, body))
+    returnValue(samples)
+

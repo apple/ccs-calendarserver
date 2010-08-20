@@ -1,6 +1,5 @@
 
-import sys, os, signal, time
-from pprint import pprint
+import sys, signal, time
 
 from twisted.python.log import err
 from twisted.python.failure import Failure
