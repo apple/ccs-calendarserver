@@ -24,8 +24,9 @@ from txdav.propertystore.test import base
 
 class PropertyStoreTest(base.PropertyStoreTest):
     def setUp(self):
-        self.propertyStore = self.propertyStore1 = PropertyStore("user01", "user01")
-        self.propertyStore2 = PropertyStore("user02", "user01")
+        self.propertyStore = self.propertyStore1 = PropertyStore("user01")
+        self.propertyStore2 = PropertyStore("user01")
+        self.propertyStore2._setPerUserUID("user02")
 
     def test_abort(self):
         super(PropertyStoreTest, self).test_abort()
