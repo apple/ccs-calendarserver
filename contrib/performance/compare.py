@@ -22,8 +22,25 @@ except ImportError:
             [p, None])
 
 
+def trim(sequence, amount):
+    sequence.sort()
+    n = len(sequence)
+    t = int(n * amount / 2.0)
+    if t:
+        del sequence[:t]
+        del sequence[-t:]
+    else:
+        raise RuntimeError(
+            "Cannot trim length %d sequence by %d%%" % (n, int(amount * 100)))
+    return sequence
+
+
 def main():
     [(stat, first), (stat, second)] = load_stats(sys.argv[1:])
+
+    # Attempt to increase robustness by dropping the outlying 10% of values.
+    first = trim(first, 0.1)
+    second = trim(second, 0.1)
 
     fmean = stats.mean(first)
     smean = stats.mean(second)
