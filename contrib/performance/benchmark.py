@@ -245,7 +245,7 @@ class BenchmarkOptions(Options):
     optParameters = [
         ('host', 'h', 'localhost',
          'Hostname or IPv4 address on which a CalendarServer is listening'),
-        ('port', 'p', '8008',
+        ('port', 'p', 8008,
          'Port number on which a CalendarServer is listening', portCoerce),
         ('log-directory', 'd', None,
          'Logs directory of the CalendarServer being benchmarked (if and only '
