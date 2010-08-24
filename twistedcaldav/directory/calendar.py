@@ -248,11 +248,11 @@ class DirectoryCalendarHomeUIDProvisioningResource (DirectoryCalendarProvisionin
         name = record.uid
 
         if record is None:
-            self.log_msg("No directory record with GUID %r" % (name,))
+            log.debug("No directory record with GUID %r" % (name,))
             return None
 
         if not record.enabledForCalendaring:
-            self.log_msg("Directory record %r is not enabled for calendaring" % (record,))
+            log.debug("Directory record %r is not enabled for calendaring" % (record,))
             return None
 
         assert len(name) > 4, "Directory record has an invalid GUID: %r" % (name,)
