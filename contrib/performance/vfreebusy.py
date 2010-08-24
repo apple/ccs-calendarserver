@@ -6,8 +6,6 @@ from urllib2 import HTTPDigestAuthHandler
 from uuid import uuid4
 from datetime import datetime, timedelta
 
-from protocol.url import URL
-
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet import reactor
 from twisted.web.client import Agent
@@ -117,7 +115,7 @@ def measure(host, port, dtrace, events, samples):
 
     base = "/calendars/users/%s/%s/foo-%%d.ics" % (user, calendar)
     for i, cal in enumerate(makeEvents(events)):
-        yield account.writeData(URL(base % (i,)), cal, "text/calendar")
+        yield account.writeData(base % (i,), cal, "text/calendar")
 
     method = 'POST'
     uri = 'http://%s:%d/calendars/__uids__/%s/outbox/' % (host, port, user)

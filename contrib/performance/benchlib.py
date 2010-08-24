@@ -4,8 +4,6 @@ from time import time
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.http_headers import Headers
 
-from protocol.url import URL
-
 from stats import Duration
 from httpclient import StringProducer, readBody
 
@@ -19,17 +17,17 @@ class CalDAVAccount(object):
         self.principal = principal
 
     def deleteResource(self, url):
-        return self.agent.request('DELETE', 'http://%s%s' % (self.netloc, url.toString()))
+        return self.agent.request('DELETE', 'http://%s%s' % (self.netloc, url))
 
 
     def makeCalendar(self, url):
-        return self.agent.request('MKCALENDAR', 'http://%s%s' % (self.netloc, url.toString()))
+        return self.agent.request('MKCALENDAR', 'http://%s%s' % (self.netloc, url))
 
 
     def writeData(self, url, data, contentType):
         return self.agent.request(
             'PUT', 
-            'http://%s%s' % (self.netloc, url.toString()), 
+            'http://%s%s' % (self.netloc, url), 
             Headers({'content-type': [contentType]}), 
             StringProducer(data))
 
@@ -52,7 +50,7 @@ def initialize(agent, host, port, user, password, root, principal, calendar):
         "%s:%d" % (host, port),
         user=user, password=password,
         root=root, principal=principal)
-    cal = URL("/calendars/users/%s/%s/" % (user, calendar))
+    cal = "/calendars/users/%s/%s/" % (user, calendar)
     d = _serial([
             (account.deleteResource, (cal,)),
             (account.makeCalendar, (cal,))])
