@@ -90,10 +90,8 @@ END:VEVENT
 
 
 @inlineCallbacks
-def measure(dtrace, attendeeCount, samples):
+def measure(host, port, dtrace, attendeeCount, samples):
     user = password = "user01"
-    host = "localhost"
-    port = 8008
     root = "/"
     principal = "/"
     calendar = "event-creation-benchmark"
