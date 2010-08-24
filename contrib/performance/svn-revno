@@ -1,0 +1,5 @@
+#!/usr/bin/python
+
+import sys
+import pysvn
+print pysvn.Client().info(sys.argv[1])['revision'].number
