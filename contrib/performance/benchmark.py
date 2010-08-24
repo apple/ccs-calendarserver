@@ -1,4 +1,4 @@
-import sys, os
+import sys
 from os.path import dirname
 
 from signal import SIGINT
@@ -6,6 +6,8 @@ from pickle import dump
 
 from datetime import datetime
 
+from twisted.python.filepath import FilePath
+from twisted.python.usage import UsageError, Options, portCoerce
 from twisted.python.reflect import namedAny
 from twisted.internet.protocol import ProcessProtocol
 from twisted.protocols.basic import LineReceiver
@@ -66,10 +68,9 @@ class IOMeasureConsumer(ProcessProtocol):
 
 def instancePIDs(directory):
     pids = []
-    for pidfile in os.listdir(directory):
-        if pidfile.startswith('caldav-instance-'):
-            pidpath = os.path.join(directory, pidfile)
-            pidtext = file(pidpath).read()
+    for pidfile in directory.children():
+        if pidfile.basename().startswith('caldav-instance-'):
+            pidtext = pidfile.getContent()
             pid = int(pidtext)
             pids.append(pid)
     return pids
@@ -109,7 +110,7 @@ class _DTraceParser(LineReceiver):
                 diff = when - self.start
                 if diff < 0:
                     print 'Completely bogus EXECUTE', self.start, when
-                else:        
+                else:
                     if cmd == 'EXECUTE':
                         accum = self.collector._execute
                     elif cmd == 'ITERNEXT':
@@ -165,7 +166,7 @@ class DTraceCollector(object):
         process = reactor.spawnProcess(
             IOMeasureConsumer(started, stopped, _DTraceParser(self)),
             "/usr/sbin/dtrace",
-            ["/usr/sbin/dtrace", 
+            ["/usr/sbin/dtrace",
              # process preprocessor macros
              "-C",
              # search for include targets in the source directory containing this file
@@ -207,9 +208,12 @@ class DTraceCollector(object):
 
 
 @inlineCallbacks
-def benchmark(directory, label, benchmarks):
+def benchmark(host, port, directory, label, benchmarks):
     # Figure out which pids we are benchmarking.
-    pids = instancePIDs(directory)
+    if directory:
+        pids = instancePIDs(directory)
+    else:
+        pids = []
 
     parameters = [1, 9, 81]
     samples = 200
@@ -221,7 +225,7 @@ def benchmark(directory, label, benchmarks):
         for p in parameters:
             print 'Parameter at', p
             dtrace = DTraceCollector("io_measure.d", pids)
-            data = yield measure(dtrace, p, samples)
+            data = yield measure(host, port, dtrace, p, samples)
             statistics[name][p] = data
 
     fObj = file(
@@ -230,13 +234,54 @@ def benchmark(directory, label, benchmarks):
     fObj.close()
 
 
+def logsCoerce(directory):
+    path = FilePath(directory)
+    if not path.isdir():
+        raise ValueError("%r is not a directory")
+    return path
+
+
+class BenchmarkOptions(Options):
+    optParameters = [
+        ('host', 'h', 'localhost',
+         'Hostname or IPv4 address on which a CalendarServer is listening'),
+        ('port', 'p', '8008',
+         'Port number on which a CalendarServer is listening', portCoerce),
+        ('log-directory', 'd', None,
+         'Logs directory of the CalendarServer being benchmarked (if and only '
+         'if the CalendarServer is on the same host as this benchmark process)',
+         logsCoerce),
+        ('label', 'l', 'A descriptive string to attach to the output filename.'),
+        ]
+
+    optFlags = [
+        ('debug', None, 'Enable various debugging helpers'),
+        ]
+
+    def parseArgs(self, *benchmarks):
+        self['benchmarks'] = benchmarks
+        if not self['benchmarks']:
+            raise UsageError("Specify at least one benchmark")
+
+
 def main():
     from twisted.python.log import err
-    from twisted.python.failure import startDebugMode
-    startDebugMode()
+
+    options = BenchmarkOptions()
+    try:
+        options.parseOptions(sys.argv[1:])
+    except UsageError, e:
+        print e
+        return 1
+
+    if options['debug']:
+        from twisted.python.failure import startDebugMode
+        startDebugMode()
+
     d = benchmark(
-        sys.argv[1], sys.argv[2],
-        [(arg, namedAny(arg).measure) for arg in sys.argv[3:]])
+        options['host'], options['port'],
+        options['log-directory'], options['label'],
+        [(arg, namedAny(arg).measure) for arg in options['benchmarks']])
     d.addErrback(err)
-    d.addCallback(lambda ign: reactor.stop())
+    reactor.callWhenRunning(d.addCallback, lambda ign: reactor.stop())
     reactor.run()

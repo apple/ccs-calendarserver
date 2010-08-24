@@ -1,4 +1,4 @@
 #!/usr/bin/python
 
 from benchmark import main
-main()
+raise SystemExit(main())
