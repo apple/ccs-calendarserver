@@ -4,10 +4,12 @@ from xml.etree import ElementPath
 
 def main():
     conf = ElementTree.parse(file(sys.argv[1]))
-    if sys.argv[2] == 'database':
+    if sys.argv[2] == 'postgresql':
         value = 'true'
-    else:
+    elif sys.argv[2] == 'filesystem':
         value = 'false'
+    else:
+        raise RuntimeError("Don't know what to do with %r" % (sys.argv[2],))
     replace(conf.getiterator(), value)
     conf.write(sys.stdout)
 
