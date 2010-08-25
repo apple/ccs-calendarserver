@@ -68,3 +68,13 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
         augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
 
         return AggregateDirectoryService((xmlService,))
+
+    def test_setRealm(self):
+        """
+        setRealm gets propagated to nested services
+        """
+        aggregatedService = self.service()
+        aggregatedService.setRealm("foo.example.com")
+        for service in aggregatedService._recordTypes.values():
+            self.assertEquals("foo.example.com", service.realmName)
+

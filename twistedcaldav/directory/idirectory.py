@@ -87,6 +87,12 @@ class IDirectoryService(Interface):
             match the given fields.
         """
 
+    def setRealm(realmName):
+        """
+        Set a new realm name for this (and nested services if any)
+
+        @param realmName: the realm name this service should use.
+        """
 
 class IDirectoryRecord(Interface):
     """

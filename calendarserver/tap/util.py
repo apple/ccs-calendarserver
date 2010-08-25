@@ -174,6 +174,17 @@ def getRootResource(config, resources=None):
         directory.userRecordTypes.insert(0,
             SudoDirectoryService.recordType_sudoers)
 
+
+    #
+    # Use system-wide realm on OSX
+    #
+    try:
+        import ServerFoundation
+        realmName = ServerFoundation.XSAuthenticator.defaultRealm().encode("utf-8")
+        directory.setRealm(realmName)
+    except ImportError:
+        pass
+
     #
     # Setup the Augment Service
     #

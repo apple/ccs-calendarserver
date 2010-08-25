@@ -83,6 +83,9 @@ class DirectoryService(LoggingMixIn):
     # Needed by twistedcaldav.directorybackedaddressbook
     liveQuery = False
 
+    def setRealm(self, realmName):
+        self.realmName = realmName
+
     def available(self):
         """
         By default, the directory is available.  This may return a boolean or a
