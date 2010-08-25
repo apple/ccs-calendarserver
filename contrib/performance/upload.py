@@ -23,6 +23,8 @@ class UploadOptions(Options):
          '(as recognized by the Codespeed server)'),
         ('revision', None, None,
          'Revision number of the code which produced this data.'),
+        ('revision-date', None, None,
+         'Timestamp at which the specified revision was created.'),
         ('environment', None, None,
          'Name of the environment in which the data was produced.'),
         ('statistic', None, None,
@@ -37,11 +39,12 @@ class UploadOptions(Options):
 
 
 
-def upload(reactor, url, project, revision, benchmark, executable,
-           environment, result_value, result_date, std_dev, max_value,
-           min_value):
+def upload(reactor, url, project, revision, revision_date, benchmark,
+           executable, environment, result_value, result_date, std_dev,
+           max_value, min_value):
     data = {
         'commitid': str(revision),
+        'revision_date': revision_date,
         'project': project,
         'benchmark': benchmark,
         'environment': environment,
@@ -83,6 +86,7 @@ def main():
         url=options['url'],
         project=options['project'],
         revision=options['revision'],
+        revision_date=options['revision-date'],
         benchmark='%s-%s-%s' % (benchmark, param, statistic),
         executable='%s-backend' % (options['backend'],),
         environment=options['environment'],
