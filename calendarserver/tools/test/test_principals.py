@@ -25,7 +25,7 @@ from twistedcaldav.directory.directory import DirectoryError
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 
 from calendarserver.tap.util import getRootResource
-from calendarserver.tools.principals import parseCreationArgs, matchStrings, updateRecord
+from calendarserver.tools.principals import parseCreationArgs, matchStrings, updateRecord, principalForPrincipalID, getProxies, setProxies
 
 
 class ManagePrincipalsTestCase(TestCase):
@@ -258,3 +258,27 @@ class ManagePrincipalsTestCase(TestCase):
         directory.destroyRecord("locations", guid=guid)
         record = directory.recordWithGUID(guid)
         self.assertTrue(record is None)
+
+    @inlineCallbacks
+    def test_setProxies(self):
+        """
+        Read and Write proxies can be set en masse
+        """
+        directory = getRootResource(config).getDirectory()
+
+        principal = principalForPrincipalID("users:user01", directory=directory)
+        readProxies, writeProxies = (yield getProxies(principal, directory=directory))
+        self.assertEquals(readProxies, []) # initially empty
+        self.assertEquals(writeProxies, []) # initially empty
+
+        (yield setProxies(principal, ["users:user03", "users:user04"], ["users:user05"], directory=directory))
+        readProxies, writeProxies = (yield getProxies(principal, directory=directory))
+        self.assertEquals(set(readProxies), set(["user03", "user04"]))
+        self.assertEquals(set(writeProxies), set(["user05"]))
+
+        # Using None for a proxy list indicates a no-op
+        (yield setProxies(principal, [], None, directory=directory))
+        readProxies, writeProxies = (yield getProxies(principal, directory=directory))
+        self.assertEquals(readProxies, []) # now empty
+        self.assertEquals(set(writeProxies), set(["user05"])) # unchanged
+

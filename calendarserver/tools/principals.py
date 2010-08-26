@@ -26,7 +26,7 @@ from grp import getgrnam
 
 from twisted.python.util import switchUID
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2.dav import davxml
 
 from twext.python.log import clearLogLevels
@@ -573,6 +573,58 @@ def addProxy(principal, proxyType, proxyPrincipal):
 
 
 @inlineCallbacks
+def setProxies(principal, readProxyPrincipals, writeProxyPrincipals, directory=None):
+    """
+    Set read/write proxies en masse for a principal
+    @param principal: DirectoryPrincipalResource
+    @param readProxyPrincipals: a list of principal IDs (see principalForPrincipalID)
+    @param writeProxyPrincipals: a list of principal IDs (see principalForPrincipalID)
+    """
+
+    proxyTypes = [
+        ("read", readProxyPrincipals),
+        ("write", writeProxyPrincipals),
+    ]
+    for proxyType, proxyIDs in proxyTypes:
+        if proxyIDs is None:
+            continue
+        subPrincipal = proxySubprincipal(principal, proxyType)
+        if subPrincipal is None:
+            raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
+                prettyPrincipal(principal)))
+        memberURLs = []
+        for proxyID in proxyIDs:
+            proxyPrincipal = principalForPrincipalID(proxyID, directory=directory)
+            proxyURL = proxyPrincipal.url()
+            memberURLs.append(davxml.HRef(proxyURL))
+        membersProperty = davxml.GroupMemberSet(*memberURLs)
+        (yield subPrincipal.writeProperty(membersProperty, None))
+
+
+@inlineCallbacks
+def getProxies(principal, directory=None):
+    """
+    Returns a tuple containing the GUIDs for read proxies and write proxies
+    of the given principal
+    """
+
+    proxies = {
+        "read" : [],
+        "write" : [],
+    }
+    for proxyType in proxies.iterkeys():
+        subPrincipal = proxySubprincipal(principal, proxyType)
+        if subPrincipal is not None:
+            membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+            if membersProperty.children:
+                for member in membersProperty.children:
+                    proxyPrincipal = principalForPrincipalID(str(member), directory=directory)
+                    proxies[proxyType].append(proxyPrincipal.record.guid)
+
+    returnValue((proxies['read'], proxies['write']))
+
+
+@inlineCallbacks
 def action_removeProxy(principal, *proxyIDs, **kwargs):
     for proxyID in proxyIDs:
         proxyPrincipal = principalForPrincipalID(proxyID)
@@ -741,12 +793,14 @@ def updateRecord(create, directory, recordType, **kwargs):
         record = directory.createRecord(recordType, **kwargs)
         kwargs['guid'] = record.guid
     else:
-        directory.updateRecord(recordType, **kwargs)
+        record = directory.updateRecord(recordType, **kwargs)
 
     augmentRecord = (yield augment.AugmentService.getAugmentRecord(kwargs['guid'], recordType))
     augmentRecord.autoSchedule = autoSchedule
     (yield augment.AugmentService.addAugmentRecords([augmentRecord]))
     directory.updateRecord(recordType, **kwargs)
+
+    returnValue(record)
 
 
 

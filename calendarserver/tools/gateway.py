@@ -26,7 +26,7 @@ import xml
 from twext.python.plistlib import readPlistFromString, writePlistToString
 
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.util import switchUID
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryError
@@ -35,7 +35,7 @@ from twext.web2.dav import davxml
 from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, checkDirectory
 from calendarserver.tools.principals import (
     principalForPrincipalID, proxySubprincipal, addProxy, removeProxy,
-    ProxyError, ProxyWarning, updateRecord
+    getProxies, setProxies, ProxyError, ProxyWarning, updateRecord
 )
 
 from twext.python.log import StandardIOObserver
@@ -220,13 +220,19 @@ class Runner(object):
                 kwargs[info['attr']] = command[key]
 
         try:
-            (yield updateRecord(True, self.dir, "locations", **kwargs))
+            record = (yield updateRecord(True, self.dir, "locations", **kwargs))
         except DirectoryError, e:
             respondWithError(str(e))
             return
 
+        readProxies = command.get("ReadProxies", None)
+        writeProxies = command.get("WriteProxies", None)
+        principal = principalForPrincipalID(record.guid, directory=self.dir)
+        (yield setProxies(principal, readProxies, writeProxies))
+
         respondWithRecordsOfType(self.dir, command, "locations")
 
+    @inlineCallbacks
     def command_getLocationAttributes(self, command):
         guid = command['GeneratedUID']
         record = self.dir.recordWithGUID(guid)
@@ -239,7 +245,10 @@ class Runner(object):
             respondWithError("Principal not found: %s" % (guid,))
             return
         recordDict['AutoSchedule'] = principal.getAutoSchedule()
+        recordDict['ReadProxies'], recordDict['WriteProxies'] = (yield getProxies(principal))
         respond(command, recordDict)
+
+    command_getResourceAttributes = command_getLocationAttributes
 
     @inlineCallbacks
     def command_setLocationAttributes(self, command):
@@ -255,12 +264,17 @@ class Runner(object):
             if command.has_key(key):
                 kwargs[info['attr']] = command[key]
         try:
-            (yield updateRecord(False, self.dir, "locations", **kwargs))
+            record = (yield updateRecord(False, self.dir, "locations", **kwargs))
         except DirectoryError, e:
             respondWithError(str(e))
             return
 
-        self.command_getLocationAttributes(command)
+        readProxies = command.get("ReadProxies", None)
+        writeProxies = command.get("WriteProxies", None)
+        principal = principalForPrincipalID(record.guid, directory=self.dir)
+        (yield setProxies(principal, readProxies, writeProxies))
+
+        yield self.command_getLocationAttributes(command)
 
     def command_deleteLocation(self, command):
         kwargs = {}
@@ -287,15 +301,17 @@ class Runner(object):
                 kwargs[info['attr']] = command[key]
 
         try:
-            (yield updateRecord(True, self.dir, "resources", **kwargs))
+            record = (yield updateRecord(True, self.dir, "resources", **kwargs))
         except DirectoryError, e:
             respondWithError(str(e))
             return
 
-        respondWithRecordsOfType(self.dir, command, "resources")
+        readProxies = command.get("ReadProxies", None)
+        writeProxies = command.get("WriteProxies", None)
+        principal = principalForPrincipalID(record.guid, directory=self.dir)
+        (yield setProxies(principal, readProxies, writeProxies))
 
-    def command_getResourceAttributes(self, command):
-        self.command_getLocationAttributes(command)
+        respondWithRecordsOfType(self.dir, command, "resources")
 
     @inlineCallbacks
     def command_setResourceAttributes(self, command):
@@ -311,12 +327,17 @@ class Runner(object):
             if command.has_key(key):
                 kwargs[info['attr']] = command[key]
         try:
-            (yield updateRecord(False, self.dir, "resources", **kwargs))
+            record = (yield updateRecord(False, self.dir, "resources", **kwargs))
         except DirectoryError, e:
             respondWithError(str(e))
             return
 
-        self.command_getResourceAttributes(command)
+        readProxies = command.get("ReadProxies", None)
+        writeProxies = command.get("WriteProxies", None)
+        principal = principalForPrincipalID(record.guid, directory=self.dir)
+        (yield setProxies(principal, readProxies, writeProxies))
+
+        yield self.command_getResourceAttributes(command)
 
     def command_deleteResource(self, command):
         kwargs = {}

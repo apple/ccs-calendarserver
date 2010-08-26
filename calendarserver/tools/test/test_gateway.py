@@ -118,6 +118,8 @@ class GatewayTestCase(TestCase):
         self.assertEquals(results["result"]["RealName"], "Created Location 01")
         self.assertEquals(results["result"]["Comment"], "Test Comment")
         self.assertEquals(results["result"]["AutoSchedule"], True)
+        self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
+        self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
 
     @inlineCallbacks
     def test_getResourceList(self):
@@ -130,6 +132,8 @@ class GatewayTestCase(TestCase):
         results = yield self.runCommand(command_getResourceAttributes)
         self.assertEquals(results["result"]["Comment"], "Test Comment")
         self.assertEquals(results["result"]["Type"], "Computer")
+        self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
+        self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
 
     @inlineCallbacks
     def test_createLocation(self):
@@ -162,6 +166,10 @@ class GatewayTestCase(TestCase):
         self.assertEquals(record.extras["country"], "USA")
         self.assertEquals(record.extras["phone"], "(408) 555-1212")
 
+        results = yield self.runCommand(command_getLocationAttributes)
+        self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
+        self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
+
     @inlineCallbacks
     def test_setLocationAttributes(self):
         directory = getDirectory()
@@ -191,6 +199,8 @@ class GatewayTestCase(TestCase):
 
         results = yield self.runCommand(command_getLocationAttributes)
         self.assertEquals(results["result"]["AutoSchedule"], True)
+        self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03']))
+        self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06', 'user07']))
 
 
     @inlineCallbacks
@@ -325,6 +335,16 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         <string>USA</string>
         <key>Phone</key>
         <string>(408) 555-1212</string>
+        <key>ReadProxies</key>
+        <array>
+            <string>users:user03</string>
+            <string>users:user04</string>
+        </array>
+        <key>WriteProxies</key>
+        <array>
+            <string>users:user05</string>
+            <string>users:user06</string>
+        </array>
 </dict>
 </plist>
 """
@@ -350,6 +370,16 @@ command_createResource = """<?xml version="1.0" encoding="UTF-8"?>
         </array>
         <key>Comment</key>
         <string>Test Comment</string>
+        <key>ReadProxies</key>
+        <array>
+            <string>users:user03</string>
+            <string>users:user04</string>
+        </array>
+        <key>WriteProxies</key>
+        <array>
+            <string>users:user05</string>
+            <string>users:user06</string>
+        </array>
 </dict>
 </plist>
 """
@@ -488,6 +518,16 @@ command_setLocationAttributes = """<?xml version="1.0" encoding="UTF-8"?>
         <string>Updated USA</string>
         <key>Phone</key>
         <string>(408) 555-1213</string>
+        <key>ReadProxies</key>
+        <array>
+            <string>users:user03</string>
+        </array>
+        <key>WriteProxies</key>
+        <array>
+            <string>users:user05</string>
+            <string>users:user06</string>
+            <string>users:user07</string>
+        </array>
 </dict>
 </plist>
 """
