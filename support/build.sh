@@ -509,7 +509,7 @@ dependencies () {
   local px="PyXML-0.8.4";
   py_dependency \
     "PyXML" "xml.dom.ext" "${px}" \
-    "http://internap.dl.sourceforge.net/sourceforge/pyxml/${px}.tar.gz";
+    "http://static.calendarserver.org/${px}.tar.gz";
 
   local po="pyOpenSSL-0.10";
   py_dependency -v 0.9 \
