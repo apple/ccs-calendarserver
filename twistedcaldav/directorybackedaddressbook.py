@@ -114,7 +114,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
         )
 
     def resourceType(self):
-        return davxml.ResourceType.addressbook
+        return davxml.ResourceType.directory
 
     def isDirectoryBackedAddressBookCollection(self):
         return True

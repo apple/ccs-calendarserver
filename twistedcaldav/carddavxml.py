@@ -481,13 +481,19 @@ class SupportedFilter(CardDAVElement):
     
 class DirectoryGateway(CardDAVElement):
     """
-    CardDAV property on a principal to indicate where the directory geatway resource is.
+    CardDAV property on a principal to indicate where the directory gateway resource is.
     """
     name = "directory-gateway"
     hidden = True
     protected = True
 
-    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+    allowed_children = { (davxml.dav_namespace, "href"): (0, None) }
+    
+class Directory(CardDAVEmptyElement):
+    """
+    CardDAV property on a principal to indicate where the directory resource is.
+    """
+    name = "directory"
     
 ##
 # Extensions to davxml.ResourceType
@@ -496,3 +502,4 @@ class DirectoryGateway(CardDAVElement):
 def _isAddressBook(self): return bool(self.childrenOfType(AddressBook))
 davxml.ResourceType.isAddressBook = _isAddressBook
 davxml.ResourceType.addressbook = davxml.ResourceType(davxml.Collection(), AddressBook())
+davxml.ResourceType.directory = davxml.ResourceType(davxml.Collection(), AddressBook(), Directory())
