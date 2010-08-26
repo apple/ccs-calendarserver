@@ -16,8 +16,8 @@
 ##
 
 """
-Wrappers to translate between the APIs in L{txcaldav.icalendarstore} and
-L{txcarddav.iaddressbookstore} and those in L{twistedcaldav}.
+Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
+L{txdav.carddav.iaddressbookstore} and those in L{twistedcaldav}.
 """
 
 import hashlib
@@ -56,7 +56,7 @@ from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard
 
 from txdav.common.icommondatastore import NoSuchObjectResourceError
-from txdav.propertystore.base import PropertyName
+from txdav.base.propertystore.base import PropertyName
 
 log = Logger()
 
@@ -206,10 +206,10 @@ class _CalendarChildHelper(object):
         Initialize with a calendar.
 
         @param calendar: the wrapped calendar.
-        @type calendar: L{txcaldav.icalendarstore.ICalendar}
+        @type calendar: L{txdav.caldav.icalendarstore.ICalendar}
 
         @param home: the home through which the given calendar was accessed.
-        @type home: L{txcaldav.icalendarstore.ICalendarHome}
+        @type home: L{txdav.caldav.icalendarstore.ICalendarHome}
         """
         self._newStoreCalendar = calendar
         self._newStoreParentHome = home
@@ -664,12 +664,12 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
 class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
     """
-    Wrapper around a L{txcaldav.icalendar.ICalendar}.
+    Wrapper around a L{txdav.caldav.icalendar.ICalendar}.
     """
 
     def __init__(self, calendar, home, *args, **kw):
         """
-        Create a CalendarCollectionResource from a L{txcaldav.icalendar.ICalendar}
+        Create a CalendarCollectionResource from a L{txdav.caldav.icalendar.ICalendar}
         and the arguments required for L{CalDAVResource}.
         """
         super(CalendarCollectionResource, self).__init__(*args, **kw)
@@ -882,7 +882,7 @@ class ProtoCalendarCollectionResource(CalDAVResource):
         @param home: The calendar home which will be this resource's parent,
             when it exists.
 
-        @type home: L{txcaldav.icalendarstore.ICalendarHome}
+        @type home: L{txdav.caldav.icalendarstore.ICalendarHome}
         """
         super(ProtoCalendarCollectionResource, self).__init__(*args, **kw)
         self._newStoreParentHome = home
@@ -957,7 +957,7 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         Construct a L{CalendarObjectResource} from an L{ICalendarObject}.
 
         @param calendarObject: The storage for the calendar object.
-        @type calendarObject: L{txcaldav.icalendarstore.ICalendarObject}
+        @type calendarObject: L{txdav.caldav.icalendarstore.ICalendarObject}
         """
         super(CalendarObjectResource, self).__init__(*args, **kw)
         self._initializeWithObject(calendarObject)
@@ -1221,10 +1221,10 @@ class _AddressBookChildHelper(object):
         Initialize with a addressbook.
 
         @param addressbook: the wrapped addressbook.
-        @type addressbook: L{txcarddav.iaddressbookstore.IAddressBook}
+        @type addressbook: L{txdav.carddav.iaddressbookstore.IAddressBook}
 
         @param home: the home through which the given addressbook was accessed.
-        @type home: L{txcarddav.iaddressbookstore.IAddressBookHome}
+        @type home: L{txdav.carddav.iaddressbookstore.IAddressBookHome}
         """
         self._newStoreAddressBook = addressbook
         self._newStoreParentHome = home
@@ -1307,12 +1307,12 @@ class _AddressBookChildHelper(object):
 
 class AddressBookCollectionResource(_AddressBookChildHelper, CalDAVResource):
     """
-    Wrapper around a L{txcarddav.iaddressbook.IAddressBook}.
+    Wrapper around a L{txdav.carddav.iaddressbook.IAddressBook}.
     """
 
     def __init__(self, addressbook, home, *args, **kw):
         """
-        Create a AddressBookCollectionResource from a L{txcarddav.iaddressbook.IAddressBook}
+        Create a AddressBookCollectionResource from a L{txdav.carddav.iaddressbook.IAddressBook}
         and the arguments required for L{CalDAVResource}.
         """
         super(AddressBookCollectionResource, self).__init__(*args, **kw)
@@ -1486,7 +1486,7 @@ class ProtoAddressBookCollectionResource(CalDAVResource):
         @param home: The addressbook home which will be this resource's parent,
             when it exists.
 
-        @type home: L{txcarddav.iaddressbookstore.IAddressBookHome}
+        @type home: L{txdav.carddav.iaddressbookstore.IAddressBookHome}
         """
         super(ProtoAddressBookCollectionResource, self).__init__(*args, **kw)
         self._newStoreParentHome = home
@@ -1552,7 +1552,7 @@ class ProtoAddressBookCollectionResource(CalDAVResource):
 
 class GlobalAddressBookCollectionResource(GlobalAddressBookResource, AddressBookCollectionResource):
     """
-    Wrapper around a L{txcarddav.iaddressbook.IAddressBook}.
+    Wrapper around a L{txdav.carddav.iaddressbook.IAddressBook}.
     """
     pass
 
@@ -1575,7 +1575,7 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
         Construct a L{AddressBookObjectResource} from an L{IAddressBookObject}.
 
         @param Object: The storage for the addressbook object.
-        @type Object: L{txcarddav.iaddressbookstore.IAddressBookObject}
+        @type Object: L{txdav.carddav.iaddressbookstore.IAddressBookObject}
         """
         super(AddressBookObjectResource, self).__init__(*args, **kw)
         self._initializeWithObject(Object)
@@ -1812,12 +1812,12 @@ class _NotificationChildHelper(object):
 class StoreNotificationCollectionResource(_NotificationChildHelper,
                                       NotificationCollectionResource):
     """
-    Wrapper around a L{txcaldav.icalendar.ICalendar}.
+    Wrapper around a L{txdav.caldav.icalendar.ICalendar}.
     """
 
     def __init__(self, notifications, home, *args, **kw):
         """
-        Create a CalendarCollectionResource from a L{txcaldav.icalendar.ICalendar}
+        Create a CalendarCollectionResource from a L{txdav.caldav.icalendar.ICalendar}
         and the arguments required for L{CalDAVResource}.
         """
         super(StoreNotificationCollectionResource, self).__init__(*args, **kw)
@@ -1855,7 +1855,7 @@ class StoreProtoNotificationCollectionResource(NotificationCollectionResource):
         @param home: The calendar home which will be this resource's parent,
             when it exists.
 
-        @type home: L{txcaldav.icalendarstore.ICalendarHome}
+        @type home: L{txdav.caldav.icalendarstore.ICalendarHome}
         """
         self._newStoreParentHome = home
         super(StoreProtoNotificationCollectionResource, self).__init__(*args, **kw)
@@ -1925,7 +1925,7 @@ class StoreNotificationObjectFile(NotificationResource):
         Construct a L{CalendarObjectResource} from an L{ICalendarObject}.
 
         @param calendarObject: The storage for the calendar object.
-        @type calendarObject: L{txcaldav.icalendarstore.ICalendarObject}
+        @type calendarObject: L{txdav.caldav.icalendarstore.ICalendarObject}
         """
         super(StoreNotificationObjectFile, self).__init__(*args, **kw)
         self._initializeWithObject(notificationObject)

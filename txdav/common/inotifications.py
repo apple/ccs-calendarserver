@@ -152,7 +152,7 @@ class INotificationObject(IDataStoreResource):
     An notification object describes an XML notification.
     """
 
-    def setData(uid, xmltype, xmldata):
+    def setData(uid, xmltype, xmldata, inserting=False):
         """
         Rewrite this notification object to match the given C{xmltype} and
         C{xmldata}. C{xmldata} must have the same UID as this notification object.

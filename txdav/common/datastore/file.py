@@ -1,4 +1,4 @@
-# -*- test-case-name: txcaldav.calendarstore.test.test_file -*-
+# -*- test-case-name: txdav.caldav.datastore.test.test_file -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -38,11 +38,12 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     ObjectResourceNameAlreadyExistsError, NoSuchObjectResourceError
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
-from txdav.datastore.file import DataStoreTransaction, DataStore, writeOperation, \
-    hidden, isValidName, cached, FileMetaDataMixin
+from txdav.base.datastore.file import DataStoreTransaction, DataStore, writeOperation, \
+    hidden, isValidName, FileMetaDataMixin
+from txdav.base.datastore.util import cached
 from txdav.idav import IDataStore
-from txdav.propertystore.base import PropertyName
-from txdav.propertystore.xattr import PropertyStore
+from txdav.base.propertystore.base import PropertyName
+from txdav.base.propertystore.xattr import PropertyStore
 
 from errno import EEXIST, ENOENT
 from zope.interface import implements, directlyProvides
@@ -109,10 +110,10 @@ class CommonStoreTransaction(DataStoreTransaction):
 
         @type dataStore: L{CommonDataStore}
         """
-        from txcaldav.icalendarstore import ICalendarTransaction
-        from txcarddav.iaddressbookstore import IAddressBookTransaction
-        from txcaldav.calendarstore.file import CalendarHome
-        from txcarddav.addressbookstore.file import AddressBookHome
+        from txdav.caldav.icalendarstore import ICalendarTransaction
+        from txdav.carddav.iaddressbookstore import IAddressBookTransaction
+        from txdav.caldav.datastore.file import CalendarHome
+        from txdav.carddav.datastore.file import AddressBookHome
 
         super(CommonStoreTransaction, self).__init__(dataStore, name)
         self._homes = {}
@@ -200,7 +201,7 @@ class CommonStoreTransaction(DataStoreTransaction):
             notifier)
         self._homes[storeType][(uid, self)] = home
         if creating:
-            home.created()
+            home.createdHome()
 
             # Create notification collection
             if storeType == ECALENDARTYPE:
@@ -635,7 +636,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
             raise ObjectResourceNameAlreadyExistsError(name)
 
         objectResource = self._objectResourceClass(name, self)
-        objectResource.setComponent(component)
+        objectResource.setComponent(component, inserting=True)
         self._cachedObjectResources[name] = objectResource
 
         # Note: setComponent triggers a notification, so we don't need to
@@ -704,7 +705,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
         @param props: the L{PropertyStore} from C{properties()}.
         """
-
+        pass
 
     def _doValidate(self, component):
         raise NotImplementedError
@@ -742,7 +743,7 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
 
     @writeOperation
-    def setComponent(self, component):
+    def setComponent(self, component, inserting=False):
         raise NotImplementedError
 
 
@@ -761,8 +762,18 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     def properties(self):
         uid = self._parentCollection._home.uid()
         props = PropertyStore(uid, lambda : self._path)
+        self.initPropertyStore(props)
         self._transaction.addOperation(props.flush, "object properties flush")
         return props
+
+    def initPropertyStore(self, props):
+        """
+        A hook for subclasses to override in order to set up their property
+        store after it's been created.
+
+        @param props: the L{PropertyStore} from C{properties()}.
+        """
+        pass
 
 class CommonStubResource(object):
     """
@@ -877,7 +888,7 @@ class NotificationObject(CommonObjectResource):
 
 
     @writeOperation
-    def setData(self, uid, xmltype, xmldata):
+    def setData(self, uid, xmltype, xmldata, inserting=False):
 
         rname = uid + ".xml"
         self._parentCollection.retrieveOldIndex().addOrUpdateRecord(

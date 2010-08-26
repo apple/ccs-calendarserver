@@ -108,7 +108,7 @@ if __name__ == "__main__":
                                "zoneinfo/*/*/*.ics",
                                "images/*/*.jpg",
                              ],
-                             "txcaldav.calendarstore": [
+                             "txdav.common.datastore": [
                                "*.sql",
                              ],
                            },

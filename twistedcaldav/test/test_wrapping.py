@@ -37,15 +37,15 @@ from twistedcaldav.storebridge import ProtoCalendarCollectionResource, \
 
 from twistedcaldav.test.util import TestCase
 
-from txcaldav.calendarstore.test.test_file import event4_text
+from txdav.caldav.datastore.test.test_file import event4_text
 
-from txcarddav.addressbookstore.test.test_file import vcard4_text
+from txdav.carddav.datastore.test.test_file import vcard4_text
 
-from txcaldav.calendarstore.test.test_postgres import buildStore
-from txcaldav.calendarstore.test.common import StubNotifierFactory, \
+from txdav.caldav.datastore.test.test_sql import buildStore
+from txdav.caldav.datastore.test.common import StubNotifierFactory, \
     assertProvides
-from txcaldav.icalendarstore import ICalendarHome
-from txcarddav.iaddressbookstore import IAddressBookHome
+from txdav.caldav.icalendarstore import ICalendarHome
+from txdav.carddav.iaddressbookstore import IAddressBookHome
 
 
 
@@ -73,7 +73,7 @@ class FakeChanRequest(object):
 class WrappingTests(TestCase):
     """
     Tests for L{twistedcaldav.static.CalDAVResource} creating the appropriate type
-    of txcaldav.calendarstore.file underlying object when it can determine what
+    of txdav.caldav.datastore.file underlying object when it can determine what
     type it really represents.
     """
 

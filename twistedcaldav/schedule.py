@@ -50,7 +50,7 @@ from twistedcaldav.resource import CalDAVResource, ReadOnlyNoCopyResourceMixIn
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler, IScheduleScheduler
 
-from txdav.propertystore.base import PropertyName
+from txdav.base.propertystore.base import PropertyName
 
 def _schedulePrivilegeSet(deliver):
     edited = False

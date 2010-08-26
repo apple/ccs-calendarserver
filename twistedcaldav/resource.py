@@ -240,14 +240,14 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
 
     def associateWithTransaction(self, transaction):
         """
-        Associate this resource with a L{txcaldav.idav.ITransaction}; when this
+        Associate this resource with a L{txdav.caldav.idav.ITransaction}; when this
         resource (or any of its children) are rendered successfully, commit the
         transaction.  Otherwise, abort the transaction.
 
         @param transaction: the transaction to associate this resource and its
             children with.
 
-        @type transaction: L{txcaldav.idav.ITransaction} 
+        @type transaction: L{txdav.caldav.idav.ITransaction} 
         """
         # FIXME: needs to reject association with transaction if it's already
         # got one (resources associated with a transaction are not reusable)

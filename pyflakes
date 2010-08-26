@@ -9,7 +9,7 @@ flakes="$(cd "${wd}/../Pyflakes" && pwd)";
 export PYTHONPATH="${flakes}:${PYTHONPATH:-}";
 
 if [ $# -eq 0 ]; then
-  set - calendarserver twistedcaldav twext txdav txcaldav txcarddav;
+  set - calendarserver twistedcaldav twext txdav;
 fi;
 
 cd "${wd}" && "${flakes}/bin/pyflakes" "$@" | sed                     \

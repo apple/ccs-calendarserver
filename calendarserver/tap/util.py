@@ -67,9 +67,10 @@ from calendarserver.provision.root import RootResource
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
 
-from txdav.common.datastore.file import CommonDataStore
-from txcaldav.calendarstore.postgres import PostgresStore, v1_schema
-from txdav.datastore.subpostgres import PostgresService
+from txdav.common.datastore.sql import CommonDataStore as CommonSQLDataStore
+from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
+from txdav.common.datastore.sql import v1_schema
+from txdav.base.datastore.subpostgres import PostgresService
 from twext.python.filepath import CachingFilePath
 
 
@@ -305,11 +306,10 @@ def getRootResource(config, resources=None):
         _dbRoot = CachingFilePath(config.DatabaseRoot)
         _postgresService = PostgresService(_dbRoot, None, v1_schema, "caldav",
             logFile=config.PostgresLogFile)
-        _newStore = PostgresStore(_postgresService.produceConnection,
-            notifierFactory, # config.EnableCalDAV, config.EnableCardDAV)
-            _dbRoot.child("attachments"))
+        _newStore = CommonSQLDataStore(_postgresService.produceConnection,
+            notifierFactory, _dbRoot.child("attachments"), config.EnableCalDAV, config.EnableCardDAV)
     else:
-        _newStore = CommonDataStore(FilePath(config.DocumentRoot),
+        _newStore = CommonFileDataStore(FilePath(config.DocumentRoot),
             notifierFactory, config.EnableCalDAV, config.EnableCardDAV) 
 
     if config.EnableCalDAV:
