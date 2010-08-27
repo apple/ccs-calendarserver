@@ -853,10 +853,6 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
 
         self._db_execute("delete from INVITE where USERID = :1", userid)
     
-    def removeRecordForPrincipalURL(self, principalURL):
-
-        self._db_execute("delete from INVITE where PRINCIPALURL = :1", principalURL)
-    
     def removeRecordForInviteUID(self, inviteUID):
 
         self._db_execute("delete from INVITE where INVITEUID = :1", inviteUID)

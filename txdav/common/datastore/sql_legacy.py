@@ -100,30 +100,25 @@ class PostgresLegacyInvitesEmulator(object):
                 order by
                     INVITE.NAME asc
                 """, [self._calendar._resourceID]):
-            [inviteuid, common_name, userid, ownerUID,
-                bindMode, bindStatus, summary] = row
-            # FIXME: this is really the responsibility of the protocol layer.
-            state = {
-                _BIND_STATUS_INVITED: "NEEDS-ACTION",
-                _BIND_STATUS_ACCEPTED: "ACCEPTED",
-                _BIND_STATUS_DECLINED: "DECLINED",
-                _BIND_STATUS_INVALID: "INVALID",
-            }[bindStatus]
-            access = {
-                _BIND_MODE_READ: "read-only",
-                _BIND_MODE_WRITE: "read-write"
-            }[bindMode]
-            principalURL = "/principals/__uids__/%s/" % (ownerUID,)
-            yield Invite(
-                inviteuid, userid, principalURL, common_name,
-                access, state, summary
-            )
-
+            yield self._makeInvite(row)
 
     def recordForUserID(self, userid):
-        for record in self.allRecords():
-            if record.userid == userid:
-                return record
+        rows = self._txn.execSQL(
+            """
+            select
+                INVITE.INVITE_UID, INVITE.NAME, INVITE.RECIPIENT_ADDRESS,
+                CALENDAR_HOME.OWNER_UID, CALENDAR_BIND.BIND_MODE,
+                CALENDAR_BIND.BIND_STATUS, CALENDAR_BIND.MESSAGE
+            from
+                INVITE, CALENDAR_HOME, CALENDAR_BIND
+            where INVITE.RECIPIENT_ADDRESS = %s
+             and INVITE.HOME_RESOURCE_ID = CALENDAR_HOME.RESOURCE_ID
+             and CALENDAR_BIND.CALENDAR_RESOURCE_ID = INVITE.RESOURCE_ID
+             and CALENDAR_BIND.CALENDAR_HOME_RESOURCE_ID = INVITE.HOME_RESOURCE_ID
+            """,
+            [userid]
+        )
+        return self._makeInvite(rows[0]) if rows else None
 
 
     def recordForPrincipalURL(self, principalURL):
@@ -133,10 +128,43 @@ class PostgresLegacyInvitesEmulator(object):
 
 
     def recordForInviteUID(self, inviteUID):
-        for record in self.allRecords():
-            if record.inviteuid == inviteUID:
-                return record
+        rows = self._txn.execSQL(
+            """
+            select
+                INVITE.INVITE_UID, INVITE.NAME, INVITE.RECIPIENT_ADDRESS,
+                CALENDAR_HOME.OWNER_UID, CALENDAR_BIND.BIND_MODE,
+                CALENDAR_BIND.BIND_STATUS, CALENDAR_BIND.MESSAGE
+            from
+                INVITE, CALENDAR_HOME, CALENDAR_BIND
+            where INVITE.INVITE_UID = %s
+             and INVITE.HOME_RESOURCE_ID = CALENDAR_HOME.RESOURCE_ID
+             and CALENDAR_BIND.CALENDAR_RESOURCE_ID = INVITE.RESOURCE_ID
+             and CALENDAR_BIND.CALENDAR_HOME_RESOURCE_ID = INVITE.HOME_RESOURCE_ID
+            """,
+            [inviteUID]
+        )
+        return self._makeInvite(rows[0]) if rows else None
 
+    def _makeInvite(self, row):
+        [inviteuid, common_name, userid, ownerUID,
+            bindMode, bindStatus, summary] = row
+        # FIXME: this is really the responsibility of the protocol layer.
+        state = {
+            _BIND_STATUS_INVITED: "NEEDS-ACTION",
+            _BIND_STATUS_ACCEPTED: "ACCEPTED",
+            _BIND_STATUS_DECLINED: "DECLINED",
+            _BIND_STATUS_INVALID: "INVALID",
+        }[bindStatus]
+        access = {
+            _BIND_MODE_OWN: "own",
+            _BIND_MODE_READ: "read-only",
+            _BIND_MODE_WRITE: "read-write"
+        }[bindMode]
+        principalURL = "/principals/__uids__/%s/" % (ownerUID,)
+        return Invite(
+            inviteuid, userid, principalURL, common_name,
+            access, state, summary
+        )
 
     def addOrUpdateRecord(self, record):
         bindMode = {'read-only': _BIND_MODE_READ,
@@ -212,28 +240,31 @@ class PostgresLegacyInvitesEmulator(object):
 
 
     def removeRecordForUserID(self, userid):
-        rec = self.recordForUserID(userid)
-        self.removeRecordForInviteUID(rec.inviteuid)
-
-
-    def removeRecordForPrincipalURL(self, principalURL):
-        raise NotImplementedError("removeRecordForPrincipalURL")
+        self._txn.execSQL(
+            "delete from CALENDAR_BIND using INVITE "
+            "where INVITE.RECIPIENT_ADDRESS = %s "
+            " and CALENDAR_BIND.CALENDAR_HOME_RESOURCE_ID = INVITE.HOME_RESOURCE_ID "
+            " and CALENDAR_BIND.CALENDAR_RESOURCE_ID = INVITE.RESOURCE_ID",
+            [userid]
+        )
+        self._txn.execSQL(
+            "delete from INVITE where RECIPIENT_ADDRESS = %s",
+            [userid]
+        )
 
 
     def removeRecordForInviteUID(self, inviteUID):
-        rows = self._txn.execSQL("""
-                select HOME_RESOURCE_ID, RESOURCE_ID from INVITE where
-                INVITE_UID = %s
-            """, [inviteUID])
-        if rows:
-            [[homeID, resourceID]] = rows
-            self._txn.execSQL(
-                "delete from CALENDAR_BIND where "
-                "CALENDAR_HOME_RESOURCE_ID = %s and CALENDAR_RESOURCE_ID = %s",
-                [homeID, resourceID])
-            self._txn.execSQL("delete from INVITE where INVITE_UID = %s",
-                [inviteUID])
-
+        self._txn.execSQL(
+            "delete from CALENDAR_BIND using INVITE "
+            "where INVITE.INVITE_UID = %s "
+            " and CALENDAR_BIND.CALENDAR_HOME_RESOURCE_ID = INVITE.HOME_RESOURCE_ID "
+            " and CALENDAR_BIND.CALENDAR_RESOURCE_ID = INVITE.RESOURCE_ID",
+            [inviteUID]
+        )
+        self._txn.execSQL(
+            "delete from INVITE where INVITE_UID = %s",
+            [inviteUID]
+        )
 
 
 class PostgresLegacySharesEmulator(object):
@@ -338,21 +369,21 @@ class PostgresLegacySharesEmulator(object):
 
     def removeRecordForLocalName(self, localname):
         self._txn.execSQL(
-            "delete from CALENDAR_BIND where CALENDAR_RESOURCE_NAME = %s "
-            "and CALENDAR_HOME_RESOURCE_ID = %s",
+            "update CALENDAR_BIND set CALENDAR_RESOURCE_NAME = NULL "
+            "where CALENDAR_RESOURCE_NAME = %s and CALENDAR_HOME_RESOURCE_ID = %s",
             [localname, self._home._resourceID]
         )
 
 
     def removeRecordForShareUID(self, shareUID):
-        pass
-#        c = self._home._cursor()
-#        c.execute(
-#            "delete from CALENDAR_BIND where CALENDAR_RESOURCE_NAME = %s "
-#            "and CALENDAR_HOME_RESOURCE_ID = %s",
-#            [self._home._resourceID]
-#        )
-
+        self._txn.execSQL(
+            "update CALENDAR_BIND set CALENDAR_RESOURCE_NAME = NULL "
+            "from INVITE "
+            "where INVITE.INVITE_UID = %s "
+            " and CALENDAR_BIND.CALENDAR_HOME_RESOURCE_ID = INVITE.HOME_RESOURCE_ID"
+            " and CALENDAR_BIND.CALENDAR_RESOURCE_ID = INVITE.RESOURCE_ID",
+            [shareUID,]
+        )
 
 
 class postgresqlgenerator(sqlgenerator):
@@ -1071,30 +1102,26 @@ class PostgresLegacyABInvitesEmulator(object):
                 order by
                     INVITE.NAME asc
                 """, [self._addressbook._resourceID]):
-            [inviteuid, common_name, userid, ownerUID,
-                bindMode, bindStatus, summary] = row
-            # FIXME: this is really the responsibility of the protocol layer.
-            state = {
-                _BIND_STATUS_INVITED: "NEEDS-ACTION",
-                _BIND_STATUS_ACCEPTED: "ACCEPTED",
-                _BIND_STATUS_DECLINED: "DECLINED",
-                _BIND_STATUS_INVALID: "INVALID",
-            }[bindStatus]
-            access = {
-                _BIND_MODE_READ: "read-only",
-                _BIND_MODE_WRITE: "read-write"
-            }[bindMode]
-            principalURL = "/principals/__uids__/%s/" % (ownerUID,)
-            yield Invite(
-                inviteuid, userid, principalURL, common_name,
-                access, state, summary
-            )
+            yield self._makeInvite(row)
 
 
     def recordForUserID(self, userid):
-        for record in self.allRecords():
-            if record.userid == userid:
-                return record
+        rows = self._txn.execSQL(
+            """
+            select
+                INVITE.INVITE_UID, INVITE.NAME, INVITE.RECIPIENT_ADDRESS,
+                ADDRESSBOOK_HOME.OWNER_UID, ADDRESSBOOK_BIND.BIND_MODE,
+                ADDRESSBOOK_BIND.BIND_STATUS, ADDRESSBOOK_BIND.MESSAGE
+            from
+                INVITE, ADDRESSBOOK_HOME, ADDRESSBOOK_BIND
+            where INVITE.RECIPIENT_ADDRESS = %s
+             and INVITE.HOME_RESOURCE_ID = ADDRESSBOOK_HOME.RESOURCE_ID
+             and ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = INVITE.RESOURCE_ID
+             and ADDRESSBOOK_BIND.ADDRESSBOOK_HOME_RESOURCE_ID = INVITE.HOME_RESOURCE_ID
+            """,
+            [userid]
+        )
+        return self._makeInvite(rows[0]) if rows else None
 
 
     def recordForPrincipalURL(self, principalURL):
@@ -1104,10 +1131,44 @@ class PostgresLegacyABInvitesEmulator(object):
 
 
     def recordForInviteUID(self, inviteUID):
-        for record in self.allRecords():
-            if record.inviteuid == inviteUID:
-                return record
+        rows = self._txn.execSQL(
+            """
+            select
+                INVITE.INVITE_UID, INVITE.NAME, INVITE.RECIPIENT_ADDRESS,
+                ADDRESSBOOK_HOME.OWNER_UID, ADDRESSBOOK_BIND.BIND_MODE,
+                ADDRESSBOOK_BIND.BIND_STATUS, ADDRESSBOOK_BIND.MESSAGE
+            from
+                INVITE, ADDRESSBOOK_HOME, ADDRESSBOOK_BIND
+            where INVITE.INVITE_UID = %s
+             and INVITE.HOME_RESOURCE_ID = ADDRESSBOOK_HOME.RESOURCE_ID
+             and ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = INVITE.RESOURCE_ID
+             and ADDRESSBOOK_BIND.ADDRESSBOOK_HOME_RESOURCE_ID = INVITE.HOME_RESOURCE_ID
+            """,
+            [inviteUID]
+        )
+        return self._makeInvite(rows[0]) if rows else None
 
+
+    def _makeInvite(self, row):
+        [inviteuid, common_name, userid, ownerUID,
+            bindMode, bindStatus, summary] = row
+        # FIXME: this is really the responsibility of the protocol layer.
+        state = {
+            _BIND_STATUS_INVITED: "NEEDS-ACTION",
+            _BIND_STATUS_ACCEPTED: "ACCEPTED",
+            _BIND_STATUS_DECLINED: "DECLINED",
+            _BIND_STATUS_INVALID: "INVALID",
+        }[bindStatus]
+        access = {
+            _BIND_MODE_OWN: "own",
+            _BIND_MODE_READ: "read-only",
+            _BIND_MODE_WRITE: "read-write"
+        }[bindMode]
+        principalURL = "/principals/__uids__/%s/" % (ownerUID,)
+        return Invite(
+            inviteuid, userid, principalURL, common_name,
+            access, state, summary
+        )
 
     def addOrUpdateRecord(self, record):
         bindMode = {'read-only': _BIND_MODE_READ,
@@ -1183,27 +1244,31 @@ class PostgresLegacyABInvitesEmulator(object):
 
 
     def removeRecordForUserID(self, userid):
-        rec = self.recordForUserID(userid)
-        self.removeRecordForInviteUID(rec.inviteuid)
-
-
-    def removeRecordForPrincipalURL(self, principalURL):
-        raise NotImplementedError("removeRecordForPrincipalURL")
+        self._txn.execSQL(
+            "delete from ADDRESSBOOK_BIND using INVITE "
+            "where INVITE.RECIPIENT_ADDRESS = %s "
+            " and ADDRESSBOOK_BIND.ADDRESSBOOK_HOME_RESOURCE_ID = INVITE.HOME_RESOURCE_ID "
+            " and ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = INVITE.RESOURCE_ID",
+            [userid]
+        )
+        self._txn.execSQL(
+            "delete from INVITE where RECIPIENT_ADDRESS = %s",
+            [userid]
+        )
 
 
     def removeRecordForInviteUID(self, inviteUID):
-        rows = self._txn.execSQL("""
-                select HOME_RESOURCE_ID, RESOURCE_ID from INVITE where
-                INVITE_UID = %s
-            """, [inviteUID])
-        if rows:
-            [[homeID, resourceID]] = rows
-            self._txn.execSQL(
-                "delete from ADDRESSBOOK_BIND where "
-                "ADDRESSBOOK_HOME_RESOURCE_ID = %s and ADDRESSBOOK_RESOURCE_ID = %s",
-                [homeID, resourceID])
-            self._txn.execSQL("delete from INVITE where INVITE_UID = %s",
-                [inviteUID])
+        self._txn.execSQL(
+            "delete from ADDRESSBOOK_BIND using INVITE "
+            "where INVITE.INVITE_UID = %s "
+            " and ADDRESSBOOK_BIND.ADDRESSBOOK_HOME_RESOURCE_ID = INVITE.HOME_RESOURCE_ID "
+            " and ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = INVITE.RESOURCE_ID",
+            [inviteUID]
+        )
+        self._txn.execSQL(
+            "delete from INVITE where INVITE_UID = %s",
+            [inviteUID]
+        )
 
 
 
@@ -1309,17 +1374,18 @@ class PostgresLegacyABSharesEmulator(object):
 
     def removeRecordForLocalName(self, localname):
         self._txn.execSQL(
-            "delete from ADDRESSBOOK_BIND where ADDRESSBOOK_RESOURCE_NAME = %s "
-            "and ADDRESSBOOK_HOME_RESOURCE_ID = %s",
+            "update ADDRESSBOOK_BIND set ADDRESSBOOK_RESOURCE_NAME = NULL "
+            "where ADDRESSBOOK_RESOURCE_NAME = %s and ADDRESSBOOK_HOME_RESOURCE_ID = %s",
             [localname, self._home._resourceID]
         )
 
 
     def removeRecordForShareUID(self, shareUID):
-        pass
-#        c = self._home._cursor()
-#        c.execute(
-#            "delete from ADDRESSBOOK_BIND where ADDRESSBOOK_RESOURCE_NAME = %s "
-#            "and ADDRESSBOOK_HOME_RESOURCE_ID = %s",
-#            [self._home._resourceID]
-#        )
+        self._txn.execSQL(
+            "update ADDRESSBOOK_BIND set ADDRESSBOOK_RESOURCE_NAME = NULL "
+            "from INVITE "
+            "where INVITE.INVITE_UID = %s "
+            " and ADDRESSBOOK_BIND.ADDRESSBOOK_HOME_RESOURCE_ID = INVITE.HOME_RESOURCE_ID"
+            " and ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = INVITE.RESOURCE_ID",
+            [shareUID,]
+        )
