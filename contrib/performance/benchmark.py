@@ -1,4 +1,4 @@
-import sys
+import sys, os
 from os.path import dirname
 
 from signal import SIGINT
@@ -36,6 +36,10 @@ class IOMeasureConsumer(ProcessProtocol):
     def connectionMade(self):
         self._out = ''
         self._err = ''
+
+        
+    def mark(self):
+        return self.parser.mark()
 
 
     def errReceived(self, bytes):
@@ -81,6 +85,7 @@ class _DTraceParser(LineReceiver):
 
     sql = None
     start = None
+    _marked = None
 
     def __init__(self, collector):
         self.collector = collector
@@ -92,6 +97,18 @@ class _DTraceParser(LineReceiver):
         if dtrace:
             op, rest = dtrace.split(None, 1)
             getattr(self, '_op_' + op)(op, rest)
+
+
+    def mark(self):
+        self._marked = Deferred()
+        return self._marked
+
+
+    def _op_MARK(self, cmd, rest):
+        marked = self._marked
+        self._marked = None
+        if marked is not None:
+            marked.callback(None)
 
 
     def _op_EXECUTE(self, cmd, rest):
@@ -134,6 +151,10 @@ class DTraceCollector(object):
     def __init__(self, script, pids):
         self._dScript = script
         self.pids = pids
+        self._init_stats()
+
+
+    def _init_stats(self):
         self._read = []
         self._write = []
         self._execute = []
@@ -141,12 +162,14 @@ class DTraceCollector(object):
 
 
     def stats(self):
-        return {
+        results = {
             Bytes('read'): self._read,
             Bytes('write'): self._write,
             SQLDuration('execute'): self._execute,
             SQLDuration('iternext'): self._iternext,
             }
+        self._init_stats()
+        return results
 
 
     def start(self):
@@ -163,8 +186,9 @@ class DTraceCollector(object):
     def _startDTrace(self, pid):
         started = Deferred()
         stopped = Deferred()
+        proto = IOMeasureConsumer(started, stopped, _DTraceParser(self))
         process = reactor.spawnProcess(
-            IOMeasureConsumer(started, stopped, _DTraceParser(self)),
+            proto,
             "/usr/sbin/dtrace",
             ["/usr/sbin/dtrace",
              # process preprocessor macros
@@ -186,7 +210,7 @@ class DTraceCollector(object):
             # have the stopped Deferred deal with the results.  We
             # don't want to do either of these for failed dtrace
             # processes.
-            self.dtraces[pid] = process
+            self.dtraces[pid] = (process, proto)
             stopped.addCallback(self._cleanup, pid)
             return passthrough
         started.addCallbacks(ready, eintr)
@@ -198,9 +222,24 @@ class DTraceCollector(object):
         return passthrough
 
 
+    def mark(self):
+        marks = []
+        for (process, protocol) in self.dtraces.itervalues():
+            marks.append(protocol.mark())
+        d = gatherResults(marks)
+        d.addCallback(lambda ign: self.stats())
+        try:
+            os.execve(
+                "CalendarServer dtrace benchmarking signal", [], {})
+        except OSError:
+            pass
+        return d
+        
+
+
     def stop(self):
-        for proc in self.dtraces.itervalues():
-            proc.signalProcess(SIGINT)
+        for (process, protocol) in self.dtraces.itervalues():
+            process.signalProcess(SIGINT)
         d = gatherResults(self.finished)
         d.addCallback(lambda ign: self.stats())
         return d

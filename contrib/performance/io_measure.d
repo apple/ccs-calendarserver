@@ -22,3 +22,9 @@ io:::start
 {
 	printf("B_WRITE %d\n\1", args[0]->b_bcount);
 }
+
+syscall::execve:entry
+/copyinstr(arg0) == "CalendarServer dtrace benchmarking signal"/
+{
+	printf("MARK x\n\1");
+}
