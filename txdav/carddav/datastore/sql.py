@@ -28,8 +28,8 @@ from twistedcaldav import carddavxml, customxml
 from twistedcaldav.vcard import Component as VCard
 
 from txdav.common.datastore.sql_legacy import \
-    PostgresLegacyABIndexEmulator, PostgresLegacyABInvitesEmulator,\
-    PostgresLegacyABSharesEmulator
+    PostgresLegacyABIndexEmulator, SQLLegacyAddressBookInvites,\
+    SQLLegacyAddressBookShares
 
 from txdav.carddav.datastore.util import validateAddressBookComponent
 from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook,\
@@ -51,7 +51,7 @@ class AddressBookHome(CommonHome):
     def __init__(self, transaction, ownerUID, resourceID, notifier):
         super(AddressBookHome, self).__init__(transaction, ownerUID, resourceID, notifier)
 
-        self._shares = PostgresLegacyABSharesEmulator(self)
+        self._shares = SQLLegacyAddressBookShares(self)
         self._childClass = AddressBook
         self._childTable = ADDRESSBOOK_TABLE
         self._bindTable = ADDRESSBOOK_BIND_TABLE
@@ -90,7 +90,7 @@ class AddressBook(CommonHomeChild):
         super(AddressBook, self).__init__(home, name, resourceID, notifier)
 
         self._index = PostgresLegacyABIndexEmulator(self)
-        self._invites = PostgresLegacyABInvitesEmulator(self)
+        self._invites = SQLLegacyAddressBookInvites(self)
         self._objectResourceClass = AddressBookObject
         self._bindTable = ADDRESSBOOK_BIND_TABLE
         self._homeChildTable = ADDRESSBOOK_TABLE

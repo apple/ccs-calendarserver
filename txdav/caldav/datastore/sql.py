@@ -44,8 +44,8 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
     CommonObjectResource
 from txdav.common.datastore.sql_legacy import \
-    PostgresLegacyIndexEmulator, PostgresLegacyInvitesEmulator,\
-    PostgresLegacySharesEmulator
+    PostgresLegacyIndexEmulator, SQLLegacyCalendarInvites,\
+    SQLLegacyCalendarShares
 from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE,\
     _ATTACHMENTS_MODE_WRITE
@@ -64,7 +64,7 @@ class CalendarHome(CommonHome):
     def __init__(self, transaction, ownerUID, resourceID, notifier):
         super(CalendarHome, self).__init__(transaction, ownerUID, resourceID, notifier)
 
-        self._shares = PostgresLegacySharesEmulator(self)
+        self._shares = SQLLegacyCalendarShares(self)
         self._childClass = Calendar
         self._childTable = CALENDAR_TABLE
         self._bindTable = CALENDAR_BIND_TABLE
@@ -117,7 +117,7 @@ class Calendar(CommonHomeChild):
         super(Calendar, self).__init__(home, name, resourceID, notifier)
 
         self._index = PostgresLegacyIndexEmulator(self)
-        self._invites = PostgresLegacyInvitesEmulator(self)
+        self._invites = SQLLegacyCalendarInvites(self)
         self._objectResourceClass = CalendarObject
         self._bindTable = CALENDAR_BIND_TABLE
         self._homeChildTable = CALENDAR_TABLE
