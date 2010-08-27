@@ -1338,7 +1338,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
         """
         Return current sync-token value.
         """
-        raise NotImplementedError
+        raise HTTPError(StatusResponse(responsecode.NOT_FOUND, "Property not supported"))
 
     #
     # Stuff from CalDAVFile
