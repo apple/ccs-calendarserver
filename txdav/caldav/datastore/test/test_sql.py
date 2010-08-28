@@ -19,13 +19,17 @@ Tests for txdav.caldav.datastore.postgres, mostly based on
 L{txdav.caldav.datastore.test.common}.
 """
 
+import time
+
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests
 
+from txdav.common.datastore.sql import ECALENDARTYPE
 from txdav.common.datastore.test.util import SQLStoreBuilder
 from txdav.common.icommondatastore import NoSuchHomeChildError
 
 from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks
+from twisted.internet.threads import deferToThread
 from twext.python.vcomponent import VComponent
 
 
@@ -76,3 +80,46 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         Create and return a L{CalendarStore} for testing.
         """
         return self.calendarStore
+
+    @inlineCallbacks
+    def test_homeProvisioningConcurrency(self):
+
+        calendarStore1 = yield buildStore(self, self.notifierFactory)
+        calendarStore2 = yield buildStore(self, self.notifierFactory)
+        calendarStore3 = yield buildStore(self, self.notifierFactory)
+
+        txn1 = calendarStore1.newTransaction()
+        txn2 = calendarStore2.newTransaction()
+        txn3 = calendarStore3.newTransaction()
+        
+        # Provision one home now
+        home_uid2 = txn3.homeWithUID(ECALENDARTYPE, "uid2", create=True)
+        self.assertNotEqual(home_uid2, None)
+        txn3.commit()
+
+        home_uid1_1 = txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        
+        def _defer_home_uid1_2():
+            home_uid1_2 = txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+            txn2.commit()
+            return home_uid1_2
+        d1 = deferToThread(_defer_home_uid1_2)
+        
+        def _pause_home_uid1_1():
+            time.sleep(1)
+            txn1.commit()
+        d2 = deferToThread(_pause_home_uid1_1)
+        
+        # Verify that we can still get to the existing home - i.e. the lock
+        # on the table allows concurrent reads
+        txn4 = calendarStore3.newTransaction()
+        home_uid2 = txn4.homeWithUID(ECALENDARTYPE, "uid2", create=True)
+        self.assertNotEqual(home_uid2, None)
+        txn4.commit()
+        
+        # Now do the concurrent provision attempt
+        yield d2
+        home_uid1_2 = yield d1
+        
+        self.assertNotEqual(home_uid1_1, None)
+        self.assertNotEqual(home_uid1_2, None)

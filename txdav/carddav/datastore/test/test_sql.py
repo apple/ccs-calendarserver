@@ -19,14 +19,17 @@ Tests for txdav.caldav.datastore.postgres, mostly based on
 L{txdav.caldav.datastore.test.common}.
 """
 
+import time
+
 from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests
 
+from txdav.common.datastore.sql import EADDRESSBOOKTYPE
 from txdav.common.datastore.test.util import SQLStoreBuilder
 
 from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks
+from twisted.internet.threads import deferToThread
 from twistedcaldav.vcard import Component as VCard
-
 
 theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore
@@ -73,3 +76,46 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         """
         return self.addressbookStore
 
+
+    @inlineCallbacks
+    def test_homeProvisioningConcurrency(self):
+
+        addressbookStore1 = yield buildStore(self, self.notifierFactory)
+        addressbookStore2 = yield buildStore(self, self.notifierFactory)
+        addressbookStore3 = yield buildStore(self, self.notifierFactory)
+
+        txn1 = addressbookStore1.newTransaction()
+        txn2 = addressbookStore2.newTransaction()
+        txn3 = addressbookStore3.newTransaction()
+        
+        # Provision one home now
+        home_uid2 = txn3.homeWithUID(EADDRESSBOOKTYPE, "uid2", create=True)
+        self.assertNotEqual(home_uid2, None)
+        txn3.commit()
+
+        home_uid1_1 = txn1.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        
+        def _defer_home_uid1_2():
+            home_uid1_2 = txn2.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+            txn2.commit()
+            return home_uid1_2
+        d1 = deferToThread(_defer_home_uid1_2)
+        
+        def _pause_home_uid1_1():
+            time.sleep(1)
+            txn1.commit()
+        d2 = deferToThread(_pause_home_uid1_1)
+        
+        # Verify that we can still get to the existing home - i.e. the lock
+        # on the table allows concurrent reads
+        txn4 = addressbookStore3.newTransaction()
+        home_uid2 = txn4.homeWithUID(EADDRESSBOOKTYPE, "uid2", create=True)
+        self.assertNotEqual(home_uid2, None)
+        txn4.commit()
+        
+        # Now do the concurrent provision attempt
+        yield d2
+        home_uid1_2 = yield d1
+        
+        self.assertNotEqual(home_uid1_1, None)
+        self.assertNotEqual(home_uid1_2, None)

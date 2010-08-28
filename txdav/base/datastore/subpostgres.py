@@ -255,7 +255,7 @@ class PostgresService(MultiService):
         # See: http://www.postgresql.org/docs/8.4/static/kernel-resources.html
         if testMode:
             self.sharedBuffers = 16
-            self.maxConnections = 2
+            self.maxConnections = 4
         else:
             self.sharedBuffers = 30
             self.maxConnections = 20

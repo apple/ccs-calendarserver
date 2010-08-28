@@ -169,13 +169,30 @@ class CommonStoreTransaction(object):
         if not data:
             if not create:
                 return None
+            
+            # Need to lock to prevent race condition
+            # FIXME: this is an entire table lock - ideally we want a row lock
+            # but the row does not exist yet. However, the "exclusive" mode does
+            # allow concurrent reads so the only thing we block is other attempts
+            # to provision a home, which is not too bad
             self.execSQL(
-                "insert into %(name)s (%(column_OWNER_UID)s) values (%%s)" % homeTable,
+                "lock %(name)s in exclusive mode" % homeTable,
+            )
+            
+            # Now test again
+            data = self.execSQL(
+                "select %(column_RESOURCE_ID)s from %(name)s where %(column_OWNER_UID)s = %%s" % homeTable,
                 [uid]
             )
-            home = self.homeWithUID(storeType, uid)
-            home.createdHome()
-            return home
+
+            if not data:
+                self.execSQL(
+                    "insert into %(name)s (%(column_OWNER_UID)s) values (%%s)" % homeTable,
+                    [uid]
+                )
+                home = self.homeWithUID(storeType, uid)
+                home.createdHome()
+                return home
         resid = data[0][0]
 
         if self._notifierFactory:
