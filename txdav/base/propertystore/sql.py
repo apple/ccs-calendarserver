@@ -35,47 +35,78 @@ class PropertyStore(AbstractPropertyStore):
         self._txn = txn
         self._resourceID = resourceID
 
+    @property
+    def _cached(self):
+        
+        if not hasattr(self, "_cached_properties"):
+            self._cached_properties = {}
+            rows = self._txn.execSQL(
+                """
+                select NAME, VIEWER_UID, VALUE from RESOURCE_PROPERTY
+                where RESOURCE_ID = %s
+                """,
+                [self._resourceID]
+            )
+            for name, uid, value in rows:
+                self._cached_properties[(name, uid)] = value
+        
+        return self._cached_properties
 
     def _getitem_uid(self, key, uid):
         validKey(key)
-        rows = self._txn.execSQL(
-            "select VALUE from RESOURCE_PROPERTY where "
-            "RESOURCE_ID = %s and NAME = %s and VIEWER_UID = %s",
-            [self._resourceID, key.toString(), uid]
-        )
-        if not rows:
+        
+        try:
+            value = self._cached[(key.toString(), uid)]
+        except KeyError:
             raise KeyError(key)
-        return WebDAVDocument.fromString(rows[0][0]).root_element
+
+        return WebDAVDocument.fromString(value).root_element
 
 
     def _setitem_uid(self, key, value, uid):
         validKey(key)
-        try:
-            self._delitem_uid(key, uid)
-        except KeyError:
-            pass
-        self._txn.execSQL(
-            "insert into RESOURCE_PROPERTY "
-            "(RESOURCE_ID, NAME, VALUE, VIEWER_UID) values (%s, %s, %s, %s)",
-            [self._resourceID, key.toString(), value.toxml(), uid]
-        )
+
+        key_str = key.toString()
+        value_str = value.toxml()
+
+        if (key_str, uid) in self._cached:
+            self._txn.execSQL(
+                """
+                update RESOURCE_PROPERTY
+                set VALUE = %s
+                where RESOURCE_ID = %s and NAME = %s and VIEWER_UID = %s
+                """,
+                [value_str, self._resourceID, key_str, uid]
+            )
+        else:        
+            self._txn.execSQL(
+                """
+                insert into RESOURCE_PROPERTY
+                (RESOURCE_ID, NAME, VALUE, VIEWER_UID)
+                values (%s, %s, %s, %s)
+                """,
+                [self._resourceID, key_str, value_str, uid]
+            )
+        self._cached[(key_str, uid)] = value_str
 
 
     def _delitem_uid(self, key, uid):
         validKey(key)
+
+        key_str = key.toString()
+        del self._cached[(key_str, uid)]
         self._txn.execSQL(
-            "delete from RESOURCE_PROPERTY where VIEWER_UID = %s"
-            "and RESOURCE_ID = %s AND NAME = %s",
-            [uid, self._resourceID, key.toString()],
+            """
+            delete from RESOURCE_PROPERTY
+            where RESOURCE_ID = %s and NAME = %s and VIEWER_UID = %s
+            """,
+            [self._resourceID, key_str, uid],
             raiseOnZeroRowCount=lambda:KeyError(key)
         )
             
 
     def _keys_uid(self, uid):
-        rows = self._txn.execSQL(
-            "select NAME from RESOURCE_PROPERTY where "
-            "VIEWER_UID = %s and RESOURCE_ID = %s",
-            [uid, self._resourceID]
-        )
-        for row in rows:
-            yield PropertyName.fromString(row[0])
+
+        for cachedKey, cachedUID in self._cached.keys():
+            if cachedUID == uid:
+                yield PropertyName.fromString(cachedKey)

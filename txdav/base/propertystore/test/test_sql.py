@@ -59,8 +59,19 @@ class PropertyStoreTest(base.PropertyStoreTest):
             self._txn.commit()
             delattr(self, "_txn")
         self._txn = self.store.newTransaction()
-        self.propertyStore1._txn = self._txn
-        self.propertyStore2._txn = self._txn
+        
+        store = self.propertyStore1
+        self.propertyStore = self.propertyStore1 = PropertyStore(
+            "user01", self._txn, 1
+        )
+        self.propertyStore1._shadowableKeys = store._shadowableKeys
+        self.propertyStore1._globalKeys = store._globalKeys
+
+        store = self.propertyStore2
+        self.propertyStore2 = PropertyStore("user01", self._txn, 1)
+        self.propertyStore2._setPerUserUID("user02")
+        self.propertyStore2._shadowableKeys = store._shadowableKeys
+        self.propertyStore2._globalKeys = store._globalKeys
 
     def _abort(self, store):
         if hasattr(self, "_txn"):
@@ -68,8 +79,19 @@ class PropertyStoreTest(base.PropertyStoreTest):
             delattr(self, "_txn")
 
         self._txn = self.store.newTransaction()
-        self.propertyStore1._txn = self._txn
-        self.propertyStore2._txn = self._txn
+
+        store = self.propertyStore1
+        self.propertyStore = self.propertyStore1 = PropertyStore(
+            "user01", self._txn, 1
+        )
+        self.propertyStore1._shadowableKeys = store._shadowableKeys
+        self.propertyStore1._globalKeys = store._globalKeys
+
+        store = self.propertyStore2
+        self.propertyStore2 = PropertyStore("user01", self._txn, 1)
+        self.propertyStore2._setPerUserUID("user02")
+        self.propertyStore2._shadowableKeys = store._shadowableKeys
+        self.propertyStore2._globalKeys = store._globalKeys
 
     @inlineCallbacks
     def setUp(self):
