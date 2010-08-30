@@ -55,6 +55,7 @@ def upload(reactor, url, project, revision, revision_date, benchmark,
         'max': str(max_value),
         'min': str(min_value),
         }
+    print 'uploading', data
     agent = Agent(reactor)
     d = agent.request('POST', url, None, StringProducer(urlencode(data)))
     def check(response):
@@ -80,6 +81,7 @@ def main():
     fname, benchmark, param, statistic = options['statistic'].split(',')
     stat, samples = select(
         pickle.load(file(fname)), benchmark, param, statistic)
+    samples = stat.squash(samples)
 
     d = upload(
         reactor,

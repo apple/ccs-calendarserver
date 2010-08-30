@@ -1,2 +1,2 @@
 #!/bin/bash
-PYTHONPATH=$PYTHONPATH:../../../vobject/:../../../../CalDAVClientLibrary/trunk/src:../../../Twisted/ "$@"
+PYTHONPATH=$PYTHONPATH:~/Projects/CalendarServer/Twisted "$@"

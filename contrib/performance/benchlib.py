@@ -16,6 +16,7 @@ class CalDAVAccount(object):
         self.root = root
         self.principal = principal
 
+
     def deleteResource(self, url):
         return self.agent.request('DELETE', 'http://%s%s' % (self.netloc, url))
 
@@ -60,17 +61,20 @@ def initialize(agent, host, port, user, password, root, principal, calendar):
 
 @inlineCallbacks
 def sample(dtrace, samples, agent, paramgen):
-    data = []
+    urlopen = Duration('urlopen time')
+    data = {urlopen: []}
     yield dtrace.start()
     for i in range(samples):
         before = time()
         response = yield agent.request(*paramgen())
         yield readBody(response)
         after = time()
-        data.append(after - before)
-    stats = yield dtrace.stop()
-    stats[Duration('urlopen time')] = data
-    returnValue(stats)
+        stats = yield dtrace.mark()
+        for k, v in stats.iteritems():
+            data.setdefault(k, []).append(v)
+        data[urlopen].append(after - before)
+    print 'Extra stats:', (yield dtrace.stop())
+    returnValue(data)
 
 
 def select(statistics, benchmark, parameter, statistic):

@@ -67,7 +67,8 @@ class IOMeasureConsumer(ProcessProtocol):
         if self.started is None:
             self.done.callback(None)
         else:
-            self.started.errback(RuntimeError("Exited too soon"))
+            self.started.errback(RuntimeError("Exited too soon: %r" % (self._out,)))
+
 
 
 def instancePIDs(directory):
@@ -189,8 +190,9 @@ class DTraceCollector(object):
         proto = IOMeasureConsumer(started, stopped, _DTraceParser(self))
         process = reactor.spawnProcess(
             proto,
-            "/usr/sbin/dtrace",
-            ["/usr/sbin/dtrace",
+            "/usr/bin/sudo",
+            ["/usr/bin/sudo",
+             "/usr/sbin/dtrace",
              # process preprocessor macros
              "-C",
              # search for include targets in the source directory containing this file

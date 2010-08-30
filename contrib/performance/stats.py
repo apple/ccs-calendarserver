@@ -38,6 +38,24 @@ class _Statistic(object):
         self.name = name
 
 
+    def __eq__(self, other):
+        if isinstance(other, _Statistic):
+            return self.name == other.name
+        return NotImplemented
+
+
+    def __hash__(self):
+        return hash((self.__class__, self.name))
+
+
+    def squash(self, samples):
+        """
+        Normalize the sample data into float values (one per sample)
+        in seconds (I hope time is the only thing you measure).
+        """
+        return samples
+
+
     def summarize(self, data):
         print self.name, 'mean', mean(data)
         print self.name, 'median', median(data)
@@ -91,23 +109,35 @@ class SQLDuration(_Statistic):
         return sqlparse.format(statement.to_unicode().encode('ascii'))
 
 
-    def summarize(self, data):
+    def squash(self, samples):
+        times = []
+        for data in samples:
+            times.append(
+                sum([interval for (sql, interval) in data]) / NANO)
+        return times
+
+
+    def summarize(self, samples):
+        times = []
         statements = {}
-        intervals = []
-        for (sql, interval) in data:
-            sql = self.normalize(sql)
-            intervals.append(interval)
-            statements[sql] = statements.get(sql, 0) + 1
+        for data in samples:
+            total = 0
+            for (sql, interval) in data:
+                sql = self.normalize(sql)
+                statements[sql] = statements.get(sql, 0) + 1
+                total += interval
+            times.append(total / NANO * 1000)
         for statement, count in statements.iteritems():
             print count, ':', statement
-        return _Statistic.summarize(self, intervals)
+        return _Statistic.summarize(self, times)
 
 
-    def statements(self, data):
+    def statements(self, samples):
         statements = {}
-        for (sql, interval) in data:
-            sql = self.normalize(sql)
-            statements.setdefault(sql, []).append(interval)
+        for data in samples:
+            for (sql, interval) in data:
+                sql = self.normalize(sql)
+                statements.setdefault(sql, []).append(interval)
         
         byTime = []
         for statement, times in statements.iteritems():

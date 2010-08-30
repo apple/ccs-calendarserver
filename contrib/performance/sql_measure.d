@@ -1,8 +1,8 @@
 
 /*
- * Make almost all query strings fit.
+ * Make almost all query strings fit.  Please don't have SQL longer than this. :(
  */
-#pragma D option strsize=8192
+#pragma D option strsize=32768
 
 dtrace:::BEGIN
 {
