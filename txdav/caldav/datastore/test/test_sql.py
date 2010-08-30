@@ -190,6 +190,12 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def test_homeProvisioningConcurrency(self):
+        """
+        Test that two concurrent attempts to provision a calendar home do not cause a race-condition
+        whereby the second commit results in a second INSERT that violates a unique constraint. Also verify
+        that, whilst the two provisioning attempts are happening and doing various lock operations, that we
+        do not block other reads of the table.
+        """
 
         calendarStore1 = yield buildStore(self, self.notifierFactory)
         calendarStore2 = yield buildStore(self, self.notifierFactory)
@@ -199,7 +205,8 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         txn2 = calendarStore2.newTransaction()
         txn3 = calendarStore3.newTransaction()
         
-        # Provision one home now
+        # Provision one home now - we will use this to later verify we can do reads of
+        # existing data in the table
         home_uid2 = txn3.homeWithUID(ECALENDARTYPE, "uid2", create=True)
         self.assertNotEqual(home_uid2, None)
         txn3.commit()
