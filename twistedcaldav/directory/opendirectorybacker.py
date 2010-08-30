@@ -85,7 +85,7 @@ class OpenDirectoryBackingService(DirectoryService):
         peopleNode = "/Search/Contacts",
         queryUserRecords=True, 
         userNode = "/Search",
-        maxDSQueryRecords = 150,            # maximum number of records requested for any ds query
+        maxDSQueryRecords = 0,            # maximum number of records requested for any ds query
         
         queryDSLocal = False,              #query in DSLocal -- debug
         dsLocalCacheTimeout = 30,

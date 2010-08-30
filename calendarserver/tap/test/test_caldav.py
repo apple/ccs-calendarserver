@@ -290,6 +290,7 @@ class BaseServiceMakerTests(TestCase):
         self.config.ProcessType    = "Slave"
         self.config.SSLPrivateKey  = pemFile
         self.config.SSLCertificate = pemFile
+        self.config.EnableSSL      = True
         self.config.Memcached.Pools.Default.ClientEnabled = False
         self.config.Memcached.Pools.Default.ServerEnabled = False
         self.config.DirectoryAddressBook.Enabled = False

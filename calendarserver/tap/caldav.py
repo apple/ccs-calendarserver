@@ -545,20 +545,21 @@ class CalDAVServiceMaker (LoggingMixIn):
         if config.InheritFDs or config.InheritSSLFDs:
             # Inherit sockets to call accept() on them individually.
 
-            for fd in config.InheritSSLFDs:
-                fd = int(fd)
+            if config.EnableSSL:
+                for fd in config.InheritSSLFDs:
+                    fd = int(fd)
 
-                try:
-                    contextFactory = self.createContextFactory()
-                except SSLError, e:
-                    log.error("Unable to set up SSL context factory: %s" % (e,))
-                else:
-                    MaxAcceptSSLServer(
-                        fd, httpFactory,
-                        contextFactory,
-                        backlog=config.ListenBacklog,
-                        inherit=True
-                    ).setServiceParent(service)
+                    try:
+                        contextFactory = self.createContextFactory()
+                    except SSLError, e:
+                        log.error("Unable to set up SSL context factory: %s" % (e,))
+                    else:
+                        MaxAcceptSSLServer(
+                            fd, httpFactory,
+                            contextFactory,
+                            backlog=config.ListenBacklog,
+                            inherit=True
+                        ).setServiceParent(service)
 
             for fd in config.InheritFDs:
                 fd = int(fd)
@@ -613,24 +614,25 @@ class CalDAVServiceMaker (LoggingMixIn):
                 elif config.SSLPort != 0:
                     config.BindSSLPorts = [config.SSLPort]
 
-                for port in config.BindSSLPorts:
-                    self.log_info("Adding SSL server at %s:%s"
-                                  % (bindAddress, port))
+                if config.EnableSSL:
+                    for port in config.BindSSLPorts:
+                        self.log_info("Adding SSL server at %s:%s"
+                                      % (bindAddress, port))
 
-                    try:
-                        contextFactory = self.createContextFactory()
-                    except SSLError, e:
-                        self.log_error("Unable to set up SSL context factory: %s"
-                                       % (e,))
-                        self.log_error("Disabling SSL port: %s" % (port,))
-                    else:
-                        httpsService = MaxAcceptSSLServer(
-                            int(port), httpFactory,
-                            contextFactory, interface=bindAddress,
-                            backlog=config.ListenBacklog,
-                            inherit=False
-                        )
-                        httpsService.setServiceParent(service)
+                        try:
+                            contextFactory = self.createContextFactory()
+                        except SSLError, e:
+                            self.log_error("Unable to set up SSL context factory: %s"
+                                           % (e,))
+                            self.log_error("Disabling SSL port: %s" % (port,))
+                        else:
+                            httpsService = MaxAcceptSSLServer(
+                                int(port), httpFactory,
+                                contextFactory, interface=bindAddress,
+                                backlog=config.ListenBacklog,
+                                inherit=False
+                            )
+                            httpsService.setServiceParent(service)
 
                 for port in config.BindHTTPPorts:
 
@@ -808,8 +810,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                 config.BindSSLPorts = [config.SSLPort]
 
             if config.UseMetaFD:
-                for ports, description in [(config.BindSSLPorts, "SSL"),
-                                           (config.BindHTTPPorts, "TCP")]:
+                portsList = [(config.BindHTTPPorts, "TCP")]
+                if config.EnableSSL:
+                    portsList.append((config.BindSSLPorts, "SSL"))
+                for ports, description in portsList:
                     for port in ports:
                         cl.addPortService(description, port, bindAddress, config.ListenBacklog)
             else:
@@ -827,9 +831,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                     sock = _openSocket(bindAddress, int(portNum))
                     inheritFDs.append(sock.fileno())
 
-                for portNum in config.BindSSLPorts:
-                    sock = _openSocket(bindAddress, int(portNum))
-                    inheritSSLFDs.append(sock.fileno())
+                if config.EnableSSL:
+                    for portNum in config.BindSSLPorts:
+                        sock = _openSocket(bindAddress, int(portNum))
+                        inheritSSLFDs.append(sock.fileno())
 
         for p in xrange(0, config.MultiProcess.ProcessCount):
             if config.UseMetaFD:

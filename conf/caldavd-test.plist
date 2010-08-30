@@ -34,6 +34,14 @@
     <key>ServerHostName</key>
     <string></string> <!-- The hostname clients use when connecting -->
 
+    <!-- Enable Calendars -->
+    <key>EnableCalDAV</key>
+    <true/>
+
+    <!-- Enable AddressBooks -->
+    <key>EnableCardDAV</key>
+    <true/>
+
     <!-- HTTP port [0 = disable HTTP] -->
     <key>HTTPPort</key>
     <integer>8008</integer>
@@ -42,6 +50,10 @@
     <!-- (Must also configure SSLCertificate and SSLPrivateKey below) -->
     <key>SSLPort</key>
     <integer>8443</integer>
+
+    <!-- Enable listening on SSL port(s) -->
+    <key>EnableSSL</key>
+    <true/>
 
     <!-- Redirect non-SSL ports to an SSL port (if configured for SSL) -->
     <key>RedirectHTTPToHTTPS</key>
@@ -62,11 +74,15 @@
     <!-- List of port numbers to bind to for HTTP [empty = same as "Port"] -->
     <key>BindHTTPPorts</key>
     <array>
+        <integer>8008</integer>
+        <integer>8800</integer>
     </array>
 
     <!-- List of port numbers to bind to for SSL [empty = same as "SSLPort"] -->
     <key>BindSSLPorts</key>
     <array>
+        <integer>8443</integer>
+        <integer>8843</integer>
     </array>
 
 
@@ -303,7 +319,7 @@
 
     <!-- Anonymous read access for root resource -->
     <key>EnableAnonymousReadRoot</key>
-    <true/>
+    <false/>
 
     <!-- Anonymous read access for resource hierarchy -->
     <key>EnableAnonymousReadNav</key>
