@@ -32,7 +32,7 @@ for backend in $BACKENDS; do
   ./run -d -n
   sleep 5
   popd
-  ./benchmark --label r$REV-$backend --log-directory $LOGS $BENCHMARKS
+  sudo ./benchmark --label r$REV-$backend --log-directory $LOGS $BENCHMARKS
   data=`echo -n r$REV-$backend*`
   for p in 1 9 81; do
     for b in $BENCHMARKS; do

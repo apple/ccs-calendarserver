@@ -190,9 +190,7 @@ class DTraceCollector(object):
         proto = IOMeasureConsumer(started, stopped, _DTraceParser(self))
         process = reactor.spawnProcess(
             proto,
-            "/usr/bin/sudo",
-            ["/usr/bin/sudo",
-             "/usr/sbin/dtrace",
+            ["/usr/sbin/dtrace",
              # process preprocessor macros
              "-C",
              # search for include targets in the source directory containing this file
@@ -303,6 +301,7 @@ class BenchmarkOptions(Options):
         self['benchmarks'] = benchmarks
         if not self['benchmarks']:
             raise UsageError("Specify at least one benchmark")
+
 
 
 def main():
