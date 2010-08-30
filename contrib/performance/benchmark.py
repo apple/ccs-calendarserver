@@ -67,7 +67,7 @@ class IOMeasureConsumer(ProcessProtocol):
         if self.started is None:
             self.done.callback(None)
         else:
-            self.started.errback(RuntimeError("Exited too soon: %r" % (self._out,)))
+            self.started.errback(RuntimeError("Exited too soon: %r/%r" % (self._out, self._err)))
 
 
 
@@ -188,19 +188,20 @@ class DTraceCollector(object):
         started = Deferred()
         stopped = Deferred()
         proto = IOMeasureConsumer(started, stopped, _DTraceParser(self))
-        process = reactor.spawnProcess(
-            proto,
-            ["/usr/sbin/dtrace",
-             # process preprocessor macros
-             "-C",
-             # search for include targets in the source directory containing this file
-             "-I", dirname(__file__),
-             # suppress most implicitly generated output (which would mess up our parser)
-             "-q",
-             # make this pid the target
-             "-p", str(pid),
-             # load this script
-             "-s", self._dScript])
+        command = [
+            "/usr/sbin/dtrace",
+            # process preprocessor macros
+            "-C",
+            # search for include targets in the source directory containing this file
+            "-I", dirname(__file__),
+            # suppress most implicitly generated output (which would mess up our parser)
+            "-q",
+            # make this pid the target
+            "-p", str(pid),
+            # load this script
+            "-s", self._dScript]
+        print command
+        process = reactor.spawnProcess(proto, command[0], command)
         def eintr(reason):
             reason.trap(DTraceBug)
             print 'Dtrace startup failed (', reason.getErrorMessage().strip(), '), retrying.'
