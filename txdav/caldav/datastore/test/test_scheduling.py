@@ -16,6 +16,14 @@
 
 """
 Tests for L{txdav.caldav.datastore.scheduling}.
+
+The aforementioned module is intended to eventually support implicit
+scheduling; however, it does not currently.  The interim purpose of this module
+and accompanying tests is to effectively test the interface specifications to
+make sure that the common tests don't require anything I{not} specified in the
+interface, so that dynamic proxies specified with a tool like
+C{proxyForInterface} can be used to implement features such as implicit
+scheduling or data caching as middleware in the data-store layer.
 """
 
 from twisted.trial.unittest import TestCase
@@ -42,7 +50,10 @@ class ImplicitStoreTests(CommonTests, TestCase):
     Tests for L{ImplicitSchedulingStore}.
     """
 
+    implicitStore = None
+
     def storeUnderTest(self):
-        setUpCalendarStore(self)
-        self.implicitStore = ImplicitStore(self.calendarStore)
+        if self.implicitStore is None:
+            setUpCalendarStore(self)
+            self.implicitStore = ImplicitStore(self.calendarStore)
         return self.implicitStore

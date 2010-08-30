@@ -20,7 +20,7 @@ Utility logic common to multiple backend implementations.
 from twext.python.vcomponent import InvalidICalendarDataError
 from twext.python.vcomponent import VComponent
 
-from txdav.common.icommondatastore import InvalidObjectResourceError,\
+from txdav.common.icommondatastore import InvalidObjectResourceError, \
     NoSuchObjectResourceError
 
 
@@ -28,7 +28,8 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting):
     """
     Validate a calendar component for a particular calendar.
 
-    @param calendarObject: The calendar object whose component will be replaced.
+    @param calendarObject: The calendar object whose component will be
+        replaced.
     @type calendarObject: L{ICalendarObject}
 
     @param calendar: The calendar which the L{ICalendarObject} is present in.
@@ -74,15 +75,61 @@ def dropboxIDFromCalendarObject(calendarObject):
     if dropboxProperty is not None:
         componentDropboxID = dropboxProperty.value().split("/")[-1]
         return componentDropboxID
-    attachProperty = calendarObject.component().getFirstPropertyInAnyComponent("ATTACH")
+    attachProperty = calendarObject.component().getFirstPropertyInAnyComponent(
+        "ATTACH"
+    )
     if attachProperty is not None:
         # Make sure the value type is URI
         valueType = attachProperty.params().get("VALUE", ("TEXT",))
-        if valueType[0] == "URI": 
+        if valueType[0] == "URI":
             # FIXME: more aggressive checking to see if this URI is really the
             # 'right' URI.  Maybe needs to happen in the front end.
             attachPath = attachProperty.value().split("/")[-2]
             return attachPath
-    
+
     return calendarObject.uid() + ".dropbox"
-        
+
+
+def _migrateCalendar(inCalendar, outCalendar, getComponent):
+    """
+    Copy all calendar objects and properties in the given input calendar to the
+    given output calendar.
+
+    @param inCalendar: the L{ICalendar} to retrieve calendar objects from.
+    @param outCalendar: the L{ICalendar} to store calendar objects to.
+    @param getComponent: a 1-argument callable; see L{migrateHome}.
+    """
+    outCalendar.properties().update(inCalendar.properties())
+    for calendarObject in inCalendar.calendarObjects():
+        outCalendar.createCalendarObjectWithName(
+            calendarObject.name(),
+            calendarObject.component()) # XXX WRONG SHOULD CALL getComponent
+        outCalendar.calendarObjectWithName(
+            calendarObject.name()).properties().update(
+                calendarObject.properties())
+        # XXX attachments
+
+
+def migrateHome(inHome, outHome, getComponent):
+    """
+    Copy all calendars and properties in the given input calendar to the given
+    output calendar.
+
+    @param inHome: the L{ICalendarHome} to retrieve calendars and properties
+        from.
+
+    @param outHome: the L{ICalendarHome} to store calendars and properties
+        into.
+
+    @param getComponent: a 1-argument callable that takes an L{ICalendarObject}
+        (from a calendar in C{inHome}) and returns a L{VComponent} (to store in
+        a calendar in outHome).
+    """
+    outHome.removeCalendarWithName("calendar")
+    outHome.removeCalendarWithName("inbox")
+    outHome.properties().update(inHome.properties())
+    for calendar in inHome.calendars():
+        name = calendar.name()
+        outHome.createCalendarWithName(name)
+        outCalendar = outHome.calendarWithName(name)
+        _migrateCalendar(calendar, outCalendar, getComponent)

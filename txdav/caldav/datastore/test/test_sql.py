@@ -24,17 +24,20 @@ import time
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests
 
 from txdav.common.datastore.sql import ECALENDARTYPE
-from txdav.common.datastore.test.util import SQLStoreBuilder
+from txdav.common.datastore.test.util import buildStore
 from txdav.common.icommondatastore import NoSuchHomeChildError
 
 from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.threads import deferToThread
 from twext.python.vcomponent import VComponent
+from twext.web2.dav.element.rfc2518 import GETContentLanguage, ResourceType
+
+from txdav.caldav.datastore.test.test_file import setUpCalendarStore
+from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
+from txdav.base.propertystore.base import PropertyName
 
 
-theStoreBuilder = SQLStoreBuilder()
-buildStore = theStoreBuilder.buildStore
 
 class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     """
@@ -44,12 +47,12 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         super(CalendarSQLStorageTests, self).setUp()
-        self.calendarStore = yield buildStore(self, self.notifierFactory)
+        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
         self.populate()
 
 
     def populate(self):
-        populateTxn = self.calendarStore.newTransaction()
+        populateTxn = self.storeUnderTest().newTransaction()
         for homeUID in self.requirements:
             calendars = self.requirements[homeUID]
             if calendars is not None:
@@ -79,7 +82,111 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         """
         Create and return a L{CalendarStore} for testing.
         """
-        return self.calendarStore
+        return self._sqlCalendarStore
+
+
+    def assertCalendarsSimilar(self, a, b, bCalendarFilter=None):
+        """
+        Assert that two calendars have a similar structure (contain the same
+        events).
+        """
+        def namesAndComponents(x, filter=lambda x:x.component()):
+            return dict([(fromObj.name(), filter)
+                         for fromObj in x.calendarObjects()])
+        if bCalendarFilter is not None:
+            extra = [bCalendarFilter]
+        else:
+            extra = []
+        self.assertEquals(namesAndComponents(a), namesAndComponents(b, *extra))
+
+
+    def assertPropertiesSimilar(self, a, b, disregard=[]):
+        """
+        Assert that two objects with C{properties} methods have similar
+        properties.
+        
+        @param disregard: a list of L{PropertyName} keys to discard from both
+            input and output.
+        """
+        def sanitize(x):
+            result = dict(x.properties().items())
+            for key in disregard:
+                result.pop(key, None)
+            return result
+        self.assertEquals(sanitize(a), sanitize(b))
+
+
+    def fileTransaction(self):
+        """
+        Create a file-backed calendar transaction, for migration testing.
+        """
+        setUpCalendarStore(self)
+        fileStore = self.calendarStore
+        txn = fileStore.newTransaction()
+        self.addCleanup(txn.commit)
+        return txn
+
+
+    def test_migrateCalendarFromFile(self):
+        """
+        C{_migrateCalendar()} can migrate a file-backed calendar to a database-
+        backed calendar.
+        """
+        fromCalendar = self.fileTransaction().calendarHomeWithUID(
+            "home1").calendarWithName("calendar_1")
+        toHome = self.transactionUnderTest().calendarHomeWithUID(
+            "new-home", create=True)
+        toCalendar = toHome.calendarWithName("calendar")
+        _migrateCalendar(fromCalendar, toCalendar, lambda x: x.component())
+        self.assertCalendarsSimilar(fromCalendar, toCalendar)
+
+
+    def test_migrateHomeFromFile(self):
+        """
+        L{migrateHome} will migrate an L{ICalendarHome} provider from one
+        backend to another; in this specific case, from the file-based backend
+        to the SQL-based backend.
+        """
+        fromHome = self.fileTransaction().calendarHomeWithUID("home1")
+
+        builtinProperties = [PropertyName.fromElement(ResourceType)]
+
+        # Populate an arbitrary / unused dead properties so there's something
+        # to verify against.
+
+        key = PropertyName.fromElement(GETContentLanguage)
+        fromHome.properties()[key] = GETContentLanguage("C")
+        fromHome.calendarWithName("calendar_1").properties()[key] = (
+            GETContentLanguage("pig-latin")
+        )
+        toHome = self.transactionUnderTest().calendarHomeWithUID(
+            "new-home", create=True
+        )
+        migrateHome(fromHome, toHome, lambda x: x.component())
+        self.assertEquals(set([c.name() for c in toHome.calendars()]),
+                          set([k for k in self.requirements['home1'].keys()
+                               if self.requirements['home1'][k] is not None]))
+        for c in fromHome.calendars():
+            self.assertPropertiesSimilar(
+                c, toHome.calendarWithName(c.name()),
+                builtinProperties
+            )
+        self.assertPropertiesSimilar(fromHome, toHome, builtinProperties)
+
+
+    def test_eachCalendarHome(self):
+        """
+        L{ICalendarStore.eachCalendarHome} is currently stubbed out by
+        L{txdav.common.datastore.sql.CommonDataStore}.
+        """
+        return super(CalendarSQLStorageTests, self).test_eachCalendarHome()
+
+
+    test_eachCalendarHome.todo = (
+        "stubbed out, as migration only needs to go from file->sql currently")
+
+
+
 
     @inlineCallbacks
     def test_homeProvisioningConcurrency(self):

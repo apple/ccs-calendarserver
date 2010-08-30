@@ -1184,6 +1184,32 @@ END:VCALENDAR
                 calendar2.calendarObjectWithUID(obj.uid()), None)
 
 
+    def test_eachCalendarHome(self):
+        """
+        L{ICalendarTransaction.eachCalendarHome} returns an iterator that
+        yields 2-tuples of (transaction, home).
+        """
+        # create some additional calendar homes
+        additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
+        txn = self.transactionUnderTest()
+        for name in additionalUIDs:
+            txn.calendarHomeWithUID(name, create=True)
+        self.commit()
+        foundUIDs = set([])
+        lastTxn = None
+        for txn, home in self.storeUnderTest().eachCalendarHome():
+            self.addCleanup(txn.commit)
+            foundUIDs.add(home.uid())
+            self.assertNotIdentical(lastTxn, txn)
+            lastTxn = txn
+        requiredUIDs = set([
+            uid for uid in self.requirements
+            if self.requirements[uid] is not None
+        ])
+        expectedUIDs = additionalUIDs.union(requiredUIDs)
+        self.assertEquals(foundUIDs, expectedUIDs)
+
+
 
 class StubNotifierFactory(object):
 

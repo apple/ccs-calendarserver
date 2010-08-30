@@ -23,7 +23,7 @@ from twisted.internet.defer import inlineCallbacks
 
 from txdav.caldav.datastore.test.common import StubNotifierFactory
 
-from txdav.common.datastore.test.util import SQLStoreBuilder
+from txdav.common.datastore.test.util import buildStore
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.test import base
@@ -34,10 +34,6 @@ except ImportError, e:
     PropertyStore = None
     importErrorMessage = str(e)
 
-
-
-theStoreBuilder = SQLStoreBuilder()
-buildStore = theStoreBuilder.buildStore
 
 
 class PropertyStoreTest(base.PropertyStoreTest):

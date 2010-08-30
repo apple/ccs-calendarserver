@@ -1,3 +1,4 @@
+# -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -36,7 +37,7 @@ from twisted.python.util import FancyEqMixin
 from twistedcaldav.customxml import NotificationType
 
 from txdav.common.datastore.sql_legacy import PostgresLegacyNotificationsEmulator
-from txdav.caldav.icalendarstore import ICalendarTransaction
+from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 
@@ -51,7 +52,7 @@ from txdav.common.inotifications import INotificationCollection,\
     INotificationObject
 from txdav.base.datastore.sql import memoized
 from txdav.base.datastore.util import cached
-from txdav.idav import IDataStore, AlreadyFinishedError
+from txdav.idav import AlreadyFinishedError
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.sql import PropertyStore
 
@@ -67,7 +68,7 @@ EADDRESSBOOKTYPE = 1
 
 class CommonDataStore(Service, object):
 
-    implements(IDataStore)
+    implements(ICalendarStore)
 
     def __init__(self, connectionFactory, notifierFactory, attachmentsPath,
                  enableCalendars=True, enableAddressBooks=True):
@@ -78,6 +79,13 @@ class CommonDataStore(Service, object):
         self.attachmentsPath = attachmentsPath
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
+        
+        
+    def eachCalendarHome(self):
+        """
+        @see L{ICalendarStore.eachCalendarHome}
+        """
+        return []
 
 
     def newTransaction(self, label="unlabeled"):

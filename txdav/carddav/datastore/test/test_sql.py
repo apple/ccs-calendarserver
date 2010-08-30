@@ -24,15 +24,13 @@ import time
 from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests
 
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE
-from txdav.common.datastore.test.util import SQLStoreBuilder
+from txdav.common.datastore.test.util import buildStore
 
 from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.threads import deferToThread
 from twistedcaldav.vcard import Component as VCard
 
-theStoreBuilder = SQLStoreBuilder()
-buildStore = theStoreBuilder.buildStore
 
 class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     """

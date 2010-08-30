@@ -137,3 +137,6 @@ class SQLStoreBuilder(object):
                 log.err()
         cleanupConn.commit()
         cleanupConn.close()
+
+theStoreBuilder = SQLStoreBuilder()
+buildStore = theStoreBuilder.buildStore

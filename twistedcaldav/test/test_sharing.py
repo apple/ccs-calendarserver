@@ -25,9 +25,11 @@ from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase, norequest
 from twistedcaldav.resource import CalDAVResource
-from txdav.caldav.datastore.test.test_sql import buildStore
+from txdav.common.datastore.test.util import buildStore
 from txdav.caldav.datastore.test.common import StubNotifierFactory
 
+sharedOwnerType = davxml.ResourceType.sharedownercalendar #@UndefinedVariable
+regularCalendarType = davxml.ResourceType.calendar #@UndefinedVariable
 
 class SharingTests(HomeTestCase):
 
@@ -119,14 +121,14 @@ class SharingTests(HomeTestCase):
         request = SimpleRequest(self.site, "MKCOL", "/calendar/")
 
         rtype = self.resource.resourceType()
-        self.assertEquals(rtype, davxml.ResourceType.calendar)
+        self.assertEquals(rtype, regularCalendarType)
         propInvite = (yield self.resource.readProperty(customxml.Invite, request))
         self.assertEquals(propInvite, None)
 
         self.resource.upgradeToShare()
 
         rtype = self.resource.resourceType()
-        self.assertEquals(rtype, davxml.ResourceType.sharedownercalendar)
+        self.assertEquals(rtype, sharedOwnerType)
         propInvite = (yield self.resource.readProperty(customxml.Invite, request))
         self.assertEquals(propInvite, customxml.Invite())
         
@@ -140,14 +142,14 @@ class SharingTests(HomeTestCase):
         request = SimpleRequest(self.site, "PROPPATCH", "/calendar/")
 
         rtype = self.resource.resourceType()
-        self.assertEquals(rtype, davxml.ResourceType.calendar)
+        self.assertEquals(rtype, regularCalendarType)
         propInvite = (yield self.resource.readProperty(customxml.Invite, request))
         self.assertEquals(propInvite, None)
 
         self.resource.upgradeToShare()
 
         rtype = self.resource.resourceType()
-        self.assertEquals(rtype, davxml.ResourceType.sharedownercalendar)
+        self.assertEquals(rtype, sharedOwnerType)
         propInvite = (yield self.resource.readProperty(customxml.Invite, request))
         self.assertEquals(propInvite, customxml.Invite())
         
@@ -158,19 +160,17 @@ class SharingTests(HomeTestCase):
 
     @inlineCallbacks
     def test_downgradeFromShare(self):
-        request = SimpleRequest(self.site, "PROPPATCH", "/calendar/")
-
-        self.resource.writeDeadProperty(davxml.ResourceType.sharedownercalendar)
+        self.resource.writeDeadProperty(sharedOwnerType)
         self.resource.writeDeadProperty(customxml.Invite())
         rtype = self.resource.resourceType()
-        self.assertEquals(rtype, davxml.ResourceType.sharedownercalendar)
+        self.assertEquals(rtype, sharedOwnerType)
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(propInvite, customxml.Invite())
 
         yield self.resource.downgradeFromShare(None)
 
         rtype = self.resource.resourceType()
-        self.assertEquals(rtype, davxml.ResourceType.calendar)
+        self.assertEquals(rtype, regularCalendarType)
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(propInvite, None)
         

@@ -16,8 +16,8 @@
 ##
 from zope.interface.declarations import implements
 from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject,\
-    ICalendarTransaction
-from txdav.idav import IDataStore
+    ICalendarTransaction, ICalendarStore
+
 from twisted.python.util import FancyEqMixin
 from twisted.python.components import proxyForInterface
 
@@ -137,13 +137,11 @@ class ImplicitCalendar(FancyEqMixin,
 #        return self._subCalendar.calendarObjectWithName(name)
 
 
-class ImplicitStore(object):
+class ImplicitStore(proxyForInterface(ICalendarStore, "_calendarStore")):
     """
     This is a wrapper around an L{ICalendarStore} that implements implicit
     scheduling.
     """
-
-    implements(IDataStore)
 
     def __init__(self, calendarStore):
         """

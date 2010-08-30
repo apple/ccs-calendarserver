@@ -41,7 +41,7 @@ from txdav.caldav.datastore.test.test_file import event4_text
 
 from txdav.carddav.datastore.test.test_file import vcard4_text
 
-from txdav.caldav.datastore.test.test_sql import buildStore
+from txdav.common.datastore.test.util import buildStore
 from txdav.caldav.datastore.test.common import StubNotifierFactory, \
     assertProvides
 from txdav.caldav.icalendarstore import ICalendarHome
@@ -258,8 +258,9 @@ class WrappingTests(TestCase):
         )
         self.commit()
         self.assertIsInstance(dropBoxResource, DropboxCollection)
+        dropboxHomeType = davxml.ResourceType.dropboxhome #@UndefinedVariable
         self.assertEquals(dropBoxResource.resourceType(),
-                          davxml.ResourceType.dropboxhome)
+                          dropboxHomeType)
 
 
     @inlineCallbacks
@@ -271,8 +272,9 @@ class WrappingTests(TestCase):
         C{CalendarHome.calendarWithName}.
         """
         calDavFile = yield self.getResource("calendars/users/wsanchez/calendar")
+        regularCalendarType = davxml.ResourceType.calendar #@UndefinedVariable
         self.assertEquals(calDavFile.resourceType(),
-                          davxml.ResourceType.calendar)
+                          regularCalendarType)
         self.commit()
 
 

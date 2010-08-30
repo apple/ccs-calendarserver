@@ -31,6 +31,7 @@ from twistedcaldav.customxml import NotificationType
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.notifications import NotificationsDatabase as OldNotificationIndex
 from twistedcaldav.sharing import SharedCollectionsDatabase
+from txdav.caldav.icalendarstore import ICalendarStore
 
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
@@ -41,7 +42,7 @@ from txdav.common.inotifications import INotificationCollection, \
 from txdav.base.datastore.file import DataStoreTransaction, DataStore, writeOperation, \
     hidden, isValidName, FileMetaDataMixin
 from txdav.base.datastore.util import cached
-from txdav.idav import IDataStore
+
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.xattr import PropertyStore
 
@@ -65,7 +66,7 @@ class CommonDataStore(DataStore):
     @ivar _path: A L{CachingFilePath} referencing a directory on disk that
         stores all calendar and addressbook data for a group of UIDs.
     """
-    implements(IDataStore)
+    implements(ICalendarStore)
 
     def __init__(self, path, notifierFactory, enableCalendars=True,
         enableAddressBooks=True):
@@ -82,13 +83,47 @@ class CommonDataStore(DataStore):
         self._notifierFactory = notifierFactory
         self._transactionClass = CommonStoreTransaction
 
+
     def newTransaction(self, name='no name'):
         """
         Create a new transaction.
 
         @see Transaction
         """
-        return self._transactionClass(self, name, self.enableCalendars, self.enableAddressBooks, self._notifierFactory)
+        return self._transactionClass(
+            self, name, self.enableCalendars,
+            self.enableAddressBooks, self._notifierFactory
+        )
+
+
+    def _homesOfType(self, storeType):
+        """
+        Common implementation of L{ICalendarStore.eachCalendarHome} and
+        L{IAddressBookStore.eachAddressbookHome}; see those for a description
+        of the return type.
+
+        @param storeType: one of L{EADDRESSBOOKTYPE} or L{ECALENDARTYPE}.
+        """
+        top = self._path.child(TOPPATHS[storeType]).child(UIDPATH)
+        for firstPrefix in top.children():
+            if not isValidName(firstPrefix.basename()):
+                continue
+            for secondPrefix in firstPrefix.children():
+                if not isValidName(secondPrefix.basename()):
+                    continue
+                for actualHome in secondPrefix.children():
+                    uid = actualHome.basename()
+                    if not isValidName(uid):
+                        continue
+                    txn = self.newTransaction("enumerate home %r" % (uid,))
+                    home = txn.homeWithUID(storeType, uid, False)
+                    yield (txn, home)
+
+
+    def eachCalendarHome(self):
+        return self._homesOfType(ECALENDARTYPE)
+
+
 
 class CommonStoreTransaction(DataStoreTransaction):
     """
@@ -672,7 +707,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
 
     def syncToken(self):
-        
+
         try:
             urnuuid = str(self.properties()[PropertyName.fromElement(ResourceID)].children[0])
         except KeyError:

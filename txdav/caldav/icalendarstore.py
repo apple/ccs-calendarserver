@@ -19,9 +19,9 @@
 Calendar store interfaces
 """
 
-from txdav.common.icommondatastore import ICommonTransaction,\
+from txdav.common.icommondatastore import ICommonTransaction, \
     IShareableCollection
-from txdav.idav import IDataStoreResource
+from txdav.idav import IDataStoreResource, IDataStore
 
 from txdav.idav import INotifier
 
@@ -59,6 +59,23 @@ class ICalendarTransaction(ICommonTransaction):
 
         @return: an L{ICalendarHome} or C{None} if no such calendar
             home exists.
+        """
+
+
+
+class ICalendarStore(IDataStore):
+    """
+    API root for calendar data storage.
+    """
+
+    def eachCalendarHome(self):
+        """
+        Enumerate all calendar homes in this store, with each one in an
+        accompanying transaction.
+
+        @return: an iterator of 2-tuples of C{(transaction, calendar home)}
+            where C{transaction} is an L{ITransaction} provider and C{calendar
+            home} is an L{ICalendarHome} provider.
         """
 
 

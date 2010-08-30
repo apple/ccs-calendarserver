@@ -444,11 +444,14 @@ class FileStorageTests(CommonTests, unittest.TestCase):
     File storage tests.
     """
 
+    calendarStore = None
+
     def storeUnderTest(self):
         """
         Create and return a L{CalendarStore} for testing.
         """
-        setUpCalendarStore(self)
+        if self.calendarStore is None:
+            setUpCalendarStore(self)
         return self.calendarStore
 
 
