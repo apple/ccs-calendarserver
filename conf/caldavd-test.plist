@@ -319,7 +319,7 @@
 
     <!-- Anonymous read access for root resource -->
     <key>EnableAnonymousReadRoot</key>
-    <false/>
+    <true/>
 
     <!-- Anonymous read access for resource hierarchy -->
     <key>EnableAnonymousReadNav</key>
