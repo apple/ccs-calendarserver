@@ -16,6 +16,10 @@
 """
 Utility logic common to multiple backend implementations.
 """
+from twext.python.log import LoggingMixIn
+from twisted.application.service import Service
+from txdav.common.datastore.file import CommonDataStore as FileStore
+from txdav.common.datastore.sql import CommonDataStore as SqlStore
 
 from twext.python.vcomponent import InvalidICalendarDataError
 from twext.python.vcomponent import VComponent
@@ -104,13 +108,16 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
         outCalendar.createCalendarObjectWithName(
             calendarObject.name(),
             calendarObject.component()) # XXX WRONG SHOULD CALL getComponent
+
+        # Only the owner's properties are migrated, since previous releases of
+        # calendar server didn't have per-user properties.
         outCalendar.calendarObjectWithName(
             calendarObject.name()).properties().update(
                 calendarObject.properties())
         # XXX attachments
 
 
-def migrateHome(inHome, outHome, getComponent):
+def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
     """
     Copy all calendars and properties in the given input calendar to the given
     output calendar.
@@ -133,3 +140,85 @@ def migrateHome(inHome, outHome, getComponent):
         outHome.createCalendarWithName(name)
         outCalendar = outHome.calendarWithName(name)
         _migrateCalendar(calendar, outCalendar, getComponent)
+    # No migration for notifications, since they weren't present in earlier
+    # released versions of CalendarServer.
+
+
+# TODO: implement addressbooks, import from txdav.common.datastore.file
+TOPPATHS = ['calendars']
+
+class UpgradeToDatabaseService(Service, LoggingMixIn, object):
+    """
+    Upgrade resources from a filesystem store to a database store.
+    """
+
+
+    @classmethod
+    def wrapService(cls, path, service, connectionFactory, sqlAttachmentsPath):
+        """
+        Create an L{UpgradeToDatabaseService} if there are still file-based
+        calendar or addressbook homes remaining in the given path.
+
+        Maintenance note: we may want to pass a SQL store in directly rather
+        than the combination of connection factory and attachments path, since
+        there always must be a SQL store, but the path should remain a path
+        because there may not I{be} a file-backed store present and we should
+        not create it as a result of checking for it.
+
+        @param path: a path pointing at the document root.
+        @type path: L{CachingFilePath}
+
+        @param service: the service to wrap.  This service should be started
+            when the upgrade is complete.  (This is accomplished by returning
+            it directly when no upgrade needs to be done, and by adding it to
+            the service hierarchy when the upgrade completes; assuming that the
+            service parent of the resulting service will be set to a
+            L{MultiService} or similar.)
+
+        @type service: L{IService}
+
+        @return: a service
+        @rtype: L{IService}
+        """
+        for homeType in TOPPATHS:
+            if path.child(homeType).exists():
+                self = cls(
+                    FileStore(path, None, True, True),
+                    SqlStore(connectionFactory, None, sqlAttachmentsPath,
+                             True, True),
+                    service
+                )
+                return self
+        return service
+
+
+    def __init__(self, fileStore, sqlStore, service):
+        """
+        Initialize the service.
+        """
+        self.wrappedService = service
+        self.fileStore = fileStore
+        self.sqlStore = sqlStore
+
+
+    def startService(self):
+        self.log_warn("Beginning filesystem -> database upgrade.")
+        for fileTxn, fileHome in self.fileStore.eachCalendarHome():
+            uid = fileHome.uid()
+            self.log_warn("Migrating UID %r" % (uid,))
+            sqlTxn = self.sqlStore.newTransaction()
+            sqlHome = sqlTxn.calendarHomeWithUID(uid, create=True)
+            migrateHome(fileHome, sqlHome)
+            fileTxn.commit()
+            sqlTxn.commit()
+            # FIXME: need a public remove...HomeWithUID() for de-provisioning
+            fileHome._path.remove()
+        for homeType in TOPPATHS:
+            homesPath = self.fileStore._path.child(homeType)
+            if homesPath.isdir():
+                homesPath.remove()
+        self.log_warn(
+            "Filesystem upgrade complete, launching database service."
+        )
+        self.wrappedService.setServiceParent(self.parent)
+

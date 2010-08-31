@@ -90,6 +90,7 @@ from calendarserver.tools.util import checkDirectory
 
 from txdav.common.datastore.sql import v1_schema
 from txdav.base.datastore.subpostgres import PostgresService
+from txdav.caldav.datastore.util import UpgradeToDatabaseService
 from twext.python.filepath import CachingFilePath
 
 log = Logger()
@@ -355,8 +356,9 @@ class GroupOwnedUNIXServer(UNIXServer, object):
         Bind the UNIX socket and then change its group.
         """
         super(GroupOwnedUNIXServer, self).privilegedStartService()
-        fileName = self._port.port # Unfortunately, there's no public way to
-                                   # access this. -glyph
+
+        # Unfortunately, there's no public way to access this. -glyph
+        fileName = self._port.port
         os.chown(fileName, os.getuid(), self.gid)
 
 
@@ -376,6 +378,9 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
     def makeService(self, options):
+        """
+        Create the top-level service.
+        """
         self.log_info("%s %s starting %s process..." % (self.description, version, config.ProcessType))
 
         serviceMethod = getattr(self, "makeService_%s" % (config.ProcessType,), None)
@@ -402,7 +407,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                 # Process localization string files
                 processLocalizationFiles(config.Localization)
 
-                # Now do any on disk upgrades we might need.
+                # Now do any on disk upgrades we might need.  Note that this
+                # will only do the filesystem-format upgrades; migration to the
+                # database needs to be done when the connection and possibly
+                # server is already up and running. -glyph
                 upgradeData(config)
 
                 # Make sure proxies get initialized
@@ -413,8 +421,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                         loader = XMLCalendarUserProxyLoader(config.ProxyLoadFromFile)
                         return loader.updateProxyDB()
                     addSystemEventTrigger("after", "startup", _doProxyUpdate)
-
-
 
             try:
                 service = serviceMethod(options)
@@ -480,6 +486,11 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
     def makeService_Slave(self, options):
+        """
+        Create a "slave" service, a subprocess of a service created with
+        L{makeService_Combined}, which does the work of actually handling
+        CalDAV and CardDAV requests.
+        """
         #
         # Change default log level to "info" as its useful to have
         # that during startup
@@ -662,34 +673,75 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         return service
 
+
     def makeService_Single(self, options):
-        #
-        # Change default log level to "info" as its useful to have
-        # that during startup
-        #
+        """
+        Create a service to be used in a single-process, stand-alone
+        configuration.
+        """
+        return self.storageService(self.makeService_Slave(options))
 
-        service = self.makeService_Slave(options)
+
+    def storageService(self, mainService, uid=None, gid=None):
+        """
+        If necessary, create a service to be started used for storage; for
+        example, starting a database backend.  This service will then start the
+        main service.
+
+        This has the effect of delaying any child process spawning or
+        standalone port-binding until the backing for the selected data store
+        implementation is ready to process requests.
+
+        @param mainService: This is the service that will be doing the main
+            work of the current process.  If the configured storage mode does
+            not require any particular setup, then this may return the
+            C{mainService} argument.
+
+        @type mainService: L{IService}
+
+        @param uid: the user ID to run the backend as, if this process is
+            running as root.
+        @type uid: C{int}
+
+        @param gid: the user ID to run the backend as, if this process is
+            running as root.
+        @type gid: C{int}
+
+        @return: the appropriate a service to start.
+
+        @rtype: L{IService}
+        """
         if config.UseDatabase:
-            # Postgres
-
             dbRoot = CachingFilePath(config.DatabaseRoot)
-
-            monitor = DelayedStartupProcessMonitor()
-            service.processMonitor = monitor
-
             def subServiceFactory(connectionFactory):
-                return monitor
+                # The database server is running at this point, so do the
+                # filesystem->database upgrade.
+                attachmentsRoot = dbRoot.child("attachments")
+                return UpgradeToDatabaseService.wrapService(
+                    CachingFilePath(config.DocumentRoot), mainService,
+                    connectionFactory, attachmentsRoot
+                )
+            if os.getuid() == 0: # Only override if root
+                postgresUID = uid
+                postgresGID = gid
+            else:
+                postgresUID = None
+                postgresGID = None
+            pgserv = PostgresService(
+                dbRoot, subServiceFactory, v1_schema, "caldav",
+                logFile=config.PostgresLogFile,
+                uid=postgresUID, gid=postgresGID
+            )
+            return pgserv
+        else:
+            return mainService
 
-            postgresUID = None
-            postgresGID = None
-
-            PostgresService(dbRoot, subServiceFactory, v1_schema,
-                "caldav", logFile=config.PostgresLogFile,
-                uid=postgresUID, gid=postgresGID).setServiceParent(service)
-                
-        return service
 
     def makeService_Combined(self, options):
+        """
+        Create a master service to coordinate a multi-process configuration,
+        spawning subprocesses that use L{makeService_Slave} to perform work.
+        """
         s = ErrorLoggingMultiService()
 
         # Make sure no old socket files are lying around.
@@ -705,7 +757,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         if config.GroupName:
             try:
                 gid = getgrnam(config.GroupName).gr_gid
-            except KeyError, e:
+            except KeyError:
                 raise ConfigurationError("Invalid group name: %s" % (config.GroupName,))
         else:
             gid = os.getgid()
@@ -713,7 +765,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         if config.UserName:
             try:
                 uid = getpwnam(config.UserName).pw_uid
-            except KeyError, e:
+            except KeyError:
                 raise ConfigurationError("Invalid user name: %s" % (config.UserName,))
         else:
             uid = os.getuid()
@@ -732,27 +784,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         monitor = DelayedStartupProcessMonitor()
         s.processMonitor = monitor
 
-        if config.UseDatabase:
-            # Postgres: delay spawning child processes until database is up
-
-            dbRoot = CachingFilePath(config.DatabaseRoot)
-
-            def subServiceFactory(connectionFactory):
-                return monitor
-
-            if os.getuid() == 0: # Only override if root
-                postgresUID = uid
-                postgresGID = gid
-            else:
-                postgresUID = None
-                postgresGID = None
-
-            PostgresService(dbRoot, subServiceFactory, v1_schema,
-                "caldav", logFile=config.PostgresLogFile,
-                uid=postgresUID, gid=postgresGID).setServiceParent(s)
-
-        else:
-            monitor.setServiceParent(s)
+        self.storageService(monitor, uid, gid).setServiceParent(s)
 
         parentEnv = {
             "PATH": os.environ.get("PATH", ""),
@@ -1138,7 +1170,6 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         procmon.ProcessMonitor.__init__(self, *args, **kwargs)
         self.processObjects = []
         self._extraFDs = {}
-        from twisted.internet import reactor
         self.reactor = reactor
         self.stopping = False
 

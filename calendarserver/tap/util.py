@@ -78,6 +78,23 @@ log = Logger()
 
 
 
+def storeFromConfig(config, notifierFactory=None):
+    """
+    Produce an L{IDataStore} from the given configuration and notifier factory.
+    """
+    if config.UseDatabase:
+        dbRoot = CachingFilePath(config.DatabaseRoot)
+        postgresService = PostgresService(dbRoot, None, v1_schema, "caldav",
+            logFile=config.PostgresLogFile)
+        return CommonSQLDataStore(postgresService.produceConnection,
+            notifierFactory, dbRoot.child("attachments"),
+            config.EnableCalDAV, config.EnableCardDAV)
+    else:
+        return CommonFileDataStore(FilePath(config.DocumentRoot),
+            notifierFactory, config.EnableCalDAV, config.EnableCardDAV) 
+
+
+
 def getRootResource(config, resources=None):
     """
     Set up directory service and resource hierarchy based on config.
@@ -302,22 +319,14 @@ def getRootResource(config, resources=None):
     else:
         notifierFactory = None
 
-    if config.UseDatabase:
-        _dbRoot = CachingFilePath(config.DatabaseRoot)
-        _postgresService = PostgresService(_dbRoot, None, v1_schema, "caldav",
-            logFile=config.PostgresLogFile)
-        _newStore = CommonSQLDataStore(_postgresService.produceConnection,
-            notifierFactory, _dbRoot.child("attachments"), config.EnableCalDAV, config.EnableCardDAV)
-    else:
-        _newStore = CommonFileDataStore(FilePath(config.DocumentRoot),
-            notifierFactory, config.EnableCalDAV, config.EnableCardDAV) 
+    newStore = storeFromConfig(config, notifierFactory)
 
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: %r" % (calendarResourceClass,))
         calendarCollection = calendarResourceClass(
             directory,
             "/calendars/",
-            _newStore,
+            newStore,
         )
 
     if config.EnableCardDAV:
@@ -325,7 +334,7 @@ def getRootResource(config, resources=None):
         addressBookCollection = addressBookResourceClass(
             directory,
             "/addressbooks/",
-            _newStore,
+            newStore,
         )
 
         directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
@@ -449,7 +458,7 @@ def getRootResource(config, resources=None):
         for path, cls, args, scheme in resources:
 
             # putChild doesn't want "/" starting the path
-            root.putChild(path, cls(root, _newStore, *args))
+            root.putChild(path, cls(root, newStore, *args))
 
             # overrides requires "/" prepended
             path = "/" + path
