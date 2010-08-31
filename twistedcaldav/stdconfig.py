@@ -255,8 +255,8 @@ DEFAULT_CONFIG = {
         },
         "Wiki": {
             "Enabled": False,
-            "Cookie": "sessionID",
-            "URL": "http://127.0.0.1:8086/RPC2",
+            "Cookie": "_authserver_session",
+            "URL": "http://127.0.0.1:8089/RPC2",
             "UserMethod": "userForSession",
             "WikiMethod": "accessLevelForUserWikiCalendar",
         },
