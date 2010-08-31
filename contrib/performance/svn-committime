@@ -2,5 +2,9 @@
 
 import sys, datetime
 import pysvn
-print datetime.datetime.fromtimestamp(pysvn.Client().info(sys.argv[1])['commit_time'])
+wc = sys.argv[1]
+revision = int(sys.argv[2])
+client = pysvn.Client()
+[entry] = client.log(wc, pysvn.Revision(pysvn.opt_revision_kind.number, revision))
+print datetime.datetime.fromtimestamp(entry['date'])
 
