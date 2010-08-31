@@ -153,5 +153,7 @@ class SQLDuration(_Statistic):
                 time = time / NANO * 1000
                 print row % (time, time / count, count, statement)
 
+
 class Bytes(_Statistic):
-    pass
+    def squash(self, samples):
+        return [sum(bytes) for bytes in samples]
