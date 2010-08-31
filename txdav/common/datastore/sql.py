@@ -41,14 +41,14 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 
-from txdav.common.datastore.sql_tables import CALENDAR_HOME_TABLE,\
-    ADDRESSBOOK_HOME_TABLE, NOTIFICATION_HOME_TABLE, _BIND_MODE_OWN,\
+from txdav.common.datastore.sql_tables import CALENDAR_HOME_TABLE, \
+    ADDRESSBOOK_HOME_TABLE, NOTIFICATION_HOME_TABLE, _BIND_MODE_OWN, \
     _BIND_STATUS_ACCEPTED
-from txdav.common.icommondatastore import HomeChildNameNotAllowedError,\
-    HomeChildNameAlreadyExistsError, NoSuchHomeChildError,\
-    ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError,\
+from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
+    HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
+    ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError
-from txdav.common.inotifications import INotificationCollection,\
+from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.base.datastore.sql import memoized
 from txdav.base.datastore.util import cached
@@ -79,8 +79,8 @@ class CommonDataStore(Service, object):
         self.attachmentsPath = attachmentsPath
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
-        
-        
+
+
     def eachCalendarHome(self):
         """
         @see L{ICalendarStore.eachCalendarHome}
@@ -93,7 +93,7 @@ class CommonDataStore(Service, object):
             self,
             self.connectionFactory(),
             self.enableCalendars,
-            self.enableAddressBooks, 
+            self.enableAddressBooks,
             self.notifierFactory,
             label
         )
@@ -164,7 +164,7 @@ class CommonStoreTransaction(object):
         return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
     def homeWithUID(self, storeType, uid, create=False):
-        
+
         if storeType == ECALENDARTYPE:
             homeTable = CALENDAR_HOME_TABLE
         elif storeType == EADDRESSBOOKTYPE:
@@ -177,7 +177,7 @@ class CommonStoreTransaction(object):
         if not data:
             if not create:
                 return None
-            
+
             # Need to lock to prevent race condition
             # FIXME: this is an entire table lock - ideally we want a row lock
             # but the row does not exist yet. However, the "exclusive" mode does
@@ -186,7 +186,7 @@ class CommonStoreTransaction(object):
             self.execSQL(
                 "lock %(name)s in exclusive mode" % homeTable,
             )
-            
+
             # Now test again
             data = self.execSQL(
                 "select %(column_RESOURCE_ID)s from %(name)s where %(column_OWNER_UID)s = %%s" % homeTable,
@@ -654,7 +654,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
 
     def _updateSyncToken(self):
-        
+
         self._txn.execSQL("""
             update %(name)s
             set (%(column_REVISION)s) = (nextval('%(sequence)s'))
@@ -673,7 +673,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._changeRevision("delete", name)
 
     def _changeRevision(self, action, name):
-        
+
         nextrevision = self._txn.execSQL("""
             select nextval('%(sequence)s')
             """ % self._revisionsTable
@@ -718,7 +718,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 select %(column_RESOURCE_ID)s from %(name)s
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
                 """ % self._revisionsTable,
-                [self._resourceID, name,]
+                [self._resourceID, name, ]
             )
             found = self._txn._cursor.rowcount != 0
             if found:
@@ -811,7 +811,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     """
 
     compareAttributes = '_name _parentCollection'.split()
-    
+
     _objectTable = None
 
     def __init__(self, name, parent, resid):
@@ -1018,7 +1018,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
-    
+
     @property
     def _txn(self):
         return self._home._txn
