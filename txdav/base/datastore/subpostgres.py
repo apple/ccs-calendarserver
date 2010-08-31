@@ -403,11 +403,13 @@ class PostgresService(MultiService):
             self.socketDir.createDirectory()
         if self.uid and self.gid:
             os.chown(self.socketDir.path, self.uid, self.gid)
-        if self.dataStoreDirectory.isdir():
+        if clusterDir.isdir():
             self.startDatabase()
         else:
-            self.dataStoreDirectory.createDirectory()
-            workingDir.createDirectory()
+            if not self.dataStoreDirectory.isdir():
+                self.dataStoreDirectory.createDirectory()
+            if not workingDir.isdir():
+                workingDir.createDirectory()
             if self.uid and self.gid:
                 os.chown(self.dataStoreDirectory.path, self.uid, self.gid)
                 os.chown(workingDir.path, self.uid, self.gid)
