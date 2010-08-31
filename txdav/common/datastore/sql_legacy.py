@@ -33,8 +33,7 @@ from twext.python.log import Logger, LoggingMixIn
 from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex
-from twistedcaldav.index import IndexedSearchException, ReservationError,\
-    SyncTokenValidException
+from twistedcaldav.index import IndexedSearchException, ReservationError
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.query import calendarqueryfilter, calendarquery, \
@@ -856,8 +855,6 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
                         deleted.append(name)
                 else:
                     changed.append(name)
-            else:
-                raise SyncTokenValidException
         
         return changed, deleted,
 
@@ -1105,8 +1102,6 @@ class PostgresLegacyABIndexEmulator(object):
                         deleted.append(name)
                 else:
                     changed.append(name)
-            else:
-                raise SyncTokenValidException
         
         return changed, deleted,
 

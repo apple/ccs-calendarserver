@@ -391,8 +391,9 @@ class CommonHome(LoggingMixIn):
 
         newChild = self.childWithName(name)
         newChild.properties()[
-            PropertyName.fromElement(ResourceType)] = newChild.resourceType()
-        newChild._updateSyncToken()
+            PropertyName.fromElement(ResourceType)
+        ] = newChild.resourceType()
+        newChild._initSyncToken()
         self.createdChild(newChild)
 
         if self._notifier:
@@ -629,10 +630,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             self._txn.postCommit(self._notifier.notify)
 
 
+    def _initSyncToken(self):
+        self._txn.execSQL("""
+            insert into %(name)s
+            (%(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
+            values (%%s, %%s, nextval('%(sequence)s'), FALSE)
+            """ % self._revisionsTable,
+            [self._resourceID, ""]
+        )
+
     def syncToken(self):
         revision = self._txn.execSQL(
-            "select %(column_REVISION)s from %(name)s where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
-            [self._resourceID])[0][0]
+            """
+            select %(column_REVISION)s from %(name)s
+            where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+            """ % self._revisionsTable,
+            [self._resourceID, ""]
+        )[0][0]
         return "%s#%s" % (self._resourceID, revision,)
 
     def objectResourcesSinceToken(self, token):
@@ -644,9 +658,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._txn.execSQL("""
             update %(name)s
             set (%(column_REVISION)s) = (nextval('%(sequence)s'))
-            where %(column_RESOURCE_ID)s = %%s
-            """ % self._homeChildTable,
-            [self._resourceID]
+            where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+            """ % self._revisionsTable,
+            [self._resourceID, ""]
         )
 
     def _insertRevision(self, name):
@@ -662,7 +676,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         
         nextrevision = self._txn.execSQL("""
             select nextval('%(sequence)s')
-            """ % self._homeChildTable
+            """ % self._revisionsTable
         )
 
         if action == "delete":
@@ -673,12 +687,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 """ % self._revisionsTable,
                 [nextrevision, self._resourceID, name]
             )
-            self._txn.execSQL("""    
+            self._txn.execSQL("""
                 update %(name)s
                 set (%(column_REVISION)s) = (%%s)
-                where %(column_RESOURCE_ID)s = %%s
-                """ % self._homeChildTable,
-                [nextrevision, self._resourceID]
+                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+                """ % self._revisionsTable,
+                [nextrevision, self._resourceID, ""]
             )
         elif action == "update":
             self._txn.execSQL("""
@@ -688,33 +702,47 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 """ % self._revisionsTable,
                 [nextrevision, self._resourceID, name]
             )
-            self._txn.execSQL("""    
+            self._txn.execSQL("""
                 update %(name)s
                 set (%(column_REVISION)s) = (%%s)
-                where %(column_RESOURCE_ID)s = %%s
-                """ % self._homeChildTable,
-                [nextrevision, self._resourceID]
+                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+                """ % self._revisionsTable,
+                [nextrevision, self._resourceID, ""]
             )
         elif action == "insert":
+            # Note that an "insert" may happen for a resource that previously existed and then
+            # was deleted. In that case an entry in the REVISIONS table still exists so we have to
+            # detect that and do db INSERT or UPDATE as appropriate
+
             self._txn.execSQL("""
-                delete from %(name)s
+                select %(column_RESOURCE_ID)s from %(name)s
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
                 """ % self._revisionsTable,
                 [self._resourceID, name,]
             )
+            found = self._txn._cursor.rowcount != 0
+            if found:
+                self._txn.execSQL("""
+                    update %(name)s
+                    set (%(column_REVISION)s, %(column_DELETED)s) = (%%s, FALSE)
+                    where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+                    """ % self._revisionsTable,
+                    [nextrevision, self._resourceID, name]
+                )
+            else:
+                self._txn.execSQL("""
+                    insert into %(name)s
+                    (%(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
+                    values (%%s, %%s, %%s, FALSE)
+                    """ % self._revisionsTable,
+                    [self._resourceID, name, nextrevision]
+                )
             self._txn.execSQL("""
-                insert into %(name)s
-                (%(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
-                values (%%s, %%s, %%s, FALSE)
-                """ % self._revisionsTable,
-                [self._resourceID, name, nextrevision]
-            )
-            self._txn.execSQL("""    
                 update %(name)s
                 set (%(column_REVISION)s) = (%%s)
-                where %(column_RESOURCE_ID)s = %%s
-                """ % self._homeChildTable,
-                [nextrevision, self._resourceID]
+                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+                """ % self._revisionsTable,
+                [nextrevision, self._resourceID, ""]
             )
     @cached
     def properties(self):

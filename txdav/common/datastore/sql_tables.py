@@ -40,19 +40,15 @@ NOTIFICATION_HOME_TABLE = {
 CALENDAR_TABLE = {
     "name"               : "CALENDAR",
     "column_RESOURCE_ID" : "RESOURCE_ID",
-    "column_REVISION"    : "REVISION",
     "column_CREATED"     : "CREATED",
     "column_MODIFIED"    : "MODIFIED",
-    "sequence"           : "CALENDAR_OBJECT_REVISION_SEQ",
 }
 
 ADDRESSBOOK_TABLE = {
     "name"               : "ADDRESSBOOK",
     "column_RESOURCE_ID" : "RESOURCE_ID",
-    "column_REVISION"    : "REVISION",
     "column_CREATED"     : "CREATED",
     "column_MODIFIED"    : "MODIFIED",
-    "sequence"           : "ADDRESSBOOK_OBJECT_REVISION_SEQ",
 }
 
 CALENDAR_BIND_TABLE = {
@@ -81,6 +77,7 @@ ADDRESSBOOK_BIND_TABLE = {
 
 CALENDAR_OBJECT_REVISIONS_TABLE = {
     "name"                    : "CALENDAR_OBJECT_REVISIONS",
+    "sequence"                : "CALENDAR_OBJECT_REVISION_SEQ",
     "column_RESOURCE_ID"      : "CALENDAR_RESOURCE_ID",
     "column_RESOURCE_NAME"    : "RESOURCE_NAME",
     "column_REVISION"         : "REVISION",
@@ -89,6 +86,7 @@ CALENDAR_OBJECT_REVISIONS_TABLE = {
 
 ADDRESSBOOK_OBJECT_REVISIONS_TABLE = {
     "name"                    : "ADDRESSBOOK_OBJECT_REVISIONS",
+    "sequence"                : "ADDRESSBOOK_OBJECT_REVISION_SEQ",
     "column_RESOURCE_ID"      : "ADDRESSBOOK_RESOURCE_ID",
     "column_RESOURCE_NAME"    : "RESOURCE_NAME",
     "column_REVISION"         : "REVISION",

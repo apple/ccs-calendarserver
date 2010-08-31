@@ -21,7 +21,6 @@ create table CALENDAR_HOME (
 
 create table CALENDAR (
   RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ'),
-  REVISION    integer   default 0,
   CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
@@ -275,7 +274,6 @@ create table ADDRESSBOOK_HOME (
 
 create table ADDRESSBOOK (
   RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ'),
-  REVISION    integer   default 0,
   CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
