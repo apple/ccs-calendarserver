@@ -91,7 +91,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         events).
         """
         def namesAndComponents(x, filter=lambda x:x.component()):
-            return dict([(fromObj.name(), filter)
+            return dict([(fromObj.name(), filter(fromObj))
                          for fromObj in x.calendarObjects()])
         if bCalendarFilter is not None:
             extra = [bCalendarFilter]
