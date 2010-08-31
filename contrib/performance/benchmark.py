@@ -200,7 +200,6 @@ class DTraceCollector(object):
             "-p", str(pid),
             # load this script
             "-s", self._dScript]
-        print command
         process = reactor.spawnProcess(proto, command[0], command)
         def eintr(reason):
             reason.trap(DTraceBug)

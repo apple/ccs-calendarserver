@@ -1,10 +1,14 @@
-#!/bin/bash -x
+#!/bin/bash
 
-set -e
+set -e # Break on error
+shopt -s nullglob # Expand foo* to nothing if nothing matches
+
+sudo -v # Force up to date sudo token before the user walks away
 
 BACKENDS="filesystem postgresql"
 
 SOURCE=~/Projects/CalendarServer/trunk
+NUM_INSTANCES=2
 BENCHMARKS="vfreebusy event"
 STATISTICS=("urlopen time" execute)
 ADDURL=http://localhost:8000/result/add/
@@ -35,8 +39,15 @@ for backend in $BACKENDS; do
   stop
   rm -rf data/
   ./run -d -n
-  sleep 2
-  echo "instance pid files" $SOURCE/data/Logs/*instance*
+  while :; do
+    instances=($SOURCE/data/Logs/*instance*)
+    if [ "${#instances[*]}" -ne "$NUM_INSTANCES" ]; then
+      sleep 2
+    else
+      break
+    fi
+  done
+  echo "instance pid files: $instances" 
   popd
   sudo PYTHONPATH=$PYTHONPATH ./benchmark --label r$REV-$backend --log-directory $LOGS $BENCHMARKS
   data=`echo -n r$REV-$backend*`
