@@ -449,7 +449,7 @@ def getRootResource(config, resources=None):
         for path, cls, args, scheme in resources:
 
             # putChild doesn't want "/" starting the path
-            root.putChild(path, cls(root, *args))
+            root.putChild(path, cls(root, _newStore, *args))
 
             # overrides requires "/" prepended
             path = "/" + path

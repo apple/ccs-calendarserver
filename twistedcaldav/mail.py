@@ -58,6 +58,7 @@ from twext.python.log import Logger, LoggingMixIn
 from twistedcaldav import ical, caldavxml
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config
+from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.ical import Property
 from twistedcaldav.localization import translationTo
 from twistedcaldav.resource import CalDAVResource
@@ -180,15 +181,17 @@ class IMIPInboxResource(CalDAVResource):
     Extends L{DAVResource} to provide IMIP delivery functionality.
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent, store):
         """
         @param parent: the parent resource of this one.
+        @param store: the store to use for transactions.
         """
         assert parent is not None
 
         CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
 
         self.parent = parent
+        self._newStore = store
 
 
     def accessControlList(self, request, inheritance=True,
@@ -290,6 +293,14 @@ class IMIPInboxResource(CalDAVResource):
 
 class IMIPReplyInboxResource(IMIPInboxResource):
 
+    def renderHTTP(self, request):
+        """
+        Set up a transaction which will be used and committed by implicit
+        scheduling.
+        """
+        txn = transactionFromRequest(request, self._newStore)
+        return super(IMIPReplyInboxResource, self).renderHTTP(request, txn)
+
     @inlineCallbacks
     def http_POST(self, request):
         """
@@ -309,8 +320,8 @@ class IMIPReplyInboxResource(IMIPInboxResource):
 
 class IMIPInvitationInboxResource(IMIPInboxResource):
 
-    def __init__(self, parent, mailer):
-        super(IMIPInvitationInboxResource, self).__init__(parent)
+    def __init__(self, parent, store, mailer):
+        super(IMIPInvitationInboxResource, self).__init__(parent, store)
         self.mailer = mailer
 
     @inlineCallbacks

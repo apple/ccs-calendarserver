@@ -273,23 +273,27 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
         self._transactionError = True
 
 
-    def renderHTTP(self, request):
+    def renderHTTP(self, request, transaction=None):
         """
         Override C{renderHTTP} to commit the transaction when the resource is
         successfully rendered.
 
         @param request: the request to generate a response for.
         @type request: L{twext.web2.iweb.IRequest}
+        @param transaction: optional transaction to use instead of associated transaction
+        @type transaction: L{txdav.caldav.idav.ITransaction}
         """
         d = maybeDeferred(super(CalDAVResource, self).renderHTTP, request)
-        def succeeded(result):
-            if self._associatedTransaction is not None:
+        def succeeded(result, transaction=None):
+            if transaction is None:
+                transaction = self._associatedTransaction
+            if transaction is not None:
                 if self._transactionError:
-                    self._associatedTransaction.abort()
+                    transaction.abort()
                 else:
-                    self._associatedTransaction.commit()
+                    transaction.commit()
             return result
-        return d.addCallback(succeeded)
+        return d.addCallback(succeeded, transaction=transaction)
 
 
     # Begin transitional new-store resource interface:
