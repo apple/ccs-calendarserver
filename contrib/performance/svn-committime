@@ -5,6 +5,6 @@ import pysvn
 wc = sys.argv[1]
 revision = int(sys.argv[2])
 client = pysvn.Client()
-[entry] = client.log(wc, pysvn.Revision(pysvn.opt_revision_kind.number, revision))
+[entry] = client.log(wc, pysvn.Revision(pysvn.opt_revision_kind.number, revision), limit=1)
 print datetime.datetime.fromtimestamp(entry['date'])
 
