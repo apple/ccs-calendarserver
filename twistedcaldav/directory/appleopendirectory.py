@@ -555,7 +555,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
     def queryDirectory(self, recordTypes, indexType, indexKey,
         lookupMethod=opendirectory.queryRecordsWithAttribute_list):
-        
+
         origIndexKey = indexKey
         if indexType == self.INDEX_TYPE_CUA:
             # The directory doesn't contain CUAs, so we need to convert
@@ -573,9 +573,14 @@ class OpenDirectoryService(CachingDirectoryService):
                 self.INDEX_TYPE_AUTHID    : dsattributes.kDSNAttrAltSecurityIdentities,
             }.get(indexType)
             assert queryattr is not None, "Invalid type for record faulting query"
+        # mailto: CUAs get normalized to lowercase internally, so do a case
+        # insensitive search
+        if queryattr == dsattributes.kDSNAttrEMailAddress:
+            caseInsensitive = True
+        else:
+            caseInsensitive = False
 
         query = dsquery.match(queryattr, indexKey, dsattributes.eDSExact)
-
 
         results = []
         for recordType in recordTypes:
@@ -614,7 +619,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     query.attribute,
                     query.value,
                     query.matchType,
-                    False,
+                    caseInsensitive,
                     listRecordTypes,
                     attrs,
                 ))
@@ -624,7 +629,7 @@ class OpenDirectoryService(CachingDirectoryService):
                         query.attribute,
                         query.value,
                         query.matchType,
-                        False,
+                        caseInsensitive,
                         listRecordTypes,
                         attrs,
                     )
