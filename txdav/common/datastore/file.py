@@ -124,6 +124,10 @@ class CommonDataStore(DataStore):
         return self._homesOfType(ECALENDARTYPE)
 
 
+    def eachAddressbookHome(self):
+        return self._homesOfType(EADDRESSBOOKTYPE)
+
+
 
 class CommonStoreTransaction(DataStoreTransaction):
     """

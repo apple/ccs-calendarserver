@@ -88,6 +88,13 @@ class CommonDataStore(Service, object):
         return []
 
 
+    def eachAddressbookHome(self):
+        """
+        @see L{IAddressbookStore.eachAddressbookHome}
+        """
+        return []
+
+
     def newTransaction(self, label="unlabeled"):
         return CommonStoreTransaction(
             self,

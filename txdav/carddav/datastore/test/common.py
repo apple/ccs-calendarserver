@@ -83,7 +83,7 @@ END:VCARD
 
 
 
-vcard4notCardDAV_text = ( # Missing UID, N and FN
+vcard4notCardDAV_text = (# Missing UID, N and FN
 """BEGIN:VCARD
 VERSION:3.0
 EMAIL;type=INTERNET;type=WORK;type=pref:lthompson@example.com
@@ -347,12 +347,13 @@ class CommonTests(object):
         self.assertNotIdentical(home.addressbookWithName(name), None)
         def checkProperties():
             addressbookProperties = home.addressbookWithName(name).properties()
+            addressbookType = davxml.ResourceType.addressbook #@UndefinedVariable
             self.assertEquals(
                 addressbookProperties[
                     PropertyName.fromString(davxml.ResourceType.sname())
                 ],
-                davxml.ResourceType.addressbook
-            ) #@UndefinedVariable
+                addressbookType
+            )
         checkProperties()
         self.commit()
 
@@ -877,6 +878,32 @@ class CommonTests(object):
                 addressbook2.addressbookObjectWithName(resourceName), None)
             self.assertIdentical(
                 addressbook2.addressbookObjectWithUID(obj.uid()), None)
+
+
+    def test_eachAddressbookHome(self):
+        """
+        L{IAddressbookTransaction.eachAddressbookHome} returns an iterator that
+        yields 2-tuples of (transaction, home).
+        """
+        # create some additional addressbook homes
+        additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
+        txn = self.transactionUnderTest()
+        for name in additionalUIDs:
+            txn.addressbookHomeWithUID(name, create=True)
+        self.commit()
+        foundUIDs = set([])
+        lastTxn = None
+        for txn, home in self.storeUnderTest().eachAddressbookHome():
+            self.addCleanup(txn.commit)
+            foundUIDs.add(home.uid())
+            self.assertNotIdentical(lastTxn, txn)
+            lastTxn = txn
+        requiredUIDs = set([
+            uid for uid in self.requirements
+            if self.requirements[uid] is not None
+        ])
+        expectedUIDs = additionalUIDs.union(requiredUIDs)
+        self.assertEquals(foundUIDs, expectedUIDs)
 
 
 
