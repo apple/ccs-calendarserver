@@ -1221,7 +1221,7 @@ def getPubSubConfiguration(config):
             results['service'] = settings['ServiceAddress']
             results['host'] = config.ServerHostName
             results['port'] = config.SSLPort or config.HTTPPort
-            results['xmpp-server'] = settings['Host']
+            results['xmpp-server'] = "%s:%d" % (settings['Host'], settings['Port'])
             results['subscription-url'] = settings['SubscriptionURL']
             results['aps-bundle-id'] = settings['APSBundleID']
             results['heartrate'] = settings['HeartbeatMinutes']
