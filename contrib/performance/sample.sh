@@ -10,7 +10,7 @@ BACKENDS="filesystem postgresql"
 SOURCE=~/Projects/CalendarServer/trunk
 NUM_INSTANCES=2
 BENCHMARKS="vfreebusy event"
-STATISTICS=("urlopen time" execute)
+STATISTICS=("urlopen time" execute read write)
 ADDURL=http://localhost:8000/result/add/
 export PYTHONPATH=$PYTHONPATH:$SOURCE/../Twisted
 
@@ -30,6 +30,7 @@ pushd $SOURCE
 stop
 svn st --no-ignore | grep '^[?I]' | cut -c9- | xargs rm -r
 svn up -r$REV .
+DATE="`./svn-committime $SOURCE $REV`"
 python setup.py build_ext -i
 popd
 
@@ -56,7 +57,7 @@ for backend in $BACKENDS; do
       for stat in "${STATISTICS[@]}"; do
         ./upload \
             --url $ADDURL --revision $REV \
-            --revision-date "`./svn-committime $SOURCE`" --environment nmosbuilder \
+            --revision-date "$DATE" --environment nmosbuilder \
             --backend $backend --statistic "$data,$b,$p,$stat"
       done
     done
