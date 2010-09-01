@@ -237,3 +237,120 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         
         self.assertNotEqual(home_uid1_1, None)
         self.assertNotEqual(home_uid1_2, None)
+
+
+    @inlineCallbacks
+    def test_putConcurrency(self):
+        """
+        Test that two concurrent attempts to PUT different address book object resources to the
+        same address book home does not cause a deadlock.
+        """
+
+        calendarStore1 = yield buildStore(self, self.notifierFactory)
+        calendarStore2 = yield buildStore(self, self.notifierFactory)
+
+        # Provision the home now
+        txn = calendarStore1.newTransaction()
+        home = txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        self.assertNotEqual(home, None)
+        txn.commit()
+
+        txn1 = calendarStore1.newTransaction()
+        txn2 = calendarStore2.newTransaction()
+
+        home1 = txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        home2 = txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        
+        adbk1 = home1.calendarWithName("calendar")
+        adbk2 = home2.calendarWithName("calendar")
+        
+        def _defer1():
+            adbk1.createObjectResourceWithName("1.ics", VComponent.fromString(
+    "BEGIN:VCALENDAR\r\n"
+      "VERSION:2.0\r\n"
+      "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
+      "CALSCALE:GREGORIAN\r\n"
+      "BEGIN:VTIMEZONE\r\n"
+        "TZID:US/Pacific\r\n"
+        "BEGIN:DAYLIGHT\r\n"
+          "TZOFFSETFROM:-0800\r\n"
+          "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\n"
+          "DTSTART:20070311T020000\r\n"
+          "TZNAME:PDT\r\n"
+          "TZOFFSETTO:-0700\r\n"
+        "END:DAYLIGHT\r\n"
+        "BEGIN:STANDARD\r\n"
+          "TZOFFSETFROM:-0700\r\n"
+          "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\n"
+          "DTSTART:20071104T020000\r\n"
+          "TZNAME:PST\r\n"
+          "TZOFFSETTO:-0800\r\n"
+        "END:STANDARD\r\n"
+      "END:VTIMEZONE\r\n"
+      "BEGIN:VEVENT\r\n"
+        "CREATED:20100203T013849Z\r\n"
+        "UID:uid1\r\n"
+        "DTEND;TZID=US/Pacific:20100207T173000\r\n"
+        "TRANSP:OPAQUE\r\n"
+        "SUMMARY:New Event\r\n"
+        "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
+        "DTSTAMP:20100203T013909Z\r\n"
+        "SEQUENCE:3\r\n"
+        "BEGIN:VALARM\r\n"
+          "X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1\r\n"
+          "TRIGGER:-PT20M\r\n"
+          "ATTACH;VALUE=URI:Basso\r\n"
+          "ACTION:AUDIO\r\n"
+        "END:VALARM\r\n"
+      "END:VEVENT\r\n"
+    "END:VCALENDAR\r\n"
+            ))
+            txn1.commit()
+        d1 = deferToThread(_defer1)
+            
+        def _defer2():
+            adbk2.createObjectResourceWithName("2.ics", VComponent.fromString(
+    "BEGIN:VCALENDAR\r\n"
+      "VERSION:2.0\r\n"
+      "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
+      "CALSCALE:GREGORIAN\r\n"
+      "BEGIN:VTIMEZONE\r\n"
+        "TZID:US/Pacific\r\n"
+        "BEGIN:DAYLIGHT\r\n"
+          "TZOFFSETFROM:-0800\r\n"
+          "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\n"
+          "DTSTART:20070311T020000\r\n"
+          "TZNAME:PDT\r\n"
+          "TZOFFSETTO:-0700\r\n"
+        "END:DAYLIGHT\r\n"
+        "BEGIN:STANDARD\r\n"
+          "TZOFFSETFROM:-0700\r\n"
+          "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\n"
+          "DTSTART:20071104T020000\r\n"
+          "TZNAME:PST\r\n"
+          "TZOFFSETTO:-0800\r\n"
+        "END:STANDARD\r\n"
+      "END:VTIMEZONE\r\n"
+      "BEGIN:VEVENT\r\n"
+        "CREATED:20100203T013849Z\r\n"
+        "UID:uid2\r\n"
+        "DTEND;TZID=US/Pacific:20100207T173000\r\n"
+        "TRANSP:OPAQUE\r\n"
+        "SUMMARY:New Event\r\n"
+        "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
+        "DTSTAMP:20100203T013909Z\r\n"
+        "SEQUENCE:3\r\n"
+        "BEGIN:VALARM\r\n"
+          "X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1\r\n"
+          "TRIGGER:-PT20M\r\n"
+          "ATTACH;VALUE=URI:Basso\r\n"
+          "ACTION:AUDIO\r\n"
+        "END:VALARM\r\n"
+      "END:VEVENT\r\n"
+    "END:VCALENDAR\r\n"
+            ))
+            txn2.commit()
+        d2 = deferToThread(_defer2)
+
+        yield d1
+        yield d2

@@ -231,3 +231,68 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
         self.assertNotEqual(home_uid1_1, None)
         self.assertNotEqual(home_uid1_2, None)
+
+
+    @inlineCallbacks
+    def test_putConcurrency(self):
+        """
+        Test that two concurrent attempts to PUT different address book object resources to the
+        same address book home does not cause a deadlock.
+        """
+
+        addressbookStore1 = yield buildStore(self, self.notifierFactory)
+        addressbookStore2 = yield buildStore(self, self.notifierFactory)
+
+        # Provision the home now
+        txn = addressbookStore1.newTransaction()
+        home = txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        self.assertNotEqual(home, None)
+        txn.commit()
+
+        txn1 = addressbookStore1.newTransaction()
+        txn2 = addressbookStore2.newTransaction()
+
+        home1 = txn1.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        home2 = txn2.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        
+        adbk1 = home1.addressbookWithName("addressbook")
+        adbk2 = home2.addressbookWithName("addressbook")
+        
+        def _defer1():
+            adbk1.createObjectResourceWithName("1.vcf", VCard.fromString(
+                """BEGIN:VCARD
+VERSION:3.0
+N:Thompson;Default1;;;
+FN:Default1 Thompson
+EMAIL;type=INTERNET;type=WORK;type=pref:lthompson1@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+item1.ADR;type=WORK;type=pref:;;1245 Test;Sesame Street;California;11111;USA
+item1.X-ABADR:us
+UID:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            ))
+            txn1.commit()
+        d1 = deferToThread(_defer1)
+            
+        def _defer2():
+            adbk2.createObjectResourceWithName("2.vcf", VCard.fromString(
+                """BEGIN:VCARD
+VERSION:3.0
+N:Thompson;Default2;;;
+FN:Default2 Thompson
+EMAIL;type=INTERNET;type=WORK;type=pref:lthompson2@example.com
+TEL;type=WORK;type=pref:1-555-555-5556
+TEL;type=CELL:1-444-444-4445
+item1.ADR;type=WORK;type=pref:;;1234 Test;Sesame Street;California;11111;USA
+item1.X-ABADR:us
+UID:uid2
+END:VCARD
+""".replace("\n", "\r\n")
+            ))
+            txn2.commit()
+        d2 = deferToThread(_defer2)
+
+        yield d1
+        yield d2
