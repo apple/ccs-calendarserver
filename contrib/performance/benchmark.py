@@ -124,6 +124,8 @@ class _DTraceParser(LineReceiver):
         elif which == 'RETURN':
             if self.start is None:
                 print 'return without entry at', when, 'in', cmd
+            elif self.sql is None:
+                print 'return without SQL at', when, 'in', cmd
             else:
                 diff = when - self.start
                 if diff < 0:
