@@ -90,7 +90,7 @@ from calendarserver.tools.util import checkDirectory
 
 from txdav.common.datastore.sql import v1_schema
 from txdav.base.datastore.subpostgres import PostgresService
-from txdav.caldav.datastore.util import UpgradeToDatabaseService
+from txdav.common.datastore.util import UpgradeToDatabaseService
 from twext.python.filepath import CachingFilePath
 
 log = Logger()
