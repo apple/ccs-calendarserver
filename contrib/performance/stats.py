@@ -138,7 +138,7 @@ class SQLDuration(_Statistic):
             for (sql, interval) in data:
                 sql = self.normalize(sql)
                 statements.setdefault(sql, []).append(interval)
-        
+
         byTime = []
         for statement, times in statements.iteritems():
             byTime.append((sum(times), len(times), statement))
