@@ -170,7 +170,7 @@ class DTraceCollector(object):
             Bytes('write'): self._write,
             SQLDuration('execute'): self._execute, # Time spent in the execute phase of SQL execution
             SQLDuration('iternext'): self._iternext, # Time spent fetching rows from the execute phase
-            SQLDuration('statements'): self._execute + self._iternext, # Combination of the previous two
+            SQLDuration('SQL'): self._execute + self._iternext, # Combination of the previous two
             }
         self._init_stats()
         return results
