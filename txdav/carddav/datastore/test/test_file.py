@@ -425,11 +425,14 @@ class FileStorageTests(unittest.TestCase, CommonTests):
     File storage tests.
     """
 
+    addressbookStore = None
+
     def storeUnderTest(self):
         """
         Create and return a L{AddressBookStore} for testing.
         """
-        setUpAddressBookStore(self)
+        if self.addressbookStore is None:
+            setUpAddressBookStore(self)
         return self.addressbookStore
 
 
