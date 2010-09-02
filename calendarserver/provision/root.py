@@ -188,7 +188,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                                     break
 
                         if principal:
-                            log.debug("Wiki-authenticated principal %s being assigned to authnUser" % (record.guid,))
+                            log.debug("Wiki-authenticated principal %s being assigned to authnUser and authzUser" % (record.guid,))
                             request.authzUser = request.authnUser = davxml.Principal(
                                 davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,))
                             )
@@ -206,17 +206,19 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             # This is a wiki-related resource. SACLs are not checked.
             request.checkedSACL = True
 
-            # The authzuser value is set to that of the wiki principal.
-            wikiName = None
-            if segments[1] == "wikis":
-                wikiName = segments[2]
-            else:
-                wikiName = segments[2][5:]
-            if wikiName:
-                log.debug("Wiki principal %s being assigned to authzUser" % (wikiName,))
-                request.authzUser = davxml.Principal(
-                    davxml.HRef.fromString("/principals/wikis/%s/" % (wikiName,))
-                )
+            # The authzuser value is set to that of the wiki principal if
+            # not already set.
+            if not hasattr(request, "authzUser"):
+                wikiName = None
+                if segments[1] == "wikis":
+                    wikiName = segments[2]
+                else:
+                    wikiName = segments[2][5:]
+                if wikiName:
+                    log.debug("Wiki principal %s being assigned to authzUser" % (wikiName,))
+                    request.authzUser = davxml.Principal(
+                        davxml.HRef.fromString("/principals/wikis/%s/" % (wikiName,))
+                    )
 
         elif self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):
             yield self.checkSacl(request)

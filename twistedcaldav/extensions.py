@@ -150,6 +150,14 @@ class SudoersMixin (object):
                 request.authzUser = result[2]
                 returnValue((request.authnUser, request.authzUser,))
         else:
+            if (
+                hasattr(request, "checkedWiki") and
+                hasattr(request, "authnUser") and
+                hasattr(request, "authzUser")
+            ):
+                # This request has already been authenticated via the wiki
+                returnValue((request.authnUser, request.authzUser))
+
             request.authnUser = davxml.Principal(davxml.Unauthenticated())
             request.authzUser = davxml.Principal(davxml.Unauthenticated())
             returnValue((request.authnUser, request.authzUser,))

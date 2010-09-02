@@ -1009,6 +1009,14 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 d.addCallbacks(gotAuth, translateUnauthenticated)
                 return d
         else:
+            if (
+                hasattr(request, "checkedWiki") and
+                hasattr(request, "authnUser") and
+                hasattr(request, "authzUser")
+            ):
+                # This request has already been authenticated via the wiki
+                return succeed((request.authnUser, request.authzUser))
+
             request.authnUser = davxml.Principal(davxml.Unauthenticated())
             request.authzUser = davxml.Principal(davxml.Unauthenticated())
             return succeed((request.authnUser, request.authzUser))
