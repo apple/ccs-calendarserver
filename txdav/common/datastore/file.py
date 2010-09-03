@@ -105,19 +105,20 @@ class CommonDataStore(DataStore):
         @param storeType: one of L{EADDRESSBOOKTYPE} or L{ECALENDARTYPE}.
         """
         top = self._path.child(TOPPATHS[storeType]).child(UIDPATH)
-        for firstPrefix in top.children():
-            if not isValidName(firstPrefix.basename()):
-                continue
-            for secondPrefix in firstPrefix.children():
-                if not isValidName(secondPrefix.basename()):
+        if top.exists() and top.isdir():
+            for firstPrefix in top.children():
+                if not isValidName(firstPrefix.basename()):
                     continue
-                for actualHome in secondPrefix.children():
-                    uid = actualHome.basename()
-                    if not isValidName(uid):
+                for secondPrefix in firstPrefix.children():
+                    if not isValidName(secondPrefix.basename()):
                         continue
-                    txn = self.newTransaction("enumerate home %r" % (uid,))
-                    home = txn.homeWithUID(storeType, uid, False)
-                    yield (txn, home)
+                    for actualHome in secondPrefix.children():
+                        uid = actualHome.basename()
+                        if not isValidName(uid):
+                            continue
+                        txn = self.newTransaction("enumerate home %r" % (uid,))
+                        home = txn.homeWithUID(storeType, uid, False)
+                        yield (txn, home)
 
 
     def eachCalendarHome(self):
