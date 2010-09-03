@@ -30,10 +30,10 @@ pushd $SOURCE
 stop
 svn st --no-ignore | grep '^[?I]' | cut -c9- | xargs rm -r
 svn up -r$REV .
-DATE="`./svn-committime $SOURCE $REV`"
 python setup.py build_ext -i
 popd
 
+DATE="`./svn-committime $SOURCE $REV`"
 for backend in $BACKENDS; do
   ./setbackend $SOURCE/conf/caldavd-test.plist $backend > $SOURCE/conf/caldavd-dev.plist
   pushd $SOURCE

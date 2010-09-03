@@ -1,10 +1,9 @@
 
 """
-Benchmark a server's handling of event creation and modification.
+Benchmark a server's handling of event creation.
 """
 
 from itertools import count
-
 from urllib2 import HTTPDigestAuthHandler
 from uuid import uuid4
 from datetime import datetime, timedelta
