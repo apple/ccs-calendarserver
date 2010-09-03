@@ -20,6 +20,8 @@ class _DiscardReader(Protocol):
 
 
 def readBody(response):
+    if response.length == 0:
+        return succeed(None)
     finished = Deferred()
     response.deliverBody(_DiscardReader(finished))
     return finished
