@@ -27,7 +27,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.http import ErrorResponse, MultiStatusResponse, PropertyStatusResponseQueue
+from twext.web2.http import Response
+from twext.web2.dav.http import ErrorResponse, PropertyStatusResponseQueue
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.dav.util import parentForURL
 from twext.web2.http import HTTPError
@@ -176,7 +177,10 @@ def http_MKCOL(self, request):
             # Clean up
             self.transactionError()
             errors.error()
-            raise HTTPError(MultiStatusResponse([errors.response()]))
+            raise HTTPError(Response(
+                    code=responsecode.BAD_REQUEST,
+                    stream=mkcolxml.MakeCollectionResponse(errors.response()).toxml()
+            ))
 
         yield returnValue(responsecode.CREATED)
     
