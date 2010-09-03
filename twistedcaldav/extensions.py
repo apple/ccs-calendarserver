@@ -33,18 +33,18 @@ import urllib
 import cgi
 import time
 
-from twisted.internet.defer import succeed, DeferredList
+from twisted.internet.defer import succeed, DeferredList, maybeDeferred
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 
 import twext.web2.server
-from twext.web2 import responsecode
+from twext.web2 import responsecode, iweb, http
 from twext.web2.auth.wrapper import UnauthorizedResponse
 from twext.web2.http import HTTPError, Response, RedirectResponse
 from twext.web2.http import StatusResponse
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import FileStream
-from twext.web2.static import MetaDataMixin
+from twext.web2.static import MetaDataMixin, StaticRenderMixin
 from twext.web2.dav import davxml
 from twext.web2.dav.auth import PrincipalCredentials
 from twext.web2.dav.davxml import dav_namespace
@@ -696,9 +696,12 @@ class DirectoryRenderingMixIn(object):
 
 class DAVResource (DirectoryPrincipalPropertySearchMixIn,
                    SudoersMixin, SuperDAVResource, LoggingMixIn,
-                   DirectoryRenderingMixIn):
+                   DirectoryRenderingMixIn, StaticRenderMixin):
     """
     Extended L{twext.web2.dav.resource.DAVResource} implementation.
+    
+    Note we add StaticRenderMixin as a base class because we need all the etag etc behavior
+    that is currently in static.py but is actually applicable to any type of resource.
     """
     http_REPORT = http_REPORT
 

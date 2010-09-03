@@ -158,12 +158,15 @@ def requiresPermissions(*permissions, **kw):
 class _NewStoreFileMetaDataHelper(object):
 
     def name(self):
-        return self._newStoreObject.name()
+        return self._newStoreObject.name() if self._newStoreObject is not None else None
 
     def etag(self):
         # FIXME: far too slow to be used for real, but I needed something to
         # placate the etag computation in the case where the file doesn't exist
         # yet (an uncommitted transaction creating this calendar file)
+
+        if self._newStoreObject is None:
+            return None
 
         # FIXME: direct tests
         try:
@@ -182,19 +185,19 @@ class _NewStoreFileMetaDataHelper(object):
             return None
 
     def contentType(self):
-        return self._newStoreObject.contentType()
+        return self._newStoreObject.contentType() if self._newStoreObject is not None else None
 
     def contentLength(self):
-        return self._newStoreObject.size()
+        return self._newStoreObject.size() if self._newStoreObject is not None else None
 
     def lastModified(self):
-        return self._newStoreObject.modified()
+        return self._newStoreObject.modified() if self._newStoreObject is not None else None
 
     def creationDate(self):
-        return self._newStoreObject.created()
+        return self._newStoreObject.created() if self._newStoreObject is not None else None
 
     def newStoreProperties(self):
-        return self._newStoreObject.properties()
+        return self._newStoreObject.properties() if self._newStoreObject is not None else None
 
 class _CalendarChildHelper(object):
     """
@@ -551,13 +554,13 @@ class CalendarObjectDropbox(_GetChildHelper):
 
 
 
-class ProtoCalendarAttachment(_GetChildHelper):
+class ProtoCalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
     def __init__(self, calendarObject, attachmentName, **kw):
         super(ProtoCalendarAttachment, self).__init__(**kw)
         self.calendarObject = calendarObject
         self.attachmentName = attachmentName
-
+        self._newStoreObject = None
 
     def isCollection(self):
         return False
@@ -586,6 +589,7 @@ class ProtoCalendarAttachment(_GetChildHelper):
             content_type,
         )
         def done(ignored):
+            self._newStoreObject = self.calendarObject.attachmentWithName(self.attachmentName)
             t.loseConnection()
             return CREATED
         return readStream(request.stream, t.write).addCallback(done)
