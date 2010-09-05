@@ -159,7 +159,6 @@ class Calendar(CommonHomeChild):
             (
                 PropertyName.fromElement(customxml.GETCTag),
                 PropertyName.fromElement(caldavxml.SupportedCalendarComponentSet),
-                PropertyName.fromElement(caldavxml.ScheduleCalendarTransp),
             ),
         )
 
