@@ -96,6 +96,7 @@ create table CALENDAR_BIND_MODE (
 insert into CALENDAR_BIND_MODE values (0, 'own'  );
 insert into CALENDAR_BIND_MODE values (1, 'read' );
 insert into CALENDAR_BIND_MODE values (2, 'write');
+insert into CALENDAR_BIND_MODE values (3, 'direct');
 
 -- Enumeration of statuses
 

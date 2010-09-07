@@ -42,8 +42,8 @@ from twistedcaldav.query.sqlgenerator import sqlgenerator
 from twistedcaldav.sharing import Invite
 
 from txdav.common.datastore.sql_tables import \
-    _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_STATUS_INVITED,\
-    _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID,\
+    _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_DIRECT, \
+    _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID,\
     CALENDAR_BIND_TABLE, CALENDAR_HOME_TABLE, ADDRESSBOOK_HOME_TABLE,\
     ADDRESSBOOK_BIND_TABLE
 
@@ -397,7 +397,7 @@ class SQLLegacyShares(object):
         # much simpler anyway; we should just do that.
         shareRows = self._txn.execSQL(
             """
-            select %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_MESSAGE)s
+            select %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s, %(column_MESSAGE)s
             from %(name)s
             where %(column_HOME_RESOURCE_ID)s = %%s
              and %(column_BIND_MODE)s != %%s
@@ -405,41 +405,69 @@ class SQLLegacyShares(object):
             """ % self._bindTable,
             [self._home._resourceID, _BIND_MODE_OWN]
         )
-        for resourceID, resourceName, summary in shareRows:
-            [[shareuid]] = self._txn.execSQL(
-                """
-                select INVITE_UID
-                from INVITE
-                where RESOURCE_ID = %s and HOME_RESOURCE_ID = %s
-                """,
-                [resourceID, self._home._resourceID]
-            )
-            sharetype = 'I'
-            [[ownerHomeID, ownerResourceName]] = self._txn.execSQL(
-                """
-                select %(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s
-                from %(name)s
-                where %(column_RESOURCE_ID)s = %%s
-                 and %(column_BIND_MODE)s = %%s
-                """ % self._bindTable,
-                [resourceID, _BIND_MODE_OWN]
-            )
-            [[ownerUID]] = self._txn.execSQL(
-                """
-                select %(column_OWNER_UID)s from %(name)s
-                where %(column_RESOURCE_ID)s = %%s
-                """ % self._homeTable,
-                [ownerHomeID]
-            )
-            hosturl = '/%s/__uids__/%s/%s' % (
-                self._urlTopSegment, ownerUID, ownerResourceName
-            )
-            localname = resourceName
-            record = SharedCollectionRecord(
-                shareuid, sharetype, hosturl, localname, summary
-            )
-            yield record
-
+        for resourceID, resourceName, bindMode, summary in shareRows:
+            if bindMode != _BIND_MODE_DIRECT:
+                [[shareuid]] = self._txn.execSQL(
+                    """
+                    select INVITE_UID
+                    from INVITE
+                    where RESOURCE_ID = %s and HOME_RESOURCE_ID = %s
+                    """,
+                    [resourceID, self._home._resourceID]
+                )
+                sharetype = 'I'
+                [[ownerHomeID, ownerResourceName]] = self._txn.execSQL(
+                    """
+                    select %(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s
+                    from %(name)s
+                    where %(column_RESOURCE_ID)s = %%s
+                     and %(column_BIND_MODE)s = %%s
+                    """ % self._bindTable,
+                    [resourceID, _BIND_MODE_OWN]
+                )
+                [[ownerUID]] = self._txn.execSQL(
+                    """
+                    select %(column_OWNER_UID)s from %(name)s
+                    where %(column_RESOURCE_ID)s = %%s
+                    """ % self._homeTable,
+                    [ownerHomeID]
+                )
+                hosturl = '/%s/__uids__/%s/%s' % (
+                    self._urlTopSegment, ownerUID, ownerResourceName
+                )
+                localname = resourceName
+                record = SharedCollectionRecord(
+                    shareuid, sharetype, hosturl, localname, summary
+                )
+                yield record
+            else:
+                sharetype = 'D'
+                [[ownerHomeID, ownerResourceName]] = self._txn.execSQL(
+                    """
+                    select %(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s
+                    from %(name)s
+                    where %(column_RESOURCE_ID)s = %%s
+                     and %(column_BIND_MODE)s = %%s
+                    """ % self._bindTable,
+                    [resourceID, _BIND_MODE_OWN]
+                )
+                [[ownerUID]] = self._txn.execSQL(
+                    """
+                    select %(column_OWNER_UID)s from %(name)s
+                    where %(column_RESOURCE_ID)s = %%s
+                    """ % self._homeTable,
+                    [ownerHomeID]
+                )
+                hosturl = '/%s/__uids__/%s/%s' % (
+                    self._urlTopSegment, ownerUID, ownerResourceName
+                )
+                localname = resourceName
+                synthesisedUID = "Direct-%s-%s" % (self._home._resourceID, resourceID,)
+                record = SharedCollectionRecord(
+                    synthesisedUID, sharetype, hosturl, localname, summary
+                )
+                yield record
+                
 
     def _search(self, **kw):
         [[key, value]] = kw.items()
@@ -466,21 +494,51 @@ class SQLLegacyShares(object):
         ownerCollection = ownerHome.childWithName(ownerCollectionName)
         collectionResourceID = ownerCollection._resourceID
 
-        # There needs to be a bind already, one that corresponds to the
-        # invitation.  The invitation's UID is the same as the share UID.  I
-        # just need to update its 'localname', i.e.
-        # XXX_BIND.XXX_RESOURCE_NAME.
-
-        self._txn.execSQL(
-            """
-            update %(name)s
-            set %(column_RESOURCE_NAME)s = %%s
-            where %(column_HOME_RESOURCE_ID)s = %%s
-             and %(column_RESOURCE_ID)s = %%s
-            """ % self._bindTable,
-            [record.localname, self._home._resourceID, collectionResourceID]
-        )
-
+        if record.sharetype == 'I':
+                
+            # There needs to be a bind already, one that corresponds to the
+            # invitation.  The invitation's UID is the same as the share UID.  I
+            # just need to update its 'localname', i.e.
+            # XXX_BIND.XXX_RESOURCE_NAME.
+    
+            self._txn.execSQL(
+                """
+                update %(name)s
+                set %(column_RESOURCE_NAME)s = %%s
+                where %(column_HOME_RESOURCE_ID)s = %%s
+                 and %(column_RESOURCE_ID)s = %%s
+                """ % self._bindTable,
+                [record.localname, self._home._resourceID, collectionResourceID]
+            )
+        elif record.sharetype == 'D':
+            
+            # There is no bind entry already so add one.
+    
+            self._txn.execSQL(
+                """
+                insert into %(name)s
+                (
+                    %(column_HOME_RESOURCE_ID)s,
+                    %(column_RESOURCE_ID)s, 
+                    %(column_RESOURCE_NAME)s,
+                    %(column_BIND_MODE)s,
+                    %(column_BIND_STATUS)s,
+                    %(column_SEEN_BY_OWNER)s,
+                    %(column_SEEN_BY_SHAREE)s,
+                    %(column_MESSAGE)s
+                )
+                values (%%s, %%s, %%s, %%s, %%s, %%s, %%s, %%s)
+                """ % self._bindTable,
+                [
+                    self._home._resourceID,
+                    collectionResourceID,
+                    record.localname,
+                    _BIND_MODE_DIRECT,
+                    _BIND_STATUS_ACCEPTED,
+                    True,
+                    True,
+                    record.summary,
+                ])
 
     def removeRecordForLocalName(self, localname):
         self._txn.execSQL(
@@ -495,17 +553,32 @@ class SQLLegacyShares(object):
 
 
     def removeRecordForShareUID(self, shareUID):
-        self._txn.execSQL(
-            """
-            update %(name)s
-            set %(column_RESOURCE_NAME)s = NULL
-            from INVITE
-            where INVITE.INVITE_UID = %%s
-             and %(name)s.%(column_HOME_RESOURCE_ID)s = INVITE.HOME_RESOURCE_ID
-             and %(name)s.%(column_RESOURCE_ID)s = INVITE.RESOURCE_ID
-            """ % self._bindTable,
-            [shareUID,]
-        )
+        if not shareUID.startswith("Direct"):
+            self._txn.execSQL(
+                """
+                update %(name)s
+                set %(column_RESOURCE_NAME)s = NULL
+                from INVITE
+                where INVITE.INVITE_UID = %%s
+                 and %(name)s.%(column_HOME_RESOURCE_ID)s = INVITE.HOME_RESOURCE_ID
+                 and %(name)s.%(column_RESOURCE_ID)s = INVITE.RESOURCE_ID
+                """ % self._bindTable,
+                [shareUID,]
+            )
+        else:
+            # Extract pieces from synthesised UID
+            homeID, resourceID = shareUID[len("Direct-"):].split("-")
+            
+            # Now remove the binding for the direct share
+            self._txn.execSQL(
+                """
+                delete from %(name)s
+                where %(column_HOME_RESOURCE_ID)s = %%s
+                 and %(column_RESOURCE_ID)s = %%s
+                """ % self._bindTable,
+                [homeID, resourceID,]
+            )
+            
 
 class SQLLegacyCalendarShares(SQLLegacyShares):
     """

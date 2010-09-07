@@ -757,7 +757,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
         acls = None
         isvirt = self.isVirtualShare()
         if isvirt:
-            acls = self.shareeAccessControlList()
+            acls = (yield self.shareeAccessControlList(request, *args, **kwargs))
 
         if acls is None:
             acls = (yield super(CalDAVResource, self).accessControlList(request, *args, **kwargs))

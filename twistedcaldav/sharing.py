@@ -259,82 +259,85 @@ class SharedCollectionMixin(object):
         else:
             return ""
 
-    def shareeAccessControlList(self):
+    @inlineCallbacks
+    def shareeAccessControlList(self, request, *args, **kwargs):
 
         assert self._isVirtualShare, "Only call this for a virtual share"
 
         # Direct shares use underlying privileges of shared collection
         if self._share.sharetype == SHARETYPE_DIRECT:
-            return None
-
-        # Invite shares use access mode from the invite
-
-        # Get the invite for this sharee
-        invite = self.invitesDB().recordForInviteUID(self._share.shareuid)
-        if invite is None:
-            return davxml.ACL()
-        
-        userprivs = [
-        ]
-        if invite.access in ("read-only", "read-write", "read-write-schedule",):
-            userprivs.append(davxml.Privilege(davxml.Read()))
-            userprivs.append(davxml.Privilege(davxml.ReadACL()))
-            userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
-        if invite.access in ("read-only",):
-            userprivs.append(davxml.Privilege(davxml.WriteProperties()))
-        if invite.access in ("read-write", "read-write-schedule",):
-            userprivs.append(davxml.Privilege(davxml.Write()))
-        proxyprivs = list(userprivs)
-        proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
-
-        aces = (
-            # Inheritable specific access for the resource's associated principal.
-            davxml.ACE(
-                davxml.Principal(davxml.HRef(self._shareePrincipal.principalURL())),
-                davxml.Grant(*userprivs),
-                davxml.Protected(),
-                TwistedACLInheritable(),
-            ),
-        )
-        
-        if self.isCalendarCollection():
-            aces += (
-                # Inheritable CALDAV:read-free-busy access for authenticated users.
+            original = (yield request.locateResource(self._share.hosturl))
+            result = (yield original.accessControlList(request, *args, **kwargs))
+            returnValue(result)
+        else:
+            # Invite shares use access mode from the invite
+    
+            # Get the invite for this sharee
+            invite = self.invitesDB().recordForInviteUID(self._share.shareuid)
+            if invite is None:
+                returnValue(davxml.ACL())
+            
+            userprivs = [
+            ]
+            if invite.access in ("read-only", "read-write", "read-write-schedule",):
+                userprivs.append(davxml.Privilege(davxml.Read()))
+                userprivs.append(davxml.Privilege(davxml.ReadACL()))
+                userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
+            if invite.access in ("read-only",):
+                userprivs.append(davxml.Privilege(davxml.WriteProperties()))
+            if invite.access in ("read-write", "read-write-schedule",):
+                userprivs.append(davxml.Privilege(davxml.Write()))
+            proxyprivs = list(userprivs)
+            proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
+    
+            aces = (
+                # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
-                    davxml.Principal(davxml.Authenticated()),
-                    davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
+                    davxml.Principal(davxml.HRef(self._shareePrincipal.principalURL())),
+                    davxml.Grant(*userprivs),
+                    davxml.Protected(),
                     TwistedACLInheritable(),
                 ),
             )
-
-        # Give read access to config.ReadPrincipals
-        aces += config.ReadACEs
-
-        # Give all access to config.AdminPrincipals
-        aces += config.AdminACEs
-        
-        if config.EnableProxyPrincipals:
-            aces += (
-                # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(joinURL(self._shareePrincipal.principalURL(), "calendar-proxy-read/"))),
-                    davxml.Grant(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+            
+            if self.isCalendarCollection():
+                aces += (
+                    # Inheritable CALDAV:read-free-busy access for authenticated users.
+                    davxml.ACE(
+                        davxml.Principal(davxml.Authenticated()),
+                        davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
+                        TwistedACLInheritable(),
                     ),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                ),
-                # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(joinURL(self._shareePrincipal.principalURL(), "calendar-proxy-write/"))),
-                    davxml.Grant(*proxyprivs),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                ),
-            )
-
-        return davxml.ACL(*aces)
+                )
+    
+            # Give read access to config.ReadPrincipals
+            aces += config.ReadACEs
+    
+            # Give all access to config.AdminPrincipals
+            aces += config.AdminACEs
+            
+            if config.EnableProxyPrincipals:
+                aces += (
+                    # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
+                    davxml.ACE(
+                        davxml.Principal(davxml.HRef(joinURL(self._shareePrincipal.principalURL(), "calendar-proxy-read/"))),
+                        davxml.Grant(
+                            davxml.Privilege(davxml.Read()),
+                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                        ),
+                        davxml.Protected(),
+                        TwistedACLInheritable(),
+                    ),
+                    # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
+                    davxml.ACE(
+                        davxml.Principal(davxml.HRef(joinURL(self._shareePrincipal.principalURL(), "calendar-proxy-write/"))),
+                        davxml.Grant(*proxyprivs),
+                        davxml.Protected(),
+                        TwistedACLInheritable(),
+                    ),
+                )
+    
+            returnValue(davxml.ACL(*aces))
 
     def validUserIDForShare(self, userid):
         """
