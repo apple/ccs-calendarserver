@@ -61,7 +61,7 @@ def initialize(agent, host, port, user, password, root, principal, calendar):
 
 @inlineCallbacks
 def sample(dtrace, samples, agent, paramgen):
-    urlopen = Duration('urlopen time')
+    urlopen = Duration('HTTP')
     data = {urlopen: []}
     yield dtrace.start()
     for i in range(samples):

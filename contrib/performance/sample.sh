@@ -9,8 +9,8 @@ BACKENDS="filesystem postgresql"
 
 SOURCE=~/Projects/CalendarServer/trunk
 NUM_INSTANCES=2
-BENCHMARKS="vfreebusy event"
-STATISTICS=("urlopen time" execute read write)
+BENCHMARKS="event_delete vfreebusy event"
+STATISTICS=(HTTP SQL read write)
 ADDURL=http://localhost:8000/result/add/
 export PYTHONPATH=$PYTHONPATH:$SOURCE/../Twisted
 
