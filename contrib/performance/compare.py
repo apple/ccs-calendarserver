@@ -9,17 +9,19 @@ try:
 except ImportError:
     from math import pi
     from ctypes import CDLL, c_double
-    libc = CDLL('libc.dylib')
-    gamma = libc.gamma
+    for lib in ['libc.dylib', 'libm.so']:
+        try:
+            libc = CDLL(lib)
+        except OSError:
+            pass
+    gamma = libc.tgamma
     gamma.argtypes = [c_double]
     gamma.restype = c_double
     def ttest_1samp(a, popmean):
         t = (stats.mean(a) - popmean) / (stats.stddev(a) / len(a) ** 0.5)
         v = len(a) - 1.0
         p = gamma((v + 1) / 2) / ((v * pi) ** 0.5 * gamma(v / 2)) * (1 + t ** 2 / v) ** (-(v + 1) / 2)
-        return (
-            [t, None], 
-            [p, None])
+        return (t, p)
 
 
 def trim(sequence, amount):
@@ -44,7 +46,7 @@ def main():
 
     fmean = stats.mean(first)
     smean = stats.mean(second)
-    p = 1 - ttest_1samp(second, fmean)[1][0]
+    p = ttest_1samp(second, fmean)[1]
     if p >= 0.95:
         # rejected the null hypothesis
         print sys.argv[1], 'mean of', fmean, 'differs from', sys.argv[2], 'mean of', smean, '(%2.0f%%)' % (p * 100,)
