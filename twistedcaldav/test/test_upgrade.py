@@ -15,17 +15,15 @@
 ##
 
 
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2.dav import davxml
-
 from twistedcaldav.config import config
-# from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
-#from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyDatabase
-CalendarUserProxyDatabase = None
+from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import UpgradeError, upgradeData, updateFreeBusySet
-#from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
 
 import hashlib
@@ -35,9 +33,10 @@ freeBusyAttr = "WebDAV:{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"
 cTagAttr = "WebDAV:{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"
 md5Attr = "WebDAV:{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"
 
+OLDPROXYFILE = ".db.calendaruserproxy"
+NEWPROXYFILE = "proxies.sqlite"
 
-class ProxyDBUpgradeTests(object): #(TestCase):
-    todo = "upgrade.py needs to be fixed"
+class UpgradeTests(TestCase):
     
     def setUpXMLDirectory(self):
         xmlFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
@@ -47,6 +46,11 @@ class ProxyDBUpgradeTests(object): #(TestCase):
         xmlAugmentsFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
             "directory", "test", "augments.xml")
         config.AugmentService.params.xmlFiles = (xmlAugmentsFile,)
+
+        resourceFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+            "directory", "test", "resources.xml")
+        config.ResourceService.params.xmlFile = resourceFile
+
 
 
     def setUpInitialStates(self):
@@ -62,7 +66,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
     def setUpOldDocRoot(self):
         
         # Set up doc root
-        self.olddocroot = self.mktemp()
+        self.olddocroot = os.path.abspath(self.mktemp())
         os.mkdir(self.olddocroot)
 
         principals = os.path.join(self.olddocroot, "principals")
@@ -74,18 +78,13 @@ class ProxyDBUpgradeTests(object): #(TestCase):
         os.mkdir(os.path.join(principals, "resources"))
         os.mkdir(os.path.join(principals, "sudoers"))
 
-        proxyDB = CalendarUserProxyDatabase(principals)
-        proxyDB._db()
-        os.rename(
-            os.path.join(principals, CalendarUserProxyDatabase.dbFilename),
-            os.path.join(principals, CalendarUserProxyDatabase.dbOldFilename),
-        )
+        open(os.path.join(principals, OLDPROXYFILE), "w").close()
 
 
     def setUpOldDocRootWithoutDB(self):
         
         # Set up doc root
-        self.olddocrootnodb = self.mktemp()
+        self.olddocrootnodb = os.path.abspath(self.mktemp())
         os.mkdir(self.olddocrootnodb)
 
         principals = os.path.join(self.olddocrootnodb, "principals")
@@ -101,7 +100,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
     def setUpNewDocRoot(self):
         
         # Set up doc root
-        self.newdocroot = self.mktemp()
+        self.newdocroot = os.path.abspath(self.mktemp())
         os.mkdir(self.newdocroot)
 
         os.mkdir(os.path.join(self.newdocroot, "calendars"))
@@ -109,18 +108,22 @@ class ProxyDBUpgradeTests(object): #(TestCase):
     def setUpNewDataRoot(self):
         
         # Set up data root
-        self.newdataroot = self.mktemp()
+        self.newdataroot = os.path.abspath(self.mktemp())
         os.mkdir(self.newdataroot)
 
     def setUpDataRootWithProxyDB(self):
         
         # Set up data root
-        self.existingdataroot = self.mktemp()
+        self.existingdataroot = os.path.abspath(self.mktemp())
         os.mkdir(self.existingdataroot)
 
-        proxyDB = CalendarUserProxyDatabase(self.existingdataroot)
-        proxyDB._db()
+        principals = os.path.join(self.existingdataroot, "principals")
+        os.mkdir(principals)
 
+        open(os.path.join(self.existingdataroot, NEWPROXYFILE), "w").close()
+
+
+    @inlineCallbacks
     def test_normalUpgrade(self):
         """
         Test the behavior of normal upgrade from old server to new.
@@ -135,16 +138,17 @@ class ProxyDBUpgradeTests(object): #(TestCase):
         # Check pre-conditions
         self.assertTrue(os.path.exists(os.path.join(config.DocumentRoot, "principals")))
         self.assertTrue(os.path.isdir(os.path.join(config.DocumentRoot, "principals")))
-        self.assertTrue(os.path.exists(os.path.join(config.DocumentRoot, "principals", CalendarUserProxyDatabase.dbOldFilename)))
-        self.assertFalse(os.path.exists(os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)))
+        self.assertTrue(os.path.exists(os.path.join(config.DocumentRoot, "principals", OLDPROXYFILE)))
+        self.assertFalse(os.path.exists(os.path.join(config.DataRoot, NEWPROXYFILE)))
 
-        upgradeData(config)
+        (yield upgradeData(config))
         
         # Check post-conditions
         self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals",)))
-        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)))
+        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, NEWPROXYFILE)))
 
 
+    @inlineCallbacks
     def test_noUpgrade(self):
         """
         Test the behavior of running on a new server (i.e. no upgrade needed).
@@ -157,13 +161,13 @@ class ProxyDBUpgradeTests(object): #(TestCase):
         
         # Check pre-conditions
         self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals")))
-        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)))
+        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, NEWPROXYFILE)))
 
-        upgradeData(config)
+        (yield upgradeData(config))
         
         # Check post-conditions
         self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals",)))
-        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)))
+        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, NEWPROXYFILE)))
 
 
     def test_freeBusyUpgrade(self):
@@ -198,7 +202,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
         # Verify these values do require updating:
         #
 
-        expected = "<?xml version='1.0' encoding='UTF-8'?><calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"
+        expected = "<?xml version='1.0' encoding='UTF-8'?>\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"
 
         # Uncompressed XML
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/wsanchez/calendar</href>\r\n</calendar-free-busy-set>\r\n"
@@ -226,13 +230,14 @@ class ProxyDBUpgradeTests(object): #(TestCase):
         # Shortname not in directory, return empty string
         #
 
-        expected = "<?xml version='1.0' encoding='UTF-8'?><calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>"
+        expected = "<?xml version='1.0' encoding='UTF-8'?>\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>"
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/nonexistent/calendar</href>\r\n</calendar-free-busy-set>\r\n"
         newValue = updateFreeBusySet(value, directory)
         newValue = zlib.decompress(newValue)
         self.assertEquals(newValue, expected)
 
 
+    @inlineCallbacks
     def verifyDirectoryComparison(self, before, after, reverify=False):
         """
         Verify that the hierarchy described by "before", when upgraded, matches
@@ -254,15 +259,16 @@ class ProxyDBUpgradeTests(object): #(TestCase):
         config.DocumentRoot = root
         config.DataRoot = root
 
-        upgradeData(config)
+        (yield upgradeData(config))
         self.assertTrue(self.verifyHierarchy(root, after))
 
         if reverify:
             # Ensure that repeating the process doesn't change anything
-            upgradeData(config)
+            (yield upgradeData(config))
             self.assertTrue(self.verifyHierarchy(root, after))
 
 
+    @inlineCallbacks
     def test_removeNotificationDirectories(self):
         """
         The upgrade process should remove unused notification directories in
@@ -298,17 +304,17 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                 }
             },
             ".calendarserver_version" : {
-                "@contents" : "1",
+                "@contents" : "2",
             },
-            CalendarUserProxyDatabase.dbFilename : { "@contents" : None },
             MailGatewayTokensDatabase.dbFilename : { "@contents" : None },
-            ResourceInfoDatabase.dbFilename : { "@contents" : None },
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) : { "@contents" : None },
             "tasks" : {"incoming" : {}}
         }
 
-        self.verifyDirectoryComparison(before, after)
+        (yield self.verifyDirectoryComparison(before, after))
 
 
+    @inlineCallbacks
     def test_calendarsUpgradeWithTypes(self):
         """
         Verify that calendar homes in the /calendars/<type>/<shortname>/ form
@@ -361,7 +367,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             },
             "principals" :
             {
-                CalendarUserProxyDatabase.dbOldFilename :
+                OLDPROXYFILE :
                 {
                     "@contents" : "",
                 }
@@ -377,7 +383,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "1",
+                "@contents" : "2",
             },
             "calendars" :
             {
@@ -408,7 +414,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                                 {
                                     "@xattrs" :
                                     {
-                                        freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?><calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"),
+                                        freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?>\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"),
                                     },
                                 },
                             },
@@ -428,7 +434,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                     },
                 },
             },
-            CalendarUserProxyDatabase.dbFilename :
+            NEWPROXYFILE :
             {
                 "@contents" : None,
             },
@@ -436,15 +442,16 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             {
                 "@contents" : None,
             },
-#            ResourceInfoDatabase.dbFilename :
-#            {
-#                "@contents" : None,
-#            }
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
+            {
+                "@contents" : None
+            },
         }
 
-        self.verifyDirectoryComparison(before, after, reverify=True)
+        (yield self.verifyDirectoryComparison(before, after, reverify=True))
 
 
+    @inlineCallbacks
     def test_calendarsUpgradeWithOrphans(self):
         """
         Verify that calendar homes in the /calendars/<type>/<shortname>/ form
@@ -471,7 +478,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             },
             "principals" :
             {
-                CalendarUserProxyDatabase.dbOldFilename :
+                OLDPROXYFILE :
                 {
                     "@contents" : "",
                 }
@@ -496,7 +503,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "1",
+                "@contents" : "2",
             },
             "calendars" :
             {
@@ -504,7 +511,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                 {
                 },
             },
-            CalendarUserProxyDatabase.dbFilename :
+            NEWPROXYFILE :
             {
                 "@contents" : None,
             },
@@ -512,15 +519,16 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             {
                 "@contents" : None,
             },
-            ResourceInfoDatabase.dbFilename :
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None,
-            }
+                "@contents" : None
+            },
         }
 
-        self.verifyDirectoryComparison(before, after, reverify=True)
+        (yield self.verifyDirectoryComparison(before, after, reverify=True))
 
 
+    @inlineCallbacks
     def test_calendarsUpgradeWithDuplicateOrphans(self):
         """
         Verify that calendar homes in the /calendars/<type>/<shortname>/ form
@@ -556,7 +564,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             },
             "principals" :
             {
-                CalendarUserProxyDatabase.dbOldFilename :
+                OLDPROXYFILE :
                 {
                     "@contents" : "",
                 }
@@ -587,7 +595,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "1",
+                "@contents" : "2",
             },
             "calendars" :
             {
@@ -595,7 +603,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                 {
                 },
             },
-            CalendarUserProxyDatabase.dbFilename :
+            NEWPROXYFILE :
             {
                 "@contents" : None,
             },
@@ -603,15 +611,16 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             {
                 "@contents" : None,
             },
-            ResourceInfoDatabase.dbFilename :
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None,
-            }
+                "@contents" : None
+            },
         }
 
-        self.verifyDirectoryComparison(before, after, reverify=True)
+        (yield self.verifyDirectoryComparison(before, after, reverify=True))
 
 
+    @inlineCallbacks
     def test_calendarsUpgradeWithUnknownFiles(self):
         """
         Unknown files, including .DS_Store files at any point in the hierarchy,
@@ -660,7 +669,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                 {
                     "@contents" : "",
                 },
-                CalendarUserProxyDatabase.dbOldFilename :
+                OLDPROXYFILE :
                 {
                     "@contents" : "",
                 }
@@ -680,7 +689,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "1",
+                "@contents" : "2",
             },
             "calendars" :
             {
@@ -690,7 +699,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                 },
                 "__uids__" : ignoredUIDContents,
             },
-            CalendarUserProxyDatabase.dbFilename :
+            NEWPROXYFILE :
             {
                 "@contents" : None,
             },
@@ -698,15 +707,16 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             {
                 "@contents" : None,
             },
-            ResourceInfoDatabase.dbFilename :
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None,
-            }
+                "@contents" : None
+            },
         }
 
-        self.verifyDirectoryComparison(before, after, reverify=True)
+        (yield self.verifyDirectoryComparison(before, after, reverify=True))
 
 
+    @inlineCallbacks
     def test_calendarsUpgradeWithUIDs(self):
         """
         Verify that calendar homes in the /calendars/__uids__/<guid>/ form
@@ -742,7 +752,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             },
             "principals" :
             {
-                CalendarUserProxyDatabase.dbOldFilename :
+                OLDPROXYFILE :
                 {
                     "@contents" : "",
                 }
@@ -758,7 +768,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "1",
+                "@contents" : "2",
             },
             "calendars" :
             {
@@ -785,7 +795,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                                 {
                                     "@xattrs" :
                                     {
-                                        freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?><calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"),
+                                        freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?>\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"),
                                     },
                                 },
                             },
@@ -793,7 +803,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                     },
                 },
             },
-            CalendarUserProxyDatabase.dbFilename :
+            NEWPROXYFILE :
             {
                 "@contents" : None,
             },
@@ -801,15 +811,16 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             {
                 "@contents" : None,
             },
-#            ResourceInfoDatabase.dbFilename :
-#            {
-#                "@contents" : None,
-#            }
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
+            {
+                "@contents" : None
+            },
         }
 
-        self.verifyDirectoryComparison(before, after, reverify=True)
+        (yield self.verifyDirectoryComparison(before, after, reverify=True))
 
 
+    @inlineCallbacks
     def test_calendarsUpgradeWithUIDsMultilevel(self):
         """
         Verify that calendar homes in the /calendars/__uids__/XX/YY/<guid>/
@@ -858,7 +869,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                     },
                 },
             },
-            CalendarUserProxyDatabase.dbFilename :
+            NEWPROXYFILE :
             {
                 "@contents" : "",
             }
@@ -873,7 +884,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "1",
+                "@contents" : "2",
             },
             "calendars" :
             {
@@ -905,7 +916,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                                 {
                                     "@xattrs" :
                                     {
-                                        freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?><calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"),
+                                        freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?>\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"),
                                     },
                                 },
                             },
@@ -913,7 +924,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                     },
                 },
             },
-            CalendarUserProxyDatabase.dbFilename :
+            NEWPROXYFILE :
             {
                 "@contents" : None,
             },
@@ -921,14 +932,15 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             {
                 "@contents" : None,
             },
-#            ResourceInfoDatabase.dbFilename :
-#            {
-#                "@contents" : None,
-#            }
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
+            {
+                "@contents" : None
+            },
         }
 
-        self.verifyDirectoryComparison(before, after, reverify=True)
+        (yield self.verifyDirectoryComparison(before, after, reverify=True))
 
+    @inlineCallbacks
     def test_calendarsUpgradeWithNoChange(self):
         """
         Verify that calendar homes in the /calendars/__uids__/XX/YY/<guid>/
@@ -977,7 +989,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                     },
                 },
             },
-            CalendarUserProxyDatabase.dbFilename :
+            NEWPROXYFILE :
             {
                 "@contents" : "",
             }
@@ -992,7 +1004,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "1",
+                "@contents" : "2",
             },
             "calendars" :
             {
@@ -1032,7 +1044,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                     },
                 },
             },
-            CalendarUserProxyDatabase.dbFilename :
+            NEWPROXYFILE :
             {
                 "@contents" : None,
             },
@@ -1040,15 +1052,16 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             {
                 "@contents" : None,
             },
-#            ResourceInfoDatabase.dbFilename :
-#            {
-#                "@contents" : None,
-#            }
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
+            {
+                "@contents" : None
+            },
         }
 
-        self.verifyDirectoryComparison(before, after)
+        (yield self.verifyDirectoryComparison(before, after))
 
 
+    @inlineCallbacks
     def test_calendarsUpgradeWithError(self):
         """
         Verify that a problem with one resource doesn't stop the process, but
@@ -1084,7 +1097,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                     },
                 },
             },
-            CalendarUserProxyDatabase.dbFilename :
+            NEWPROXYFILE :
             {
                 "@contents" : "",
             }
@@ -1124,7 +1137,7 @@ class ProxyDBUpgradeTests(object): #(TestCase):
                     },
                 },
             },
-            CalendarUserProxyDatabase.dbFilename :
+            NEWPROXYFILE :
             {
                 "@contents" : None,
             },
@@ -1132,10 +1145,10 @@ class ProxyDBUpgradeTests(object): #(TestCase):
             {
                 "@contents" : None,
             },
-#            ResourceInfoDatabase.dbFilename :
-#            {
-#                "@contents" : None,
-#            }
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
+            {
+                "@contents" : None
+            },
         }
 
 
@@ -1144,9 +1157,16 @@ class ProxyDBUpgradeTests(object): #(TestCase):
         config.DocumentRoot = root
         config.DataRoot = root
 
-        self.assertRaises(UpgradeError, upgradeData, config)
+        try:
+            (yield upgradeData(config))
+        except UpgradeError:
+            pass
+        else:
+            self.fail("UpgradeError expected")
+
         self.assertTrue(self.verifyHierarchy(root, after))
 
+    @inlineCallbacks
     def test_migrateResourceInfo(self):
         # Fake getResourceInfo( )
 
@@ -1165,57 +1185,67 @@ class ProxyDBUpgradeTests(object): #(TestCase):
 
         self.setUpInitialStates()
         # Override the normal getResourceInfo method with our own:
-        XMLDirectoryService.getResourceInfo = _getResourceInfo
+        # XMLDirectoryService.getResourceInfo = _getResourceInfo
+        self.patch(XMLDirectoryService, "getResourceInfo", _getResourceInfo)
 
         before = { }
         after = {
             ".calendarserver_version" :
             {
-                "@contents" : "1",
+                "@contents" : "2",
             },
-#            CalendarUserProxyDatabase.dbFilename :
-#            {
-#                "@contents" : None,
-#            },
+            NEWPROXYFILE :
+            {
+                "@contents" : None,
+            },
             MailGatewayTokensDatabase.dbFilename :
             {
                 "@contents" : None,
             },
-#            ResourceInfoDatabase.dbFilename :
-#            {
-#                "@contents" : None,
-#            }
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
+            {
+                "@contents" : None
+            },
+            ResourceInfoDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            "%s-journal" % (ResourceInfoDatabase.dbFilename,) :
+            {
+                "@contents" : None,
+            }
         }
         root = self.createHierarchy(before)
         config.DocumentRoot = root
         config.DataRoot = root
 
-        upgradeData(config)
+        (yield upgradeData(config))
         self.assertTrue(self.verifyHierarchy(root, after))
 
-#        calendarUserProxyDatabase = CalendarUserProxyDatabase(root)
-#        resourceInfoDatabase = ResourceInfoDatabase(root)
-#
-#        for guid, info in assignments.iteritems():
-#
-#            proxyGroup = "%s#calendar-proxy-write" % (guid,)
-#            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", proxyGroup)])
-#            if info[1]:
-#                self.assertTrue(info[1] in result)
-#            else:
-#                self.assertTrue(not result)
-#
-#            readOnlyProxyGroup = "%s#calendar-proxy-read" % (guid,)
-#            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", readOnlyProxyGroup)])
-#            if info[2]:
-#                self.assertTrue(info[2] in result)
-#            else:
-#                self.assertTrue(not result)
-#
-#            autoSchedule = resourceInfoDatabase._db_value_for_sql("select AUTOSCHEDULE from RESOURCEINFO where GUID = :1", guid)
-#            autoSchedule = autoSchedule == 1
-#            self.assertEquals(info[0], autoSchedule)
+        calendarUserProxyDatabase = ProxySqliteDB(NEWPROXYFILE)
+        resourceInfoDatabase = ResourceInfoDatabase(root)
 
+        for guid, info in assignments.iteritems():
+
+            proxyGroup = "%s#calendar-proxy-write" % (guid,)
+            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", proxyGroup)])
+            if info[1]:
+                self.assertTrue(info[1] in result)
+            else:
+                self.assertTrue(not result)
+
+            readOnlyProxyGroup = "%s#calendar-proxy-read" % (guid,)
+            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", readOnlyProxyGroup)])
+            if info[2]:
+                self.assertTrue(info[2] in result)
+            else:
+                self.assertTrue(not result)
+
+            autoSchedule = resourceInfoDatabase._db_value_for_sql("select AUTOSCHEDULE from RESOURCEINFO where GUID = :1", guid)
+            autoSchedule = autoSchedule == 1
+            self.assertEquals(info[0], autoSchedule)
+
+    test_migrateResourceInfo.todo = "FIXME: perhaps ProxySqliteDB isn't being set up correctly?"
 
 
 event01_before = """BEGIN:VCALENDAR

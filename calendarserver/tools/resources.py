@@ -187,8 +187,8 @@ def queryForType(sourceService, recordType, verbose=False):
 
 
 @inlineCallbacks
-def migrateResources(sourceService, destService, queryMethod=queryForType,
-    verbose=False):
+def migrateResources(sourceService, destService, autoSchedules=None,
+    queryMethod=queryForType, verbose=False):
 
     for recordTypeOD, recordType in (
         (dsattributes.kDSStdRecordTypeResources, DirectoryService.recordType_resources),
@@ -205,9 +205,13 @@ def migrateResources(sourceService, destService, queryMethod=queryForType,
                 if record is None:
                     if verbose:
                         print "Migrating %s (%s)" % (fullName, recordType)
+                    if autoSchedules is not None:
+                        autoSchedule = autoSchedules.get(guid, 1)
+                    else:
+                        autoSchedule = True
                     yield updateRecord(True, destService, recordType,
                         guid=guid, shortNames=[recordName], fullName=fullName,
-                        autoSchedule="true")
+                        autoSchedule=autoSchedule)
 
 
 if __name__ == "__main__":

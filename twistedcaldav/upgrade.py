@@ -26,13 +26,19 @@ from twext.web2.dav import davxml
 
 from twext.python.log import Logger
 
+from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+from twistedcaldav.directory.xmlfile import XMLDirectoryService
+from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 from twistedcaldav.directory.directory import DirectoryService
-#from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
+from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.ical import Component
 from twistedcaldav import caldavxml
 
+from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+
 from calendarserver.tools.util import getDirectory
+from calendarserver.tools.resources import migrateResources
 
 log = Logger()
 
@@ -210,42 +216,42 @@ def upgrade_to_1(config):
 
 
     def doProxyDatabaseMoveUpgrade(config, uid=-1, gid=-1):
-        pass
-#        # See if the new one is already present
-#        newDbPath = os.path.join(config.DataRoot,
-#            CalendarUserProxyDatabase.dbFilename)
-#        if os.path.exists(newDbPath):
-#            # Nothing to be done, it's already in the new location
-#            return
-#
-#        # See if the old DB is present
-#        oldDbPath = os.path.join(config.DocumentRoot, "principals",
-#            CalendarUserProxyDatabase.dbOldFilename)
-#        if not os.path.exists(oldDbPath):
-#            # Nothing to be moved
-#            return
-#
-#        # Now move the old one to the new location
-#        try:
-#            if not os.path.exists(config.DataRoot):
-#                makeDirsUserGroup(config.DataRoot, uid=uid, gid=gid)
-#            try:
-#                os.rename(oldDbPath, newDbPath)
-#            except OSError:
-#                # Can't rename, must copy/delete
-#                shutil.copy2(oldDbPath, newDbPath)
-#                os.remove(oldDbPath)
-#
-#        except Exception, e:
-#            raise UpgradeError(
-#                "Upgrade Error: unable to move the old calendar user proxy database at '%s' to '%s' due to %s."
-#                % (oldDbPath, newDbPath, str(e))
-#            )
-#
-#        log.debug(
-#            "Moved the calendar user proxy database from '%s' to '%s'."
-#            % (oldDbPath, newDbPath,)
-#        )
+        # See if the new one is already present
+        oldFilename = ".db.calendaruserproxy"
+        newFilename = "proxies.sqlite"
+
+        newDbPath = os.path.join(config.DataRoot, newFilename)
+        if os.path.exists(newDbPath):
+            # Nothing to be done, it's already in the new location
+            return
+
+        # See if the old DB is present
+        oldDbPath = os.path.join(config.DocumentRoot, "principals", oldFilename)
+        if not os.path.exists(oldDbPath):
+            # Nothing to be moved
+            return
+
+        # Now move the old one to the new location
+        try:
+            if not os.path.exists(config.DataRoot):
+                makeDirsUserGroup(config.DataRoot, uid=uid, gid=gid)
+            try:
+                os.rename(oldDbPath, newDbPath)
+            except OSError:
+                # Can't rename, must copy/delete
+                shutil.copy2(oldDbPath, newDbPath)
+                os.remove(oldDbPath)
+
+        except Exception, e:
+            raise UpgradeError(
+                "Upgrade Error: unable to move the old calendar user proxy database at '%s' to '%s' due to %s."
+                % (oldDbPath, newDbPath, str(e))
+            )
+
+        log.debug(
+            "Moved the calendar user proxy database from '%s' to '%s'."
+            % (oldDbPath, newDbPath,)
+        )
 
 
     def moveCalendarHome(oldHome, newHome, uid=-1, gid=-1):
@@ -263,34 +269,31 @@ def upgrade_to_1(config):
 
 
     def migrateResourceInfo(config, directory, uid, gid):
-        # TODO: we need to account for the new augments database. This means migrating from the pre-resource info
-        # implementation and the resource-info implementation
-        pass
+        log.info("Fetching delegate assignments and auto-schedule settings from directory")
+        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+        calendarUserProxyDatabase = ProxySqliteDB(**config.ProxyDBService.params)
+        resourceInfo = directory.getResourceInfo()
+        for guid, autoSchedule, proxy, readOnlyProxy in resourceInfo:
+            resourceInfoDatabase.setAutoScheduleInDatabase(guid, autoSchedule)
+            if proxy:
+                calendarUserProxyDatabase.setGroupMembersInDatabase(
+                    "%s#calendar-proxy-write" % (guid,),
+                    [proxy]
+                )
+            if readOnlyProxy:
+                calendarUserProxyDatabase.setGroupMembersInDatabase(
+                    "%s#calendar-proxy-read" % (guid,),
+                    [readOnlyProxy]
+                )
 
-#        log.info("Fetching delegate assignments and auto-schedule settings from directory")
-#        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-#        calendarUserProxyDatabase = CalendarUserProxyDatabase(config.DataRoot)
-#        resourceInfo = directory.getResourceInfo()
-#        for guid, autoSchedule, proxy, readOnlyProxy in resourceInfo:
-#            resourceInfoDatabase.setAutoScheduleInDatabase(guid, autoSchedule)
-#            if proxy:
-#                calendarUserProxyDatabase.setGroupMembersInDatabase(
-#                    "%s#calendar-proxy-write" % (guid,),
-#                    [proxy]
-#                )
-#            if readOnlyProxy:
-#                calendarUserProxyDatabase.setGroupMembersInDatabase(
-#                    "%s#calendar-proxy-read" % (guid,),
-#                    [readOnlyProxy]
-#                )
-#
-#        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
-#        if os.path.exists(dbPath):
-#            os.chown(dbPath, uid, gid)
-#
-#        dbPath = os.path.join(config.DataRoot, CalendarUserProxyDatabase.dbFilename)
-#        if os.path.exists(dbPath):
-#            os.chown(dbPath, uid, gid)
+        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
+        if os.path.exists(dbPath):
+            os.chown(dbPath, uid, gid)
+
+        dbPath = os.path.join(config.DataRoot, "proxies.sqlite")
+        if os.path.exists(dbPath):
+            os.chown(dbPath, uid, gid)
+
 
     def createMailTokensDatabase(config, uid, gid):
         # Cause the tokens db to be created on disk so we can set the
@@ -457,6 +460,44 @@ def upgrade_to_1(config):
     if errorOccurred:
         raise UpgradeError("Data upgrade failed, see error.log for details")
 
+    return succeed(None)
+
+
+def upgrade_to_2(config):
+    #
+    # Migrates locations and resources from OD
+    #
+
+    directory = getDirectory()
+    userService = directory.serviceForRecordType("users")
+    resourceService = directory.serviceForRecordType("resources")
+    if (
+        not isinstance(userService, OpenDirectoryService) or
+        not isinstance(resourceService, XMLDirectoryService)
+    ):
+        # Configuration requires no migration
+        return succeed(None)
+
+    # Fetch the autoSchedule assignments from resourceinfo.sqlite and pass
+    # those to migrateResources
+    autoSchedules = {}
+    dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
+    if os.path.exists(dbPath):
+        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+        results = resourceInfoDatabase._db_execute(
+            "select GUID, AUTOSCHEDULE from RESOURCEINFO"
+        )
+        for guid, autoSchedule in results:
+            autoSchedules[guid] = autoSchedule
+
+    # Create internal copies of resources and locations based on what is found
+    # in OD, overriding the autoSchedule default with existing assignments
+    # from resourceinfo.sqlite
+    return migrateResources(userService, resourceService,
+        autoSchedules=autoSchedules)
+
+
+
 
 # The on-disk version number (which defaults to zero if .calendarserver_version
 # doesn't exist), is compared with each of the numbers in the upgradeMethods
@@ -464,8 +505,10 @@ def upgrade_to_1(config):
 
 upgradeMethods = [
     (1, upgrade_to_1),
+    (2, upgrade_to_2),
 ]
 
+@inlineCallbacks
 def upgradeData(config):
 
     docRoot = config.DocumentRoot
@@ -489,7 +532,7 @@ def upgradeData(config):
     for version, method in upgradeMethods:
         if onDiskVersion < version:
             log.warn("Upgrading to version %d" % (version,))
-            method(config)
+            (yield method(config))
             with open(versionFilePath, "w") as verFile:
                 verFile.write(str(version))
             os.chown(versionFilePath, uid, gid)

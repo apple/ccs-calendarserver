@@ -40,7 +40,7 @@ from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
-from twisted.internet.defer import Deferred, gatherResults
+from twisted.internet.defer import Deferred, gatherResults, succeed
 from twisted.internet import error, reactor
 from twisted.internet.reactor import callLater, addSystemEventTrigger
 from twisted.internet.process import ProcessExitedAlready
@@ -407,12 +407,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                 # Process localization string files
                 processLocalizationFiles(config.Localization)
 
-                # Now do any on disk upgrades we might need.  Note that this
-                # will only do the filesystem-format upgrades; migration to the
-                # database needs to be done when the connection and possibly
-                # server is already up and running. -glyph
-                upgradeData(config)
-
                 # Make sure proxies get initialized
                 if config.ProxyLoadFromFile:
                     def _doProxyUpdate():
@@ -743,6 +737,12 @@ class CalDAVServiceMaker (LoggingMixIn):
         spawning subprocesses that use L{makeService_Slave} to perform work.
         """
         s = ErrorLoggingMultiService()
+
+        # Schedule any on disk upgrades we might need.  Note that this
+        # will only do the filesystem-format upgrades; migration to the
+        # database needs to be done when the connection and possibly
+        # server is already up and running. -glyph
+        addSystemEventTrigger("before", "startup", upgradeData, config)
 
         # Make sure no old socket files are lying around.
         self.deleteStaleSocketFiles()

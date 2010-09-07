@@ -165,7 +165,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
 
     def createHierarchy(self, structure, root=None):
         if root is None:
-            root = self.mktemp()
+            root = os.path.abspath(self.mktemp())
             os.mkdir(root)
 
         def createChildren(parent, subStructure):
