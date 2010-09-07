@@ -73,7 +73,10 @@ def sample(dtrace, samples, agent, paramgen):
         for k, v in stats.iteritems():
             data.setdefault(k, []).append(v)
         data[urlopen].append(after - before)
-    print 'Extra stats:', (yield dtrace.stop())
+    leftOver = yield dtrace.stop()
+    for (k, v) in leftOver.items():
+        if v:
+            print 'Extra', k, ':', v
     returnValue(data)
 
 

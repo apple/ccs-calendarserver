@@ -48,6 +48,10 @@ class _Statistic(object):
         return hash((self.__class__, self.name))
 
 
+    def __repr__(self):
+        return '<Stat %r>' % (self.name,)
+
+
     def squash(self, samples):
         """
         Normalize the sample data into float values (one per sample)
