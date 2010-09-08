@@ -61,6 +61,10 @@ class NotifierTests(TestCase):
         notifier.enableNotify(None)
         self.assertEquals(notifier._notify, True)
 
+        notifier = Notifier(None, id="test", prefix="CalDAV")
+        self.assertEquals("CalDAV|test", notifier.getID())
+
+
 
 class NotificationClientFactoryTests(TestCase):
 
@@ -390,7 +394,7 @@ class XMPPNotifierTests(TestCase):
         self.assertEquals(publishElement.name, "publish")
         self.assertEquals(publishElement.uri, "http://jabber.org/protocol/pubsub")
         self.assertEquals(publishElement["node"],
-            "/DAV/server.example.com/test/")
+            "/server.example.com/test/")
 
     def test_sendWhileNotConnected(self):
         notifier = XMPPNotifier(self.settings, reactor=Clock(),

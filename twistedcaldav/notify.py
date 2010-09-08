@@ -108,14 +108,15 @@ sasl.get_mechanisms = get_mechanisms
 
 class Notifier(LoggingMixIn):
     """
-    Provides a hook for sending changs notifications to the
+    Provides a hook for sending change notifications to the
     L{NotifierFactory}.
     """
 
-    def __init__(self, notifierFactory, label="default", id=None):
+    def __init__(self, notifierFactory, label="default", id=None, prefix=None):
         self._notifierFactory = notifierFactory
         self._ids = { label : self.normalizeID(id) }
         self._notify = True
+        self._prefix = prefix
 
     def normalizeID(self, id):
         urn = "urn:uuid:"
@@ -135,9 +136,8 @@ class Notifier(LoggingMixIn):
         self._notify = False
 
     def notify(self, op="update"):
-        for label, id in self._ids.iteritems():
-            if id is None:
-                id = self.getID(label=label)
+        for label in self._ids.iterkeys():
+            id = self.getID(label=label)
             if id is not None:
                 if self._notify:
                     self.log_debug("Notifications are enabled: %s %s %s" %
@@ -150,10 +150,15 @@ class Notifier(LoggingMixIn):
         newNotifier = self.__class__(self._notifierFactory)
         newNotifier._ids = self._ids.copy()
         newNotifier._ids[label] = id
+        newNotifier._prefix = self._prefix
         return newNotifier
 
     def getID(self, label="default"):
-        return self._ids.get(label, None)
+        id = self._ids.get(label, None)
+        if self._prefix is None:
+            return id
+        else:
+            return "%s|%s" % (self._prefix, id)
 
 
 class NotificationClientLineProtocol(LineReceiver, LoggingMixIn):
@@ -258,8 +263,8 @@ class NotifierFactory(LoggingMixIn):
     def removeObserver(self, observer):
         self.observers.remove(observer)
 
-    def newNotifier(self, label="default", id=None):
-        return Notifier(self, label=label, id=id)
+    def newNotifier(self, label="default", id=None, prefix=None):
+        return Notifier(self, label=label, id=id, prefix=prefix)
 
 
 
@@ -1233,7 +1238,29 @@ def getPubSubConfiguration(config):
     return results
 
 def getPubSubPath(id, pubSubConfiguration):
-    path = "/DAV/%s/" % (pubSubConfiguration['host'],)
+    """
+    Generate a pubsub node path from an id and the pubsub configuration
+    @param id: a string identifying the resource that was modified.  If
+        the id has a "|" in it, what is to the left of the first "|" is
+        treated as a prefix and will be used for the root of the path.
+    @type id: C{str}
+
+    @param pubSubConfiguration: a dictionary containing various relevant
+        configuration data
+    @type pubSubConfiguration: C{dict}
+
+    """
+
+    path = "/"
+
+    try:
+        prefix, id = id.split("|", 1)
+        path += "%s/" % (prefix,)
+    except ValueError:
+        # id has no prefix
+        pass
+
+    path += "%s/" % (pubSubConfiguration['host'],)
     if id:
         path += "%s/" % (id,)
     return path

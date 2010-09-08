@@ -364,10 +364,10 @@ class CommonTests(object):
 
     def test_notifierID(self):
         home = self.homeUnderTest()
-        self.assertEquals(home.notifierID(), "home1")
+        self.assertEquals(home.notifierID(), "CalDAV|home1")
         calendar = home.calendarWithName("calendar_1")
-        self.assertEquals(calendar.notifierID(), "home1")
-        self.assertEquals(calendar.notifierID(label="collection"), "home1/calendar_1")
+        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
+        self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
 
 
     def test_calendarHomeWithUID_exists(self):
@@ -1218,8 +1218,8 @@ class StubNotifierFactory(object):
     def __init__(self):
         self.reset()
 
-    def newNotifier(self, label="default", id=None):
-        return Notifier(self, label=label, id=id)
+    def newNotifier(self, label="default", id=None, prefix=None):
+        return Notifier(self, label=label, id=id, prefix=prefix)
 
     def send(self, op, id):
         self.history.append((op, id))

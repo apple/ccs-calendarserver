@@ -264,10 +264,10 @@ class CommonTests(object):
 
     def test_notifierID(self):
         home = self.homeUnderTest()
-        self.assertEquals(home.notifierID(), "home1")
+        self.assertEquals(home.notifierID(), "CardDAV|home1")
         addressbook = home.addressbookWithName("addressbook_1")
-        self.assertEquals(addressbook.notifierID(), "home1")
-        self.assertEquals(addressbook.notifierID(label="collection"), "home1/addressbook_1")
+        self.assertEquals(addressbook.notifierID(), "CardDAV|home1")
+        self.assertEquals(addressbook.notifierID(label="collection"), "CardDAV|home1/addressbook_1")
 
 
     def test_addressbookHomeWithUID_exists(self):
@@ -914,8 +914,8 @@ class StubNotifierFactory(object):
     def __init__(self):
         self.reset()
 
-    def newNotifier(self, label="default", id=None):
-        return Notifier(self, label=label, id=id)
+    def newNotifier(self, label="default", id=None, prefix=None):
+        return Notifier(self, label=label, id=id, prefix=prefix)
 
     def send(self, op, id):
         self.history.append((op, id))

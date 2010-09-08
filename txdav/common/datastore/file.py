@@ -53,6 +53,14 @@ import uuid
 
 ECALENDARTYPE = 0
 EADDRESSBOOKTYPE = 1
+
+# Labels used to identify the class of resource being modified, so that
+# notification systems can target the correct application
+NotifierPrefixes = {
+    ECALENDARTYPE : "CalDAV",
+    EADDRESSBOOKTYPE : "CardDAV",
+}
+
 TOPPATHS = (
     "calendars",
     "addressbooks"
@@ -233,7 +241,8 @@ class CommonStoreTransaction(DataStoreTransaction):
             homePath = childPath
 
         if self._notifierFactory:
-            notifier = self._notifierFactory.newNotifier(id=uid)
+            notifier = self._notifierFactory.newNotifier(id=uid,
+                prefix=NotifierPrefixes[storeType])
         else:
             notifier = None
 
