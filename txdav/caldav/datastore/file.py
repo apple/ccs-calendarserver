@@ -263,8 +263,9 @@ class CalendarObject(CommonObjectResource):
                     self._path.remove()
             return undo
         self._transaction.addOperation(do, "set calendar component %r" % (self.name(),))
-        if self._calendar._notifier:
-            self._transaction.postCommit(self._calendar._notifier.notify)
+
+        self._calendar.notifyChanged()
+
 
     def component(self):
         if self._component is not None:

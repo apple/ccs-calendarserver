@@ -235,8 +235,7 @@ class CalendarObject(CommonObjectResource):
         else:
             self._calendar._updateRevision(self._name)
 
-        if self._calendar._notifier:
-            self._txn.postCommit(self._calendar._notifier.notify)
+        self._calendar.notifyChanged()
 
     def updateDatabase(self, component, expand_until=None, reCreate=False, inserting=False):
         """

@@ -161,8 +161,7 @@ class AddressBookObject(CommonObjectResource):
         else:
             self._addressbook._updateRevision(self._name)
 
-        if self._addressbook._notifier:
-            self._addressbook._home._txn.postCommit(self._addressbook._notifier.notify)
+        self._addressbook.notifyChanged()
 
     def updateDatabase(self, component, expand_until=None, reCreate=False, inserting=False):
         """

@@ -195,9 +195,8 @@ class AddressBookObject(CommonObjectResource):
                     self._path.remove()
             return undo
         self._transaction.addOperation(do, "set addressbook component %r" % (self.name(),))
-        if self._addressbook._notifier:
-            self._transaction.postCommit(self._addressbook._notifier.notify)
 
+        self._addressbook.notifyChanged()
 
 
     def component(self):
