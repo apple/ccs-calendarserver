@@ -411,8 +411,7 @@ class CommonHome(LoggingMixIn):
         newChild._initSyncToken()
         self.createdChild(newChild)
 
-        if self._notifier:
-            self._txn.postCommit(self._notifier.notify)
+        self.notifyChanged()
 
 
     def createdChild(self, child):
@@ -436,8 +435,7 @@ class CommonHome(LoggingMixIn):
         self._children.pop(name, None)
         if self._txn._cursor.rowcount == 0:
             raise NoSuchHomeChildError()
-        if self._notifier:
-            self._txn.postCommit(self._notifier.notify)
+        self.notifyChanged()
 
 
     @cached
@@ -448,7 +446,7 @@ class CommonHome(LoggingMixIn):
             self._resourceID
         )
 
-
+    
     # IDataStoreResource
     def contentType(self):
         """
@@ -478,6 +476,14 @@ class CommonHome(LoggingMixIn):
             return self._notifier.getID(label)
         else:
             return None
+
+    def notifyChanged(self):
+        """
+        Trigger a notification of a change
+        """
+        if self._notifier:
+            self._txn.postCommit(self._notifier.notify)
+        
 
 class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     """
@@ -540,8 +546,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._home._children[name] = self
         self._updateSyncToken()
 
-        if self._notifier:
-            self._txn.postCommit(self._notifier.notify)
+        self.notifyChanged()
 
 
     def ownerHome(self):
@@ -624,8 +629,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._objects.pop(uid, None)
         self._deleteRevision(name)
 
-        if self._notifier:
-            self._txn.postCommit(self._notifier.notify)
+        self.notifyChanged()
 
 
     def removeObjectResourceWithUID(self, uid):
@@ -641,8 +645,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._objects.pop(uid, None)
         self._deleteRevision(name)
 
-        if self._notifier:
-            self._txn.postCommit(self._notifier.notify)
+        self.notifyChanged()
 
 
     def _initSyncToken(self):
@@ -781,14 +784,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     def _doValidate(self, component):
         raise NotImplementedError
 
-    def notifierID(self, label="default"):
-        if self._notifier:
-            return self._notifier.getID(label)
-        else:
-            return None
-
-
-
     # IDataStoreResource
     def contentType(self):
         raise NotImplementedError()
@@ -817,6 +812,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             [self._resourceID]
         )[0][0]
         return int(modified)
+
+    def notifierID(self, label="default"):
+        if self._notifier:
+            return self._notifier.getID(label)
+        else:
+            return None
+
+    def notifyChanged(self):
+        """
+        Trigger a notification of a change
+        """
+        if self._notifier:
+            self._txn.postCommit(self._notifier.notify)
+        
 
 class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     """

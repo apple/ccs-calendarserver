@@ -495,7 +495,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
                 if dataObject:
                     label = "collection" if isvirt else "default"
                     notifierID = dataObject.notifierID(label=label)
-                    if notifierID is not None:
+                    if notifierID is not None and config.Notifications.Services.XMPPNotifier.Enabled:
                         pubSubConfiguration = getPubSubConfiguration(config)
                         nodeName = getPubSubPath(notifierID, pubSubConfiguration)
                         propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
@@ -2234,7 +2234,7 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
 
         if qname == (customxml.calendarserver_namespace, "push-transports"):
             notifierID = self._newStoreHome.notifierID()
-            if notifierID is not None:
+            if notifierID is not None and config.Notifications.Services.XMPPNotifier.Enabled:
                 pubSubConfiguration = getPubSubConfiguration(config)
                 children = []
                 if pubSubConfiguration['aps-bundle-id']:
@@ -2272,7 +2272,7 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
 
         if qname == (customxml.calendarserver_namespace, "pushkey"):
             notifierID = self._newStoreHome.notifierID()
-            if notifierID is not None:
+            if notifierID is not None and config.Notifications.Services.XMPPNotifier.Enabled:
                 pubSubConfiguration = getPubSubConfiguration(config)
                 nodeName = getPubSubPath(notifierID, pubSubConfiguration)
                 return succeed(customxml.PubSubXMPPPushKeyProperty(nodeName))
@@ -2282,7 +2282,7 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
 
         if qname == (customxml.calendarserver_namespace, "xmpp-uri"):
             notifierID = self._newStoreHome.notifierID()
-            if notifierID is not None:
+            if notifierID is not None and config.Notifications.Services.XMPPNotifier.Enabled:
                 pubSubConfiguration = getPubSubConfiguration(config)
                 return succeed(customxml.PubSubXMPPURIProperty(
                     getPubSubXMPPURI(notifierID, pubSubConfiguration)))
@@ -2358,6 +2358,9 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
 
     def principalForRecord(self):
         raise NotImplementedError("Subclass must implement principalForRecord()")
+
+    def notifyChanged(self):
+        self._newStoreHome.notifyChanged()
 
     # Methods not supported
     http_ACL = None

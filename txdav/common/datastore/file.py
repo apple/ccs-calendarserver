@@ -448,11 +448,11 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             return lambda: self._path.child(childPath.basename()).remove()
 
         self._transaction.addOperation(do, "create child %r" % (name,))
-        if self._notifier:
-            self._transaction.postCommit(self._notifier.notify)
         props = c.properties()
         props[PropertyName(*ResourceType.qname())] = c.resourceType()
         self.createdChild(c)
+
+        self.notifyChanged()
 
 
     def createdChild(self, child):
@@ -501,8 +501,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             do, "prepare child remove %r" % (name,)
         )
 
-        if self._notifier:
-            self._transaction.postCommit(self._notifier.notify)
+        self.notifyChanged()
 
     # @cached
     def properties(self):
@@ -518,6 +517,13 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             return self._notifier.getID(label)
         else:
             return None
+
+    def notifyChanged(self):
+        """
+        Trigger a notification of a change
+        """
+        if self._notifier:
+            self._txn.postCommit(self._notifier.notify)
 
 
 class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
@@ -603,8 +609,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
         self.retrieveOldIndex().bumpRevision()
 
-        if self._notifier:
-            self._transaction.postCommit(self._notifier.notify)
+        self.notifyChanged()
 
     def ownerHome(self):
         return self._home
@@ -708,8 +713,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
                 return lambda: None
             self._transaction.addOperation(do, "remove object resource object %r" %
                                            (name,))
-            if self._notifier:
-                self._transaction.postCommit(self._notifier.notify)
+            self.notifyChanged()
         else:
             raise NoSuchObjectResourceError(name)
 
@@ -764,6 +768,13 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
             return self._notifier.getID(label)
         else:
             return None
+
+    def notifyChanged(self):
+        """
+        Trigger a notification of a change
+        """
+        if self._notifier:
+            self._txn.postCommit(self._notifier.notify)
 
 
 class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):

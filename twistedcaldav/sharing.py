@@ -979,26 +979,31 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # Add or update in DB
         oldShare = self.sharesDB().recordForShareUID(shareUID)
-        if not oldShare:
-            oldShare = share = SharedCollectionRecord(shareUID, sharetype, hostUrl, str(uuid4()), displayname)
+        if oldShare:
+            share = oldShare
+        else:
+            share = SharedCollectionRecord(shareUID, sharetype, hostUrl, str(uuid4()), displayname)
             self.sharesDB().addOrUpdateRecord(share)
         
         # Set per-user displayname to whatever was given
         sharedCollection = (yield request.locateResource(hostUrl))
         ownerPrincipal = (yield self.ownerPrincipal(request))
-        sharedCollection.setVirtualShare(ownerPrincipal, oldShare)
+        sharedCollection.setVirtualShare(ownerPrincipal, share)
         if displayname:
             yield sharedCollection.writeProperty(davxml.DisplayName.fromString(displayname), request)
-            
+        
         # Calendars always start out transparent
-        if sharedCollection.isCalendarCollection():
+        if oldShare and sharedCollection.isCalendarCollection():
             yield sharedCollection.writeProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()), request)
  
+        # Notify client of changes
+        self.notifyChanged()
+
         # Return the URL of the shared collection
         returnValue(XMLResponse(
             code = responsecode.OK,
             element = customxml.SharedAs(
-                davxml.HRef.fromString(joinURL(self.url(), oldShare.localname))
+                davxml.HRef.fromString(joinURL(self.url(), share.localname))
             )
         ))
 
@@ -1036,6 +1041,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 inbox.processFreeBusyCalendar(shareURL, False)
 
         self.sharesDB().removeRecordForShareUID(share.shareuid)
+ 
+        # Notify client of changes
+        self.notifyChanged()
 
     @inlineCallbacks
     def declineShare(self, request, hostUrl, inviteUID):

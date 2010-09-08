@@ -66,7 +66,7 @@ class PostgresLegacyNotificationsEmulator(object):
         return NotificationRecord(
             notificationObject.uid(),
             notificationObject.name(),
-            notificationObject._fieldQuery("XML_TYPE"))
+            notificationObject._fieldQuery("XML_TYPE")) if notificationObject else None
 
 
     def recordForName(self, name):
