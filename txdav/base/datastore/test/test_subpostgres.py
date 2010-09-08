@@ -32,7 +32,7 @@ class SubprocessStartup(TestCase):
     """
 
     @inlineCallbacks
-    def test_startService(self):
+    def test_startService_Unix(self):
         """
         Assuming a properly configured environment ($PATH points at an 'initdb'
         and 'postgres', $PYTHONPATH includes pgdb), starting a
@@ -41,10 +41,9 @@ class SubprocessStartup(TestCase):
         """
 
         test = self
-        class SimpleService(Service):
+        class SimpleService1(Service):
 
             instances = []
-            rows = []
             ready = Deferred()
 
             def __init__(self, connectionFactory):
@@ -66,21 +65,71 @@ class SubprocessStartup(TestCase):
                 finally:
                     cursor.close()
 
-
-        dbPath = "../_postgres_test_db"
         svc = PostgresService(
-            CachingFilePath(dbPath),
-            SimpleService,
-            "create table TEST_DUMMY_TABLE (stub varchar)",
-            "dummy_db",
-            testMode=True
+                CachingFilePath("../_postgres_test_db1"),
+                SimpleService1,
+                "create table TEST_DUMMY_TABLE (stub varchar)",
+                databaseName="dummy_db",
+                testMode=True
         )
-
         svc.startService()
         self.addCleanup(svc.stopService)
-        yield SimpleService.ready
-        connection = SimpleService.instances[0].connection
+        yield SimpleService1.ready
+        connection = SimpleService1.instances[0].connection
         cursor = connection.cursor()
         cursor.execute("select * from test_dummy_table")
         values = cursor.fetchall()
         self.assertEquals(values, [["dummy"]])
+
+    @inlineCallbacks
+    def test_startService_Socket(self):
+        """
+        Assuming a properly configured environment ($PATH points at an 'initdb'
+        and 'postgres', $PYTHONPATH includes pgdb), starting a
+        L{PostgresService} will start the service passed to it, after executing
+        the schema.
+        """
+
+        test = self
+        class SimpleService2(Service):
+
+            instances = []
+            ready = Deferred()
+
+            def __init__(self, connectionFactory):
+                self.connection = connectionFactory()
+                test.addCleanup(self.connection.close)
+                self.instances.append(self)
+
+
+            def startService(self):
+                cursor = self.connection.cursor()
+                try:
+                    cursor.execute(
+                        "insert into test_dummy_table values ('dummy')"
+                    )
+                except:
+                    self.ready.errback()
+                else:
+                    self.ready.callback(None)
+                finally:
+                    cursor.close()
+
+        svc = PostgresService(
+                CachingFilePath("../_postgres_test_db2"),
+                SimpleService2,
+                "create table TEST_DUMMY_TABLE (stub varchar)",
+                databaseName="dummy_db",
+                socketDir=None,
+                listenAddresses=['127.0.0.1',],
+                testMode=True
+        )
+        svc.startService()
+        self.addCleanup(svc.stopService)
+        yield SimpleService2.ready
+        connection = SimpleService2.instances[0].connection
+        cursor = connection.cursor()
+        cursor.execute("select * from test_dummy_table")
+        values = cursor.fetchall()
+        self.assertEquals(values, [["dummy"]])
+

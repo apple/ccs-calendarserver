@@ -145,12 +145,12 @@ DEFAULT_CONFIG = {
     "BindSSLPorts" : [],   # List of port numbers to bind to for SSL [empty = same as "SSLPort"]
     "InheritFDs"   : [],   # File descriptors to inherit for HTTP requests (empty = don't inherit)
     "InheritSSLFDs": [],   # File descriptors to inherit for HTTPS requests (empty = don't inherit)
-    "MetaFD": 0,        # Inherited file descriptor to call recvmsg() on to recive sockets (none = don't inherit)
+    "MetaFD": 0,        # Inherited file descriptor to call recvmsg() on to receive sockets (none = don't inherit)
 
     "UseMetaFD": True,         # Use a 'meta' FD, i.e. an FD to transmit other
                                # FDs to slave processes.
 
-    "UseDatabase" : True,      # True: postgress; False: files
+    "UseDatabase" : True,      # True: postgres; False: files
 
     #
     # Types of service provided
@@ -270,7 +270,6 @@ DEFAULT_CONFIG = {
     "ErrorLogEnabled"   : True,       # True = use log file, False = stdout
     "ErrorLogRotateMB"  : 10,         # Rotate error log after so many megabytes
     "ErrorLogMaxRotatedFiles"  : 5,   # Retain this many error log files
-    "PostgresLogFile" : "postgres.log",  # Postgres log
     "PIDFile"        : "caldavd.pid",
     "RotateAccessLog"   : False,
     "EnableExtendedAccessLog": True,
@@ -573,6 +572,18 @@ DEFAULT_CONFIG = {
         "Options": [],
     },
 
+    "Postgres": {
+        "DatabaseName": "caldav",
+        "LogFile": "postgres.log",
+        "UnixSocket": True,
+        "ListenAddresses": [],
+        "SharedBuffers": 30,
+        "MaxConnections": 20,
+        "Options": [
+            "-c standard_conforming_strings=on",
+        ],
+    },
+
     "EnableKeepAlive": True,
     
     "Includes": [],     # Other plists to parse after this one
@@ -628,20 +639,22 @@ class PListConfigProvider(ConfigProvider):
         return configDict
 
 
-RELATIVE_PATHS = [("ServerRoot", "DataRoot"),
-                  ("ServerRoot", "DocumentRoot"),
-                  ("ServerRoot", "ConfigRoot"),
-                  ("ServerRoot", "LogRoot"),
-                  ("ServerRoot", "RunRoot"),
-                  ("DataRoot", "DatabaseRoot"),
-                  ("ConfigRoot", "SudoersFile"),
-                  ("LogRoot", "AccessLogFile"),
-                  ("LogRoot", "ErrorLogFile"),
-                  ("LogRoot", "PostgresLogFile"),
-                  ("LogRoot", "AccountingLogRoot"),
-                  ("RunRoot", "PIDFile"),
-                  ("RunRoot", "GlobalStatsSocket"),
-                  ("RunRoot", "ControlSocket")]
+RELATIVE_PATHS = [
+    ("ServerRoot", "DataRoot"),
+    ("ServerRoot", "DocumentRoot"),
+    ("ServerRoot", "ConfigRoot"),
+    ("ServerRoot", "LogRoot"),
+    ("ServerRoot", "RunRoot"),
+    ("DataRoot", "DatabaseRoot"),
+    ("ConfigRoot", "SudoersFile"),
+    ("LogRoot", "AccessLogFile"),
+    ("LogRoot", "ErrorLogFile"),
+    ("LogRoot", ("Postgres", "LogFile",)),
+    ("LogRoot", "AccountingLogRoot"),
+    ("RunRoot", "PIDFile"),
+    ("RunRoot", "GlobalStatsSocket"),
+    ("RunRoot", "ControlSocket"),
+]
 
 
 def _updateDataStore(configDict):
@@ -650,28 +663,40 @@ def _updateDataStore(configDict):
     their respective root directories rather than the current working directory.
     """
     for root, relativePath in RELATIVE_PATHS:
-        if root in configDict and relativePath in configDict:
-            previousAbsoluteName = ".absolute." + relativePath
-            previousRelativeName = ".relative." + relativePath
-
-            # If we previously made the name absolute, and the name in the
-            # config is still the same absolute name that we made it, let's
-            # change it to be the relative name again.  (This is necessary
-            # because the config data is actually updated several times before
-            # the config *file* has been read, so these keys will be made
-            # absolute based on default values, and need to be made relative to
-            # non-default values later.)  -glyph
-            if previousAbsoluteName in configDict and (
-                    configDict[previousAbsoluteName] == configDict[relativePath]
-                ):
-                userSpecifiedPath = configDict[previousRelativeName]
-            else:
-                userSpecifiedPath = configDict[relativePath]
-                configDict[previousRelativeName] = configDict[relativePath]
-            newAbsolutePath = fullServerPath(configDict[root],
-                                             userSpecifiedPath)
-            configDict[relativePath] = newAbsolutePath
-            configDict[previousAbsoluteName] = newAbsolutePath
+        if root in configDict:
+            if isinstance(relativePath, str):
+                relativePath = (relativePath,)
+            
+            inDict = configDict
+            for segment in relativePath[:-1]:
+                if segment not in inDict:
+                    inDict = None
+                    break
+                inDict = inDict[segment]
+            lastPath = relativePath[-1]
+            relativePath = ".".join(relativePath)
+            if lastPath in inDict:
+                previousAbsoluteName = ".absolute." + relativePath
+                previousRelativeName = ".relative." + relativePath
+    
+                # If we previously made the name absolute, and the name in the
+                # config is still the same absolute name that we made it, let's
+                # change it to be the relative name again.  (This is necessary
+                # because the config data is actually updated several times before
+                # the config *file* has been read, so these keys will be made
+                # absolute based on default values, and need to be made relative to
+                # non-default values later.)  -glyph
+                if previousAbsoluteName in configDict and (
+                        configDict[previousAbsoluteName] == inDict[lastPath]
+                    ):
+                    userSpecifiedPath = configDict[previousRelativeName]
+                else:
+                    userSpecifiedPath = inDict[lastPath]
+                    configDict[previousRelativeName] = inDict[lastPath]
+                newAbsolutePath = fullServerPath(configDict[root],
+                                                 userSpecifiedPath)
+                inDict[lastPath] = newAbsolutePath
+                configDict[previousAbsoluteName] = newAbsolutePath
 
 
 def _updateHostName(configDict):

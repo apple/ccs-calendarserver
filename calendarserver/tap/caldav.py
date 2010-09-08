@@ -722,8 +722,14 @@ class CalDAVServiceMaker (LoggingMixIn):
                 postgresUID = None
                 postgresGID = None
             pgserv = PostgresService(
-                dbRoot, subServiceFactory, v1_schema, "caldav",
-                logFile=config.PostgresLogFile,
+                dbRoot, subServiceFactory, v1_schema,
+                databaseName=config.Postgres.DatabaseName,
+                logFile=config.Postgres.LogFile,
+                socketDir=config.RunRoot if config.Postgres.UnixSocket else None,
+                listenAddresses=config.Postgres.ListenAddresses,
+                sharedBuffers=config.Postgres.SharedBuffers,
+                maxConnections=config.Postgres.MaxConnections,
+                options=config.Postgres.Options,
                 uid=postgresUID, gid=postgresGID
             )
             return pgserv

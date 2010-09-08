@@ -86,7 +86,8 @@ class SQLStoreBuilder(object):
                     ready.callback(self.store)
                 return self.store
             self.sharedService = PostgresService(
-                dbRoot, getReady, v1_schema, "caldav", resetSchema=True,
+                dbRoot, getReady, v1_schema, resetSchema=True,
+                databaseName="caldav",
                 testMode=True
             )
             self.sharedService.startService()

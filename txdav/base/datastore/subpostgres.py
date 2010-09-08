@@ -216,8 +216,11 @@ class CapturingProcessProtocol(ProcessProtocol):
 class PostgresService(MultiService):
 
     def __init__(self, dataStoreDirectory, subServiceFactory,
-                 schema, databaseName='subpostgres', resetSchema=False,
-                 logFile="postgres.log", testMode=False,
+                 schema, resetSchema=False, databaseName='subpostgres',
+                 logFile="postgres.log", socketDir="/tmp",
+                 listenAddresses=[], sharedBuffers=30,
+                 maxConnections=20, options=[],
+                 testMode=False,
                  uid=None, gid=None):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
@@ -229,36 +232,43 @@ class PostgresService(MultiService):
             1-arg callable which returns a DB-API cursor.
         @type subServiceFactory: C{callable}
         """
-        MultiService.__init__(self)
-        self.subServiceFactory = subServiceFactory
-        self.dataStoreDirectory = dataStoreDirectory
-        self.resetSchema = resetSchema
-
-        if os.getuid() == 0:
-            socketRoot = "/var/run"
-        else:
-            socketRoot = "/tmp"
-        self.socketDir = CachingFilePath("%s/ccs_postgres_%s/" %
-            (socketRoot, md5(dataStoreDirectory.path).hexdigest()))
-        self.databaseName = databaseName
-        self.logFile = logFile
-        self.uid = uid
-        self.gid = gid
-        self.schema = schema
-        self.monitor = None
-        self.openConnections = []
 
         # FIXME: By default there is very little (4MB) shared memory available,
         # so at the moment I am lowering these postgres config options to allow
         # multiple servers to run.  We might want to look into raising
         # kern.sysv.shmmax.
         # See: http://www.postgresql.org/docs/8.4/static/kernel-resources.html
-        if testMode:
-            self.sharedBuffers = 16
-            self.maxConnections = 4
+
+        MultiService.__init__(self)
+        self.subServiceFactory = subServiceFactory
+        self.dataStoreDirectory = dataStoreDirectory
+        self.resetSchema = resetSchema
+
+        # Options from config
+        self.databaseName = databaseName
+        self.logFile = logFile
+        if socketDir:
+            # Unix socket length path limit
+            self.socketDir = CachingFilePath("%s/ccs_postgres_%s/" %
+                (socketDir, md5(dataStoreDirectory.path).hexdigest()))
+            if len(self.socketDir.path) > 64:
+                socketDir = "/tmp"
+                self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
+                    (md5(dataStoreDirectory.path).hexdigest()))
+            self.host = self.socketDir.path
         else:
-            self.sharedBuffers = 30
-            self.maxConnections = 20
+            self.socketDir = None
+            self.host = "localhost"
+        self.listenAddresses = listenAddresses
+        self.sharedBuffers = sharedBuffers if not testMode else 16
+        self.maxConnections = maxConnections if not testMode else 4
+        self.options = options
+
+        self.uid = uid
+        self.gid = gid
+        self.schema = schema
+        self.monitor = None
+        self.openConnections = []
 
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):
@@ -269,10 +279,10 @@ class PostgresService(MultiService):
             databaseName = self.databaseName
 
         if self.uid is not None:
-            dsn = "%s:dbname=%s:%s" % (self.socketDir.path, databaseName,
+            dsn = "%s:dbname=%s:%s" % (self.host, databaseName,
                 pwd.getpwuid(self.uid).pw_name)
         else:
-            dsn = "%s:dbname=%s" % (self.socketDir.path, databaseName)
+            dsn = "%s:dbname=%s" % (self.host, databaseName)
         connection = pgdb.connect(dsn)
 
         w = DiagnosticConnectionWrapper(connection, label)
@@ -367,6 +377,17 @@ class PostgresService(MultiService):
         monitor = _PostgresMonitor(self)
         pg_ctl = which("pg_ctl")[0]
         # check consistency of initdb and postgres?
+        
+        options = []
+        if self.listenAddresses:
+            options.append("-c listen_addresses='%s'" % (",".join(self.listenAddresses)))
+        if self.socketDir:
+            options.append("-k '%s'" % (self.socketDir.path,))
+        options.append("-c shared_buffers=%d" % (self.sharedBuffers,))
+        options.append("-c max_connections=%d" % (self.maxConnections,))
+        options.append("-c standard_conforming_strings=on")
+        options.extend(self.options)
+
         reactor.spawnProcess(
             monitor, pg_ctl,
             [
@@ -376,8 +397,8 @@ class PostgresService(MultiService):
                 "-w",
                 # XXX what are the quoting rules for '-o'?  do I need to repr()
                 # the path here?
-                "-o", "-c listen_addresses='' -k '%s' -c standard_conforming_strings=on -c shared_buffers=%d -c max_connections=%d"
-                    % (self.socketDir.path, self.sharedBuffers, self.maxConnections),
+                "-o",
+                " ".join(options),
             ],
             self.env,
             uid=self.uid, gid=self.gid,
@@ -397,12 +418,13 @@ class PostgresService(MultiService):
         workingDir = self.dataStoreDirectory.child("working")
         env = self.env = os.environ.copy()
         env.update(PGDATA=clusterDir.path,
-                   PGHOST=self.socketDir.path)
+                   PGHOST=self.host)
         initdb = which("initdb")[0]
-        if not self.socketDir.isdir():
-            self.socketDir.createDirectory()
-        if self.uid and self.gid:
-            os.chown(self.socketDir.path, self.uid, self.gid)
+        if self.socketDir:
+            if not self.socketDir.isdir():
+                self.socketDir.createDirectory()
+            if self.uid and self.gid:
+                os.chown(self.socketDir.path, self.uid, self.gid)
         if clusterDir.isdir():
             self.startDatabase()
         else:

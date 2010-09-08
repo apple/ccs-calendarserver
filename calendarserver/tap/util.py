@@ -84,8 +84,16 @@ def storeFromConfig(config, notifierFactory=None):
     """
     if config.UseDatabase:
         dbRoot = CachingFilePath(config.DatabaseRoot)
-        postgresService = PostgresService(dbRoot, None, v1_schema, "caldav",
-            logFile=config.PostgresLogFile)
+        postgresService = PostgresService(
+            dbRoot, None, v1_schema,
+            databaseName=config.Postgres.DatabaseName,
+            logFile=config.Postgres.LogFile,
+            socketDir=config.RunRoot if config.Postgres.UnixSocket else None,
+            listenAddresses=config.Postgres.ListenAddresses,
+            sharedBuffers=config.Postgres.SharedBuffers,
+            maxConnections=config.Postgres.MaxConnections,
+            options=config.Postgres.Options,
+        )
         return CommonSQLDataStore(postgresService.produceConnection,
             notifierFactory, dbRoot.child("attachments"),
             config.EnableCalDAV, config.EnableCardDAV)
