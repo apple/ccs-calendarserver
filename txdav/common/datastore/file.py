@@ -523,7 +523,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         Trigger a notification of a change
         """
         if self._notifier:
-            self._txn.postCommit(self._notifier.notify)
+            self._transaction.postCommit(self._notifier.notify)
 
 
 class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
@@ -774,7 +774,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         Trigger a notification of a change
         """
         if self._notifier:
-            self._txn.postCommit(self._notifier.notify)
+            self._transaction.postCommit(self._notifier.notify)
 
 
 class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):

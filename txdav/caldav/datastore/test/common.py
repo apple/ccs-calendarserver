@@ -458,7 +458,8 @@ class CommonTests(object):
         self.commit()
 
         # Make sure notification fired after commit
-        self.assertEquals(self.notifierFactory.history, [("update", "home1")])
+        self.assertEquals(self.notifierFactory.history,
+            [("update", "CalDAV|home1")])
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = self.homeUnderTest()
@@ -503,7 +504,11 @@ class CommonTests(object):
         # Make sure notification fired after commit
         self.assertEquals(
             self.notifierFactory.history,
-            [("update", "home1"), ("update", "home1"), ("update", "home1")]
+            [
+                ("update", "CalDAV|home1"),
+                ("update", "CalDAV|home1"),
+                ("update", "CalDAV|home1")
+            ]
         )
 
 
@@ -606,12 +611,12 @@ class CommonTests(object):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "home1"),
-                ("update", "home1/calendar_1"),
-                ("update", "home1"),
-                ("update", "home1/calendar_1"),
-                ("update", "home1"),
-                ("update", "home1/calendar_1"),
+                ("update", "CalDAV|home1"),
+                ("update", "CalDAV|home1/calendar_1"),
+                ("update", "CalDAV|home1"),
+                ("update", "CalDAV|home1/calendar_1"),
+                ("update", "CalDAV|home1"),
+                ("update", "CalDAV|home1/calendar_1"),
             ]
         )
 
@@ -767,8 +772,8 @@ class CommonTests(object):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "home1"),
-                ("update", "home1/calendar_1"),
+                ("update", "CalDAV|home1"),
+                ("update", "CalDAV|home1/calendar_1"),
             ]
         )
 
@@ -878,8 +883,8 @@ class CommonTests(object):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "home1"),
-                ("update", "home1/calendar_1"),
+                ("update", "CalDAV|home1"),
+                ("update", "CalDAV|home1/calendar_1"),
             ]
         )
 
