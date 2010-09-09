@@ -88,7 +88,7 @@ def storeFromConfig(config, notifierFactory=None):
             dbRoot, None, v1_schema,
             databaseName=config.Postgres.DatabaseName,
             logFile=config.Postgres.LogFile,
-            socketDir=config.RunRoot if config.Postgres.UnixSocket else None,
+            socketDir=config.RunRoot,
             listenAddresses=config.Postgres.ListenAddresses,
             sharedBuffers=config.Postgres.SharedBuffers,
             maxConnections=config.Postgres.MaxConnections,

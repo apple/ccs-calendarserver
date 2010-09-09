@@ -575,7 +575,6 @@ DEFAULT_CONFIG = {
     "Postgres": {
         "DatabaseName": "caldav",
         "LogFile": "postgres.log",
-        "UnixSocket": True,
         "ListenAddresses": [],
         "SharedBuffers": 30,
         "MaxConnections": 20,
