@@ -379,8 +379,7 @@ class PostgresService(MultiService):
         # check consistency of initdb and postgres?
         
         options = []
-        if self.listenAddresses:
-            options.append("-c listen_addresses='%s'" % (",".join(self.listenAddresses)))
+        options.append("-c listen_addresses='%s'" % (",".join(self.listenAddresses)))
         if self.socketDir:
             options.append("-k '%s'" % (self.socketDir.path,))
         options.append("-c shared_buffers=%d" % (self.sharedBuffers,))
