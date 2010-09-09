@@ -66,9 +66,16 @@ class ConfigTests(TestCase):
             if key in ("ServerHostName",):
                 # Value is calculated and may vary
                 continue
-            if key in (item[1] for item in RELATIVE_PATHS):
-                # These are covered by test_stdconfig.
-                continue
+            for item in RELATIVE_PATHS:
+                item = item[1]
+                if isinstance(item, str):
+                    item = (item,)
+                if key == item[0]:
+                    if len(item) == 1:
+                        value = getattr(config, key)
+                    else:
+                        value[item[1]] = getattr(config, key)[item[1]]
+
             self.assertEquals(
                 getattr(config, key), value,
                 "config[%r] == %r, expected %r"

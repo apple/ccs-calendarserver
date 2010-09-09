@@ -675,7 +675,7 @@ def _updateDataStore(configDict):
                 inDict = inDict[segment]
             lastPath = relativePath[-1]
             relativePath = ".".join(relativePath)
-            if lastPath in inDict:
+            if inDict and lastPath in inDict:
                 previousAbsoluteName = ".absolute." + relativePath
                 previousRelativeName = ".relative." + relativePath
     
