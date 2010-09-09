@@ -993,7 +993,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
             yield sharedCollection.writeProperty(davxml.DisplayName.fromString(displayname), request)
         
         # Calendars always start out transparent
-        if oldShare and sharedCollection.isCalendarCollection():
+        if not oldShare and sharedCollection.isCalendarCollection():
             yield sharedCollection.writeProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()), request)
  
         # Notify client of changes
