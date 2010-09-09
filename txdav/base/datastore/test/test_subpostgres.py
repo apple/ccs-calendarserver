@@ -120,7 +120,6 @@ class SubprocessStartup(TestCase):
                 SimpleService2,
                 "create table TEST_DUMMY_TABLE (stub varchar)",
                 databaseName="dummy_db",
-                socketDir=None,
                 listenAddresses=['127.0.0.1',],
                 testMode=True
         )
