@@ -304,7 +304,7 @@ class UpgradeTests(TestCase):
                 }
             },
             ".calendarserver_version" : {
-                "@contents" : "2",
+                "@contents" : "1",
             },
             MailGatewayTokensDatabase.dbFilename : { "@contents" : None },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) : { "@contents" : None },
@@ -383,7 +383,7 @@ class UpgradeTests(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "2",
+                "@contents" : "1",
             },
             "calendars" :
             {
@@ -503,7 +503,7 @@ class UpgradeTests(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "2",
+                "@contents" : "1",
             },
             "calendars" :
             {
@@ -595,7 +595,7 @@ class UpgradeTests(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "2",
+                "@contents" : "1",
             },
             "calendars" :
             {
@@ -689,7 +689,7 @@ class UpgradeTests(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "2",
+                "@contents" : "1",
             },
             "calendars" :
             {
@@ -768,7 +768,7 @@ class UpgradeTests(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "2",
+                "@contents" : "1",
             },
             "calendars" :
             {
@@ -884,7 +884,7 @@ class UpgradeTests(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "2",
+                "@contents" : "1",
             },
             "calendars" :
             {
@@ -1004,7 +1004,7 @@ class UpgradeTests(TestCase):
             },
             ".calendarserver_version" :
             {
-                "@contents" : "2",
+                "@contents" : "1",
             },
             "calendars" :
             {
@@ -1192,7 +1192,7 @@ class UpgradeTests(TestCase):
         after = {
             ".calendarserver_version" :
             {
-                "@contents" : "2",
+                "@contents" : "1",
             },
             NEWPROXYFILE :
             {
