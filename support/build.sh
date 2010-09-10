@@ -522,11 +522,9 @@ dependencies () {
       "${svn_uri_base}/PyKerberos/trunk";
   fi;
 
-  if [ "$(uname -s)" == "Darwin" ]; then
     py_dependency -r 4827 \
       "PyOpenDirectory" "opendirectory" "PyOpenDirectory" \
       "${svn_uri_base}/PyOpenDirectory/trunk";
-  fi;
 
   py_dependency -v 0.5 -r 1013 \
     "xattr" "xattr" "xattr" \
