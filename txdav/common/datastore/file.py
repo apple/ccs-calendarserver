@@ -470,6 +470,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             raise NoSuchHomeChildError(name)
 
         def do(transaction=self._transaction):
+            childPath = self._path.child(name)
             for i in xrange(1000):
                 trash = childPath.sibling("._del_%s_%d" % (childPath.basename(), i))
                 if not trash.exists():

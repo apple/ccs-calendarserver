@@ -22,6 +22,7 @@ Store test utility functions
 import gc
 
 from twext.python.filepath import CachingFilePath
+from twext.python.vcomponent import VComponent
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, succeed
@@ -31,6 +32,8 @@ from twisted.python import log
 from txdav.common.datastore.sql import CommonDataStore, v1_schema
 from txdav.base.datastore.subpostgres import PostgresService,\
     DiagnosticConnectionWrapper
+from txdav.common.icommondatastore import NoSuchHomeChildError
+
 
 def allInstancesOf(cls):
     for o in gc.get_referrers(cls):
@@ -141,3 +144,38 @@ class SQLStoreBuilder(object):
 
 theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore
+
+
+def populateCalendarsFrom(requirements, store):
+    """
+    Populate C{store} from C{requirements}.
+
+    @param requirements: a dictionary of the format described by
+        L{txdav.caldav.datastore.test.common.CommonTests.requirements}.
+
+    @param store: the L{IDataStore} to populate with calendar data.
+    """
+    populateTxn = store.newTransaction()
+    for homeUID in requirements:
+        calendars = requirements[homeUID]
+        if calendars is not None:
+            home = populateTxn.calendarHomeWithUID(homeUID, True)
+            # We don't want the default calendar or inbox to appear unless it's
+            # explicitly listed.
+            try:
+                home.removeCalendarWithName("calendar")
+                home.removeCalendarWithName("inbox")
+            except NoSuchHomeChildError:
+                pass
+            for calendarName in calendars:
+                calendarObjNames = calendars[calendarName]
+                if calendarObjNames is not None:
+                    home.createCalendarWithName(calendarName)
+                    calendar = home.calendarWithName(calendarName)
+                    for objectName in calendarObjNames:
+                        objData = calendarObjNames[objectName]
+                        calendar.createCalendarObjectWithName(
+                            objectName, VComponent.fromString(objData)
+                        )
+    populateTxn.commit()
+

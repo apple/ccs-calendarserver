@@ -24,8 +24,7 @@ import time
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests
 
 from txdav.common.datastore.sql import ECALENDARTYPE
-from txdav.common.datastore.test.util import buildStore
-from txdav.common.icommondatastore import NoSuchHomeChildError
+from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
 
 from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks
@@ -52,29 +51,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
 
     def populate(self):
-        populateTxn = self.storeUnderTest().newTransaction()
-        for homeUID in self.requirements:
-            calendars = self.requirements[homeUID]
-            if calendars is not None:
-                home = populateTxn.calendarHomeWithUID(homeUID, True)
-                # We don't want the default calendar or inbox to appear unless it's
-                # explicitly listed.
-                try:
-                    home.removeCalendarWithName("calendar")
-                    home.removeCalendarWithName("inbox")
-                except NoSuchHomeChildError:
-                    pass
-                for calendarName in calendars:
-                    calendarObjNames = calendars[calendarName]
-                    if calendarObjNames is not None:
-                        home.createCalendarWithName(calendarName)
-                        calendar = home.calendarWithName(calendarName)
-                        for objectName in calendarObjNames:
-                            objData = calendarObjNames[objectName]
-                            calendar.createCalendarObjectWithName(
-                                objectName, VComponent.fromString(objData)
-                            )
-        populateTxn.commit()
+        populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
 
