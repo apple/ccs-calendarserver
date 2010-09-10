@@ -79,7 +79,6 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
         outAddressbook.addressbookObjectWithName(
             addressbookObject.name()).properties().update(
                 addressbookObject.properties())
-        # XXX attachments
 
 
 def migrateHome(inHome, outHome, getComponent=lambda x:x.component()):
