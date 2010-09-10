@@ -360,9 +360,9 @@ class ICalendarObject(IDataStoreResource):
 
         @type name: C{str}
 
-        @param contentType: a slash-separated content type.
+        @param contentType: The content-type of the data to store.
 
-        @type contentType: C{str}
+        @type contentType: L{twext.web2.http_headers.MimeType}
 
         @return: the same type as L{IAttachment.store} returns.
         """
@@ -415,7 +415,7 @@ class IAttachment(IDataStoreResource):
     def store(contentType):
         """
         @param contentType: The content type of the data which will be stored.
-        @type contentType: C{str}
+        @type contentType: L{twext.web2.http_headers.MimeType}
 
         @return: An L{ITransport}/L{IConsumer} provider that will store the
             bytes passed to its 'write' method.

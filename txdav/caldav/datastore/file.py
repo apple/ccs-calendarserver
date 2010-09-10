@@ -409,9 +409,11 @@ class AttachmentStorageTransport(object):
 
     def __init__(self, attachment, contentType):
         """
-        
-        @param attachment:
-        @type attachment:
+        Initialize this L{AttachmentStorageTransport} and open its file for
+        writing.
+
+        @param attachment: The attachment whose data is being filled out.
+        @type attachment: L{Attachment}
         """
         self._attachment = attachment
         self._contentType = contentType
