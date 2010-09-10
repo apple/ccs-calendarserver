@@ -59,6 +59,8 @@ def formatDate(d):
     return ''.join(filter(str.isalnum, d.isoformat()))
 
 
+SUMMARY = "STUFF IS THINGS"
+
 def makeEvent(i, attendeeCount):
     s = """\
 BEGIN:VEVENT
@@ -70,7 +72,7 @@ CREATED:20100729T193912Z
 DTSTAMP:20100729T195557Z
 ORGANIZER;CN=User 03;EMAIL=user03@example.com:urn:uuid:user03
 SEQUENCE:%(SEQUENCE)s
-SUMMARY:STUFF IS THINGS
+SUMMARY:%(summary)s
 TRANSP:OPAQUE
 END:VEVENT
 """
@@ -84,6 +86,7 @@ END:VEVENT
             'END': formatDate(base + i * interval + duration),
             'SEQUENCE': i,
             'ATTENDEES': makeAttendees(attendeeCount),
+            'summary': SUMMARY,
             },
         }
 
