@@ -13,9 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 """
 Utility logic common to multiple backend implementations.
 """
+
+from twisted.internet.defer import inlineCallbacks, Deferred
+from twisted.internet.protocol import Protocol
 
 from twext.python.vcomponent import InvalidICalendarDataError
 from twext.python.vcomponent import VComponent
@@ -90,6 +94,7 @@ def dropboxIDFromCalendarObject(calendarObject):
     return calendarObject.uid() + ".dropbox"
 
 
+@inlineCallbacks
 def _migrateCalendar(inCalendar, outCalendar, getComponent):
     """
     Copy all calendar objects and properties in the given input calendar to the
@@ -98,6 +103,8 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
     @param inCalendar: the L{ICalendar} to retrieve calendar objects from.
     @param outCalendar: the L{ICalendar} to store calendar objects to.
     @param getComponent: a 1-argument callable; see L{migrateHome}.
+
+    @return: a L{Deferred} which fires when the calendar has migrated.
     """
     outCalendar.properties().update(inCalendar.properties())
     for calendarObject in inCalendar.calendarObjects():
@@ -107,12 +114,40 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
 
         # Only the owner's properties are migrated, since previous releases of
         # calendar server didn't have per-user properties.
-        outCalendar.calendarObjectWithName(
-            calendarObject.name()).properties().update(
-                calendarObject.properties())
-        # XXX attachments
+        outObject = outCalendar.calendarObjectWithName(
+            calendarObject.name())
+        outObject.properties().update(calendarObject.properties())
+
+        # Migrate attachments.
+        for attachment in calendarObject.attachments():
+            name = attachment.name()
+            ctype = attachment.contentType()
+            transport = outObject.createAttachmentWithName(name, ctype)
+            proto =_AttachmentMigrationProto(transport)
+            attachment.retrieve(proto)
+            yield proto.done
 
 
+
+class _AttachmentMigrationProto(Protocol, object):
+    def __init__(self, storeTransport):
+        self.storeTransport = storeTransport
+        self.done = Deferred()
+
+    def dataReceived(self, data):
+        self.storeTransport.write(data)
+
+    def connectionLost(self, reason):
+        try:
+            self.storeTransport.loseConnection()
+        except:
+            self.done.errback()
+        else:
+            self.done.callback(None)
+
+
+
+@inlineCallbacks
 def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
     """
     Copy all calendars and properties in the given input calendar to the given
@@ -135,7 +170,7 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
         name = calendar.name()
         outHome.createCalendarWithName(name)
         outCalendar = outHome.calendarWithName(name)
-        _migrateCalendar(calendar, outCalendar, getComponent)
+        yield _migrateCalendar(calendar, outCalendar, getComponent)
     # No migration for notifications, since they weren't present in earlier
     # released versions of CalendarServer.
 

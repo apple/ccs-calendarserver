@@ -18,8 +18,10 @@
 Tests for L{txdav.common.datastore.util}.
 """
 
+from twisted.internet.protocol import Protocol
 from twisted.trial.unittest import TestCase
 from twext.python.filepath import CachingFilePath
+from twext.web2.http_headers import MimeType
 
 from twisted.application.service import Service, MultiService
 from txdav.common.datastore.util import UpgradeToDatabaseService
@@ -27,7 +29,7 @@ from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import theStoreBuilder, \
     populateCalendarsFrom
 from txdav.caldav.datastore.test.common import StubNotifierFactory, CommonTests
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, Deferred
 
 
 class HomeMigrationTests(TestCase):
@@ -43,13 +45,18 @@ class HomeMigrationTests(TestCase):
         # Add some files to the file store.
         self.filesPath = CachingFilePath(self.mktemp())
         self.filesPath.createDirectory()
-        fileStore = CommonDataStore(
+        fileStore = self.fileStore = CommonDataStore(
             self.filesPath, StubNotifierFactory(), True, True
         )
         self.sqlStore = yield theStoreBuilder.buildStore(
             self, StubNotifierFactory()
         )
-        self.stubService = Service()
+        subStarted = self.subStarted = Deferred()
+        class StubService(Service, object):
+            def startService(self):
+                super(StubService, self).startService()
+                subStarted.callback(None)
+        self.stubService = StubService()
         self.topService = MultiService()
         self.upgrader = UpgradeToDatabaseService(
             fileStore, self.sqlStore, self.stubService
@@ -62,13 +69,14 @@ class HomeMigrationTests(TestCase):
             ".some-extra-data").setContent("some extra data")
 
 
+    @inlineCallbacks
     def test_upgradeCalendarHomes(self):
         """
         L{UpgradeToDatabaseService.startService} will do the upgrade, then
         start its dependent service by adding it to its service hierarchy.
         """
         self.topService.startService()
-        # XXX asyncify for attachment migration
+        yield self.subStarted
         self.assertEquals(self.stubService.running, True)
         txn = self.sqlStore.newTransaction()
         self.addCleanup(txn.commit)
@@ -81,4 +89,50 @@ class HomeMigrationTests(TestCase):
                 ".some-extra-data").getContent(),
                 "some extra data"
         )
+
+
+    @inlineCallbacks
+    def test_upgradeAttachments(self):
+        """
+        L{UpgradeToDatabaseService.startService} upgrades calendar attachments
+        as well.
+        """
+        txn = self.fileStore.newTransaction()
+        committed = []
+        def maybeCommit():
+            if not committed:
+                committed.append(True)
+                txn.commit()
+        self.addCleanup(maybeCommit)
+        def getSampleObj():
+            return txn.calendarHomeWithUID("home1").calendarWithName(
+                "calendar_1").calendarObjectWithName("1.ics")
+        inObject = getSampleObj()
+        someAttachmentName = "some-attachment"
+        someAttachmentType = MimeType.fromString("application/x-custom-type")
+        transport = inObject.createAttachmentWithName(
+            someAttachmentName, someAttachmentType
+        )
+        someAttachmentData = "Here is some data for your attachment, enjoy."
+        transport.write(someAttachmentData)
+        transport.loseConnection()
+        maybeCommit()
+        self.topService.startService()
+        yield self.subStarted
+        committed = []
+        txn = self.sqlStore.newTransaction()
+        outObject = getSampleObj()
+        outAttachment = outObject.attachmentWithName(someAttachmentName)
+        allDone = Deferred()
+        class SimpleProto(Protocol):
+            data = ''
+            def dataReceived(self, data):
+                self.data += data
+            def connectionLost(self, reason):
+                allDone.callback(self.data)
+        self.assertEquals(outAttachment.contentType(), someAttachmentType)
+        outAttachment.retrieve(SimpleProto())
+        allData = yield allDone
+        self.assertEquals(allData, someAttachmentData)
+
 
