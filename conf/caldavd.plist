@@ -78,7 +78,7 @@
 
     <!-- Server root -->
     <key>ServerRoot</key>
-    <string>/Library/CalendarServer</string>
+    <string>/var/db/caldavd</string>
 
     <!-- Data root -->
     <key>DataRoot</key>

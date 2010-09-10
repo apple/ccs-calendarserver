@@ -92,7 +92,7 @@
 
     <!-- Server root -->
     <key>ServerRoot</key>
-    <string>/Library/CalendarServer</string>
+    <string>/Library/Server/Calendar and Contacts</string>
 
     <!-- Data root -->
     <key>DataRoot</key>

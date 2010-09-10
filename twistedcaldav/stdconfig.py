@@ -161,7 +161,7 @@ DEFAULT_CONFIG = {
     #
     # Data store
     #
-    "ServerRoot"              : "/Library/CalendarServer",
+    "ServerRoot"              : "/var/db/caldavd",
     "DataRoot"                : "Data",
     "DatabaseRoot"            : "Database",
     "DocumentRoot"            : "Documents",
