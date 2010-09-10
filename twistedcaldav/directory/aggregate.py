@@ -236,6 +236,10 @@ class AggregateDirectoryService(DirectoryService):
         service = self.serviceForRecordType(recordType)
         return service.destroyRecord(recordType, guid=guid)
 
+    def createRecords(self, data):
+        service = self.serviceForRecordType(recordType)
+        return service.createRecords(data)
+
     def setRealm(self, realmName):
         """
         Set a new realm name for this and nested services

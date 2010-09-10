@@ -43,12 +43,13 @@ class StubDirectoryService(object):
     def recordWithGUID(self, guid):
         return None
 
-    def createRecord(self, recordType, guid=None, shortNames=None,
-        fullName=None):
-        record = StubDirectoryRecord(recordType, guid=guid,
-            shortNames=shortNames, fullName=fullName)
-        self.records[guid] = record
-        return record
+    def createRecords(self, data):
+        for recordType, recordData in data:
+            guid = recordData["guid"]
+            record = StubDirectoryRecord(recordType, guid=guid,
+                shortNames=recordData['shortNames'],
+                fullName=recordData['fullName'])
+            self.records[guid] = record
 
     def updateRecord(self, recordType, guid=None, shortNames=None,
         fullName=None):

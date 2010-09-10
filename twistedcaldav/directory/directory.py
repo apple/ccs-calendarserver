@@ -326,6 +326,11 @@ class DirectoryService(LoggingMixIn):
         """
         raise NotImplementedError("Subclass must implement destroyRecord")
 
+    def createRecords(self, data):
+        """
+        Create directory records in bulk
+        """
+        raise NotImplementedError("Subclass must implement createRecords")
 
 class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)

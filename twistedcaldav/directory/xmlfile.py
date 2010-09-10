@@ -305,8 +305,7 @@ class XMLDirectoryService(CachingDirectoryService):
 
         indent(element)
 
-        # TODO: make this robust:
-        ET.ElementTree(element).write(self.xmlFile.path)
+        self.xmlFile.setContent(ET.tostring(element))
 
         # Reload
         self._initCaches() # nuke local cache
@@ -324,7 +323,6 @@ class XMLDirectoryService(CachingDirectoryService):
         to elementtree elements, a new element is added for the new record,
         and the document is serialized to disk.
         """
-
         if guid is None:
             guid = str(uuid4())
 
@@ -423,6 +421,52 @@ class XMLDirectoryService(CachingDirectoryService):
             self.queryDirectory([recordType], self.INDEX_TYPE_SHORTNAME, shortName)
 
         return self.recordWithGUID(guid)
+
+    def createRecords(self, data):
+        """
+        Create records in bulk
+        """
+
+        # Make sure latest XML records are read in
+        self._lastCheck = 0
+        accounts = self._accounts()
+
+        knownGUIDs = { }
+        knownShortNames = { }
+
+        accountsElement = ET.Element("accounts", realm=self.realmName)
+        for recType in self.recordTypes():
+            for xmlPrincipal in accounts[recType].itervalues():
+                self._addElement(accountsElement, xmlPrincipal)
+                knownGUIDs[xmlPrincipal.guid] = 1
+                for shortName in xmlPrincipal.shortNames:
+                    knownShortNames[shortName] = 1
+
+        for recordType, recordData in data:
+            guid = recordData["guid"]
+            if guid is None:
+                guid = str(uuid4())
+
+            shortNames = recordData["shortNames"]
+            if not shortNames:
+                shortNames = (guid,)
+
+            if guid in knownGUIDs:
+                raise DirectoryError("Duplicate guid: %s" % (guid,))
+
+            for shortName in shortNames:
+                if shortName in knownShortNames:
+                    raise DirectoryError("Duplicate shortName: %s" %
+                        (shortName,))
+
+            xmlPrincipal = XMLAccountRecord(recordType)
+            xmlPrincipal.shortNames = shortNames
+            xmlPrincipal.guid = guid
+            xmlPrincipal.fullName = recordData["fullName"]
+            self._addElement(accountsElement, xmlPrincipal)
+
+        self._persistRecords(accountsElement)
+
 
 class XMLDirectoryRecord(CachingDirectoryRecord):
     """

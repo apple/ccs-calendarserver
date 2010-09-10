@@ -27,6 +27,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.util import switchUID
 from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.directory import augment
 from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
@@ -190,6 +191,9 @@ def queryForType(sourceService, recordType, verbose=False):
 def migrateResources(sourceService, destService, autoSchedules=None,
     queryMethod=queryForType, verbose=False):
 
+    directoryRecords = []
+    augmentRecords = []
+
     for recordTypeOD, recordType in (
         (dsattributes.kDSStdRecordTypeResources, DirectoryService.recordType_resources),
         (dsattributes.kDSStdRecordTypePlaces, DirectoryService.recordType_locations),
@@ -205,13 +209,29 @@ def migrateResources(sourceService, destService, autoSchedules=None,
                 if record is None:
                     if verbose:
                         print "Migrating %s (%s)" % (fullName, recordType)
+
                     if autoSchedules is not None:
                         autoSchedule = autoSchedules.get(guid, 1)
                     else:
                         autoSchedule = True
-                    yield updateRecord(True, destService, recordType,
-                        guid=guid, shortNames=[recordName], fullName=fullName,
-                        autoSchedule=autoSchedule)
+                    augmentRecord = (yield augment.AugmentService.getAugmentRecord(guid, recordType))
+                    augmentRecord.autoSchedule = autoSchedule
+                    augmentRecords.append(augmentRecord)
+
+                    directoryRecords.append(
+                        (recordType,
+                            {
+                                "guid" : guid,
+                                "shortNames" : [recordName],
+                                "fullName" : fullName,
+                            }
+                        )
+                    )
+
+    destService.createRecords(directoryRecords)
+
+    (yield augment.AugmentService.addAugmentRecords(augmentRecords))
+
 
 
 if __name__ == "__main__":

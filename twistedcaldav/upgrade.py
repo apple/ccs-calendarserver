@@ -505,7 +505,7 @@ def upgrade_to_2(config):
 
 upgradeMethods = [
     (1, upgrade_to_1),
-    # (2, upgrade_to_2), # This is too slow for large installations
+    (2, upgrade_to_2),
 ]
 
 @inlineCallbacks
