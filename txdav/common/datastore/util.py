@@ -22,6 +22,7 @@ from txdav.common.datastore.sql import CommonDataStore as SqlStore
 from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
 from txdav.carddav.datastore.util import migrateHome as migrateAddressbookHome
 from twisted.internet.defer import inlineCallbacks
+from twisted.internet import reactor
 
 
 class UpgradeToDatabaseService(Service, LoggingMixIn, object):
@@ -122,7 +123,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         self.log_warn(
             "Filesystem upgrade complete, launching database service."
         )
-        self.wrappedService.setServiceParent(self.parent)
+        # see http://twistedmatrix.com/trac/ticket/4649
+        reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
 
 
     def startService(self):
