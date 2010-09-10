@@ -1,4 +1,4 @@
-# -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
+# -*- test-case-name: txdav.common.datastore.test -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -21,6 +21,7 @@ from txdav.common.datastore.file import CommonDataStore as FileStore, TOPPATHS
 from txdav.common.datastore.sql import CommonDataStore as SqlStore
 from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
 from txdav.carddav.datastore.util import migrateHome as migrateAddressbookHome
+from twisted.internet.defer import inlineCallbacks
 
 
 class UpgradeToDatabaseService(Service, LoggingMixIn, object):
@@ -77,7 +78,14 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         self.sqlStore = sqlStore
 
 
-    def startService(self):
+    @inlineCallbacks
+    def doMigration(self):
+        """
+        Do the migration.  Called by C{startService}, but a different method
+        because C{startService} should return C{None}, not a L{Deferred}.
+
+        @return: a Deferred which fires when the migration is complete.
+        """
         self.log_warn("Beginning filesystem -> database upgrade.")
         for homeType, migrateFunc, eachFunc, destFunc in [
             ("calendar", migrateCalendarHome,
@@ -91,11 +99,22 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                 self.log_warn("Migrating %s UID %r" % (homeType, uid))
                 sqlTxn = self.sqlStore.newTransaction()
                 sqlHome = destFunc(uid, sqlTxn)
-                migrateFunc(fileHome, sqlHome)
+                yield migrateFunc(fileHome, sqlHome)
                 fileTxn.commit()
                 sqlTxn.commit()
-                # FIXME: need a public remove...HomeWithUID() for de-provisioning
-                fileHome._path.remove()
+                # FIXME: need a public remove...HomeWithUID() for de-
+                # provisioning
+                storePath = self.fileStore._path
+                fromParent = fileHome._path.segmentsFrom(storePath)
+                fromParent[0] += "-migrated"
+                backupPath = storePath
+                for segment in fromParent:
+                    try:
+                        backupPath.createDirectory()
+                    except OSError:
+                        pass
+                    backupPath = backupPath.child(segment)
+                fileHome._path.moveTo(backupPath)
         for homeType in TOPPATHS:
             homesPath = self.fileStore._path.child(homeType)
             if homesPath.isdir():
@@ -104,6 +123,13 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             "Filesystem upgrade complete, launching database service."
         )
         self.wrappedService.setServiceParent(self.parent)
+
+
+    def startService(self):
+        """
+        Start the service.
+        """
+        self.doMigration()
 
 
 
