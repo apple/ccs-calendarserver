@@ -311,12 +311,7 @@ def checkPreconditions(request, response=None, entityExists=True, etag=None, las
                 raise HTTPError(StatusResponse(responsecode.PRECONDITION_FAILED, "Requested resource has a matching ETag."))
     else:
         if notModified == True:
-            if request.method in ("HEAD", "GET"):
-                raise HTTPError(NotModifiedResponse(response))
-            else:
-                # S14.25 doesn't actually say what to do for a failing IMS on
-                # non-GET methods. But Precondition Failed makes sense to me.
-                raise HTTPError(StatusResponse(responsecode.PRECONDITION_FAILED, "Requested resource has not changed."))
+            raise HTTPError(NotModifiedResponse(response))
 
 def checkIfRange(request, response):
     """Checks for the If-Range header, and if it exists, checks if the

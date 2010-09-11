@@ -137,7 +137,7 @@ class PreconditionTestCase(unittest.TestCase):
 
         # With a non-GET method
         request.method="PUT"
-        self.checkPreconditions(request, response, False, responsecode.PRECONDITION_FAILED)
+        self.checkPreconditions(request, response, False, responsecode.NOT_MODIFIED)
         request.method="GET"
 
         request.headers.setRawHeaders("If-Modified-Since", ('Sat, 01 Jan 2000 00:00:00 GMT',))
