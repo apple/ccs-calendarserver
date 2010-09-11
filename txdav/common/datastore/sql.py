@@ -35,6 +35,7 @@ from twisted.python.modules import getModule
 from twisted.python.util import FancyEqMixin
 
 from twistedcaldav.customxml import NotificationType
+from twistedcaldav.dateops import datetimeMktime
 
 from txdav.common.datastore.sql_legacy import PostgresLegacyNotificationsEmulator
 from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
@@ -57,6 +58,8 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.sql import PropertyStore
 
 from zope.interface.declarations import implements, directlyProvides
+
+import datetime
 
 v1_schema = getModule(__name__).filePath.sibling(
     "sql_schema_v1.sql").getContent()
@@ -799,19 +802,21 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     def created(self):
         created = self._txn.execSQL(
-            "select extract(EPOCH from %(column_CREATED)s) from %(name)s "
+            "select %(column_CREATED)s from %(name)s "
             "where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
             [self._resourceID]
         )[0][0]
-        return int(created)
+        utc = datetime.datetime.strptime(created, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)
 
     def modified(self):
         modified = self._txn.execSQL(
-            "select extract(EPOCH from %(column_MODIFIED)s) from %(name)s "
+            "select %(column_MODIFIED)s from %(name)s "
             "where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
             [self._resourceID]
         )[0][0]
-        return int(modified)
+        utc = datetime.datetime.strptime(modified, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)
 
     def notifierID(self, label="default"):
         if self._notifier:
@@ -903,19 +908,21 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     def created(self):
         created = self._txn.execSQL(
-            "select extract(EPOCH from %(column_CREATED)s) from %(name)s "
+            "select %(column_CREATED)s from %(name)s "
             "where %(column_RESOURCE_ID)s = %%s" % self._objectTable,
             [self._resourceID]
         )[0][0]
-        return int(created)
+        utc = datetime.datetime.strptime(created, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)
 
     def modified(self):
         modified = self._txn.execSQL(
-            "select extract(EPOCH from %(column_MODIFIED)s) from %(name)s "
+            "select %(column_MODIFIED)s from %(name)s "
             "where %(column_RESOURCE_ID)s = %%s" % self._objectTable,
             [self._resourceID]
         )[0][0]
-        return int(modified)
+        utc = datetime.datetime.strptime(modified, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)
 
 class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
@@ -1133,16 +1140,18 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
 
     def created(self):
-        modified = self._txn.execSQL(
-            "select extract(EPOCH from CREATED) from NOTIFICATION "
+        created = self._txn.execSQL(
+            "select CREATED from NOTIFICATION "
             "where RESOURCE_ID = %s",
             [self._resourceID]
         )[0][0]
-        return int(modified)
+        utc = datetime.datetime.strptime(created, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)
 
     def modified(self):
         modified = self._txn.execSQL(
-            "select extract(EPOCH from MODIFIED) from NOTIFICATION "
+            "select MODIFIED from NOTIFICATION "
             "where RESOURCE_ID = %s", [self._resourceID]
         )[0][0]
-        return int(modified)
+        utc = datetime.datetime.strptime(modified, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)

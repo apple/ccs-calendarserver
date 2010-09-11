@@ -29,6 +29,7 @@ __all__ = [
     "clipPeriod"
 ]
 
+import calendar
 import datetime
 from vobject.icalendar import utc
 
@@ -223,3 +224,11 @@ def clipPeriod(period, clipPeriod):
         else:
             return (start, end)
  
+def datetimeMktime(dt):
+
+    assert isinstance(dt, datetime.date)
+    
+    if dt.tzinfo is None:
+        dt.replace(tzinfo=utc)
+    return calendar.timegm(dt.utctimetuple())
+    

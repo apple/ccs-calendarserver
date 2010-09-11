@@ -32,7 +32,7 @@ from twisted.python.failure import Failure
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
-from twistedcaldav.dateops import normalizeForIndex
+from twistedcaldav.dateops import normalizeForIndex, datetimeMktime
 from twistedcaldav.index import IndexedSearchException
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 
@@ -575,15 +575,15 @@ class Attachment(object):
         """
         rows = self._txn.execSQL(
             """
-            select CONTENT_TYPE, SIZE, MD5, extract(EPOCH from CREATED), extract(EPOCH from MODIFIED) from ATTACHMENT where PATH = %s
+            select CONTENT_TYPE, SIZE, MD5, CREATED, MODIFIED from ATTACHMENT where PATH = %s
             """, [self._pathValue()])
         if not rows:
             return False
         self._contentType = MimeType.fromString(rows[0][0])
         self._size = rows[0][1]
         self._md5 = rows[0][2]
-        self._created = int(rows[0][3])
-        self._modified = int(rows[0][4])
+        self._created = datetimeMktime(datetime.datetime.strptime(rows[0][3], "%Y-%m-%d %H:%M:%S.%f"))
+        self._modified = datetimeMktime(datetime.datetime.strptime(rows[0][4], "%Y-%m-%d %H:%M:%S.%f"))
         return True
 
 
