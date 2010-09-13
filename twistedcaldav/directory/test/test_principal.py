@@ -45,6 +45,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(ProvisionedPrincipals, self).setUp()
 
+        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
         self.directoryServices = (
             XMLDirectoryService(
                 {
@@ -65,7 +66,6 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
             self.principalRootResources[directory.__class__.__name__] = provisioningResource
 
-        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
         calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB(os.path.abspath(self.mktemp()))
 
     def test_hierarchy(self):
