@@ -22,6 +22,7 @@ import getopt
 import os
 import sys
 import time
+import traceback
 
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0) 
 
@@ -148,22 +149,49 @@ def parseLine(line):
 
 
 def usage():
+    print "request_monitor [OPTIONS] [FILENAME]"
+    print ""
+    print "FILENAME   optional path of access log to monitor [/var/log/caldavd/access.log]"
+    print ""
+    print "OPTIONS"
     print "-h         print help and exit"
+    print "--debug    print tracebacks and error details"
     print "--lines N  specifies how many lines to tail from access.log (default: 10000)"
     print "--procs N  specifies how many python processes are expected in the log file (default: 80)"
 
 numLines = 10000
 numProcs = 80
-options, args = getopt.getopt(sys.argv[1:], "h", ["lines=", "procs=",])
+debug = False
+options, args = getopt.getopt(sys.argv[1:], "h", ["debug", "lines=", "procs=",])
 for option, value in options:
     if option == "-h":
         usage()
         sys.exit(0)
+    elif option == "--debug":
+        debug = True
     elif option == "--lines":
         numLines = int(value)
     elif option == "--procs":
         numProcs = int(value)
 
+if len(args):
+    filename = os.path.expanduser(args[0])
+
+if not os.path.isfile(filename):
+    print "Path %s does not exist" % (filename,)
+    print
+    usage()
+    sys.exit(1)
+
+if not os.access(filename, os.R_OK):
+    print "Path %s does not exist" % (filename,)
+    print
+    usage()
+    sys.exit(1)
+
+if debug:
+    print "Starting: access log file: %s" % (filename,)
+    print
 
 while True:
 
@@ -175,6 +203,7 @@ while True:
     rawCounts = {}
     timesSpent = {}
     numRequests = 0
+    numServerToServer = 0
     totalRespTime = 0.0
     maxRespTime = 0.0
     under10ms = 0
@@ -189,6 +218,7 @@ while True:
     startTime = None
     endTime = None
     errorCount = 0
+    parseErrors = 0
 
     try: 
         for line in tail(filename, numLines):
@@ -197,13 +227,28 @@ while True:
 
             numRequests += 1
 
-            userId, logTime, method, uri, status, bytes, _ignore_referer, client, extended = parseLine(line)
+            try:
+                userId, logTime, method, uri, status, bytes, _ignore_referer, client, extended = parseLine(line)
+            except Exception, e:
+                parseErrors += 1
+                
+                if debug:
+                    print "Access log line parse failure", e
+                    print traceback.print_exc()
+                    print "---"
+                    print line
+                    print "---"
+                    
+                continue
 
             logTime = dateparse(logTime, fuzzy=True)
             times.append(logTime)
 
             if status >= 500:
                 errorCount += 1
+
+            if uri == "/ischedule":
+                numServerToServer += 1
 
             outstanding = int(extended['or'])
             logId = int(extended['i'])
@@ -299,7 +344,10 @@ while True:
 
         if avg:
             print avg, "|",
-        print "%d requests between %s and %s" % (numLines, startTime.strftime("%H:%M:%S"), endTime.strftime("%H:%M:%S"))
+        print "%d requests between %s and %s" % (numRequests, startTime.strftime("%H:%M:%S"), endTime.strftime("%H:%M:%S")),
+        if numServerToServer:
+            print "| %d server-to-server" % (numServerToServer,),
+        print
         
         lqlatency = (lqssl / avgRequests, lqnon / avgRequests,) if avgRequests else (0.0, 0.0,)
         print "Response time: average %.1f ms, max %.1f ms, listenq latency (ssl+non): %.1f s %.1f s" % (
@@ -312,6 +360,9 @@ while True:
         print
         if errorCount:
             print "Number of 500 errors: %d" % (errorCount,)
+        if parseErrors:
+            print "Number of access log parsing errors: %d" % (parseErrors,)
+        if errorCount or parseErrors:
             print
 
         print "Proc:   Peak outstanding:        Seconds of processing (number of requests):"
@@ -342,7 +393,7 @@ while True:
             print
 
         print
-        print "Top 10 longest (in most recent %d requests):" % (numLines,)
+        print "Top 10 longest (in most recent %d requests):" % (numRequests,)
         requests.sort()
         requests.reverse()
         for i in xrange(10):
@@ -364,7 +415,7 @@ while True:
             
 
         print
-        print "Top 5 busiest users (in most recent %d requests):" % (numLines,)
+        print "Top 5 busiest users (in most recent %d requests):" % (numRequests,)
         userlist = []
         for user, userStat in users.iteritems():
             userlist.append((userStat['count'], user, userStat))
@@ -391,4 +442,5 @@ while True:
 
     except Exception, e:
         print "Script failure", e
-
+        if debug:
+            print traceback.print_exc()
