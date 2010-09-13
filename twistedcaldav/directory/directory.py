@@ -148,7 +148,10 @@ class DirectoryService(LoggingMixIn):
         raise NotImplementedError("Subclass must implement listRecords()")
 
     def recordWithShortName(self, recordType, shortName):
-        raise NotImplementedError("Subclass must implement recordWithShortName()")
+        for record in self.listRecords(recordType):
+            if shortName in record.shortNames:
+                return record
+        return None
 
     def recordWithUID(self, uid):
         for record in self.allRecords():

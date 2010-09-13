@@ -172,8 +172,6 @@
             <string>resources</string>
             <string>locations</string>
         </array>
-        <key>cacheTimeout</key>
-        <integer>30</integer>
       </dict>
     </dict>
     

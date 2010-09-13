@@ -33,21 +33,28 @@ from twistedcaldav.config import config
 
 from twistedcaldav.config import fullServerPath
 from twistedcaldav.directory import augment
-from twistedcaldav.directory.directory import DirectoryService, DirectoryError
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser, XMLAccountRecord
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 import xml.etree.ElementTree as ET
 from uuid import uuid4
 
 
-class XMLDirectoryService(CachingDirectoryService):
+class XMLDirectoryService(DirectoryService):
     """
     XML based implementation of L{IDirectoryService}.
     """
     baseGUID = "9CA8DEC5-5A17-43A9-84A8-BE77C1FB9172"
 
     realmName = None
+
+    INDEX_TYPE_GUID      = "guid"
+    INDEX_TYPE_SHORTNAME = "shortname"
+    INDEX_TYPE_CUA       = "cua"
+    INDEX_TYPE_AUTHID    = "authid"
+
 
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.xmlFile)
@@ -63,7 +70,6 @@ class XMLDirectoryService(CachingDirectoryService):
                 self.recordType_locations,
                 self.recordType_resources,
             ),
-            'cacheTimeout' : 30,
             'realmName' : '/Search',
         }
         ignored = None
@@ -72,7 +78,7 @@ class XMLDirectoryService(CachingDirectoryService):
         self._recordTypes = params['recordTypes']
         self.realmName = params['realmName']
 
-        super(XMLDirectoryService, self).__init__(params['cacheTimeout'])
+        super(XMLDirectoryService, self).__init__()
 
         xmlFile = fullServerPath(config.DataRoot, params.get("xmlFile"))
         if type(xmlFile) is str:
@@ -108,68 +114,166 @@ class XMLDirectoryService(CachingDirectoryService):
         self._lastCheck = 0
         self._alwaysStat = alwaysStat
         self.directoryBackedAddressBook = params.get('directoryBackedAddressBook')
-
+        self._initIndexes()
         self._accounts()
 
+    def _initIndexes(self):
+        """
+        Create empty indexes
+        """
+        self.records = {}
+        self.recordIndexes = {}
+
+        for recordType in self.recordTypes():
+            self.records[recordType] = set()
+            self.recordIndexes[recordType] = {
+                self.INDEX_TYPE_GUID     : {},
+                self.INDEX_TYPE_SHORTNAME: {},
+                self.INDEX_TYPE_CUA      : {},
+                self.INDEX_TYPE_AUTHID   : {},
+            }
+
+    def _accounts(self):
+        """
+        Parses XML file, creates XMLDirectoryRecords and indexes them, and
+        because some other code in this module still works directly with
+        XMLAccountRecords as returned by XMLAccountsParser, returns a list
+        of XMLAccountRecords.
+
+        The XML file is only stat'ed at most every 60 seconds, and is only
+        reparsed if it's been modified.
+
+        FIXME: don't return XMLAccountRecords, and have any code in this module
+        which currently does work with XMLAccountRecords, modify such code to
+        use XMLDirectoryRecords instead.
+        """
+        currentTime = time()
+        if self._alwaysStat or currentTime - self._lastCheck > 60:
+            self.xmlFile.restat()
+            self._lastCheck = currentTime
+            fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())
+            if fileInfo != self._fileInfo:
+                self._initIndexes()
+                parser = XMLAccountsParser(self.xmlFile)
+                self._parsedAccounts = parser.items
+                self.realmName = parser.realm
+                self._fileInfo = fileInfo
+
+                for accountDict in self._parsedAccounts.itervalues():
+                    for xmlAccountRecord in accountDict.itervalues():
+                        if xmlAccountRecord.recordType not in self.recordTypes():
+                            continue
+                        record = XMLDirectoryRecord(
+                            service       = self,
+                            recordType    = xmlAccountRecord.recordType,
+                            shortNames    = tuple(xmlAccountRecord.shortNames),
+                            xmlPrincipal  = xmlAccountRecord,
+                        )
+                        d = augment.AugmentService.getAugmentRecord(record.guid,
+                            record.recordType)
+                        d.addCallback(lambda x:record.addAugmentInformation(x))
+
+                        self._addToIndex(record)
+
+        return self._parsedAccounts
+
+    def _addToIndex(self, record):
+        """
+        Index the record by GUID, shortName(s), authID(s) and CUA(s)
+        """
+
+        self.recordIndexes[record.recordType][self.INDEX_TYPE_GUID][record.guid] = record
+        for shortName in record.shortNames:
+            self.recordIndexes[record.recordType][self.INDEX_TYPE_SHORTNAME][shortName] = record
+        for authID in record.authIDs:
+            self.recordIndexes[record.recordType][self.INDEX_TYPE_AUTHID][authID] = record
+        for cua in record.calendarUserAddresses:
+            cua = normalizeCUAddr(cua)
+            self.recordIndexes[record.recordType][self.INDEX_TYPE_CUA][cua] = record
+        self.records[record.recordType].add(record)
+
+    def _removeFromIndex(self, record):
+        """
+        Removes a record from all indexes.  Note this is only used for unit
+        testing, to simulate a user being removed from the directory.
+        """
+        del self.recordIndexes[record.recordType][self.INDEX_TYPE_GUID][record.guid]
+        for shortName in record.shortNames:
+            del self.recordIndexes[record.recordType][self.INDEX_TYPE_SHORTNAME][shortName]
+        for authID in record.authIDs:
+            del self.recordIndexes[record.recordType][self.INDEX_TYPE_AUTHID][authID]
+        for cua in record.calendarUserAddresses:
+            cua = normalizeCUAddr(cua)
+            del self.recordIndexes[record.recordType][self.INDEX_TYPE_CUA][cua] 
+        if record in self.records[record.recordType]:
+            self.records[record.recordType].remove(record)
+
+
+    def _lookupInIndex(self, recordType, indexType, key):
+        """
+        Look for an existing record of the given recordType with the key for
+        the given index type.  Returns None if no match.
+        """
+        self._accounts()
+        return self.recordIndexes.get(recordType, {}).get(indexType, {}).get(key, None)
+
+    def _initCaches(self):
+        """
+        Invalidates the indexes
+        """
+        self._lastCheck = 0
+        self._initIndexes()
+
+    def _forceReload(self):
+        """
+        Invalidates the indexes, re-reads the XML file and re-indexes
+        """
+        self._initCaches()
+        self._fileInfo = None
+        return self._accounts()
+
+
+    def recordWithCalendarUserAddress(self, cua):
+        cua = normalizeCUAddr(cua)
+        for recordType in self.recordTypes():
+            record = self._lookupInIndex(recordType, self.INDEX_TYPE_CUA, cua)
+            if record and record.enabledForCalendaring:
+                return record
+        return None
+
+    def recordWithShortName(self, recordType, shortName):
+        return self._lookupInIndex(recordType, self.INDEX_TYPE_SHORTNAME, shortName)
+
+    def recordWithAuthID(self, authID):
+        for recordType in self.recordTypes():
+            record = self._lookupInIndex(recordType, self.INDEX_TYPE_AUTHID, authID)
+            if record is not None:
+                return record
+        return None
+
+    def recordWithGUID(self, guid):
+        for recordType in self.recordTypes():
+            record = self._lookupInIndex(recordType, self.INDEX_TYPE_GUID, guid)
+            if record is not None:
+                return record
+        return None
+
+    recordWithUID = recordWithGUID
 
     def createCache(self):
         """
         No-op to pacify addressbook backing.
         """
-        
+
 
     def recordTypes(self):
         return self._recordTypes
 
     def listRecords(self, recordType):
-        self._lastCheck = 0
-        for xmlPrincipal in self._accounts()[recordType].itervalues():
-            record = self.recordWithGUID(xmlPrincipal.guid)
-            if record is not None:
-                yield record
+        self._accounts()
+        return self.records[recordType]
 
-    def queryDirectory(self, recordTypes, indexType, indexKey):
-        """
-        If the query is a miss, re-read from the XML file and try again
-        """
-        if not self._queryDirectory(recordTypes, indexType, indexKey):
-            self._lastCheck = 0
-            self._queryDirectory(recordTypes, indexType, indexKey)
 
-    def _queryDirectory(self, recordTypes, indexType, indexKey):
-
-        anyMatches = False
-
-        for recordType in recordTypes:
-            for xmlPrincipal in self._accounts()[recordType].itervalues():
-                record = XMLDirectoryRecord(
-                    service       = self,
-                    recordType    = recordType,
-                    shortNames    = tuple(xmlPrincipal.shortNames),
-                    xmlPrincipal  = xmlPrincipal,
-                )
-
-                # Look up augment information
-                # TODO: this needs to be deferred but for now we hard code the deferred result because
-                # we know it is completing immediately.
-                d = augment.AugmentService.getAugmentRecord(record.guid,
-                    recordType)
-                d.addCallback(lambda x:record.addAugmentInformation(x))
-
-                matched = False
-                if indexType == self.INDEX_TYPE_GUID:
-                    matched = indexKey == record.guid
-                elif indexType == self.INDEX_TYPE_SHORTNAME:
-                    matched = indexKey in record.shortNames
-                elif indexType == self.INDEX_TYPE_CUA:
-                    matched = indexKey in record.calendarUserAddresses
-                
-                if matched:
-                    anyMatches = True
-                    self.recordCacheForType(recordType).addRecord(record, indexType, indexKey)
-
-        return anyMatches
-            
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         # Default, brute force method search of underlying XML data
 
@@ -178,12 +282,12 @@ class XMLDirectoryService(CachingDirectoryService):
                 return False
             elif type(fieldValue) in types.StringTypes:
                 fieldValue = (fieldValue,)
-            
+
             for testValue in fieldValue:
                 if caseless:
                     testValue = testValue.lower()
                     value = value.lower()
-    
+
                 if matchType == 'starts-with':
                     if testValue.startswith(value):
                         return True
@@ -196,7 +300,7 @@ class XMLDirectoryService(CachingDirectoryService):
                 else: # exact
                     if testValue == value:
                         return True
-                    
+
             return False
 
         def xmlPrincipalMatches(xmlPrincipal):
@@ -231,28 +335,11 @@ class XMLDirectoryService(CachingDirectoryService):
         for recordType in recordTypes:
             for xmlPrincipal in self._accounts()[recordType].itervalues():
                 if xmlPrincipalMatches(xmlPrincipal):
-                    
+
                     # Load/cache record from its GUID
                     record = self.recordWithGUID(xmlPrincipal.guid)
                     if record:
                         yield record
-
-    def _initCaches(self):
-        super(XMLDirectoryService, self)._initCaches()
-        self._lastCheck = 0
-
-    def _accounts(self):
-        currentTime = time()
-        if self._alwaysStat or currentTime - self._lastCheck > 60:
-            self.xmlFile.restat()
-            self._lastCheck = currentTime
-            fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())
-            if fileInfo != self._fileInfo:
-                parser = XMLAccountsParser(self.xmlFile)
-                self._parsedAccounts = parser.items
-                self.realmName = parser.realm
-                self._fileInfo = fileInfo
-        return self._parsedAccounts
 
 
     def _addElement(self, parent, principal):
@@ -307,12 +394,6 @@ class XMLDirectoryService(CachingDirectoryService):
 
         self.xmlFile.setContent(ET.tostring(element))
 
-        # Reload
-        self._initCaches() # nuke local cache
-        self._lastCheck = 0
-        self._accounts()
-        # TODO: nuke memcache entries, or prepopulate them
-
 
     def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
@@ -330,8 +411,7 @@ class XMLDirectoryService(CachingDirectoryService):
             shortNames = (guid,)
 
         # Make sure latest XML records are read in
-        self._lastCheck = 0
-        accounts = self._accounts()
+        accounts = self._forceReload()
 
         accountsElement = ET.Element("accounts", realm=self.realmName)
         for recType in self.recordTypes():
@@ -356,7 +436,7 @@ class XMLDirectoryService(CachingDirectoryService):
         self._addElement(accountsElement, xmlPrincipal)
 
         self._persistRecords(accountsElement)
-
+        self._forceReload()
         return self.recordWithGUID(guid)
 
 
@@ -369,8 +449,7 @@ class XMLDirectoryService(CachingDirectoryService):
         """
 
         # Make sure latest XML records are read in
-        self._lastCheck = 0
-        accounts = self._accounts()
+        accounts = self._forceReload()
 
         accountsElement = ET.Element("accounts", realm=self.realmName)
         for recType in self.recordTypes():
@@ -380,6 +459,7 @@ class XMLDirectoryService(CachingDirectoryService):
                     self._addElement(accountsElement, xmlPrincipal)
 
         self._persistRecords(accountsElement)
+        self._forceReload()
 
 
     def updateRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
@@ -393,8 +473,7 @@ class XMLDirectoryService(CachingDirectoryService):
         """
 
         # Make sure latest XML records are read in
-        self._lastCheck = 0
-        accounts = self._accounts()
+        accounts = self._forceReload()
 
         accountsElement = ET.Element("accounts", realm=self.realmName)
         for recType in self.recordTypes():
@@ -414,12 +493,7 @@ class XMLDirectoryService(CachingDirectoryService):
                     self._addElement(accountsElement, xmlPrincipal)
 
         self._persistRecords(accountsElement)
-
-        # Force a cache update - both local and memcached
-        self.queryDirectory([recordType], self.INDEX_TYPE_GUID, guid)
-        for shortName in shortNames:
-            self.queryDirectory([recordType], self.INDEX_TYPE_SHORTNAME, shortName)
-
+        self._forceReload()
         return self.recordWithGUID(guid)
 
     def createRecords(self, data):
@@ -428,8 +502,7 @@ class XMLDirectoryService(CachingDirectoryService):
         """
 
         # Make sure latest XML records are read in
-        self._lastCheck = 0
-        accounts = self._accounts()
+        accounts = self._forceReload()
 
         knownGUIDs = { }
         knownShortNames = { }
@@ -466,9 +539,10 @@ class XMLDirectoryService(CachingDirectoryService):
             self._addElement(accountsElement, xmlPrincipal)
 
         self._persistRecords(accountsElement)
+        self._forceReload()
 
 
-class XMLDirectoryRecord(CachingDirectoryRecord):
+class XMLDirectoryRecord(DirectoryRecord):
     """
     XML based implementation implementation of L{IDirectoryRecord}.
     """

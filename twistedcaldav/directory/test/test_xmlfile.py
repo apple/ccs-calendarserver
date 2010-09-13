@@ -97,9 +97,9 @@ class XMLFile (
     Test XML file based directory implementation.
     """
     def service(self):
-        directory = XMLDirectoryService({'xmlFile' : self.xmlFile()}, alwaysStat=True)
         self.patch(augment, "AugmentService",
                    augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,)))
+        directory = XMLDirectoryService({'xmlFile' : self.xmlFile()}, alwaysStat=True)
         return directory
 
     def test_changedXML(self):
@@ -289,6 +289,14 @@ class XMLFile (
         self.assertEquals(record, None)
 
 
+    def test_indexing(self):
+        service = self.service()
+        self.assertNotEquals(None, service._lookupInIndex(service.recordType_users, service.INDEX_TYPE_SHORTNAME, "usera"))
+        self.assertNotEquals(None, service._lookupInIndex(service.recordType_users, service.INDEX_TYPE_CUA, "mailto:wsanchez@example.com"))
+        self.assertNotEquals(None, service._lookupInIndex(service.recordType_users, service.INDEX_TYPE_GUID, "9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2"))
+        self.assertNotEquals(None, service._lookupInIndex(service.recordType_locations, service.INDEX_TYPE_SHORTNAME, "orion"))
+        self.assertEquals(None, service._lookupInIndex(service.recordType_users, service.INDEX_TYPE_CUA, "mailto:nobody@example.com"))
+
 class XMLFileSubset (XMLFileBase, TestCase):
     """
     Test the recordTypes subset feature of XMLFile service.
@@ -299,6 +307,8 @@ class XMLFileSubset (XMLFileBase, TestCase):
     ))
 
     def test_recordTypesSubset(self):
+        self.patch(augment, "AugmentService",
+                   augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,)))
         directory = XMLDirectoryService(
             {'xmlFile' : self.xmlFile(), 
              'recordTypes' : (DirectoryService.recordType_users, 
@@ -306,3 +316,4 @@ class XMLFileSubset (XMLFileBase, TestCase):
             alwaysStat=True
         )
         self.assertEquals(set(("users", "groups")), set(directory.recordTypes()))
+    

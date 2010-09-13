@@ -234,6 +234,7 @@ class GatewayTestCase(TestCase):
         directory = getDirectory()
 
         yield self.runCommand(command_createResource)
+        directory.flushCaches()
         record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
         self.assertEquals(record.fullName, "Laptop 1")
 

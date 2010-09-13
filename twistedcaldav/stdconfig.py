@@ -42,7 +42,6 @@ DEFAULT_CARDDAV_CONFIG_FILE = "/etc/carddavd/carddavd.plist"
 DEFAULT_SERVICE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "accounts.xml",
-        "cacheTimeout": 30,
         "recordTypes": ("users", "groups"),
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
@@ -57,7 +56,6 @@ DEFAULT_SERVICE_PARAMS = {
 DEFAULT_RESOURCE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "resources.xml",
-        "cacheTimeout": 1,
         "recordTypes" : ("locations", "resources"),
     },
 }

@@ -130,6 +130,19 @@ def getRootResource(config, resources=None):
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
 
     #
+    # Setup the Augment Service
+    #
+    augmentClass = namedClass(config.AugmentService.type)
+
+    log.info("Configuring augment service of type: %s" % (augmentClass,))
+
+    try:
+        augment.AugmentService = augmentClass(**config.AugmentService.params)
+    except IOError:
+        log.error("Could not start augment service")
+        raise
+
+    #
     # Setup the Directory
     #
     directories = []
@@ -210,19 +223,6 @@ def getRootResource(config, resources=None):
         directory.setRealm(realmName)
     except ImportError:
         pass
-
-    #
-    # Setup the Augment Service
-    #
-    augmentClass = namedClass(config.AugmentService.type)
-
-    log.info("Configuring augment service of type: %s" % (augmentClass,))
-
-    try:
-        augment.AugmentService = augmentClass(**config.AugmentService.params)
-    except IOError:
-        log.error("Could not start augment service")
-        raise
 
     #
     # Setup the ProxyDB Service
