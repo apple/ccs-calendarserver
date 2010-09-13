@@ -51,8 +51,8 @@ else:
 
         def setUp(self):
             super(OpenDirectory, self).setUp()
-            self._service = OpenDirectoryService({'node' : "/Search"}, dosetup=False)
             augment.AugmentService = augment.AugmentXMLDB(xmlFiles=())
+            self._service = OpenDirectoryService({'node' : "/Search"}, dosetup=False)
 
         def tearDown(self):
             for call in self._service._delayedCalls:
@@ -439,5 +439,5 @@ else:
 
         def setUp(self):
             super(OpenDirectorySubset, self).setUp()
-            self._service = OpenDirectoryService({'node' : "/Search", 'recordTypes' : (DirectoryService.recordType_users, DirectoryService.recordType_groups)}, dosetup=False)
             augment.AugmentService = augment.AugmentXMLDB(xmlFiles=())
+            self._service = OpenDirectoryService({'node' : "/Search", 'recordTypes' : (DirectoryService.recordType_users, DirectoryService.recordType_groups)}, dosetup=False)
