@@ -150,14 +150,16 @@ def parseLine(line):
 
 def usage():
     print "request_monitor [OPTIONS] [FILENAME]"
-    print ""
+    print
     print "FILENAME   optional path of access log to monitor [/var/log/caldavd/access.log]"
-    print ""
+    print
     print "OPTIONS"
     print "-h         print help and exit"
     print "--debug    print tracebacks and error details"
     print "--lines N  specifies how many lines to tail from access.log (default: 10000)"
     print "--procs N  specifies how many python processes are expected in the log file (default: 80)"
+    print
+    print "Version: 2"
 
 numLines = 10000
 numProcs = 80
