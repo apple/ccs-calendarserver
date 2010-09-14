@@ -646,13 +646,6 @@ class ReadWriteAccess (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "read-write"
 
-class ReadWriteScheduleAccess (davxml.WebDAVEmptyElement):
-    """
-    Denotes read and write and schedule access on a shared calendar.
-    """
-    namespace = calendarserver_namespace
-    name = "read-write-schedule"
-
 class UID (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "uid"

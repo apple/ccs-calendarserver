@@ -760,7 +760,6 @@ class SharedCollectionMixin(object):
 inviteAccessMapToXML = {
     "read-only"           : customxml.ReadAccess,
     "read-write"          : customxml.ReadWriteAccess,
-    "read-write-schedule" : customxml.ReadWriteScheduleAccess,
 }
 inviteAccessMapFromXML = dict([(v,k) for k,v in inviteAccessMapToXML.iteritems()])
 
