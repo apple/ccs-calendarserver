@@ -7,6 +7,7 @@ from twisted.web.http_headers import Headers
 from stats import Duration
 from httpclient import StringProducer, readBody
 
+
 class CalDAVAccount(object):
     def __init__(self, agent, netloc, user, password, root, principal):
         self.agent = agent
@@ -27,9 +28,9 @@ class CalDAVAccount(object):
 
     def writeData(self, url, data, contentType):
         return self.agent.request(
-            'PUT', 
-            'http://%s%s' % (self.netloc, url), 
-            Headers({'content-type': [contentType]}), 
+            'PUT',
+            'http://%s%s' % (self.netloc, url),
+            Headers({'content-type': [contentType]}),
             StringProducer(data))
 
 

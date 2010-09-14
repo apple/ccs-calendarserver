@@ -4,6 +4,7 @@ Benchmark a server's handling of event summary changes.
 """
 
 from itertools import count
+
 from urllib2 import HTTPDigestAuthHandler
 
 from twisted.internet import reactor
@@ -18,7 +19,8 @@ from benchlib import initialize, sample
 from event import makeEvent
 
 @inlineCallbacks
-def measure(host, port, dtrace, attendeeCount, samples, fieldName, replacer):
+def measure(host, port, dtrace, attendeeCount, samples, fieldName,
+            replacer, eventPerSample=False):
     user = password = "user01"
     root = "/"
     principal = "/"
@@ -35,18 +37,60 @@ def measure(host, port, dtrace, attendeeCount, samples, fieldName, replacer):
     # Set up the calendar first
     yield initialize(agent, host, port, user, password, root, principal, calendar)
 
-    event = makeEvent(0, attendeeCount)
-    url = 'http://%s:%s/calendars/__uids__/%s/%s/%s-change.ics' % (
+    if eventPerSample:
+        # Create an event for each sample that will be taken, so that no event
+        # is used for two different samples.
+        f = _selfish_sample
+    else:
+        # Just create one event and re-use it for all samples.
+        f = _generous_sample
+
+    data = yield f(
+        dtrace, replacer, agent, host, port, user, calendar, fieldName,
+        attendeeCount, samples)
+    returnValue(data)
+
+
+
+@inlineCallbacks
+def _selfish_sample(dtrace, replacer, agent, host, port, user, calendar, fieldName, attendeeCount, samples):
+    url = 'http://%s:%s/calendars/__uids__/%s/%s/%s-change-%%d.ics' % (
         host, port, user, calendar, fieldName)
+
     headers = Headers({"content-type": ["text/calendar"]})
 
-    # Create an event to mess around with.
-    yield agent.request('PUT', url, headers, StringProducer(event))
+    events = [
+        (makeEvent(i, attendeeCount), url % (i,))
+        for i in range(samples)]
 
-    # Change the summary to a bunch of different things
+    for (event, url) in events:
+        yield agent.request('PUT', url, headers, StringProducer(event))
+
+
+    # Sample changing the event according to the replacer.
     samples = yield sample(
         dtrace, samples,
         agent, (('PUT', url, headers, StringProducer(replacer(event, i)))
-                for i
-                in count()).next)
+                for i, (event, url)
+                in enumerate(events)).next)
+    returnValue(samples)
+
+
+
+@inlineCallbacks
+def _generous_sample(dtrace, replacer, agent, host, port, user, calendar, fieldName, attendeeCount, samples):
+    url = 'http://%s:%s/calendars/__uids__/%s/%s/%s-change.ics' % (
+        host, port, user, calendar, fieldName)
+
+    headers = Headers({"content-type": ["text/calendar"]})
+
+    event = makeEvent(0, attendeeCount)
+
+    yield agent.request('PUT', url, headers, StringProducer(event))
+
+    # Sample changing the event according to the replacer.
+    samples = yield sample(
+        dtrace, samples,
+        agent, (('PUT', url, headers, StringProducer(replacer(event)))
+                for i in count(1)).next)
     returnValue(samples)

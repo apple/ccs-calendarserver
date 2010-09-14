@@ -279,7 +279,7 @@ def benchmark(host, port, directory, label, benchmarks):
 def logsCoerce(directory):
     path = FilePath(directory)
     if not path.isdir():
-        raise ValueError("%r is not a directory")
+        raise ValueError("%r is not a directory" % (path.path,))
     return path
 
 

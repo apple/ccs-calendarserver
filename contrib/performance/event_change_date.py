@@ -1,5 +1,10 @@
 
-import re, datetime
+"""
+Benchmark a change in the date boundaries of an event.
+"""
+
+
+import datetime
 
 import _event_change
 
