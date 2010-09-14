@@ -28,6 +28,7 @@ sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 
 filename = "/var/log/caldavd/access.log"
+debug = False
 
 def listenq():
     child = Popen(
@@ -87,6 +88,28 @@ def cpuidle():
     output, _ignore_ = child.communicate()
     return output.split("\n")[-2].split()[2]
 
+def freemem():
+    try:
+        child = Popen(
+            args=[
+                "/usr/bin/vm_stat",
+            ],
+            stdout=PIPE, stderr=STDOUT,
+        )
+        output, _ignore_ = child.communicate()
+        lines = output.split("\n")
+        
+        line = lines[0]
+        pageSize = int(line[line.find("page size of")+12:].split()[0])
+        line = lines[1]
+        freeSize = int(line[line.find("Pages free:")+11:].split()[0][:-1])
+        freed = freeSize * pageSize
+        return "%d bytes (%.1f GB)" % (freed, freed / (1024.0 * 1024 * 1024),)
+    except Exception, e:
+        if debug:
+            print "freemem failure", e
+            print traceback.print_exc()
+        return "error"
 
 def parseLine(line):
 
@@ -159,11 +182,10 @@ def usage():
     print "--lines N  specifies how many lines to tail from access.log (default: 10000)"
     print "--procs N  specifies how many python processes are expected in the log file (default: 80)"
     print
-    print "Version: 2"
+    print "Version: 3"
 
 numLines = 10000
 numProcs = 80
-debug = False
 options, args = getopt.getopt(sys.argv[1:], "h", ["debug", "lines=", "procs=",])
 for option, value in options:
     if option == "-h":
@@ -343,6 +365,7 @@ while True:
         print "Listenq (ssl+non):", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
         q = idleHistory()
         print "CPU idle %:", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
+        print "Memory free:", freemem()
 
         if avg:
             print avg, "|",
