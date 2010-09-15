@@ -67,7 +67,7 @@ while getopts "nhoucr:" option; do
 done;
 shift $((${OPTIND} - 1));
 
-export PYTHONPATH="${wd}:${PYTHONPATH}";
+export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 
 dependencies;
 trial="$(type -p trial)";
