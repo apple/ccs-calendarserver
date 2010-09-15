@@ -23,7 +23,10 @@ from twistedcaldav.vcard import Component as VCard
 from twistedcaldav.vcard import InvalidVCardDataError
 
 from txdav.common.icommondatastore import InvalidObjectResourceError, \
-    NoSuchObjectResourceError
+    NoSuchObjectResourceError, InternalDataStoreError
+
+from twext.python.log import Logger
+log = Logger()
 
 def validateAddressBookComponent(addressbookObject, vcard, component, inserting):
     """
@@ -70,15 +73,24 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
     """
     outAddressbook.properties().update(inAddressbook.properties())
     for addressbookObject in inAddressbook.addressbookObjects():
-        outAddressbook.createAddressBookObjectWithName(
-            addressbookObject.name(),
-            addressbookObject.component()) # XXX WRONG SHOULD CALL getComponent
+        
+        try:
+            outAddressbook.createAddressBookObjectWithName(
+                addressbookObject.name(),
+                addressbookObject.component()) # XXX WRONG SHOULD CALL getComponent
+    
+            # Only the owner's properties are migrated, since previous releases of
+            # addressbook server didn't have per-user properties.
+            outAddressbook.addressbookObjectWithName(
+                addressbookObject.name()).properties().update(
+                    addressbookObject.properties())
 
-        # Only the owner's properties are migrated, since previous releases of
-        # addressbook server didn't have per-user properties.
-        outAddressbook.addressbookObjectWithName(
-            addressbookObject.name()).properties().update(
-                addressbookObject.properties())
+        except InternalDataStoreError:
+            log.error("  Failed to migrate adress book object: %s/%s/%s" % (
+                inAddressbook.ownerHome().name(),
+                inAddressbook.name(),
+                addressbookObject.name(),
+            ))
 
 
 def migrateHome(inHome, outHome, getComponent=lambda x:x.component()):
@@ -88,6 +100,9 @@ def migrateHome(inHome, outHome, getComponent=lambda x:x.component()):
         name = addressbook.name()
         outHome.createAddressBookWithName(name)
         outAddressbook = outHome.addressbookWithName(name)
-        _migrateAddressbook(addressbook, outAddressbook, getComponent)
+        try:
+            _migrateAddressbook(addressbook, outAddressbook, getComponent)
+        except InternalDataStoreError:
+            log.error("  Failed to migrate address book: %s/%s" % (inHome.name(), name,))
 
 

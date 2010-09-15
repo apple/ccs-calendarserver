@@ -25,8 +25,10 @@ from twext.python.vcomponent import InvalidICalendarDataError
 from twext.python.vcomponent import VComponent
 
 from txdav.common.icommondatastore import InvalidObjectResourceError, \
-    NoSuchObjectResourceError
+    NoSuchObjectResourceError, InternalDataStoreError
 
+from twext.python.log import Logger
+log = Logger()
 
 def validateCalendarComponent(calendarObject, calendar, component, inserting):
     """
@@ -118,24 +120,33 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
     """
     outCalendar.properties().update(inCalendar.properties())
     for calendarObject in inCalendar.calendarObjects():
-        outCalendar.createCalendarObjectWithName(
-            calendarObject.name(),
-            calendarObject.component()) # XXX WRONG SHOULD CALL getComponent
+        
+        try:
+            outCalendar.createCalendarObjectWithName(
+                calendarObject.name(),
+                calendarObject.component()) # XXX WRONG SHOULD CALL getComponent
+    
+            # Only the owner's properties are migrated, since previous releases of
+            # calendar server didn't have per-user properties.
+            outObject = outCalendar.calendarObjectWithName(
+                calendarObject.name())
+            outObject.properties().update(calendarObject.properties())
+    
+            # Migrate attachments.
+            for attachment in calendarObject.attachments():
+                name = attachment.name()
+                ctype = attachment.contentType()
+                transport = outObject.createAttachmentWithName(name, ctype)
+                proto =_AttachmentMigrationProto(transport)
+                attachment.retrieve(proto)
+                yield proto.done
 
-        # Only the owner's properties are migrated, since previous releases of
-        # calendar server didn't have per-user properties.
-        outObject = outCalendar.calendarObjectWithName(
-            calendarObject.name())
-        outObject.properties().update(calendarObject.properties())
-
-        # Migrate attachments.
-        for attachment in calendarObject.attachments():
-            name = attachment.name()
-            ctype = attachment.contentType()
-            transport = outObject.createAttachmentWithName(name, ctype)
-            proto =_AttachmentMigrationProto(transport)
-            attachment.retrieve(proto)
-            yield proto.done
+        except InternalDataStoreError:
+            log.error("  Failed to migrate calendar object: %s/%s/%s" % (
+                inCalendar.ownerHome().name(),
+                inCalendar.name(),
+                calendarObject.name(),
+            ))
 
 
 
@@ -180,7 +191,11 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
         name = calendar.name()
         outHome.createCalendarWithName(name)
         outCalendar = outHome.calendarWithName(name)
-        yield _migrateCalendar(calendar, outCalendar, getComponent)
+        try:
+            yield _migrateCalendar(calendar, outCalendar, getComponent)
+        except InternalDataStoreError:
+            log.error("  Failed to migrate calendar: %s/%s" % (inHome.name(), name,))
+
     # No migration for notifications, since they weren't present in earlier
     # released versions of CalendarServer.
 
