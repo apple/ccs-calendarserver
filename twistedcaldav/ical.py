@@ -1805,6 +1805,35 @@ class Component (object):
 
         return None
 
+    def getAllPropertiesInAnyComponent(self, properties, depth=2):
+        """
+        Get the all of any set of properties in any component down to a
+        specified depth.
+        
+        @param properties: property name(s) to test for
+        @type properties: C{list}, C{tuple} or C{str}
+        @param depth: how deep to go in looking at sub-components:
+            0: do not go into sub-components, 1: go into one level of sub-components, 
+            2: two levels (which is effectively all the levels supported in iCalendar)
+        @type depth: int
+        """
+
+        results = []
+
+        if isinstance(properties, str):
+            properties = (properties,)
+            
+        for property in properties:
+            props = tuple(self.properties(property))
+            if props:
+                results.extend(props)
+
+        if depth > 0:
+            for component in self.subcomponents():
+                results.extend(component.getAllPropertiesInAnyComponent(properties, depth - 1))
+
+        return results
+
     def hasPropertyValueInAllComponents(self, property):
         """
         Test for the existence of a property with a specific value in any sub-component.

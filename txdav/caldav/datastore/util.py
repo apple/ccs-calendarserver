@@ -74,22 +74,32 @@ def dropboxIDFromCalendarObject(calendarObject):
     @param calendarObject: The calendar object to retrieve a dropbox ID for.
     @type calendarObject: L{ICalendarObject}
     """
+
+    # Try "X-APPLE-DROPBOX" first
     dropboxProperty = calendarObject.component(
         ).getFirstPropertyInAnyComponent("X-APPLE-DROPBOX")
     if dropboxProperty is not None:
         componentDropboxID = dropboxProperty.value().split("/")[-1]
         return componentDropboxID
-    attachProperty = calendarObject.component().getFirstPropertyInAnyComponent(
-        "ATTACH"
+
+    # Now look at each ATTACH property and see if it might be a dropbox item
+    # and if so extract the id from that
+
+    attachments = calendarObject.component().getAllPropertiesInAnyComponent(
+        "ATTACH",
+        depth=1,
     )
-    if attachProperty is not None:
-        # Make sure the value type is URI
-        valueType = attachProperty.params().get("VALUE", ("TEXT",))
-        if valueType[0] == "URI":
-            # FIXME: more aggressive checking to see if this URI is really the
-            # 'right' URI.  Maybe needs to happen in the front end.
-            attachPath = attachProperty.value().split("/")[-2]
-            return attachPath
+    for attachment in attachments:
+
+        # Make sure the value type is URI and http(s) and it is in a dropbox
+        valueType = attachment.params().get("VALUE", ("TEXT",))
+        if valueType[0] == "URI" and attachment.value().startswith("http"):
+            segments = attachment.value().split("/")
+            try:
+                if segments[-3] == "dropbox":
+                    return segments[-2]
+            except IndexError:
+                pass
 
     return calendarObject.uid() + ".dropbox"
 
