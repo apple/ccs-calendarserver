@@ -29,9 +29,10 @@ from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedAny
 from twisted.python import log
 
-from twisted.internet.protocol import ServerFactory
-from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.interfaces import IProcessTransport, IReactorProcess
+from twisted.internet.protocol import ServerFactory
+from twisted.internet.defer import Deferred
+from twisted.internet.task import Clock
 
 from twisted.application.service import IService
 from twisted.application import internet
@@ -40,7 +41,7 @@ from twext.web2.dav import auth
 from twext.web2.log import LogWrapperResource
 from twext.python.filepath import CachingFilePath as FilePath
 
-from twext.python.plistlib import writePlist
+from twext.python.plistlib import writePlist #@UnresolvedImport
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
 from twistedcaldav.config import config, ConfigDict
@@ -58,6 +59,7 @@ from calendarserver.tap.caldav import (
     DelayedStartupProcessMonitor, DelayedStartupLineLogger, TwistdSlaveProcess
 )
 from calendarserver.provision.root import RootResource
+from StringIO import StringIO
 
 
 # Points to top of source tree.
@@ -86,9 +88,9 @@ class NotAProcessTransport(object):
         self.childFDs = childFDs
 
 
-class InMemoryProcessSpawner(object):
+class InMemoryProcessSpawner(Clock):
     """
-    Stub out L{IReactorProcess.spawnProcess} so that we can examine the
+    Stub out L{IReactorProcess} and L{IReactorClock} so that we can examine the
     interaction of L{DelayedStartupProcessMonitor} and the reactor.
     """
     implements(IReactorProcess)
@@ -97,17 +99,24 @@ class InMemoryProcessSpawner(object):
         """
         Create some storage to hold on to all the fake processes spawned.
         """
+        super(InMemoryProcessSpawner, self).__init__()
         self.processTransports = []
         self.waiting = []
 
-    def waitForOneProcess(self):
+
+    def waitForOneProcess(self, amount=10.0):
         """
-        Return a L{Deferred} which will fire when spawnProcess has been
-        invoked, with the L{IProcessTransport}.
+        Wait for an L{IProcessTransport} to be created by advancing the clock.
+        If none are created in the specified amount of time, raise an
+        AssertionError.
         """
-        d = Deferred()
-        self.waiting.append(d)
-        return d
+        self.advance(amount)
+        if self.processTransports:
+            return self.processTransports.pop(0)
+        else:
+            print 'wth', self.calls
+            raise AssertionError("There were no process transports available.")
+
 
     def spawnProcess(self, processProtocol, executable, args=(), env={},
                      path=None, uid=None, gid=None, usePTY=0,
@@ -117,11 +126,12 @@ class InMemoryProcessSpawner(object):
             processProtocol, executable, args, env, path, uid, gid, usePTY,
             childFDs
         )
+        transport.startedAt = self.seconds()
         self.processTransports.append(transport)
         if self.waiting:
             self.waiting.pop(0).callback(transport)
         return transport
-        
+
 
 
 class TestCalDAVOptions (CalDAVOptions):
@@ -134,6 +144,21 @@ class TestCalDAVOptions (CalDAVOptions):
 
     def checkFile(self, *args, **kwargs):
         pass
+
+
+    def loadConfiguration(self):
+        """
+        Simple wrapper to avoid printing during test runs.
+        """
+        oldout = sys.stdout
+        newout = sys.stdout = StringIO()
+        try:
+            return CalDAVOptions.loadConfiguration(self)
+        finally:
+            sys.stdout = oldout
+            log.msg(
+                "load configuration console output: %s" % newout.getvalue()
+            )
 
 
 class CalDAVOptionsTest (TestCase):
@@ -901,6 +926,17 @@ class DelayedStartupProcessMonitorTests(TestCase):
     Test cases for L{DelayedStartupProcessMonitor}.
     """
 
+    def useFakeReactor(self, fakeReactor):
+        """
+        Earlier versions of Twisted used a global reactor in
+        L{twisted.runner.procmon}, so we need to take that into account when
+        testing.
+        """
+        if not DelayedStartupProcessMonitor._shouldPassReactor:
+            import twisted.runner.procmon as inherited
+            self.patch(inherited, "reactor", fakeReactor)
+
+
     def test_lineAfterLongLine(self):
         """
         A "long" line of output from a monitored process (longer than
@@ -949,14 +985,14 @@ class DelayedStartupProcessMonitorTests(TestCase):
         return d
 
 
-    @inlineCallbacks
     def test_acceptDescriptorInheritance(self):
         """
         If a L{TwistdSlaveProcess} specifies some file descriptors to be
         inherited, they should be inherited by the subprocess.
         """
-        dspm         = DelayedStartupProcessMonitor()
-        dspm.reactor = InMemoryProcessSpawner()
+        dspm                = DelayedStartupProcessMonitor()
+        imps = dspm.reactor = InMemoryProcessSpawner()
+        self.useFakeReactor(imps)
 
         # Most arguments here will be ignored, so these are bogus values.
         slave = TwistdSlaveProcess(
@@ -971,16 +1007,16 @@ class DelayedStartupProcessMonitorTests(TestCase):
 
         dspm.addProcessObject(slave, {})
         dspm.startService()
-        self.addCleanup(dspm.consistency.cancel)
         # We can easily stub out spawnProcess, because caldav calls it, but a
         # bunch of callLater calls are buried in procmon itself, so we need to
         # use the real clock.
-        oneProcessTransport = yield dspm.reactor.waitForOneProcess()
+        oneProcessTransport = imps.waitForOneProcess()
         self.assertEquals(oneProcessTransport.childFDs,
                           {0: 'w', 1: 'r', 2: 'r',
                            3: 3, 7: 7,
                            19: 19, 25: 25})
-    @inlineCallbacks
+
+
     def test_metaDescriptorInheritance(self):
         """
         If a L{TwistdSlaveProcess} specifies a meta-file-descriptor to be
@@ -988,20 +1024,9 @@ class DelayedStartupProcessMonitorTests(TestCase):
         configuration argument should be passed that indicates to the
         subprocess.
         """
-        dspm         = DelayedStartupProcessMonitor()
-        dspm.reactor = InMemoryProcessSpawner()
-        class FakeFD:
-            def __init__(self, n):
-                self.fd = n
-            def fileno(self):
-                return self.fd
-
-        class FakeDispatcher:
-            n = 3
-            def addSocket(self):
-                self.n += 1
-                return FakeFD(self.n)
-
+        dspm                = DelayedStartupProcessMonitor()
+        imps = dspm.reactor = InMemoryProcessSpawner()
+        self.useFakeReactor(imps)
         # Most arguments here will be ignored, so these are bogus values.
         slave = TwistdSlaveProcess(
             twistd     = "bleh",
@@ -1014,8 +1039,7 @@ class DelayedStartupProcessMonitorTests(TestCase):
 
         dspm.addProcessObject(slave, {})
         dspm.startService()
-        self.addCleanup(dspm.consistency.cancel)
-        oneProcessTransport = yield dspm.reactor.waitForOneProcess()
+        oneProcessTransport = imps.waitForOneProcess()
         self.assertIn("MetaFD=4", oneProcessTransport.args)
         self.assertEquals(
             oneProcessTransport.args[oneProcessTransport.args.index("MetaFD=4")-1],
@@ -1025,6 +1049,57 @@ class DelayedStartupProcessMonitorTests(TestCase):
         self.assertEquals(oneProcessTransport.childFDs,
                           {0: 'w', 1: 'r', 2: 'r',
                            4: 4})
+
+
+    def test_startServiceDelay(self):
+        """
+        Starting a L{DelayedStartupProcessMonitor} should result in the process
+        objects that have been added to it being started once per
+        delayInterval.
+        """
+        dspm                = DelayedStartupProcessMonitor()
+        dspm.delayInterval = 3.0
+        imps = dspm.reactor = InMemoryProcessSpawner()
+        self.useFakeReactor(imps)
+        sampleCounter = range(0, 5)
+        for counter in sampleCounter:
+            slave = TwistdSlaveProcess(
+                twistd     = "bleh",
+                tapname    = "caldav",
+                configFile = "/does/not/exist",
+                id         = counter * 10,
+                interfaces = '127.0.0.1',
+                metaSocket = FakeDispatcher().addSocket()
+            )
+            dspm.addProcessObject(slave, {"SAMPLE_ENV_COUNTER": str(counter)})
+        dspm.startService()
+
+        # Advance the clock a bunch of times, allowing us to time things with a
+        # comprehensible resolution.
+        imps.pump([0] + [dspm.delayInterval / 2.0] * len(sampleCounter) * 3)
+        expectedValues = [dspm.delayInterval * n for n in sampleCounter]
+        self.assertEquals([x.startedAt for x in imps.processTransports],
+                          expectedValues)
+
+
+
+class FakeFD(object):
+
+    def __init__(self, n):
+        self.fd = n
+
+    
+    def fileno(self):
+        return self.fd
+
+
+
+class FakeDispatcher(object):
+    n = 3
+
+    def addSocket(self):
+        self.n += 1
+        return FakeFD(self.n)
 
 
 

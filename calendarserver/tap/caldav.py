@@ -30,6 +30,8 @@ from time import time
 from subprocess import Popen, PIPE
 from pwd import getpwuid, getpwnam
 from grp import getgrnam
+from inspect import getargspec
+
 from OpenSSL.SSL import Error as SSLError
 import OpenSSL
 
@@ -40,13 +42,13 @@ from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
-from twisted.internet.defer import Deferred, gatherResults, succeed
+from twisted.internet.defer import gatherResults
 from twisted.internet import error, reactor
-from twisted.internet.reactor import callLater, addSystemEventTrigger
+from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.application.internet import TCPServer, UNIXServer
-from twisted.application.service import Service, MultiService, IServiceMaker
+from twisted.application.service import MultiService, IServiceMaker
 from twisted.scripts.mktap import getid
 from twisted.runner import procmon
 from twext.web2.server import Site
@@ -1151,6 +1153,8 @@ class ControlPortTCPServer(TCPServer):
         # Record the port we were actually assigned
         config.ControlPort = self._port.getHost().port
 
+
+
 class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
     """
     A L{DelayedStartupProcessMonitor} is a L{procmon.ProcessMonitor} that
@@ -1158,6 +1162,10 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
     start.  It also specializes process-starting to allow for process objects
     to determine their arguments as they are started up rather than entirely
     ahead of time.
+
+    Also, unlike L{procmon.ProcessMonitor}, its C{stopService} returns a
+    L{Deferred} which fires only when all processes have shut down, to allow
+    for a clean service shutdown.
 
     @ivar processObjects: a C{list} of L{TwistdSlaveProcess} to add using
         C{self.addProcess} when this service starts up.
@@ -1170,14 +1178,35 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
 
     @ivar reactor: an L{IReactorProcess} for spawning processes, defaulting to
         the global reactor.
+
+    @ivar delayInterval: the amount of time to wait between starting subsequent
+        processes.
+
+    @ivar stopping: a flag used to determine whether it is time to fire the
+        Deferreds that track service shutdown.
     """
 
+    _shouldPassReactor = (
+        len(getargspec(procmon.ProcessMonitor.__init__)[0]) > 1
+    )
+
     def __init__(self, *args, **kwargs):
+        reactorToUse = kwargs.get("reactor", reactor)
+        if not self._shouldPassReactor:
+            # Try to do this the right way if we can, otherwise, let the tests
+            # monkeypatch.  (Our superclass does not accept a 'reactor'
+            # argument in Twisted 10.0.0, but does in Twisted 10.1.0 and
+            # later.)
+            kwargs.pop('reactor', None)
         procmon.ProcessMonitor.__init__(self, *args, **kwargs)
         self.processObjects = []
         self._extraFDs = {}
-        self.reactor = reactor
+        self.reactor = reactorToUse
         self.stopping = False
+        if config.MultiProcess.StaggeredStartup.Enabled:
+            self.delayInterval = config.MultiProcess.StaggeredStartup.Interval
+        else:
+            self.delayInterval = 0
 
 
     def addProcessObject(self, process, env):
@@ -1193,65 +1222,32 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
 
 
     def startService(self):
-        Service.startService(self)
-
         # Now we're ready to build the command lines and actualy add the
-        # processes to procmon.  This step must be done prior to setting
-        # active to 1
+        # processes to procmon.
         for processObject, env in self.processObjects:
             name = processObject.getName()
-            self.addProcess(
-                name,
-                processObject.getCommandLine(),
-                env=env
-            )
-            self._extraFDs[name] = processObject.getFileDescriptors()
+            cmdline = processObject.getCommandLine()
+            filedes = processObject.getFileDescriptors()
+            self._extraFDs[name] = filedes
+            self.addProcess(name, cmdline, env=env)
+        procmon.ProcessMonitor.startService(self)
 
-        self.active = 1
-        delay = 0
-
-        if config.MultiProcess.StaggeredStartup.Enabled:
-            delay_interval = config.MultiProcess.StaggeredStartup.Interval
-        else:
-            delay_interval = 0
-
-        for name in self.processes.keys():
-            if name.startswith("caldav"):
-                when = delay
-                delay += delay_interval
-            else:
-                when = 0
-            callLater(when, self.startProcess, name)
-
-        self.consistency = callLater(
-            self.consistencyDelay,
-            self._checkConsistency
-        )
 
     def stopService(self):
         """
-        Return a deferred that fires when all child processes have ended
+        Return a deferred that fires when all child processes have ended.
         """
-
-        Service.stopService(self)
-
         self.stopping = True
-        self.active = 0
-        self.consistency.cancel()
-
-        self.deferreds = { }
-        for name in self.processes.keys():
-            self.deferreds[name] = Deferred()
-            self.stopProcess(name)
-
+        self.deferreds = {}
+        procmon.ProcessMonitor.stopService(self)
         return gatherResults(self.deferreds.values())
+
 
     def processEnded(self, name):
         """
         When a child process has ended it calls me so I can fire the
         appropriate deferred which was created in stopService
         """
-
         if self.stopping:
             deferred = self.deferreds.get(name, None)
             if deferred is not None:
@@ -1272,14 +1268,15 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
             if startswithname is None or name.startswith(startswithname):
                 self.signalProcess(signal, name)
 
+
     def signalProcess(self, signal, name):
         """
-        Send a signal to each monitored process
+        Send a signal to a single monitored process, by name, if that process
+        is running; otherwise, do nothing.
 
         @param signal: the signal to send
         @type signal: C{int}
-        @param startswithname: is set only signal those processes
-            whose name starts with this string
+        @param name: the name of the process to signal.
         @type signal: C{str}
         """
         if not self.protocols.has_key(name):
@@ -1290,7 +1287,13 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         except ProcessExitedAlready:
             pass
 
-    def startProcess(self, name):
+
+    def reallyStartProcess(self, name):
+        """
+        Actually start a process.  (Re-implemented here rather than just using
+        the inherited implementation of startService because ProcessMonitor
+        doesn't allow customization of subprocess environment).
+        """
         if self.protocols.has_key(name):
             return
         p = self.protocols[name] = DelayedStartupLoggingProtocol()
@@ -1308,40 +1311,22 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
             childFDs=childFDs
         )
 
-    def _forceStopProcess(self, proc, name):
-        """
-        After self.killTime seconds has passed, this method sends a KILL
-        to the process.  Clean up the now-called murder deferred.
-        """
-        try:
-            # This deferred has fired so remove it to keep from trying to
-            # cancel it later
-            del self.murder[name]
-        except KeyError:
-            pass
-        try:
-            proc.signalProcess('KILL')
-        except error.ProcessExitedAlready:
-            pass
 
+    _pendingStarts = 0
 
-    def stopProcess(self, name):
+    def startProcess(self, name):
         """
-        Stop the process gently at first (TERM), but schedule a KILL for
-        self.killTime seconds later.
+        Start process named 'name'.  If another process has started recently,
+        wait until some time has passed before actually starting this process.
+
+        @param name: the name of the process to start.
         """
-
-        if not self.protocols.has_key(name):
-            return
-        proc = self.protocols[name].transport
-        del self.protocols[name]
-        try:
-            proc.signalProcess('TERM')
-        except error.ProcessExitedAlready:
-            pass
-        else:
-            self.murder[name] = reactor.callLater(self.killTime, self._forceStopProcess, proc, name)
-
+        interval = (self.delayInterval * self._pendingStarts)
+        self._pendingStarts += 1
+        def delayedStart():
+            self._pendingStarts -= 1
+            self.reallyStartProcess(name)
+        self.reactor.callLater(interval, delayedStart)
 
 
 
