@@ -67,13 +67,10 @@ while getopts "nhoucr:" option; do
 done;
 shift $((${OPTIND} - 1));
 
-export PYTHONPATH="${wd}";
+export PYTHONPATH="${wd}:${PYTHONPATH}";
+
 dependencies;
-if [ -d "${wd}/../Twisted" ]; then
-  trial="${wd}/../Twisted/bin/trial";
-else
-  trial="$(type -p trial)";
-fi;
+trial="$(type -p trial)";
 
 if [ $# -gt 0 ]; then
     test_modules="$@";

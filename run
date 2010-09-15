@@ -181,15 +181,6 @@ run_main () {
     fi;
   fi;
 
-  # Prepare to set up PYTHONPATH et. al.
-  if [ -z "${PYTHONPATH:-}" ]; then
-    user_python_path="";
-  else
-    user_python_path=":${PYTHONPATH}";
-  fi;
-
-  export PYTHONPATH="${caldav}";
-
   # About to do something for real; let's enumerate (and depending on options,
   # possibly download and/or install) the dependencies.
   dependencies;
@@ -207,11 +198,6 @@ run_main () {
   if [ -n "${install_home:-}" ]; then
     do_home_install;
   fi;
-
-  # Finish setting up PYTHONPATH (put the user's original path at the *end* so
-  # that CalendarServer takes precedence).
-
-  export PYTHONPATH="${PYTHONPATH}${user_python_path}";
 
   # Finally, run the server.
   run;

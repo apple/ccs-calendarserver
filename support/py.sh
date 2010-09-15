@@ -87,13 +87,13 @@ py_have_module () {
 
   local module="$1"; shift;
 
-  PYTHONPATH="" "${python}" -c "import ${module}" > /dev/null 2>&1;
+  "${python}" -c "import ${module}" > /dev/null 2>&1;
   result=$?;
 
   if [ $result == 0 ] && [ -n "${version}" ]; then
     for symbol in "xxxx" "__version__" "version"; do
       if module_version="$(
-        PYTHONPATH="" "${python}" -c \
+        "${python}" -c \
         'print __import__("'"${module}"'").'"$symbol"';' \
         2>/dev/null
       )"; then
