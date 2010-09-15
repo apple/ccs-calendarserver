@@ -675,6 +675,12 @@ class CalDAVServiceMaker (LoggingMixIn):
         Create a service to be used in a single-process, stand-alone
         configuration.
         """
+        # Schedule any on disk upgrades we might need.  Note that this
+        # will only do the filesystem-format upgrades; migration to the
+        # database needs to be done when the connection and possibly
+        # server is already up and running. -glyph
+        addSystemEventTrigger("before", "startup", upgradeData, config)
+
         return self.storageService(self.makeService_Slave(options))
 
 
