@@ -408,7 +408,7 @@ py_dependency () {
       local add_pythonpath="${srcdir}/build/${py_platform_libdir}";
       local add_path="${srcdir}/build/${py_platform_scripts}";
     fi;
-    export PYTHONPATH="${add_pythonpath}:${PYTHONPATH}";
+    export PYTHONPATH="${add_pythonpath}:${PYTHONPATH:-}";
     if [ -d "${add_path}" ]; then
       export PATH="${add_path}:${PATH}";
     fi;
