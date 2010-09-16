@@ -189,6 +189,8 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
     outHome.properties().update(inHome.properties())
     for calendar in inHome.calendars():
         name = calendar.name()
+        if name == "outbox":
+            continue
         outHome.createCalendarWithName(name)
         outCalendar = outHome.calendarWithName(name)
         try:
