@@ -303,7 +303,7 @@ class CalendarObject(CommonObjectResource):
             text.endswith("\r\nEND:VCALENDAR\r\n")
         ):
             # Handle case of old wiki data written using \n instead of \r\n
-            if False and (
+            if (
                 text.startswith("BEGIN:VCALENDAR\n") and
                 text.endswith("\nEND:VCALENDAR\n")
             ):
