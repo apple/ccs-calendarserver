@@ -406,8 +406,11 @@ class CommonTests(object):
             self.notifierFactory.history,
             [
                 ("update", "CardDAV|home1"),
+                ("update", "CardDAV|home1/addressbook_1"),
                 ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1")
+                ("update", "CardDAV|home1/addressbook_2"),
+                ("update", "CardDAV|home1"),
+                ("update", "CardDAV|home1/addressbook_empty")
             ]
         )
 

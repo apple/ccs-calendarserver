@@ -464,10 +464,11 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         if name.startswith(".") or name in self._removedChildren:
             raise NoSuchHomeChildError(name)
 
+        child = self.childWithName(name)
+        if not child:
+            raise NoSuchHomeChildError()
+
         self._removedChildren.add(name)
-        childPath = self._path.child(name)
-        if name not in self._newChildren and not childPath.isdir():
-            raise NoSuchHomeChildError(name)
 
         def do(transaction=self._transaction):
             childPath = self._path.child(name)
@@ -502,7 +503,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             do, "prepare child remove %r" % (name,)
         )
 
-        self.notifyChanged()
+        child.notifyChanged()
 
     # @cached
     def properties(self):

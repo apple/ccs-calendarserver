@@ -506,8 +506,11 @@ class CommonTests(object):
             self.notifierFactory.history,
             [
                 ("update", "CalDAV|home1"),
+                ("update", "CalDAV|home1/calendar_1"),
                 ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1")
+                ("update", "CalDAV|home1/calendar_2"),
+                ("update", "CalDAV|home1"),
+                ("update", "CalDAV|home1/calendar_empty"),
             ]
         )
 

@@ -422,23 +422,20 @@ class CommonHome(LoggingMixIn):
 
 
     def removeChildWithName(self, name):
-        rows = self._txn.execSQL(
-            """select %(column_RESOURCE_ID)s from %(name)s
-               where %(column_RESOURCE_NAME)s = %%s and %(column_HOME_RESOURCE_ID)s = %%s""" % self._bindTable,
-            [name, self._resourceID]
-        )
-        if not rows:
+        
+        child = self.childWithName(name)
+        if not child:
             raise NoSuchHomeChildError()
-        resourceID = rows[0][0]
 
         self._txn.execSQL(
             "delete from %(name)s where %(column_RESOURCE_ID)s = %%s" % self._childTable,
-            [resourceID]
+            [child._resourceID]
         )
         self._children.pop(name, None)
         if self._txn._cursor.rowcount == 0:
             raise NoSuchHomeChildError()
-        self.notifyChanged()
+
+        child.notifyChanged()
 
 
     @cached
