@@ -1,7 +1,7 @@
 import pickle
 from time import time
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import DeferredSemaphore, inlineCallbacks, returnValue, gatherResults
 from twisted.web.http_headers import Headers
 
 from stats import Duration
@@ -61,19 +61,38 @@ def initialize(agent, host, port, user, password, root, principal, calendar):
 
 
 @inlineCallbacks
-def sample(dtrace, samples, agent, paramgen):
+def sample(dtrace, samples, agent, paramgen, concurrency=1):
+    sem = DeferredSemaphore(concurrency)
+
     urlopen = Duration('HTTP')
     data = {urlopen: []}
-    yield dtrace.start()
-    for i in range(samples):
+
+    def once():
         before = time()
-        response = yield agent.request(*paramgen())
-        yield readBody(response)
-        after = time()
-        stats = yield dtrace.mark()
-        for k, v in stats.iteritems():
-            data.setdefault(k, []).append(v)
-        data[urlopen].append(after - before)
+        d = agent.request(*paramgen())
+        def cbResponse(response):
+            print response.code
+            d = readBody(response)
+            def cbBody(ignored):
+                after = time()
+                d = dtrace.mark()
+                def cbStats(stats):
+                    for k, v in stats.iteritems():
+                        data.setdefault(k, []).append(v)
+                    data[urlopen].append(after - before)
+                d.addCallback(cbStats)
+                return d
+            d.addCallback(cbBody)
+            return d
+        d.addCallback(cbResponse)
+        return d
+
+    yield dtrace.start()
+    l = []
+    for i in range(samples):
+        l.append(sem.run(once))
+    yield gatherResults(l)
+
     leftOver = yield dtrace.stop()
     for (k, v) in leftOver.items():
         if v:

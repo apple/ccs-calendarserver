@@ -293,7 +293,7 @@ class BenchmarkOptions(Options):
          'Logs directory of the CalendarServer being benchmarked (if and only '
          'if the CalendarServer is on the same host as this benchmark process)',
          logsCoerce),
-        ('label', 'l', 'A descriptive string to attach to the output filename.'),
+        ('label', 'l', 'data', 'A descriptive string to attach to the output filename.'),
         ]
 
     optFlags = [
