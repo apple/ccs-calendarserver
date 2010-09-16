@@ -302,10 +302,18 @@ class CalendarObject(CommonObjectResource):
             text.startswith("BEGIN:VCALENDAR\r\n") or
             text.endswith("\r\nEND:VCALENDAR\r\n")
         ):
-            raise InternalDataStoreError(
-                "File corruption detected (improper start) in file: %s"
-                % (self._path.path,)
-            )
+            # Handle case of old wiki data written using \n instead of \r\n
+            if False and (
+                text.startswith("BEGIN:VCALENDAR\n") and
+                text.endswith("\nEND:VCALENDAR\n")
+            ):
+                text = text.replace("\n", "\r\n")
+            else:
+                # Cannot deal with this data
+                raise InternalDataStoreError(
+                    "File corruption detected (improper start) in file: %s"
+                    % (self._path.path,)
+                )
         return text
 
     iCalendarText = text
