@@ -209,7 +209,7 @@ indexfbtype_to_icalfbtype = {
 }
 
 def _pathToName(path):
-    return path.rsplit(".", 1)[0].split("-", 3)[-1]
+    return path.rsplit(".", 1)[0]
 
 class CalendarObject(CommonObjectResource):
     implements(ICalendarObject)
@@ -442,30 +442,38 @@ class CalendarObject(CommonObjectResource):
         return self.component().getOrganizer()
 
     def createAttachmentWithName(self, name, contentType):
-        path = self._attachmentPath(name)
-        attachment = Attachment(self, path)
+
+        try:
+            self._attachmentPathRoot().makedirs()
+        except:
+            pass
+
+        attachment = Attachment(self, name)
         self._txn.execSQL("""
             insert into ATTACHMENT (CALENDAR_OBJECT_RESOURCE_ID, CONTENT_TYPE,
             SIZE, MD5, PATH)
             values (%s, %s, %s, %s, %s)
             """,
             [
-                self._resourceID, generateContentType(contentType), 0, "",
-                attachment._pathValue()
+                self._resourceID,
+                generateContentType(contentType),
+                0,
+                "",
+                name,
             ]
         )
         return attachment.store(contentType)
 
     def removeAttachmentWithName(self, name):
-        attachment = Attachment(self, self._attachmentPath(name))
+        attachment = Attachment(self, name)
         self._txn.postCommit(attachment._path.remove)
         self._txn.execSQL("""
         delete from ATTACHMENT where CALENDAR_OBJECT_RESOURCE_ID = %s AND
         PATH = %s
-        """, [self._resourceID, attachment._pathValue()])
+        """, [self._resourceID, name])
 
     def attachmentWithName(self, name):
-        attachment = Attachment(self, self._attachmentPath(name))
+        attachment = Attachment(self, name)
         if attachment._populate():
             return attachment
         else:
@@ -477,26 +485,19 @@ class CalendarObject(CommonObjectResource):
     def dropboxID(self):
         return dropboxIDFromCalendarObject(self)
 
-    def _attachmentPath(self, name):
+    def _attachmentPathRoot(self):
         attachmentRoot = self._txn._store.attachmentsPath
-        try:
-            attachmentRoot.createDirectory()
-        except:
-            pass
-        return attachmentRoot.child(
-            "%s-%s-%s-%s.attachment" % (
-                self._calendar._home.uid(), self._calendar.name(),
-                self.name(), name
-            )
-        )
-
+        
+        # Use directory hashing scheme based on owner user id
+        homeName = self._calendar.ownerHome().name()
+        return attachmentRoot.child(homeName[0:2]).child(homeName[2:4]).child(homeName).child(self.uid())
+        
     def attachments(self):
         rows = self._txn.execSQL("""
         select PATH from ATTACHMENT where CALENDAR_OBJECT_RESOURCE_ID = %s 
         """, [self._resourceID])
         for row in rows:
-            demangledName = _pathToName(row[0])
-            yield self.attachmentWithName(demangledName)
+            yield self.attachmentWithName(row[0])
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -545,21 +546,20 @@ class AttachmentStorageTransport(object):
 
     def loseConnection(self):
         self.attachment._path.setContent(self.buf)
-        pathValue = self.attachment._pathValue()
         contentTypeString = generateContentType(self.contentType)
         self._txn.execSQL(
             "update ATTACHMENT set CONTENT_TYPE = %s, SIZE = %s, MD5 = %s, MODIFIED = timezone('UTC', CURRENT_TIMESTAMP) "
             "WHERE PATH = %s",
-            [contentTypeString, len(self.buf), self.hash.hexdigest(), pathValue]
+            [contentTypeString, len(self.buf), self.hash.hexdigest(), self.attachment.name()]
         )
 
 class Attachment(object):
 
     implements(IAttachment)
 
-    def __init__(self, calendarObject, path):
+    def __init__(self, calendarObject, name):
         self._calendarObject = calendarObject
-        self._path = path
+        self._name = name
 
 
     @property
@@ -576,7 +576,7 @@ class Attachment(object):
         rows = self._txn.execSQL(
             """
             select CONTENT_TYPE, SIZE, MD5, CREATED, MODIFIED from ATTACHMENT where PATH = %s
-            """, [self._pathValue()])
+            """, [self._name])
         if not rows:
             return False
         self._contentType = MimeType.fromString(rows[0][0])
@@ -588,16 +588,12 @@ class Attachment(object):
 
 
     def name(self):
-        return _pathToName(self._pathValue())
+        return self._name
 
-
-    def _pathValue(self):
-        """
-        Compute the value which should go into the 'path' column for this
-        attachment.
-        """
-        root = self._txn._store.attachmentsPath
-        return '/'.join(self._path.segmentsFrom(root))
+    @property
+    def _path(self):
+        attachmentPath = self._calendarObject._attachmentPathRoot()
+        return attachmentPath.child(self.name())
 
     def properties(self):
         pass # stub

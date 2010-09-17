@@ -103,6 +103,18 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self.addCleanup(txn.commit)
         return txn
 
+    @inlineCallbacks
+    def test_attachmentPath(self):
+        """
+        L{ICalendarObject.createAttachmentWithName} will store an
+        L{IAttachment} object that can be retrieved by
+        L{ICalendarObject.attachmentWithName}.
+        """
+        yield self.createAttachmentTest(lambda x: x)
+        attachmentRoot = self.calendarObjectUnderTest()._txn._store.attachmentsPath
+        attachmentPath = attachmentRoot.child("ho").child("me").child("home1")
+        attachmentPath = attachmentPath.child(self.calendarObjectUnderTest().uid()).child("new.attachment")
+        self.assertTrue(attachmentPath.isfile())
 
     def test_migrateCalendarFromFile(self):
         """
