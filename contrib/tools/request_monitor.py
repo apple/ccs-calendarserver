@@ -170,6 +170,9 @@ def parseLine(line):
 
     return userId, logTime, method, uri, status, bytes, referer, client, extended
 
+def safePercent(value, total):
+    
+    return value * 100.0 / total if total else 0.0
 
 def usage():
     print "request_monitor [OPTIONS] [FILENAME]"
@@ -181,18 +184,26 @@ def usage():
     print "--debug    print tracebacks and error details"
     print "--lines N  specifies how many lines to tail from access.log (default: 10000)"
     print "--procs N  specifies how many python processes are expected in the log file (default: 80)"
+    print "--router   analyze a partition server router node"
+    print "--worker   analyze a partition server worker node"
     print
-    print "Version: 3"
+    print "Version: 4"
 
 numLines = 10000
 numProcs = 80
-options, args = getopt.getopt(sys.argv[1:], "h", ["debug", "lines=", "procs=",])
+router = False
+worker = False
+options, args = getopt.getopt(sys.argv[1:], "h", ["debug", "router", "worker", "lines=", "procs=",])
 for option, value in options:
     if option == "-h":
         usage()
         sys.exit(0)
     elif option == "--debug":
         debug = True
+    elif option == "--router":
+        router = True
+    elif option == "--worker":
+        worker = True
     elif option == "--lines":
         numLines = int(value)
     elif option == "--procs":
@@ -228,6 +239,7 @@ while True:
     timesSpent = {}
     numRequests = 0
     numServerToServer = 0
+    numProxied = 0
     totalRespTime = 0.0
     maxRespTime = 0.0
     under10ms = 0
@@ -273,6 +285,8 @@ while True:
 
             if uri == "/ischedule":
                 numServerToServer += 1
+            elif uri.startswith("/calendars"):
+                numProxied += 1
 
             outstanding = int(extended['or'])
             logId = int(extended['i'])
@@ -370,8 +384,10 @@ while True:
         if avg:
             print avg, "|",
         print "%d requests between %s and %s" % (numRequests, startTime.strftime("%H:%M:%S"), endTime.strftime("%H:%M:%S")),
-        if numServerToServer:
-            print "| %d server-to-server" % (numServerToServer,),
+        if router and numProxied:
+            print "| %d (%d %%) proxied" % (numProxied, safePercent(numProxied, numRequests),),
+        if worker and numServerToServer:
+            print "| %d (%d %%) server-to-server" % (numServerToServer, safePercent(numServerToServer, numRequests),),
         print
         
         lqlatency = (lqssl / avgRequests, lqnon / avgRequests,) if avgRequests else (0.0, 0.0,)
@@ -391,7 +407,7 @@ while True:
             print
 
         print "Proc:   Peak outstanding:        Seconds of processing (number of requests):"
-        for l in xrange(numProcs/10 + 1):
+        for l in xrange((numProcs-1)/10 + 1):
             base = l * 10
             print "%2d-%2d: " % (base, base+9),
 
