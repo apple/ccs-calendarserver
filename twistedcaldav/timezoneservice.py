@@ -38,7 +38,8 @@ from twisted.internet.defer import succeed
 
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.extensions import DAVResource
+from twistedcaldav.extensions import DAVResource,\
+    DAVResourceWithoutChildrenMixin
 from twistedcaldav.ical import parse_date_or_datetime
 from twistedcaldav.ical import tzexpand
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
@@ -46,7 +47,7 @@ from twistedcaldav.timezones import TimezoneException
 from twistedcaldav.timezones import listTZs
 from twistedcaldav.timezones import readTZ
 
-class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
+class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource):
     """
     Timezone Service resource.
 

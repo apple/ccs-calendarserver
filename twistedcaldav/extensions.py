@@ -38,7 +38,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 
 import twext.web2.server
-from twext.web2 import responsecode, iweb, http
+from twext.web2 import responsecode, iweb, http, server
 from twext.web2.auth.wrapper import UnauthorizedResponse
 from twext.web2.http import HTTPError, Response, RedirectResponse
 from twext.web2.http import StatusResponse
@@ -771,6 +771,23 @@ class DAVResourceWithChildrenMixin (object):
         """
         # If getChild() finds a child resource, return it
         return (self.getChild(segments[0]), segments[1:])
+
+class DAVResourceWithoutChildrenMixin (object):
+    """
+    Bits needed from twext.web2.static
+    """
+
+    def __init__(self, principalCollections=None):
+        self.putChildren = {}
+        super(DAVResourceWithChildrenMixin, self).__init__(principalCollections=principalCollections)
+
+    def findChildren(
+        self, depth, request, callback,
+        privileges=None, inherited_aces=None
+    ):
+        return succeed(None)
+    def locateChild(self, request, segments):
+        return self, server.StopTraversal
 
 class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
                             SuperDAVPrincipalResource, LoggingMixIn,
