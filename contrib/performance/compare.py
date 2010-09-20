@@ -14,10 +14,13 @@ except ImportError:
             libc = CDLL(lib)
         except OSError:
             pass
+        else:
+            break
     gamma = libc.tgamma
     gamma.argtypes = [c_double]
     gamma.restype = c_double
     def ttest_1samp(a, popmean):
+        # T statistic - http://mathworld.wolfram.com/Studentst-Distribution.html
         t = (stats.mean(a) - popmean) / (stats.stddev(a) / len(a) ** 0.5)
         v = len(a) - 1.0
         p = gamma((v + 1) / 2) / ((v * pi) ** 0.5 * gamma(v / 2)) * (1 + t ** 2 / v) ** (-(v + 1) / 2)
