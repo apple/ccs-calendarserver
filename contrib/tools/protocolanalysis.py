@@ -98,7 +98,7 @@ class CalendarServerLogAnalyzer(object):
             self.client = client
             self.extended = extended
 
-    def __init__(self, startHour=None, endHour=None, filterByUser=None, filterByClient=None):
+    def __init__(self, startHour=None, endHour=None, resolutionMinutes=60, filterByUser=None, filterByClient=None):
 
         self.startHour = startHour
         self.endHour = endHour
@@ -114,7 +114,10 @@ class CalendarServerLogAnalyzer(object):
         self.startLog = ""
         self.endLog = ""
         
-        self.hourlyTotals = [[0, 0, 0, collections.defaultdict(int), 0.0,] for _ignore in xrange(24)]
+        self.resolutionMinutes = resolutionMinutes
+        self.timeBucketCount = (24 * 60) / resolutionMinutes
+
+        self.hourlyTotals = [[0, 0, 0, collections.defaultdict(int), 0.0,] for _ignore in xrange(self.timeBucketCount)]
         
         self.clientTotals = collections.defaultdict(lambda:[0, set()])
         self.clientByMethodCount = collections.defaultdict(lambda:collections.defaultdict(int))
@@ -122,26 +125,26 @@ class CalendarServerLogAnalyzer(object):
         self.clientByMethodAveragedTime = collections.defaultdict(lambda:collections.defaultdict(float))
         self.statusByMethodCount = collections.defaultdict(lambda:collections.defaultdict(int))
         
-        self.hourlyByMethodCount = collections.defaultdict(lambda:[0,] * 24)
-        self.hourlyByOKMethodCount = collections.defaultdict(lambda:[0,] * 24)
-        self.hourlyByMethodTime = collections.defaultdict(lambda:[0.0,] * 24)
-        self.averagedHourlyByMethodTime = collections.defaultdict(lambda:[0.0,] * 24)
-        self.hourlyPropfindByResponseCount = collections.defaultdict(lambda:[0,] * 24)
+        self.hourlyByMethodCount = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
+        self.hourlyByOKMethodCount = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
+        self.hourlyByMethodTime = collections.defaultdict(lambda:[0.0,] * self.timeBucketCount)
+        self.averagedHourlyByMethodTime = collections.defaultdict(lambda:[0.0,] * self.timeBucketCount)
+        self.hourlyPropfindByResponseCount = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
         
-        self.hourlyByStatus = collections.defaultdict(lambda:[0,] * 24)
+        self.hourlyByStatus = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
         
-        self.hourlyByRecipientCount = collections.defaultdict(lambda:[[0, 0] for _ignore in xrange(24)])
-        self.averagedHourlyByRecipientCount = collections.defaultdict(lambda:[0,] * 24)
+        self.hourlyByRecipientCount = collections.defaultdict(lambda:[[0, 0] for _ignore in xrange(self.timeBucketCount)])
+        self.averagedHourlyByRecipientCount = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
         
         self.responseTimeVsQueueDepth = collections.defaultdict(lambda:[0, 0.0,])
         self.averagedResponseTimeVsQueueDepth = collections.defaultdict(int)
         self.instanceCount = collections.defaultdict(int)
 
-        self.requestSizeByBucket = collections.defaultdict(lambda:[0,] * 24)
-        self.responseSizeByBucket = collections.defaultdict(lambda:[0,] * 24)
+        self.requestSizeByBucket = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
+        self.responseSizeByBucket = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
         self.averageResponseCountByMethod = collections.defaultdict(lambda: [0, 0])
 
-        self.requestTimeByBucket = collections.defaultdict(lambda:[0,] * 24)
+        self.requestTimeByBucket = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
         
         self.requestURI = collections.defaultdict(int)
 
@@ -161,8 +164,8 @@ class CalendarServerLogAnalyzer(object):
             f = open(fpath)
             
         lastHourFromStart = -1
-        startHourFromStart = divmod(self.startHour - (self.utcStartHour + self.localtimeOffset), 24)[1]
-        endHourFromStart = divmod(self.endHour - (self.utcStartHour + self.localtimeOffset), 24)[1]
+        self.startHourFromStart = divmod(self.startHour - (self.utcStartHour + self.localtimeOffset), self.timeBucketCount)[1]
+        self.endHourFromStart = divmod(self.endHour - (self.utcStartHour + self.localtimeOffset), self.timeBucketCount)[1]
         try:
             ctr = 0
             for line in f:
@@ -178,11 +181,12 @@ class CalendarServerLogAnalyzer(object):
         
                 # Do hour ranges
                 logHour = int(self.currentLine.logTime[0:2])
+                logMinute = int(self.currentLine.logTime[3:5])
                 if self.autoUTC:
                     self.utcStartHour = logHour
                     self.localtimeOffset = -8 if logHour == 6 else -7
-                    startHourFromStart = divmod(self.startHour - (self.utcStartHour + self.localtimeOffset), 24)[1]
-                    endHourFromStart = divmod(self.endHour - (self.utcStartHour + self.localtimeOffset), 24)[1]
+                    self.startHourFromStart = divmod(self.startHour - (self.utcStartHour + self.localtimeOffset), 24)[1]
+                    self.endHourFromStart = divmod(self.endHour - (self.utcStartHour + self.localtimeOffset), 24)[1]
                     self.autoUTC = False
                 hourFromStart = divmod(logHour - self.utcStartHour, 24)[1]
 #                if hourFromStart > 1:
@@ -190,11 +194,13 @@ class CalendarServerLogAnalyzer(object):
                 if hourFromStart > lastHourFromStart:
                     print logHour
                     lastHourFromStart = hourFromStart
-                if hourFromStart < startHourFromStart:
+                if hourFromStart < self.startHourFromStart:
                     continue
-                elif hourFromStart > endHourFromStart:
+                elif hourFromStart > self.endHourFromStart:
                     continue
                 
+                timeBucketIndex = (hourFromStart * 60 + logMinute) / self.resolutionMinutes
+
                 if not self.startLog:
                     self.startLog = self.currentLine.logDateTime
                 self.endLog = self.currentLine.logDateTime 
@@ -222,11 +228,11 @@ class CalendarServerLogAnalyzer(object):
                     rcount = int(self.currentLine.extended.get("rcount", -1))
     
                 # Main summary
-                self.hourlyTotals[hourFromStart][0] += 1
-                self.hourlyTotals[hourFromStart][1] += 1 if is503 else 0
-                self.hourlyTotals[hourFromStart][2] += queueDepth
-                self.hourlyTotals[hourFromStart][3][instance] = max(self.hourlyTotals[hourFromStart][3][instance], queueDepth)
-                self.hourlyTotals[hourFromStart][4] += responseTime
+                self.hourlyTotals[timeBucketIndex][0] += 1
+                self.hourlyTotals[timeBucketIndex][1] += 1 if is503 else 0
+                self.hourlyTotals[timeBucketIndex][2] += queueDepth
+                self.hourlyTotals[timeBucketIndex][3][instance] = max(self.hourlyTotals[timeBucketIndex][3][instance], queueDepth)
+                self.hourlyTotals[timeBucketIndex][4] += responseTime
                 
                 # Client analysis
                 if not is503:
@@ -251,37 +257,37 @@ class CalendarServerLogAnalyzer(object):
                     self.statusByMethodCount["2xx" if isOK else "%d" % (self.currentLine.status,)][adjustedMethod] += 1
         
                 # Method counts, timing and status
-                self.hourlyByMethodCount[" TOTAL"][hourFromStart] += 1
-                self.hourlyByMethodCount[adjustedMethod][hourFromStart] += 1
+                self.hourlyByMethodCount[" TOTAL"][timeBucketIndex] += 1
+                self.hourlyByMethodCount[adjustedMethod][timeBucketIndex] += 1
                 if isOK:
-                    self.hourlyByOKMethodCount[" TOTAL"][hourFromStart] += 1
-                    self.hourlyByOKMethodCount[adjustedMethod][hourFromStart] += 1
+                    self.hourlyByOKMethodCount[" TOTAL"][timeBucketIndex] += 1
+                    self.hourlyByOKMethodCount[adjustedMethod][timeBucketIndex] += 1
                 
-                self.hourlyByMethodTime[" TOTAL"][hourFromStart] += responseTime
-                self.hourlyByMethodTime[adjustedMethod][hourFromStart] += responseTime
+                self.hourlyByMethodTime[" TOTAL"][timeBucketIndex] += responseTime
+                self.hourlyByMethodTime[adjustedMethod][timeBucketIndex] += responseTime
         
-                self.hourlyByStatus[" TOTAL"][hourFromStart] += 1
-                self.hourlyByStatus[self.currentLine.status][hourFromStart] += 1
+                self.hourlyByStatus[" TOTAL"][timeBucketIndex] += 1
+                self.hourlyByStatus[self.currentLine.status][timeBucketIndex] += 1
     
                 # Cache analysis
                 if adjustedMethod == "PROPFIND Calendar" and self.currentLine.status == 207:
                     responses = int(self.currentLine.extended.get("responses", 0))
-                    self.hourlyPropfindByResponseCount[" TOTAL"][hourFromStart] += 1
-                    self.hourlyPropfindByResponseCount[self.getCountBucket(responses, responseCountBuckets)][hourFromStart] += 1
+                    self.hourlyPropfindByResponseCount[" TOTAL"][timeBucketIndex] += 1
+                    self.hourlyPropfindByResponseCount[self.getCountBucket(responses, responseCountBuckets)][timeBucketIndex] += 1
     
                 # Scheduling analysis
                 if adjustedMethod == "POST Freebusy" and "freebusy" in self.currentLine.extended:
                     recipients = int(self.currentLine.extended["freebusy"])
-                    self.hourlyByRecipientCount["Freebusy One Offs" if recipients == 1 else "Freebusy Average"][hourFromStart][0] += 1
-                    self.hourlyByRecipientCount["Freebusy One Offs" if recipients == 1 else "Freebusy Average"][hourFromStart][1] += recipients
-                    self.hourlyByRecipientCount["Freebusy Max."][hourFromStart][0] = max(self.hourlyByRecipientCount["Freebusy Max."][hourFromStart][0], recipients)
+                    self.hourlyByRecipientCount["Freebusy One Offs" if recipients == 1 else "Freebusy Average"][timeBucketIndex][0] += 1
+                    self.hourlyByRecipientCount["Freebusy One Offs" if recipients == 1 else "Freebusy Average"][timeBucketIndex][1] += recipients
+                    self.hourlyByRecipientCount["Freebusy Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["Freebusy Max."][timeBucketIndex][0], recipients)
                 elif adjustedMethod == "POST iTIP Organizer":
                     for key, value in self.currentLine.extended.iteritems():
                         if key.startswith("itip."):
                             recipients = int(value)
-                            self.hourlyByRecipientCount["iTIP Average"][hourFromStart][0] += 1
-                            self.hourlyByRecipientCount["iTIP Average"][hourFromStart][1] += recipients
-                            self.hourlyByRecipientCount["iTIP Max."][hourFromStart][0] = max(self.hourlyByRecipientCount["iTIP Max."][hourFromStart][0], recipients)
+                            self.hourlyByRecipientCount["iTIP Average"][timeBucketIndex][0] += 1
+                            self.hourlyByRecipientCount["iTIP Average"][timeBucketIndex][1] += recipients
+                            self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0], recipients)
     
                 # Queue depth analysis
                 self.responseTimeVsQueueDepth[queueDepth][0] += 1
@@ -292,11 +298,11 @@ class CalendarServerLogAnalyzer(object):
 
                 # Request/response size analysis
                 if contentLength != -1:
-                    self.requestSizeByBucket[" TOTAL"][hourFromStart] += 1
-                    self.requestSizeByBucket[self.getCountBucket(contentLength, requestSizeBuckets)][hourFromStart] += 1
+                    self.requestSizeByBucket[" TOTAL"][timeBucketIndex] += 1
+                    self.requestSizeByBucket[self.getCountBucket(contentLength, requestSizeBuckets)][timeBucketIndex] += 1
                 if adjustedMethod != "GET Dropbox":
-                    self.responseSizeByBucket[" TOTAL"][hourFromStart] += 1
-                    self.responseSizeByBucket[self.getCountBucket(self.currentLine.bytes, responseSizeBuckets)][hourFromStart] += 1
+                    self.responseSizeByBucket[" TOTAL"][timeBucketIndex] += 1
+                    self.responseSizeByBucket[self.getCountBucket(self.currentLine.bytes, responseSizeBuckets)][timeBucketIndex] += 1
                     
                 if rcount != -1:
                     self.averageResponseCountByMethod[" TOTAL"][0] += rcount
@@ -305,8 +311,8 @@ class CalendarServerLogAnalyzer(object):
                     self.averageResponseCountByMethod[adjustedMethod][1] += 1
 
                 # Request time analysis
-                self.requestTimeByBucket[" TOTAL"][hourFromStart] += 1
-                self.requestTimeByBucket[self.getCountBucket(responseTime, requestTimeBuckets)][hourFromStart] += 1
+                self.requestTimeByBucket[" TOTAL"][timeBucketIndex] += 1
+                self.requestTimeByBucket[self.getCountBucket(responseTime, requestTimeBuckets)][timeBucketIndex] += 1
 
                 # Request URI analysis
                 self.requestURI[self.currentLine.uri] += 1
@@ -321,7 +327,7 @@ class CalendarServerLogAnalyzer(object):
         self.averagedHourlyByMethodTime.clear()
         for method, hours in self.hourlyByMethodTime.iteritems():
             counts = self.hourlyByMethodCount[method]
-            for hour in xrange(24):
+            for hour in xrange(self.timeBucketCount):
                 if counts[hour]:
                     newValue = hours[hour] / counts[hour]
                 else:
@@ -334,7 +340,7 @@ class CalendarServerLogAnalyzer(object):
     
         self.averagedHourlyByRecipientCount.clear()
         for method, value in self.hourlyByRecipientCount.iteritems():
-            for hour in xrange(24):
+            for hour in xrange(self.timeBucketCount):
                 if method in ("Freebusy Average", "iTIP Average",):
                     newValue = ((1.0 * value[hour][1]) / value[hour][0]) if value[hour][0] != 0 else 0
                 else:
@@ -693,41 +699,55 @@ class CalendarServerLogAnalyzer(object):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print ""
     
+    def getHourFromIndex(self, index):
+        
+        totalminutes = index * self.resolutionMinutes
+        
+        offsethour, minute = divmod(totalminutes, 60)
+        utchour = divmod(offsethour + self.utcStartHour, 24)[1]
+        localhour = divmod(utchour + self.localtimeOffset, 24)[1]
+        
+        # Clip to select hour range
+        if offsethour < self.startHourFromStart:
+            return None
+        elif offsethour > self.endHourFromStart:
+            return None
+        else:
+            return "%02d:%02d (%02d:%02d)" % (utchour, minute, localhour, minute,)
+        
     def printHourlyTotals(self, doTabs):
         
         table = tables.Table()
-        table.addHeader(("Hour UTC (PDT)", "Total",    "503 Count", "Av. Queue", "Max. Queue", "Av. Response",))
-        table.addHeader(("",               "Requests", "",          "Depth",     "Depth (# queues)",      "Time(ms)",))
+        table.addHeader(("Hour UTC (PDT)", "Total",    "Av. Queue", "Max. Queue", "Av. Response",))
+        table.addHeader(("",               "Requests", "Depth",     "Depth (# queues)",      "Time(ms)",))
         table.setDefaultColumnFormats((
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d (%2d)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
         ))
     
         totalRequests = 0
-        total503 = 0
         totalDepth = 0
         totalMaxDepth = 0
         totalTime = 0.0
-        for ctr in xrange(24):
-            hour = divmod(ctr + self.utcStartHour, 24)[1]
+        for ctr in xrange(self.timeBucketCount):
+            hour = self.getHourFromIndex(ctr)
+            if hour is None:
+                continue
             value = self.hourlyTotals[ctr]
-            countRequests, count503, countDepth, maxDepth, countTime = value
+            countRequests, _ignore503, countDepth, maxDepth, countTime = value
             maxDepthAll = max(maxDepth.values()) if maxDepth.values() else 0
             maxDepthCount = list(maxDepth.values()).count(maxDepthAll)
             table.addRow((
-                "%02d (%02d)" % (hour, divmod(hour + self.localtimeOffset, 24)[1]),
+                hour,
                 countRequests,
-                (count503, safePercent(count503, countRequests, 100.0),),
                 safePercent(countDepth, countRequests, 1),
                 (maxDepthAll, maxDepthCount,),
                 safePercent(countTime, countRequests, 1.0),
             ))
             totalRequests += countRequests
-            total503 += count503
             totalDepth += countDepth
             totalMaxDepth = max(totalMaxDepth, maxDepthAll)
             totalTime += countTime
@@ -735,14 +755,12 @@ class CalendarServerLogAnalyzer(object):
         table.addFooter((
             "Total:",
             totalRequests,
-            (total503, safePercent(total503, totalRequests, 100.0)),
             safePercent(totalDepth, totalRequests, 1),
             totalMaxDepth,
             safePercent(totalTime, totalRequests, 1.0),
         ), columnFormats=(
             tables.Table.ColumnFormat("%s"), 
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d     ", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -808,10 +826,11 @@ class CalendarServerLogAnalyzer(object):
             table.addHeader(header2)
         table.setDefaultColumnFormats(formats)
     
-        for ctr in xrange(24):
-            hour = divmod(ctr + self.utcStartHour, 24)[1]
+        for ctr in xrange(self.timeBucketCount):
             row = ["-"] * (len(hourlyByXXX) + 1)
-            row[0] = "%02d (%02d)" % (hour, divmod(hour + self.localtimeOffset, 24)[1])
+            row[0] = self.getHourFromIndex(ctr)
+            if row[0] is None:
+                continue
             for colctr, items in enumerate(sorted(hourlyByXXX.items(), key=lambda x:str(x[0]).lower())):
                 _ignore, value = items
                 data = value[ctr]
@@ -876,10 +895,13 @@ class CalendarServerLogAnalyzer(object):
         ])
         table.setDefaultColumnFormats(formats)
     
-        for ctr in xrange(24):
-            hour = divmod(ctr + self.utcStartHour, 24)[1]
+        for ctr in xrange(self.timeBucketCount):
+            hour = self.getHourFromIndex(ctr)
+            if hour is None:
+                continue
+
             row = []
-            row.append("%02d (%02d)" % (hour, divmod(hour + self.localtimeOffset, 24)[1]))
+            row.append(hour)
     
             homeUncached = self.hourlyByOKMethodCount["PROPFIND Calendar Home"][ctr]
             homeCached = self.hourlyByOKMethodCount["PROPFIND-cached Calendar Home"][ctr]
@@ -1208,7 +1230,7 @@ class Differ(TablePrinter):
             total503 = 0
             totalDepth = 0
             totalTime = 0.0
-            for ctr2 in xrange(24):
+            for ctr2 in xrange(self.timeBucketCount):
                 value = analyzer.hourlyTotals[ctr2]
                 countRequests, count503, countDepth, _ignore_maxDepth, countTime = value
                 totalRequests += countRequests
@@ -1407,13 +1429,14 @@ def usage(error_msg=None):
 
     print """Usage: protocolanalysis [options] [FILE]
 Options:
-    -h          Print this help and exit
-    --hours     Range of hours to analyze
-    --user      User to analyze
-    --client    Client to analyze
-    --tabs      Generate tab-delimited output rather than table
-    --repeat    Parse the file and then allow more data to be parsed
-    --diff      Compare two or more files
+    -h            Print this help and exit
+    --hours       Range of hours to analyze
+    --resolution  Time resolution in minutes [60]
+    --user        User to analyze
+    --client      Client to analyze
+    --tabs        Generate tab-delimited output rather than table
+    --repeat      Parse the file and then allow more data to be parsed
+    --diff        Compare two or more files
 
 Arguments:
     FILE      File names for the access logs to analyze
@@ -1436,12 +1459,13 @@ if __name__ == "__main__":
         diffMode = False
         doTabDelimited = False
         repeat = False
-        startHour = UTC_START_HOUR
-        endHour = UTC_START_HOUR + 23
+        resolution = 60
+        startHour = 22
+        endHour = startHour + 23
         filterByUser = None
         filterByClient = None
 
-        options, args = getopt.getopt(sys.argv[1:], "h", ["diff", "hours=", "repeat", "tabs", "user=", "client=", ])
+        options, args = getopt.getopt(sys.argv[1:], "h", ["diff", "hours=", "resolution=", "repeat", "tabs", "user=", "client=", ])
 
         for option, value in options:
             if option == "-h":
@@ -1459,6 +1483,8 @@ if __name__ == "__main__":
                 else:
                     startHour = int(splits[0])
                     endHour = int(splits[1])
+            elif option == "--resolution":
+                resolution = int(value)
             elif option == "--user":
                 filterByUser = value
             elif option == "--client":
@@ -1489,7 +1515,7 @@ if __name__ == "__main__":
                 continue
            
             if diffMode or not analyzers:
-                analyzers.append(CalendarServerLogAnalyzer(startHour, endHour, filterByUser, filterByClient))
+                analyzers.append(CalendarServerLogAnalyzer(startHour, endHour, resolution, filterByUser, filterByClient))
             analyzers[-1].analyzeLogFile(arg)
 
         if diffMode and len(analyzers) > 1:
