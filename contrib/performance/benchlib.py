@@ -71,7 +71,6 @@ def sample(dtrace, samples, agent, paramgen, concurrency=1):
         before = time()
         d = agent.request(*paramgen())
         def cbResponse(response):
-            print response.code
             d = readBody(response)
             def cbBody(ignored):
                 after = time()

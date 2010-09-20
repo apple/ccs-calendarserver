@@ -161,3 +161,7 @@ class SQLDuration(_Statistic):
 class Bytes(_Statistic):
     def squash(self, samples):
         return [sum(bytes) for bytes in samples]
+
+
+    def summarize(self, samples):
+        return _Statistic.summarize(self, self.squash(samples))

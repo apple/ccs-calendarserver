@@ -120,6 +120,8 @@ class _DTraceParser(LineReceiver):
 
         when = int(when)
         if which == 'ENTRY':
+            if self.start is not None:
+                print 'entry without return at', when, 'in', cmd
             self.start = when
         elif which == 'RETURN':
             if self.start is None:
@@ -142,12 +144,19 @@ class _DTraceParser(LineReceiver):
     _op_ITERNEXT = _op_EXECUTE
 
     def _op_B_READ(self, cmd, rest):
-        self.collector._read.append(int(rest))
+        self.collector._bread.append(int(rest))
 
 
     def _op_B_WRITE(self, cmd, rest):
-        self.collector._write.append(int(rest))
+        self.collector._bwrite.append(int(rest))
 
+
+    def _op_READ(self, cmd, rest):
+        self.collector._read.append(int(rest))
+
+
+    def _op_WRITE(self, cmd, rest):
+        self.collector._write.append(int(rest))
 
 
 class DTraceCollector(object):
@@ -158,6 +167,8 @@ class DTraceCollector(object):
 
 
     def _init_stats(self):
+        self._bread = []
+        self._bwrite = []
         self._read = []
         self._write = []
         self._execute = []
@@ -166,6 +177,8 @@ class DTraceCollector(object):
 
     def stats(self):
         results = {
+            Bytes('pagein'): self._bread,
+            Bytes('pageout'): self._bwrite,
             Bytes('read'): self._read,
             Bytes('write'): self._write,
             SQLDuration('execute'): self._execute, # Time spent in the execute phase of SQL execution
