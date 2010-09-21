@@ -441,7 +441,7 @@ class ImplicitProcessor(object):
             # Just try again to get the lock
             reactor.callLater(2.0, self.sendAttendeeAutoReply, *(calendar, resource, partstat))
         else:
-            txn = resource.inNewTransaction(self.request)
+            txn = yield resource.inNewTransaction(self.request)
             try:
                 # Send out a reply
                 log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
