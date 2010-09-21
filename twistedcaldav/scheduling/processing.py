@@ -422,7 +422,7 @@ class ImplicitProcessor(object):
 
         @param calendar: calendar data to examine
         @type calendar: L{Component}
-        
+
         @return: L{Component} for the new calendar data to write
         """
         

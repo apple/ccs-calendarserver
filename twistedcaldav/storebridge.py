@@ -250,13 +250,15 @@ class _CalendarChildHelper(object):
         self._initializeWithCalendar(calendar, home)
 
 
+    @inlineCallbacks
     def makeChild(self, name):
         """
-        Create a L{CalendarObjectResource} or L{ProtoCalendarObjectResource} based on a
-        path object.
+        Create a L{CalendarObjectResource} or L{ProtoCalendarObjectResource}
+        based on a calendar object name.
         """
 
-        newStoreObject = self._newStoreCalendar.calendarObjectWithName(name)
+        cal = self._newStoreCalendar
+        newStoreObject = yield cal.calendarObjectWithName(name)
 
         if newStoreObject is not None:
             similar = CalendarObjectResource(
@@ -264,19 +266,14 @@ class _CalendarChildHelper(object):
                 principalCollections=self._principalCollections
             )
         else:
-            # FIXME: creation in http_PUT should talk to a specific resource
-            # type; this is the domain of StoreCalendarObjectResource.
-            # similar = ProtoCalendarObjectFile(self._newStoreCalendar, path)
             similar = ProtoCalendarObjectResource(
-                self._newStoreCalendar,
-                name,
+                cal, name,
                 principalCollections=self._principalCollections
             )
 
-        # FIXME: tests should be failing without this line.
-        # Specifically, http_PUT won't be committing its transaction properly.
         self.propagateTransaction(similar)
-        return similar
+        returnValue(similar)
+
 
     def listChildren(self):
         """
@@ -967,17 +964,17 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         self._initializeWithObject(calendarObject)
 
 
+    @inlineCallbacks
     def inNewTransaction(self, request):
         """
         Implicit auto-replies need to span multiple transactions.  Clean out
         the given request's resource-lookup mapping, transaction, and re-look-
-        up my calendar object in a new transaction.
+        up this L{CalendarObjectResource}'s calendar object in a new
+        transaction.
 
-        @return: the new transaction so it can be committed.
+        @return: a Deferred which fires with the new transaction, so it can be
+            committed.
         """
-        # FIXME: private names from 'file' implementation; maybe there should
-        # be a public way to do this?  or maybe we should just have a real
-        # queue.
         objectName = self._newStoreObject.name()
         calendar = self._newStoreObject.calendar()
         calendarName = calendar.name()
@@ -985,14 +982,14 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         homeUID = ownerHome.uid()
         txn = ownerHome.transaction().store().newTransaction(
             "new transaction for " + self._newStoreObject.name())
-        newObject = (txn.calendarHomeWithUID(homeUID)
-                        .calendarWithName(calendarName)
-                        .calendarObjectWithName(objectName))
+        newObject = ((yield (yield (yield txn.calendarHomeWithUID(homeUID))
+                             .calendarWithName(calendarName))
+                             .calendarObjectWithName(objectName)))
         request._newStoreTransaction = txn
         request._resourcesByURL.clear()
         request._urlsByResource.clear()
         self._initializeWithObject(newObject)
-        return txn
+        returnValue(txn)
 
 
     def isCollection(self):
