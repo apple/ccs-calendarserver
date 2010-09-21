@@ -67,6 +67,8 @@ def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
                     cpu = int(line[len("CPU idle %: "):].split(" ", 1)[0])
                     
                     line = f.next()
+                    if line.startswith("Memory"):
+                        line = f.next()
                     reqs = int(float(line.split(" ", 1)[0]))
     
                     line = f.next()
@@ -116,7 +118,7 @@ def plotListenQBands(data, first, last, xlim, ylim):
     
     if first:
         plt.legend(('ListenQ at zero', 'ListenQ < 50', 'ListenQ >= 50'),
-               'upper right', shadow=True, fancybox=True)
+               'upper left', shadow=True, fancybox=True)
     if last:
         plt.xlabel("Requests/second")
     plt.ylabel("Av. Response Time (ms)")
@@ -150,7 +152,7 @@ def plotCPUBands(data, first, last, xlim, ylim):
     
     if first:
         plt.legend(('CPU < 1/4', 'CPU < 1/2', 'CPU < 3/4', "CPU High"),
-               'upper right', shadow=True, fancybox=True)
+               'upper left', shadow=True, fancybox=True)
     if last:
         plt.xlabel("Requests/second")
     plt.ylabel("Av. Response Time (ms)")

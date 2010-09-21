@@ -54,7 +54,10 @@ def split(fpath, outputDir):
             output.append(line)
             try:
                 output.append(f.next())
-                output.append(f.next())
+                line = f.next()
+                if line.startswith("Memory"):
+                    line = f.next()
+                output.append(line)
                 output.append(f.next())
             except StopIteration:
                 break
