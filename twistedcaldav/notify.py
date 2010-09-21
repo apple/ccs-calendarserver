@@ -72,10 +72,12 @@ __all__ = [
     "XMPPNotificationFactory",
     "XMPPNotifier",
     "getNodeCacher",
+    "getPubSubAPSConfiguration",
     "getPubSubConfiguration",
     "getPubSubHeartbeatURI",
     "getPubSubPath",
     "getPubSubXMPPURI",
+    "getXMPPSettings",
 ]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1213,29 +1215,59 @@ class XMPPNotificationFactory(xmlstream.XmlStreamFactory, LoggingMixIn):
         self.log_debug("SEND: %s" % unicode(buf, 'utf-8').encode('ascii',
             'replace'))
 
+def getXMPPSettings(config):
+    """ Return the XMPP settings if both overall notifications are enabled
+        and XMPP is enabled; None otherwise.
+    """
+    if config.Notifications.Enabled:
+        # return the first enabled xmpp service settings in the config file
+        for key, settings in config.Notifications.Services.iteritems():
+            if (settings["Service"] == "twistedcaldav.notify.XMPPNotifierService"
+                and settings["Enabled"]):
+                return settings
+    return None
 
 def getPubSubConfiguration(config):
     # TODO: Should probably cache this
     results = { 'enabled' : False }
-
-    # return the first enabled xmpp service settings in the config file
-    for key, settings in config.Notifications.Services.iteritems():
-        if (settings["Service"] == "twistedcaldav.notify.XMPPNotifierService"
-            and settings["Enabled"]):
-            results['enabled'] = True
-            results['service'] = settings['ServiceAddress']
-            results['host'] = config.ServerHostName
-            results['port'] = config.SSLPort or config.HTTPPort
-            results['xmpp-server'] = (
-                settings['Host'] if settings['Port'] == 5222
-                else "%s:%d" % (settings['Host'], settings['Port'])
-            )
-            results['subscription-url'] = settings['SubscriptionURL']
-            results['aps-bundle-id'] = settings['APSBundleID']
-            results['heartrate'] = settings['HeartbeatMinutes']
-            break
+    settings = getXMPPSettings(config)
+    if settings is not None:
+        results['enabled'] = True
+        results['service'] = settings['ServiceAddress']
+        results['host'] = config.ServerHostName
+        results['port'] = config.SSLPort or config.HTTPPort
+        results['xmpp-server'] = (
+            settings['Host'] if settings['Port'] == 5222
+            else "%s:%d" % (settings['Host'], settings['Port'])
+        )
+        results['heartrate'] = settings['HeartbeatMinutes']
 
     return results
+
+def getPubSubAPSConfiguration(id, config):
+    """
+    Returns the Apple push notification settings specific to the notifier
+    ID, which includes a prefix that is either "CalDAV" or "CardDAV"
+    """
+    settings = getXMPPSettings(config)
+    if settings is None:
+        return None
+
+    try:
+        prefix, id = id.split("|", 1)
+    except ValueError:
+        # id has no prefix, so we can't look up APS config
+        return None
+
+    if (settings.has_key(prefix) and
+        settings[prefix]["APSBundleID"] and
+        settings[prefix]["SubscriptionURL"]):
+        return settings[prefix]
+
+    return None
+
+
+
 
 def getPubSubPath(id, pubSubConfiguration):
     """

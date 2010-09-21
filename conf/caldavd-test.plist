@@ -533,10 +533,20 @@
           <string>pubsub.xmpp.host.name</string>
 
           <!-- Apple-specific config -->
-          <key>SubscriptionURL</key>
-          <string></string>
-          <key>APSBundleID</key>
-          <string></string>
+          <key>CalDAV</key>
+          <dict>
+              <key>APSBundleID</key>
+              <string></string>
+              <key>SubscriptionURL</key>
+              <string></string>
+          </dict>
+          <key>CardDAV</key>
+          <dict>
+              <key>APSBundleID</key>
+              <string></string>
+              <key>SubscriptionURL</key>
+              <string></string>
+          </dict>
 
           <key>NodeConfiguration</key>
           <dict>

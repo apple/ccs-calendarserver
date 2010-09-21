@@ -458,8 +458,14 @@ DEFAULT_CONFIG = {
                 "JID" : "", # "jid@xmpp.host.name/resource"
                 "Password" : "",
                 "ServiceAddress" : "", # "pubsub.xmpp.host.name"
-                "APSBundleID" : "",
-                "SubscriptionURL" : "",
+                "CalDAV" : {
+                    "APSBundleID" : "",
+                    "SubscriptionURL" : "",
+                },
+                "CardDAV" : {
+                    "APSBundleID" : "",
+                    "SubscriptionURL" : "",
+                },
                 "NodeConfiguration" : {
                     "pubsub#deliver_payloads" : "1",
                     "pubsub#persist_items" : "1",

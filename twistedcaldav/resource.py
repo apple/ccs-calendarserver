@@ -79,7 +79,7 @@ from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.index import SyncTokenValidException, Index
 from twistedcaldav.linkresource import LinkResource
 from twistedcaldav.notify import getPubSubConfiguration, getPubSubPath,\
-    getPubSubXMPPURI, getPubSubHeartbeatURI
+    getPubSubXMPPURI, getPubSubHeartbeatURI, getPubSubAPSConfiguration
 from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
 from twistedcaldav.vcard import Component as vComponent
 from twistedcaldav.vcardindex import AddressBookIndex
@@ -2235,22 +2235,25 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
         if qname == (customxml.calendarserver_namespace, "push-transports"):
             notifierID = self._newStoreHome.notifierID()
             if notifierID is not None and config.Notifications.Services.XMPPNotifier.Enabled:
-                pubSubConfiguration = getPubSubConfiguration(config)
                 children = []
-                if pubSubConfiguration['aps-bundle-id']:
+
+                apsConfiguration = getPubSubAPSConfiguration(notifierID, config)
+                if apsConfiguration:
                     children.append(
                         customxml.PubSubTransportProperty(
                             customxml.PubSubSubscriptionProperty(
                                 davxml.HRef(
-                                    pubSubConfiguration['subscription-url']
+                                    apsConfiguration["SubscriptionURL"]
                                 ),
                             ),
                             customxml.PubSubAPSBundleIDProperty(
-                                pubSubConfiguration['aps-bundle-id']
+                                apsConfiguration["APSBundleID"]
                             ),
                             type="APSD",
                         )
                     )
+
+                pubSubConfiguration = getPubSubConfiguration(config)
                 if pubSubConfiguration['xmpp-server']:
                     children.append(
                         customxml.PubSubTransportProperty(

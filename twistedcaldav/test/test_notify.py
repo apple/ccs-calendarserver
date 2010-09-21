@@ -362,6 +362,7 @@ class StubFailure(object):
 class XMPPNotifierTests(TestCase):
 
     xmppEnabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
+    xmppEnabledConfig.Notifications["Enabled"] = True
     xmppEnabledConfig.Notifications["Services"]["XMPPNotifier"]["Enabled"] = True
     xmppEnabledConfig.ServerHostName = "server.example.com"
     xmppEnabledConfig.HTTPPort = 80
@@ -498,6 +499,7 @@ class XMPPNotifierTests(TestCase):
     def test_sendHeartbeat(self):
 
         xmppConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
+        xmppConfig.Notifications["Enabled"] = True
         xmppConfig.Notifications["Services"]["XMPPNotifier"]["Enabled"] = True
         xmppConfig.ServerHostName = "server.example.com"
         xmppConfig.HTTPPort = 80
@@ -559,3 +561,47 @@ class XMPPNotificationFactoryTests(TestCase):
         factory.disconnected(xmlStream)
         clock.advance(5)
         self.assertEquals(len(xmlStream.elements), 3)
+
+
+
+class ConfigurationTests(TestCase):
+
+    def test_disabled(self):
+        disabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
+
+        # Overall notifications are disabled
+        disabledConfig.Notifications["Enabled"] = False
+        conf = getPubSubConfiguration(disabledConfig)
+        self.assertEquals(conf, { "enabled" : False })
+        conf = getXMPPSettings(disabledConfig)
+        self.assertEquals(conf, None)
+
+        # Overall notifications are enabled, but XMPP disabled
+        disabledConfig.Notifications["Enabled"] = True
+        settings = getXMPPSettings(disabledConfig)
+        self.assertEquals(settings, None)
+
+        # Overall notifications are enabled, XMPP enabled, but no APS
+        service = disabledConfig.Notifications["Services"]["XMPPNotifier"]
+        service.Enabled = True
+        conf = getPubSubAPSConfiguration("CalDAV|foo", disabledConfig)
+        self.assertEquals(conf, None)
+
+    def test_enabled(self):
+        enabledConfig = Config(PListConfigProvider(DEFAULT_CONFIG))
+        enabledConfig.Notifications["Enabled"] = True
+        service = enabledConfig.Notifications["Services"]["XMPPNotifier"]
+        service.Enabled = True
+        service.Host = "example.com"
+        service.Port = 5222
+        service.ServiceAddress = "pubsub.example.com"
+        service.CalDAV.APSBundleID = "CalDAVAPSBundleID"
+        service.CalDAV.SubscriptionURL = "CalDAVSubscriptionURL"
+        conf = getPubSubConfiguration(enabledConfig)
+        self.assertEquals(conf, {'heartrate': 30, 'service': 'pubsub.example.com', 'xmpp-server': 'example.com', 'enabled': True, 'host': '', 'port': 0} )
+        conf = getPubSubAPSConfiguration("CalDAV|foo", enabledConfig)
+        self.assertEquals(conf, {'SubscriptionURL': 'CalDAVSubscriptionURL', 'APSBundleID': 'CalDAVAPSBundleID'} )
+        conf = getPubSubAPSConfiguration("noprefix", enabledConfig)
+        self.assertEquals(conf, None)
+        conf = getPubSubAPSConfiguration("UnknownPrefix|foo", enabledConfig)
+        self.assertEquals(conf, None)
