@@ -92,6 +92,26 @@ class HomeMigrationTests(TestCase):
 
 
     @inlineCallbacks
+    def test_upgradeExistingHome(self):
+        """
+        L{UpgradeToDatabaseService.startService} will skip migrating existing
+        homes.
+        """
+        startTxn = self.sqlStore.newTransaction("populate empty sample")
+        startTxn.calendarHomeWithUID("home1", create=True)
+        startTxn.commit()
+        self.topService.startService()
+        yield self.subStarted
+        vrfyTxn = self.sqlStore.newTransaction("verify sample still empty")
+        self.addCleanup(vrfyTxn.commit)
+        home = vrfyTxn.calendarHomeWithUID("home1")
+        # The default calendar is still there.
+        self.assertNotIdentical(None, home.calendarWithName("calendar"))
+        # The migrated calendar isn't.
+        self.assertIdentical(None, home.calendarWithName("calendar_1"))
+
+
+    @inlineCallbacks
     def test_upgradeAttachments(self):
         """
         L{UpgradeToDatabaseService.startService} upgrades calendar attachments
