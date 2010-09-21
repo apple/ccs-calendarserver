@@ -483,9 +483,6 @@ class SQLLegacyShares(object):
 
 
     def addOrUpdateRecord(self, record):
-#        print '*** SHARING***: Adding or updating this record:'
-#        import pprint
-#        pprint.pprint(record.__dict__)
         # record.hosturl -> /.../__uids__/<uid>/<name>
         splithost = record.hosturl.split('/')
         ownerUID = splithost[3]
