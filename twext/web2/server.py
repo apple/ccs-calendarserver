@@ -346,6 +346,7 @@ class Request(http.Request):
         d.addCallback(self._cbFinishRender)
         d.addErrback(self._processingFailed)
         d.callback(None)
+        return d
 
     def preprocessRequest(self):
         """Do any request processing that doesn't follow the normal
