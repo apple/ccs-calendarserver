@@ -81,6 +81,26 @@ requestTimeBuckets = (
     (  None, "(l):120s+"),
 )
 
+httpMethods = set((
+    "ACL",
+    "BIND",
+    "CONNECT",
+    "COPY",
+    "DELETE",
+    "GET",
+    "HEAD",
+    "MKCALENDAR",
+    "MKCOL",
+    "MOVE",
+    "OPTIONS",
+    "POST",
+    "PROPFIND",
+    "PROPPATCH",
+    "PUT",
+    "REPORT",
+    "SEARCH",
+))
+
 class CalendarServerLogAnalyzer(object):
     
     class LogLine(object):
@@ -98,12 +118,21 @@ class CalendarServerLogAnalyzer(object):
             self.client = client
             self.extended = extended
 
-    def __init__(self, startHour=None, endHour=None, resolutionMinutes=60, filterByUser=None, filterByClient=None):
+    def __init__(
+        self,
+        startHour=None,
+        endHour=None,
+        resolutionMinutes=60,
+        filterByUser=None,
+        filterByClient=None,
+        ignoreNonHTTPMethods=True,
+    ):
 
         self.startHour = startHour
         self.endHour = endHour
         self.filterByUser = filterByUser
         self.filterByClient = filterByClient
+        self.ignoreNonHTTPMethods = ignoreNonHTTPMethods
         
         self.utcStartHour = UTC_START_HOUR
         self.autoUTC = True
@@ -179,6 +208,10 @@ class CalendarServerLogAnalyzer(object):
         
                 self.parseLine(line)
         
+                # Filter method
+                if self.ignoreNonHTTPMethods and self.currentLine.method not in httpMethods:
+                    self.currentLine.method = "???"
+
                 # Do hour ranges
                 logHour = int(self.currentLine.logTime[0:2])
                 logMinute = int(self.currentLine.logTime[3:5])
@@ -465,6 +498,8 @@ class CalendarServerLogAnalyzer(object):
                 return "iCal/4.0.1"
             elif name == "iCal/4.0.2":
                 return "iCal/4.0.2"
+            elif name == "iCal/4.0.3":
+                return "iCal/4.0.3"
             elif name.startswith("iCal/4"):
                 return "iCal/4.?"
             elif name.startswith("iCal/5"):
@@ -483,6 +518,12 @@ class CalendarServerLogAnalyzer(object):
                 return "iPhone/3.2"
             elif name.startswith("iPhone/3"):
                 return "iPhone/3.?"
+            elif name.startswith("iPhone/4.0"):
+                return "iPhone/4.0"
+            elif name.startswith("iPhone/4.1"):
+                return "iPhone/4.1"
+            elif name.startswith("iPhone/4.2"):
+                return "iPhone/4.2"
             elif name.startswith("iPhone/4"):
                 return "iPhone/4.?"
             else:
