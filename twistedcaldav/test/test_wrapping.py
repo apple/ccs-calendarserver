@@ -50,6 +50,8 @@ from txdav.carddav.iaddressbookstore import IAddressBookHome
 
 
 class FakeChanRequest(object):
+    code = 'request-not-finished'
+
     def writeHeaders(self, code, headers):
         self.code = code
         self.headers = headers
@@ -336,17 +338,21 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupCalendarObject(self):
         """
-        When a L{CalDAVResource} representing an existing calendar object is looked
-        up on a L{CalDAVResource} representing a calendar collection, a parallel
-        L{CalendarObject} will be created (with a matching FilePath).
+        When a L{CalDAVResource} representing an existing calendar object is
+        looked up on a L{CalDAVResource} representing a calendar collection, a
+        parallel L{CalendarObject} will be created.  Its principal collections
+        and transaction should match.
         """
         self.populateOneObject("1.ics", event4_text)
+        calendarHome = yield self.getResource("calendars/users/wsanchez")
         calDavFileCalendar = yield self.getResource(
             "calendars/users/wsanchez/calendar/1.ics"
         )
         self.commit()
         self.assertEquals(calDavFileCalendar._principalCollections,
                           frozenset([self.principalsResource]))
+        self.assertEquals(calDavFileCalendar._associatedTransaction,
+                          calendarHome._associatedTransaction)
 
 
     @inlineCallbacks
