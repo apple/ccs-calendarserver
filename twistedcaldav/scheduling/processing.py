@@ -647,6 +647,7 @@ class ImplicitProcessor(object):
     
         returnValue(newchild)
 
+
     @inlineCallbacks
     def deleteCalendarResource(self, collURL, collection, name):
         """
@@ -659,7 +660,7 @@ class ImplicitProcessor(object):
         @param name: the resource name to write into, or {None} to write a new resource.
         @type name: C{str}
         """
-        delchild = collection.getChild(name)
+        delchild = yield collection.getChild(name)
         childURL = joinURL(collURL, name)
         self.request._rememberResource(delchild, childURL)
         yield delchild.storeRemove(self.request, False, childURL)
