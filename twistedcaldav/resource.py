@@ -1,4 +1,4 @@
-# -*- test-case-name: twistedcaldav.test.test_resource -*-
+# -*- test-case-name: twistedcaldav.test.test_resource,twistedcaldav.test.test_wrapping -*-
 ##
 # Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
@@ -1937,34 +1937,50 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
 
 class CommonHomeResource(SharedHomeMixin, CalDAVResource):
     """
-    Calendar home collection resource.
+    Logic common to Calendar and Addressbook home resources.
     """
-    def __init__(self, parent, name, transaction):
-        """
-        """
-
+    def __init__(self, parent, name, transaction, home):
         self.parent = parent
         self.name = name
         self.associateWithTransaction(transaction)
         self._provisionedChildren = {}
         self._provisionedLinks = {}
         self._setupProvisions()
-
-        self._newStoreHome, created = self.makeNewStore()
+        self._newStoreHome = home
         CalDAVResource.__init__(self)
 
         from twistedcaldav.storebridge import _NewStorePropertiesWrapper
         self._dead_properties = _NewStorePropertiesWrapper(
             self._newStoreHome.properties()
         )
+
+
+    @classmethod
+    @inlineCallbacks
+    def createHomeResource(cls, parent, name, transaction):
+        home, created = yield cls.homeFromTransaction(
+            transaction, name)
+        resource = cls(parent, name, transaction, home)
         if created:
-            self.postCreateHome()
+            resource.postCreateHome()
+        returnValue(resource)
+
+
+    @classmethod
+    def homeFromTransaction(cls, transaction, uid):
+        """
+        Create or retrieve an appropriate back-end-home object from a
+        transaction and a home UID.
+
+        @return: a L{Deferred} which fires a 2-tuple of C{(created, home)}
+            where C{created} is a boolean indicating whether this call created
+            the home in the back-end, and C{home} is the home object itself.
+        """
+        raise NotImplementedError("Subclasses must implement.")
+
 
     def _setupProvisions(self):
         pass
-
-    def makeNewStore(self):
-        raise NotImplementedError
 
     def postCreateHome(self):
         pass
@@ -2224,8 +2240,20 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
 
 class CalendarHomeResource(CommonHomeResource):
     """
-    Calendar home collection resource.
+    Calendar home collection classmethod.
     """
+
+    @classmethod
+    @inlineCallbacks
+    def homeFromTransaction(cls, transaction, uid):
+        storeHome = yield transaction.calendarHomeWithUID(uid)
+        if storeHome is not None:
+            created = False
+        else:
+            storeHome = yield transaction.calendarHomeWithUID(uid, create=True)
+            created = True
+        returnValue((storeHome, created))
+
 
     def _setupProvisions(self):
 
@@ -2248,17 +2276,6 @@ class CalendarHomeResource(CommonHomeResource):
             from twistedcaldav.notifications import NotificationCollectionResource
             self._provisionedChildren["notification"] = NotificationCollectionResource
 
-    def makeNewStore(self):
-        storeHome = self._associatedTransaction.calendarHomeWithUID(self.name)
-        if storeHome is not None:
-            created = False
-        else:
-            storeHome = self._associatedTransaction.calendarHomeWithUID(
-                self.name, create=True
-            )
-            created = True
-
-        return storeHome, created
 
     def postCreateHome(self):
         # This is a bit of a hack.  Really we ought to be always generating
@@ -2271,9 +2288,10 @@ class CalendarHomeResource(CommonHomeResource):
     def canShare(self):
         return config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.exists()
 
-    def makeRegularChild(self, name):
 
-        newCalendar = self._newStoreHome.calendarWithName(name)
+    @inlineCallbacks
+    def makeRegularChild(self, name):
+        newCalendar = yield self._newStoreHome.calendarWithName(name)
         if newCalendar is None:
             # Local imports.due to circular dependency between modules.
             from twistedcaldav.storebridge import (
@@ -2290,7 +2308,8 @@ class CalendarHomeResource(CommonHomeResource):
                 principalCollections=self.principalCollections()
             )
         self.propagateTransaction(similar)
-        return similar
+        returnValue(similar)
+
 
     def defaultAccessControlList(self):
         myPrincipal = self.principalForRecord()
@@ -2348,7 +2367,19 @@ class AddressBookHomeResource (CommonHomeResource):
     """
     Address book home collection resource.
     """
-    
+
+    @classmethod
+    @inlineCallbacks
+    def homeFromTransaction(cls, transaction, uid):
+        storeHome = yield transaction.addressbookHomeWithUID(uid)
+        if storeHome is not None:
+            created = False
+        else:
+            storeHome = yield transaction.addressbookHomeWithUID(uid, create=True)
+            created = True
+        returnValue((storeHome, created))
+
+
     def _setupProvisions(self):
 
         # Cache children which must be of a specific type
@@ -2365,6 +2396,7 @@ class AddressBookHomeResource (CommonHomeResource):
     def canShare(self):
         return config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.exists()
 
+    @inlineCallbacks
     def makeRegularChild(self, name):
 
         # Check for public/global path
@@ -2381,7 +2413,7 @@ class AddressBookHomeResource (CommonHomeResource):
                 mainCls = GlobalAddressBookCollectionResource
                 protoCls = ProtoGlobalAddressBookCollectionResource
 
-        newAddressBook = self._newStoreHome.addressbookWithName(name)
+        newAddressBook = yield self._newStoreHome.addressbookWithName(name)
         if newAddressBook is None:
             # Local imports.due to circular dependency between modules.
             similar = protoCls(
@@ -2395,7 +2427,7 @@ class AddressBookHomeResource (CommonHomeResource):
                 principalCollections=self.principalCollections()
             )
         self.propagateTransaction(similar)
-        return similar
+        returnValue(similar)
 
 
 class GlobalAddressBookResource (ReadOnlyResourceMixIn, CalDAVResource):

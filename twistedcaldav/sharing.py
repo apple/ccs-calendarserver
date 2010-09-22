@@ -174,9 +174,9 @@ class SharedCollectionMixin(object):
         
         # Get the home collection
         if self.isCalendarCollection():
-            home = principal.calendarHome(request)
+            home = yield principal.calendarHome(request)
         elif self.isAddressBookCollection():
-            home = principal.addressBookHome(request)
+            home = yield principal.addressBookHome(request)
         else:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -218,15 +218,16 @@ class SharedCollectionMixin(object):
         """ Return True if this is a shared calendar collection """
         return hasattr(self, "_isVirtualShare")
 
+    @inlineCallbacks
     def removeVirtualShare(self, request):
         """ Return True if this is a shared calendar collection """
         
         # Remove from sharee's calendar/address book home
         if self.isCalendarCollection():
-            shareeHome = self._shareePrincipal.calendarHome(request)
+            shareeHome = yield self._shareePrincipal.calendarHome(request)
         elif self.isAddressBookCollection():
-            shareeHome = self._shareePrincipal.addressBookHome(request)
-        return shareeHome.removeShare(request, self._share)
+            shareeHome = yield self._shareePrincipal.addressBookHome(request)
+        returnValue((yield shareeHome.removeShare(request, self._share)))
 
     def resourceType(self):
         superObject = super(SharedCollectionMixin, self)
@@ -495,9 +496,9 @@ class SharedCollectionMixin(object):
         sharee = self.principalForCalendarUserAddress(record.userid)
         if sharee:
             if self.isCalendarCollection():
-                shareeHome = sharee.calendarHome(request)
+                shareeHome = yield sharee.calendarHome(request)
             elif self.isAddressBookCollection():
-                shareeHome = sharee.addressBookHome(request)
+                shareeHome = yield sharee.addressBookHome(request)
             yield shareeHome.removeShareByUID(request, record.inviteuid)
     
             # If current user state is accepted then we send an invite with the new state, otherwise

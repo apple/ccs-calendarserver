@@ -364,7 +364,7 @@ class HomeTestCase(TestCase):
         self.noRenderCommit()
         if request is None:
             request = norequest()
-        users = self.homeProvisioner.getChild("users")
+        users = yield self.homeProvisioner.getChild("users")
 
         user, ignored = (yield users.locateChild(request, ["wsanchez"]))
 

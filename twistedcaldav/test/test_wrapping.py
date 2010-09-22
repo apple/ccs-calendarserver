@@ -91,6 +91,7 @@ class WrappingTests(TestCase):
         self.setupCalendars()
 
 
+    @inlineCallbacks
     def populateOneObject(self, objectName, objectText):
         """
         Populate one calendar object in the test user's calendar.
@@ -109,7 +110,7 @@ class WrappingTests(TestCase):
         except:
             pass
         txn = self.calendarCollection._newStore.newTransaction()
-        home = txn.calendarHomeWithUID(uid, True)
+        home = yield txn.calendarHomeWithUID(uid, True)
         cal = home.calendarWithName("calendar")
         cal.createCalendarObjectWithName(objectName, VComponent.fromString(objectText))
         txn.commit()
@@ -343,7 +344,7 @@ class WrappingTests(TestCase):
         parallel L{CalendarObject} will be created.  Its principal collections
         and transaction should match.
         """
-        self.populateOneObject("1.ics", event4_text)
+        yield self.populateOneObject("1.ics", event4_text)
         calendarHome = yield self.getResource("calendars/users/wsanchez")
         calDavFileCalendar = yield self.getResource(
             "calendars/users/wsanchez/calendar/1.ics"

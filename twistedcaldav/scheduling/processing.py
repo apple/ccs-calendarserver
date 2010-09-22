@@ -20,6 +20,7 @@ from hashlib import md5
 
 from vobject.icalendar import dateTimeToString, utc
 
+from twisted.python.log import err as log_traceback
 from twext.python.log import Logger
 
 from twisted.internet import reactor
@@ -94,6 +95,7 @@ class ImplicitProcessor(object):
                 # We attempt to recover from this. That involves trying to re-write the attendee data
                 # to match that of the organizer assuming we have the organizer's full data available, then
                 # we try the processing operation again.
+                log_traceback()
                 log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - exception raised will try to fix: %s" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid, e))
                 result = (yield self.doImplicitAttendeeEventFix(e))
                 if result:
@@ -101,6 +103,7 @@ class ImplicitProcessor(object):
                     try:
                         result = (yield self.doImplicitAttendee())
                     except Exception, e:
+                        log_traceback()
                         log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - exception raised after fix: %s" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid, e))
                         raise ImplicitProcessorException("5.1;Service unavailable")
                 else:

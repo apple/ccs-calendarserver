@@ -270,7 +270,7 @@ def purgeOldEvents(directory, root, date, verbose=False, dryrun=False):
         # Get the calendar home
         principalCollection = directory.principalCollection
         principal = principalCollection.principalForRecord(record)
-        calendarHome = principal.calendarHome()
+        calendarHome = yield principal.calendarHome()
 
         if verbose:
             print "%s %-15s :" % (record.uid, record.shortNames[0]),
@@ -367,7 +367,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False):
 
     principalCollection = directory.principalCollection
     principal = principalCollection.principalForRecord(record)
-    calendarHome = principal.calendarHome()
+    calendarHome = yield principal.calendarHome()
 
     # Anything in the past is left alone
     now = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
