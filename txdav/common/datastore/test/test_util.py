@@ -29,7 +29,7 @@ from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import theStoreBuilder, \
     populateCalendarsFrom
 from txdav.caldav.datastore.test.common import StubNotifierFactory, CommonTests
-from twisted.internet.defer import inlineCallbacks, Deferred
+from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 
 
 class HomeMigrationTests(TestCase):
@@ -124,10 +124,13 @@ class HomeMigrationTests(TestCase):
                 committed.append(True)
                 txn.commit()
         self.addCleanup(maybeCommit)
+        @inlineCallbacks
         def getSampleObj():
-            return txn.calendarHomeWithUID("home1").calendarWithName(
-                "calendar_1").calendarObjectWithName("1.ics")
-        inObject = getSampleObj()
+            home = (yield txn.calendarHomeWithUID("home1"))
+            calendar = (yield home.calendarWithName("calendar_1"))
+            object = (yield calendar.calendarObjectWithName("1.ics"))
+            returnValue(object)
+        inObject = yield getSampleObj()
         someAttachmentName = "some-attachment"
         someAttachmentType = MimeType.fromString("application/x-custom-type")
         transport = inObject.createAttachmentWithName(
@@ -141,7 +144,7 @@ class HomeMigrationTests(TestCase):
         yield self.subStarted
         committed = []
         txn = self.sqlStore.newTransaction()
-        outObject = getSampleObj()
+        outObject = yield getSampleObj()
         outAttachment = outObject.attachmentWithName(someAttachmentName)
         allDone = Deferred()
         class SimpleProto(Protocol):

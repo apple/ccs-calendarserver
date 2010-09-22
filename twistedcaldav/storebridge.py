@@ -1187,7 +1187,12 @@ class ProtoCalendarObjectResource(CalDAVResource, FancyEqMixin):
         self._newStoreParentCalendar.createCalendarObjectWithName(
             self.name(), component
         )
-        CalendarObjectResource.transform(self, self._newStoreParentCalendar.calendarObjectWithName(self.name()))
+        CalendarObjectResource.transform(
+            self,
+            (yield self._newStoreParentCalendar.calendarObjectWithName(
+                self.name()
+            ))
+        )
         returnValue(CREATED)
 
 
