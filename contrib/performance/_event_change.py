@@ -91,6 +91,6 @@ def _generous_sample(dtrace, replacer, agent, host, port, user, calendar, fieldN
     # Sample changing the event according to the replacer.
     samples = yield sample(
         dtrace, samples,
-        agent, (('PUT', url, headers, StringProducer(replacer(event)))
+        agent, (('PUT', url, headers, StringProducer(replacer(event, i)))
                 for i in count(1)).next)
     returnValue(samples)

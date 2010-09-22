@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 set -e # Break on error
 shopt -s nullglob # Expand foo* to nothing if nothing matches
@@ -9,7 +9,7 @@ BACKENDS="filesystem postgresql"
 
 SOURCE=~/Projects/CalendarServer/trunk
 NUM_INSTANCES=2
-BENCHMARKS="event_delete vfreebusy event"
+BENCHMARKS="event_move event_delete_attendee event_add_attendee event_change_date event_change_summary event_delete vfreebusy event"
 STATISTICS=(HTTP SQL read write)
 ADDURL=http://localhost:8000/result/add/
 export PYTHONPATH=$PYTHONPATH:$SOURCE/../Twisted
