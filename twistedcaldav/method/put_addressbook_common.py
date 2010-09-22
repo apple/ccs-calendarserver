@@ -25,6 +25,8 @@ import types
 from twisted.internet import reactor
 from twisted.python.failure import Failure
 
+from txdav.common.icommondatastore import ReservationError
+
 from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.defer import returnValue
 from twext.web2 import responsecode
@@ -42,7 +44,6 @@ from twext.web2.stream import MemoryStream
 from twistedcaldav.config import config
 from twistedcaldav.carddavxml import NoUIDConflict, carddav_namespace
 from twistedcaldav.vcard import Component
-from twistedcaldav.vcardindex import ReservationError
 from twext.python.log import Logger
 
 log = Logger()

@@ -33,7 +33,6 @@ from twext.python.log import Logger, LoggingMixIn
 from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex
-from twistedcaldav.index import IndexedSearchException, ReservationError
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.query import calendarqueryfilter, calendarquery, \
@@ -41,6 +40,8 @@ from twistedcaldav.query import calendarqueryfilter, calendarquery, \
 from twistedcaldav.query.sqlgenerator import sqlgenerator
 from twistedcaldav.sharing import Invite
 
+from txdav.common.icommondatastore import IndexedSearchException, \
+    ReservationError
 from txdav.common.datastore.sql_tables import \
     _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_DIRECT, \
     _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID,\

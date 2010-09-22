@@ -27,7 +27,11 @@ from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import carddavxml
 from twistedcaldav import vcard
-from twistedcaldav.index import db_basename
+
+# FIXME: remove this, we should not be importing this module, we should be
+# testing the public API.  See comments below about cheating.
+from txdav.carddav.datastore.index_file import db_basename
+
 from twistedcaldav.config import config
 from twistedcaldav.test.util import AddressBookHomeTestCase
 

@@ -33,7 +33,7 @@ from twext.web2.dav.element.rfc2518 import ResourceType
 
 from twistedcaldav.sharing import InvitesDatabase
 from twistedcaldav.vcard import Component as VComponent, InvalidVCardDataError
-from twistedcaldav.vcardindex import AddressBookIndex as OldIndex
+from txdav.carddav.datastore.index_file import AddressBookIndex as OldIndex
 
 from txdav.carddav.datastore.util import validateAddressBookComponent
 from txdav.carddav.iaddressbookstore import IAddressBook, IAddressBookObject

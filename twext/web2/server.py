@@ -471,10 +471,10 @@ class Request(http.Request):
         @raise NoURLForResourceError: if C{resource} has no URL in this request
             (because it was not obtained from the request).
         """
-        resource = self._urlsByResource.get(resource, None)
-        if resource is None:
+        url = self._urlsByResource.get(resource, None)
+        if url is None:
             raise NoURLForResourceError(resource)
-        return resource
+        return url
 
     def locateResource(self, url):
         """

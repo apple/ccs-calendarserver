@@ -64,8 +64,10 @@ from twistedcaldav.datafilters.addressdata import AddressDataFilter
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
-from twistedcaldav.index import IndexedSearchException
+
 from twistedcaldav.query import calendarqueryfilter
+
+from txdav.common.icommondatastore import IndexedSearchException
 
 log = Logger()
 

@@ -108,6 +108,20 @@ class InternalDataStoreError(CommonStoreError):
     Uh, oh.
     """
 
+# Indexing / sync tokens
+
+class ReservationError(LookupError):
+    """
+    Attempt to reserve a UID which is already reserved or to unreserve a UID
+    which is not reserved.
+    """
+
+class IndexedSearchException(ValueError):
+    pass
+
+class SyncTokenValidException(ValueError):
+    pass
+
 #
 # Interfaces
 #

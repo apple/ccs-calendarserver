@@ -38,7 +38,7 @@ from twistedcaldav.caldavxml import caldav_namespace,\
     NumberOfRecurrencesWithinLimits
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
-from twistedcaldav.index import IndexedSearchException
+from txdav.common.icommondatastore import IndexedSearchException
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.method import report_common
 from twistedcaldav.query import calendarqueryfilter

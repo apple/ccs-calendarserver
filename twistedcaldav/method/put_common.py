@@ -46,6 +46,8 @@ from twext.web2.stream import MemoryStream
 from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse
 
+from txdav.common.icommondatastore import ReservationError
+
 from twistedcaldav.config import config
 from twistedcaldav.caldavxml import ScheduleTag, NoUIDConflict
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
@@ -57,7 +59,6 @@ from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
 from twistedcaldav.ical import Component, Property
-from twistedcaldav.index import ReservationError
 from twistedcaldav.instance import TooManyInstancesError,\
     InvalidOverriddenInstanceError
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
@@ -698,12 +699,14 @@ class StoreCalendarObjectResource(object):
 
     @inlineCallbacks
     def mergePerUserData(self):
-        
         if self.calendar:
             accessUID = (yield self.destination.resourceOwnerPrincipal(self.request))
             accessUID = accessUID.principalUID() if accessUID else ""
-            oldCal = self.destination.iCalendar() if self.destination.exists() and self.destinationcal else None
-            
+            if self.destination.exists() and self.destinationcal:
+                oldCal = self.destination.iCalendar()
+            else:
+                oldCal = None
+
             # Duplicate before we do the merge because someone else may "own" the calendar object
             # and we should not change it. This is not ideal as we may duplicate it unnecessarily
             # but we currently have no api to let the caller tell us whether it cares about the

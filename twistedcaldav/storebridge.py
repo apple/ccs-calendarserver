@@ -35,7 +35,7 @@ from twext.python.log import Logger
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
 from twext.web2.dav.http import ErrorResponse, ResponseQueue
-from twext.web2.dav.resource import TwistedACLInheritable
+from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError
 from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, \
     davXMLFromStream
 from twext.web2.http import HTTPError, StatusResponse, Response
@@ -709,6 +709,62 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
         return True
 
 
+    @inlineCallbacks
+    def iCalendarRolledup(self, request):
+        # FIXME: uncached: implement cache in the storage layer
+
+        # Generate a monolithic calendar
+        calendar = vcomponent.VComponent("VCALENDAR")
+        calendar.addProperty(vcomponent.VProperty("VERSION", "2.0"))
+
+        # Do some optimisation of access control calculation by determining any
+        # inherited ACLs outside of the child resource loop and supply those to
+        # the checkPrivileges on each child.
+        filteredaces = (yield self.inheritedACEsforChildren(request))
+
+        tzids = set()
+        isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+        accessPrincipal = (yield self.resourceOwnerPrincipal(request))
+
+        for name, uid, type in self.index().bruteForceSearch(): #@UnusedVariable
+            try:
+                child = yield request.locateChildResource(self, name)
+            except TypeError:
+                child = None
+
+            if child is not None:
+                # Check privileges of child - skip if access denied
+                try:
+                    yield child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces)
+                except AccessDeniedError:
+                    continue
+
+                # Get the access filtered view of the data
+                caldata = child.iCalendarTextFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
+                try:
+                    subcalendar = vcomponent.VComponent.fromString(caldata)
+                except ValueError:
+                    continue
+                assert subcalendar.name() == "VCALENDAR"
+
+                for component in subcalendar.subcomponents():
+                    
+                    # Only insert VTIMEZONEs once
+                    if component.name() == "VTIMEZONE":
+                        tzid = component.propertyValue("TZID")
+                        if tzid in tzids:
+                            continue
+                        tzids.add(tzid)
+
+                    calendar.addComponent(component)
+
+        # Cache the data
+        data = str(calendar)
+        data = self.getSyncToken() + "\r\n" + data
+
+        returnValue(calendar)
+
+
     @requiresPermissions(fromParent=[davxml.Unbind()])
     @inlineCallbacks
     def http_DELETE(self, request):
@@ -1006,9 +1062,12 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         return succeed(len(self._newStoreObject.iCalendarText()))
 
 
-    def iCalendarText(self, ignored=None):
-        assert ignored is None, "This is a calendar object, not a calendar"
+    def iCalendarText(self):
         return self._newStoreObject.iCalendarText()
+
+
+    def iCalendar(self):
+        return self._newStoreObject.component()
 
 
     def text(self):

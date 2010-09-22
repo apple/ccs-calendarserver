@@ -67,29 +67,25 @@ class ICalDAVResource(IDAVResource):
         Create a calendar collection for this resource.
         """
 
-    def iCalendar(name=None):
+    def iCalendar():
         """
         Instantiate an iCalendar component object representing this resource or
         its child with the given name.
         The behavior of this method is not specified if it is called on a
         resource that is not a calendar collection or a calendar resource within
         a calendar collection.
-        @param name: the name of the desired child of this resource, or None
-            if this resource is desired.  Must be None if this resource is
-            not a calendar collection.
+
         @return: a L{twistedcaldav.ical.Component} of type C{"VCALENDAR"}.
         """
 
-    def iCalendarText(name=None):
+    def iCalendarText():
         """
         Obtains the iCalendar text representing this resource or its child with
         the given name.
         The behavior of this method is not specified if it is called on a
         resource that is not a calendar collection or a calendar resource within
         a calendar collection.
-        @param name: the name of the desired child of this resource, or None
-            if this resource is desired.  Must be None if this resource is
-            not a calendar collection.
+
         @return: a string containing iCalendar text with a top-level component
             of type C{"VCALENDAR"}.
         """
