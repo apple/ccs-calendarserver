@@ -280,7 +280,7 @@ class StoreCalendarObjectResource(object):
             else:
                 # Get UID from original resource
                 self.source_index = self.sourceparent.index()
-                self.uid = self.source_index.resourceUIDForName(self.source.name())
+                self.uid = yield self.source_index.resourceUIDForName(self.source.name())
                 if self.uid is None:
                     log.err("Source calendar does not have a UID: %s" % self.source)
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
@@ -573,6 +573,7 @@ class StoreCalendarObjectResource(object):
         returnValue(new_has_private_comments)
 
 
+    @inlineCallbacks
     def noUIDConflict(self, uid): 
         """ 
         Check that the UID of the new calendar object conforms to the requirements of 
@@ -586,7 +587,7 @@ class StoreCalendarObjectResource(object):
         result = True 
         message = "" 
         rname = "" 
-        
+
         # Adjust for a move into same calendar collection 
         oldname = None 
         if self.sourceparent and (self.sourceparent == self.destinationparent) and self.deletesource: 
@@ -606,14 +607,13 @@ class StoreCalendarObjectResource(object):
         else: 
             # Cannot overwrite a resource with different UID 
             if self.destination.exists(): 
-                olduid = index.resourceUIDForName(self.destination.name()) 
+                olduid = yield index.resourceUIDForName(self.destination.name()) 
                 if olduid != uid: 
                     rname = self.destination.name() 
                     result = False 
                     message = "Cannot overwrite calendar resource %s with different UID %s" % (rname, olduid) 
          
-        return result, message, rname 
-
+        returnValue((result, message, rname))
 
 
     @inlineCallbacks
@@ -830,7 +830,7 @@ class StoreCalendarObjectResource(object):
                 # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests 
                 # try to write the same calendar data to two different resource URIs. 
                 if not self.isiTIP: 
-                    result, message, rname = self.noUIDConflict(self.uid) 
+                    result, message, rname = yield self.noUIDConflict(self.uid) 
                     if not result: 
                         log.err(message)
                         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN,
