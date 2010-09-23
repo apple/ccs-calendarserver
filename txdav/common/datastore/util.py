@@ -91,15 +91,23 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         for homeType, migrateFunc, eachFunc, destFunc in [
             ("calendar", migrateCalendarHome,
                 self.fileStore.eachCalendarHome,
-                lambda uid, txn: txn.calendarHomeWithUID(uid, create=True)),
+                lambda txn: txn.calendarHomeWithUID),
             ("addressbook", migrateAddressbookHome, self.fileStore.eachAddressbookHome,
-                lambda uid, txn: txn.addressbookHomeWithUID(uid, create=True))
+                lambda txn: txn.addressbookHomeWithUID)
             ]:
             for fileTxn, fileHome in eachFunc():
                 uid = fileHome.uid()
                 self.log_warn("Migrating %s UID %r" % (homeType, uid))
                 sqlTxn = self.sqlStore.newTransaction(migrating=True)
-                sqlHome = destFunc(uid, sqlTxn)
+                homeGetter = destFunc(sqlTxn)
+                if homeGetter(uid, create=False) is not None:
+                    self.log_warn(
+                        "%s home %r already existed not migrating" % (
+                            homeType, uid))
+                    sqlTxn.abort()
+                    fileTxn.commit()
+                    continue
+                sqlHome = homeGetter(uid, create=True)
                 yield migrateFunc(fileHome, sqlHome)
                 fileTxn.commit()
                 sqlTxn.commit()
