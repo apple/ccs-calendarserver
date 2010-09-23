@@ -271,6 +271,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
         self._transactionError = True
 
 
+    @inlineCallbacks
     def renderHTTP(self, request, transaction=None):
         """
         Override C{renderHTTP} to commit the transaction when the resource is
@@ -281,17 +282,15 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
         @param transaction: optional transaction to use instead of associated transaction
         @type transaction: L{txdav.caldav.idav.ITransaction}
         """
-        d = maybeDeferred(super(CalDAVResource, self).renderHTTP, request)
-        def succeeded(result, transaction=None):
-            if transaction is None:
-                transaction = self._associatedTransaction
-            if transaction is not None:
-                if self._transactionError:
-                    transaction.abort()
-                else:
-                    transaction.commit()
-            return result
-        return d.addCallback(succeeded, transaction=transaction)
+        result = yield super(CalDAVResource, self).renderHTTP(request)
+        if transaction is None:
+            transaction = self._associatedTransaction
+        if transaction is not None:
+            if self._transactionError:
+                yield transaction.abort()
+            else:
+                yield transaction.commit()
+        returnValue(result)
 
 
     # Begin transitional new-store resource interface:
