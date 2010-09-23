@@ -452,9 +452,9 @@ class ImplicitProcessor(object):
                 scheduler = ImplicitScheduler()
                 yield scheduler.sendAttendeeReply(self.request, resource, calendar, self.recipient)
             except:
-                txn.abort()
+                yield txn.abort()
             else:
-                txn.commit()
+                yield txn.commit()
         finally:
             yield lock.clean()
 
