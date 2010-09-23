@@ -63,7 +63,7 @@ def setUpCalendarStore(test):
     storePath.copyTo(calendarPath)
 
     test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory)
-    test.txn = test.calendarStore.newTransaction()
+    test.txn = test.calendarStore.newTransaction(test.id() + "(old)")
     assert test.calendarStore is not None, "No calendar store?"
 
 
@@ -289,12 +289,16 @@ class CalendarTest(unittest.TestCase):
         )
 
 
+    counter = 0
     def _refresh(self):
         """
         Re-read the (committed) home1 and calendar1 objects in a new
         transaction.
         """
-        self.txn = self.calendarStore.newTransaction()
+        self.counter += 1
+        self.txn = self.calendarStore.newTransaction(
+            self.id() + " (old #" + str(self.counter) + ")"
+        )
         self.home1 = self.txn.calendarHomeWithUID("home1")
         self.calendar1 = self.home1.calendarWithName("calendar_1")
 
@@ -312,11 +316,13 @@ class CalendarTest(unittest.TestCase):
             "sample.ics",
             VComponent.fromString(event4_text)
         )
+        self.txn.abort()
         self._refresh()
         self.assertIdentical(
             self.calendar1.calendarObjectWithName("sample.ics"),
             None
         )
+        self.txn.commit()
 
 
     def doThenUndo(self):
@@ -360,6 +366,7 @@ class CalendarTest(unittest.TestCase):
         Modifying a calendar object should cache the modified component in
         memory, to avoid unnecessary parsing round-trips.
         """
+        self.addCleanup(self.txn.commit)
         modifiedComponent = VComponent.fromString(event1modified_text)
         self.calendar1.calendarObjectWithName("1.ics").setComponent(
             modifiedComponent
