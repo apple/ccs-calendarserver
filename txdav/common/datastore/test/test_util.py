@@ -63,7 +63,7 @@ class HomeMigrationTests(TestCase):
         )
         self.upgrader.setServiceParent(self.topService)
         requirements = CommonTests.requirements
-        populateCalendarsFrom(requirements, fileStore)
+        yield populateCalendarsFrom(requirements, fileStore)
         self.filesPath.child("calendars").child(
             "__uids__").child("ho").child("me").child("home1").child(
             ".some-extra-data").setContent("some extra data")
@@ -99,7 +99,7 @@ class HomeMigrationTests(TestCase):
         """
         startTxn = self.sqlStore.newTransaction("populate empty sample")
         startTxn.calendarHomeWithUID("home1", create=True)
-        startTxn.commit()
+        yield startTxn.commit()
         self.topService.startService()
         yield self.subStarted
         vrfyTxn = self.sqlStore.newTransaction("verify sample still empty")
@@ -122,7 +122,7 @@ class HomeMigrationTests(TestCase):
         def maybeCommit():
             if not committed:
                 committed.append(True)
-                txn.commit()
+                return txn.commit()
         self.addCleanup(maybeCommit)
         @inlineCallbacks
         def getSampleObj():

@@ -47,11 +47,12 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     def setUp(self):
         super(CalendarSQLStorageTests, self).setUp()
         self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
-        self.populate()
+        yield self.populate()
 
 
+    @inlineCallbacks
     def populate(self):
-        populateCalendarsFrom(self.requirements, self.storeUnderTest())
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
 

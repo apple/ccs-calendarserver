@@ -28,7 +28,7 @@ from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, succeed
+from twisted.internet.defer import Deferred, succeed, inlineCallbacks
 from twisted.internet.task import deferLater
 from twisted.python import log
 
@@ -150,6 +150,7 @@ theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore
 
 
+@inlineCallbacks
 def populateCalendarsFrom(requirements, store):
     """
     Populate C{store} from C{requirements}.
@@ -163,7 +164,7 @@ def populateCalendarsFrom(requirements, store):
     for homeUID in requirements:
         calendars = requirements[homeUID]
         if calendars is not None:
-            home = populateTxn.calendarHomeWithUID(homeUID, True)
+            home = yield populateTxn.calendarHomeWithUID(homeUID, True)
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
             try:
@@ -175,13 +176,13 @@ def populateCalendarsFrom(requirements, store):
                 calendarObjNames = calendars[calendarName]
                 if calendarObjNames is not None:
                     home.createCalendarWithName(calendarName)
-                    calendar = home.calendarWithName(calendarName)
+                    calendar = yield home.calendarWithName(calendarName)
                     for objectName in calendarObjNames:
                         objData = calendarObjNames[objectName]
                         calendar.createCalendarObjectWithName(
                             objectName, VComponent.fromString(objData)
                         )
-    populateTxn.commit()
+    yield populateTxn.commit()
 
 
 def assertProvides(testCase, interface, provider):
@@ -230,8 +231,9 @@ class CommonCommonTests(object):
         Commit the last transaction created from C{transactionUnderTest}, and
         clear it.
         """
-        self.lastTransaction.commit()
+        result = self.lastTransaction.commit()
         self.lastTransaction = None
+        return result
 
 
     def abort(self):
@@ -239,8 +241,9 @@ class CommonCommonTests(object):
         Abort the last transaction created from C[transactionUnderTest}, and
         clear it.
         """
-        self.lastTransaction.abort()
+        result = self.lastTransaction.abort()
         self.lastTransaction = None
+        return result
 
     def setUp(self):
         self.counter = 0
@@ -248,7 +251,7 @@ class CommonCommonTests(object):
 
     def tearDown(self):
         if self.lastTransaction is not None:
-            self.commit()
+            return self.commit()
 
 
 
