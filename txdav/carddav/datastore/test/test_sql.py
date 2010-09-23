@@ -45,8 +45,9 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     def setUp(self):
         super(AddressBookSQLStorageTests, self).setUp()
         self._sqlStore = yield buildStore(self, self.notifierFactory)
-        self.populate()
+        yield self.populate()
 
+    @inlineCallbacks
     def populate(self):
         populateTxn = self.storeUnderTest().newTransaction()
         for homeUID in self.requirements:
@@ -67,7 +68,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
                                 objectName, VCard.fromString(objData)
                             )
 
-        populateTxn.commit()
+        yield populateTxn.commit()
         self.notifierFactory.reset()
 
 
@@ -203,19 +204,19 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         # existing data in the table
         home_uid2 = txn3.homeWithUID(EADDRESSBOOKTYPE, "uid2", create=True)
         self.assertNotEqual(home_uid2, None)
-        txn3.commit()
+        yield txn3.commit()
 
         home_uid1_1 = txn1.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
 
         def _defer_home_uid1_2():
             home_uid1_2 = txn2.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
-            txn2.commit()
+            txn2.commit() # FIXME: CONCURRENT
             return home_uid1_2
         d1 = deferToThread(_defer_home_uid1_2)
 
         def _pause_home_uid1_1():
             time.sleep(1)
-            txn1.commit()
+            txn1.commit() # FIXME: CONCURRENT
         d2 = deferToThread(_pause_home_uid1_1)
 
         # Verify that we can still get to the existing home - i.e. the lock
@@ -223,7 +224,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         txn4 = addressbookStore3.newTransaction()
         home_uid2 = txn4.homeWithUID(EADDRESSBOOKTYPE, "uid2", create=True)
         self.assertNotEqual(home_uid2, None)
-        txn4.commit()
+        yield txn4.commit()
 
         # Now do the concurrent provision attempt
         yield d2
@@ -247,7 +248,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         txn = addressbookStore1.newTransaction()
         home = txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
         self.assertNotEqual(home, None)
-        txn.commit()
+        yield txn.commit()
 
         txn1 = addressbookStore1.newTransaction()
         txn2 = addressbookStore2.newTransaction()
@@ -257,7 +258,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         
         adbk1 = home1.addressbookWithName("addressbook")
         adbk2 = home2.addressbookWithName("addressbook")
-        
+
         def _defer1():
             adbk1.createObjectResourceWithName("1.vcf", VCard.fromString(
                 """BEGIN:VCARD
@@ -273,7 +274,7 @@ UID:uid1
 END:VCARD
 """.replace("\n", "\r\n")
             ))
-            txn1.commit()
+            txn1.commit() # FIXME: CONCURRENT
         d1 = deferToThread(_defer1)
             
         def _defer2():
@@ -291,7 +292,7 @@ UID:uid2
 END:VCARD
 """.replace("\n", "\r\n")
             ))
-            txn2.commit()
+            txn2.commit() # FIXME: CONCURRENT
         d2 = deferToThread(_defer2)
 
         yield d1

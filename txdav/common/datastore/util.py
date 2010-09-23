@@ -104,13 +104,13 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                     self.log_warn(
                         "%s home %r already existed not migrating" % (
                             homeType, uid))
-                    sqlTxn.abort()
-                    fileTxn.commit()
+                    yield sqlTxn.abort()
+                    yield fileTxn.commit()
                     continue
                 sqlHome = homeGetter(uid, create=True)
                 yield migrateFunc(fileHome, sqlHome)
-                fileTxn.commit()
-                sqlTxn.commit()
+                yield fileTxn.commit()
+                yield sqlTxn.commit()
                 # FIXME: need a public remove...HomeWithUID() for de-
                 # provisioning
                 storePath = self.fileStore._path
