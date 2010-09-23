@@ -22,11 +22,11 @@ __all__ = [
     "XMLAugmentsParser",
 ]
 
-from xml.etree.ElementTree import ElementTree
-from xml.parsers.expat import ExpatError
 import types
 
 from twext.python.log import Logger
+
+from twistedcaldav.xmlutil import readXML
 
 log = Logger()
 
@@ -68,14 +68,9 @@ class XMLAugmentsParser(object):
 
         # Read in XML
         try:
-            tree = ElementTree(file=self.xmlFile)
-        except ExpatError, e:
-            log.error("Unable to parse file '%s' because: %s" % (self.xmlFile, e,), raiseException=RuntimeError)
-
-        # Verify that top-level element is correct
-        augments_node = tree.getroot()
-        if augments_node.tag != ELEMENT_AUGMENTS:
-            log.error("Ignoring file '%s' because it is not a augments file" % (self.xmlFile,), raiseException=RuntimeError)
+            _ignore_tree, augments_node = readXML(self.xmlFile, ELEMENT_AUGMENTS)
+        except ValueError, e:
+            log.error("XML parse error for '%s' because: %s" % (self.xmlFile, e,), raiseException=RuntimeError)
 
         self._parseXML(augments_node)
 

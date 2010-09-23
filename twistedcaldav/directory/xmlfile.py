@@ -34,11 +34,9 @@ from twistedcaldav.config import config
 from twistedcaldav.config import fullServerPath
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
-from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
-    CachingDirectoryRecord
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser, XMLAccountRecord
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
-import xml.etree.ElementTree as ET
+from twistedcaldav.xmlutil import addSubElement, createElement, elementToXML
 from uuid import uuid4
 
 
@@ -356,19 +354,19 @@ class XMLDirectoryService(DirectoryService):
         }
         xmlType = xmlTypes[principal.recordType]
 
-        element = ET.SubElement(parent, xmlType)
+        element = addSubElement(parent, xmlType)
         for value in principal.shortNames:
-            ET.SubElement(element, "uid").text = value
-        ET.SubElement(element, "guid").text = principal.guid
-        ET.SubElement(element, "name").text = principal.fullName
-        ET.SubElement(element, "first-name").text = principal.firstName
-        ET.SubElement(element, "last-name").text = principal.lastName
+            addSubElement(element, "uid", text=value)
+        addSubElement(element, "guid", text=principal.guid)
+        addSubElement(element, "name", text=principal.fullName)
+        addSubElement(element, "first-name", text=principal.firstName)
+        addSubElement(element, "last-name", text=principal.lastName)
         for value in principal.emailAddresses:
-            ET.SubElement(element, "email-address").text = value
+            addSubElement(element, "email-address", text=value)
         if principal.extras:
-            extrasElement = ET.SubElement(element, "extras")
+            extrasElement = addSubElement(element, "extras")
             for key, value in principal.extras.iteritems():
-                ET.SubElement(extrasElement, key).text = value
+                addSubElement(extrasElement, key, text=value)
 
         return element
 
@@ -392,7 +390,7 @@ class XMLDirectoryService(DirectoryService):
 
         indent(element)
 
-        self.xmlFile.setContent(ET.tostring(element))
+        self.xmlFile.setContent(elementToXML(element))
 
 
     def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
@@ -413,7 +411,7 @@ class XMLDirectoryService(DirectoryService):
         # Make sure latest XML records are read in
         accounts = self._forceReload()
 
-        accountsElement = ET.Element("accounts", realm=self.realmName)
+        accountsElement = createElement("accounts", realm=self.realmName)
         for recType in self.recordTypes():
             for xmlPrincipal in accounts[recType].itervalues():
                 if xmlPrincipal.guid == guid:
@@ -451,7 +449,7 @@ class XMLDirectoryService(DirectoryService):
         # Make sure latest XML records are read in
         accounts = self._forceReload()
 
-        accountsElement = ET.Element("accounts", realm=self.realmName)
+        accountsElement = createElement("accounts", realm=self.realmName)
         for recType in self.recordTypes():
 
             for xmlPrincipal in accounts[recType].itervalues():
@@ -475,7 +473,7 @@ class XMLDirectoryService(DirectoryService):
         # Make sure latest XML records are read in
         accounts = self._forceReload()
 
-        accountsElement = ET.Element("accounts", realm=self.realmName)
+        accountsElement = createElement("accounts", realm=self.realmName)
         for recType in self.recordTypes():
 
             for xmlPrincipal in accounts[recType].itervalues():
@@ -507,7 +505,7 @@ class XMLDirectoryService(DirectoryService):
         knownGUIDs = { }
         knownShortNames = { }
 
-        accountsElement = ET.Element("accounts", realm=self.realmName)
+        accountsElement = createElement("accounts", realm=self.realmName)
         for recType in self.recordTypes():
             for xmlPrincipal in accounts[recType].itervalues():
                 self._addElement(accountsElement, xmlPrincipal)

@@ -16,8 +16,11 @@
 
 from __future__ import with_statement
 
-from xml.etree.ElementTree import Element, ElementTree, SubElement, tostring
-from xml.parsers.expat import ExpatError
+import xml.etree.ElementTree as XML
+try:
+    from xml.etree.ElementTree import ParseError as XMLParseError
+except ImportError:
+    from xml.parsers.expat import ExpatError as XMLParseError
 
 # Utilities for working with ElementTree
 
@@ -35,8 +38,8 @@ def readXML(xmlfile, expectedRootTag=None):
 
     # Read in XML
     try:
-        etree = ElementTree(file=xmlfile)
-    except ExpatError, e:
+        etree = XML.ElementTree(file=xmlfile)
+    except XMLParseError, e:
         raise ValueError("Unable to parse file '%s' because: %s" % (xmlfile, e,))
 
     if expectedRootTag:
@@ -45,6 +48,9 @@ def readXML(xmlfile, expectedRootTag=None):
             raise ValueError("Ignoring file '%s' because it is not a %s file" % (xmlfile, expectedRootTag,))
     
     return etree, etree.getroot()
+
+def elementToXML(element):
+    return XML.tostring(element)
 
 def writeXML(xmlfile, root):
     
@@ -70,7 +76,7 @@ def writeXML(xmlfile, root):
                 node.getchildren()[-1].tail = "\n" + " " * level * INDENT
 
     _indentNode(root, 0)
-    data += tostring(root) + "\n"
+    data += XML.tostring(root) + "\n"
 
     with open(xmlfile, "w") as f:
         f.write(data)
@@ -78,19 +84,19 @@ def writeXML(xmlfile, root):
 def newElementTreeWithRoot(roottag):
 
     root = createElement(roottag)
-    etree = ElementTree(root)
+    etree = XML.ElementTree(root)
     
     return etree, root
 
-def createElement(tag, text=None):
+def createElement(tag, text=None, **attrs):
 
-    child = Element(tag)
+    child = XML.Element(tag, attrs)
     child.text = text
     return child
 
 def addSubElement(parent, tag, text=None):
 
-    child = SubElement(parent, tag)
+    child = XML.SubElement(parent, tag)
     child.text = text
     return child
 

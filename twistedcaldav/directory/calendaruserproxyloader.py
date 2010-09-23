@@ -23,8 +23,6 @@ __all__ = [
 ]
 
 import types
-from xml.etree.ElementTree import ElementTree
-from xml.parsers.expat import ExpatError
 
 from twisted.internet.defer import inlineCallbacks
 
@@ -32,6 +30,7 @@ from twext.python.log import Logger
 
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.directory import calendaruserproxy
+from twistedcaldav.xmlutil import readXML
 
 log = Logger()
 
@@ -59,14 +58,9 @@ class XMLCalendarUserProxyLoader(object):
 
         # Read in XML
         try:
-            tree = ElementTree(file=self.xmlFile)
-        except ExpatError, e:
-            log.error("Unable to parse file '%s' because: %s" % (self.xmlFile, e,), raiseException=RuntimeError)
-
-        # Verify that top-level element is correct
-        proxies_node = tree.getroot()
-        if proxies_node.tag != ELEMENT_PROXIES:
-            log.error("Ignoring file '%s' because it is not a proxies file" % (self.xmlFile,), raiseException=RuntimeError)
+            _ignore_tree, proxies_node = readXML(self.xmlFile, ELEMENT_PROXIES)
+        except ValueError, e:
+            log.error("XML parse error for '%s' because: %s" % (self.xmlFile, e,), raiseException=RuntimeError)
 
         self._parseXML(proxies_node)
 
