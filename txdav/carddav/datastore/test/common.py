@@ -17,6 +17,7 @@
 """
 Tests for common addressbook store API functions.
 """
+from twisted.internet.defer import inlineCallbacks
 
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.base.propertystore.base import PropertyName
@@ -239,6 +240,7 @@ class CommonTests(CommonCommonTests):
             self.assertEquals(addressbook.name(), name)
 
 
+    @inlineCallbacks
     def test_addressbookRename(self):
         """
         L{IAddressBook.rename} changes the name of the L{IAddressBook}.
@@ -251,7 +253,7 @@ class CommonTests(CommonCommonTests):
             self.assertEquals(addressbook, home.addressbookWithName("some_other_name"))
             self.assertEquals(None, home.addressbookWithName("addressbook_1"))
         positiveAssertions()
-        self.commit()
+        yield self.commit()
         home = self.homeUnderTest()
         addressbook = home.addressbookWithName("some_other_name")
         positiveAssertions()
@@ -269,6 +271,7 @@ class CommonTests(CommonCommonTests):
                           None)
 
 
+    @inlineCallbacks
     def test_createAddressBookWithName_absent(self):
         """
         L{IAddressBookHome.createAddressBookWithName} creates a new L{IAddressBook} that
@@ -289,7 +292,7 @@ class CommonTests(CommonCommonTests):
                 addressbookType
             )
         checkProperties()
-        self.commit()
+        yield self.commit()
 
         # Make sure notification fired after commit
         self.assertEquals(self.notifierFactory.history,
@@ -321,6 +324,7 @@ class CommonTests(CommonCommonTests):
             )
 
 
+    @inlineCallbacks
     def test_removeAddressBookWithName_exists(self):
         """
         L{IAddressBookHome.removeAddressBookWithName} removes a addressbook that already
@@ -333,7 +337,7 @@ class CommonTests(CommonCommonTests):
             home.removeAddressBookWithName(name)
             self.assertEquals(home.addressbookWithName(name), None)
 
-        self.commit()
+        yield self.commit()
 
         # Make sure notification fired after commit
         self.assertEquals(
@@ -444,6 +448,7 @@ class CommonTests(CommonCommonTests):
             )
 
 
+    @inlineCallbacks
     def test_removeAddressBookObjectWithName_exists(self):
         """
         Remove an existing addressbook object.
@@ -459,7 +464,7 @@ class CommonTests(CommonCommonTests):
             )
 
         # Make sure notifications are fired after commit
-        self.commit()
+        yield self.commit()
         self.assertEquals(
             self.notifierFactory.history,
             [
@@ -577,6 +582,7 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(before | set(['new-name']), after)
 
 
+    @inlineCallbacks
     def test_createAddressBookObjectWithName_absent(self):
         """
         L{IAddressBook.createAddressBookObjectWithName} creates a new
@@ -591,7 +597,7 @@ class CommonTests(CommonCommonTests):
         addressbookObject = addressbook1.addressbookObjectWithName(name)
         self.assertEquals(addressbookObject.component(), component)
 
-        self.commit()
+        yield self.commit()
 
         # Make sure notifications fire after commit
         self.assertEquals(
@@ -656,6 +662,7 @@ class CommonTests(CommonCommonTests):
         )
 
 
+    @inlineCallbacks
     def test_addressbookHomeWithUID_create(self):
         """
         L{IAddressBookStoreTransaction.addressbookHomeWithUID} with C{create=True}
@@ -674,11 +681,12 @@ class CommonTests(CommonCommonTests):
         self.assertProvides(IAddressBookHome, addressbookHome)
         # A concurrent transaction shouldn't be able to read it yet:
         self.assertIdentical(readOtherTxn(), None)
-        self.commit()
+        yield self.commit()
         # But once it's committed, other transactions should see it.
         self.assertProvides(IAddressBookHome, readOtherTxn())
 
 
+    @inlineCallbacks
     def test_setComponent(self):
         """
         L{AddressBookObject.setComponent} changes the result of
@@ -697,7 +705,7 @@ class CommonTests(CommonCommonTests):
         addressbookObject = addressbook1.addressbookObjectWithName("1.vcf")
         self.assertEquals(addressbookObject.component(), component)
 
-        self.commit()
+        yield self.commit()
 
         # Make sure notification fired after commit
         self.assertEquals(
@@ -751,6 +759,7 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(newEvent.properties().items(), [])
 
 
+    @inlineCallbacks
     def test_setComponentPreservesProperties(self):
         """
         L{IAddressBookObject.setComponent} preserves properties.
@@ -766,7 +775,7 @@ class CommonTests(CommonCommonTests):
 
         self.addressbookObjectUnderTest().properties()[
             propertyName] = propertyContent
-        self.commit()
+        yield self.commit()
         # Sanity check; are properties even readable in a separate transaction?
         # Should probably be a separate test.
         self.assertEquals(
@@ -785,7 +794,7 @@ class CommonTests(CommonCommonTests):
 
         # Putting everything into a separate transaction to account for any
         # caching that may take place.
-        self.commit()
+        yield self.commit()
         self.assertEquals(
             self.addressbookObjectUnderTest().properties()[propertyName],
             propertyContent
@@ -822,6 +831,7 @@ class CommonTests(CommonCommonTests):
                 addressbook2.addressbookObjectWithUID(obj.uid()), None)
 
 
+    @inlineCallbacks
     def test_eachAddressbookHome(self):
         """
         L{IAddressbookTransaction.eachAddressbookHome} returns an iterator that
@@ -832,7 +842,7 @@ class CommonTests(CommonCommonTests):
         txn = self.transactionUnderTest()
         for name in additionalUIDs:
             txn.addressbookHomeWithUID(name, create=True)
-        self.commit()
+        yield self.commit()
         foundUIDs = set([])
         lastTxn = None
         for txn, home in self.storeUnderTest().eachAddressbookHome():
