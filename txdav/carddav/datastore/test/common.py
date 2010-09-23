@@ -18,11 +18,6 @@
 Tests for common addressbook store API functions.
 """
 
-from zope.interface.verify import verifyObject
-from zope.interface.exceptions import (
-    BrokenMethodImplementation, DoesNotImplement
-)
-
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.base.propertystore.base import PropertyName
 
@@ -38,8 +33,10 @@ from txdav.carddav.iaddressbookstore import (
     IAddressBookObject, IAddressBookHome,
     IAddressBook, IAddressBookTransaction
 )
+
+from txdav.common.datastore.test.util import CommonCommonTests
+
 from twistedcaldav.vcard import Component as VComponent
-from twistedcaldav.notify import Notifier
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2.dav import davxml
@@ -103,24 +100,7 @@ vcard1modified_text = vcard4_text.replace(
 )
 
 
-def assertProvides(testCase, interface, provider):
-    """
-    Verify that C{provider} properly provides C{interface}
-
-    @type interface: L{zope.interface.Interface}
-    @type provider: C{provider}
-    """
-    try:
-        verifyObject(interface, provider)
-    except BrokenMethodImplementation, e:
-        testCase.fail(e)
-    except DoesNotImplement, e:
-        testCase.fail("%r does not provide %s.%s" %
-                      (provider, interface.__module__, interface.getName()))
-
-
-
-class CommonTests(object):
+class CommonTests(CommonCommonTests):
     """
     Tests for common functionality of interfaces defined in
     L{txdav.carddav.iaddressbookstore}.
@@ -152,49 +132,6 @@ class CommonTests(object):
         raise NotImplementedError()
 
 
-    lastTransaction = None
-    savedStore = None
-
-    def transactionUnderTest(self):
-        """
-        Create a transaction from C{storeUnderTest} and save it as
-        C[lastTransaction}.  Also makes sure to use the same store, saving the
-        value from C{storeUnderTest}.
-        """
-        if self.lastTransaction is not None:
-            return self.lastTransaction
-        if self.savedStore is None:
-            self.savedStore = self.storeUnderTest()
-        txn = self.lastTransaction = self.savedStore.newTransaction(self.id())
-        return txn
-
-
-    def commit(self):
-        """
-        Commit the last transaction created from C{transactionUnderTest}, and
-        clear it.
-        """
-        self.lastTransaction.commit()
-        self.lastTransaction = None
-
-
-    def abort(self):
-        """
-        Abort the last transaction created from C[transactionUnderTest}, and
-        clear it.
-        """
-        self.lastTransaction.abort()
-        self.lastTransaction = None
-
-    def setUp(self):
-        self.notifierFactory = StubNotifierFactory()
-
-    def tearDown(self):
-        if self.lastTransaction is not None:
-            self.commit()
-
-
-
     def homeUnderTest(self):
         """
         Get the addressbook home detailed by C{requirements['home1']}.
@@ -215,9 +152,6 @@ class CommonTests(object):
         C{requirements['home1']['addressbook_1']['1.vcf']}.
         """
         return self.addressbookUnderTest().addressbookObjectWithName("1.vcf")
-
-
-    assertProvides = assertProvides
 
 
     def test_addressbookStoreProvides(self):
@@ -915,18 +849,3 @@ class CommonTests(object):
 
 
 
-class StubNotifierFactory(object):
-
-    """ For testing push notifications without an XMPP server """
-
-    def __init__(self):
-        self.reset()
-
-    def newNotifier(self, label="default", id=None, prefix=None):
-        return Notifier(self, label=label, id=id, prefix=prefix)
-
-    def send(self, op, id):
-        self.history.append((op, id))
-
-    def reset(self):
-        self.history = []

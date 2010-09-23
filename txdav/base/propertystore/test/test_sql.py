@@ -21,9 +21,7 @@ L{txdav.caldav.datastore.test.common}.
 
 from twisted.internet.defer import inlineCallbacks
 
-from txdav.caldav.datastore.test.common import StubNotifierFactory
-
-from txdav.common.datastore.test.util import buildStore
+from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.test import base

@@ -41,9 +41,10 @@ from txdav.caldav.datastore.test.test_file import event4_text
 
 from txdav.carddav.datastore.test.test_file import vcard4_text
 
-from txdav.common.datastore.test.util import buildStore
-from txdav.caldav.datastore.test.common import StubNotifierFactory, \
-    assertProvides
+from txdav.common.datastore.test.util import buildStore, assertProvides,\
+    StubNotifierFactory
+
+
 from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.carddav.iaddressbookstore import IAddressBookHome
 

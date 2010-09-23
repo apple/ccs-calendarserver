@@ -27,8 +27,8 @@ from twisted.application.service import Service, MultiService
 from txdav.common.datastore.util import UpgradeToDatabaseService
 from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import theStoreBuilder, \
-    populateCalendarsFrom
-from txdav.caldav.datastore.test.common import StubNotifierFactory, CommonTests
+    populateCalendarsFrom, StubNotifierFactory
+from txdav.caldav.datastore.test.common import CommonTests
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 
 

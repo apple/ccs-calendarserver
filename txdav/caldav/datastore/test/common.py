@@ -19,10 +19,6 @@
 Tests for common calendar store API functions.
 """
 
-from zope.interface.verify import verifyObject
-from zope.interface.exceptions import (
-    BrokenMethodImplementation, DoesNotImplement)
-
 from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.protocol import Protocol
 
@@ -36,6 +32,7 @@ from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.common.inotifications import INotificationObject
+from txdav.common.datastore.test.util import CommonCommonTests
 
 from txdav.caldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
@@ -47,7 +44,6 @@ from twext.web2.http_headers import MimeType
 from twext.web2.dav.element.base import WebDAVUnknownElement
 from twext.python.vcomponent import VComponent
 
-from twistedcaldav.notify import Notifier
 from twistedcaldav.customxml import InviteNotification, InviteSummary
 
 storePath = FilePath(__file__).parent().child("calendar_store")
@@ -146,23 +142,7 @@ event1modified_text = event4_text.replace(
 
 
 
-def assertProvides(testCase, interface, provider):
-    """
-    Verify that C{provider} properly provides C{interface}
-
-    @type interface: L{zope.interface.Interface}
-    @type provider: C{provider}
-    """
-    try:
-        verifyObject(interface, provider)
-    except BrokenMethodImplementation, e:
-        testCase.fail(e)
-    except DoesNotImplement, e:
-        testCase.fail("%r does not provide %s.%s" %
-                      (provider, interface.__module__, interface.getName()))
-
-
-class CommonTests(object):
+class CommonTests(CommonCommonTests):
     """
     Tests for common functionality of interfaces defined in
     L{txdav.caldav.icalendarstore}.
@@ -194,50 +174,6 @@ class CommonTests(object):
         raise NotImplementedError()
 
 
-    lastTransaction = None
-    savedStore = None
-
-    def transactionUnderTest(self):
-        """
-        Create a transaction from C{storeUnderTest} and save it as
-        C[lastTransaction}.  Also makes sure to use the same store, saving the
-        value from C{storeUnderTest}.
-        """
-        if self.lastTransaction is not None:
-            return self.lastTransaction
-        if self.savedStore is None:
-            self.savedStore = self.storeUnderTest()
-        txn = self.lastTransaction = self.savedStore.newTransaction(self.id())
-        return txn
-
-
-    def commit(self):
-        """
-        Commit the last transaction created from C{transactionUnderTest}, and
-        clear it.
-        """
-        self.lastTransaction.commit()
-        self.lastTransaction = None
-
-
-    def abort(self):
-        """
-        Abort the last transaction created from C[transactionUnderTest}, and
-        clear it.
-        """
-        self.lastTransaction.abort()
-        self.lastTransaction = None
-
-
-    def setUp(self):
-        self.notifierFactory = StubNotifierFactory()
-
-
-    def tearDown(self):
-        if self.lastTransaction is not None:
-            self.commit()
-
-
     def homeUnderTest(self):
         """
         Get the calendar home detailed by C{requirements['home1']}.
@@ -259,8 +195,6 @@ class CommonTests(object):
         """
         return self.calendarUnderTest().calendarObjectWithName("1.ics")
 
-
-    assertProvides = assertProvides
 
     def test_calendarStoreProvides(self):
         """
@@ -1219,18 +1153,3 @@ END:VCALENDAR
 
 
 
-class StubNotifierFactory(object):
-
-    """ For testing push notifications without an XMPP server """
-
-    def __init__(self):
-        self.reset()
-
-    def newNotifier(self, label="default", id=None, prefix=None):
-        return Notifier(self, label=label, id=id, prefix=prefix)
-
-    def send(self, op, id):
-        self.history.append((op, id))
-
-    def reset(self):
-        self.history = []

@@ -33,7 +33,9 @@ from txdav.carddav.datastore.file import AddressBookStore, AddressBookHome
 from txdav.carddav.datastore.file import AddressBook, AddressBookObject
 
 from txdav.carddav.datastore.test.common import (
-    CommonTests, vcard4_text, vcard1modified_text, StubNotifierFactory)
+    CommonTests, vcard4_text, vcard1modified_text)
+
+from txdav.common.datastore.test.util import StubNotifierFactory
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
 
@@ -420,7 +422,7 @@ class AddressBookObjectTest(unittest.TestCase):
         )
 
 
-class FileStorageTests(unittest.TestCase, CommonTests):
+class FileStorageTests(CommonTests, unittest.TestCase):
     """
     File storage tests.
     """
