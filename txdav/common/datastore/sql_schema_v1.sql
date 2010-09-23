@@ -207,7 +207,9 @@ create table ATTACHMENT (
   MD5                         char(32)      not null,
   CREATED                     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                    timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  PATH                        varchar(1024) not null unique
+  PATH                        varchar(1024) not null,
+
+  unique(CALENDAR_OBJECT_RESOURCE_ID, PATH)
 );
 
 

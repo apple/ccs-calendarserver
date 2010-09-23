@@ -264,8 +264,13 @@ class CalendarObject(CommonObjectResource):
         try:
             instances = component.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
         except InvalidOverriddenInstanceError, e:
-            self.log_err("Invalid instance %s when indexing %s in %s" % (e.rid, self._name, self.resource,))
-            raise
+            self.log_error("Invalid instance %s when indexing %s in %s" % (e.rid, self._name, self._calendar,))
+            
+            if self._txn._migrating:
+                # TODO: fix the data here by re-writing component then re-index
+                instances = component.expandTimeRanges(expand, ignoreInvalidInstances=True)
+            else:
+                raise
 
         componentText = str(component)
         self._objectText = componentText

@@ -49,6 +49,7 @@ from txdav.base.propertystore.xattr import PropertyStore
 from errno import EEXIST, ENOENT
 from zope.interface import implements, directlyProvides
 
+import os
 import uuid
 
 ECALENDARTYPE = 0
@@ -92,15 +93,19 @@ class CommonDataStore(DataStore):
         self._transactionClass = CommonStoreTransaction
 
 
-    def newTransaction(self, name='no name'):
+    def newTransaction(self, name='no name', migrating=False):
         """
         Create a new transaction.
 
         @see Transaction
         """
         return self._transactionClass(
-            self, name, self.enableCalendars,
-            self.enableAddressBooks, self._notifierFactory
+            self,
+            name,
+            self.enableCalendars,
+            self.enableAddressBooks,
+            self._notifierFactory,
+            migrating,
         )
 
 
@@ -148,8 +153,7 @@ class CommonStoreTransaction(DataStoreTransaction):
 
     _homeClass = {}
 
-    def __init__(self, dataStore, name, enableCalendars, enableAddressBooks,
-        notifierFactory):
+    def __init__(self, dataStore, name, enableCalendars, enableAddressBooks, notifierFactory, migrating=False):
         """
         Initialize a transaction; do not call this directly, instead call
         L{DataStore.newTransaction}.
@@ -169,6 +173,7 @@ class CommonStoreTransaction(DataStoreTransaction):
         self._homes[EADDRESSBOOKTYPE] = {}
         self._notifications = {}
         self._notifierFactory = notifierFactory
+        self._migrating = migrating
 
         extraInterfaces = []
         if enableCalendars:
@@ -376,7 +381,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         ) | set(
             name
             for name in self._path.listdir()
-            if not name.startswith(".")
+            if not name.startswith(".") and self._path.child(name).isdir()
         ))
 
 

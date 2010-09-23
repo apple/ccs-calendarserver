@@ -71,6 +71,8 @@ CalendarStore = CommonDataStore
 
 CalendarStoreTransaction = CommonStoreTransaction
 
+IGNORE_NAMES = ('dropbox', 'notification', 'freebusy')
+
 class CalendarHome(CommonHome):
     implements(ICalendarHome)
 
@@ -81,7 +83,7 @@ class CalendarHome(CommonHome):
 
 
     def calendarWithName(self, name):
-        if name in ('dropbox', 'notifications', 'freebusy'):
+        if name in IGNORE_NAMES:
             # "dropbox" is a file storage area, not a calendar.
             return None
         else:
@@ -95,17 +97,15 @@ class CalendarHome(CommonHome):
         """
         Return a generator of the child resource objects.
         """
-        for child in self.children():
-            if child.name() in ('dropbox', 'notification'):
-                continue
-            yield child
+        for child in self.listCalendars():
+            yield self.calendarWithName(child)
 
     def listCalendars(self):
         """
         Return a generator of the child resource names.
         """
         for name in self.listChildren():
-            if name in ('dropbox', 'notification'):
+            if name in IGNORE_NAMES:
                 continue
             yield name
 

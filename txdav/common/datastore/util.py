@@ -98,7 +98,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             for fileTxn, fileHome in eachFunc():
                 uid = fileHome.uid()
                 self.log_warn("Migrating %s UID %r" % (homeType, uid))
-                sqlTxn = self.sqlStore.newTransaction()
+                sqlTxn = self.sqlStore.newTransaction(migrating=True)
                 sqlHome = destFunc(uid, sqlTxn)
                 yield migrateFunc(fileHome, sqlHome)
                 fileTxn.commit()

@@ -105,14 +105,15 @@ class CommonDataStore(Service, object):
         return []
 
 
-    def newTransaction(self, label="unlabeled"):
+    def newTransaction(self, label="unlabeled", migrating=False):
         return CommonStoreTransaction(
             self,
             self.connectionFactory(),
             self.enableCalendars,
             self.enableAddressBooks,
             self.notifierFactory,
-            label
+            label,
+            migrating,
         )
 
 class CommonStoreTransaction(object):
@@ -122,7 +123,7 @@ class CommonStoreTransaction(object):
 
     _homeClass = {}
 
-    def __init__(self, store, connection, enableCalendars, enableAddressBooks, notifierFactory, label):
+    def __init__(self, store, connection, enableCalendars, enableAddressBooks, notifierFactory, label, migrating=False):
 
         self._store = store
         self._connection = connection
@@ -134,6 +135,7 @@ class CommonStoreTransaction(object):
         self._postCommitOperations = []
         self._notifierFactory = notifierFactory
         self._label = label
+        self._migrating = migrating
 
         extraInterfaces = []
         if enableCalendars:
