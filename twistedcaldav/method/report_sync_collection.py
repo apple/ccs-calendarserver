@@ -46,8 +46,12 @@ def report_DAV__sync_collection(self, request, sync_collection):
     """
     Generate a sync-collection REPORT.
     """
-    if not self.isPseudoCalendarCollection() and not self.isAddressBookCollection() or not config.EnableSyncReport:
-        log.err("sync-collection report is only allowed on calendar/inbox/addressbook collection resources %s" % (self,))
+    if not config.EnableSyncReport or (
+        not self.isPseudoCalendarCollection() and
+        not self.isAddressBookCollection() and
+        not self.isNotificationCollection()
+    ):
+        log.err("sync-collection report is only allowed on calendar/inbox/addressbook/notification collection resources %s" % (self,))
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.SupportedReport()))
    
     responses = []

@@ -77,7 +77,8 @@ ADDRESSBOOK_BIND_TABLE = {
 
 CALENDAR_OBJECT_REVISIONS_TABLE = {
     "name"                    : "CALENDAR_OBJECT_REVISIONS",
-    "sequence"                : "CALENDAR_OBJECT_REVISION_SEQ",
+    "sequence"                : "REVISION_SEQ",
+    "column_HOME_RESOURCE_ID" : "CALENDAR_HOME_RESOURCE_ID",
     "column_RESOURCE_ID"      : "CALENDAR_RESOURCE_ID",
     "column_RESOURCE_NAME"    : "RESOURCE_NAME",
     "column_REVISION"         : "REVISION",
@@ -86,8 +87,18 @@ CALENDAR_OBJECT_REVISIONS_TABLE = {
 
 ADDRESSBOOK_OBJECT_REVISIONS_TABLE = {
     "name"                    : "ADDRESSBOOK_OBJECT_REVISIONS",
-    "sequence"                : "ADDRESSBOOK_OBJECT_REVISION_SEQ",
+    "sequence"                : "REVISION_SEQ",
+    "column_HOME_RESOURCE_ID" : "ADDRESSBOOK_HOME_RESOURCE_ID",
     "column_RESOURCE_ID"      : "ADDRESSBOOK_RESOURCE_ID",
+    "column_RESOURCE_NAME"    : "RESOURCE_NAME",
+    "column_REVISION"         : "REVISION",
+    "column_DELETED"          : "DELETED",
+}
+
+NOTIFICATION_OBJECT_REVISIONS_TABLE = {
+    "name"                    : "NOTIFICATION_OBJECT_REVISIONS",
+    "sequence"                : "REVISION_SEQ",
+    "column_HOME_RESOURCE_ID" : "NOTIFICATION_HOME_RESOURCE_ID",
     "column_RESOURCE_NAME"    : "RESOURCE_NAME",
     "column_REVISION"         : "REVISION",
     "column_DELETED"          : "DELETED",

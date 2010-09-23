@@ -1837,6 +1837,12 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
     def isCollection(self):
         return True
 
+    def getSyncToken(self):
+        return self._newStoreNotifications.syncToken()
+
+    def _indexWhatChanged(self, revision):
+        return self._newStoreNotifications.resourceNamesSinceToken(revision)
+
     def addNotification(self, request, uid, xmltype, xmldata):
 
         self._newStoreNotifications.writeNotificationObject(uid, xmltype, xmldata)

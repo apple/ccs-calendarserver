@@ -930,6 +930,12 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
         """
         return self.isSpecialCollection(carddavxml.AddressBook)
 
+    def isNotificationCollection(self):
+        """
+        See L{ICalDAVResource.isNotificationCollection}.
+        """
+        return self.isSpecialCollection(customxml.Notification)
+
     def isDirectoryBackedAddressBookCollection(self):       # ATM - temporary fix? (this one worked)
         return False
 
@@ -1202,8 +1208,12 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
         if config.EnableCardDAV:
             result.append(davxml.Report(carddavxml.AddressBookQuery(),))
             result.append(davxml.Report(carddavxml.AddressBookMultiGet(),))
-        if (self.isPseudoCalendarCollection() or self.isAddressBookCollection()) and config.EnableSyncReport:
-            # Only allowed on calendar/inbox/addressbook collections
+        if (
+            self.isPseudoCalendarCollection() or
+            self.isAddressBookCollection() or
+            self.isNotificationCollection()
+        ) and config.EnableSyncReport:
+            # Only allowed on calendar/inbox/addressbook/notification collections
             result.append(davxml.Report(SyncCollection(),))
         return result
 
@@ -1332,11 +1342,14 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
             revision = 0
 
         try:
-            changed, removed = self.index().whatchanged(revision)
+            changed, removed = self._indexWhatChanged(revision)
         except SyncTokenValidException:
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "valid-sync-token")))
 
         return changed, removed, current_token
+
+    def _indexWhatChanged(self, revision):
+        return self.index().whatchanged(revision)
 
     def getSyncToken(self):
         """

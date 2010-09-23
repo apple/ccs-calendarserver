@@ -211,27 +211,6 @@ create table ATTACHMENT (
 );
 
 
-------------------------------
--- Calendar Object Revision --
-------------------------------
-
-create sequence CALENDAR_OBJECT_REVISION_SEQ;
-
-
--------------------------------
--- Calendar Object Revisions --
--------------------------------
-
-create table CALENDAR_OBJECT_REVISIONS (
-  CALENDAR_RESOURCE_ID integer      not null references CALENDAR on delete cascade,
-  RESOURCE_NAME        varchar(255) not null,
-  REVISION             integer      not null,
-  DELETED              boolean      not null,
-
-  unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME)
-);
-
-
 ------------------
 -- iTIP Message --
 ------------------
@@ -318,11 +297,26 @@ create table ADDRESSBOOK_OBJECT (
   unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)
 );
 
-------------------------------
--- AddressBook Object Revision --
-------------------------------
+---------------
+-- Revisions --
+---------------
 
-create sequence ADDRESSBOOK_OBJECT_REVISION_SEQ;
+create sequence REVISION_SEQ;
+
+
+---------------
+-- Revisions --
+---------------
+
+create table CALENDAR_OBJECT_REVISIONS (
+  CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
+  CALENDAR_RESOURCE_ID      integer      not null references CALENDAR on delete cascade,
+  RESOURCE_NAME             varchar(255) not null,
+  REVISION                  integer      not null,
+  DELETED                   boolean      not null,
+
+  unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME)
+);
 
 
 -------------------------------
@@ -330,12 +324,27 @@ create sequence ADDRESSBOOK_OBJECT_REVISION_SEQ;
 -------------------------------
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
-  ADDRESSBOOK_RESOURCE_ID integer      not null references ADDRESSBOOK on delete cascade,
-  RESOURCE_NAME           varchar(255) not null,
-  REVISION                integer      not null,
-  DELETED                 boolean      not null,
+  ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
+  ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK on delete cascade,
+  RESOURCE_NAME                varchar(255) not null,
+  REVISION                     integer      not null,
+  DELETED                      boolean      not null,
 
   unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME)
+);
+
+
+-----------------------------------
+-- Notification Object Revisions --
+-----------------------------------
+
+create table NOTIFICATION_OBJECT_REVISIONS (
+  NOTIFICATION_HOME_RESOURCE_ID integer      not null references NOTIFICATION_HOME on delete cascade,
+  RESOURCE_NAME                 varchar(255) not null,
+  REVISION                      integer      not null,
+  DELETED                       boolean      not null,
+
+  unique(NOTIFICATION_HOME_RESOURCE_ID, RESOURCE_NAME)
 );
 
 
