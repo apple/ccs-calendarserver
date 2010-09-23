@@ -61,7 +61,7 @@ def setUpAddressBookStore(test):
 
     test.notifierFactory = StubNotifierFactory()
     test.addressbookStore = AddressBookStore(storeRootPath, test.notifierFactory)
-    test.txn = test.addressbookStore.newTransaction()
+    test.txn = test.addressbookStore.newTransaction(test.id() + " (old)")
     assert test.addressbookStore is not None, "No addressbook store?"
 
 
@@ -95,7 +95,8 @@ class AddressBookStoreTest(unittest.TestCase):
         implementation, so no UIDs may start with ".".
         """
         self.assertEquals(
-            self.addressbookStore.newTransaction().addressbookHomeWithUID("xyzzy"),
+            self.addressbookStore.newTransaction(self.id()
+                ).addressbookHomeWithUID("xyzzy"),
             None
         )
 
@@ -189,7 +190,7 @@ class AddressBookTest(unittest.TestCase):
         self.assertEquals(set(index.addressbookObjects()),
                           set(addressbook.addressbookObjects()))
         self.txn.commit()
-        self.txn = self.addressbookStore.newTransaction()
+        self.txn = self.addressbookStore.newTransaction(self.id())
         self.home1 = self.txn.addressbookHomeWithUID("home1")
         addressbook = self.home1.addressbookWithName("addressbook2")
         # FIXME: we should be curating our own index here, but in order to fix
@@ -287,7 +288,7 @@ class AddressBookTest(unittest.TestCase):
         Re-read the (committed) home1 and addressbook1 objects in a new
         transaction.
         """
-        self.txn = self.addressbookStore.newTransaction()
+        self.txn = self.addressbookStore.newTransaction(self.id())
         self.home1 = self.txn.addressbookHomeWithUID("home1")
         self.addressbook1 = self.home1.addressbookWithName("addressbook_1")
 
@@ -305,6 +306,7 @@ class AddressBookTest(unittest.TestCase):
             "sample.vcf",
             VComponent.fromString(vcard4_text)
         )
+        self.txn.abort()
         self._refresh()
         self.assertIdentical(
             self.addressbook1.addressbookObjectWithName("sample.vcf"),
@@ -361,6 +363,7 @@ class AddressBookTest(unittest.TestCase):
             modifiedComponent,
             self.addressbook1.addressbookObjectWithName("1.vcf").component()
         )
+        self.txn.commit()
 
 
     @featureUnimplemented
