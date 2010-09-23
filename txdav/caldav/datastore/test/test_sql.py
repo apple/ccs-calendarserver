@@ -112,9 +112,11 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         L{ICalendarObject.attachmentWithName}.
         """
         yield self.createAttachmentTest(lambda x: x)
-        attachmentRoot = self.calendarObjectUnderTest()._txn._store.attachmentsPath
+        attachmentRoot = (yield self.calendarObjectUnderTest())._txn._store.attachmentsPath
         attachmentPath = attachmentRoot.child("ho").child("me").child("home1")
-        attachmentPath = attachmentPath.child(self.calendarObjectUnderTest().uid()).child("new.attachment")
+        attachmentPath = attachmentPath.child(
+            (yield self.calendarObjectUnderTest()).uid()).child(
+                "new.attachment")
         self.assertTrue(attachmentPath.isfile())
 
     def test_migrateCalendarFromFile(self):
