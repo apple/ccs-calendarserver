@@ -19,7 +19,7 @@
 Tests for common calendar store API functions.
 """
 
-from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.protocol import Protocol
 
 from txdav.idav import IPropertyStore, IDataStore, AlreadyFinishedError
@@ -339,6 +339,7 @@ class CommonTests(CommonCommonTests):
             self.assertEquals(calendar.name(), name)
 
 
+    @inlineCallbacks
     def test_calendarRename(self):
         """
         L{ICalendar.rename} changes the name of the L{ICalendar}.
@@ -351,7 +352,7 @@ class CommonTests(CommonCommonTests):
             self.assertEquals(calendar, home.calendarWithName("some_other_name"))
             self.assertEquals(None, home.calendarWithName("calendar_1"))
         positiveAssertions()
-        self.commit()
+        yield self.commit()
         home = self.homeUnderTest()
         calendar = home.calendarWithName("some_other_name")
         positiveAssertions()
@@ -369,6 +370,7 @@ class CommonTests(CommonCommonTests):
                           None)
 
 
+    @inlineCallbacks
     def test_createCalendarWithName_absent(self):
         """
         L{ICalendarHome.createCalendarWithName} creates a new L{ICalendar} that
@@ -389,7 +391,7 @@ class CommonTests(CommonCommonTests):
             )
         checkProperties()
 
-        self.commit()
+        yield self.commit()
 
         # Make sure notification fired after commit
         self.assertEquals(self.notifierFactory.history,
@@ -420,6 +422,7 @@ class CommonTests(CommonCommonTests):
             )
 
 
+    @inlineCallbacks
     def test_removeCalendarWithName_exists(self):
         """
         L{ICalendarHome.removeCalendarWithName} removes a calendar that already
@@ -433,7 +436,7 @@ class CommonTests(CommonCommonTests):
             home.removeCalendarWithName(name)
             self.assertEquals(home.calendarWithName(name), None)
 
-        self.commit()
+        yield self.commit()
 
         # Make sure notification fired after commit
         self.assertEquals(
@@ -524,6 +527,7 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(calendar1.calendarObjectWithName("xyzzy"), None)
 
 
+    @inlineCallbacks
     def test_removeCalendarObjectWithUID_exists(self):
         """
         Remove an existing calendar object.
@@ -544,7 +548,7 @@ class CommonTests(CommonCommonTests):
             )
 
         # Make sure notifications are fired after commit
-        self.commit()
+        yield self.commit()
         self.assertEquals(
             self.notifierFactory.history,
             [
@@ -689,6 +693,7 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(before | set(['new-name']), after)
 
 
+    @inlineCallbacks
     def test_createCalendarObjectWithName_absent(self):
         """
         L{ICalendar.createCalendarObjectWithName} creates a new
@@ -703,7 +708,7 @@ class CommonTests(CommonCommonTests):
         calendarObject = calendar1.calendarObjectWithName(name)
         self.assertEquals(calendarObject.component(), component)
 
-        self.commit()
+        yield self.commit()
 
         # Make sure notifications fire after commit
         self.assertEquals(
@@ -770,6 +775,7 @@ class CommonTests(CommonCommonTests):
         )
 
 
+    @inlineCallbacks
     def test_calendarHomeWithUID_create(self):
         """
         L{ICommonStoreTransaction.calendarHomeWithUID} with C{create=True}
@@ -791,11 +797,12 @@ class CommonTests(CommonCommonTests):
                             calendarHome.calendarWithName("calendar"))
         # A concurrent transaction shouldn't be able to read it yet:
         self.assertIdentical(readOtherTxn(), None)
-        self.commit()
+        yield self.commit()
         # But once it's committed, other transactions should see it.
         self.assertProvides(ICalendarHome, readOtherTxn())
 
 
+    @inlineCallbacks
     def test_setComponent(self):
         """
         L{CalendarObject.setComponent} changes the result of
@@ -814,7 +821,7 @@ class CommonTests(CommonCommonTests):
         calendarObject = calendar1.calendarObjectWithName("1.ics")
         self.assertEquals(calendarObject.component(), component)
 
-        self.commit()
+        yield self.commit()
 
         # Make sure notification fired after commit
         self.assertEquals(
@@ -869,6 +876,7 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(newEvent.properties().items(), [])
 
 
+    @inlineCallbacks
     def test_setComponentPreservesProperties(self):
         """
         L{ICalendarObject.setComponent} preserves properties.
@@ -884,7 +892,7 @@ class CommonTests(CommonCommonTests):
 
         self.calendarObjectUnderTest().properties()[
             propertyName] = propertyContent
-        self.commit()
+        yield self.commit()
         # Sanity check; are properties even readable in a separate transaction?
         # Should probably be a separate test.
         self.assertEquals(
@@ -903,7 +911,7 @@ class CommonTests(CommonCommonTests):
 
         # Putting everything into a separate transaction to account for any
         # caching that may take place.
-        self.commit()
+        yield self.commit()
         self.assertEquals(
             self.calendarObjectUnderTest().properties()[propertyName],
             propertyContent
@@ -962,6 +970,7 @@ END:VCALENDAR
         self.assertEquals(obj.dropboxID(), "some-dropbox-id")
 
 
+    @inlineCallbacks
     def test_indexByDropboxProperty(self):
         """
         L{ICalendarHome.calendarObjectWithDropboxID} will return a calendar
@@ -975,7 +984,7 @@ END:VCALENDAR
                 self.eventWithDropbox
             )
         )
-        self.commit()
+        yield self.commit()
         home = self.homeUnderTest()
         cal = self.calendarUnderTest()
         fromName = cal.calendarObjectWithName(objName)
@@ -993,7 +1002,7 @@ END:VCALENDAR
         t.write("new attachment")
         t.write(" text")
         t.loseConnection()
-        obj = refresh(obj)
+        obj = yield refresh(obj)
         class CaptureProtocol(Protocol):
             buf = ''
             def dataReceived(self, data):
@@ -1032,9 +1041,11 @@ END:VCALENDAR
         L{IAttachment} object that can be retrieved by
         L{ICalendarObject.attachmentWithName} in subsequent transactions.
         """
+        @inlineCallbacks
         def refresh(obj):
-            self.commit()
-            return self.calendarObjectUnderTest()
+            yield self.commit()
+            result = yield self.calendarObjectUnderTest()
+            returnValue(result)
         return self.createAttachmentTest(refresh)
 
 
@@ -1043,10 +1054,11 @@ END:VCALENDAR
         L{ICalendarObject.removeAttachmentWithName} will remove the calendar
         object with the given name.
         """
+        @inlineCallbacks
         def deleteIt(ignored):
             obj = self.calendarObjectUnderTest()
             obj.removeAttachmentWithName("new.attachment")
-            obj = refresh(obj)
+            obj = yield refresh(obj)
             self.assertIdentical(
                 None, obj.attachmentWithName("new.attachment")
             )
@@ -1059,12 +1071,15 @@ END:VCALENDAR
         L{ICalendarObject.removeAttachmentWithName} will remove the calendar
         object with the given name.  (After commit, it will still be gone.)
         """
+        @inlineCallbacks
         def refresh(obj):
-            self.commit()
-            return self.calendarObjectUnderTest()
+            yield self.commit()
+            result = yield self.calendarObjectUnderTest()
+            returnValue(result)
         return self.test_removeAttachmentWithName(refresh)
 
 
+    @inlineCallbacks
     def test_noDropboxCalendar(self):
         """
         L{ICalendarObject.createAttachmentWithName} may create a directory
@@ -1075,7 +1090,7 @@ END:VCALENDAR
         t = obj.createAttachmentWithName("new.attachment", MimeType("text", "plain"))
         t.write("new attachment text")
         t.loseConnection()
-        self.commit()
+        yield self.commit()
         self.assertEquals(self.homeUnderTest().calendarWithName("dropbox"),
                           None)
         self.assertEquals(
@@ -1083,6 +1098,7 @@ END:VCALENDAR
             set(home1_calendarNames))
 
 
+    @inlineCallbacks
     def test_finishedOnCommit(self):
         """ 
         Calling L{ITransaction.abort} or L{ITransaction.commit} after
@@ -1091,7 +1107,7 @@ END:VCALENDAR
         """
         self.calendarObjectUnderTest()
         txn = self.lastTransaction
-        self.commit()
+        yield self.commit()
         self.assertRaises(AlreadyFinishedError, txn.commit)
         self.assertRaises(AlreadyFinishedError, txn.abort)
 
@@ -1126,6 +1142,7 @@ END:VCALENDAR
                 calendar2.calendarObjectWithUID(obj.uid()), None)
 
 
+    @inlineCallbacks
     def test_eachCalendarHome(self):
         """
         L{ICalendarTransaction.eachCalendarHome} returns an iterator that
@@ -1136,7 +1153,7 @@ END:VCALENDAR
         txn = self.transactionUnderTest()
         for name in additionalUIDs:
             txn.calendarHomeWithUID(name, create=True)
-        self.commit()
+        yield self.commit()
         foundUIDs = set([])
         lastTxn = None
         for txn, home in self.storeUnderTest().eachCalendarHome():
