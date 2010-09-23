@@ -48,9 +48,10 @@ class PropertyStoreTest(base.PropertyStoreTest):
 
     def _postTest(self):
         if hasattr(self, "_txn"):
-            self._txn.commit()
+            result = self._txn.commit()
             delattr(self, "_txn")
         self.propertyStore = self.propertyStore1 = self.propertyStore2 = None
+        return result
 
     def _changed(self, store):
         if hasattr(self, "_txn"):
