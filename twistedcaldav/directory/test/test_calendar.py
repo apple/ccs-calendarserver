@@ -16,21 +16,42 @@
 
 from twisted.internet.defer import inlineCallbacks
 from twext.web2.dav import davxml
-from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import caldavxml
 
 from twistedcaldav.test.util import TestCase
+from twext.web2.test.test_server import SimpleRequest
+from twistedcaldav.directory.util import transactionFromRequest
 
 class ProvisionedCalendars (TestCase):
     """
     Directory service provisioned principals.
     """
+
+    @inlineCallbacks
     def setUp(self):
-        super(ProvisionedCalendars, self).setUp()
+        yield super(ProvisionedCalendars, self).setUp()
 
         self.createStockDirectoryService()
         self.setupCalendars()
+
+
+    def oneRequest(self, uri):
+        req = self._cleanupRequest = SimpleRequest(self.site, "GET", uri)
+        return req
+
+
+    def tearDown(self):
+        """
+        If the request started by this test has a transaction, commit it.
+        Otherwise, don't bother.
+        """
+        class JustForCleanup(object):
+            def newTransaction(self, *whatever):
+                return self
+            def commit(self):
+                return
+        return transactionFromRequest(self._cleanupRequest, JustForCleanup()).commit()
 
 
     def test_NonExistentCalendarHome(self):
@@ -39,7 +60,7 @@ class ProvisionedCalendars (TestCase):
             if resource is not None:
                 self.fail("Incorrect response to GET on non-existent calendar home.")
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/12345/")
+        request = self.oneRequest("/calendars/users/12345/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
 
@@ -49,7 +70,7 @@ class ProvisionedCalendars (TestCase):
             if resource is None:
                 self.fail("Incorrect response to GET on existent calendar home.")
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        request = self.oneRequest("/calendars/users/wsanchez/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
 
@@ -59,7 +80,7 @@ class ProvisionedCalendars (TestCase):
             if resource is None:
                 self.fail("Incorrect response to GET on existent calendar.")
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/calendar/")
+        request = self.oneRequest("/calendars/users/wsanchez/calendar/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
 
@@ -69,14 +90,14 @@ class ProvisionedCalendars (TestCase):
             if resource is None:
                 self.fail("Incorrect response to GET on existent inbox.")
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/inbox/")
+        request = self.oneRequest("/calendars/users/wsanchez/inbox/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
 
     @inlineCallbacks
     def test_CalendarTranspProperty(self):
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/calendar/")
+        request = self.oneRequest("/calendars/users/wsanchez/calendar/")
 
         # Get calendar first
         calendar = (yield request.locateResource("/calendars/users/wsanchez/calendar/"))
