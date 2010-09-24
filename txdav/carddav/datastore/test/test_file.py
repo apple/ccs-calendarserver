@@ -193,8 +193,8 @@ class AddressBookTest(unittest.TestCase):
         self.home1.createAddressBookWithName("addressbook2")
         addressbook = self.home1.addressbookWithName("addressbook2")
         index = addressbook._index
-        self.assertEquals(set(index.addressbookObjects()),
-                          set(addressbook.addressbookObjects()))
+        self.assertEquals(set((yield index.addressbookObjects())),
+                          set((yield addressbook.addressbookObjects())))
         yield self.txn.commit()
         self.txn = self.addressbookStore.newTransaction(self.id())
         self.home1 = yield self.txn.addressbookHomeWithUID("home1")
@@ -204,8 +204,8 @@ class AddressBookTest(unittest.TestCase):
         # test would be more effective if there were actually some objects in
         # this list.
         index = addressbook._index
-        self.assertEquals(set(index.addressbookObjects()),
-                          set(addressbook.addressbookObjects()))
+        self.assertEquals(set((yield index.addressbookObjects())),
+                          set((yield addressbook.addressbookObjects())))
 
 
     def test_addressbookObjectWithName_dot(self):
@@ -460,11 +460,12 @@ class FileStorageTests(CommonTests, unittest.TestCase):
                           self.storeRootPath)
 
 
+    @inlineCallbacks
     def test_addressbookObjectsWithDotFile(self):
         """
         Adding a dotfile to the addressbook home should not create a new
         addressbook object.
         """
         self.homeUnderTest()._path.child(".foo").createDirectory()
-        self.test_addressbookObjects()
+        yield self.test_addressbookObjects()
 

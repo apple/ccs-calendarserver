@@ -384,7 +384,7 @@ class CommonTests(CommonCommonTests):
         in the filesystem, in name order, but skip those with hidden names.
         """
         addressbook1 = yield self.addressbookUnderTest()
-        addressbookObjects = list(addressbook1.addressbookObjects())
+        addressbookObjects = list((yield addressbook1.addressbookObjects()))
 
         for addressbookObject in addressbookObjects:
             self.assertProvides(IAddressBookObject, addressbookObject)
@@ -408,7 +408,7 @@ class CommonTests(CommonCommonTests):
         """
         addressbook1 = yield self.addressbookUnderTest()
         addressbook1.removeAddressBookObjectWithName("2.vcf")
-        addressbookObjects = list(addressbook1.addressbookObjects())
+        addressbookObjects = list((yield addressbook1.addressbookObjects()))
         self.assertEquals(set(o.name() for o in addressbookObjects),
                           set(addressbook1_objectNames) - set(["2.vcf"]))
 

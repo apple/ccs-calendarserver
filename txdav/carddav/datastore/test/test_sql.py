@@ -31,7 +31,7 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 
 from twisted.trial import unittest
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.threads import deferToThread
 from twistedcaldav.vcard import Component as VCard
 
@@ -80,19 +80,23 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         return self._sqlStore
 
 
+    @inlineCallbacks
     def assertAddressbooksSimilar(self, a, b, bAddressbookFilter=None):
         """
         Assert that two addressbooks have a similar structure (contain the same
         events).
         """
+        @inlineCallbacks
         def namesAndComponents(x, filter=lambda x:x.component()):
-            return dict([(fromObj.name(), filter(fromObj))
-                         for fromObj in x.addressbookObjects()])
+            fromObjs = yield x.addressbookObjects()
+            returnValue(dict([(fromObj.name(), filter(fromObj))
+                              for fromObj in fromObjs]))
         if bAddressbookFilter is not None:
             extra = [bAddressbookFilter]
         else:
             extra = []
-        self.assertEquals(namesAndComponents(a), namesAndComponents(b, *extra))
+        self.assertEquals((yield namesAndComponents(a)),
+                          (yield namesAndComponents(b, *extra)))
 
 
     def assertPropertiesSimilar(self, a, b, disregard=[]):
@@ -135,7 +139,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         toAddressbook = yield toHome.addressbookWithName("addressbook")
         _migrateAddressbook(fromAddressbook, toAddressbook,
                             lambda x: x.component())
-        self.assertAddressbooksSimilar(fromAddressbook, toAddressbook)
+        yield self.assertAddressbooksSimilar(fromAddressbook, toAddressbook)
 
 
     @inlineCallbacks
