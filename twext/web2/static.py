@@ -1,3 +1,4 @@
+# -*- test-case-name: twext.web2.test.test_static -*-
 ##
 # Copyright (c) 2001-2008 Twisted Matrix Laboratories.
 # Copyright (c) 2010 Apple Computer, Inc. All rights reserved.
@@ -319,12 +320,6 @@ class File(StaticRenderMixin):
         """
         self.ignoredExts.append(ext)
 
-    def directoryListing(self):
-        return dirlist.DirectoryLister(self.fp.path,
-                                       self.listChildren(),
-                                       self.contentTypes,
-                                       self.contentEncodings,
-                                       self.defaultType)
 
     def putChild(self, name, child):
         """
