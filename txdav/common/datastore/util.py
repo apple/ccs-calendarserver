@@ -107,7 +107,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                     yield sqlTxn.abort()
                     yield fileTxn.commit()
                     continue
-                sqlHome = homeGetter(uid, create=True)
+                sqlHome = yield homeGetter(uid, create=True)
                 yield migrateFunc(fileHome, sqlHome)
                 yield fileTxn.commit()
                 yield sqlTxn.commit()

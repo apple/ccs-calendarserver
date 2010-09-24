@@ -53,7 +53,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         for homeUID in self.requirements:
             addressbooks = self.requirements[homeUID]
             if addressbooks is not None:
-                home = populateTxn.addressbookHomeWithUID(homeUID, True)
+                home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
                 # We don't want the default addressbook to appear unless it's
                 # explicitly listed.
                 home.removeAddressBookWithName("addressbook")
@@ -122,14 +122,15 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         return txn
 
 
+    @inlineCallbacks
     def test_migrateAddressbookFromFile(self):
         """
         C{_migrateAddressbook()} can migrate a file-backed addressbook to a
         database- backed addressbook.
         """
-        fromAddressbook = self.fileTransaction().addressbookHomeWithUID(
+        fromAddressbook = yield self.fileTransaction().addressbookHomeWithUID(
             "home1").addressbookWithName("addressbook_1")
-        toHome = self.transactionUnderTest().addressbookHomeWithUID(
+        toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
             "new-home", create=True)
         toAddressbook = toHome.addressbookWithName("addressbook")
         _migrateAddressbook(fromAddressbook, toAddressbook,
@@ -137,13 +138,14 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         self.assertAddressbooksSimilar(fromAddressbook, toAddressbook)
 
 
+    @inlineCallbacks
     def test_migrateHomeFromFile(self):
         """
         L{migrateHome} will migrate an L{IAddressbookHome} provider from one
         backend to another; in this specific case, from the file-based backend
         to the SQL-based backend.
         """
-        fromHome = self.fileTransaction().addressbookHomeWithUID("home1")
+        fromHome = yield self.fileTransaction().addressbookHomeWithUID("home1")
 
         builtinProperties = [PropertyName.fromElement(ResourceType)]
 
@@ -152,10 +154,11 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
         key = PropertyName.fromElement(GETContentLanguage)
         fromHome.properties()[key] = GETContentLanguage("C")
-        fromHome.addressbookWithName("addressbook_1").properties()[key] = (
+        (yield fromHome.addressbookWithName("addressbook_1")).properties()[
+            key] = (
             GETContentLanguage("pig-latin")
         )
-        toHome = self.transactionUnderTest().addressbookHomeWithUID(
+        toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
             "new-home", create=True
         )
         migrateHome(fromHome, toHome, lambda x: x.component())

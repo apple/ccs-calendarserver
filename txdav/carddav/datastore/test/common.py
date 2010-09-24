@@ -214,25 +214,27 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(addressbook.notifierID(label="collection"), "CardDAV|home1/addressbook_1")
 
 
+    @inlineCallbacks
     def test_addressbookHomeWithUID_exists(self):
         """
         Finding an existing addressbook home by UID results in an object that
         provides L{IAddressBookHome} and has a C{uid()} method that returns the
         same value that was passed in.
         """
-        addressbookHome = (self.transactionUnderTest()
-                        .addressbookHomeWithUID("home1"))
+        addressbookHome = (yield self.transactionUnderTest()
+                            .addressbookHomeWithUID("home1"))
         self.assertEquals(addressbookHome.uid(), "home1")
         self.assertProvides(IAddressBookHome, addressbookHome)
 
 
+    @inlineCallbacks
     def test_addressbookHomeWithUID_absent(self):
         """
         L{IAddressBookStoreTransaction.addressbookHomeWithUID} should return C{None}
         when asked for a non-existent addressbook home.
         """
         txn = self.transactionUnderTest()
-        self.assertEquals(txn.addressbookHomeWithUID("xyzzy"), None)
+        self.assertEquals((yield txn.addressbookHomeWithUID("xyzzy")), None)
 
 
     @inlineCallbacks
@@ -705,20 +707,21 @@ class CommonTests(CommonCommonTests):
         """
         txn = self.transactionUnderTest()
         noHomeUID = "xyzzy"
-        addressbookHome = txn.addressbookHomeWithUID(
+        addressbookHome = yield txn.addressbookHomeWithUID(
             noHomeUID,
             create=True
         )
+        @inlineCallbacks
         def readOtherTxn():
             otherTxn = self.savedStore.newTransaction()
             self.addCleanup(otherTxn.commit)
-            return otherTxn.addressbookHomeWithUID(noHomeUID)
+            returnValue((yield otherTxn.addressbookHomeWithUID(noHomeUID)))
         self.assertProvides(IAddressBookHome, addressbookHome)
-        # A concurrent transaction shouldn't be able to read it yet:
-        self.assertIdentical(readOtherTxn(), None)
+        # A concurrent tnransaction shouldn't be able to read it yet:
+        self.assertIdentical((yield readOtherTxn()), None)
         yield self.commit()
         # But once it's committed, other transactions should see it.
-        self.assertProvides(IAddressBookHome, readOtherTxn())
+        self.assertProvides(IAddressBookHome, (yield readOtherTxn()))
 
 
     @inlineCallbacks
@@ -847,18 +850,20 @@ class CommonTests(CommonCommonTests):
         Addressbooks in one user's addressbook home should not show up in another
         user's addressbook home.
         """
-        home2 = self.transactionUnderTest().addressbookHomeWithUID(
-            "home2", create=True)
+        home2 = yield self.transactionUnderTest().addressbookHomeWithUID(
+            "home2", create=True
+        )
         self.assertIdentical((yield home2.addressbookWithName("addressbook_1")), None)
 
 
+    @inlineCallbacks
     def test_dontLeakObjects(self):
         """
         Addressbook objects in one user's addressbook should not show up in another
         user's via uid or name queries.
         """
         home1 = self.homeUnderTest()
-        home2 = self.transactionUnderTest().addressbookHomeWithUID(
+        home2 = yield self.transactionUnderTest().addressbookHomeWithUID(
             "home2", create=True)
         addressbook1 = yield home1.addressbookWithName("addressbook_1")
         addressbook2 = yield home2.addressbookWithName("addressbook")
@@ -882,7 +887,7 @@ class CommonTests(CommonCommonTests):
         additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
         txn = self.transactionUnderTest()
         for name in additionalUIDs:
-            txn.addressbookHomeWithUID(name, create=True)
+            yield txn.addressbookHomeWithUID(name, create=True)
         yield self.commit()
         foundUIDs = set([])
         lastTxn = None
