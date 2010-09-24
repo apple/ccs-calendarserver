@@ -82,7 +82,7 @@ class HomeMigrationTests(TestCase):
         self.addCleanup(txn.commit)
         for uid in CommonTests.requirements:
             if CommonTests.requirements[uid] is not None:
-                self.assertNotIdentical(None, txn.calendarHomeWithUID(uid))
+                self.assertNotIdentical(None, (yield txn.calendarHomeWithUID(uid)))
         # Un-migrated data should be preserved.
         self.assertEquals(self.filesPath.child("calendars-migrated").child(
             "__uids__").child("ho").child("me").child("home1").child(
@@ -98,13 +98,13 @@ class HomeMigrationTests(TestCase):
         homes.
         """
         startTxn = self.sqlStore.newTransaction("populate empty sample")
-        startTxn.calendarHomeWithUID("home1", create=True)
+        yield startTxn.calendarHomeWithUID("home1", create=True)
         yield startTxn.commit()
         self.topService.startService()
         yield self.subStarted
         vrfyTxn = self.sqlStore.newTransaction("verify sample still empty")
         self.addCleanup(vrfyTxn.commit)
-        home = vrfyTxn.calendarHomeWithUID("home1")
+        home = yield vrfyTxn.calendarHomeWithUID("home1")
         # The default calendar is still there.
         self.assertNotIdentical(None, (yield home.calendarWithName("calendar")))
         # The migrated calendar isn't.

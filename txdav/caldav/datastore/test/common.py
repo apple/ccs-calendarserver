@@ -332,13 +332,14 @@ class CommonTests(CommonCommonTests):
         self.assertProvides(ICalendarHome, calendarHome)
 
 
+    @inlineCallbacks
     def test_calendarHomeWithUID_absent(self):
         """
         L{ICommonStoreTransaction.calendarHomeWithUID} should return C{None}
         when asked for a non-existent calendar home.
         """
         txn = self.transactionUnderTest()
-        self.assertEquals(txn.calendarHomeWithUID("xyzzy"), None)
+        self.assertEquals((yield txn.calendarHomeWithUID("xyzzy")), None)
 
 
     @inlineCallbacks
@@ -1214,7 +1215,9 @@ END:VCALENDAR
         additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
         txn = self.transactionUnderTest()
         for name in additionalUIDs:
-            txn.calendarHomeWithUID(name, create=True)
+            # maybe it's not actually necessary to yield (i.e. wait) for each
+            # one?  commit() should wait for all of them.
+            yield txn.calendarHomeWithUID(name, create=True)
         yield self.commit()
         foundUIDs = set([])
         lastTxn = None
