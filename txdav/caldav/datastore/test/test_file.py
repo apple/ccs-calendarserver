@@ -22,8 +22,10 @@ File calendar store tests.
 # deleted and replaced with either implementation-specific methods on
 # FileStorageTests, or implementation-agnostic methods on CommonTests.
 
-from twext.python.filepath import CachingFilePath as FilePath
 from twisted.trial import unittest
+from twisted.internet.defer import inlineCallbacks
+
+from twext.python.filepath import CachingFilePath as FilePath
 
 from twext.python.vcomponent import VComponent
 
@@ -471,10 +473,11 @@ class FileStorageTests(CommonTests, unittest.TestCase):
                           self.storeRootPath)
 
 
+    @inlineCallbacks
     def test_calendarObjectsWithDotFile(self):
         """
         Adding a dotfile to the calendar home should not increase
         """
-        self.homeUnderTest()._path.child(".foo").createDirectory()
+        (yield self.homeUnderTest())._path.child(".foo").createDirectory()
         self.test_calendarObjects()
 

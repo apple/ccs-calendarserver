@@ -119,27 +119,30 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
                 "new.attachment")
         self.assertTrue(attachmentPath.isfile())
 
+
+    @inlineCallbacks
     def test_migrateCalendarFromFile(self):
         """
         C{_migrateCalendar()} can migrate a file-backed calendar to a database-
         backed calendar.
         """
-        fromCalendar = self.fileTransaction().calendarHomeWithUID(
-            "home1").calendarWithName("calendar_1")
-        toHome = self.transactionUnderTest().calendarHomeWithUID(
+        fromCalendar = yield (yield self.fileTransaction().calendarHomeWithUID(
+            "home1")).calendarWithName("calendar_1")
+        toHome = yield self.transactionUnderTest().calendarHomeWithUID(
             "new-home", create=True)
-        toCalendar = toHome.calendarWithName("calendar")
+        toCalendar = yield toHome.calendarWithName("calendar")
         _migrateCalendar(fromCalendar, toCalendar, lambda x: x.component())
         self.assertCalendarsSimilar(fromCalendar, toCalendar)
 
 
+    @inlineCallbacks
     def test_migrateHomeFromFile(self):
         """
         L{migrateHome} will migrate an L{ICalendarHome} provider from one
         backend to another; in this specific case, from the file-based backend
         to the SQL-based backend.
         """
-        fromHome = self.fileTransaction().calendarHomeWithUID("home1")
+        fromHome = yield self.fileTransaction().calendarHomeWithUID("home1")
 
         builtinProperties = [PropertyName.fromElement(ResourceType)]
 
@@ -148,10 +151,10 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
         key = PropertyName.fromElement(GETContentLanguage)
         fromHome.properties()[key] = GETContentLanguage("C")
-        fromHome.calendarWithName("calendar_1").properties()[key] = (
+        (yield fromHome.calendarWithName("calendar_1")).properties()[key] = (
             GETContentLanguage("pig-latin")
         )
-        toHome = self.transactionUnderTest().calendarHomeWithUID(
+        toHome = yield self.transactionUnderTest().calendarHomeWithUID(
             "new-home", create=True
         )
         migrateHome(fromHome, toHome, lambda x: x.component())
@@ -160,7 +163,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
                                if self.requirements['home1'][k] is not None]))
         for c in fromHome.calendars():
             self.assertPropertiesSimilar(
-                c, toHome.calendarWithName(c.name()),
+                c, (yield toHome.calendarWithName(c.name())),
                 builtinProperties
             )
         self.assertPropertiesSimilar(fromHome, toHome, builtinProperties)
@@ -253,8 +256,8 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         home1 = txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
         home2 = txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
         
-        adbk1 = home1.calendarWithName("calendar")
-        adbk2 = home2.calendarWithName("calendar")
+        adbk1 = yield home1.calendarWithName("calendar")
+        adbk2 = yield home2.calendarWithName("calendar")
         
         def _defer1():
             adbk1.createObjectResourceWithName("1.ics", VComponent.fromString(
