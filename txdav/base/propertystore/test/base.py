@@ -38,10 +38,6 @@ from txdav.base.propertystore.base import PropertyName
 class PropertyStoreTest(unittest.TestCase):
     # Subclass must define self.propertyStore in setUp().
 
-    def _preTest(self):
-        self.addCleanup(self._postTest)
-    def _postTest(self):
-        pass
     def _changed(self, store):
         store.flush()
     def _abort(self, store):
@@ -49,14 +45,11 @@ class PropertyStoreTest(unittest.TestCase):
 
     def test_interface(self):
         try:
-            self._preTest()
             verifyObject(IPropertyStore, self.propertyStore)
         except BrokenMethodImplementation, e:
             self.fail(e)
 
     def test_set_get_contains(self):
-        
-        self._preTest()
 
         name = propertyName("test")
         value = propertyValue("Hello, World!")
@@ -74,8 +67,6 @@ class PropertyStoreTest(unittest.TestCase):
         self.failUnless(name in self.propertyStore)
 
     def test_delete_get_contains(self):
-
-        self._preTest()
 
         # Test with commit after change
         name = propertyName("test")
@@ -103,8 +94,6 @@ class PropertyStoreTest(unittest.TestCase):
         self.failIf(name in self.propertyStore)
 
     def test_peruser(self):
-
-        self._preTest()
 
         name = propertyName("test")
         value1 = propertyValue("Hello, World1!")
@@ -139,8 +128,6 @@ class PropertyStoreTest(unittest.TestCase):
         self.failIf(name in self.propertyStore2)
         
     def test_peruser_shadow(self):
-
-        self._preTest()
 
         name = propertyName("shadow")
 
@@ -181,8 +168,6 @@ class PropertyStoreTest(unittest.TestCase):
 
     def test_peruser_global(self):
 
-        self._preTest()
-
         name = propertyName("global")
 
         self.propertyStore1.setSpecialProperties((), (name,))
@@ -215,8 +200,6 @@ class PropertyStoreTest(unittest.TestCase):
 
     def test_iteration(self):
 
-        self._preTest()
-
         value = propertyValue("Hello, World!")
 
         names = set(propertyName(str(i)) for i in (1,2,3,4))
@@ -229,7 +212,6 @@ class PropertyStoreTest(unittest.TestCase):
 
     def test_delete_none(self):
 
-        self._preTest()
         def doDelete():
             del self.propertyStore[propertyName("xyzzy")]
 
@@ -237,7 +219,6 @@ class PropertyStoreTest(unittest.TestCase):
 
     def test_keyInPropertyName(self):
 
-        self._preTest()
 
         def doGet():
             self.propertyStore["xyzzy"]
@@ -257,8 +238,6 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertRaises(TypeError, doContains)
 
     def test_flush(self):
-
-        self._preTest()
 
         name = propertyName("test")
         value = propertyValue("Hello, World!")
@@ -286,9 +265,6 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEquals(len(self.propertyStore), 0)
 
     def test_abort(self):
-
-        self._preTest()
-
         name = propertyName("test")
         value = propertyValue("Hello, World!")
 

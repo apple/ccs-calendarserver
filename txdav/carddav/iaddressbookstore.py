@@ -44,8 +44,8 @@ class IAddressBookTransaction(ICommonTransaction):
         If C{create} is C{True}, create the addressbook home if it doesn't
         already exist.
 
-        @return: an L{IAddressBookHome} or C{None} if no such addressbook
-            home exists.
+        @return: a L{Deferred} which fires with an L{IAddressBookHome} or
+            C{None} if no such addressbook home exists.
         """
 
 

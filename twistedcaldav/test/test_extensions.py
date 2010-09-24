@@ -21,11 +21,11 @@ from twext.web2.dav.element.base import WebDAVElement
 from twext.web2.http_headers import MimeType
 from twext.web2.static import MetaDataMixin
 
-from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.internet.defer import inlineCallbacks, Deferred, succeed
 from twisted.trial.unittest import TestCase
 from twisted.web.microdom import parseString
 
-from twistedcaldav.extensions import DAVFile
+from twistedcaldav.extensions import DAVFile, DAVResourceWithChildrenMixin
 
 from xml.etree.cElementTree import XML
 
@@ -184,3 +184,30 @@ class DirectoryListingTest(TestCase):
         yield self.doDirectoryTest([nonASCIIFilename], addUnicodeChild,
                                    [nonASCIIFilename.encode("utf-8")])
 
+
+
+class ChildTraversalTests(TestCase):
+    def test_makeChildDeferred(self):
+        """
+        If L{DAVResourceWithChildrenMixin.makeChild} returns a L{Deferred},
+        L{DAVResourceWithChildrenMixin.locateChild} will return a L{Deferred}.
+        """
+        class FakeChild(object):
+            def __init__(self, name):
+                self.name = name
+        class SmellsLikeDAVResource(object):
+            def __init__(self, **kw):
+                pass
+        class ResourceWithCheese(DAVResourceWithChildrenMixin,
+                                 SmellsLikeDAVResource):
+            def makeChild(self, name):
+                return succeed(FakeChild(name))
+        d = ResourceWithCheese().locateChild(None, ['cheese', 'burger'])
+        self.assertIsInstance(d, Deferred)
+        x = []
+        d.addCallback(x.append)
+        self.assertEquals(len(x), 1)
+        [result] = x
+        self.assertEquals(len(result), 2)
+        self.assertEquals(result[0].name, 'cheese')
+        self.assertEquals(result[1], ['burger'])

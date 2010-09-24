@@ -192,7 +192,7 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
         if name == "outbox":
             continue
         outHome.createCalendarWithName(name)
-        outCalendar = outHome.calendarWithName(name)
+        outCalendar = yield outHome.calendarWithName(name)
         try:
             yield _migrateCalendar(calendar, outCalendar, getComponent)
         except InternalDataStoreError:

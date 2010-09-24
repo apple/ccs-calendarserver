@@ -41,15 +41,18 @@ from txdav.caldav.datastore.test.test_file import event4_text
 
 from txdav.carddav.datastore.test.test_file import vcard4_text
 
-from txdav.common.datastore.test.util import buildStore
-from txdav.caldav.datastore.test.common import StubNotifierFactory, \
-    assertProvides
+from txdav.common.datastore.test.util import buildStore, assertProvides,\
+    StubNotifierFactory
+
+
 from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.carddav.iaddressbookstore import IAddressBookHome
 
 
 
 class FakeChanRequest(object):
+    code = 'request-not-finished'
+
     def writeHeaders(self, code, headers):
         self.code = code
         self.headers = headers
@@ -89,6 +92,7 @@ class WrappingTests(TestCase):
         self.setupCalendars()
 
 
+    @inlineCallbacks
     def populateOneObject(self, objectName, objectText):
         """
         Populate one calendar object in the test user's calendar.
@@ -107,12 +111,13 @@ class WrappingTests(TestCase):
         except:
             pass
         txn = self.calendarCollection._newStore.newTransaction()
-        home = txn.calendarHomeWithUID(uid, True)
-        cal = home.calendarWithName("calendar")
+        home = yield txn.calendarHomeWithUID(uid, True)
+        cal = yield home.calendarWithName("calendar")
         cal.createCalendarObjectWithName(objectName, VComponent.fromString(objectText))
-        txn.commit()
+        yield txn.commit()
 
 
+    @inlineCallbacks
     def populateOneAddressBookObject(self, objectName, objectText):
         """
         Populate one addressbook object in the test user's addressbook.
@@ -131,13 +136,13 @@ class WrappingTests(TestCase):
         except:
             pass
         txn = self.addressbookCollection._newStore.newTransaction()
-        home = txn.addressbookHomeWithUID(uid, True)
-        adbk = home.addressbookWithName("addressbook")
+        home = yield txn.addressbookHomeWithUID(uid, True)
+        adbk = yield home.addressbookWithName("addressbook")
         if adbk is None:
-            home.createAddressBookWithName("addressbook")
-            adbk = home.addressbookWithName("addressbook")
+            yield home.createAddressBookWithName("addressbook")
+            adbk = yield home.addressbookWithName("addressbook")
         adbk.createAddressBookObjectWithName(objectName, VCComponent.fromString(objectText))
-        txn.commit()
+        yield txn.commit()
 
 
     requestUnderTest = None
@@ -169,7 +174,7 @@ class WrappingTests(TestCase):
         an associated transaction.  Commit that transaction to bring the
         filesystem into a consistent state.
         """
-        self.requestUnderTest._newStoreTransaction.commit()
+        return self.requestUnderTest._newStoreTransaction.commit()
 
 
     def requestForPath(self, path):
@@ -241,7 +246,7 @@ class WrappingTests(TestCase):
         L{CalendarHome} via C{newTransaction().calendarHomeWithUID}.
         """
         calDavFile = yield self.getResource("calendars/users/wsanchez/")
-        self.commit()
+        yield self.commit()
         assertProvides(self, ICalendarHome, calDavFile._newStoreHome)
 
 
@@ -256,7 +261,7 @@ class WrappingTests(TestCase):
         dropBoxResource = yield self.getResource(
             "calendars/users/wsanchez/dropbox"
         )
-        self.commit()
+        yield self.commit()
         self.assertIsInstance(dropBoxResource, DropboxCollection)
         dropboxHomeType = davxml.ResourceType.dropboxhome #@UndefinedVariable
         self.assertEquals(dropBoxResource.resourceType(),
@@ -275,7 +280,7 @@ class WrappingTests(TestCase):
         regularCalendarType = davxml.ResourceType.calendar #@UndefinedVariable
         self.assertEquals(calDavFile.resourceType(),
                           regularCalendarType)
-        self.commit()
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -290,7 +295,7 @@ class WrappingTests(TestCase):
         calDavFile = yield self.getResource("calendars/users/wsanchez/frobozz")
         self.assertIsInstance(calDavFile, ProtoCalendarCollectionResource)
         calDavFile.createCalendarCollection()
-        self.commit()
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -308,7 +313,7 @@ class WrappingTests(TestCase):
             self.assertIdentical(
                 getattr(calDavFile, "_newStoreCalendar", None), None
             )
-        self.commit()
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -336,17 +341,21 @@ class WrappingTests(TestCase):
     @inlineCallbacks
     def test_lookupCalendarObject(self):
         """
-        When a L{CalDAVResource} representing an existing calendar object is looked
-        up on a L{CalDAVResource} representing a calendar collection, a parallel
-        L{CalendarObject} will be created (with a matching FilePath).
+        When a L{CalDAVResource} representing an existing calendar object is
+        looked up on a L{CalDAVResource} representing a calendar collection, a
+        parallel L{CalendarObject} will be created.  Its principal collections
+        and transaction should match.
         """
-        self.populateOneObject("1.ics", event4_text)
+        yield self.populateOneObject("1.ics", event4_text)
+        calendarHome = yield self.getResource("calendars/users/wsanchez")
         calDavFileCalendar = yield self.getResource(
             "calendars/users/wsanchez/calendar/1.ics"
         )
-        self.commit()
+        yield self.commit()
         self.assertEquals(calDavFileCalendar._principalCollections,
                           frozenset([self.principalsResource]))
+        self.assertEquals(calDavFileCalendar._associatedTransaction,
+                          calendarHome._associatedTransaction)
 
 
     @inlineCallbacks
@@ -359,7 +368,7 @@ class WrappingTests(TestCase):
         calDavFileCalendar = yield self.getResource(
             "calendars/users/wsanchez/calendar/xyzzy.ics"
         )
-        self.commit()
+        yield self.commit()
         self.assertEquals(calDavFileCalendar._principalCollections,
                           frozenset([self.principalsResource]))
 
@@ -380,7 +389,7 @@ class WrappingTests(TestCase):
         via C{newTransaction().addressbookHomeWithUID}.
         """
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/")
-        self.commit()
+        yield self.commit()
         assertProvides(self, IAddressBookHome, calDavFile._newStoreHome)
 
 
@@ -392,7 +401,7 @@ class WrappingTests(TestCase):
         create a corresponding L{AddressBook} via C{AddressBookHome.addressbookWithName}.
         """
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/addressbook")
-        self.commit()
+        yield self.commit()
         self.assertEquals(calDavFile._principalCollections,
                           frozenset([self.principalsResource]))
 
@@ -409,7 +418,7 @@ class WrappingTests(TestCase):
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/frobozz")
         self.assertIsInstance(calDavFile, ProtoAddressBookCollectionResource)
         calDavFile.createAddressBookCollection()
-        self.commit()
+        yield self.commit()
         self.assertEquals(calDavFile._principalCollections,
                           frozenset([self.principalsResource]))
 
@@ -421,11 +430,11 @@ class WrappingTests(TestCase):
         up on a L{CalDAVResource} representing a addressbook collection, a parallel
         L{AddressBookObject} will be created (with a matching FilePath).
         """
-        self.populateOneAddressBookObject("1.vcf", vcard4_text)
+        yield self.populateOneAddressBookObject("1.vcf", vcard4_text)
         calDavFileAddressBook = yield self.getResource(
             "addressbooks/users/wsanchez/addressbook/1.vcf"
         )
-        self.commit()
+        yield self.commit()
         self.assertEquals(calDavFileAddressBook._principalCollections,
                           frozenset([self.principalsResource]))
 
@@ -440,7 +449,7 @@ class WrappingTests(TestCase):
         calDavFileAddressBook = yield self.getResource(
             "addressbooks/users/wsanchez/addressbook/xyzzy.ics"
         )
-        self.commit()
+        yield self.commit()
         self.assertEquals(calDavFileAddressBook._principalCollections,
                           frozenset([self.principalsResource]))
 

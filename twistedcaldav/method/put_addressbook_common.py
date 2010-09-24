@@ -25,7 +25,9 @@ import types
 from twisted.internet import reactor
 from twisted.python.failure import Failure
 
-from twisted.internet.defer import Deferred, inlineCallbacks, succeed
+from txdav.common.icommondatastore import ReservationError
+
+from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.defer import returnValue
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
@@ -42,7 +44,6 @@ from twext.web2.stream import MemoryStream
 from twistedcaldav.config import config
 from twistedcaldav.carddavxml import NoUIDConflict, carddav_namespace
 from twistedcaldav.vcard import Component
-from twistedcaldav.vcardindex import ReservationError
 from twext.python.log import Logger
 
 log = Logger()
@@ -149,6 +150,8 @@ class StoreAddressObjectResource(object):
         
         self.access = None
 
+
+    @inlineCallbacks
     def fullValidation(self):
         """
         Do full validation of source and destination vcard data.
@@ -191,7 +194,7 @@ class StoreAddressObjectResource(object):
             else:
                 # Get UID from original resource
                 self.source_index = self.sourceparent.index()
-                self.uid = self.source_index.resourceUIDForName(self.source.name())
+                self.uid = yield self.source_index.resourceUIDForName(self.source.name())
                 if self.uid is None:
                     log.err("Source vcard does not have a UID: %s" % self.source.name())
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-addressbook-object-resource")))
@@ -207,7 +210,7 @@ class StoreAddressObjectResource(object):
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "max-resource-size")))
 
             # Check access
-            return succeed(None)
+            returnValue(None)
     
     def validResourceName(self):
         """
@@ -271,6 +274,8 @@ class StoreAddressObjectResource(object):
 
         return result, message
 
+
+    @inlineCallbacks
     def noUIDConflict(self, uid):
         """
         Check that the UID of the new vcard object conforms to the requirements of
@@ -305,13 +310,14 @@ class StoreAddressObjectResource(object):
         else:
             # Cannot overwrite a resource with different UID
             if self.destination.exists():
-                olduid = index.resourceUIDForName(self.destination.name())
+                olduid = yield index.resourceUIDForName(self.destination.name())
                 if olduid != uid:
                     rname = self.destination.name()
                     result = False
                     message = "Cannot overwrite vcard resource %s with different UID %s" % (rname, olduid)
         
-        return result, message, rname
+        returnValue((result, message, rname))
+
 
     @inlineCallbacks
     def checkQuota(self):
@@ -436,7 +442,7 @@ class StoreAddressObjectResource(object):
             
                 # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
                 # try to write the same vcard data to two different resource URIs.
-                result, message, rname = self.noUIDConflict(self.uid)
+                result, message, rname = yield self.noUIDConflict(self.uid)
                 if not result:
                     log.err(message)
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN,

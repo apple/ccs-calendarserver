@@ -38,7 +38,8 @@ except ImportError:
 from twisted.internet.defer import maybeDeferred
 
 from twistedcaldav import carddavxml
-from twistedcaldav.index import SyncTokenValidException
+from txdav.common.icommondatastore import SyncTokenValidException,\
+    ReservationError
 from twistedcaldav.query import addressbookquery
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
@@ -52,12 +53,6 @@ log = Logger()
 
 db_basename = db_prefix + "sqlite"
 schema_version = "2"
-
-class ReservationError(LookupError):
-    """
-    Attempt to reserve a UID which is already reserved or to unreverse a UID
-    which is not reserved.
-    """
 
 def wrapInDeferred(f):
     def _(*args, **kwargs):

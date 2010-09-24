@@ -33,7 +33,6 @@ from twext.python.log import Logger, LoggingMixIn
 from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex
-from twistedcaldav.index import IndexedSearchException, ReservationError
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.query import calendarqueryfilter, calendarquery, \
@@ -41,6 +40,8 @@ from twistedcaldav.query import calendarqueryfilter, calendarquery, \
 from twistedcaldav.query.sqlgenerator import sqlgenerator
 from twistedcaldav.sharing import Invite
 
+from txdav.common.icommondatastore import IndexedSearchException, \
+    ReservationError
 from txdav.common.datastore.sql_tables import \
     _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_DIRECT, \
     _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID,\
@@ -349,7 +350,9 @@ class SQLLegacyCalendarInvites(SQLLegacyInvites):
 
     def _getHomeWithUID(self, uid):
         return self._txn.calendarHomeWithUID(uid, create=True)
-        
+
+
+
 class SQLLegacyAddressBookInvites(SQLLegacyInvites):
     """
     Emulator for the implicit interface specified by
@@ -483,9 +486,6 @@ class SQLLegacyShares(object):
 
 
     def addOrUpdateRecord(self, record):
-#        print '*** SHARING***: Adding or updating this record:'
-#        import pprint
-#        pprint.pprint(record.__dict__)
         # record.hosturl -> /.../__uids__/<uid>/<name>
         splithost = record.hosturl.split('/')
         ownerUID = splithost[3]
@@ -580,6 +580,8 @@ class SQLLegacyShares(object):
             )
             
 
+
+
 class SQLLegacyCalendarShares(SQLLegacyShares):
     """
     Emulator for the implicit interface specified by
@@ -593,9 +595,12 @@ class SQLLegacyCalendarShares(SQLLegacyShares):
     
         super(SQLLegacyCalendarShares, self).__init__(home)
 
+
     def _getHomeWithUID(self, uid):
         return self._txn.calendarHomeWithUID(uid, create=True)
-        
+
+
+
 class SQLLegacyAddressBookShares(SQLLegacyShares):
     """
     Emulator for the implicit interface specified by

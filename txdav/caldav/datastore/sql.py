@@ -33,7 +33,7 @@ from twisted.python.failure import Failure
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime
-from twistedcaldav.index import IndexedSearchException
+from txdav.common.icommondatastore import IndexedSearchException
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 
 from txdav.caldav.datastore.util import validateCalendarComponent,\
@@ -92,6 +92,8 @@ class CalendarHome(CommonHome):
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(
             Opaque())
         self.createCalendarWithName("inbox")
+
+
 
 class Calendar(CommonHomeChild):
     """

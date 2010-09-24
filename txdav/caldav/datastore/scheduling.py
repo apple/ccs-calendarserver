@@ -20,6 +20,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
 
 from twisted.python.util import FancyEqMixin
 from twisted.python.components import proxyForInterface
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 
 
@@ -39,16 +40,17 @@ class ImplicitTransaction(
         self._transaction = transaction
 
 
+    @inlineCallbacks
     def calendarHomeWithUID(self, uid, create=False):
         # FIXME: 'create' flag
-        newHome = super(ImplicitTransaction, self
+        newHome = yield super(ImplicitTransaction, self
             ).calendarHomeWithUID(uid, create)
 #        return ImplicitCalendarHome(newHome, self)
         if newHome is None:
-            return None
+            returnValue(None)
         else:
             # FIXME: relay transaction
-            return ImplicitCalendarHome(newHome, None)
+            returnValue(ImplicitCalendarHome(newHome, None))
 
 
 
@@ -78,16 +80,18 @@ class ImplicitCalendarHome(
     def createCalendarWithName(self, name):
         self._calendarHome.createCalendarWithName(name)
 
+
     def removeCalendarWithName(self, name):
         self._calendarHome.removeCalendarWithName(name)
 
 
+    @inlineCallbacks
     def calendarWithName(self, name):
-        calendar = self._calendarHome.calendarWithName(name)
+        calendar = yield self._calendarHome.calendarWithName(name)
         if calendar is not None:
-            return ImplicitCalendar(self, calendar)
+            returnValue(ImplicitCalendar(self, calendar))
         else:
-            return None
+            returnValue(None)
 
 
 

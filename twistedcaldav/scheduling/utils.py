@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.method import report_common
 from twext.web2.dav.util import joinURL
 
@@ -23,7 +23,7 @@ def getCalendarObjectForPrincipals(request, principal, uid, allow_shared=False):
     """
     Get a copy of the event for a principal.
     """
-    
+
     result = {
         "resource": None,
         "resource_name": None,
@@ -33,33 +33,38 @@ def getCalendarObjectForPrincipals(request, principal, uid, allow_shared=False):
 
     if principal and principal.locallyHosted():
         # Get principal's calendar-home
-        calendar_home = principal.calendarHome(request)
-        
-        # FIXME: because of the URL->resource request mapping thing, we have to force the request
-        # to recognize this resource
+        calendar_home = yield principal.calendarHome(request)
+
+        # FIXME: because of the URL->resource request mapping thing, we have to
+        # force the request to recognize this resource.
         request._rememberResource(calendar_home, calendar_home.url())
 
-        # Run a UID query against the UID
+        # Run a UID query against the UID.
+        @inlineCallbacks
         def queryCalendarCollection(collection, uri):
             if not allow_shared:
                 if collection.isVirtualShare():
-                    return succeed(True)
+                    returnValue(True)
 
-            rname = collection.index().resourceNameForUID(uid)
+            rname = yield collection.index().resourceNameForUID(uid)
             if rname:
-                resource = collection.getChild(rname)
+                resource = yield collection.getChild(rname)
                 request._rememberResource(resource, joinURL(uri, rname))
 
                 result["resource"] = resource
                 result["resource_name"] = rname
                 result["calendar_collection"] = collection
                 result["calendar_collection_uri"] = uri
-                return succeed(False)
+                returnValue(False)
             else:
-                return succeed(True)
-        
-        # NB We are by-passing privilege checking here. That should be OK as the data found is not
-        # exposed to the user.
-        yield report_common.applyToCalendarCollections(calendar_home, request, calendar_home.url(), "infinity", queryCalendarCollection, None)
+                returnValue(True)
+
+        # NB We are by-passing privilege checking here. That should be OK as
+        # the data found is not exposed to the user.
+        yield report_common.applyToCalendarCollections(
+            calendar_home, request, calendar_home.url(),
+            "infinity", queryCalendarCollection, None
+        )
 
     returnValue((result["resource"], result["resource_name"], result["calendar_collection"], result["calendar_collection_uri"],))
+

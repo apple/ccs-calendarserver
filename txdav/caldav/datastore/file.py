@@ -44,13 +44,14 @@ from twext.web2.http_headers import generateContentType
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
-from twistedcaldav.index import Index as OldIndex, IndexSchedule as OldInboxIndex
 from twistedcaldav.sharing import InvitesDatabase
 
 from txdav.caldav.icalendarstore import IAttachment
 from txdav.caldav.icalendarstore import ICalendar, ICalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome
 
+from txdav.caldav.datastore.index_file import Index as OldIndex,\
+    IndexSchedule as OldInboxIndex
 from txdav.caldav.datastore.util import (
     validateCalendarComponent, dropboxIDFromCalendarObject
 )

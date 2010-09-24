@@ -55,6 +55,7 @@ from twistedcaldav.config import config
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
+from twistedcaldav.directory.common import uidsResourceName
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVPrincipalResource,\
     DAVResourceWithChildrenMixin
@@ -66,9 +67,6 @@ from twistedcaldav.directory.wiki import getWikiACL
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 log = Logger()
-
-# Use __underbars__ convention to avoid conflicts with directory resource types.
-uidsResourceName = "__uids__"
 
 class PermissionsMixIn (ReadOnlyResourceMixIn):
     def defaultAccessControlList(self):
@@ -867,26 +865,27 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         else:
             return False
 
+    @inlineCallbacks
     def scheduleInbox(self, request):
-        home = self.calendarHome(request)
+        home = yield self.calendarHome(request)
         if home is None:
-            return succeed(None)
+            returnValue(None)
 
-        inbox = home.getChild("inbox")
+        inbox = yield home.getChild("inbox")
         if inbox is None:
-            return succeed(None)
+            returnValue(None)
 
-        return succeed(inbox)
+        returnValue(inbox)
 
+    @inlineCallbacks
     def notificationCollection(self, request):
-        
+
         notification = None
         if config.Sharing.Enabled:
-            home = self.calendarHome(request)
+            home = yield self.calendarHome(request)
             if home is not None:    
-                notification = home.getChild("notification")
-    
-        return succeed(notification)
+                notification = yield home.getChild("notification")
+        returnValue(notification)
 
     def calendarHomeURLs(self):
         homeURL = self._homeChildURL(None)
@@ -929,13 +928,15 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         else:
             return joinURL(url, name) if name else url
 
+
     def calendarHome(self, request):
         # FIXME: self.record.service.calendarHomesCollection smells like a hack
         service = self.record.service
         if hasattr(service, "calendarHomesCollection"):
             return service.calendarHomesCollection.homeForDirectoryRecord(self.record, request)
         else:
-            return None
+            return succeed(None)
+
 
     def _addressBookHomeChildURL(self, name):
         if not hasattr(self, "addressBookHomeURL"):

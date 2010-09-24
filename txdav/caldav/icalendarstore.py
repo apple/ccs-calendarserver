@@ -57,8 +57,8 @@ class ICalendarTransaction(ICommonTransaction):
         If C{create} is C{True}, create the calendar home if it doesn't
         already exist.
 
-        @return: an L{ICalendarHome} or C{None} if no such calendar
-            home exists.
+        @return: a L{Deferred} which fires with L{ICalendarHome} or C{None} if
+            no such calendar home exists.
         """
 
 

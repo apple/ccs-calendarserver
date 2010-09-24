@@ -35,7 +35,7 @@ from twext.python.log import Logger
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
 from twext.web2.dav.http import ErrorResponse, ResponseQueue
-from twext.web2.dav.resource import TwistedACLInheritable
+from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError
 from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, \
     davXMLFromStream
 from twext.web2.http import HTTPError, StatusResponse, Response
@@ -250,13 +250,15 @@ class _CalendarChildHelper(object):
         self._initializeWithCalendar(calendar, home)
 
 
+    @inlineCallbacks
     def makeChild(self, name):
         """
-        Create a L{CalendarObjectResource} or L{ProtoCalendarObjectResource} based on a
-        path object.
+        Create a L{CalendarObjectResource} or L{ProtoCalendarObjectResource}
+        based on a calendar object name.
         """
 
-        newStoreObject = self._newStoreCalendar.calendarObjectWithName(name)
+        cal = self._newStoreCalendar
+        newStoreObject = yield cal.calendarObjectWithName(name)
 
         if newStoreObject is not None:
             similar = CalendarObjectResource(
@@ -264,19 +266,14 @@ class _CalendarChildHelper(object):
                 principalCollections=self._principalCollections
             )
         else:
-            # FIXME: creation in http_PUT should talk to a specific resource
-            # type; this is the domain of StoreCalendarObjectResource.
-            # similar = ProtoCalendarObjectFile(self._newStoreCalendar, path)
             similar = ProtoCalendarObjectResource(
-                self._newStoreCalendar,
-                name,
+                cal, name,
                 principalCollections=self._principalCollections
             )
 
-        # FIXME: tests should be failing without this line.
-        # Specifically, http_PUT won't be committing its transaction properly.
         self.propagateTransaction(similar)
-        return similar
+        returnValue(similar)
+
 
     def listChildren(self):
         """
@@ -298,19 +295,26 @@ class StoreScheduleInboxResource(_CalendarChildHelper, ScheduleInboxResource):
     def __init__(self, *a, **kw):
         super(StoreScheduleInboxResource, self).__init__(*a, **kw)
         self.parent.propagateTransaction(self)
+
+
+    @classmethod
+    @inlineCallbacks
+    def maybeCreateInbox(cls, *a, **kw):
+        self = cls(*a, **kw)
         home = self.parent._newStoreHome
-        storage = home.calendarWithName("inbox")
+        storage = yield home.calendarWithName("inbox")
         if storage is None:
             # raise RuntimeError("backend should be handling this for us")
             # FIXME: spurious error, sanity check, should not be needed;
             # unfortunately, user09's calendar home does not have an inbox, so
             # this is a temporary workaround.
             home.createCalendarWithName("inbox")
-            storage = home.calendarWithName("inbox")
+            storage = yield home.calendarWithName("inbox")
         self._initializeWithCalendar(
             storage,
             self.parent._newStoreHome
         )
+        returnValue(self)
 
 
     def name(self):
@@ -712,6 +716,62 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
         return True
 
 
+    @inlineCallbacks
+    def iCalendarRolledup(self, request):
+        # FIXME: uncached: implement cache in the storage layer
+
+        # Generate a monolithic calendar
+        calendar = vcomponent.VComponent("VCALENDAR")
+        calendar.addProperty(vcomponent.VProperty("VERSION", "2.0"))
+
+        # Do some optimisation of access control calculation by determining any
+        # inherited ACLs outside of the child resource loop and supply those to
+        # the checkPrivileges on each child.
+        filteredaces = (yield self.inheritedACEsforChildren(request))
+
+        tzids = set()
+        isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+        accessPrincipal = (yield self.resourceOwnerPrincipal(request))
+
+        for name, uid, type in self.index().bruteForceSearch(): #@UnusedVariable
+            try:
+                child = yield request.locateChildResource(self, name)
+            except TypeError:
+                child = None
+
+            if child is not None:
+                # Check privileges of child - skip if access denied
+                try:
+                    yield child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces)
+                except AccessDeniedError:
+                    continue
+
+                # Get the access filtered view of the data
+                caldata = child.iCalendarTextFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
+                try:
+                    subcalendar = vcomponent.VComponent.fromString(caldata)
+                except ValueError:
+                    continue
+                assert subcalendar.name() == "VCALENDAR"
+
+                for component in subcalendar.subcomponents():
+                    
+                    # Only insert VTIMEZONEs once
+                    if component.name() == "VTIMEZONE":
+                        tzid = component.propertyValue("TZID")
+                        if tzid in tzids:
+                            continue
+                        tzids.add(tzid)
+
+                    calendar.addComponent(component)
+
+        # Cache the data
+        data = str(calendar)
+        data = self.getSyncToken() + "\r\n" + data
+
+        returnValue(calendar)
+
+
     @requiresPermissions(fromParent=[davxml.Unbind()])
     @inlineCallbacks
     def http_DELETE(self, request):
@@ -912,20 +972,19 @@ class ProtoCalendarCollectionResource(CalDAVResource):
         return self.createCalendarCollection()
 
 
+    @inlineCallbacks
     def createCalendarCollection(self):
         """
         Override C{createCalendarCollection} to actually do the work.
         """
-        d = succeed(CREATED)
-
         self._newStoreParentHome.createCalendarWithName(self._name)
-        newStoreCalendar = self._newStoreParentHome.calendarWithName(
+        newStoreCalendar = yield self._newStoreParentHome.calendarWithName(
             self._name
         )
         CalendarCollectionResource.transform(
             self, newStoreCalendar, self._newStoreParentHome
         )
-        return d
+        returnValue(CREATED)
 
 
     def exists(self):
@@ -967,17 +1026,17 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         self._initializeWithObject(calendarObject)
 
 
+    @inlineCallbacks
     def inNewTransaction(self, request):
         """
         Implicit auto-replies need to span multiple transactions.  Clean out
         the given request's resource-lookup mapping, transaction, and re-look-
-        up my calendar object in a new transaction.
+        up this L{CalendarObjectResource}'s calendar object in a new
+        transaction.
 
-        @return: the new transaction so it can be committed.
+        @return: a Deferred which fires with the new transaction, so it can be
+            committed.
         """
-        # FIXME: private names from 'file' implementation; maybe there should
-        # be a public way to do this?  or maybe we should just have a real
-        # queue.
         objectName = self._newStoreObject.name()
         calendar = self._newStoreObject.calendar()
         calendarName = calendar.name()
@@ -985,14 +1044,14 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         homeUID = ownerHome.uid()
         txn = ownerHome.transaction().store().newTransaction(
             "new transaction for " + self._newStoreObject.name())
-        newObject = (txn.calendarHomeWithUID(homeUID)
-                        .calendarWithName(calendarName)
-                        .calendarObjectWithName(objectName))
+        newObject = ((yield (yield (yield txn.calendarHomeWithUID(homeUID))
+                             .calendarWithName(calendarName))
+                             .calendarObjectWithName(objectName)))
         request._newStoreTransaction = txn
         request._resourcesByURL.clear()
         request._urlsByResource.clear()
         self._initializeWithObject(newObject)
-        return txn
+        returnValue(txn)
 
 
     def isCollection(self):
@@ -1009,9 +1068,12 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         return succeed(len(self._newStoreObject.iCalendarText()))
 
 
-    def iCalendarText(self, ignored=None):
-        assert ignored is None, "This is a calendar object, not a calendar"
+    def iCalendarText(self):
         return self._newStoreObject.iCalendarText()
+
+
+    def iCalendar(self):
+        return self._newStoreObject.component()
 
 
     def text(self):
@@ -1190,7 +1252,12 @@ class ProtoCalendarObjectResource(CalDAVResource, FancyEqMixin):
         self._newStoreParentCalendar.createCalendarObjectWithName(
             self.name(), component
         )
-        CalendarObjectResource.transform(self, self._newStoreParentCalendar.calendarObjectWithName(self.name()))
+        CalendarObjectResource.transform(
+            self,
+            (yield self._newStoreParentCalendar.calendarObjectWithName(
+                self.name()
+            ))
+        )
         returnValue(CREATED)
 
 
@@ -1518,20 +1585,19 @@ class ProtoAddressBookCollectionResource(CalDAVResource):
         return self.createAddressBookCollection()
 
 
+    @inlineCallbacks
     def createAddressBookCollection(self):
         """
         Override C{createAddressBookCollection} to actually do the work.
         """
-        d = succeed(CREATED)
-
         self._newStoreParentHome.createAddressBookWithName(self._name)
-        newStoreAddressBook = self._newStoreParentHome.addressbookWithName(
+        newStoreAddressBook = yield self._newStoreParentHome.addressbookWithName(
             self._name
         )
         AddressBookCollectionResource.transform(
             self, newStoreAddressBook, self._newStoreParentHome
         )
-        return d
+        returnValue(CREATED)
 
 
     def exists(self):

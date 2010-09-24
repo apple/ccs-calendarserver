@@ -17,11 +17,12 @@
 from twisted.internet import reactor
 from twisted.internet.task import deferLater
 
+from txdav.caldav.datastore.index_file import Index, MemcachedUIDReserver
+from txdav.common.icommondatastore import ReservationError
+
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.ical import Component
-from twistedcaldav.index import Index
-from twistedcaldav.index import ReservationError, MemcachedUIDReserver
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.test.util import InMemoryMemcacheProtocol

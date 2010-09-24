@@ -25,8 +25,7 @@ from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase, norequest
 from twistedcaldav.resource import CalDAVResource
-from txdav.common.datastore.test.util import buildStore
-from txdav.caldav.datastore.test.common import StubNotifierFactory
+from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 
 sharedOwnerType = davxml.ResourceType.sharedownercalendar #@UndefinedVariable
 regularCalendarType = davxml.ResourceType.calendar #@UndefinedVariable

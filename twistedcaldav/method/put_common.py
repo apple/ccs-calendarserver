@@ -46,6 +46,8 @@ from twext.web2.stream import MemoryStream
 from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse
 
+from txdav.common.icommondatastore import ReservationError
+
 from twistedcaldav.config import config
 from twistedcaldav.caldavxml import ScheduleTag, NoUIDConflict
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
@@ -57,7 +59,6 @@ from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
 from twistedcaldav.ical import Component, Property
-from twistedcaldav.index import ReservationError
 from twistedcaldav.instance import TooManyInstancesError,\
     InvalidOverriddenInstanceError
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
@@ -280,7 +281,7 @@ class StoreCalendarObjectResource(object):
             else:
                 # Get UID from original resource
                 self.source_index = self.sourceparent.index()
-                self.uid = self.source_index.resourceUIDForName(self.source.name())
+                self.uid = yield self.source_index.resourceUIDForName(self.source.name())
                 if self.uid is None:
                     log.err("Source calendar does not have a UID: %s" % self.source)
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
@@ -573,6 +574,7 @@ class StoreCalendarObjectResource(object):
         returnValue(new_has_private_comments)
 
 
+    @inlineCallbacks
     def noUIDConflict(self, uid): 
         """ 
         Check that the UID of the new calendar object conforms to the requirements of 
@@ -586,7 +588,7 @@ class StoreCalendarObjectResource(object):
         result = True 
         message = "" 
         rname = "" 
-        
+
         # Adjust for a move into same calendar collection 
         oldname = None 
         if self.sourceparent and (self.sourceparent == self.destinationparent) and self.deletesource: 
@@ -606,14 +608,13 @@ class StoreCalendarObjectResource(object):
         else: 
             # Cannot overwrite a resource with different UID 
             if self.destination.exists(): 
-                olduid = index.resourceUIDForName(self.destination.name()) 
+                olduid = yield index.resourceUIDForName(self.destination.name()) 
                 if olduid != uid: 
                     rname = self.destination.name() 
                     result = False 
                     message = "Cannot overwrite calendar resource %s with different UID %s" % (rname, olduid) 
          
-        return result, message, rname 
-
+        returnValue((result, message, rname))
 
 
     @inlineCallbacks
@@ -698,12 +699,14 @@ class StoreCalendarObjectResource(object):
 
     @inlineCallbacks
     def mergePerUserData(self):
-        
         if self.calendar:
             accessUID = (yield self.destination.resourceOwnerPrincipal(self.request))
             accessUID = accessUID.principalUID() if accessUID else ""
-            oldCal = self.destination.iCalendar() if self.destination.exists() and self.destinationcal else None
-            
+            if self.destination.exists() and self.destinationcal:
+                oldCal = self.destination.iCalendar()
+            else:
+                oldCal = None
+
             # Duplicate before we do the merge because someone else may "own" the calendar object
             # and we should not change it. This is not ideal as we may duplicate it unnecessarily
             # but we currently have no api to let the caller tell us whether it cares about the
@@ -830,7 +833,7 @@ class StoreCalendarObjectResource(object):
                 # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests 
                 # try to write the same calendar data to two different resource URIs. 
                 if not self.isiTIP: 
-                    result, message, rname = self.noUIDConflict(self.uid) 
+                    result, message, rname = yield self.noUIDConflict(self.uid) 
                     if not result: 
                         log.err(message)
                         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN,

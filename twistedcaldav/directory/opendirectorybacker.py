@@ -397,66 +397,7 @@ class OpenDirectoryBackingService(DirectoryService):
                     yield updateLock.release()
                     updateLock = None
                     
-                    #FIXME: implement store based cache
-#                    tmpDirLock = self._tmpDirAddressBookLock
-#                    self.log_debug("blocking on lock of: \"%s\")" % self._tmpDirAddressBookLockPath)
-#                    yield tmpDirLock.acquire()
-#                    
-#                    try:
-#                        self.log_info("Filling directory address book")
-#                        startTime = time.time()
-#                        newAddressBook = CalDAVFile(makeTmpFilename())
-#                        yield newAddressBook.createAddressBookCollection()
-#                        for key, record in records.items():
-#                            try:
-#                                vcard = record.vCard()
-#                                # make up a destination 
-#
-#                                fileName = unquote(record.uriName())
-#                                destination = CalDAVFile(join(newAddressBook.fp.path, fileName))
-#                                destination_uri =  record.hRef()
-#
-#                                self.log_debug("Adding \"%s\", uri=\"%s\"" % (fileName, destination_uri, ))
-#                                self.log_debug("VCard text =\n%s" % (record.vCardText(), ))
-#                                
-#                                yield StoreAddressObjectResource( request = None,
-#                                                            sourceadbk = False,
-#                                                            destinationadbk = True,
-#                                                            destination = destination,
-#                                                            destination_uri = destination_uri,
-#                                                            destinationparent = newAddressBook,
-#                                                            vcard = vcard,
-#                                                            indexdestination = False,
-#                                                            ).run()
-#                            except:
-#                                self.log_info("Could not add record %s" % (record,))
-#                                del records[key]
-#                                newAddressBookCTag = customxml.GETCTag(str(hash(self.baseGUID + ":" + self.realmName + ":" + "".join(str(hash(records[key])) for key in records.keys()))))
-#                        
-#                        self.log_info("Indexing new directory address book")
-#                        newAddressBook.index().recreate()
-#                        elaspedTime = time.time()-startTime
-#                        self.log_info("Timing: Fill address book: %.1f ms (%d vcards, %.2f vcards/sec)" % (elaspedTime*1000, len(records), len(records)/elaspedTime))
-#                        
-#                        updateLock = self.updateLock()
-#                        self.log_debug("blocking on lock of: \"%s\")" % self._updateLockPath)
-#                        yield updateLock.acquire()
-#
-#                        self.log_debug("Swapping in new directory address book")
-#                        
-#                        # move old address book out of the way
-#                        if self.directoryBackedAddressBook.fp.exists():               
-#                            os.rename(self.directoryBackedAddressBook.fp.path, makeTmpFilename())
-#        
-#                        #move new one into place
-#                        os.rename(newAddressBook.fp.path, self.directoryBackedAddressBook.fp.path)
-#                        self.directoryBackedAddressBook.fp.restat()
-#                        
-#                        self.directoryBackedAddressBook.writeDeadProperty(newAddressBookCTag)
-#                    finally:
-#                        self.log_debug("unlocking: \"%s\")" % self._tmpDirAddressBookLockPath)
-#                        yield tmpDirLock.release()
-    
+
                 if not keepLock:
                     self.log_debug("unlocking: \"%s\")" % self._updateLockPath)
                     yield updateLock.release()
