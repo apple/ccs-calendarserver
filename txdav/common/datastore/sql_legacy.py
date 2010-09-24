@@ -350,7 +350,9 @@ class SQLLegacyCalendarInvites(SQLLegacyInvites):
 
     def _getHomeWithUID(self, uid):
         return self._txn.calendarHomeWithUID(uid, create=True)
-        
+
+
+
 class SQLLegacyAddressBookInvites(SQLLegacyInvites):
     """
     Emulator for the implicit interface specified by
@@ -578,6 +580,8 @@ class SQLLegacyShares(object):
             )
             
 
+
+
 class SQLLegacyCalendarShares(SQLLegacyShares):
     """
     Emulator for the implicit interface specified by
@@ -591,9 +595,12 @@ class SQLLegacyCalendarShares(SQLLegacyShares):
     
         super(SQLLegacyCalendarShares, self).__init__(home)
 
+
     def _getHomeWithUID(self, uid):
         return self._txn.calendarHomeWithUID(uid, create=True)
-        
+
+
+
 class SQLLegacyAddressBookShares(SQLLegacyShares):
     """
     Emulator for the implicit interface specified by
