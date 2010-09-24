@@ -106,9 +106,9 @@ class HomeMigrationTests(TestCase):
         self.addCleanup(vrfyTxn.commit)
         home = vrfyTxn.calendarHomeWithUID("home1")
         # The default calendar is still there.
-        self.assertNotIdentical(None, home.calendarWithName("calendar"))
+        self.assertNotIdentical(None, (yield home.calendarWithName("calendar")))
         # The migrated calendar isn't.
-        self.assertIdentical(None, home.calendarWithName("calendar_1"))
+        self.assertIdentical(None, (yield home.calendarWithName("calendar_1")))
 
 
     @inlineCallbacks
