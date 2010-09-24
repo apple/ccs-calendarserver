@@ -295,19 +295,26 @@ class StoreScheduleInboxResource(_CalendarChildHelper, ScheduleInboxResource):
     def __init__(self, *a, **kw):
         super(StoreScheduleInboxResource, self).__init__(*a, **kw)
         self.parent.propagateTransaction(self)
+
+
+    @classmethod
+    @inlineCallbacks
+    def maybeCreateInbox(cls, *a, **kw):
+        self = cls(*a, **kw)
         home = self.parent._newStoreHome
-        storage = home.calendarWithName("inbox")
+        storage = yield home.calendarWithName("inbox")
         if storage is None:
             # raise RuntimeError("backend should be handling this for us")
             # FIXME: spurious error, sanity check, should not be needed;
             # unfortunately, user09's calendar home does not have an inbox, so
             # this is a temporary workaround.
             home.createCalendarWithName("inbox")
-            storage = home.calendarWithName("inbox")
+            storage = yield home.calendarWithName("inbox")
         self._initializeWithCalendar(
             storage,
             self.parent._newStoreHome
         )
+        returnValue(self)
 
 
     def name(self):
@@ -965,20 +972,19 @@ class ProtoCalendarCollectionResource(CalDAVResource):
         return self.createCalendarCollection()
 
 
+    @inlineCallbacks
     def createCalendarCollection(self):
         """
         Override C{createCalendarCollection} to actually do the work.
         """
-        d = succeed(CREATED)
-
         self._newStoreParentHome.createCalendarWithName(self._name)
-        newStoreCalendar = self._newStoreParentHome.calendarWithName(
+        newStoreCalendar = yield self._newStoreParentHome.calendarWithName(
             self._name
         )
         CalendarCollectionResource.transform(
             self, newStoreCalendar, self._newStoreParentHome
         )
-        return d
+        returnValue(CREATED)
 
 
     def exists(self):
@@ -1579,20 +1585,19 @@ class ProtoAddressBookCollectionResource(CalDAVResource):
         return self.createAddressBookCollection()
 
 
+    @inlineCallbacks
     def createAddressBookCollection(self):
         """
         Override C{createAddressBookCollection} to actually do the work.
         """
-        d = succeed(CREATED)
-
         self._newStoreParentHome.createAddressBookWithName(self._name)
-        newStoreAddressBook = self._newStoreParentHome.addressbookWithName(
+        newStoreAddressBook = yield self._newStoreParentHome.addressbookWithName(
             self._name
         )
         AddressBookCollectionResource.transform(
             self, newStoreAddressBook, self._newStoreParentHome
         )
-        return d
+        returnValue(CREATED)
 
 
     def exists(self):

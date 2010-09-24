@@ -1961,7 +1961,7 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
             transaction, name)
         resource = cls(parent, name, transaction, home)
         if created:
-            resource.postCreateHome()
+            yield resource.postCreateHome()
         returnValue(resource)
 
 
@@ -2040,33 +2040,34 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
     def canShare(self):
         raise NotImplementedError
 
+
+    @inlineCallbacks
     def makeChild(self, name):
-        
         # Try built-in children first
         if name in self._provisionedChildren:
             cls = self._provisionedChildren[name]
             from twistedcaldav.notifications import NotificationCollectionResource
             if cls is NotificationCollectionResource:
-                return self.createNotificationsCollection()
-            child = self._provisionedChildren[name](self)
+                returnValue((yield self.createNotificationsCollection()))
+            child = yield self._provisionedChildren[name](self)
             self.propagateTransaction(child)
             self.putChild(name, child)
-            return child
-        
+            returnValue(child)
+
         # Try built-in links next
         if name in self._provisionedLinks:
             child = LinkResource(self, self._provisionedLinks[name])
             self.putChild(name, child)
-            return child
-        
+            returnValue(child)
+
         # Try shares next
         if self.canShare():
-            child = self.provisionShare(name)
+            child = yield self.provisionShare(name)
             if child:
-                return child
+                returnValue(child)
 
         # Do normal child types
-        return self.makeRegularChild(name)
+        returnValue((yield self.makeRegularChild(name)))
 
     def createNotificationsCollection(self):
         
@@ -2258,7 +2259,7 @@ class CalendarHomeResource(CommonHomeResource):
 
         # Cache children which must be of a specific type
         from twistedcaldav.storebridge import StoreScheduleInboxResource
-        self._provisionedChildren["inbox"] = StoreScheduleInboxResource
+        self._provisionedChildren["inbox"] = StoreScheduleInboxResource.maybeCreateInbox
 
         from twistedcaldav.schedule import ScheduleOutboxResource
         self._provisionedChildren["outbox"] = ScheduleOutboxResource
@@ -2276,13 +2277,15 @@ class CalendarHomeResource(CommonHomeResource):
             self._provisionedChildren["notification"] = NotificationCollectionResource
 
 
+    @inlineCallbacks
     def postCreateHome(self):
         # This is a bit of a hack.  Really we ought to be always generating
         # this URL live from a back-end method that tells us what the
         # default calendar is.
-        inbox = self.getChild("inbox")
+        inbox = yield self.getChild("inbox")
         childURL = joinURL(self.url(), "calendar")
         inbox.processFreeBusyCalendar(childURL, True)
+
 
     def canShare(self):
         return config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.exists()
