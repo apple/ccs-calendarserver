@@ -501,7 +501,7 @@ class CommonTests(CommonCommonTests):
         for calendarObject in calendarObjects:
             self.assertProvides(ICalendarObject, calendarObject)
             self.assertEquals(
-                calendar1.calendarObjectWithName(calendarObject.name()),
+                (yield calendar1.calendarObjectWithName(calendarObject.name())),
                 calendarObject
             )
 
@@ -575,7 +575,7 @@ class CommonTests(CommonCommonTests):
                 None
             )
             self.assertEquals(
-                calendar.calendarObjectWithName(name),
+                (yield calendar.calendarObjectWithName(name)),
                 None
             )
 
@@ -601,11 +601,11 @@ class CommonTests(CommonCommonTests):
         calendar = yield self.calendarUnderTest()
         for name in calendar1_objectNames:
             self.assertNotIdentical(
-                calendar.calendarObjectWithName(name), None
+                (yield calendar.calendarObjectWithName(name)), None
             )
             calendar.removeCalendarObjectWithName(name)
             self.assertIdentical(
-                calendar.calendarObjectWithName(name), None
+                (yield calendar.calendarObjectWithName(name)), None
             )
 
 
@@ -749,11 +749,11 @@ class CommonTests(CommonCommonTests):
         """
         calendar1 = yield self.calendarUnderTest()
         name = "4.ics"
-        self.assertIdentical(calendar1.calendarObjectWithName(name), None)
+        self.assertIdentical((yield calendar1.calendarObjectWithName(name)), None)
         component = VComponent.fromString(event4_text)
         calendar1.createCalendarObjectWithName(name, component)
 
-        calendarObject = calendar1.calendarObjectWithName(name)
+        calendarObject = yield calendar1.calendarObjectWithName(name)
         self.assertEquals(calendarObject.component(), component)
 
         yield self.commit()
@@ -869,7 +869,7 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(calendarObject.component(), component)
 
         # Also check a new instance
-        calendarObject = calendar1.calendarObjectWithName("1.ics")
+        calendarObject = yield calendar1.calendarObjectWithName("1.ics")
         self.assertEquals(calendarObject.component(), component)
 
         yield self.commit()
@@ -1044,7 +1044,7 @@ END:VCALENDAR
         yield self.commit()
         home = yield self.homeUnderTest()
         cal = yield self.calendarUnderTest()
-        fromName = cal.calendarObjectWithName(objName)
+        fromName = yield cal.calendarObjectWithName(objName)
         fromDropbox = home.calendarObjectWithDropboxID("some-dropbox-id")
         self.assertEquals(fromName, fromDropbox)
 
@@ -1198,9 +1198,9 @@ END:VCALENDAR
             (yield (yield home2.calendarWithName("calendar")).calendarObjects()))
         self.assertEquals(objects, [])
         for resourceName in self.requirements['home1']['calendar_1'].keys():
-            obj = calendar1.calendarObjectWithName(resourceName)
+            obj = yield calendar1.calendarObjectWithName(resourceName)
             self.assertIdentical(
-                calendar2.calendarObjectWithName(resourceName), None)
+                (yield calendar2.calendarObjectWithName(resourceName)), None)
             self.assertIdentical(
                 calendar2.calendarObjectWithUID(obj.uid()), None)
 
