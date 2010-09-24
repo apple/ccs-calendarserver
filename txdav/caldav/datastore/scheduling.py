@@ -73,9 +73,14 @@ class ImplicitCalendarHome(
 #        # FIXME: wrap?
 #        return self._calendarHome.properties()
 
+    @inlineCallbacks
     def calendars(self):
-        for calendar in super(ImplicitCalendarHome, self).calendars():
-            yield ImplicitCalendar(self, calendar)
+        superCalendars = (yield super(ImplicitCalendarHome, self).calendars())
+        wrapped = []
+        for calendar in superCalendars:
+            wrapped.append(ImplicitCalendar(self, calendar))
+        returnValue(wrapped)
+
 
     def createCalendarWithName(self, name):
         self._calendarHome.createCalendarWithName(name)

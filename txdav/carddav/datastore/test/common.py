@@ -603,15 +603,18 @@ class CommonTests(CommonCommonTests):
         )
 
 
+    @inlineCallbacks
     def test_addressbooksAfterAddAddressBook(self):
         """
         L{IAddressBookHome.addressbooks} includes addressbooks recently added with
         L{IAddressBookHome.createAddressBookWithName}.
         """
         home = self.homeUnderTest()
-        before = set(x.name() for x in home.addressbooks())
+        allAddressbooks = yield home.addressbooks()
+        before = set(x.name() for x in allAddressbooks)
         home.createAddressBookWithName("new-name")
-        after = set(x.name() for x in home.addressbooks())
+        allAddressbooks = yield home.addressbooks()
+        after = set(x.name() for x in allAddressbooks)
         self.assertEquals(before | set(['new-name']), after)
 
 

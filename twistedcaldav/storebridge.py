@@ -397,27 +397,31 @@ class DropboxCollection(_GetChildHelper):
         return True
 
 
+    @inlineCallbacks
     def getChild(self, name):
-        calendarObject = self._newStoreHome.calendarObjectWithDropboxID(name)
+        calendarObject = yield self._newStoreHome.calendarObjectWithDropboxID(name)
         if calendarObject is None:
-            return NoDropboxHere()
+            returnValue(NoDropboxHere())
         objectDropbox = CalendarObjectDropbox(
             calendarObject, principalCollections=self.principalCollections()
         )
         self.propagateTransaction(objectDropbox)
-        return objectDropbox
+        returnValue(objectDropbox)
 
 
     def resourceType(self,):
         return davxml.ResourceType.dropboxhome #@UndefinedVariable
 
 
+    @inlineCallbacks
     def listChildren(self):
         l = []
-        for everyCalendar in self._newStoreHome.calendars():
-            for everyObject in everyCalendar.calendarObjects():
+        for everyCalendar in (yield self._newStoreHome.calendars()):
+            for everyObject in (yield everyCalendar.calendarObjects()):
                 l.append(everyObject.dropboxID())
-        return l
+        returnValue(l)
+
+
 
 class NoDropboxHere(_GetChildHelper):
 
@@ -842,7 +846,7 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
 
         errors = ResponseQueue(where, "DELETE", NO_CONTENT)
 
-        for childname in self.listChildren():
+        for childname in (yield self.listChildren()):
 
             childurl = joinURL(where, childname)
 
@@ -1360,13 +1364,17 @@ class _AddressBookChildHelper(object):
         self.propagateTransaction(similar)
         return similar
 
+
+    @inlineCallbacks
     def listChildren(self):
         """
         @return: a sequence of the names of all known children of this resource.
         """
         children = set(self.putChildren.keys())
-        children.update(self._newStoreAddressBook.listAddressbookObjects())
-        return sorted(children)
+        children.update(
+            (yield self._newStoreAddressBook.listAddressbookObjects())
+        )
+        returnValue(sorted(children))
 
 
 
@@ -1471,7 +1479,7 @@ class AddressBookCollectionResource(_AddressBookChildHelper, CalDAVResource):
 
         errors = ResponseQueue(where, "DELETE", NO_CONTENT)
 
-        for childname in self.listChildren():
+        for childname in (yield self.listChildren()):
 
             childurl = joinURL(where, childname)
 
@@ -1863,14 +1871,15 @@ class _NotificationChildHelper(object):
         self.propagateTransaction(similar)
         return similar
 
+
+    @inlineCallbacks
     def listChildren(self):
         """
         @return: a sequence of the names of all known children of this resource.
         """
         children = set(self.putChildren.keys())
         children.update(self._newStoreNotifications.listNotificationObjects())
-        return children
-
+        returnValue(children)
 
 
     def quotaSize(self, request):
@@ -1894,11 +1903,12 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
         self._initializeWithNotifications(notifications, home)
 
 
+    @inlineCallbacks
     def listChildren(self):
         l = []
-        for notification in self._newStoreNotifications.notificationObjects():
+        for notification in (yield self._newStoreNotifications.notificationObjects()):
             l.append(notification.name())
-        return l
+        returnValue(l)
 
     def isCollection(self):
         return True

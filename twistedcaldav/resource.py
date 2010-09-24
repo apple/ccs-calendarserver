@@ -1012,8 +1012,11 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
 
         if depth != "0" and self.isCollection():
             basepath = request.urlForResource(self)
-            children = list(self.listChildren())
-            getChild()
+            children = []
+            def gotChildren(childNames):
+                children[:] = list(childNames)
+                getChild()
+            maybeDeferred(self.listChildren).addCallback(gotChildren)
         else:
             completionDeferred.callback(None)
 
@@ -1025,7 +1028,7 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
 
         if depth != "0" and self.isCollection():
             basepath = request.urlForResource(self)
-            for childname in self.listChildren():
+            for childname in (yield self.listChildren()):
                 childpath = joinURL(basepath, childname)
                 child = (yield request.locateResource(childpath))
                 if privileges:
@@ -2099,15 +2102,18 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
     def makeRegularChild(self, name):
         raise NotImplementedError
 
+
+    @inlineCallbacks
     def listChildren(self):
         """
         @return: a sequence of the names of all known children of this resource.
         """
         children = set(self._provisionedChildren.keys())
         children.update(self._provisionedLinks.keys())
-        children.update(self.allShareNames())
-        children.update(self._newStoreHome.listChildren())
-        return children
+        children.update((yield self.allShareNames()))
+        children.update((yield self._newStoreHome.listChildren()))
+        returnValue(children)
+
 
     def readProperty(self, property, request):
         if type(property) is tuple:

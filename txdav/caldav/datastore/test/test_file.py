@@ -197,8 +197,8 @@ class CalendarTest(unittest.TestCase):
         self.home1.createCalendarWithName("calendar2")
         calendar = yield self.home1.calendarWithName("calendar2")
         index = calendar._index
-        yield self.assertEquals(set(index.calendarObjects()),
-                                set(calendar.calendarObjects()))
+        yield self.assertEquals(set((yield index.calendarObjects())),
+                                set((yield calendar.calendarObjects())))
         yield self.txn.commit()
         self.txn = self.calendarStore.newTransaction()
         self.home1 = yield self.txn.calendarHomeWithUID("home1")
@@ -212,6 +212,7 @@ class CalendarTest(unittest.TestCase):
                           set((yield calendar.calendarObjects())))
 
 
+    @inlineCallbacks
     def test_calendarObjectWithName_dot(self):
         """
         Filenames starting with "." are reserved by this
@@ -220,22 +221,25 @@ class CalendarTest(unittest.TestCase):
         """
         name = ".foo.ics"
         self.home1._path.child(name).touch()
-        self.assertEquals(self.calendar1.calendarObjectWithName(name), None)
+        self.assertEquals(
+            (yield self.calendar1.calendarObjectWithName(name)),
+            None)
 
 
     @featureUnimplemented
+    @inlineCallbacks
     def test_calendarObjectWithUID_exists(self):
         """
         Find existing calendar object by name.
         """
-        calendarObject = self.calendar1.calendarObjectWithUID("1")
+        calendarObject = yield self.calendar1.calendarObjectWithUID("1")
         self.failUnless(
             isinstance(calendarObject, CalendarObject),
             calendarObject
         )
         self.assertEquals(
             calendarObject.component(),
-            self.calendar1.calendarObjectWithName("1.ics").component()
+            (yield self.calendar1.calendarObjectWithName("1.ics")).component()
         )
 
 
@@ -253,13 +257,14 @@ class CalendarTest(unittest.TestCase):
 
 
     @featureUnimplemented
+    @inlineCallbacks
     def test_createCalendarObjectWithName_uidconflict(self):
         """
         Attempt to create a calendar object with a conflicting UID
         should raise.
         """
         name = "foo.ics"
-        assert self.calendar1.calendarObjectWithName(name) is None
+        assert (yield self.calendar1.calendarObjectWithName(name)) is None
         component = VComponent.fromString(event1modified_text)
         self.assertRaises(
             ObjectResourceUIDAlreadyExistsError,
@@ -378,7 +383,7 @@ class CalendarTest(unittest.TestCase):
         """
         self.addCleanup(self.txn.commit)
         modifiedComponent = VComponent.fromString(event1modified_text)
-        self.calendar1.calendarObjectWithName("1.ics").setComponent(
+        (yield self.calendar1.calendarObjectWithName("1.ics")).setComponent(
             modifiedComponent
         )
         self.assertIdentical(
@@ -488,5 +493,5 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         Adding a dotfile to the calendar home should not increase
         """
         (yield self.homeUnderTest())._path.child(".foo").createDirectory()
-        self.test_calendarObjects()
+        yield self.test_calendarObjects()
 

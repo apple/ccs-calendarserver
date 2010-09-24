@@ -119,7 +119,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
     @return: a L{Deferred} which fires when the calendar has migrated.
     """
     outCalendar.properties().update(inCalendar.properties())
-    for calendarObject in inCalendar.calendarObjects():
+    for calendarObject in (yield inCalendar.calendarObjects()):
         
         try:
             outCalendar.createCalendarObjectWithName(
@@ -128,7 +128,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
     
             # Only the owner's properties are migrated, since previous releases of
             # calendar server didn't have per-user properties.
-            outObject = outCalendar.calendarObjectWithName(
+            outObject = yield outCalendar.calendarObjectWithName(
                 calendarObject.name())
             outObject.properties().update(calendarObject.properties())
     
@@ -187,7 +187,8 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
     outHome.removeCalendarWithName("calendar")
     outHome.removeCalendarWithName("inbox")
     outHome.properties().update(inHome.properties())
-    for calendar in inHome.calendars():
+    inCalendars = yield inHome.calendars()
+    for calendar in inCalendars:
         name = calendar.name()
         if name == "outbox":
             continue

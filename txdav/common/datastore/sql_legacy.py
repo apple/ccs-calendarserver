@@ -26,7 +26,7 @@ import StringIO
 from twistedcaldav.sharing import SharedCollectionRecord
 
 from twisted.python import hashlib
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.python.log import Logger, LoggingMixIn
 
@@ -851,6 +851,7 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
             return self.reserver.isReservedUID(uid)
 
 
+    @inlineCallbacks
     def isAllowedUID(self, uid, *names):
         """
         Checks to see whether to allow an operation which would add the
@@ -863,23 +864,26 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
             False otherwise.
         """
         if self.calendar._name == "inbox":
-            return True
+            returnValue(True)
         else:
-            rname = self.resourceNameForUID(uid)
-            return (rname is None or rname in names)
+            rname = yield self.resourceNameForUID(uid)
+            returnValue(rname is None or rname in names)
 
+
+    @inlineCallbacks
     def resourceUIDForName(self, name):
-        obj = self.calendar.calendarObjectWithName(name)
+        obj = yield self.calendar.calendarObjectWithName(name)
         if obj is None:
-            return None
-        return obj.uid()
+            returnValue(None)
+        returnValue(obj.uid())
 
 
+    @inlineCallbacks
     def resourceNameForUID(self, uid):
-        obj = self.calendar.calendarObjectWithUID(uid)
+        obj = yield self.calendar.calendarObjectWithUID(uid)
         if obj is None:
-            return None
-        return obj.name()
+            returnValue(None)
+        returnValue(obj.name())
 
 
     def notExpandedBeyond(self, minDate):
@@ -1144,11 +1148,12 @@ class PostgresLegacyABIndexEmulator(object):
         return (rname is None or rname in names)
 
 
+    @inlineCallbacks
     def resourceUIDForName(self, name):
-        obj = self.addressbook.addressbookObjectWithName(name)
+        obj = yield self.addressbook.addressbookObjectWithName(name)
         if obj is None:
-            return None
-        return obj.uid()
+            returnValue(None)
+        returnValue(obj.uid())
 
 
     def resourceNameForUID(self, uid):

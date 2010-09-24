@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 __all__ = [
     "CalendarHome",
@@ -75,14 +76,15 @@ class CalendarHome(CommonHome):
     calendars = CommonHome.children
     listCalendars = CommonHome.listChildren
 
+    @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
         """
         Implement lookup with brute-force scanning.
         """
-        for calendar in self.calendars():
-            for calendarObject in calendar.calendarObjects():
+        for calendar in (yield self.calendars()):
+            for calendarObject in (yield calendar.calendarObjects()):
                 if dropboxID == calendarObject.dropboxID():
-                    return calendarObject
+                    returnValue(calendarObject)
 
 
     def createdHome(self):

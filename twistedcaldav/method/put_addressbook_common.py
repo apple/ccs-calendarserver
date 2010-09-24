@@ -297,8 +297,8 @@ class StoreAddressObjectResource(object):
 
         # UID must be unique
         index = self.destinationparent.index()
-        if not index.isAllowedUID(uid, oldname, self.destination.name()):
-            rname = index.resourceNameForUID(uid)
+        if not (yield index.isAllowedUID(uid, oldname, self.destination.name())):
+            rname = yield index.resourceNameForUID(uid)
             # This can happen if two simultaneous PUTs occur with the same UID.
             # i.e. one PUT has reserved the UID but has not yet written the resource,
             # the other PUT tries to reserve and fails but no index entry exists yet.

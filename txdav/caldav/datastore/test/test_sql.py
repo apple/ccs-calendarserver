@@ -158,10 +158,12 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
             "new-home", create=True
         )
         migrateHome(fromHome, toHome, lambda x: x.component())
-        self.assertEquals(set([c.name() for c in toHome.calendars()]),
+        toCalendars = yield toHome.calendars()
+        self.assertEquals(set([c.name() for c in toCalendars]),
                           set([k for k in self.requirements['home1'].keys()
                                if self.requirements['home1'][k] is not None]))
-        for c in fromHome.calendars():
+        fromCalendars = yield fromHome.calendars()
+        for c in fromCalendars:
             self.assertPropertiesSimilar(
                 c, (yield toHome.calendarWithName(c.name())),
                 builtinProperties

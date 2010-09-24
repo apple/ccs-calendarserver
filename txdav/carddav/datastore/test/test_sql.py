@@ -15,8 +15,8 @@
 ##
 
 """
-Tests for txdav.caldav.datastore.postgres, mostly based on
-L{txdav.caldav.datastore.test.common}.
+Tests for L{txdav.carddav.datastore.sql}, mostly based on
+L{txdav.carddav.datastore.test.common}.
 """
 
 import time
@@ -132,7 +132,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
             "home1").addressbookWithName("addressbook_1")
         toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
             "new-home", create=True)
-        toAddressbook = toHome.addressbookWithName("addressbook")
+        toAddressbook = yield toHome.addressbookWithName("addressbook")
         _migrateAddressbook(fromAddressbook, toAddressbook,
                             lambda x: x.component())
         self.assertAddressbooksSimilar(fromAddressbook, toAddressbook)
@@ -162,10 +162,12 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
             "new-home", create=True
         )
         migrateHome(fromHome, toHome, lambda x: x.component())
-        self.assertEquals(set([c.name() for c in toHome.addressbooks()]),
+        toAddressbooks = yield toHome.addressbooks()
+        self.assertEquals(set([c.name() for c in toAddressbooks]),
                           set([k for k in self.requirements['home1'].keys()
                                if self.requirements['home1'][k] is not None]))
-        for c in fromHome.addressbooks():
+        fromAddressbooks = yield fromHome.addressbooks()
+        for c in fromAddressbooks:
             self.assertPropertiesSimilar(
                 c, toHome.addressbookWithName(c.name()),
                 builtinProperties

@@ -511,6 +511,7 @@ class CommonTests(CommonCommonTests):
         )
 
 
+    @inlineCallbacks
     def test_calendarObjectsWithRemovedObject(self):
         """
         L{ICalendar.calendarObjects} skips those objects which have been
@@ -519,7 +520,7 @@ class CommonTests(CommonCommonTests):
         """
         calendar1 = yield self.calendarUnderTest()
         calendar1.removeCalendarObjectWithName("2.ics")
-        calendarObjects = list(calendar1.calendarObjects())
+        calendarObjects = list((yield calendar1.calendarObjects()))
         self.assertEquals(set(o.name() for o in calendarObjects),
                           set(calendar1_objectNames) - set(["2.ics"]))
 
@@ -567,11 +568,11 @@ class CommonTests(CommonCommonTests):
         calendar = yield self.calendarUnderTest()
         for name in calendar1_objectNames:
             uid = (u'uid' + name.rstrip(".ics"))
-            self.assertNotIdentical(calendar.calendarObjectWithUID(uid),
+            self.assertNotIdentical((yield calendar.calendarObjectWithUID(uid)),
                                     None)
             calendar.removeCalendarObjectWithUID(uid)
             self.assertEquals(
-                calendar.calendarObjectWithUID(uid),
+                (yield calendar.calendarObjectWithUID(uid)),
                 None
             )
             self.assertEquals(
@@ -735,9 +736,11 @@ class CommonTests(CommonCommonTests):
         L{ICalendarHome.createCalendarWithName}.
         """
         home = yield self.homeUnderTest()
-        before = set(x.name() for x in home.calendars())
+        allCalendars = yield home.calendars()
+        before = set(x.name() for x in allCalendars)
         home.createCalendarWithName("new-name")
-        after = set(x.name() for x in home.calendars())
+        allCalendars = yield home.calendars()
+        after = set(x.name() for x in allCalendars)
         self.assertEquals(before | set(['new-name']), after)
 
 
@@ -1045,7 +1048,7 @@ END:VCALENDAR
         home = yield self.homeUnderTest()
         cal = yield self.calendarUnderTest()
         fromName = yield cal.calendarObjectWithName(objName)
-        fromDropbox = home.calendarObjectWithDropboxID("some-dropbox-id")
+        fromDropbox = yield home.calendarObjectWithDropboxID("some-dropbox-id")
         self.assertEquals(fromName, fromDropbox)
 
 
@@ -1202,7 +1205,7 @@ END:VCALENDAR
             self.assertIdentical(
                 (yield calendar2.calendarObjectWithName(resourceName)), None)
             self.assertIdentical(
-                calendar2.calendarObjectWithUID(obj.uid()), None)
+                (yield calendar2.calendarObjectWithUID(obj.uid())), None)
 
 
     @inlineCallbacks

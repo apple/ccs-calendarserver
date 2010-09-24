@@ -939,26 +939,34 @@ class SharedHomeMixin(LinkFollowerMixIn):
     A mix-in for calendar/addressbook homes that defines the operations for
     manipulating a sharee's set of shared calendars.
     """
-    
 
+
+    @inlineCallbacks
     def provisionShare(self, name):
-        
         # Try to find a matching share
         child = None
-        shares = self.allShares()
+        shares = yield self.allShares()
         if name in shares:
             from twistedcaldav.sharedcollection import SharedCollectionResource
             child = SharedCollectionResource(self, shares[name])
             self.putChild(name, child)
-        return child
+        returnValue(child)
 
+
+    @inlineCallbacks
     def allShares(self):
         if not hasattr(self, "_allShares"):
-            self._allShares = dict([(share.localname, share) for share in self.sharesDB().allRecords()])
-        return self._allShares
+            allShareRecords = yield self.sharesDB().allRecords()
+            self._allShares = dict([(share.localname, share) for share in
+                                    allShareRecords])
+        returnValue(self._allShares)
 
+
+    @inlineCallbacks
     def allShareNames(self):
-        return tuple(self.allShares().keys())
+        allShares = yield self.allShares()
+        returnValue(tuple(allShares.keys()))
+
 
     @inlineCallbacks
     def acceptInviteShare(self, request, hostUrl, inviteUID, displayname=None):

@@ -629,7 +629,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         completionDeferred = Deferred()
         basepath = request.urlForResource(self)
-        children = list(self.listChildren())
+        children = []
 
         def checkPrivilegesError(failure):
             failure.trap(AccessDeniedError)
@@ -679,7 +679,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 d.addCallbacks(gotChild, checkPrivilegesError, (childpath,))
                 d.addErrback(completionDeferred.errback)
 
-        getChild()
+        def gotChildren(listChildrenResult):
+            children[:] = list(listChildrenResult)
+            getChild()
+        maybeDeferred(self.listChildren).addCallback(gotChildren)
 
         return completionDeferred
 
@@ -722,7 +725,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         children = []
         basepath = request.urlForResource(self)
-        childnames = list(self.listChildren())
+        childnames = list((yield self.listChildren()))
         for childname in childnames:
             if names and childname not in names:
                 continue

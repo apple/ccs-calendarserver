@@ -395,7 +395,7 @@ class ImplicitScheduler(object):
 
         @inlineCallbacks
         def queryCalendarCollection(collection, collection_uri):
-            rname = collection.index().resourceNameForUID(self.uid)
+            rname = yield collection.index().resourceNameForUID(self.uid)
             if rname:
                 child = (yield self.request.locateResource(joinURL(collection_uri, rname)))
                 if child == check_resource:

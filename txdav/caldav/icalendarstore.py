@@ -202,8 +202,9 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreResource):
         in this calendar.
 
         @param uid: a string.
-        @return: an L{ICalendarObject} or C{None} if no such calendar
-            object exists.
+
+        @return: a L{Deferred} firing an L{ICalendarObject} or C{None} if no
+            such calendar object exists.
         """
 
     def createCalendarObjectWithName(name, component):
