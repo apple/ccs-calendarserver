@@ -955,6 +955,15 @@ class XMPPNotifier(LoggingMixIn):
             d.addCallback(self.handleRoster)
 
     def allowedInRoster(self, jid):
+        """ Returns True if jid matches any of the patterns in AllowedJIDs,
+            or is our own JID.  False otherwise. """
+
+        # Always allow our own JID (in case multiple servers are sharing it)
+        settings = self.settings
+        if settings is not None:
+            if settings["JID"] == jid:
+                return True
+
         for pattern in self.settings.get("AllowedJIDs", []):
             if fnmatch(jid, pattern):
                 return True

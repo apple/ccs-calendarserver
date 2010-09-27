@@ -533,6 +533,7 @@ class XMPPNotifierTests(TestCase):
 
 
 
+
 class XMPPNotificationFactoryTests(TestCase):
 
     def test_sendPresence(self):
@@ -605,3 +606,16 @@ class ConfigurationTests(TestCase):
         self.assertEquals(conf, None)
         conf = getPubSubAPSConfiguration("UnknownPrefix|foo", enabledConfig)
         self.assertEquals(conf, None)
+
+    def test_allowedInRoster(self):
+        """
+        Our own JID is implicitly included in AllowedJIDs
+        """
+        settings = {
+            "JID" : "test1@example.com",
+            "AllowedJIDs" : ["test2@example.com"]
+        }
+        notifier = XMPPNotifier(settings, heartbeat=False)
+        self.assertTrue(notifier.allowedInRoster("test1@example.com"))
+        self.assertTrue(notifier.allowedInRoster("test2@example.com"))
+        self.assertFalse(notifier.allowedInRoster("test3@example.com"))
