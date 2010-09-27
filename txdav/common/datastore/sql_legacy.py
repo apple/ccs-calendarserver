@@ -808,7 +808,38 @@ class postgresqlgenerator(sqlgenerator):
         return "%%%s%%" % (arg,)
 
 
-class PostgresLegacyIndexEmulator(LoggingMixIn):
+class LegacyIndexHelper(LoggingMixIn, object):
+
+    @inlineCallbacks
+    def isAllowedUID(self, uid, *names):
+        """
+        Checks to see whether to allow an operation which would add the
+        specified UID to the index.  Specifically, the operation may not
+        violate the constraint that UIDs must be unique.
+        @param uid: the UID to check
+        @param names: the names of resources being replaced or deleted by the
+            operation; UIDs associated with these resources are not checked.
+        @return: True if the UID is not in the index and is not reserved,
+            False otherwise.
+        """
+        rname = yield self.resourceNameForUID(uid)
+        returnValue(rname is None or rname in names)
+
+
+    def reserveUID(self, uid):
+        return self.reserver.reserveUID(uid)
+
+
+    def unreserveUID(self, uid):
+        return self.reserver.unreserveUID(uid)
+
+
+    def isReservedUID(self, uid):
+        return self.reserver.isReservedUID(uid)
+
+
+
+class PostgresLegacyIndexEmulator(LegacyIndexHelper):
     """
     Emulator for L{twistedcaldv.index.Index} and
     L{twistedcaldv.index.IndexSchedule}.
@@ -830,27 +861,6 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
         return self.calendar._txn
 
 
-    def reserveUID(self, uid):
-        if self.calendar._name == "inbox":
-            return succeed(None)
-        else:
-            return self.reserver.reserveUID(uid)
-
-
-    def unreserveUID(self, uid):
-        if self.calendar._name == "inbox":
-            return succeed(None)
-        else:
-            return self.reserver.unreserveUID(uid)
-
-
-    def isReservedUID(self, uid):
-        if self.calendar._name == "inbox":
-            return succeed(False)
-        else:
-            return self.reserver.isReservedUID(uid)
-
-
     @inlineCallbacks
     def isAllowedUID(self, uid, *names):
         """
@@ -863,11 +873,8 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
         @return: True if the UID is not in the index and is not reserved,
             False otherwise.
         """
-        if self.calendar._name == "inbox":
-            returnValue(True)
-        else:
-            rname = yield self.resourceNameForUID(uid)
-            returnValue(rname is None or rname in names)
+        rname = yield self.resourceNameForUID(uid)
+        returnValue(rname is None or rname in names)
 
 
     @inlineCallbacks
@@ -906,6 +913,7 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
         obj = self.calendar.calendarObjectWithName(name)
         obj.updateDatabase(obj.component(), expand_until=expand_until, reCreate=True)
 
+
     def testAndUpdateIndex(self, minDate):
         # Find out if the index is expanded far enough
         names = self.notExpandedBeyond(minDate)
@@ -914,6 +922,7 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
         for name in names:
             self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
             self.reExpandResource(name, minDate)
+
 
     def whatchanged(self, revision):
 
@@ -939,6 +948,7 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
                     changed.append(name)
         
         return changed, deleted,
+
 
     def indexedSearch(self, filter, useruid='', fbtype=False):
         """
@@ -1031,6 +1041,25 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
 
 
 
+class PostgresLegacyInboxIndexEmulator(PostgresLegacyIndexEmulator):
+    """
+    UIDs need not be unique in the 'inbox' calendar, so override those
+    behaviors intended to ensure that.
+    """
+
+    def isAllowedUID(self):
+        return succeed(True)
+
+    def reserveUID(self, uid):
+        return succeed(None)
+
+    def unreserveUID(self, uid):
+        return succeed(None)
+
+    def isReservedUID(self, uid):
+        return succeed(False)
+
+
 
 # CARDDAV
 
@@ -1098,7 +1127,7 @@ class postgresqladbkgenerator(sqlgenerator):
         return "%%%s%%" % (arg,)
 
 
-class PostgresLegacyABIndexEmulator(object):
+class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
     """
     Emulator for L{twistedcaldv.index.Index} and
     L{twistedcaldv.index.IndexSchedule}.
@@ -1121,33 +1150,6 @@ class PostgresLegacyABIndexEmulator(object):
         return self.addressbook._txn
 
 
-    def reserveUID(self, uid):
-        return self.reserver.reserveUID(uid)
-
-
-    def unreserveUID(self, uid):
-        return self.reserver.unreserveUID(uid)
-
-
-    def isReservedUID(self, uid):
-        return self.reserver.isReservedUID(uid)
-
-
-    def isAllowedUID(self, uid, *names):
-        """
-        Checks to see whether to allow an operation which would add the
-        specified UID to the index.  Specifically, the operation may not
-        violate the constraint that UIDs must be unique.
-        @param uid: the UID to check
-        @param names: the names of resources being replaced or deleted by the
-            operation; UIDs associated with these resources are not checked.
-        @return: True if the UID is not in the index and is not reserved,
-            False otherwise.
-        """
-        rname = self.resourceNameForUID(uid)
-        return (rname is None or rname in names)
-
-
     @inlineCallbacks
     def resourceUIDForName(self, name):
         obj = yield self.addressbook.addressbookObjectWithName(name)
@@ -1156,11 +1158,12 @@ class PostgresLegacyABIndexEmulator(object):
         returnValue(obj.uid())
 
 
+    @inlineCallbacks
     def resourceNameForUID(self, uid):
-        obj = self.addressbook.addressbookObjectWithUID(uid)
+        obj = yield self.addressbook.addressbookObjectWithUID(uid)
         if obj is None:
-            return None
-        return obj.name()
+            returnValue(None)
+        returnValue(obj.name())
 
 
     def whatchanged(self, revision):

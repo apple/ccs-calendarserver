@@ -46,7 +46,7 @@ from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
     CommonObjectResource
 from txdav.common.datastore.sql_legacy import \
     PostgresLegacyIndexEmulator, SQLLegacyCalendarInvites,\
-    SQLLegacyCalendarShares
+    SQLLegacyCalendarShares, PostgresLegacyInboxIndexEmulator
 from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE,\
     _ATTACHMENTS_MODE_WRITE
@@ -105,22 +105,20 @@ class Calendar(CommonHomeChild):
 
     def __init__(self, home, name, resourceID, notifier):
         """
-        Initialize a calendar pointing at a path on disk.
+        Initialize a calendar pointing at a record in a database.
 
-        @param name: the subdirectory of calendarHome where this calendar
-            resides.
+        @param name: the name of the calendar resource.
         @type name: C{str}
 
-        @param calendarHome: the home containing this calendar.
-        @type calendarHome: L{CalendarHome}
-
-        @param realName: If this calendar was just created, the name which it
-        will eventually have on disk.
-        @type realName: C{str}
+        @param home: the home containing this calendar.
+        @type home: L{CalendarHome}
         """
         super(Calendar, self).__init__(home, name, resourceID, notifier)
 
-        self._index = PostgresLegacyIndexEmulator(self)
+        if name == 'inbox':
+            self._index = PostgresLegacyInboxIndexEmulator(self)
+        else:
+            self._index = PostgresLegacyIndexEmulator(self)
         self._invites = SQLLegacyCalendarInvites(self)
         self._objectResourceClass = CalendarObject
         self._bindTable = CALENDAR_BIND_TABLE

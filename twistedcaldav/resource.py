@@ -1164,6 +1164,8 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
                 return principal
         return None
 
+
+    @inlineCallbacks
     def vCard(self, name=None):
         """
         See L{ICalDAVResource.vCard}.
@@ -1176,16 +1178,18 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
         methods.
         """
         try:
-            vcard_data = self.vCardText(name)
+            vcard_data = yield self.vCardText(name)
         except InternalDataStoreError:
-            return None
+            returnValue(None)
 
-        if vcard_data is None: return None
+        if vcard_data is None:
+            returnValue(None)
 
         try:
-            return vComponent.fromString(vcard_data)
+            returnValue(vComponent.fromString(vcard_data))
         except ValueError:
-            return None
+            returnValue(None)
+
 
     def supportedReports(self):
         result = super(CalDAVResource, self).supportedReports()
@@ -1537,23 +1541,22 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
         # TODO: just catenate all the vCards together 
         yield fail(HTTPError((ErrorResponse(responsecode.BAD_REQUEST))))
 
+
+    @inlineCallbacks
     def vCardText(self, name=None):
         if self.isAddressBookCollection():
             if name is None:
-                return str(self.vCard())
-
-            vcard_resource = self.getChild(name)
-            return vcard_resource.vCardText()
-
+                returnValue(str((yield self.vCard())))
+            vcard_resource = yield self.getChild(name)
+            returnValue((yield vcard_resource.vCardText()))
         elif self.isCollection():
-            return None
-
+            returnValue(None)
         else:
             if name is not None:
                 raise AssertionError("name must be None for non-collection vcard resource")
-
         # FIXME: StoreBridge handles this case
         raise NotImplementedError
+
 
     def vCardXML(self, name=None):
         return carddavxml.AddressData.fromAddressData(self.vCardText(name))

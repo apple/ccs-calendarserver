@@ -208,6 +208,7 @@ class AddressBookTest(unittest.TestCase):
                           set((yield addressbook.addressbookObjects())))
 
 
+    @inlineCallbacks
     def test_addressbookObjectWithName_dot(self):
         """
         Filenames starting with "." are reserved by this
@@ -216,7 +217,10 @@ class AddressBookTest(unittest.TestCase):
         """
         name = ".foo.vcf"
         self.home1._path.child(name).touch()
-        self.assertEquals(self.addressbook1.addressbookObjectWithName(name), None)
+        self.assertEquals(
+            (yield self.addressbook1.addressbookObjectWithName(name)),
+            None
+        )
 
 
     @featureUnimplemented
@@ -224,14 +228,15 @@ class AddressBookTest(unittest.TestCase):
         """
         Find existing addressbook object by name.
         """
-        addressbookObject = self.addressbook1.addressbookObjectWithUID("1")
+        addressbookObject = yield self.addressbook1.addressbookObjectWithUID("1")
         self.failUnless(
             isinstance(addressbookObject, AddressBookObject),
             addressbookObject
         )
         self.assertEquals(
             addressbookObject.component(),
-            self.addressbook1.addressbookObjectWithName("1.vcf").component()
+            (yield self.addressbook1.addressbookObjectWithName("1.vcf")
+                ).component()
         )
 
 
@@ -255,7 +260,10 @@ class AddressBookTest(unittest.TestCase):
         should raise.
         """
         name = "foo.vcf"
-        assert self.addressbook1.addressbookObjectWithName(name) is None
+        self.assertIdentical(
+            (yield self.addressbook1.addressbookObjectWithName(name)),
+            None
+        )
         component = VComponent.fromString(vcard1modified_text)
         self.assertRaises(
             ObjectResourceUIDAlreadyExistsError,
@@ -350,12 +358,12 @@ class AddressBookTest(unittest.TestCase):
         )
         # Sanity check.
         self.assertEquals(
-            self.addressbook1.addressbookObjectWithName("1.vcf").component(),
+            (yield self.addressbook1.addressbookObjectWithName("1.vcf")).component(),
             VComponent.fromString(vcard1modified_text)
         )
         yield self.doThenUndo()
         self.assertEquals(
-            self.addressbook1.addressbookObjectWithName("1.vcf").component(),
+            (yield self.addressbook1.addressbookObjectWithName("1.vcf")).component(),
             originalComponent
         )
 
@@ -366,12 +374,12 @@ class AddressBookTest(unittest.TestCase):
         memory, to avoid unnecessary parsing round-trips.
         """
         modifiedComponent = VComponent.fromString(vcard1modified_text)
-        self.addressbook1.addressbookObjectWithName("1.vcf").setComponent(
+        (yield self.addressbook1.addressbookObjectWithName("1.vcf")).setComponent(
             modifiedComponent
         )
         self.assertIdentical(
             modifiedComponent,
-            self.addressbook1.addressbookObjectWithName("1.vcf").component()
+            (yield self.addressbook1.addressbookObjectWithName("1.vcf")).component()
         )
         self.txn.commit()
 
@@ -414,9 +422,11 @@ class AddressBookTest(unittest.TestCase):
 
 
 class AddressBookObjectTest(unittest.TestCase):
+
+    @inlineCallbacks
     def setUp(self):
-        setUpAddressBook1(self)
-        self.object1 = self.addressbook1.addressbookObjectWithName("1.vcf")
+        yield setUpAddressBook1(self)
+        self.object1 = yield self.addressbook1.addressbookObjectWithName("1.vcf")
 
 
     def test_init(self):

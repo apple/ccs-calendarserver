@@ -155,8 +155,8 @@ class CommonTests(CommonCommonTests):
         Get the addressbook detailed by
         C{requirements['home1']['addressbook_1']['1.vcf']}.
         """
-        returnValue((yield self.addressbookUnderTest())
-                    .addressbookObjectWithName("1.vcf"))
+        returnValue((yield (yield self.addressbookUnderTest())
+                    .addressbookObjectWithName("1.vcf")))
 
 
     def test_addressbookStoreProvides(self):
@@ -389,7 +389,7 @@ class CommonTests(CommonCommonTests):
         for addressbookObject in addressbookObjects:
             self.assertProvides(IAddressBookObject, addressbookObject)
             self.assertEquals(
-                addressbook1.addressbookObjectWithName(addressbookObject.name()),
+                (yield addressbook1.addressbookObjectWithName(addressbookObject.name())),
                 addressbookObject
             )
 
@@ -432,7 +432,7 @@ class CommonTests(CommonCommonTests):
         """
         addressbook1 = yield self.addressbookUnderTest()
         for name in addressbook1_objectNames:
-            addressbookObject = addressbook1.addressbookObjectWithName(name)
+            addressbookObject = yield addressbook1.addressbookObjectWithName(name)
             self.assertProvides(IAddressBookObject, addressbookObject)
             self.assertEquals(addressbookObject.name(), name)
             # FIXME: add more tests based on CommonTests.requirements
@@ -445,7 +445,7 @@ class CommonTests(CommonCommonTests):
         don't exist.
         """
         addressbook1 = yield self.addressbookUnderTest()
-        self.assertEquals(addressbook1.addressbookObjectWithName("xyzzy"), None)
+        self.assertEquals((yield addressbook1.addressbookObjectWithName("xyzzy")), None)
 
 
     @inlineCallbacks
@@ -456,15 +456,17 @@ class CommonTests(CommonCommonTests):
         addressbook = yield self.addressbookUnderTest()
         for name in addressbook1_objectNames:
             uid = (u'uid' + name.rstrip(".vcf"))
-            self.assertNotIdentical(addressbook.addressbookObjectWithUID(uid),
-                                    None)
+            self.assertNotIdentical(
+                (yield addressbook.addressbookObjectWithUID(uid)),
+                None
+            )
             addressbook.removeAddressBookObjectWithUID(uid)
             self.assertEquals(
-                addressbook.addressbookObjectWithUID(uid),
+                (yield addressbook.addressbookObjectWithUID(uid)),
                 None
             )
             self.assertEquals(
-                addressbook.addressbookObjectWithName(name),
+                (yield addressbook.addressbookObjectWithName(name)),
                 None
             )
 
@@ -477,11 +479,11 @@ class CommonTests(CommonCommonTests):
         addressbook = yield self.addressbookUnderTest()
         for name in addressbook1_objectNames:
             self.assertNotIdentical(
-                addressbook.addressbookObjectWithName(name), None
+                (yield addressbook.addressbookObjectWithName(name)), None
             )
             addressbook.removeAddressBookObjectWithName(name)
             self.assertIdentical(
-                addressbook.addressbookObjectWithName(name), None
+                (yield addressbook.addressbookObjectWithName(name)), None
             )
 
         # Make sure notifications are fired after commit
@@ -575,7 +577,10 @@ class CommonTests(CommonCommonTests):
         don't exist.
         """
         addressbook1 = yield self.addressbookUnderTest()
-        self.assertEquals(addressbook1.addressbookObjectWithUID("xyzzy"), None)
+        self.assertEquals(
+            (yield addressbook1.addressbookObjectWithUID("xyzzy")),
+            None
+        )
 
 
     @inlineCallbacks
@@ -626,11 +631,11 @@ class CommonTests(CommonCommonTests):
         """
         addressbook1 = yield self.addressbookUnderTest()
         name = "4.vcf"
-        self.assertIdentical(addressbook1.addressbookObjectWithName(name), None)
+        self.assertIdentical((yield addressbook1.addressbookObjectWithName(name)), None)
         component = VComponent.fromString(vcard4_text)
         addressbook1.createAddressBookObjectWithName(name, component)
 
-        addressbookObject = addressbook1.addressbookObjectWithName(name)
+        addressbookObject = yield addressbook1.addressbookObjectWithName(name)
         self.assertEquals(addressbookObject.component(), component)
 
         yield self.commit()
@@ -695,7 +700,7 @@ class CommonTests(CommonCommonTests):
         """
         addressbook1 = yield self.addressbookUnderTest()
         component = VComponent.fromString(vcard4_text)
-        addressbookObject = addressbook1.addressbookObjectWithName("1.vcf")
+        addressbookObject = yield addressbook1.addressbookObjectWithName("1.vcf")
         self.assertRaises(
             InvalidObjectResourceError,
             addressbookObject.setComponent, component
@@ -736,14 +741,14 @@ class CommonTests(CommonCommonTests):
         component = VComponent.fromString(vcard1modified_text)
 
         addressbook1 = yield self.addressbookUnderTest()
-        addressbookObject = addressbook1.addressbookObjectWithName("1.vcf")
+        addressbookObject = yield addressbook1.addressbookObjectWithName("1.vcf")
         oldComponent = addressbookObject.component()
         self.assertNotEqual(component, oldComponent)
         addressbookObject.setComponent(component)
         self.assertEquals(addressbookObject.component(), component)
 
         # Also check a new instance
-        addressbookObject = addressbook1.addressbookObjectWithName("1.vcf")
+        addressbookObject = yield addressbook1.addressbookObjectWithName("1.vcf")
         self.assertEquals(addressbookObject.component(), component)
 
         yield self.commit()
@@ -799,7 +804,7 @@ class CommonTests(CommonCommonTests):
         addressbook.createAddressBookObjectWithName(
             "4.vcf", VComponent.fromString(vcard4_text)
         )
-        newEvent = addressbook.addressbookObjectWithName("4.vcf")
+        newEvent = yield addressbook.addressbookObjectWithName("4.vcf")
         self.assertEquals(newEvent.properties().items(), [])
 
 
@@ -873,11 +878,11 @@ class CommonTests(CommonCommonTests):
         objects = list((yield (yield home2.addressbookWithName("addressbook")).addressbookObjects()))
         self.assertEquals(objects, [])
         for resourceName in self.requirements['home1']['addressbook_1'].keys():
-            obj = addressbook1.addressbookObjectWithName(resourceName)
+            obj = yield addressbook1.addressbookObjectWithName(resourceName)
             self.assertIdentical(
-                addressbook2.addressbookObjectWithName(resourceName), None)
+                (yield addressbook2.addressbookObjectWithName(resourceName)), None)
             self.assertIdentical(
-                addressbook2.addressbookObjectWithUID(obj.uid()), None)
+                (yield addressbook2.addressbookObjectWithUID(obj.uid())), None)
 
 
     @inlineCallbacks

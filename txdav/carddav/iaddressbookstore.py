@@ -147,8 +147,9 @@ class IAddressBook(INotifier, IShareableCollection, IDataStoreResource):
         in this addressbook.
 
         @param name: a string.
-        @return: an L{IAddressBookObject} or C{None} if no such addressbook
-            object exists.
+        
+        @return: a L{Deferred} that fires with an L{IAddressBookObject} or
+            C{None} if no such addressbook object exists.
         """
 
     def addressbookObjectWithUID(uid):

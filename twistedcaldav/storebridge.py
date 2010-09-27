@@ -1337,12 +1337,13 @@ class _AddressBookChildHelper(object):
         self._initializeWithAddressBook(addressbook, home)
 
 
+    @inlineCallbacks
     def makeChild(self, name):
         """
         Create a L{AddressBookObjectResource} or L{ProtoAddressBookObjectResource} based on a
         path object.
         """
-        newStoreObject = self._newStoreAddressBook.addressbookObjectWithName(name)
+        newStoreObject = yield self._newStoreAddressBook.addressbookObjectWithName(name)
 
         if newStoreObject is not None:
             similar = AddressBookObjectResource(
@@ -1362,7 +1363,7 @@ class _AddressBookChildHelper(object):
         # FIXME: tests should be failing without this line.
         # Specifically, http_PUT won't be committing its transaction properly.
         self.propagateTransaction(similar)
-        return similar
+        returnValue(similar)
 
 
     @inlineCallbacks
@@ -1775,7 +1776,12 @@ class ProtoAddressBookObjectResource(CalDAVResource, FancyEqMixin):
         self._newStoreParentAddressBook.createAddressBookObjectWithName(
             self.name(), component
         )
-        AddressBookObjectResource.transform(self, self._newStoreParentAddressBook.addressbookObjectWithName(self.name()))
+        AddressBookObjectResource.transform(
+            self,
+            (yield self._newStoreParentAddressBook.addressbookObjectWithName(
+                self.name())
+            )
+        )
         returnValue(CREATED)
 
 

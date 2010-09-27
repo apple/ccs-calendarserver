@@ -27,7 +27,8 @@ from twext.python.log import Logger, LoggingMixIn
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue,\
+    maybeDeferred
 
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn, CalDAVResource
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
@@ -93,13 +94,13 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
         return succeed([])
 
     def getNotifictionMessageByUID(self, request, uid):
-        return succeed(self.notificationsDB().recordForUID(uid))
+        return maybeDeferred(self.notificationsDB().recordForUID, uid)
 
     @inlineCallbacks
     def deleteNotifictionMessageByUID(self, request, uid):
         
         # See if it exists and delete the resource
-        record = self.notificationsDB().recordForUID(uid)
+        record = yield self.notificationsDB().recordForUID(uid)
         if record:
             yield self.deleteNotification(request, record)
 
@@ -107,7 +108,7 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
     def deleteNotifictionMessageByName(self, request, rname):
 
         # See if it exists and delete the resource
-        record = self.notificationsDB().recordForName(rname)
+        record = yield self.notificationsDB().recordForName(rname)
         if record:
             yield self.deleteNotification(request, record)
         
