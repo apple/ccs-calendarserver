@@ -721,7 +721,8 @@ class CalDAVServiceMaker (LoggingMixIn):
                 attachmentsRoot = dbRoot.child("attachments")
                 return UpgradeToDatabaseService.wrapService(
                     CachingFilePath(config.DocumentRoot), mainService,
-                    connectionFactory, attachmentsRoot
+                    connectionFactory, attachmentsRoot,
+                    uid=postgresUID, gid=postgresGID
                 )
             if os.getuid() == 0: # Only override if root
                 postgresUID = uid

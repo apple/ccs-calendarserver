@@ -15,6 +15,7 @@
 # limitations under the License.
 ##
 
+import os
 from twext.python.log import LoggingMixIn
 from twisted.application.service import Service
 from txdav.common.datastore.file import CommonDataStore as FileStore, TOPPATHS
@@ -32,7 +33,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
 
 
     @classmethod
-    def wrapService(cls, path, service, connectionFactory, sqlAttachmentsPath):
+    def wrapService(cls, path, service, connectionFactory, sqlAttachmentsPath,
+        uid=None, gid=None):
         """
         Create an L{UpgradeToDatabaseService} if there are still file-based
         calendar or addressbook homes remaining in the given path.
@@ -64,19 +66,26 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                     FileStore(path, None, True, True),
                     SqlStore(connectionFactory, None, sqlAttachmentsPath,
                              True, True),
-                    service
+                    service,
+                    sqlAttachmentsPath=sqlAttachmentsPath,
+                    uid=uid,
+                    gid=gid,
                 )
                 return self
         return service
 
 
-    def __init__(self, fileStore, sqlStore, service):
+    def __init__(self, fileStore, sqlStore, service, sqlAttachmentsPath=None,
+        uid=None, gid=None):
         """
         Initialize the service.
         """
         self.wrappedService = service
         self.fileStore = fileStore
         self.sqlStore = sqlStore
+        self.sqlAttachmentsPath = sqlAttachmentsPath
+        self.uid = uid
+        self.gid = gid
 
 
     @inlineCallbacks
@@ -128,6 +137,14 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             homesPath = self.fileStore._path.child(homeType)
             if homesPath.isdir():
                 homesPath.remove()
+
+        # Set attachment directory ownership
+        if self.sqlAttachmentsPath and (self.uid or self.gid):
+            uid = self.uid or -1
+            gid = self.gid or -1
+            for fp in self.sqlAttachmentsPath.walk():
+                os.chown(fp.path, uid, gid)
+
         self.log_warn(
             "Filesystem upgrade complete, launching database service."
         )
