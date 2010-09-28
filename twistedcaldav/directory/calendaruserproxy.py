@@ -365,7 +365,7 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
     """
 
     schema_version = "4"
-    schema_type    = "ProxyDB"
+    schema_type    = "CALENDARUSERPROXY"
     
     class ProxyDBMemcacher(Memcacher):
         
