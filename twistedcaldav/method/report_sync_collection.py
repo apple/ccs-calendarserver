@@ -29,11 +29,12 @@ from twisted.python.failure import Failure
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import WebDAVElement
+from twext.web2.dav.element.extensions import SyncCollection
 from twext.web2.dav.http import MultiStatusResponse, statusForFailure
 from twext.web2.dav.method.prop_common import responseForHref
 from twext.web2.dav.method.propfind import propertyName
 from twext.web2.dav.util import joinURL
-from twext.web2.http import HTTPError
+from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.config import config
 
@@ -46,16 +47,19 @@ def report_DAV__sync_collection(self, request, sync_collection):
     """
     Generate a sync-collection REPORT.
     """
-    if not config.EnableSyncReport or (
-        not self.isPseudoCalendarCollection() and
-        not self.isAddressBookCollection() and
-        not self.isNotificationCollection()
-    ):
+    
+    # These resource support the report
+    if not config.EnableSyncReport or davxml.Report(SyncCollection(),) not in self.supportedReports():
         log.err("sync-collection report is only allowed on calendar/inbox/addressbook/notification collection resources %s" % (self,))
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.SupportedReport()))
    
     responses = []
 
+    depth = request.headers.getHeader("depth", None)
+    if depth not in ("1", "infinity"):
+        log.err("sync-collection report with invalid depth header: %s" % (depth,))
+        raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid Depth header value"))
+        
     propertyreq = sync_collection.property.children if sync_collection.property else None 
     
     @inlineCallbacks
@@ -102,14 +106,14 @@ def report_DAV__sync_collection(self, request, sync_collection):
     # the child resource loop and supply those to the checkPrivileges on each child.
     filteredaces = (yield self.inheritedACEsforChildren(request))
 
-    changed, removed, newtoken = self.whatchanged(sync_collection.sync_token)
+    changed, removed, newtoken = self.whatchanged(sync_collection.sync_token, depth)
 
     # Now determine which valid resources are readable and which are not
     ok_resources = []
     forbidden_resources = []
     if changed:
         yield self.findChildrenFaster(
-            "1",
+            depth,
             request,
             lambda x, y: ok_resources.append((x, y)),
             lambda x, y: forbidden_resources.append((x, y)),

@@ -312,8 +312,9 @@ create sequence REVISION_SEQ;
 
 create table CALENDAR_OBJECT_REVISIONS (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
-  CALENDAR_RESOURCE_ID      integer      not null references CALENDAR on delete cascade,
-  RESOURCE_NAME             varchar(255) not null,
+  CALENDAR_RESOURCE_ID      integer      references CALENDAR,
+  CALENDAR_NAME             varchar(255) default null,
+  RESOURCE_NAME             varchar(255),
   REVISION                  integer      not null,
   DELETED                   boolean      not null,
 
@@ -327,8 +328,9 @@ create table CALENDAR_OBJECT_REVISIONS (
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK on delete cascade,
-  RESOURCE_NAME                varchar(255) not null,
+  ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK,
+  ADDRESSBOOK_NAME             varchar(255) default null,
+  RESOURCE_NAME                varchar(255),
   REVISION                     integer      not null,
   DELETED                      boolean      not null,
 
@@ -342,7 +344,7 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
 
 create table NOTIFICATION_OBJECT_REVISIONS (
   NOTIFICATION_HOME_RESOURCE_ID integer      not null references NOTIFICATION_HOME on delete cascade,
-  RESOURCE_NAME                 varchar(255) not null,
+  RESOURCE_NAME                 varchar(255),
   REVISION                      integer      not null,
   DELETED                       boolean      not null,
 

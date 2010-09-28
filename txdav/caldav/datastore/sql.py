@@ -62,12 +62,14 @@ class CalendarHome(CommonHome):
     implements(ICalendarHome)
 
     def __init__(self, transaction, ownerUID, resourceID, notifier):
-        super(CalendarHome, self).__init__(transaction, ownerUID, resourceID, notifier)
 
-        self._shares = SQLLegacyCalendarShares(self)
         self._childClass = Calendar
         self._childTable = CALENDAR_TABLE
         self._bindTable = CALENDAR_BIND_TABLE
+        self._revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
+
+        super(CalendarHome, self).__init__(transaction, ownerUID, resourceID, notifier)
+        self._shares = SQLLegacyCalendarShares(self)
 
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName

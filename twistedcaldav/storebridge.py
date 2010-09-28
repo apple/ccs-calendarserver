@@ -241,6 +241,10 @@ class _CalendarChildHelper(object):
         return True
 
 
+    def _indexWhatChanged(self, revision, depth):
+        # The newstore implementation supports this directly
+        return self._newStoreCalendar.resourceNamesSinceToken(revision)
+
     @classmethod
     def transform(cls, self, calendar, home):
         """
@@ -1257,6 +1261,10 @@ class _AddressBookChildHelper(object):
         return True
 
 
+    def _indexWhatChanged(self, revision, depth):
+        # The newstore implementation supports this directly
+        return self._newStoreAddressBook.resourceNamesSinceToken(revision)
+
     @classmethod
     def transform(cls, self, addressbook, home):
         """
@@ -1840,7 +1848,7 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
     def getSyncToken(self):
         return self._newStoreNotifications.syncToken()
 
-    def _indexWhatChanged(self, revision):
+    def _indexWhatChanged(self, revision, depth):
         return self._newStoreNotifications.resourceNamesSinceToken(revision)
 
     def addNotification(self, request, uid, xmltype, xmldata):

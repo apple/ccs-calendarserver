@@ -906,31 +906,6 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
             self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
             self.reExpandResource(name, minDate)
 
-    def whatchanged(self, revision):
-
-        results = [
-            (name.encode("utf-8"), deleted)
-            for name, deleted in
-            self._txn.execSQL(
-                """select RESOURCE_NAME, DELETED from CALENDAR_OBJECT_REVISIONS
-                   where REVISION > %s and CALENDAR_RESOURCE_ID = %s""",
-                [revision, self.calendar._resourceID],
-            )
-        ]
-        results.sort(key=lambda x:x[1])
-        
-        changed = []
-        deleted = []
-        for name, wasdeleted in results:
-            if name:
-                if wasdeleted:
-                    if revision:
-                        deleted.append(name)
-                else:
-                    changed.append(name)
-        
-        return changed, deleted,
-
     def indexedSearch(self, filter, useruid='', fbtype=False):
         """
         Finds resources matching the given qualifiers.
@@ -1152,31 +1127,6 @@ class PostgresLegacyABIndexEmulator(object):
             return None
         return obj.name()
 
-
-    def whatchanged(self, revision):
-
-        results = [
-            (name.encode("utf-8"), deleted)
-            for name, deleted in
-            self._txn.execSQL(
-                """select RESOURCE_NAME, DELETED from ADDRESSBOOK_OBJECT_REVISIONS
-                   where REVISION > %s and ADDRESSBOOK_RESOURCE_ID = %s""",
-                [revision, self.addressbook._resourceID],
-            )
-        ]
-        results.sort(key=lambda x:x[1])
-        
-        changed = []
-        deleted = []
-        for name, wasdeleted in results:
-            if name:
-                if wasdeleted:
-                    if revision:
-                        deleted.append(name)
-                else:
-                    changed.append(name)
-        
-        return changed, deleted,
 
     def searchValid(self, filter):
         if isinstance(filter, carddavxml.Filter):

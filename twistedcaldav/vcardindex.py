@@ -385,7 +385,7 @@ class AddressBookIndex(AbstractSQLDatabase):
         results = self._db_values_for_sql(statement, *names)
         return results
     
-    def whatchanged(self, revision):
+    def whatchanged(self, revision, depth):
 
         results = [(name.encode("utf-8"), deleted) for name, deleted in self._db_execute("select NAME, DELETED from REVISIONS where REVISION > :1", revision)]
         results.sort(key=lambda x:x[1])

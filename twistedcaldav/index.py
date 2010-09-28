@@ -277,7 +277,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
             self.reExpandResource(name, minDate)
 
-    def whatchanged(self, revision):
+    def whatchanged(self, revision, depth):
 
         results = [(name.encode("utf-8"), deleted) for name, deleted in self._db_execute("select NAME, DELETED from REVISIONS where REVISION > :1", revision)]
         results.sort(key=lambda x:x[1])

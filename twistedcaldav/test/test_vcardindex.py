@@ -194,7 +194,8 @@ END:VCARD
         )
         
         for revision, results in tests:
-            self.assertEquals(self.db.whatchanged(revision), results, "Mismatched results for whatchanged with revision %d" % (revision,))
+            for depth in ("1", "infinity"):
+                self.assertEquals(self.db.whatchanged(revision, depth), results, "Mismatched results for whatchanged with revision %d" % (revision,))
 
 class MemcacheTests(SQLIndexTests):
     def setUp(self):
