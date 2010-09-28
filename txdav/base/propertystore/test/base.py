@@ -312,7 +312,7 @@ class PropertyStoreTest(unittest.TestCase):
         self.propertyStore1[name] = value1
         self._changed(self.propertyStore1)
 
-        self.propertyStore2.keys()
+        self.failUnless(name in self.propertyStore2.keys())
 
 def propertyName(name):
     return PropertyName("http://calendarserver.org/ns/test/", name)
