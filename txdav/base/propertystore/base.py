@@ -179,7 +179,7 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
 
     def keys(self):
         
-        userkeys = self._keys_uid(self._peruser)
+        userkeys = list(self._keys_uid(self._peruser))
         if self._defaultuser != self._peruser:
             defaultkeys = self._keys_uid(self._defaultuser)
             for key in defaultkeys:
