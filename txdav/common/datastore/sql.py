@@ -466,8 +466,8 @@ class CommonHome(LoggingMixIn):
     def resourceNamesSinceToken(self, token, depth):
         results = [
             (
-                path.encode("utf-8") if path else (collection.encode("utf-8") if collection else ""),
-                name.encode("utf-8") if name else "",
+                path if path else (collection if collection else ""),
+                name if name else "",
                 deleted
             )
             for path, collection, name, deleted in
@@ -724,7 +724,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     def resourceNamesSinceToken(self, token):
         results = [
-            (name.encode("utf-8") if name else "", deleted)
+            (name if name else "", deleted)
             for name, deleted in
             self._txn.execSQL("""
                 select %(column_RESOURCE_NAME)s, %(column_DELETED)s from %(name)s
@@ -1173,7 +1173,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
     def resourceNamesSinceToken(self, token):
         results = [
-            (name.encode("utf-8") if name else "", deleted)
+            (name if name else "", deleted)
             for name, deleted in
             self._txn.execSQL("""
                 select %(column_RESOURCE_NAME)s, %(column_DELETED)s from %(name)s
