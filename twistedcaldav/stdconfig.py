@@ -1031,12 +1031,12 @@ def _cleanup(configDict, defaultDict):
     cleanDict = copy.deepcopy(configDict)
 
     def unknown(key):
-        config_key = "ICAL_SERVER_CONFIG_VALIDATION"
+        config_key = "CALENDARSERVER_CONFIG_VALIDATION"
         config_key_value = "loose"
         if config_key in os.environ and os.environ[config_key] == config_key_value:
             pass
         else:
-            log.err("Ignoring unknown configuration option: %r - you can optionally bypass this validation by setting a sys env var %s to '%s'" % (key, config_key, config_key_value))
+            log.err("Ignoring unknown configuration option: %r" % (key,))
             del cleanDict[key]
 
     def deprecated(oldKey, newKey):
