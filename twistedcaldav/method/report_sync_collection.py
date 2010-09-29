@@ -102,7 +102,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
     # the child resource loop and supply those to the checkPrivileges on each child.
     filteredaces = (yield self.inheritedACEsforChildren(request))
 
-    changed, removed, newtoken = self.whatchanged(sync_collection.sync_token)
+    changed, removed, newtoken = yield self.whatchanged(sync_collection.sync_token)
 
     # Now determine which valid resources are readable and which are not
     ok_resources = []

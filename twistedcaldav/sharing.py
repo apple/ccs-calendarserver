@@ -54,22 +54,22 @@ SHARETYPE_DIRECT = "D"  # Direct linking based sharing
 
 class SharedCollectionMixin(object):
 
+    @inlineCallbacks
     def inviteProperty(self, request):
         """
         Calculate the customxml.Invite property (for readProperty) from the
         invites database.
         """
+        isShared = yield self.isShared(request)
+        if config.Sharing.Enabled and isShared:
+            yield self.validateInvites()
+            records = yield self.invitesDB().allRecords()
+            returnValue(customxml.Invite(
+                *[record.makePropertyElement() for record in records]
+            ))
+        else:
+            returnValue(None)
 
-        def sharedOK(isShared):
-            if config.Sharing.Enabled and isShared:
-                self.validateInvites()
-                return customxml.Invite(
-                    *[record.makePropertyElement() for
-                        record in self.invitesDB().allRecords()]
-                )
-            else:
-                return None
-        return self.isShared(request).addCallback(sharedOK)
 
     def upgradeToShare(self):
         """ Upgrade this collection to a shared state """
@@ -92,7 +92,7 @@ class SharedCollectionMixin(object):
         self.writeDeadProperty(rtype)
         
         # Remove all invitees
-        for record in self.invitesDB().allRecords():
+        for record in (yield self.invitesDB().allRecords()):
             yield self.uninviteRecordFromShare(record, request)
 
         # Remove invites database
@@ -390,17 +390,20 @@ class SharedCollectionMixin(object):
         else:
             return None, None, None
 
+
+    @inlineCallbacks
     def validateInvites(self):
         """
         Make sure each userid in an invite is valid - if not re-write status.
         """
         
-        records = self.invitesDB().allRecords()
+        records = yield self.invitesDB().allRecords()
         for record in records:
             if self.validUserIDForShare(record.userid) is None and record.state != "INVALID":
                 record.state = "INVALID"
                 self.invitesDB().addOrUpdateRecord(record)
-                
+
+
     def inviteUserToShare(self, userid, cn, ace, summary, request):
         """ Send out in invite first, and then add this user to the share list
             @param userid: 
@@ -467,7 +470,7 @@ class SharedCollectionMixin(object):
             returnValue(False)
 
         # Look for existing invite and update its fields or create new one
-        record = self.invitesDB().recordForPrincipalURL(principalURL)
+        record = yield self.invitesDB().recordForPrincipalURL(principalURL)
         if record:
             record.name = cn
             record.access = inviteAccessMapFromXML[type(ace)]
@@ -483,12 +486,18 @@ class SharedCollectionMixin(object):
         
         returnValue(True)            
 
+
+    @inlineCallbacks
     def uninviteSingleUserFromShare(self, userid, aces, request):
-        
         # Cancel invites - we'll just use whatever userid we are given
-        record = self.invitesDB().recordForUserID(userid)
-        return self.uninviteRecordFromShare(record, request) if record else succeed(True)
-        
+        record = yield self.invitesDB().recordForUserID(userid)
+        if record:
+            result = (yield self.uninviteRecordFromShare(record, request))
+        else:
+            result = True
+        returnValue(result)
+
+
     @inlineCallbacks
     def uninviteRecordFromShare(self, record, request):
         
@@ -685,7 +694,7 @@ class SharedCollectionMixin(object):
                         (okusers if result else badusers).add(userid)
 
                 # Do a final validation of the entire set of invites
-                self.validateInvites()
+                yield self.validateInvites()
                 
                 # Create the multistatus response - only needed if some are bad
                 if badusers:
@@ -986,7 +995,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
     def _acceptShare(self, request, sharetype, hostUrl, shareUID, displayname=None):
 
         # Add or update in DB
-        oldShare = self.sharesDB().recordForShareUID(shareUID)
+        oldShare = yield self.sharesDB().recordForShareUID(shareUID)
         if oldShare:
             share = oldShare
         else:
@@ -1028,7 +1037,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
     def removeShareByUID(self, request, shareUID):
         """ Remove a shared collection but do not send a decline back """
 
-        share = self.sharesDB().recordForShareUID(shareUID)
+        share = yield self.sharesDB().recordForShareUID(shareUID)
         if share:
             yield self.removeDirectShare(request, share)
 
@@ -1218,12 +1227,8 @@ class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
         
         records = self._db_execute("select * from SHARES order by LOCALNAME")
         return [self._makeRecord(row) for row in (records if records is not None else ())]
-    
-    def recordForLocalName(self, localname):
-        
-        row = self._db_execute("select * from SHARES where LOCALNAME = :1", localname)
-        return self._makeRecord(row[0]) if row else None
-    
+
+
     def recordForShareUID(self, shareUID):
 
         row = self._db_execute("select * from SHARES where SHAREUID = :1", shareUID)

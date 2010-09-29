@@ -174,10 +174,11 @@ class SQLLegacyInvites(object):
         return self._makeInvite(rows[0]) if rows else None
 
 
+    @inlineCallbacks
     def recordForPrincipalURL(self, principalURL):
-        for record in self.allRecords():
+        for record in (yield self.allRecords()):
             if record.principalURL == principalURL:
-                return record
+                returnValue(record)
 
 
     def recordForInviteUID(self, inviteUID):
@@ -478,8 +479,6 @@ class SQLLegacyShares(object):
             if getattr(record, key) == value:
                 return record
 
-    def recordForLocalName(self, localname):
-        return self._search(localname=localname)
 
     def recordForShareUID(self, shareUID):
         return self._search(shareuid=shareUID)
@@ -914,9 +913,10 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         obj.updateDatabase(obj.component(), expand_until=expand_until, reCreate=True)
 
 
+    @inlineCallbacks
     def testAndUpdateIndex(self, minDate):
         # Find out if the index is expanded far enough
-        names = self.notExpandedBeyond(minDate)
+        names = yield self.notExpandedBeyond(minDate)
 
         # Actually expand recurrence max
         for name in names:
@@ -925,7 +925,6 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
 
 
     def whatchanged(self, revision):
-
         results = [
             (name.encode("utf-8"), deleted)
             for name, deleted in
@@ -936,7 +935,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
             )
         ]
         results.sort(key=lambda x:x[1])
-        
+
         changed = []
         deleted = []
         for name, wasdeleted in results:
@@ -946,67 +945,87 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                         deleted.append(name)
                 else:
                     changed.append(name)
-        
         return changed, deleted,
 
 
+    @inlineCallbacks
     def indexedSearch(self, filter, useruid='', fbtype=False):
         """
         Finds resources matching the given qualifiers.
         @param filter: the L{Filter} for the calendar-query to execute.
-        @return: an iterable of tuples for each resource matching the
-            given C{qualifiers}. The tuples are C{(name, uid, type)}, where
-            C{name} is the resource name, C{uid} is the resource UID, and
-            C{type} is the resource iCalendar component type.x
-        """
 
+        @return: a L{Deferred} which fires with an iterable of tuples for each
+            resource matching the given C{qualifiers}. The tuples are C{(name,
+            uid, type)}, where C{name} is the resource name, C{uid} is the
+            resource UID, and C{type} is the resource iCalendar component
+            type.
+        """
         # Make sure we have a proper Filter element and get the partial SQL
         # statement to use.
         if isinstance(filter, calendarqueryfilter.Filter):
-            qualifiers = calendarquery.sqlcalendarquery(filter, self.calendar._resourceID, useruid, generator=postgresqlgenerator)
+            qualifiers = calendarquery.sqlcalendarquery(
+                filter, self.calendar._resourceID, useruid,
+                generator=postgresqlgenerator
+            )
             if qualifiers is not None:
                 # Determine how far we need to extend the current expansion of
-                # events. If we have an open-ended time-range we will expand one
-                # year past the start. That should catch bounded recurrences - unbounded
-                # will have been indexed with an "infinite" value always included.
+                # events. If we have an open-ended time-range we will expand
+                # one year past the start. That should catch bounded
+                # recurrences - unbounded will have been indexed with an
+                # "infinite" value always included.
                 maxDate, isStartDate = filter.getmaxtimerange()
                 if maxDate:
                     maxDate = maxDate.date()
                     if isStartDate:
                         maxDate += datetime.timedelta(days=365)
-                    self.testAndUpdateIndex(maxDate)
+                    yield self.testAndUpdateIndex(maxDate)
             else:
                 # We cannot handler this filter in an indexed search
                 raise IndexedSearchException()
-
         else:
             qualifiers = None
 
         # Perform the search
         if qualifiers is None:
-            rowiter = self._txn.execSQL(
-                "select RESOURCE_NAME, ICALENDAR_UID, ICALENDAR_TYPE from CALENDAR_OBJECT where CALENDAR_RESOURCE_ID = %s",
-                [self.calendar._resourceID, ],
+            rowiter = yield self._txn.execSQL(
+                """
+                select RESOURCE_NAME, ICALENDAR_UID, ICALENDAR_TYPE
+                from CALENDAR_OBJECT where CALENDAR_RESOURCE_ID = %s
+                """,
+                [self.calendar._resourceID],
             )
         else:
             if fbtype:
                 # For a free-busy time-range query we return all instances
-                rowiter = self._txn.execSQL(
-                    """select DISTINCT
-                        CALENDAR_OBJECT.RESOURCE_NAME, CALENDAR_OBJECT.ICALENDAR_UID, CALENDAR_OBJECT.ICALENDAR_TYPE, CALENDAR_OBJECT.ORGANIZER,
-                        TIME_RANGE.FLOATING, TIME_RANGE.START_DATE, TIME_RANGE.END_DATE, TIME_RANGE.FBTYPE, TIME_RANGE.TRANSPARENT, TRANSPARENCY.TRANSPARENT""" +
+                rowiter = yield self._txn.execSQL(
+                    """
+                    select DISTINCT
+                        CALENDAR_OBJECT.RESOURCE_NAME,
+                        CALENDAR_OBJECT.ICALENDAR_UID,
+                        CALENDAR_OBJECT.ICALENDAR_TYPE,
+                        CALENDAR_OBJECT.ORGANIZER,
+                        TIME_RANGE.FLOATING, TIME_RANGE.START_DATE,
+                        TIME_RANGE.END_DATE, TIME_RANGE.FBTYPE,
+                        TIME_RANGE.TRANSPARENT, TRANSPARENCY.TRANSPARENT
+                    """ +
                     qualifiers[0],
                     qualifiers[1]
                 )
             else:
-                rowiter = self._txn.execSQL(
-                    "select DISTINCT CALENDAR_OBJECT.RESOURCE_NAME, CALENDAR_OBJECT.ICALENDAR_UID, CALENDAR_OBJECT.ICALENDAR_TYPE" +
+                rowiter = yield self._txn.execSQL(
+                    """
+                    select
+                        DISTINCT CALENDAR_OBJECT.RESOURCE_NAME,
+                        CALENDAR_OBJECT.ICALENDAR_UID,
+                        CALENDAR_OBJECT.ICALENDAR_TYPE
+                    """ +
                     qualifiers[0],
                     qualifiers[1]
                 )
 
         # Check result for missing resources
 
+        results = []
         for row in rowiter:
             if fbtype:
                 row = list(row)
@@ -1014,7 +1033,8 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                 row[7] = indexfbtype_to_icalfbtype[row[7]]
                 row[8] = 'T' if row[9] else 'F'
                 del row[9]
-            yield row
+            results.append(row)
+        returnValue(results)
 
 
     def bruteForceSearch(self):
@@ -1025,9 +1045,10 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         )
 
 
+    @inlineCallbacks
     def resourcesExist(self, names):
-        return list(set(names).intersection(
-            set(self.calendar.listCalendarObjects())))
+        returnValue(list(set(names).intersection(
+            set((yield self.calendar.listCalendarObjects())))))
 
 
     def resourceExists(self, name):
@@ -1245,9 +1266,10 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
         )
 
 
+    @inlineCallbacks
     def resourcesExist(self, names):
-        return list(set(names).intersection(
-            set(self.addressbook.listAddressbookObjects())))
+        returnValue(list(set(names).intersection(
+            set((yield self.addressbook.listAddressbookObjects())))))
 
 
     def resourceExists(self, name):

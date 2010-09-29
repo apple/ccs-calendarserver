@@ -275,13 +275,14 @@ class _CalendarChildHelper(object):
         returnValue(similar)
 
 
+    @inlineCallbacks
     def listChildren(self):
         """
         @return: a sequence of the names of all known children of this resource.
         """
         children = set(self.putChildren.keys())
-        children.update(self._newStoreCalendar.listCalendarObjects())
-        return sorted(children)
+        children.update((yield self._newStoreCalendar.listCalendarObjects()))
+        returnValue(sorted(children))
 
 
     def quotaSize(self, request):

@@ -178,7 +178,10 @@ def _calendarPrivilegeSet ():
 
 calendarPrivilegeSet = _calendarPrivilegeSet()
 
-class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceWithChildrenMixin, DAVResource, LoggingMixIn):
+class CalDAVResource (
+        CalDAVComplianceMixIn, SharedCollectionMixin,
+        DAVResourceWithChildrenMixin, DAVResource, LoggingMixIn
+    ):
     """
     CalDAV resource.
 
@@ -534,12 +537,12 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
         elif qname == customxml.GETCTag.qname() and (
             self.isPseudoCalendarCollection() or self.isAddressBookCollection()
         ):
-            returnValue(customxml.GETCTag.fromString(self.getSyncToken()))
+            returnValue(customxml.GETCTag.fromString((yield self.getSyncToken())))
 
         elif qname == davxml.SyncToken.qname() and config.EnableSyncReport and (
             self.isPseudoCalendarCollection() or self.isAddressBookCollection()
         ):
-            returnValue(davxml.SyncToken.fromString(self.getSyncToken()))
+            returnValue(davxml.SyncToken.fromString((yield self.getSyncToken())))
 
         elif qname == davxml.AddMember.qname() and config.EnableAddMember and (
             self.isCalendarCollection() or self.isAddressBookCollection()
@@ -1313,9 +1316,10 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
 
     # Collection sync stuff
 
+
+    @inlineCallbacks
     def whatchanged(self, client_token):
-        
-        current_token = self.getSyncToken()
+        current_token = yield self.getSyncToken()
         current_uuid, current_revision = current_token.split("#", 1)
         current_revision = int(current_revision)
 
@@ -1335,11 +1339,11 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
             revision = 0
 
         try:
-            changed, removed = self._indexWhatChanged(revision)
+            changed, removed = yield self._indexWhatChanged(revision)
         except SyncTokenValidException:
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "valid-sync-token")))
 
-        return changed, removed, current_token
+        returnValue((changed, removed, current_token))
 
     def _indexWhatChanged(self, revision):
         return self.index().whatchanged(revision)
