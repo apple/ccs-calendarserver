@@ -139,7 +139,9 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                 homesPath.remove()
 
         # Set attachment directory ownership
-        if self.sqlAttachmentsPath and (self.uid or self.gid):
+        if (self.sqlAttachmentsPath and
+            self.sqlAttachmentsPath.exists() and
+            (self.uid or self.gid)):
             uid = self.uid or -1
             gid = self.gid or -1
             for fp in self.sqlAttachmentsPath.walk():
