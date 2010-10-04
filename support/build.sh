@@ -35,9 +35,11 @@ conf_read_key ()
 {
   local key="$1"; shift;
 
+  local xpath="xpath";
+
   # FIXME: This only works for simple values (no arrays, dicts)
   tr '\n' ' ' < "${config}"                                                 \
-    | xpath "/plist/dict/*[preceding-sibling::key[1]='${key}'" 2> /dev/null \
+    | ${xpath} "/plist/dict/*[preceding-sibling::key[1]='${key}'" 2> /dev/null \
     | sed -n 's|^<[^<][^<]*>\([^<]*\)</[^<][^<]*>.*$|\1|p';
 }
 
@@ -522,9 +524,11 @@ dependencies () {
       "${svn_uri_base}/PyKerberos/trunk";
   fi;
 
+  #if [ "$(uname -s)" == "Darwin" ]; then
     py_dependency -r 4827 \
       "PyOpenDirectory" "opendirectory" "PyOpenDirectory" \
       "${svn_uri_base}/PyOpenDirectory/trunk";
+  #fi;
 
   py_dependency -v 0.5 -r 1013 \
     "xattr" "xattr" "xattr" \
