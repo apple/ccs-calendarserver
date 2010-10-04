@@ -371,7 +371,7 @@ class CalDAVResource (
                 customxml.PubSubXMPPPushKeyProperty.qname(),
             )
 
-        if config.EnableSyncReport and (self.isPseudoCalendarCollection() or self.isAddressBookCollection()):
+        if config.EnableSyncReport and (davxml.Report(SyncCollection(),) in self.supportedReports()):
             baseProperties += (davxml.SyncToken.qname(),)
             
         if config.EnableAddMember and (self.isCalendarCollection() or self.isAddressBookCollection()):
@@ -540,7 +540,7 @@ class CalDAVResource (
             returnValue(customxml.GETCTag.fromString((yield self.getSyncToken())))
 
         elif qname == davxml.SyncToken.qname() and config.EnableSyncReport and (
-            self.isPseudoCalendarCollection() or self.isAddressBookCollection()
+            davxml.Report(SyncCollection(),) in self.supportedReports()
         ):
             returnValue(davxml.SyncToken.fromString((yield self.getSyncToken())))
 
@@ -1318,7 +1318,7 @@ class CalDAVResource (
 
 
     @inlineCallbacks
-    def whatchanged(self, client_token):
+    def whatchanged(self, client_token, depth):
         current_token = yield self.getSyncToken()
         current_uuid, current_revision = current_token.split("#", 1)
         current_revision = int(current_revision)
@@ -1339,14 +1339,15 @@ class CalDAVResource (
             revision = 0
 
         try:
-            changed, removed = yield self._indexWhatChanged(revision)
+            changed, removed = yield self._indexWhatChanged(revision, depth)
         except SyncTokenValidException:
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "valid-sync-token")))
 
         returnValue((changed, removed, current_token))
 
-    def _indexWhatChanged(self, revision):
-        return self.index().whatchanged(revision)
+    def _indexWhatChanged(self, revision, depth):
+        # Now handled directly by newstore
+        raise NotImplementedError
 
     def getSyncToken(self):
         """
@@ -2060,6 +2061,21 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
         """
         return config.UserQuota if config.UserQuota != 0 else None
 
+    def supportedReports(self):
+        result = super(CommonHomeResource, self).supportedReports()
+        if config.EnableSyncReport:
+            # Allowed on any home
+            result.append(davxml.Report(SyncCollection(),))
+        return result
+
+    def _indexWhatChanged(self, revision, depth):
+        # The newstore implementation supports this directly
+        return self._newStoreHome.resourceNamesSinceToken(revision, depth)
+
+    def getSyncToken(self):
+        # The newstore implementation supports this directly
+        return self._newStoreHome.syncToken()
+
     def canShare(self):
         raise NotImplementedError
 
@@ -2534,6 +2550,9 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
 # Utilities
 ##
 
+def isCalendarHomeCollectionResource(resource):
+    return isinstance(resource, CalendarHomeResource)
+
 def isCalendarCollectionResource(resource):
     try:
         resource = ICalDAVResource(resource)
@@ -2549,6 +2568,9 @@ def isPseudoCalendarCollectionResource(resource):
         return False
     else:
         return resource.isPseudoCalendarCollection()
+
+def isAddressBookHomeCollectionResource(resource):
+    return isinstance(resource, AddressBookHomeResource)
 
 def isAddressBookCollectionResource(resource):
     try:

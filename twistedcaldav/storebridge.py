@@ -241,6 +241,10 @@ class _CalendarChildHelper(object):
         return True
 
 
+    def _indexWhatChanged(self, revision, depth):
+        # The newstore implementation supports this directly
+        return self._newStoreCalendar.resourceNamesSinceToken(revision)
+
     @classmethod
     def transform(cls, self, calendar, home):
         """
@@ -529,7 +533,7 @@ class CalendarObjectDropbox(_GetChildHelper):
     def accessControlList(self, *a, **kw):
         """
         All principals identified as ATTENDEEs on the event for this dropbox
-        may read all its children.
+        may read all its children. Also include proxies of ATTENDEEs.
         """
         d = super(CalendarObjectDropbox, self).accessControlList(*a, **kw)
         def moreACLs(originalACL):
@@ -544,19 +548,35 @@ class CalendarObjectDropbox(_GetChildHelper):
                     calendarUserAddress
                 )
                 principalURL = principal.principalURL()
-                if othersCanWrite:
-                    privileges = [davxml.Privilege(davxml.All())]
-                else:
-                    privileges = [
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet())
-                    ]
+                writePrivileges = [
+                    davxml.Privilege(davxml.Read()),
+                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                    davxml.Privilege(davxml.Write()),
+                ]
+                readPrivileges = [
+                    davxml.Privilege(davxml.Read()),
+                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                ]
+                privileges = writePrivileges if othersCanWrite else readPrivileges
                 newACEs.append(davxml.ACE(
                     davxml.Principal(davxml.HRef(principalURL)),
                     davxml.Grant(*privileges),
                     davxml.Protected(),
                     TwistedACLInheritable(),
                 ))
+                newACEs.append(davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-write/"))),
+                    davxml.Grant(*privileges),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ))
+                newACEs.append(davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-read/"))),
+                    davxml.Grant(*readPrivileges),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ))
+
             return davxml.ACL(*tuple(newACEs + originalACEs))
         d.addCallback(moreACLs)
         return d
@@ -1329,6 +1349,10 @@ class _AddressBookChildHelper(object):
         return True
 
 
+    def _indexWhatChanged(self, revision, depth):
+        # The newstore implementation supports this directly
+        return self._newStoreAddressBook.resourceNamesSinceToken(revision)
+
     @classmethod
     def transform(cls, self, addressbook, home):
         """
@@ -1923,7 +1947,7 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
     def getSyncToken(self):
         return self._newStoreNotifications.syncToken()
 
-    def _indexWhatChanged(self, revision):
+    def _indexWhatChanged(self, revision, depth):
         return self._newStoreNotifications.resourceNamesSinceToken(revision)
 
     def addNotification(self, request, uid, xmltype, xmldata):

@@ -224,8 +224,8 @@ class DAVPropertyMixIn (MetaDataMixin):
                     if self.deadProperties().contains(qname):
                         return self.deadProperties().get(qname)
                     if self.isCollection():
-                        return davxml.ResourceType.collection
-                    return davxml.ResourceType.empty
+                        return davxml.ResourceType.collection #@UndefinedVariable
+                    return davxml.ResourceType.empty #@UndefinedVariable
 
                 if name == "getetag":
                     etag = self.etag()
@@ -270,12 +270,12 @@ class DAVPropertyMixIn (MetaDataMixin):
                 if name == "supportedlock":
                     return davxml.SupportedLock(
                         davxml.LockEntry(
-                            davxml.LockScope.exclusive,
-                            davxml.LockType.write
+                            davxml.LockScope.exclusive, #@UndefinedVariable
+                            davxml.LockType.write #@UndefinedVariable
                         ),
                         davxml.LockEntry(
-                            davxml.LockScope.shared,
-                            davxml.LockType.write
+                            davxml.LockScope.shared, #@UndefinedVariable
+                            davxml.LockType.write #@UndefinedVariable
                         ),
                     )
 
@@ -720,6 +720,12 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             returnValue(None)
 
         # First find all depth 1 children
+        names1= []
+        namesDeep = []
+        if names:
+            for name in names:
+                (names1 if name.rstrip("/").find("/") == -1 else namesDeep).append(name.rstrip("/"))
+
         #children = []
         #yield self.findChildren("1", request, lambda x, y: children.append((x, y)), privileges=None, inherited_aces=None)
 
@@ -727,7 +733,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         basepath = request.urlForResource(self)
         childnames = list((yield self.listChildren()))
         for childname in childnames:
-            if names and childname not in names:
+            if names1 and childname not in names1:
                 continue
             childpath = joinURL(basepath, urllib.quote(childname))
             child = (yield request.locateChildResource(self, childname))
@@ -769,17 +775,24 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     for resource, url in items[2]:
                         badcallback(resource, url)
 
-        # TODO: Depth: infinity support
         if depth == "infinity":
+            # Split names into child collection groups
+            child_collections = {}
+            for name in namesDeep:
+                collection, name = name.split("/", 1)
+                child_collections.setdefault(collection, []).append(name)
+
             for collection, url in allowed_collections:
-                collection_inherited_aces = (
-                    yield collection.inheritedACEsforChildren(request)
-                )
-                yield collection.findChildrenFaster(
-                    depth, request, okcallback, badcallback,
-                    names, privileges,
-                    inherited_aces=collection_inherited_aces
-                )
+                collection_name = collection.name()
+                if collection_name in child_collections:
+                    collection_inherited_aces = (
+                        yield collection.inheritedACEsforChildren(request)
+                    )
+                    yield collection.findChildrenFaster(
+                        depth, request, okcallback, badcallback,
+                        child_collections[collection_name], privileges,
+                        inherited_aces=collection_inherited_aces
+                    )
                 
         returnValue(None)
 

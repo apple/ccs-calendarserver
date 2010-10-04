@@ -275,6 +275,19 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEquals(self.propertyStore.get(name, None), None)
         self.assertEquals(len(self.propertyStore), 0)
 
+    def test_peruser_keys(self):
+
+        name = propertyName("shadow")
+
+        self.propertyStore1.setSpecialProperties((name,), ())
+        self.propertyStore2.setSpecialProperties((name,), ())
+
+        value1 = propertyValue("Hello, World1!")
+
+        self.propertyStore1[name] = value1
+        self._changed(self.propertyStore1)
+
+        self.failUnless(name in self.propertyStore2.keys())
 
 def propertyName(name):
     return PropertyName("http://calendarserver.org/ns/test/", name)

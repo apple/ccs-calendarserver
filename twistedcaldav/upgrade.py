@@ -35,7 +35,7 @@ from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.ical import Component
 from twistedcaldav import caldavxml
 
-from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+from twisted.internet.defer import inlineCallbacks, succeed
 
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.resources import migrateResources
@@ -464,6 +464,17 @@ def upgrade_to_1(config):
 
 
 def upgrade_to_2(config):
+    #
+    # Rename proxy DB
+    #
+    oldFilename = "calendaruserproxy.sqlite"
+    newFilename = "proxies.sqlite"
+
+    oldDbPath = os.path.join(config.DataRoot, oldFilename)
+    newDbPath = os.path.join(config.DataRoot, newFilename)
+    if os.path.exists(oldDbPath) and not os.path.exists(newDbPath):
+        os.rename(oldDbPath, newDbPath)
+
     #
     # Migrates locations and resources from OD
     #

@@ -65,7 +65,6 @@ usage () {
   echo "	-S  Write a pstats object for each process to the given directory when the server is stopped.";
   echo "	-P  Select the twistd plugin name [${plugin_name}]";
   echo "	-R  Twisted Reactor plugin to execute [${reactor}]";
-  echo "	-a  Start in CardDAV mode";
 
   if [ "${1-}" == "-" ]; then
     return 0;
@@ -81,7 +80,6 @@ parse_options () {
     case "${option}" in
       '?') usage; ;;
       'h') usage -; exit 0; ;;
-      'a') DAVD=card; plugin_name="carddav"; ;;
       'v')       verbose="-v"; ;;
       'f')   force_setup="true"; ;;
       'k')          kill="true"; ;;

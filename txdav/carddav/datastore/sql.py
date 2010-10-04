@@ -49,12 +49,14 @@ class AddressBookHome(CommonHome):
     implements(IAddressBookHome)
 
     def __init__(self, transaction, ownerUID, resourceID, notifier):
-        super(AddressBookHome, self).__init__(transaction, ownerUID, resourceID, notifier)
 
-        self._shares = SQLLegacyAddressBookShares(self)
         self._childClass = AddressBook
         self._childTable = ADDRESSBOOK_TABLE
         self._bindTable = ADDRESSBOOK_BIND_TABLE
+        self._revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
+
+        super(AddressBookHome, self).__init__(transaction, ownerUID, resourceID, notifier)
+        self._shares = SQLLegacyAddressBookShares(self)
 
     addressbooks = CommonHome.children
     listAddressbooks = CommonHome.listChildren
