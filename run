@@ -149,15 +149,15 @@ run_main () {
 
   # If we've been asked to read a configuration key, just read it and exit.
   if [ -n "${read_key}" ]; then
-    conf_read_key "${read_key}";
+    "${caldav}/bin/calendarserver_config" "${read_key}";
     exit $?;
   fi;
 
   if "${kill}" || "${restart}"; then
     # mimic logic of 'fullServerPath' from twistedcaldav/config.py to find the pid file
-    pidfile="$(conf_read_key "PIDFile")";
-    serverroot="$(conf_read_key "ServerRoot")";
-    runroot="$(conf_read_key "RunRoot")";
+    pidfile="$("${caldav}/bin/calendarserver_config" "PIDFile")";
+    serverroot="$("${caldav}/bin/calendarserver_config" "ServerRoot")";
+    runroot="$("${caldav}/bin/calendarserver_config" "RunRoot")";
     # examine first character of $pidfile
     if ( [ "${pidfile:0:1}" == "/" ] || [ "${pidfile:0:1}" == "." ]; ) then
         pidfile=$pidfile;
