@@ -244,6 +244,15 @@ class PostgresService(MultiService):
         self.dataStoreDirectory = dataStoreDirectory
         self.resetSchema = resetSchema
 
+        # In order to delay a shutdown until database initialization has
+        # completed, we register a before-shutdown callback.  This callback
+        # returns immediately if we're not in the critical code, and returns
+        # a deferred if we are.  That deferred gets fired once database init
+        # is complete and shutdown can proceed.
+        self.delayedShutdown = False # set to True when in critical code
+        self.shutdownDeferred = None # the actual deferred
+        reactor.addSystemEventTrigger("before", "shutdown", self.shutdownCallback)
+
         # Options from config
         self.databaseName = databaseName
         self.logFile = logFile
@@ -270,6 +279,35 @@ class PostgresService(MultiService):
         self.monitor = None
         self.openConnections = []
 
+    def shutdownCallback(self):
+        """
+        Callback registered for before-reactor-shutdown.  Returns immediately
+        if delayedShutdown is False.  Returns a deferred if delayedShutdown
+        is True.
+        """
+        if self.delayedShutdown:
+            self.shutdownDeferred = Deferred()
+            return self.shutdownDeferred
+
+    def activateDelayedShutdown(self):
+        """
+        Call this when starting database initialization code to protect against
+        shutdown.
+
+        Sets the delayedShutdown flag to True so that if reactor shutdown
+        commences, the shutdown will be delayed until deactivateDelayedShutdown
+        is called.
+        """
+        self.delayedShutdown = True
+
+    def deactivateDelayedShutdown(self):
+        """
+        Call this when database initialization code has completed so that the
+        reactor can shutdown.
+        """
+        self.delayedShutdown = False
+        if self.shutdownDeferred:
+            self.shutdownDeferred.callback(None)
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):
         """
@@ -405,14 +443,17 @@ class PostgresService(MultiService):
         self.monitor = monitor
         def gotReady(result):
             self.ready()
+            self.deactivateDelayedShutdown()
         def reportit(f):
             log.err(f)
+            self.deactivateDelayedShutdown()
         self.monitor.completionDeferred.addCallback(
             gotReady).addErrback(reportit)
 
 
     def startService(self):
         MultiService.startService(self)
+        self.activateDelayedShutdown()
         clusterDir = self.dataStoreDirectory.child("cluster")
         workingDir = self.dataStoreDirectory.child("working")
         env = self.env = os.environ.copy()
