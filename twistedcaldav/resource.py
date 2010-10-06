@@ -1342,11 +1342,11 @@ class CalDAVResource (CalDAVComplianceMixIn, SharedCollectionMixin, DAVResourceW
             revision = 0
 
         try:
-            changed, removed = self._indexWhatChanged(revision, depth)
+            changed, removed, notallowed = self._indexWhatChanged(revision, depth)
         except SyncTokenValidException:
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "valid-sync-token")))
 
-        return changed, removed, current_token
+        return changed, removed, notallowed, current_token
 
     def _indexWhatChanged(self, revision, depth):
         # Now handled directly by newstore
@@ -2189,13 +2189,16 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
             result.append(davxml.Report(SyncCollection(),))
         return result
 
-    def _indexWhatChanged(self, revision, depth):
-        # The newstore implementation supports this directly
-        return self._newStoreHome.resourceNamesSinceToken(revision, depth)
-
-    def getSyncToken(self):
-        # The newstore implementation supports this directly
-        return self._newStoreHome.syncToken()
+    def _mergeSyncTokens(self, hometoken, notificationtoken):
+        """
+        Merge two sync tokens, choosing the higher revision number of the two, but keeping
+        the home resource-id intact.
+        """
+        homekey, homerev = hometoken.split("#", 1)
+        notrev = notificationtoken.split("#", 1)[1]
+        if int(notrev) > int(homerev):
+            hometoken = "%s#%s" % (homekey, notrev,)
+        return hometoken
 
     def canShare(self):
         raise NotImplementedError
@@ -2522,6 +2525,47 @@ class CalendarHomeResource(CommonHomeResource):
 
         return davxml.ACL(*aces)
 
+    def getSyncToken(self):
+        # The newstore implementation supports this directly
+        caltoken = self._newStoreHome.syncToken()
+
+        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
+            notificationtoken = self.getChild("notification").getSyncToken()
+            
+            # Merge tokens
+            caltoken = self._mergeSyncTokens(caltoken, notificationtoken)
+            
+        return caltoken
+
+    def _indexWhatChanged(self, revision, depth):
+        # The newstore implementation supports this directly
+        changed, deleted = self._newStoreHome.resourceNamesSinceToken(revision, depth)
+        notallowed = []
+
+        # Need to insert some addition items on first sync
+        if revision == 0:
+            changed.append("outbox/")
+
+            if config.FreeBusyURL.Enabled:
+                changed.append("freebusy")
+    
+            if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
+                changed.append("notification/")
+        
+            # Dropbox is never synchronized
+            if config.EnableDropBox:
+                notallowed.append("dropbox/")
+    
+        # Add in notification changes
+        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
+            noti_changed, noti_deleted, noti_notallowed = self.getChild("notification")._indexWhatChanged(revision, depth)
+
+            changed.extend([joinURL("notification", name) for name in noti_changed])
+            deleted.extend([joinURL("notification", name) for name in noti_deleted])
+            notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
+
+        return changed, deleted, notallowed
+
 class AddressBookHomeResource (CommonHomeResource):
     """
     Address book home collection resource.
@@ -2575,6 +2619,41 @@ class AddressBookHomeResource (CommonHomeResource):
         self.propagateTransaction(similar)
         return similar
 
+
+    def getSyncToken(self):
+        # The newstore implementation supports this directly
+        adbktoken = self._newStoreHome.syncToken()
+
+        if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and not config.Sharing.Calendars.Enabled:
+            notifcationtoken = self.getChild("notification").getSyncToken()
+            
+            # Merge tokens
+            adbkkey, adbkrev = adbktoken.split("#", 1)
+            notrev = notifcationtoken.split("#", 1)[1]
+            if int(notrev) > int(adbkrev):
+                adbktoken = "%s#%s" % (adbkkey, notrev,)
+            
+        return adbktoken
+
+    def _indexWhatChanged(self, revision, depth):
+        # The newstore implementation supports this directly
+        changed, deleted = self._newStoreHome.resourceNamesSinceToken(revision, depth)
+        notallowed = []
+
+        # Need to insert some addition items on first sync
+        if revision == 0:
+            if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and not config.Sharing.Calendars.Enabled:
+                changed.append("notification/")
+        
+        # Add in notification changes
+        if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and not config.Sharing.Calendars.Enabled:
+            noti_changed, noti_deleted, noti_notallowed = self.getChild("notification")._indexWhatChanged(revision, depth)
+
+            changed.extend([joinURL("notification", name) for name in noti_changed])
+            deleted.extend([joinURL("notification", name) for name in noti_deleted])
+            notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
+
+        return changed, deleted, notallowed
 
 class GlobalAddressBookResource (ReadOnlyResourceMixIn, CalDAVResource):
     """

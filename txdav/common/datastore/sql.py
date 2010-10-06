@@ -299,6 +299,7 @@ class CommonHome(LoggingMixIn):
         self._resourceID = resourceID
         self._shares = None
         self._children = {}
+        self._sharedChildren = {}
         self._notifier = notifier
 
         # Needed for REVISION/BIND table join
@@ -350,15 +351,44 @@ class CommonHome(LoggingMixIn):
 
         @return: an iterable of C{str}s.
         """
+        return self._listChildren(owned=True)
+
+    def listSharedChildren(self):
+        """
+        Retrieve the names of the children in this home.
+
+        @return: an iterable of C{str}s.
+        """
+        return self._listChildren(owned=False)
+
+    def _listChildren(self, owned):
+        """
+        Retrieve the names of the children in this home.
+
+        @return: an iterable of C{str}s.
+        """
         # FIXME: not specified on the interface or exercised by the tests, but
         # required by clients of the implementation!
-        rows = self._txn.execSQL(
-            "select %(column_RESOURCE_NAME)s from %(name)s where "
-            "%(column_HOME_RESOURCE_ID)s = %%s "
-            "and %(column_BIND_MODE)s = %%s " % self._bindTable,
-            # Right now, we only show owned calendars.
-            [self._resourceID, _BIND_MODE_OWN]
-        )
+        if owned:
+            rows = self._txn.execSQL("""
+                select %(column_RESOURCE_NAME)s from %(name)s
+                where
+                  %(column_HOME_RESOURCE_ID)s = %%s and
+                  %(column_BIND_MODE)s = %%s
+                """ % self._bindTable,
+                [self._resourceID, _BIND_MODE_OWN]
+            )
+        else:
+            rows = self._txn.execSQL("""
+                select %(column_RESOURCE_NAME)s from %(name)s
+                where
+                  %(column_HOME_RESOURCE_ID)s = %%s and
+                  %(column_BIND_MODE)s != %%s and
+                  %(column_RESOURCE_NAME)s is not null
+                """ % self._bindTable,
+                [self._resourceID, _BIND_MODE_OWN]
+            )
+
         names = [row[0] for row in rows]
         return names
 
@@ -373,12 +403,65 @@ class CommonHome(LoggingMixIn):
         @return: an L{ICalendar} or C{None} if no such child
             exists.
         """
-        data = self._txn.execSQL(
-            "select %(column_RESOURCE_ID)s from %(name)s where "
-            "%(column_RESOURCE_NAME)s = %%s and %(column_HOME_RESOURCE_ID)s = %%s "
-            "and %(column_BIND_MODE)s = %%s" % self._bindTable,
-            [name, self._resourceID, _BIND_MODE_OWN]
-        )
+        return self._childWithName(name, owned=True)
+
+    @memoized('name', '_sharedChildren')
+    def sharedChildWithName(self, name):
+        """
+        Retrieve the shared child with the given C{name} contained in this
+        home. Return a child object with this home and the name.
+
+        IMPORTANT: take care when using this. Shared calendars should normally
+        be accessed through the owner home collection, not the sharee home collection.
+        The only reason for access through sharee home is to do some housekeeping
+        for maintaining the revisions database to show shared calendars appearing and
+        disappearing in the sharee home.
+
+        @param name: a string.
+        @return: an L{ICalendar} or C{None} if no such child
+            exists.
+        """
+        return self._childWithName(name, owned=False)
+
+    def _childWithName(self, name, owned):
+        """
+        Retrieve the child with the given C{name} contained in this
+        home.
+
+        @param name: a string.
+        @return: an L{ICalendar} or C{None} if no such child
+            exists.
+        """
+        
+        if owned:
+            data = self._txn.execSQL("""
+                select %(column_RESOURCE_ID)s from %(name)s
+                where
+                  %(column_RESOURCE_NAME)s = %%s and
+                  %(column_HOME_RESOURCE_ID)s = %%s and
+                  %(column_BIND_MODE)s = %%s
+                """ % self._bindTable,
+                [
+                    name,
+                    self._resourceID,
+                    _BIND_MODE_OWN
+                ]
+            )
+        else:
+            data = self._txn.execSQL("""
+                select %(column_RESOURCE_ID)s from %(name)s
+                where
+                  %(column_RESOURCE_NAME)s = %%s and
+                  %(column_HOME_RESOURCE_ID)s = %%s and
+                  %(column_BIND_MODE)s != %%s
+                """ % self._bindTable,
+                [
+                    name,
+                    self._resourceID,
+                    _BIND_MODE_OWN
+                ]
+            )
+
         if not data:
             return None
         resourceID = data[0][0]
@@ -388,7 +471,6 @@ class CommonHome(LoggingMixIn):
         else:
             notifier = None
         return self._childClass(self, name, resourceID, notifier)
-
 
     def createChildWithName(self, name):
         if name.startswith("."):
@@ -456,33 +538,46 @@ class CommonHome(LoggingMixIn):
     def syncToken(self):
         revision = self._txn.execSQL(
             """
-            select max(%(column_REVISION)s) from %(name)s
-            where %(column_HOME_RESOURCE_ID)s = %%s
-            """ % self._revisionsTable,
-            [self._resourceID,]
+            select max(%(REV:column_REVISION)s) from %(REV:name)s
+            where %(REV:column_RESOURCE_ID)s in (
+              select %(BIND:column_RESOURCE_ID)s from %(BIND:name)s 
+              where %(BIND:column_HOME_RESOURCE_ID)s = %%s
+            ) or (
+              %(REV:column_HOME_RESOURCE_ID)s = %%s and
+              %(REV:column_RESOURCE_ID)s is null
+            )
+            """ % self._revisionBindJoinTable,
+            [self._resourceID, self._resourceID,]
         )[0][0]
         return "%s#%s" % (self._resourceID, revision)
 
     def resourceNamesSinceToken(self, token, depth):
+
         results = [
             (
                 path if path else (collection if collection else ""),
                 name if name else "",
-                deleted
+                wasdeleted
             )
-            for path, collection, name, deleted in
+            for path, collection, name, wasdeleted in
             self._txn.execSQL("""
                 select %(BIND:column_RESOURCE_NAME)s, %(REV:column_COLLECTION_NAME)s, %(REV:column_RESOURCE_NAME)s, %(REV:column_DELETED)s
                 from %(REV:name)s
-                left outer join %(BIND:name)s on (%(REV:name)s.%(REV:column_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s)
-                where %(REV:column_REVISION)s > %%s and %(REV:name)s.%(REV:column_HOME_RESOURCE_ID)s = %%s
+                left outer join %(BIND:name)s on (
+                  %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s and
+                  %(REV:name)s.%(REV:column_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
+                )
+                where 
+                  %(REV:column_REVISION)s > %%s and 
+                  %(REV:name)s.%(REV:column_HOME_RESOURCE_ID)s = %%s
                 """ % self._revisionBindJoinTable,
-                [token, self._resourceID],
+                [self._resourceID, token, self._resourceID],
             )
         ]
         
         deleted = []
         deleted_collections = set()
+        changed_collections = set()
         for path, name, wasdeleted in results:
             if wasdeleted:
                 if token:
@@ -494,6 +589,50 @@ class CommonHome(LoggingMixIn):
         for path, name, wasdeleted in results:
             if path not in deleted_collections:
                 changed.append("%s/%s" % (path, name,))
+                if not name:
+                    changed_collections.add(path)
+        
+        # Now deal with shared collections
+        shares = self.listSharedChildren()
+        for sharename in shares:
+            sharetoken = 0 if sharename in changed_collections else token
+            shareID = self._txn.execSQL("""
+                select %(column_RESOURCE_ID)s from %(name)s
+                where
+                  %(column_RESOURCE_NAME)s = %%s and
+                  %(column_HOME_RESOURCE_ID)s = %%s and
+                  %(column_BIND_MODE)s != %%s
+                """ % self._bindTable,
+                [
+                    sharename,
+                    self._resourceID,
+                    _BIND_MODE_OWN
+                ]
+            )[0][0]
+            results = [
+                (
+                    sharename,
+                    name if name else "",
+                    wasdeleted
+                )
+                for name, wasdeleted in
+                self._txn.execSQL("""
+                    select %(column_RESOURCE_NAME)s, %(column_DELETED)s
+                    from %(name)s
+                    where %(column_REVISION)s > %%s and %(column_RESOURCE_ID)s = %%s
+                    """ % self._revisionsTable,
+                    [sharetoken, shareID],
+                ) if name
+            ]
+
+            for path, name, wasdeleted in results:
+                if wasdeleted:
+                    if sharetoken:
+                        deleted.append("%s/%s" % (path, name,))
+            
+            for path, name, wasdeleted in results:
+                changed.append("%s/%s" % (path, name,))
+        
         
         changed.sort()
         deleted.sort()
@@ -712,11 +851,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     def syncToken(self):
         revision = self._txn.execSQL(
             """
-            select %(column_REVISION)s from %(name)s
-            where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+            select max(%(column_REVISION)s) from %(name)s
+            where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is not null
             """ % self._revisionsTable,
             [self._resourceID,]
         )[0][0]
+        if revision is None:
+            revision = self._txn.execSQL(
+                """
+                select %(column_REVISION)s from %(name)s
+                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+                """ % self._revisionsTable,
+                [self._resourceID,]
+            )[0][0]
+            
         return "%s#%s" % (self._resourceID, revision,)
 
     def objectResourcesSinceToken(self, token):
@@ -796,7 +944,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             [self._home._resourceID, self._resourceID,]
         )
         
-        # Then adjust collection entry to deleted state
+        # Then adjust collection entry to deleted state (do this for all entries with this collection's
+        # resource-id so that we deal with direct shares which are not normally removed thorugh an unshare
         self._txn.execSQL("""
             update %(name)s
             set (%(column_RESOURCE_ID)s, %(column_REVISION)s, %(column_DELETED)s)
@@ -830,13 +979,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 """ % self._revisionsTable,
                 [nextrevision, self._resourceID, name]
             )
-            self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s) = (%%s)
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-                """ % self._revisionsTable,
-                [nextrevision, self._resourceID,]
-            )
         elif action == "update":
             self._txn.execSQL("""
                 update %(name)s
@@ -844,13 +986,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
                 """ % self._revisionsTable,
                 [nextrevision, self._resourceID, name]
-            )
-            self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s) = (%%s)
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-                """ % self._revisionsTable,
-                [nextrevision, self._resourceID,]
             )
         elif action == "insert":
             # Note that an "insert" may happen for a resource that previously existed and then
@@ -880,13 +1015,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                     """ % self._revisionsTable,
                     [self._home._resourceID, self._resourceID, name, nextrevision]
                 )
-            self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s) = (%%s)
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-                """ % self._revisionsTable,
-                [nextrevision, self._resourceID,]
-            )
 
     @cached
     def properties(self):
@@ -1153,11 +1281,20 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     def syncToken(self):
         revision = self._txn.execSQL(
             """
-            select %(column_REVISION)s from %(name)s
-            where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+            select max(%(column_REVISION)s) from %(name)s
+            where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is not null
             """ % self._revisionsTable,
             [self._resourceID,]
         )[0][0]
+        if revision is None:
+            revision = self._txn.execSQL(
+                """
+                select %(column_REVISION)s from %(name)s
+                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+                """ % self._revisionsTable,
+                [self._resourceID,]
+            )[0][0]
+
         return "%s#%s" % (self._resourceID, revision,)
 
     def objectResourcesSinceToken(self, token):
@@ -1230,13 +1367,6 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                 """ % self._revisionsTable,
                 [nextrevision, self._resourceID, name]
             )
-            self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s) = (%%s)
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-                """ % self._revisionsTable,
-                [nextrevision, self._resourceID]
-            )
         elif action == "update":
             self._txn.execSQL("""
                 update %(name)s
@@ -1244,13 +1374,6 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                 where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
                 """ % self._revisionsTable,
                 [nextrevision, self._resourceID, name]
-            )
-            self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s) = (%%s)
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-                """ % self._revisionsTable,
-                [nextrevision, self._resourceID]
             )
         elif action == "insert":
             # Note that an "insert" may happen for a resource that previously existed and then
@@ -1280,13 +1403,6 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                     """ % self._revisionsTable,
                     [self._resourceID, name, nextrevision]
                 )
-            self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s) = (%%s)
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-                """ % self._revisionsTable,
-                [nextrevision, self._resourceID]
-            )
 
     @cached
     def properties(self):

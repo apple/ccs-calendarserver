@@ -539,8 +539,16 @@ class SQLLegacyShares(object):
                     True,
                     record.summary,
                 ])
+            
+        shareeCollection = self._home.sharedChildWithName(record.localname)
+        shareeCollection._initSyncToken()
 
     def removeRecordForLocalName(self, localname):
+        
+        record = self.recordForLocalName(localname)
+        shareeCollection = self._home.sharedChildWithName(record.localname)
+        shareeCollection._deletedSyncToken()
+        
         self._txn.execSQL(
             """
             update %(name)s
@@ -553,6 +561,11 @@ class SQLLegacyShares(object):
 
 
     def removeRecordForShareUID(self, shareUID):
+
+        record = self.recordForShareUID(shareUID)
+        shareeCollection = self._home.sharedChildWithName(record.localname)
+        shareeCollection._deletedSyncToken()
+        
         if not shareUID.startswith("Direct"):
             self._txn.execSQL(
                 """
@@ -578,7 +591,7 @@ class SQLLegacyShares(object):
                 """ % self._bindTable,
                 [homeID, resourceID,]
             )
-            
+
 
 class SQLLegacyCalendarShares(SQLLegacyShares):
     """

@@ -106,7 +106,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
     # the child resource loop and supply those to the checkPrivileges on each child.
     filteredaces = (yield self.inheritedACEsforChildren(request))
 
-    changed, removed, newtoken = self.whatchanged(sync_collection.sync_token, depth)
+    changed, removed, notallowed, newtoken = self.whatchanged(sync_collection.sync_token, depth)
 
     # Now determine which valid resources are readable and which are not
     ok_resources = []
@@ -145,6 +145,10 @@ def report_DAV__sync_collection(self, request, sync_collection):
     for name in removed:
         href = davxml.HRef.fromString(joinURL(request.uri, name))
         responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+    
+    for name in notallowed:
+        href = davxml.HRef.fromString(joinURL(request.uri, name))
+        responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
     
     if not hasattr(request, "extendedLogItems"):
         request.extendedLogItems = {}

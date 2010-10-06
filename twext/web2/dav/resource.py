@@ -719,6 +719,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # First find all depth 1 children
         names1= []
         namesDeep = []
+        collections1 = []
         if names:
             for name in names:
                 (names1 if name.rstrip("/").find("/") == -1 else namesDeep).append(name.rstrip("/"))
@@ -730,10 +731,12 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         basepath = request.urlForResource(self)
         childnames = list(self.listChildren())
         for childname in childnames:
-            if names1 and childname not in names1:
-                continue
             childpath = joinURL(basepath, urllib.quote(childname))
             child = (yield request.locateChildResource(self, childname))
+            if child.isCollection():
+                collections1.append((child, childpath + "/"))
+            if names and childname not in names1:
+                continue
             if child is None:
                 children.append((None, childpath + "/"))
             else:
@@ -756,7 +759,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         # Now determine whether each ace satisfies privileges
         #print aclmap
-        allowed_collections = []
         for items in aclmap.itervalues():
             checked = (yield self.checkACLPrivilege(
                 request, items[0], items[1], privileges, inherited_aces
@@ -765,8 +767,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 for resource, url in items[2]:
                     if okcallback:
                         okcallback(resource, url)
-                    if resource.isCollection():
-                        allowed_collections.append((resource, url))
             else:
                 if badcallback:
                     for resource, url in items[2]:
@@ -779,15 +779,15 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 collection, name = name.split("/", 1)
                 child_collections.setdefault(collection, []).append(name)
 
-            for collection, url in allowed_collections:
-                collection_name = collection.name()
+            for collection, url in collections1:
+                collection_name = url.split("/")[-2]
                 if collection_name in child_collections:
                     collection_inherited_aces = (
                         yield collection.inheritedACEsforChildren(request)
                     )
                     yield collection.findChildrenFaster(
                         depth, request, okcallback, badcallback,
-                        child_collections[collection_name], privileges,
+                        child_collections[collection_name] if names else None, privileges,
                         inherited_aces=collection_inherited_aces
                     )
                 
