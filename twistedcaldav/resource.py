@@ -78,8 +78,9 @@ from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.index import SyncTokenValidException, Index
 from twistedcaldav.linkresource import LinkResource
-from twistedcaldav.notify import getPubSubConfiguration, getPubSubPath,\
-    getPubSubXMPPURI, getPubSubHeartbeatURI, getPubSubAPSConfiguration
+from twistedcaldav.notify import (getPubSubConfiguration, getPubSubPath,
+    getPubSubXMPPURI, getPubSubHeartbeatURI, getPubSubAPSConfiguration,
+    getNodeCacher)
 from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
 from twistedcaldav.vcard import Component as vComponent
 from twistedcaldav.vcardindex import AddressBookIndex
@@ -2258,6 +2259,7 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
         children.update(self._newStoreHome.listChildren())
         return children
 
+    @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
             qname = property
@@ -2299,35 +2301,54 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
                         )
                     )
 
-                return succeed(customxml.PubSubPushTransportsProperty(*children))
+                returnValue(customxml.PubSubPushTransportsProperty(*children))
 
 
             else:
-                return succeed(customxml.PubSubPushTransportsProperty())
+                returnValue(customxml.PubSubPushTransportsProperty())
 
         if qname == (customxml.calendarserver_namespace, "pushkey"):
             notifierID = self._newStoreHome.notifierID()
             if notifierID is not None and config.Notifications.Services.XMPPNotifier.Enabled:
                 pubSubConfiguration = getPubSubConfiguration(config)
                 nodeName = getPubSubPath(notifierID, pubSubConfiguration)
-                return succeed(customxml.PubSubXMPPPushKeyProperty(nodeName))
+
+                # Create the pubsub node so client has something to subscribe
+                # to
+                try:
+                    (yield getNodeCacher().waitForNode(
+                        self._newStoreHome._notifier, nodeName))
+                except NodeCreationException, e:
+                    self.log_warn(e)
+
+                returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))
             else:
-                return succeed(customxml.PubSubXMPPPushKeyProperty())
+                returnValue(customxml.PubSubXMPPPushKeyProperty())
 
 
         if qname == (customxml.calendarserver_namespace, "xmpp-uri"):
             notifierID = self._newStoreHome.notifierID()
             if notifierID is not None and config.Notifications.Services.XMPPNotifier.Enabled:
                 pubSubConfiguration = getPubSubConfiguration(config)
-                return succeed(customxml.PubSubXMPPURIProperty(
+
+                # Create the pubsub node so client has something to subscribe
+                # to
+                nodeName = getPubSubPath(notifierID, pubSubConfiguration)
+                try:
+                    (yield getNodeCacher().waitForNode(
+                        self._newStoreHome._notifier, nodeName))
+                except NodeCreationException, e:
+                    self.log_warn(e)
+
+                returnValue(customxml.PubSubXMPPURIProperty(
                     getPubSubXMPPURI(notifierID, pubSubConfiguration)))
             else:
-                return succeed(customxml.PubSubXMPPURIProperty())
+                returnValue(customxml.PubSubXMPPURIProperty())
 
         elif qname == (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"):
             pubSubConfiguration = getPubSubConfiguration(config)
             if pubSubConfiguration['enabled']:
-                return succeed(
+                returnValue(
                     customxml.PubSubHeartbeatProperty(
                         customxml.PubSubHeartbeatURIProperty(
                             getPubSubHeartbeatURI(pubSubConfiguration)
@@ -2338,17 +2359,17 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
                     )
                 )
             else:
-                return succeed(customxml.PubSubHeartbeatURIProperty())
+                returnValue(customxml.PubSubHeartbeatURIProperty())
 
         elif qname == (customxml.calendarserver_namespace, "xmpp-server"):
             pubSubConfiguration = getPubSubConfiguration(config)
             if pubSubConfiguration['enabled']:
-                return succeed(customxml.PubSubXMPPServerProperty(
+                returnValue(customxml.PubSubXMPPServerProperty(
                     pubSubConfiguration['xmpp-server']))
             else:
-                return succeed(customxml.PubSubXMPPServerProperty())
+                returnValue(customxml.PubSubXMPPServerProperty())
 
-        return super(CommonHomeResource, self).readProperty(property, request)
+        returnValue((yield super(CommonHomeResource, self).readProperty(property, request)))
 
     ##
     # ACL
