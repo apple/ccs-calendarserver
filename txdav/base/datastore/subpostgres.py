@@ -364,7 +364,7 @@ class PostgresService(MultiService):
 
         try:
             createDatabaseCursor.execute(
-                "create database %s" % (self.databaseName)
+                "create database %s with encoding 'UTF8'" % (self.databaseName)
             )
         except:
             execSchema = False
