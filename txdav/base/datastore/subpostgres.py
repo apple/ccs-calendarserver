@@ -478,7 +478,7 @@ class PostgresService(MultiService):
             dbInited = Deferred()
             reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
-                initdb, [initdb], env, workingDir.path,
+                initdb, [initdb, "-E", "UTF8"], env, workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
             def doCreate(result):
