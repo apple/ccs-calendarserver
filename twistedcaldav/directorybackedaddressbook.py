@@ -25,6 +25,7 @@ __all__ = [
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
+from twext.web2.dav.element.extensions import SyncCollection
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.http import HTTPError, StatusResponse
 
@@ -33,6 +34,8 @@ from twisted.python.reflect import namedClass
 
 from twistedcaldav.config import config
 from twistedcaldav.resource import CalDAVResource
+
+import uuid
 
 log = Logger()
 
@@ -113,8 +116,22 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
            ),
         )
 
+    def supportedReports(self):
+        result = super(DirectoryBackedAddressBookResource, self).supportedReports()
+        if config.EnableSyncReport:
+            # Not supported on the directory backed address book
+            result.remove(davxml.Report(SyncCollection(),))
+        return result
+
     def resourceType(self):
         return davxml.ResourceType.directory
+
+    def resourceID(self):
+        if self.directory:
+            resource_id = uuid.uuid5(uuid.UUID("5AAD67BF-86DD-42D7-9161-6AF977E4DAA3"), self.directory.baseGUID).urn
+        else:
+            resource_id = "tag:unknown"
+        return resource_id
 
     def isDirectoryBackedAddressBookCollection(self):
         return True
