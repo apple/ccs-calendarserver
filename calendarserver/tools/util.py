@@ -47,6 +47,10 @@ from txdav.common.datastore.file import CommonDataStore
 log = Logger()
 
 def loadConfig(configFileName):
+    """
+    Helper method for command-line utilities to load configuration plist
+    and override certain values.
+    """
     if configFileName is None:
         configFileName = DEFAULT_CONFIG_FILE
 
@@ -54,6 +58,10 @@ def loadConfig(configFileName):
         raise ConfigurationError("No config file: %s" % (configFileName,))
 
     config.load(configFileName)
+
+    # Command-line utilities always want these enabled:
+    config.EnableCalDAV = True
+    config.EnableCardDAV = True
 
     return config
 
