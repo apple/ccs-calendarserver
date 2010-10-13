@@ -21,7 +21,7 @@ This tool reads the Calendar Server configuration file and emits the
 requested value.
 """
 
-import sys
+import os, sys
 from getopt import getopt, GetoptError
 
 from twistedcaldav import config
