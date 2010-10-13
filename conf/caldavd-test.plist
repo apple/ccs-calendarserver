@@ -786,6 +786,8 @@
 
     <key>Localization</key>
     <dict>
+      <key>TranslationsDirectory</key>
+      <string>locales</string>
       <key>LocalesDirectory</key>
       <string>locales</string>
       <key>Language</key>
