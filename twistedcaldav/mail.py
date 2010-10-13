@@ -360,7 +360,7 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
 
     data = str(calendar)
 
-    if config.SSLPort:
+    if config.EnableSSL:
         useSSL = True
         port = config.SSLPort
     else:

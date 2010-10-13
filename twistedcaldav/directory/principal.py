@@ -850,7 +850,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             addresses.add(uri)
             if config.HTTPPort:
                 addresses.add("http://%s:%s%s" % (config.ServerHostName, config.HTTPPort, uri))
-            if config.SSLPort:
+            if config.EnableSSL and config.SSLPort:
                 addresses.add("https://%s:%s%s" % (config.ServerHostName, config.SSLPort, uri))
 
         return addresses
