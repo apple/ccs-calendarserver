@@ -524,7 +524,8 @@ class CalendarObjectDropbox(_GetChildHelper):
     def accessControlList(self, *a, **kw):
         """
         All principals identified as ATTENDEEs on the event for this dropbox
-        may read all its children. Also include proxies of ATTENDEEs.
+        may read all its children. Also include proxies of ATTENDEEs. Ignore
+        unknown attendees.
         """
         d = super(CalendarObjectDropbox, self).accessControlList(*a, **kw)
         def moreACLs(originalACL):
@@ -538,6 +539,8 @@ class CalendarObjectDropbox(_GetChildHelper):
                 principal = self.principalForCalendarUserAddress(
                     calendarUserAddress
                 )
+                if principal is None:
+                    continue
                 principalURL = principal.principalURL()
                 writePrivileges = [
                     davxml.Privilege(davxml.Read()),
