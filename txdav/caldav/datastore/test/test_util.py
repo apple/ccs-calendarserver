@@ -18,6 +18,7 @@
 Tests for txdav.caldav.datastore.util.
 """
 
+from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 from txdav.caldav.datastore.util import dropboxIDFromCalendarObject
@@ -31,19 +32,20 @@ class DropboxIDTests(TestCase):
         """
         Fake object resource to work with tests.
         """
-        
+
         def __init__(self, data):
-            
+
             self.ical = Component.fromString(data)
-            
+
         def component(self):
             return self.ical
-    
+
         def uid(self):
             return self.ical.resourceUID()
 
-    def test_noAttachOrXdash(self):
 
+    @inlineCallbacks
+    def test_noAttachOrXdash(self):
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
 VERSION:2.0
 BEGIN:VEVENT
@@ -54,9 +56,14 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """)
-        
-        self.assertEquals(dropboxIDFromCalendarObject(resource), "12345-67890.dropbox")
 
+        self.assertEquals(
+            (yield dropboxIDFromCalendarObject(resource)),
+            "12345-67890.dropbox"
+        )
+
+
+    @inlineCallbacks
     def test_okXdash(self):
 
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
@@ -70,11 +77,15 @@ X-APPLE-DROPBOX:http://example.com/calendars/__uids__/1234/dropbox/12345-67890X.
 END:VEVENT
 END:VCALENDAR
 """)
-        
-        self.assertEquals(dropboxIDFromCalendarObject(resource), "12345-67890X.dropbox")
 
+        self.assertEquals(
+            (yield dropboxIDFromCalendarObject(resource)),
+            "12345-67890X.dropbox"
+        )
+
+
+    @inlineCallbacks
     def test_badXdash(self):
-
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
 VERSION:2.0
 BEGIN:VEVENT
@@ -86,9 +97,11 @@ X-APPLE-DROPBOX:
 END:VEVENT
 END:VCALENDAR
 """)
-        
-        self.assertEquals(dropboxIDFromCalendarObject(resource), "")
 
+        self.assertEquals( (yield dropboxIDFromCalendarObject(resource)), "")
+
+
+    @inlineCallbacks
     def test_okAttach(self):
 
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
@@ -102,9 +115,14 @@ ATTACH;VALUE=URI:http://example.com/calendars/__uids__/1234/dropbox/12345-67890Y
 END:VEVENT
 END:VCALENDAR
 """)
-        
-        self.assertEquals(dropboxIDFromCalendarObject(resource), "12345-67890Y.dropbox")
 
+        self.assertEquals(
+            (yield dropboxIDFromCalendarObject(resource)),
+            "12345-67890Y.dropbox"
+        )
+
+
+    @inlineCallbacks
     def test_badAttach(self):
 
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
@@ -118,9 +136,14 @@ ATTACH;VALUE=URI:tag:bogus
 END:VEVENT
 END:VCALENDAR
 """)
-        
-        self.assertEquals(dropboxIDFromCalendarObject(resource), "12345-67890.dropbox")
 
+        self.assertEquals(
+            (yield dropboxIDFromCalendarObject(resource)),
+            "12345-67890.dropbox"
+        )
+
+
+    @inlineCallbacks
     def test_inlineAttach(self):
 
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
@@ -134,9 +157,14 @@ ATTACH:bmFzZTY0
 END:VEVENT
 END:VCALENDAR
 """)
-        
-        self.assertEquals(dropboxIDFromCalendarObject(resource), "12345-67890.dropbox")
 
+        self.assertEquals(
+            (yield dropboxIDFromCalendarObject(resource)),
+            "12345-67890.dropbox"
+        )
+
+
+    @inlineCallbacks
     def test_multipleAttach(self):
 
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
@@ -152,9 +180,14 @@ ATTACH;VALUE=URI:http://example.com/calendars/__uids__/1234/dropbox/12345-67890Z
 END:VEVENT
 END:VCALENDAR
 """)
-        
-        self.assertEquals(dropboxIDFromCalendarObject(resource), "12345-67890Z.dropbox")
 
+        self.assertEquals(
+            (yield dropboxIDFromCalendarObject(resource)),
+            "12345-67890Z.dropbox"
+        )
+
+
+    @inlineCallbacks
     def test_okAttachRecurring(self):
 
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
@@ -176,10 +209,14 @@ ATTACH;VALUE=URI:http://example.com/calendars/__uids__/1234/dropbox/12345-67890Y
 END:VEVENT
 END:VCALENDAR
 """)
-        
-        self.assertEquals(dropboxIDFromCalendarObject(resource), "12345-67890Y.dropbox")
+
+        self.assertEquals(
+            (yield dropboxIDFromCalendarObject(resource)),
+            "12345-67890Y.dropbox"
+        )
 
 
+    @inlineCallbacks
     def test_okAttachAlarm(self):
 
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
@@ -198,6 +235,10 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 """)
-        
-        self.assertEquals(dropboxIDFromCalendarObject(resource), "12345-67890.dropbox")
+
+        self.assertEquals(
+            (yield dropboxIDFromCalendarObject(resource)), 
+            "12345-67890.dropbox"
+        )
+
 

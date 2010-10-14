@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import inlineCallbacks, returnValue
 
 __all__ = [
     "CalendarHome",
@@ -26,6 +25,7 @@ from twext.python.vcomponent import VComponent
 from twext.web2.dav.element.rfc2518 import ResourceType
 from twext.web2.http_headers import MimeType, generateContentType
 
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.error import ConnectionLost
 from twisted.internet.interfaces import ITransport
 from twisted.python import hashlib
@@ -89,13 +89,14 @@ class CalendarHome(CommonHome):
                     returnValue(calendarObject)
 
 
+    @inlineCallbacks
     def createdHome(self):
-        self.createCalendarWithName("calendar")
-        defaultCal = self.calendarWithName("calendar")
+        yield self.createCalendarWithName("calendar")
+        defaultCal = yield self.calendarWithName("calendar")
         props = defaultCal.properties()
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(
             Opaque())
-        self.createCalendarWithName("inbox")
+        yield self.createCalendarWithName("inbox")
 
 
 
@@ -218,10 +219,7 @@ def _pathToName(path):
 class CalendarObject(CommonObjectResource):
     implements(ICalendarObject)
 
-    def __init__(self, name, calendar, resid):
-        super(CalendarObject, self).__init__(name, calendar, resid)
-
-        self._objectTable = CALENDAR_OBJECT_TABLE
+    _objectTable = CALENDAR_OBJECT_TABLE
 
     @property
     def _calendar(self):
@@ -241,6 +239,8 @@ class CalendarObject(CommonObjectResource):
 
         self._calendar.notifyChanged()
 
+
+    @inlineCallbacks
     def updateDatabase(self, component, expand_until=None, reCreate=False, inserting=False):
         """
         Update the database tables for the new data being written.
@@ -284,7 +284,7 @@ class CalendarObject(CommonObjectResource):
 
         # CALENDAR_OBJECT table update
         if inserting:
-            self._resourceID = self._txn.execSQL(
+            self._resourceID = (yield self._txn.execSQL(
                 """
                 insert into CALENDAR_OBJECT
                 (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX)
@@ -304,7 +304,7 @@ class CalendarObject(CommonObjectResource):
                     organizer,
                     normalizeForIndex(instances.limit) if instances.limit else None,
                 ]
-            )[0][0]
+            ))[0][0]
         else:
             self._txn.execSQL(
                 """
@@ -337,6 +337,7 @@ class CalendarObject(CommonObjectResource):
                     self._resourceID,
                 ],
             )
+        self._uid = component.resourceUID()
 
 
         # CALENDAR_OBJECT table update
@@ -346,7 +347,7 @@ class CalendarObject(CommonObjectResource):
             end = instance.end.replace(tzinfo=utc)
             float = instance.start.tzinfo is None
             transp = instance.component.propertyValue("TRANSP") == "TRANSPARENT"
-            instanceid = self._txn.execSQL(
+            instanceid = (yield self._txn.execSQL(
                 """
                 insert into TIME_RANGE
                 (CALENDAR_RESOURCE_ID, CALENDAR_OBJECT_RESOURCE_ID, FLOATING, START_DATE, END_DATE, FBTYPE, TRANSPARENT)
@@ -364,7 +365,7 @@ class CalendarObject(CommonObjectResource):
                     icalfbtype_to_indexfbtype.get(instance.component.getFBType(), icalfbtype_to_indexfbtype["FREE"]),
                     transp,
                 ],
-            )[0][0]
+            ))[0][0]
             peruserdata = component.perUserTransparency(instance.rid)
             for useruid, transp in peruserdata:
                 self._txn.execSQL(
@@ -387,7 +388,7 @@ class CalendarObject(CommonObjectResource):
             start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
             end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
             float = False
-            instanceid = self._txn.execSQL(
+            instanceid = (yield self._txn.execSQL(
                 """
                 insert into TIME_RANGE
                 (CALENDAR_RESOURCE_ID, CALENDAR_OBJECT_RESOURCE_ID, FLOATING, START_DATE, END_DATE, FBTYPE, TRANSPARENT)
@@ -405,7 +406,7 @@ class CalendarObject(CommonObjectResource):
                     icalfbtype_to_indexfbtype["UNKNOWN"],
                     True,
                 ],
-            )[0][0]
+            ))[0][0]
             peruserdata = component.perUserTransparency(None)
             for useruid, transp in peruserdata:
                 self._txn.execSQL(
@@ -422,34 +423,21 @@ class CalendarObject(CommonObjectResource):
                     ],
                 )
 
+
+    @inlineCallbacks
     def component(self):
-        return VComponent.fromString(self.iCalendarText())
+        returnValue(VComponent.fromString((yield self.iCalendarText())))
 
-    def text(self):
-        if self._objectText is None:
-            text = self._txn.execSQL(
-                "select ICALENDAR_TEXT from CALENDAR_OBJECT where "
-                "RESOURCE_ID = %s", [self._resourceID]
-            )[0][0]
-            self._objectText = text
-            return text
-        else:
-            return self._objectText
 
-    iCalendarText = text
+    iCalendarText = CommonObjectResource.text
 
-    def uid(self):
-        return self.component().resourceUID()
 
-    def name(self):
-        return self._name
-
-    def componentType(self):
-        return self.component().mainType()
-
+    @inlineCallbacks
     def organizer(self):
-        return self.component().getOrganizer()
+        returnValue((yield self.component()).getOrganizer())
 
+
+    @inlineCallbacks
     def createAttachmentWithName(self, name, contentType):
 
         try:
@@ -458,41 +446,45 @@ class CalendarObject(CommonObjectResource):
             pass
 
         attachment = Attachment(self, name)
-        self._txn.execSQL("""
+        yield self._txn.execSQL(
+            """
             insert into ATTACHMENT (CALENDAR_OBJECT_RESOURCE_ID, CONTENT_TYPE,
-            SIZE, MD5, PATH)
-            values (%s, %s, %s, %s, %s)
+            SIZE, MD5, PATH) values (%s, %s, %s, %s, %s)
             """,
             [
-                self._resourceID,
-                generateContentType(contentType),
-                0,
-                "",
+                self._resourceID, generateContentType(contentType), 0, "",
                 name,
             ]
         )
-        return attachment.store(contentType)
+        returnValue(attachment.store(contentType))
+
 
     def removeAttachmentWithName(self, name):
         attachment = Attachment(self, name)
         self._txn.postCommit(attachment._path.remove)
-        self._txn.execSQL("""
-        delete from ATTACHMENT where CALENDAR_OBJECT_RESOURCE_ID = %s AND
-        PATH = %s
-        """, [self._resourceID, name])
+        self._txn.execSQL(
+            """
+            delete from ATTACHMENT where CALENDAR_OBJECT_RESOURCE_ID = %s AND
+            PATH = %s
+            """, [self._resourceID, name]
+        )
 
+
+    @inlineCallbacks
     def attachmentWithName(self, name):
         attachment = Attachment(self, name)
-        if attachment._populate():
-            return attachment
+        if (yield attachment._populate()):
+            returnValue(attachment)
         else:
-            return None
+            returnValue(None)
+
 
     def attendeesCanManageAttachments(self):
         return self.component().hasPropertyInAnyComponent("X-APPLE-DROPBOX")
 
-    def dropboxID(self):
-        return dropboxIDFromCalendarObject(self)
+
+    dropboxID = dropboxIDFromCalendarObject
+
 
     def _attachmentPathRoot(self):
         attachmentRoot = self._txn._store.attachmentsPath
@@ -500,13 +492,19 @@ class CalendarObject(CommonObjectResource):
         # Use directory hashing scheme based on owner user id
         homeName = self._calendar.ownerHome().name()
         return attachmentRoot.child(homeName[0:2]).child(homeName[2:4]).child(homeName).child(self.uid())
-        
+
+
+    @inlineCallbacks
     def attachments(self):
-        rows = self._txn.execSQL("""
-        select PATH from ATTACHMENT where CALENDAR_OBJECT_RESOURCE_ID = %s 
-        """, [self._resourceID])
+        rows = yield self._txn.execSQL(
+            """
+            select PATH from ATTACHMENT where CALENDAR_OBJECT_RESOURCE_ID = %s
+            """, [self._resourceID])
+        result = []
         for row in rows:
-            yield self.attachmentWithName(row[0])
+            result.append((yield self.attachmentWithName(row[0])))
+        returnValue(result)
+
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -557,8 +555,10 @@ class AttachmentStorageTransport(object):
         self.attachment._path.setContent(self.buf)
         contentTypeString = generateContentType(self.contentType)
         self._txn.execSQL(
-            "update ATTACHMENT set CONTENT_TYPE = %s, SIZE = %s, MD5 = %s, MODIFIED = timezone('UTC', CURRENT_TIMESTAMP) "
-            "WHERE PATH = %s",
+            """
+            update ATTACHMENT set CONTENT_TYPE = %s, SIZE = %s, MD5 = %s,
+            MODIFIED = timezone('UTC', CURRENT_TIMESTAMP) WHERE PATH = %s
+            """,
             [contentTypeString, len(self.buf), self.hash.hexdigest(), self.attachment.name()]
         )
 
@@ -576,24 +576,25 @@ class Attachment(object):
         return self._calendarObject._txn
 
 
+    @inlineCallbacks
     def _populate(self):
         """
         Execute necessary SQL queries to retrieve attributes.
 
         @return: C{True} if this attachment exists, C{False} otherwise.
         """
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             """
             select CONTENT_TYPE, SIZE, MD5, CREATED, MODIFIED from ATTACHMENT where PATH = %s
             """, [self._name])
         if not rows:
-            return False
+            returnValue(False)
         self._contentType = MimeType.fromString(rows[0][0])
         self._size = rows[0][1]
         self._md5 = rows[0][2]
         self._created = datetimeMktime(datetime.datetime.strptime(rows[0][3], "%Y-%m-%d %H:%M:%S.%f"))
         self._modified = datetimeMktime(datetime.datetime.strptime(rows[0][4], "%Y-%m-%d %H:%M:%S.%f"))
-        return True
+        returnValue(True)
 
 
     def name(self):

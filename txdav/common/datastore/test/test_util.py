@@ -82,7 +82,9 @@ class HomeMigrationTests(TestCase):
         self.addCleanup(txn.commit)
         for uid in CommonTests.requirements:
             if CommonTests.requirements[uid] is not None:
-                self.assertNotIdentical(None, (yield txn.calendarHomeWithUID(uid)))
+                self.assertNotIdentical(
+                    None, (yield txn.calendarHomeWithUID(uid))
+                )
         # Un-migrated data should be preserved.
         self.assertEquals(self.filesPath.child("calendars-migrated").child(
             "__uids__").child("ho").child("me").child("home1").child(
@@ -117,6 +119,7 @@ class HomeMigrationTests(TestCase):
         L{UpgradeToDatabaseService.startService} upgrades calendar attachments
         as well.
         """
+
         txn = self.fileStore.newTransaction()
         committed = []
         def maybeCommit():
@@ -124,28 +127,30 @@ class HomeMigrationTests(TestCase):
                 committed.append(True)
                 return txn.commit()
         self.addCleanup(maybeCommit)
+
         @inlineCallbacks
         def getSampleObj():
             home = (yield txn.calendarHomeWithUID("home1"))
             calendar = (yield home.calendarWithName("calendar_1"))
             object = (yield calendar.calendarObjectWithName("1.ics"))
             returnValue(object)
+
         inObject = yield getSampleObj()
         someAttachmentName = "some-attachment"
         someAttachmentType = MimeType.fromString("application/x-custom-type")
-        transport = inObject.createAttachmentWithName(
+        transport = yield inObject.createAttachmentWithName(
             someAttachmentName, someAttachmentType
         )
         someAttachmentData = "Here is some data for your attachment, enjoy."
         transport.write(someAttachmentData)
         transport.loseConnection()
-        maybeCommit()
+        yield maybeCommit()
         self.topService.startService()
         yield self.subStarted
         committed = []
         txn = self.sqlStore.newTransaction()
         outObject = yield getSampleObj()
-        outAttachment = outObject.attachmentWithName(someAttachmentName)
+        outAttachment = yield outObject.attachmentWithName(someAttachmentName)
         allDone = Deferred()
         class SimpleProto(Protocol):
             data = ''

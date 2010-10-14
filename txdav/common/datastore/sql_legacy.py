@@ -126,8 +126,11 @@ class SQLLegacyInvites(object):
         "No-op, because the index implicitly always exists in the database."
         pass
 
+
+    @inlineCallbacks
     def allRecords(self):
-        for row in self._txn.execSQL(
+        values = []
+        for row in (yield self._txn.execSQL(
             """
             select
                 INVITE.INVITE_UID,
@@ -148,11 +151,14 @@ class SQLLegacyInvites(object):
                 INVITE.NAME asc
             """ % self._combinedTable,
             [self._collection._resourceID]
-        ):
-            yield self._makeInvite(row)
+        )):
+            values.append(self._makeInvite(row))
+        returnValue(values)
 
+
+    @inlineCallbacks
     def recordForUserID(self, userid):
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             """
             select
                 INVITE.INVITE_UID,
@@ -171,7 +177,7 @@ class SQLLegacyInvites(object):
             """ % self._combinedTable,
             [userid]
         )
-        return self._makeInvite(rows[0]) if rows else None
+        returnValue(self._makeInvite(rows[0]) if rows else None)
 
 
     @inlineCallbacks
@@ -181,8 +187,9 @@ class SQLLegacyInvites(object):
                 returnValue(record)
 
 
+    @inlineCallbacks
     def recordForInviteUID(self, inviteUID):
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             """
             select
                 INVITE.INVITE_UID,
@@ -201,7 +208,8 @@ class SQLLegacyInvites(object):
             """ % self._combinedTable,
             [inviteUID]
         )
-        return self._makeInvite(rows[0]) if rows else None
+        returnValue(self._makeInvite(rows[0]) if rows else None)
+
 
     def _makeInvite(self, row):
         [inviteuid, common_name, userid, ownerUID,
@@ -224,6 +232,8 @@ class SQLLegacyInvites(object):
             access, state, summary
         )
 
+
+    @inlineCallbacks
     def addOrUpdateRecord(self, record):
         bindMode = {'read-only': _BIND_MODE_READ,
                     'read-write': _BIND_MODE_WRITE}[record.access]
@@ -238,7 +248,7 @@ class SQLLegacyInvites(object):
         # (and may contain a trailing slash).
         principalUID = record.principalURL.split("/")[3]
         shareeHome = self._getHomeWithUID(principalUID)
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where RECIPIENT_ADDRESS = %s",
             [record.userid]
         )
@@ -394,12 +404,14 @@ class SQLLegacyShares(object):
         pass
 
 
+    @inlineCallbacks
     def allRecords(self):
         # This should have been a smart join that got all these columns at
         # once, but let's not bother to fix it, since the actual query we
         # _want_ to do (just look for binds in a particular homes) is
         # much simpler anyway; we should just do that.
-        shareRows = self._txn.execSQL(
+        all = []
+        shareRows = yield self._txn.execSQL(
             """
             select %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s, %(column_MESSAGE)s
             from %(name)s
@@ -411,7 +423,7 @@ class SQLLegacyShares(object):
         )
         for resourceID, resourceName, bindMode, summary in shareRows:
             if bindMode != _BIND_MODE_DIRECT:
-                [[shareuid]] = self._txn.execSQL(
+                [[shareuid]] = yield self._txn.execSQL(
                     """
                     select INVITE_UID
                     from INVITE
@@ -420,7 +432,7 @@ class SQLLegacyShares(object):
                     [resourceID, self._home._resourceID]
                 )
                 sharetype = 'I'
-                [[ownerHomeID, ownerResourceName]] = self._txn.execSQL(
+                [[ownerHomeID, ownerResourceName]] = yield self._txn.execSQL(
                     """
                     select %(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s
                     from %(name)s
@@ -429,7 +441,7 @@ class SQLLegacyShares(object):
                     """ % self._bindTable,
                     [resourceID, _BIND_MODE_OWN]
                 )
-                [[ownerUID]] = self._txn.execSQL(
+                [[ownerUID]] = yield self._txn.execSQL(
                     """
                     select %(column_OWNER_UID)s from %(name)s
                     where %(column_RESOURCE_ID)s = %%s
@@ -443,10 +455,10 @@ class SQLLegacyShares(object):
                 record = SharedCollectionRecord(
                     shareuid, sharetype, hosturl, localname, summary
                 )
-                yield record
+                all.append(record)
             else:
                 sharetype = 'D'
-                [[ownerHomeID, ownerResourceName]] = self._txn.execSQL(
+                [[ownerHomeID, ownerResourceName]] = yield self._txn.execSQL(
                     """
                     select %(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s
                     from %(name)s
@@ -455,7 +467,7 @@ class SQLLegacyShares(object):
                     """ % self._bindTable,
                     [resourceID, _BIND_MODE_OWN]
                 )
-                [[ownerUID]] = self._txn.execSQL(
+                [[ownerUID]] = yield self._txn.execSQL(
                     """
                     select %(column_OWNER_UID)s from %(name)s
                     where %(column_RESOURCE_ID)s = %%s
@@ -470,14 +482,16 @@ class SQLLegacyShares(object):
                 record = SharedCollectionRecord(
                     synthesisedUID, sharetype, hosturl, localname, summary
                 )
-                yield record
-                
+                all.append(record)
+        returnValue(all)
 
+
+    @inlineCallbacks
     def _search(self, **kw):
         [[key, value]] = kw.items()
-        for record in self.allRecords():
+        for record in (yield self.allRecords()):
             if getattr(record, key) == value:
-                return record
+                returnValue((record))
 
 
     def recordForShareUID(self, shareUID):
@@ -494,7 +508,7 @@ class SQLLegacyShares(object):
         collectionResourceID = ownerCollection._resourceID
 
         if record.sharetype == 'I':
-                
+
             # There needs to be a bind already, one that corresponds to the
             # invitation.  The invitation's UID is the same as the share UID.  I
             # just need to update its 'localname', i.e.
@@ -892,25 +906,29 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         returnValue(obj.name())
 
 
+    @inlineCallbacks
     def notExpandedBeyond(self, minDate):
         """
         Gives all resources which have not been expanded beyond a given date
         in the database.  (Unused; see above L{postgresqlgenerator}.
         """
-        return [row[0] for row in self._txn.execSQL(
+        returnValue([row[0] for row in (yield self._txn.execSQL(
             "select RESOURCE_NAME from CALENDAR_OBJECT "
             "where RECURRANCE_MAX < %s and CALENDAR_RESOURCE_ID = %s",
             [normalizeForIndex(minDate), self.calendar._resourceID]
-        )]
+        ))])
 
 
+    @inlineCallbacks
     def reExpandResource(self, name, expand_until):
         """
         Given a resource name, remove it from the database and re-add it
         with a longer expansion.
         """
-        obj = self.calendar.calendarObjectWithName(name)
-        obj.updateDatabase(obj.component(), expand_until=expand_until, reCreate=True)
+        obj = yield self.calendar.calendarObjectWithName(name)
+        yield obj.updateDatabase(
+            obj.component(), expand_until=expand_until, reCreate=True
+        )
 
 
     @inlineCallbacks
@@ -921,7 +939,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         # Actually expand recurrence max
         for name in names:
             self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
-            self.reExpandResource(name, minDate)
+            yield self.reExpandResource(name, minDate)
 
 
     @inlineCallbacks
@@ -1027,14 +1045,15 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
             set((yield self.calendar.listCalendarObjects())))))
 
 
+    @inlineCallbacks
     def resourceExists(self, name):
-        return bool(
-            self._txn.execSQL(
+        returnValue((bool(
+            (yield self._txn.execSQL(
                 "select RESOURCE_NAME from CALENDAR_OBJECT where "
                 "RESOURCE_NAME = %s and CALENDAR_RESOURCE_ID = %s",
                 [name, self.calendar._resourceID]
-            )
-        )
+            ))
+        )))
 
 
 
@@ -1171,6 +1190,8 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
 
         return qualifiers is not None
 
+
+    @inlineCallbacks
     def search(self, filter):
         """
         Finds resources matching the given qualifiers.
@@ -1187,19 +1208,19 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
         else:
             qualifiers = None
         if qualifiers is not None:
-            rowiter = self._txn.execSQL(
+            rowiter = yield self._txn.execSQL(
                 "select DISTINCT ADDRESSBOOK_OBJECT.RESOURCE_NAME, ADDRESSBOOK_OBJECT.VCARD_UID" +
                 qualifiers[0],
                 qualifiers[1]
             )
         else:
-            rowiter = self._txn.execSQL(
+            rowiter = yield self._txn.execSQL(
                 "select RESOURCE_NAME, VCARD_UID from ADDRESSBOOK_OBJECT where ADDRESSBOOK_RESOURCE_ID = %s",
                 [self.addressbook._resourceID, ],
             )
 
-        for row in rowiter:
-            yield row
+        returnValue(list(rowiter))
+
 
     def indexedSearch(self, filter, useruid='', fbtype=False):
         """
@@ -1223,11 +1244,12 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
             set((yield self.addressbook.listAddressbookObjects())))))
 
 
+    @inlineCallbacks
     def resourceExists(self, name):
-        return bool(
-            self._txn.execSQL(
+        returnValue(bool(
+            (yield self._txn.execSQL(
                 "select RESOURCE_NAME from ADDRESSBOOK_OBJECT where "
                 "RESOURCE_NAME = %s and ADDRESSBOOK_RESOURCE_ID = %s",
                 [name, self.addressbook._resourceID]
-            )
-        )
+            ))
+        ))

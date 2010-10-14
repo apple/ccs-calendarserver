@@ -29,6 +29,7 @@ from txdav.common.icommondatastore import InvalidObjectResourceError, \
 from twext.python.log import Logger
 log = Logger()
 
+
 def validateAddressBookComponent(addressbookObject, vcard, component, inserting):
     """
     Validate an addressbook component for a particular addressbook.
@@ -62,6 +63,7 @@ def validateAddressBookComponent(addressbookObject, vcard, component, inserting)
         raise InvalidObjectResourceError(e)
 
 
+
 @inlineCallbacks
 def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
     """
@@ -78,9 +80,9 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
     for addressbookObject in inObjects:
         
         try:
-            outAddressbook.createAddressBookObjectWithName(
+            yield outAddressbook.createAddressBookObjectWithName(
                 addressbookObject.name(),
-                addressbookObject.component()) # XXX WRONG SHOULD CALL getComponent
+                (yield addressbookObject.component())) # XXX WRONG SHOULD CALL getComponent
     
             # Only the owner's properties are migrated, since previous releases of
             # addressbook server didn't have per-user properties.
@@ -99,16 +101,17 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
 
 @inlineCallbacks
 def migrateHome(inHome, outHome, getComponent=lambda x:x.component()):
-    outHome.removeAddressBookWithName("addressbook")
+    yield outHome.removeAddressBookWithName("addressbook")
     outHome.properties().update(inHome.properties())
-    inAddressbooks = inHome.addressbooks()
+    inAddressbooks = yield inHome.addressbooks()
     for addressbook in inAddressbooks:
         name = addressbook.name()
-        outHome.createAddressBookWithName(name)
+        yield outHome.createAddressBookWithName(name)
         outAddressbook = yield outHome.addressbookWithName(name)
         try:
             yield _migrateAddressbook(addressbook, outAddressbook, getComponent)
         except InternalDataStoreError:
             log.error("  Failed to migrate address book: %s/%s" % (inHome.name(), name,))
+
 
 

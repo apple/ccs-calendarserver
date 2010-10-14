@@ -423,7 +423,7 @@ class DropboxCollection(_GetChildHelper):
         l = []
         for everyCalendar in (yield self._newStoreHome.calendars()):
             for everyObject in (yield everyCalendar.calendarObjects()):
-                l.append(everyObject.dropboxID())
+                l.append((yield everyObject.dropboxID()))
         returnValue(l)
 
 
@@ -466,8 +466,9 @@ class CalendarObjectDropbox(_GetChildHelper):
         return davxml.ResourceType.dropbox #@UndefinedVariable
 
 
+    @inlineCallbacks
     def getChild(self, name):
-        attachment = self._newStoreCalendarObject.attachmentWithName(name)
+        attachment = yield self._newStoreCalendarObject.attachmentWithName(name)
         if attachment is None:
             result = ProtoCalendarAttachment(
                 self._newStoreCalendarObject,
@@ -478,7 +479,7 @@ class CalendarObjectDropbox(_GetChildHelper):
                 self._newStoreCalendarObject,
                 attachment, principalCollections=self.principalCollections())
         self.propagateTransaction(result)
-        return result
+        returnValue(result)
 
 
     @inlineCallbacks
@@ -523,63 +524,66 @@ class CalendarObjectDropbox(_GetChildHelper):
         return NO_CONTENT
 
 
+    @inlineCallbacks
     def listChildren(self):
         l = []
-        for attachment in self._newStoreCalendarObject.attachments():
+        for attachment in (self._newStoreCalendarObject.attachments()):
             l.append(attachment.name())
-        return l
+        returnValue(l)
 
 
+    @inlineCallbacks
     def accessControlList(self, *a, **kw):
         """
         All principals identified as ATTENDEEs on the event for this dropbox
         may read all its children. Also include proxies of ATTENDEEs.
         """
-        d = super(CalendarObjectDropbox, self).accessControlList(*a, **kw)
-        def moreACLs(originalACL):
-            othersCanWrite = (
-                self._newStoreCalendarObject.attendeesCanManageAttachments()
+        originalACL = yield super(
+            CalendarObjectDropbox, self).accessControlList(*a, **kw)
+        othersCanWrite = (
+            yield self._newStoreCalendarObject.attendeesCanManageAttachments()
+        )
+        originalACEs = list(originalACL.children)
+        cuas = (self._newStoreCalendarObject.component()).getAttendees()
+        newACEs = []
+        for calendarUserAddress in cuas:
+            principal = self.principalForCalendarUserAddress(
+                calendarUserAddress
             )
-            originalACEs = list(originalACL.children)
-            cuas = self._newStoreCalendarObject.component().getAttendees()
-            newACEs = []
-            for calendarUserAddress in cuas:
-                principal = self.principalForCalendarUserAddress(
-                    calendarUserAddress
-                )
-                principalURL = principal.principalURL()
-                writePrivileges = [
-                    davxml.Privilege(davxml.Read()),
-                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                    davxml.Privilege(davxml.Write()),
-                ]
-                readPrivileges = [
-                    davxml.Privilege(davxml.Read()),
-                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                ]
-                privileges = writePrivileges if othersCanWrite else readPrivileges
-                newACEs.append(davxml.ACE(
-                    davxml.Principal(davxml.HRef(principalURL)),
-                    davxml.Grant(*privileges),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                ))
-                newACEs.append(davxml.ACE(
-                    davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-write/"))),
-                    davxml.Grant(*privileges),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                ))
-                newACEs.append(davxml.ACE(
-                    davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-read/"))),
-                    davxml.Grant(*readPrivileges),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                ))
+            principalURL = principal.principalURL()
+            writePrivileges = [
+                davxml.Privilege(davxml.Read()),
+                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                davxml.Privilege(davxml.Write()),
+            ]
+            readPrivileges = [
+                davxml.Privilege(davxml.Read()),
+                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+            ]
+            if othersCanWrite:
+                privileges = writePrivileges
+            else:
+                privileges = readPrivileges
+            newACEs.append(davxml.ACE(
+                davxml.Principal(davxml.HRef(principalURL)),
+                davxml.Grant(*privileges),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ))
+            newACEs.append(davxml.ACE(
+                davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-write/"))),
+                davxml.Grant(*privileges),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ))
+            newACEs.append(davxml.ACE(
+                davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-read/"))),
+                davxml.Grant(*readPrivileges),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ))
 
-            return davxml.ACL(*tuple(newACEs + originalACEs))
-        d.addCallback(moreACLs)
-        return d
+        returnValue(davxml.ACL(*tuple(newACEs + originalACEs)))
 
 
 
@@ -590,6 +594,7 @@ class ProtoCalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         self.calendarObject = calendarObject
         self.attachmentName = attachmentName
         self._newStoreObject = None
+
 
     def isCollection(self):
         return False
@@ -605,26 +610,27 @@ class ProtoCalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
 
     @requiresPermissions(fromParent=[davxml.Bind()])
+    @inlineCallbacks
     def http_PUT(self, request):
         # FIXME: direct test
         # FIXME: transformation?
-
         content_type = request.headers.getHeader("content-type")
         if content_type is None:
             content_type = MimeType("application", "octet-stream")
-
-        t = self.calendarObject.createAttachmentWithName(
+        t = yield self.calendarObject.createAttachmentWithName(
             self.attachmentName,
             content_type,
         )
-        def done(ignored):
-            self._newStoreObject = self.calendarObject.attachmentWithName(self.attachmentName)
-            t.loseConnection()
-            return CREATED
-        return readStream(request.stream, t.write).addCallback(done)
+        yield readStream(request.stream, t.write)
+        self._newStoreObject = yield self.calendarObject.attachmentWithName(
+            self.attachmentName
+        )
+        t.loseConnection()
+        returnValue(CREATED)
 
     http_MKCOL = None
     http_MKCALENDAR = None
+
 
 
 class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
@@ -890,7 +896,7 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
             yield self.downgradeFromShare(request)
 
         # Actually delete it.
-        self._newStoreParentHome.removeCalendarWithName(
+        yield self._newStoreParentHome.removeCalendarWithName(
             self._newStoreCalendar.name()
         )
         self.__class__ = ProtoCalendarCollectionResource

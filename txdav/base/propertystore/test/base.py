@@ -27,6 +27,7 @@ __all__ = [
 
 from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
+from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
 
 from twext.web2.dav import davxml
@@ -49,6 +50,8 @@ class PropertyStoreTest(unittest.TestCase):
         except BrokenMethodImplementation, e:
             self.fail(e)
 
+
+    @inlineCallbacks
     def test_set_get_contains(self):
 
         name = propertyName("test")
@@ -56,7 +59,7 @@ class PropertyStoreTest(unittest.TestCase):
 
         # Test with commit after change
         self.propertyStore[name] = value
-        self._changed(self.propertyStore)
+        yield self._changed(self.propertyStore)
         self.assertEquals(self.propertyStore.get(name, None), value)
         self.failUnless(name in self.propertyStore)
 
@@ -66,6 +69,8 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEquals(self.propertyStore.get(name, None), value)
         self.failUnless(name in self.propertyStore)
 
+
+    @inlineCallbacks
     def test_delete_get_contains(self):
 
         # Test with commit after change
@@ -73,10 +78,10 @@ class PropertyStoreTest(unittest.TestCase):
         value = propertyValue("Hello, World!")
 
         self.propertyStore[name] = value
-        self._changed(self.propertyStore)
+        yield self._changed(self.propertyStore)
 
         del self.propertyStore[name]
-        self._changed(self.propertyStore)
+        yield self._changed(self.propertyStore)
 
         self.assertEquals(self.propertyStore.get(name, None), None)
         self.failIf(name in self.propertyStore)
@@ -86,13 +91,15 @@ class PropertyStoreTest(unittest.TestCase):
         value = propertyValue("Hello, Universe!")
 
         self.propertyStore[name] = value
-        self._changed(self.propertyStore)
+        yield self._changed(self.propertyStore)
 
         del self.propertyStore[name]
 
         self.assertEquals(self.propertyStore.get(name, None), None)
         self.failIf(name in self.propertyStore)
 
+
+    @inlineCallbacks
     def test_peruser(self):
 
         name = propertyName("test")
@@ -100,34 +107,36 @@ class PropertyStoreTest(unittest.TestCase):
         value2 = propertyValue("Hello, World2!")
 
         self.propertyStore1[name] = value1
-        self._changed(self.propertyStore1)
+        yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), None)
         self.failUnless(name in self.propertyStore1)
         self.failIf(name in self.propertyStore2)
-        
+
         self.propertyStore2[name] = value2
-        self._changed(self.propertyStore2)
+        yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value2)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
-        
+
         del self.propertyStore2[name]
-        self._changed(self.propertyStore2)
+        yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), None)
         self.failUnless(name in self.propertyStore1)
         self.failIf(name in self.propertyStore2)
-        
+
         del self.propertyStore1[name]
-        self._changed(self.propertyStore1)
+        yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), None)
         self.assertEquals(self.propertyStore2.get(name, None), None)
         self.failIf(name in self.propertyStore1)
         self.failIf(name in self.propertyStore2)
-        
-    def test_peruser_shadow(self):
+
+
+    @inlineCallbacks
+    def test_peruserShadow(self):
 
         name = propertyName("shadow")
 
@@ -138,34 +147,35 @@ class PropertyStoreTest(unittest.TestCase):
         value2 = propertyValue("Hello, World2!")
 
         self.propertyStore1[name] = value1
-        self._changed(self.propertyStore1)
+        yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value1)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
-        
+
         self.propertyStore2[name] = value2
-        self._changed(self.propertyStore2)
+        yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value2)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
-        
+
         del self.propertyStore2[name]
-        self._changed(self.propertyStore2)
+        yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value1)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
-        
+
         del self.propertyStore1[name]
-        self._changed(self.propertyStore1)
+        yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), None)
         self.assertEquals(self.propertyStore2.get(name, None), None)
         self.failIf(name in self.propertyStore1)
         self.failIf(name in self.propertyStore2)
 
 
+    @inlineCallbacks
     def test_peruser_global(self):
 
         name = propertyName("global")
@@ -177,38 +187,39 @@ class PropertyStoreTest(unittest.TestCase):
         value2 = propertyValue("Hello, World2!")
 
         self.propertyStore1[name] = value1
-        self._changed(self.propertyStore1)
+        yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value1)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
-        
+
         self.propertyStore2[name] = value2
-        self._changed(self.propertyStore2)
+        yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), value2)
         self.assertEquals(self.propertyStore2.get(name, None), value2)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
-        
+
         del self.propertyStore2[name]
-        self._changed(self.propertyStore2)
+        yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), None)
         self.assertEquals(self.propertyStore2.get(name, None), None)
         self.failIf(name in self.propertyStore1)
         self.failIf(name in self.propertyStore2)
-        
+
 
     def test_iteration(self):
 
         value = propertyValue("Hello, World!")
 
-        names = set(propertyName(str(i)) for i in (1,2,3,4))
+        names = set(propertyName(str(i)) for i in (1, 2, 3, 4))
 
         for name in names:
             self.propertyStore[name] = value
 
         self.assertEquals(set(self.propertyStore.keys()), names)
         self.assertEquals(len(self.propertyStore), len(names))
+
 
     def test_delete_none(self):
 
@@ -217,8 +228,8 @@ class PropertyStoreTest(unittest.TestCase):
 
         self.assertRaises(KeyError, doDelete)
 
-    def test_keyInPropertyName(self):
 
+    def test_keyInPropertyName(self):
 
         def doGet():
             self.propertyStore["xyzzy"]
@@ -237,6 +248,8 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertRaises(TypeError, doDelete)
         self.assertRaises(TypeError, doContains)
 
+
+    @inlineCallbacks
     def test_flush(self):
 
         name = propertyName("test")
@@ -247,8 +260,8 @@ class PropertyStoreTest(unittest.TestCase):
         #
         self.propertyStore[name] = value
 
-        self._changed(self.propertyStore)
-        self._abort(self.propertyStore)
+        yield self._changed(self.propertyStore)
+        yield self._abort(self.propertyStore)
 
         self.assertEquals(self.propertyStore.get(name, None), value)
         self.assertEquals(len(self.propertyStore), 1)
@@ -258,23 +271,27 @@ class PropertyStoreTest(unittest.TestCase):
         #
         del self.propertyStore[name]
 
-        self._changed(self.propertyStore)
-        self._abort(self.propertyStore)
+        yield self._changed(self.propertyStore)
+        yield self._abort(self.propertyStore)
 
         self.assertEquals(self.propertyStore.get(name, None), None)
         self.assertEquals(len(self.propertyStore), 0)
 
+
+    @inlineCallbacks
     def test_abort(self):
         name = propertyName("test")
         value = propertyValue("Hello, World!")
 
         self.propertyStore[name] = value
 
-        self._abort(self.propertyStore)
+        yield self._abort(self.propertyStore)
 
         self.assertEquals(self.propertyStore.get(name, None), None)
         self.assertEquals(len(self.propertyStore), 0)
 
+
+    @inlineCallbacks
     def test_peruser_keys(self):
 
         name = propertyName("shadow")
@@ -285,7 +302,7 @@ class PropertyStoreTest(unittest.TestCase):
         value1 = propertyValue("Hello, World1!")
 
         self.propertyStore1[name] = value1
-        self._changed(self.propertyStore1)
+        yield self._changed(self.propertyStore1)
 
         self.failUnless(name in self.propertyStore2.keys())
 

@@ -171,14 +171,16 @@ def populateCalendarsFrom(requirements, store):
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
             try:
-                home.removeCalendarWithName("calendar")
-                home.removeCalendarWithName("inbox")
+                yield home.removeCalendarWithName("calendar")
+                yield home.removeCalendarWithName("inbox")
             except NoSuchHomeChildError:
                 pass
             for calendarName in calendars:
                 calendarObjNames = calendars[calendarName]
                 if calendarObjNames is not None:
-                    home.createCalendarWithName(calendarName)
+                    # XXX should not be yielding!  this SQL will be executed
+                    # first!
+                    yield home.createCalendarWithName(calendarName)
                     calendar = yield home.calendarWithName(calendarName)
                     for objectName in calendarObjNames:
                         objData = calendarObjNames[objectName]

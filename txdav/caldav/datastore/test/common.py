@@ -19,7 +19,8 @@
 Tests for common calendar store API functions.
 """
 
-from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue,\
+    maybeDeferred
 from twisted.internet.protocol import Protocol
 
 from txdav.idav import IPropertyStore, IDataStore, AlreadyFinishedError
@@ -253,60 +254,65 @@ class CommonTests(CommonCommonTests):
         )
 
 
+    @inlineCallbacks
     def notificationUnderTest(self):
         txn = self.transactionUnderTest()
-        notifications = txn.notificationsWithUID("home1")
+        notifications = yield txn.notificationsWithUID("home1")
         inviteNotification = InviteNotification()
-        notifications.writeNotificationObject("abc", inviteNotification,
+        yield notifications.writeNotificationObject("abc", inviteNotification,
             inviteNotification.toxml())
-        notificationObject = notifications.notificationObjectWithUID("abc")
-        return notificationObject
+        notificationObject = yield notifications.notificationObjectWithUID("abc")
+        returnValue(notificationObject)
 
 
+    @inlineCallbacks
     def test_notificationObjectProvides(self):
         """
         The objects retrieved from the notification home (the object returned
         from L{notificationsWithUID}) provide L{INotificationObject}.
         """
-        notificationObject = self.notificationUnderTest()
+        notificationObject = yield self.notificationUnderTest()
         self.assertProvides(INotificationObject, notificationObject)
 
 
+    @inlineCallbacks
     def test_replaceNotification(self):
         """
         L{INotificationCollection.writeNotificationObject} will silently
         overwrite the notification object.
         """
-        notifications = self.transactionUnderTest().notificationsWithUID(
+        notifications = yield self.transactionUnderTest().notificationsWithUID(
             "home1"
         )
         inviteNotification = InviteNotification()
-        notifications.writeNotificationObject("abc", inviteNotification,
+        yield notifications.writeNotificationObject("abc", inviteNotification,
             inviteNotification.toxml())
         inviteNotification2 = InviteNotification(InviteSummary("a summary"))
-        notifications.writeNotificationObject(
+        yield notifications.writeNotificationObject(
             "abc", inviteNotification, inviteNotification2.toxml())
-        abc = notifications.notificationObjectWithUID("abc")
-        self.assertEquals(abc.xmldata(), inviteNotification2.toxml())
+        abc = yield notifications.notificationObjectWithUID("abc")
+        self.assertEquals((yield abc.xmldata()), inviteNotification2.toxml())
 
 
+    @inlineCallbacks
     def test_notificationObjectModified(self):
         """
         The objects retrieved from the notification home have a C{modified}
         method which returns the timestamp of their last modification.
         """
-        notification = self.notificationUnderTest()
-        self.assertIsInstance(notification.modified(), int)
+        notification = yield self.notificationUnderTest()
+        self.assertIsInstance((yield notification.modified()), int)
 
 
+    @inlineCallbacks
     def test_notificationObjectParent(self):
         """
         L{INotificationObject.notificationCollection} returns the
         L{INotificationCollection} that the object was retrieved from.
         """
         txn = self.transactionUnderTest()
-        collection = txn.notificationsWithUID("home1")
-        notification = self.notificationUnderTest()
+        collection = yield txn.notificationsWithUID("home1")
+        notification = yield self.notificationUnderTest()
         self.assertIdentical(collection, notification.notificationCollection())
 
 
@@ -364,7 +370,7 @@ class CommonTests(CommonCommonTests):
         """
         home = yield self.homeUnderTest()
         calendar = yield home.calendarWithName("calendar_1")
-        calendar.rename("some_other_name")
+        yield calendar.rename("some_other_name")
         @inlineCallbacks
         def positiveAssertions():
             self.assertEquals(calendar.name(), "some_other_name")
@@ -402,7 +408,7 @@ class CommonTests(CommonCommonTests):
         home = yield self.homeUnderTest()
         name = "new"
         self.assertIdentical((yield home.calendarWithName(name)), None)
-        home.createCalendarWithName(name)
+        yield home.createCalendarWithName(name)
         self.assertNotIdentical((yield home.calendarWithName(name)), None)
         @inlineCallbacks
         def checkProperties():
@@ -443,9 +449,9 @@ class CommonTests(CommonCommonTests):
         """
         home = yield self.homeUnderTest()
         for name in home1_calendarNames:
-            self.assertRaises(
-                HomeChildNameAlreadyExistsError,
-                home.createCalendarWithName, name
+            yield self.failUnlessFailure(
+                maybeDeferred(home.createCalendarWithName, name),
+                HomeChildNameAlreadyExistsError
             )
 
 
@@ -460,7 +466,7 @@ class CommonTests(CommonCommonTests):
         # FIXME: test transactions
         for name in home1_calendarNames:
             self.assertNotIdentical((yield home.calendarWithName(name)), None)
-            home.removeCalendarWithName(name)
+            yield home.removeCalendarWithName(name)
             self.assertEquals((yield home.calendarWithName(name)), None)
 
         yield self.commit()
@@ -485,8 +491,10 @@ class CommonTests(CommonCommonTests):
         Attempt to remove an non-existing calendar should raise.
         """
         home = yield self.homeUnderTest()
-        self.assertRaises(NoSuchHomeChildError,
-                          home.removeCalendarWithName, "xyzzy")
+        yield self.failUnlessFailure(
+            maybeDeferred(home.removeCalendarWithName, "xyzzy"),
+            NoSuchHomeChildError
+        )
 
 
     @inlineCallbacks
@@ -570,7 +578,7 @@ class CommonTests(CommonCommonTests):
             uid = (u'uid' + name.rstrip(".ics"))
             self.assertNotIdentical((yield calendar.calendarObjectWithUID(uid)),
                                     None)
-            calendar.removeCalendarObjectWithUID(uid)
+            yield calendar.removeCalendarObjectWithUID(uid)
             self.assertEquals(
                 (yield calendar.calendarObjectWithUID(uid)),
                 None
@@ -604,7 +612,7 @@ class CommonTests(CommonCommonTests):
             self.assertNotIdentical(
                 (yield calendar.calendarObjectWithName(name)), None
             )
-            calendar.removeCalendarObjectWithName(name)
+            yield calendar.removeCalendarObjectWithName(name)
             self.assertIdentical(
                 (yield calendar.calendarObjectWithName(name)), None
             )
@@ -616,9 +624,9 @@ class CommonTests(CommonCommonTests):
         Attempt to remove an non-existing calendar object should raise.
         """
         calendar = yield self.calendarUnderTest()
-        self.assertRaises(
-            NoSuchObjectResourceError,
-            calendar.removeCalendarObjectWithName, "xyzzy"
+        yield self.failUnlessFailure(
+            maybeDeferred(calendar.removeCalendarObjectWithName, "xyzzy"),
+            NoSuchObjectResourceError
         )
 
 
@@ -647,7 +655,7 @@ class CommonTests(CommonCommonTests):
         L{ICalendarObject.component} returns a L{VComponent} describing the
         calendar data underlying that calendar object.
         """
-        component = (yield self.calendarObjectUnderTest()).component()
+        component = yield (yield self.calendarObjectUnderTest()).component()
 
         self.failUnless(
             isinstance(component, VComponent),
@@ -665,7 +673,7 @@ class CommonTests(CommonCommonTests):
         L{ICalendarObject.iCalendarText} returns a C{str} describing the same
         data provided by L{ICalendarObject.component}.
         """
-        text = (yield self.calendarObjectUnderTest()).iCalendarText()
+        text = yield (yield self.calendarObjectUnderTest()).iCalendarText()
         self.assertIsInstance(text, str)
         self.failUnless(text.startswith("BEGIN:VCALENDAR\r\n"))
         self.assertIn("\r\nUID:uid1\r\n", text)
@@ -738,7 +746,7 @@ class CommonTests(CommonCommonTests):
         home = yield self.homeUnderTest()
         allCalendars = yield home.calendars()
         before = set(x.name() for x in allCalendars)
-        home.createCalendarWithName("new-name")
+        yield home.createCalendarWithName("new-name")
         allCalendars = yield home.calendars()
         after = set(x.name() for x in allCalendars)
         self.assertEquals(before | set(['new-name']), after)
@@ -752,12 +760,14 @@ class CommonTests(CommonCommonTests):
         """
         calendar1 = yield self.calendarUnderTest()
         name = "4.ics"
-        self.assertIdentical((yield calendar1.calendarObjectWithName(name)), None)
+        self.assertIdentical(
+            (yield calendar1.calendarObjectWithName(name)), None
+        )
         component = VComponent.fromString(event4_text)
-        calendar1.createCalendarObjectWithName(name, component)
+        yield calendar1.createCalendarObjectWithName(name, component)
 
         calendarObject = yield calendar1.calendarObjectWithName(name)
-        self.assertEquals(calendarObject.component(), component)
+        self.assertEquals((yield calendarObject.component()), component)
 
         yield self.commit()
 
@@ -771,6 +781,7 @@ class CommonTests(CommonCommonTests):
         )
 
 
+    @inlineCallbacks
     def test_createCalendarObjectWithName_exists(self):
         """
         L{ICalendar.createCalendarObjectWithName} raises
@@ -779,10 +790,9 @@ class CommonTests(CommonCommonTests):
         """
         cal = yield self.calendarUnderTest()
         comp = VComponent.fromString(event4_text)
-        self.assertRaises(
+        yield self.failUnlessFailure(
+            maybeDeferred(cal.createCalendarObjectWithName, "1.ics", comp),
             ObjectResourceNameAlreadyExistsError,
-            cal.createCalendarObjectWithName,
-            "1.ics", comp
         )
 
 
@@ -793,10 +803,10 @@ class CommonTests(CommonCommonTests):
         L{InvalidCalendarComponentError} if presented with invalid iCalendar
         text.
         """
-        self.assertRaises(
+        yield self.failUnlessFailure(
+            maybeDeferred((yield self.calendarUnderTest()).createCalendarObjectWithName,
+            "new", VComponent.fromString(event4notCalDAV_text)),
             InvalidObjectResourceError,
-            (yield self.calendarUnderTest()).createCalendarObjectWithName,
-            "new", VComponent.fromString(event4notCalDAV_text)
         )
 
     @inlineCallbacks
@@ -806,10 +816,10 @@ class CommonTests(CommonCommonTests):
         presented with invalid iCalendar text.
         """
         calendarObject = yield self.calendarObjectUnderTest()
-        self.assertRaises(
+        yield self.failUnlessFailure(
+            maybeDeferred(calendarObject.setComponent,
+                          VComponent.fromString(event4notCalDAV_text)),
             InvalidObjectResourceError,
-            calendarObject.setComponent,
-            VComponent.fromString(event4notCalDAV_text)
         )
 
 
@@ -822,9 +832,9 @@ class CommonTests(CommonCommonTests):
         calendar1 = yield self.calendarUnderTest()
         component = VComponent.fromString(event4_text)
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
-        self.assertRaises(
+        yield self.failUnlessFailure(
+            maybeDeferred(calendarObject.setComponent, component),
             InvalidObjectResourceError,
-            calendarObject.setComponent, component
         )
 
 
@@ -868,12 +878,12 @@ class CommonTests(CommonCommonTests):
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
         oldComponent = calendarObject.component()
         self.assertNotEqual(component, oldComponent)
-        calendarObject.setComponent(component)
-        self.assertEquals(calendarObject.component(), component)
+        yield calendarObject.setComponent(component)
+        self.assertEquals((yield calendarObject.component()), component)
 
         # Also check a new instance
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
-        self.assertEquals(calendarObject.component(), component)
+        self.assertEquals((yield calendarObject.component()), component)
 
         yield self.commit()
 
@@ -927,7 +937,7 @@ class CommonTests(CommonCommonTests):
         calendar object which has been created but not committed.
         """
         calendar = yield self.calendarUnderTest()
-        calendar.createCalendarObjectWithName(
+        yield calendar.createCalendarObjectWithName(
             "4.ics", VComponent.fromString(event4_text)
         )
         newEvent = yield calendar.calendarObjectWithName("4.ics")
@@ -957,7 +967,7 @@ class CommonTests(CommonCommonTests):
             (yield self.calendarObjectUnderTest()).properties()[propertyName],
             propertyContent)
         obj = yield self.calendarObjectUnderTest()
-        event1_text = obj.iCalendarText()
+        event1_text = yield obj.iCalendarText()
         event1_text_withDifferentSubject = event1_text.replace(
             "SUMMARY:CalDAV protocol updates",
             "SUMMARY:Changed"
@@ -1022,12 +1032,12 @@ END:VCALENDAR
         -APPLE-DROPBOX property, if available.
         """
         cal = yield self.calendarUnderTest()
-        cal.createCalendarObjectWithName("drop.ics", VComponent.fromString(
+        yield cal.createCalendarObjectWithName("drop.ics", VComponent.fromString(
                 self.eventWithDropbox
             )
         )
         obj = yield cal.calendarObjectWithName("drop.ics")
-        self.assertEquals(obj.dropboxID(), "some-dropbox-id")
+        self.assertEquals((yield obj.dropboxID()), "some-dropbox-id")
 
 
     @inlineCallbacks
@@ -1058,7 +1068,9 @@ END:VCALENDAR
         Common logic for attachment-creation tests.
         """
         obj = yield self.calendarObjectUnderTest()
-        t = obj.createAttachmentWithName("new.attachment", MimeType("text", "x-fixture"))
+        t = yield obj.createAttachmentWithName(
+            "new.attachment", MimeType("text", "x-fixture")
+        )
         t.write("new attachment")
         t.write(" text")
         t.loseConnection()
@@ -1071,7 +1083,7 @@ END:VCALENDAR
                 self.deferred.callback(self.buf)
         capture = CaptureProtocol()
         capture.deferred = Deferred()
-        attachment = obj.attachmentWithName("new.attachment")
+        attachment = yield obj.attachmentWithName("new.attachment")
         self.assertProvides(IAttachment, attachment)
         attachment.retrieve(capture)
         data = yield capture.deferred
@@ -1081,7 +1093,7 @@ END:VCALENDAR
         self.assertEquals(contentType, MimeType("text", "x-fixture"))
         self.assertEquals(attachment.md5(), '50a9f27aeed9247a0833f30a631f1858')
         self.assertEquals(
-            [attachment.name() for attachment in obj.attachments()],
+            [attachment.name() for attachment in (yield obj.attachments())],
             ['new.attachment']
         )
 
@@ -1120,9 +1132,9 @@ END:VCALENDAR
             obj.removeAttachmentWithName("new.attachment")
             obj = yield refresh(obj)
             self.assertIdentical(
-                None, obj.attachmentWithName("new.attachment")
+                None, (yield obj.attachmentWithName("new.attachment"))
             )
-            self.assertEquals(list(obj.attachments()), [])
+            self.assertEquals(list((yield obj.attachments())), [])
         return self.test_createAttachmentCommit().addCallback(deleteIt)
 
 
@@ -1147,8 +1159,9 @@ END:VCALENDAR
         L{ICalendarHome.calendarWithName} or L{ICalendarHome.calendars}.
         """
         obj = yield self.calendarObjectUnderTest()
-        t = obj.createAttachmentWithName("new.attachment",
-                                         MimeType("text", "plain"))
+        t = yield obj.createAttachmentWithName(
+            "new.attachment", MimeType("text", "plain")
+        )
         t.write("new attachment text")
         t.loseConnection()
         yield self.commit()
@@ -1170,8 +1183,15 @@ END:VCALENDAR
         yield self.calendarObjectUnderTest()
         txn = self.lastTransaction
         yield self.commit()
-        self.assertRaises(AlreadyFinishedError, txn.commit)
-        self.assertRaises(AlreadyFinishedError, txn.abort)
+        
+        yield self.failUnlessFailure(
+            maybeDeferred(txn.commit),
+            AlreadyFinishedError
+        )
+        yield self.failUnlessFailure(
+            maybeDeferred(txn.abort),
+            AlreadyFinishedError
+        )
 
 
     @inlineCallbacks
@@ -1224,7 +1244,7 @@ END:VCALENDAR
         yield self.commit()
         foundUIDs = set([])
         lastTxn = None
-        for txn, home in self.storeUnderTest().eachCalendarHome():
+        for txn, home in (yield self.storeUnderTest().eachCalendarHome()):
             self.addCleanup(txn.commit)
             foundUIDs.add(home.uid())
             self.assertNotIdentical(lastTxn, txn)

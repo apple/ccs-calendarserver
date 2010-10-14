@@ -25,6 +25,10 @@ __all__ = [
     "CommonHome",
 ]
 
+import sys
+
+from Queue import Queue
+
 from twext.python.log import Logger, LoggingMixIn
 from twext.web2.dav.element.rfc2518 import ResourceType
 from twext.web2.http_headers import MimeType
@@ -33,6 +37,10 @@ from twisted.application.service import Service
 from twisted.python import hashlib
 from twisted.python.modules import getModule
 from twisted.python.util import FancyEqMixin
+
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
+from twisted.python.failure import Failure
 
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime
@@ -108,7 +116,7 @@ class CommonDataStore(Service, object):
     def newTransaction(self, label="unlabeled", migrating=False):
         return CommonStoreTransaction(
             self,
-            self.connectionFactory(),
+            self.connectionFactory,
             self.enableCalendars,
             self.enableAddressBooks,
             self.notifierFactory,
@@ -116,18 +124,104 @@ class CommonDataStore(Service, object):
             migrating,
         )
 
+
+_DONE = object()
+
+_STATE_STOPPED = 'STOPPED'
+_STATE_RUNNING = 'RUNNING'
+_STATE_STOPPING = 'STOPPING'
+
+class ThreadHolder(object):
+    """
+    A queue which will hold a reactor threadpool thread open until all of the
+    work in that queue is done.
+    """
+
+    def __init__(self, reactor):
+        self._reactor = reactor
+        self._state = _STATE_STOPPED
+        self._stopper = None
+        self._q = None
+
+
+    def _run(self):
+        """
+        Worker function which runs in a non-reactor thread.
+        """
+        while True:
+            work = self._q.get()
+            if work is _DONE:
+                def finishStopping():
+                    self._state = _STATE_STOPPED
+                    self._q = None
+                    s = self._stopper
+                    self._stopper = None
+                    s.callback(None)
+                self._reactor.callFromThread(finishStopping)
+                return
+            self._oneWorkUnit(*work)
+
+
+    def _oneWorkUnit(self, deferred, instruction):
+        try: 
+            result = instruction()
+        except:
+            etype, evalue, etb = sys.exc_info()
+            def relayFailure():
+                f = Failure(evalue, etype, etb)
+                deferred.errback(f)
+            self._reactor.callFromThread(relayFailure)
+        else:
+            self._reactor.callFromThread(deferred.callback, result)
+
+
+    def submit(self, work):
+        """
+        Submit some work to be run.
+
+        @param work: a 0-argument callable, which will be run in a thread.
+
+        @return: L{Deferred} that fires with the result of L{work}
+        """
+        d = Deferred()
+        self._q.put((d, work))
+        return d
+
+
+    def start(self):
+        """
+        Start this thing, if it's stopped.
+        """
+        if self._state != _STATE_STOPPED:
+            raise RuntimeError("Not stopped.")
+        self._state = _STATE_RUNNING
+        self._q = Queue(0)
+        self._reactor.callInThread(self._run)
+
+
+    def stop(self):
+        """
+        Stop this thing and release its thread, if it's running.
+        """
+        if self._state != _STATE_RUNNING:
+            raise RuntimeError("Not running.")
+        s = self._stopper = Deferred()
+        self._state = _STATE_STOPPING
+        self._q.put(_DONE)
+        return s
+
+
+
 class CommonStoreTransaction(object):
     """
     Transaction implementation for SQL database.
     """
-
     _homeClass = {}
 
-    def __init__(self, store, connection, enableCalendars, enableAddressBooks, notifierFactory, label, migrating=False):
-
+    def __init__(self, store, connectionFactory,
+                 enableCalendars, enableAddressBooks,
+                 notifierFactory, label, migrating=False):
         self._store = store
-        self._connection = connection
-        self._cursor = connection.cursor()
         self._completed = False
         self._calendarHomes = {}
         self._addressbookHomes = {}
@@ -148,6 +242,19 @@ class CommonStoreTransaction(object):
         from txdav.carddav.datastore.sql import AddressBookHome
         CommonStoreTransaction._homeClass[ECALENDARTYPE] = CalendarHome
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
+        self._holder = ThreadHolder(reactor)
+        self._holder.start()
+        def initCursor():
+            # support threadlevel=1; we can't necessarily cursor() in a
+            # different thread than we do transactions in.
+
+            # FIXME: may need to be pooling ThreadHolders along with
+            # connections, if threadlevel=1 requires connect() be called in the
+            # same thread as cursor() et. al.
+            self._connection = connectionFactory()
+            self._cursor = self._connection.cursor()
+        self._holder.submit(initCursor)
+
 
     def store(self):
         return self._store
@@ -157,8 +264,7 @@ class CommonStoreTransaction(object):
         return 'PG-TXN<%s>' % (self._label,)
 
 
-    def execSQL(self, sql, args=[], raiseOnZeroRowCount=None):
-        # print 'EXECUTE %s: %s' % (self._label, sql)
+    def _reallyExecSQL(self, sql, args=[], raiseOnZeroRowCount=None):
         self._cursor.execute(sql, args)
         if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
             raise raiseOnZeroRowCount()
@@ -168,75 +274,94 @@ class CommonStoreTransaction(object):
             return None
 
 
+    def execSQL(self, *args, **kw):
+        def reportResult(results):
+            sys.stdout.write("\n".join([
+                "",
+                "SQL: %r %r" % (args, kw),
+                "Results: %r" % (results,),
+                "",
+                ]))
+            return results
+        return self._holder.submit(
+            lambda : self._reallyExecSQL(*args, **kw)
+        )#.addBoth(reportResult)
+
+
     def __del__(self):
         if not self._completed:
-            self._connection.rollback()
-            self._connection.close()
+            print 'CommonStoreTransaction.__del__: OK'
+            self.abort()
 
 
     @memoized('uid', '_calendarHomes')
     def calendarHomeWithUID(self, uid, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, create=create)
 
+
     @memoized('uid', '_addressbookHomes')
     def addressbookHomeWithUID(self, uid, create=False):
         return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
-    def homeWithUID(self, storeType, uid, create=False):
 
+    @inlineCallbacks
+    def homeWithUID(self, storeType, uid, create=False):
         if storeType == ECALENDARTYPE:
             homeTable = CALENDAR_HOME_TABLE
         elif storeType == EADDRESSBOOKTYPE:
             homeTable = ADDRESSBOOK_HOME_TABLE
+        else:
+            raise RuntimeError("Unknown home type.")
 
-        data = self.execSQL(
-            "select %(column_RESOURCE_ID)s from %(name)s where %(column_OWNER_UID)s = %%s" % homeTable,
+        data = yield self.execSQL(
+            "select %(column_RESOURCE_ID)s from %(name)s"
+            " where %(column_OWNER_UID)s = %%s" % homeTable,
             [uid]
         )
         if not data:
             if not create:
-                return None
-
+                returnValue(None)
             # Need to lock to prevent race condition
             # FIXME: this is an entire table lock - ideally we want a row lock
-            # but the row does not exist yet. However, the "exclusive" mode does
-            # allow concurrent reads so the only thing we block is other attempts
-            # to provision a home, which is not too bad
-            self.execSQL(
+            # but the row does not exist yet. However, the "exclusive" mode
+            # does allow concurrent reads so the only thing we block is other
+            # attempts to provision a home, which is not too bad
+            yield self.execSQL(
                 "lock %(name)s in exclusive mode" % homeTable,
             )
-
             # Now test again
-            data = self.execSQL(
-                "select %(column_RESOURCE_ID)s from %(name)s where %(column_OWNER_UID)s = %%s" % homeTable,
+            data = yield self.execSQL(
+                "select %(column_RESOURCE_ID)s from %(name)s"
+                " where %(column_OWNER_UID)s = %%s" % homeTable,
                 [uid]
             )
-
             if not data:
-                self.execSQL(
+                yield self.execSQL(
                     "insert into %(name)s (%(column_OWNER_UID)s) values (%%s)" % homeTable,
                     [uid]
                 )
-                home = self.homeWithUID(storeType, uid)
-                home.createdHome()
-                return home
+                home = yield self.homeWithUID(storeType, uid)
+                yield home.createdHome()
+                returnValue(home)
         resid = data[0][0]
-
         if self._notifierFactory:
-            notifier = self._notifierFactory.newNotifier(id=uid,
-                prefix=NotifierPrefixes[storeType])
+            notifier = self._notifierFactory.newNotifier(
+                id=uid, prefix=NotifierPrefixes[storeType]
+            )
         else:
             notifier = None
-
-        return self._homeClass[storeType](self, uid, resid, notifier)
+        homeObject = self._homeClass[storeType](self, uid, resid, notifier)
+        yield homeObject._loadPropertyStore()
+        returnValue(homeObject)
 
 
     @memoized('uid', '_notificationHomes')
+    @inlineCallbacks
     def notificationsWithUID(self, uid):
         """
         Implement notificationsWithUID.
         """
-        rows = self.execSQL(
+        rows = yield self.execSQL(
             """
             select %(column_RESOURCE_ID)s from %(name)s where
             %(column_OWNER_UID)s = %%s
@@ -246,34 +371,43 @@ class CommonStoreTransaction(object):
             resourceID = rows[0][0]
             created = False
         else:
-            resourceID = str(self.execSQL(
+            resourceID = str((yield self.execSQL(
                 "insert into %(name)s (%(column_OWNER_UID)s) values (%%s) returning %(column_RESOURCE_ID)s" % NOTIFICATION_HOME_TABLE,
                 [uid]
-            )[0][0])
+            ))[0][0])
             created = True
         collection = NotificationCollection(self, uid, resourceID)
+        yield collection._loadPropertyStore()
         if created:
             collection._initSyncToken()
-        return collection
+        returnValue(collection)
+
 
     def abort(self):
         if not self._completed:
-            # print 'ABORTING', self._label
+            def reallyAbort():
+                self._connection.rollback()
+                self._connection.close()
             self._completed = True
-            self._connection.rollback()
-            self._connection.close()
+            result = self._holder.submit(reallyAbort)
+            self._holder.stop()
+            return result
         else:
             raise AlreadyFinishedError()
 
 
     def commit(self):
         if not self._completed:
-            # print 'COMPLETING', self._label
             self._completed = True
-            self._connection.commit()
-            self._connection.close()
-            for operation in self._postCommitOperations:
-                operation()
+            def postCommit(ignored):
+                for operation in self._postCommitOperations:
+                    operation()
+            def reallyCommit():
+                self._connection.commit()
+                self._connection.close()
+            result = self._holder.submit(reallyCommit).addCallback(postCommit)
+            self._holder.stop()
+            return result
         else:
             raise AlreadyFinishedError()
 
@@ -283,7 +417,8 @@ class CommonStoreTransaction(object):
         Run things after 'commit.'
         """
         self._postCommitOperations.append(operation)
-        # FIXME: implement.
+
+
 
 class CommonHome(LoggingMixIn):
 
@@ -335,15 +470,19 @@ class CommonHome(LoggingMixIn):
         return self.uid()
 
 
+    @inlineCallbacks
     def children(self):
         """
         Retrieve children contained in this home.
         """
-        names = self.listChildren()
+        x = []
+        names = yield self.listChildren()
         for name in names:
-            yield self.childWithName(name)
+            x.append((yield self.childWithName(name)))
+        returnValue(x)
 
 
+    @inlineCallbacks
     def listChildren(self):
         """
         Retrieve the names of the children in this home.
@@ -352,7 +491,7 @@ class CommonHome(LoggingMixIn):
         """
         # FIXME: not specified on the interface or exercised by the tests, but
         # required by clients of the implementation!
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             "select %(column_RESOURCE_NAME)s from %(name)s where "
             "%(column_HOME_RESOURCE_ID)s = %%s "
             "and %(column_BIND_MODE)s = %%s " % self._bindTable,
@@ -360,57 +499,60 @@ class CommonHome(LoggingMixIn):
             [self._resourceID, _BIND_MODE_OWN]
         )
         names = [row[0] for row in rows]
-        return names
+        returnValue(names)
 
 
     @memoized('name', '_children')
+    @inlineCallbacks
     def childWithName(self, name):
         """
         Retrieve the child with the given C{name} contained in this
         home.
 
         @param name: a string.
-        @return: an L{ICalendar} or C{None} if no such child
-            exists.
+        @return: an L{ICalendar} or C{None} if no such child exists.
         """
-        data = self._txn.execSQL(
+        data = yield self._txn.execSQL(
             "select %(column_RESOURCE_ID)s from %(name)s where "
             "%(column_RESOURCE_NAME)s = %%s and %(column_HOME_RESOURCE_ID)s = %%s "
             "and %(column_BIND_MODE)s = %%s" % self._bindTable,
             [name, self._resourceID, _BIND_MODE_OWN]
         )
         if not data:
-            return None
+            returnValue(None)
         resourceID = data[0][0]
         if self._notifier:
             childID = "%s/%s" % (self.uid(), name)
             notifier = self._notifier.clone(label="collection", id=childID)
         else:
             notifier = None
-        return self._childClass(self, name, resourceID, notifier)
+        child = self._childClass(self, name, resourceID, notifier)
+        yield child._loadPropertyStore()
+        returnValue(child)
 
 
+    @inlineCallbacks
     def createChildWithName(self, name):
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
 
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             "select %(column_RESOURCE_NAME)s from %(name)s where "
             "%(column_RESOURCE_NAME)s = %%s AND "
             "%(column_HOME_RESOURCE_ID)s = %%s" % self._bindTable,
             [name, self._resourceID]
         )
         if rows:
-            raise HomeChildNameAlreadyExistsError()
+            raise HomeChildNameAlreadyExistsError(name)
 
-        rows = self._txn.execSQL("select nextval('RESOURCE_ID_SEQ')")
+        rows = yield self._txn.execSQL("select nextval('RESOURCE_ID_SEQ')")
         resourceID = rows[0][0]
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             "insert into %(name)s (%(column_RESOURCE_ID)s) values "
             "(%%s)" % self._childTable,
             [resourceID])
 
-        self._txn.execSQL("""
+        yield self._txn.execSQL("""
             insert into %(name)s (
                 %(column_HOME_RESOURCE_ID)s,
                 %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s,
@@ -421,7 +563,7 @@ class CommonHome(LoggingMixIn):
              _BIND_STATUS_ACCEPTED]
         )
 
-        newChild = self.childWithName(name)
+        newChild = yield self.childWithName(name)
         newChild.properties()[
             PropertyName.fromElement(ResourceType)
         ] = newChild.resourceType()
@@ -435,14 +577,14 @@ class CommonHome(LoggingMixIn):
         pass
 
 
+    @inlineCallbacks
     def removeChildWithName(self, name):
-        
-        child = self.childWithName(name)
+        child = yield self.childWithName(name)
         if not child:
             raise NoSuchHomeChildError()
         child._deletedSyncToken()
 
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             "delete from %(name)s where %(column_RESOURCE_ID)s = %%s" % self._childTable,
             [child._resourceID]
         )
@@ -453,16 +595,19 @@ class CommonHome(LoggingMixIn):
         child.notifyChanged()
 
 
+    @inlineCallbacks
     def syncToken(self):
-        revision = self._txn.execSQL(
+        revision = yield self._txn.execSQL(
             """
             select max(%(column_REVISION)s) from %(name)s
             where %(column_HOME_RESOURCE_ID)s = %%s
             """ % self._revisionsTable,
             [self._resourceID,]
         )[0][0]
-        return "%s#%s" % (self._resourceID, revision)
+        returnValue("%s#%s" % (self._resourceID, revision))
 
+
+    @inlineCallbacks
     def resourceNamesSinceToken(self, token, depth):
         results = [
             (
@@ -471,14 +616,14 @@ class CommonHome(LoggingMixIn):
                 deleted
             )
             for path, collection, name, deleted in
-            self._txn.execSQL("""
+            (yield self._txn.execSQL("""
                 select %(BIND:column_RESOURCE_NAME)s, %(REV:column_COLLECTION_NAME)s, %(REV:column_RESOURCE_NAME)s, %(REV:column_DELETED)s
                 from %(REV:name)s
                 left outer join %(BIND:name)s on (%(REV:name)s.%(REV:column_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s)
                 where %(REV:column_REVISION)s > %%s and %(REV:name)s.%(REV:column_HOME_RESOURCE_ID)s = %%s
                 """ % self._revisionBindJoinTable,
                 [token, self._resourceID],
-            )
+            ))
         ]
         
         deleted = []
@@ -497,15 +642,21 @@ class CommonHome(LoggingMixIn):
         
         changed.sort()
         deleted.sort()
-        return changed, deleted,
+        returnValue((changed, deleted))
 
-    @cached
-    def properties(self):
-        return PropertyStore(
+
+    @inlineCallbacks
+    def _loadPropertyStore(self):
+        props = yield PropertyStore.load(
             self.uid(),
             self._txn,
             self._resourceID
         )
+        self._propertyStore = props
+
+
+    def properties(self):
+        return self._propertyStore
 
     
     # IDataStoreResource
@@ -586,16 +737,19 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     def retrieveOldInvites(self):
         return self._invites
 
+
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
+
 
     def name(self):
         return self._name
 
 
+    @inlineCallbacks
     def rename(self, name):
         oldName = self._name
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             "update %(name)s set %(column_RESOURCE_NAME)s = %%s "
             "where %(column_RESOURCE_ID)s = %%s AND "
             "%(column_HOME_RESOURCE_ID)s = %%s" % self._bindTable,
@@ -618,67 +772,92 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self.properties()._setPerUserUID(uid)
 
 
+    @inlineCallbacks
     def objectResources(self):
-        for name in self.listObjectResources():
-            yield self.objectResourceWithName(name)
+        x = []
+        r = x.append
+        for name in (yield self.listObjectResources()):
+            r((yield self.objectResourceWithName(name)))
+        returnValue(x)
 
 
+    @inlineCallbacks
     def listObjectResources(self):
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             "select %(column_RESOURCE_NAME)s from %(name)s "
             "where %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
             [self._resourceID])
-        return sorted([row[0] for row in rows])
+        returnValue(sorted([row[0] for row in rows]))
 
 
     @memoized('name', '_objects')
+    @inlineCallbacks
     def objectResourceWithName(self, name):
-        rows = self._txn.execSQL(
-            "select %(column_RESOURCE_ID)s from %(name)s "
+        rows = yield self._txn.execSQL(
+            "select %(column_RESOURCE_ID)s, %(column_UID)s from %(name)s "
             "where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
             [name, self._resourceID]
         )
         if not rows:
-            return None
-        resid = rows[0][0]
-        return self._objectResourceClass(name, self, resid)
+            returnValue(None)
+        [resid, uid] = rows[0]
+        returnValue((yield self._makeObjectResource(name, resid, uid)))
+
+
+    @inlineCallbacks
+    def _makeObjectResource(self, name, resid, uid):
+        """
+        Create an instance of C{self._objectResourceClass}.
+        """
+        objectResource = yield self._objectResourceClass(
+            name, self, resid, uid
+        )
+        yield objectResource._loadPropertyStore()
+        returnValue(objectResource)
 
 
     @memoized('uid', '_objects')
+    @inlineCallbacks
     def objectResourceWithUID(self, uid):
-        rows = self._txn.execSQL(
-            "select %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s from %(name)s "
-            "where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
+        rows = yield self._txn.execSQL(
+            "select %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s "
+            "from %(name)s where %(column_UID)s = %%s "
+            "and %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
             [uid, self._resourceID]
         )
         if not rows:
-            return None
+            returnValue(None)
         resid = rows[0][0]
         name = rows[0][1]
-        return self._objectResourceClass(name, self, resid)
+        returnValue((yield self._makeObjectResource(name, resid, uid)))
 
 
+    @inlineCallbacks
     def createObjectResourceWithName(self, name, component):
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             "select %(column_RESOURCE_ID)s from %(name)s "
-            "where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
+            "where %(column_RESOURCE_NAME)s = %%s "
+            "and %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
             [name, self._resourceID]
         )
         if rows:
             raise ObjectResourceNameAlreadyExistsError()
 
-        objectResource = self._objectResourceClass(name, self, None)
-        objectResource.setComponent(component, inserting=True)
+        objectResource = (
+            yield self._makeObjectResource(name, None, component.resourceUID())
+        )
+        yield objectResource.setComponent(component, inserting=True)
 
         # Note: setComponent triggers a notification, so we don't need to
         # call notify( ) here like we do for object removal.
 
 
+    @inlineCallbacks
     def removeObjectResourceWithName(self, name):
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             "delete from %(name)s "
             "where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "
             "returning %(column_UID)s" % self._objectTable,
@@ -693,8 +872,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self.notifyChanged()
 
 
+    @inlineCallbacks
     def removeObjectResourceWithUID(self, uid):
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             "delete from %(name)s "
             "where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "
             "returning %(column_RESOURCE_NAME)s" % self._objectTable,
@@ -709,29 +889,33 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self.notifyChanged()
 
 
+    @inlineCallbacks
     def syncToken(self):
-        revision = self._txn.execSQL(
+        revision = yield self._txn.execSQL(
             """
             select %(column_REVISION)s from %(name)s
             where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
             """ % self._revisionsTable,
             [self._resourceID,]
         )[0][0]
-        return "%s#%s" % (self._resourceID, revision,)
+        returnValue(("%s#%s" % (self._resourceID, revision,)))
+
 
     def objectResourcesSinceToken(self, token):
         raise NotImplementedError()
 
+
+    @inlineCallbacks
     def resourceNamesSinceToken(self, token):
         results = [
             (name if name else "", deleted)
             for name, deleted in
-            self._txn.execSQL("""
+            (yield self._txn.execSQL("""
                 select %(column_RESOURCE_NAME)s, %(column_DELETED)s from %(name)s
                 where %(column_REVISION)s > %%s and %(column_RESOURCE_ID)s = %%s
                 """ % self._revisionsTable,
                 [token, self._resourceID],
-            )
+            ))
         ]
         results.sort(key=lambda x:x[1])
         
@@ -745,7 +929,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 else:
                     changed.append(name)
         
-        return changed, deleted,
+        returnValue((changed, deleted))
 
     def _initSyncToken(self):
         
@@ -815,9 +999,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     def _deleteRevision(self, name):
         self._changeRevision("delete", name)
 
+
+    @inlineCallbacks
     def _changeRevision(self, action, name):
 
-        nextrevision = self._txn.execSQL("""
+        nextrevision = yield self._txn.execSQL("""
             select nextval('%(sequence)s')
             """ % self._revisionsTable
         )
@@ -839,7 +1025,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             )
         elif action == "update":
             self._txn.execSQL("""
-                update %(name)s
+              ;  update %(name)s
                 set (%(column_REVISION)s) = (%%s)
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
                 """ % self._revisionsTable,
@@ -857,13 +1043,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             # was deleted. In that case an entry in the REVISIONS table still exists so we have to
             # detect that and do db INSERT or UPDATE as appropriate
 
-            self._txn.execSQL("""
+            found = bool( (yield self._txn.execSQL("""
                 select %(column_RESOURCE_ID)s from %(name)s
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
                 """ % self._revisionsTable,
                 [self._resourceID, name, ]
-            )
-            found = self._txn._cursor.rowcount != 0
+            )) )
             if found:
                 self._txn.execSQL("""
                     update %(name)s
@@ -888,15 +1073,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 [nextrevision, self._resourceID,]
             )
 
-    @cached
-    def properties(self):
-        props = PropertyStore(
+
+    @inlineCallbacks
+    def _loadPropertyStore(self):
+        props = yield PropertyStore.load(
             self.ownerHome().uid(),
             self._txn,
             self._resourceID
         )
         self.initPropertyStore(props)
-        return props
+        self._properties = props
+
+
+    def properties(self):
+        return self._properties
 
     def initPropertyStore(self, props):
         """
@@ -966,18 +1156,37 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     _objectTable = None
 
-    def __init__(self, name, parent, resid):
+    def __init__(self, name, parent, resid, uid):
         self._name = name
         self._parentCollection = parent
         self._resourceID = resid
         self._objectText = None
+        self._uid = uid
+
+
+    @inlineCallbacks
+    def _loadPropertyStore(self):
+        props = yield PropertyStore.load(
+            self.uid(),
+            self._txn,
+            self._resourceID
+        )
+        self.initPropertyStore(props)
+        self._propertyStore = props
+
+
+    def properties(self):
+        return self._propertyStore
+
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
+
     @property
     def _txn(self):
         return self._parentCollection._txn
+
 
     def setComponent(self, component, inserting=False):
         raise NotImplementedError
@@ -987,22 +1196,18 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         raise NotImplementedError
 
 
-    def text(self):
-        raise NotImplementedError
+    @inlineCallbacks
+    def componentType(self):
+        returnValue((yield self.component()).mainType())
 
 
     def uid(self):
-        raise NotImplementedError
+        return self._uid
 
-    @cached
-    def properties(self):
-        props = PropertyStore(
-            self.uid(),
-            self._txn,
-            self._resourceID
-        )
-        self.initPropertyStore(props)
-        return props
+
+    def name(self):
+        return self._name
+
 
     def initPropertyStore(self, props):
         """
@@ -1011,14 +1216,16 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
         @param props: the L{PropertyStore} from C{properties()}.
         """
-        pass
+
 
     # IDataStoreResource
     def contentType(self):
         raise NotImplementedError()
 
+
     def md5(self):
         return None
+
 
     def size(self):
         size = self._txn.execSQL(
@@ -1038,6 +1245,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         utc = datetime.datetime.strptime(created, "%Y-%m-%d %H:%M:%S.%f")
         return datetimeMktime(utc)
 
+
     def modified(self):
         modified = self._txn.execSQL(
             "select %(column_MODIFIED)s from %(name)s "
@@ -1046,6 +1254,22 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         )[0][0]
         utc = datetime.datetime.strptime(modified, "%Y-%m-%d %H:%M:%S.%f")
         return datetimeMktime(utc)
+
+
+    @inlineCallbacks
+    def text(self):
+        if self._objectText is None:
+            text = (yield self._txn.execSQL(
+                "select %(column_TEXT)s from %(name)s where "
+                "%(column_RESOURCE_ID)s = %%s" % self._objectTable,
+                [self._resourceID]
+            ))[0][0]
+            self._objectText = text
+            returnValue(text)
+        else:
+            returnValue(self._objectText)
+
+
 
 class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
@@ -1062,6 +1286,15 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         self._uid = uid
         self._resourceID = resourceID
         self._notifications = {}
+
+
+    @inlineCallbacks
+    def _loadPropertyStore(self):
+        self._propertyStore = yield PropertyStore.load(
+            self._uid,
+            self._txn,
+            self._resourceID
+        )
 
 
     def resourceType(self):
@@ -1083,12 +1316,14 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         for name in self.listNotificationObjects():
             yield self.notificationObjectWithName(name)
 
+
+    @inlineCallbacks
     def listNotificationObjects(self):
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             "select (NOTIFICATION_UID) from NOTIFICATION "
             "where NOTIFICATION_HOME_RESOURCE_ID = %s",
             [self._resourceID])
-        return sorted(["%s.xml" % row[0] for row in rows])
+        returnValue(sorted(["%s.xml" % row[0] for row in rows]))
 
     def _nameToUID(self, name):
         """
@@ -1101,31 +1336,37 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     def notificationObjectWithName(self, name):
         return self.notificationObjectWithUID(self._nameToUID(name))
 
+
     @memoized('uid', '_notifications')
+    @inlineCallbacks
     def notificationObjectWithUID(self, uid):
-        rows = self._txn.execSQL(
+        rows = (yield self._txn.execSQL(
             "select RESOURCE_ID from NOTIFICATION "
             "where NOTIFICATION_UID = %s and NOTIFICATION_HOME_RESOURCE_ID = %s",
-            [uid, self._resourceID])
+            [uid, self._resourceID]))
         if rows:
             resourceID = rows[0][0]
-            return NotificationObject(self, resourceID)
+            no = NotificationObject(self, resourceID)
+            yield no._loadPropertyStore()
+            returnValue(no)
         else:
-            return None
+            returnValue(None)
 
 
+    @inlineCallbacks
     def writeNotificationObject(self, uid, xmltype, xmldata):
 
         inserting = False
-        notificationObject = self.notificationObjectWithUID(uid)
+        notificationObject = yield self.notificationObjectWithUID(uid)
         if notificationObject is None:
             notificationObject = NotificationObject(self, None)
             inserting = True
-        notificationObject.setData(uid, xmltype, xmldata, inserting=inserting)
+        yield notificationObject.setData(uid, xmltype, xmldata, inserting=inserting)
         if inserting:
             self._insertRevision("%s.xml" % (uid,))
         else:
             self._updateRevision("%s.xml" % (uid,))
+
 
     def removeNotificationObjectWithName(self, name):
         self.removeNotificationObjectWithUID(self._nameToUID(name))
@@ -1150,15 +1391,18 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
             [self._resourceID,]
         )
 
+
+    @inlineCallbacks
     def syncToken(self):
-        revision = self._txn.execSQL(
+        revision = yield self._txn.execSQL(
             """
             select %(column_REVISION)s from %(name)s
             where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
             """ % self._revisionsTable,
             [self._resourceID,]
         )[0][0]
-        return "%s#%s" % (self._resourceID, revision,)
+        returnValue("%s#%s" % (self._resourceID, revision,))
+
 
     def objectResourcesSinceToken(self, token):
         raise NotImplementedError()
@@ -1171,16 +1415,17 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         return (changed, removed, token)
 
 
+    @inlineCallbacks
     def resourceNamesSinceToken(self, token):
         results = [
             (name if name else "", deleted)
             for name, deleted in
-            self._txn.execSQL("""
+            (yield self._txn.execSQL("""
                 select %(column_RESOURCE_NAME)s, %(column_DELETED)s from %(name)s
                 where %(column_REVISION)s > %%s and %(column_HOME_RESOURCE_ID)s = %%s
                 """ % self._revisionsTable,
                 [token, self._resourceID],
-            )
+            ))
         ]
         results.sort(key=lambda x:x[1])
         
@@ -1194,7 +1439,8 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                 else:
                     changed.append(name)
         
-        return changed, deleted,
+        returnValue((changed, deleted))
+
 
     def _updateSyncToken(self):
 
@@ -1215,9 +1461,11 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     def _deleteRevision(self, name):
         self._changeRevision("delete", name)
 
+
+    @inlineCallbacks
     def _changeRevision(self, action, name):
 
-        nextrevision = self._txn.execSQL("""
+        nextrevision = yield self._txn.execSQL("""
             select nextval('%(sequence)s')
             """ % self._revisionsTable
         )
@@ -1257,13 +1505,12 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
             # was deleted. In that case an entry in the REVISIONS table still exists so we have to
             # detect that and do db INSERT or UPDATE as appropriate
 
-            self._txn.execSQL("""
+            found = bool( (yield self._txn.execSQL("""
                 select %(column_HOME_RESOURCE_ID)s from %(name)s
                 where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
                 """ % self._revisionsTable,
                 [self._resourceID, name, ]
-            )
-            found = self._txn._cursor.rowcount != 0
+            )))
             if found:
                 self._txn.execSQL("""
                     update %(name)s
@@ -1288,15 +1535,14 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                 [nextrevision, self._resourceID]
             )
 
-    @cached
+
     def properties(self):
-        return PropertyStore(
-            self._uid,
-            self._txn,
-            self._resourceID
-        )
+        return self._propertyStore
+
+
 
 class NotificationObject(LoggingMixIn, FancyEqMixin):
+
     implements(INotificationObject)
 
     compareAttributes = '_resourceID _home'.split()
@@ -1323,18 +1569,20 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         return self.uid() + ".xml"
 
 
+    @inlineCallbacks
     def setData(self, uid, xmltype, xmldata, inserting=False):
 
         xmltypeString = xmltype.toxml()
         if inserting:
-            rows = self._txn.execSQL(
+            rows = yield self._txn.execSQL(
                 "insert into NOTIFICATION (NOTIFICATION_HOME_RESOURCE_ID, NOTIFICATION_UID, XML_TYPE, XML_DATA) "
                 "values (%s, %s, %s, %s) returning RESOURCE_ID",
                 [self._home._resourceID, uid, xmltypeString, xmldata]
             )
             self._resourceID = rows[0][0]
+            yield self._loadPropertyStore()
         else:
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 "update NOTIFICATION set XML_TYPE = %s, XML_DATA = %s "
                 "where NOTIFICATION_HOME_RESOURCE_ID = %s and NOTIFICATION_UID = %s",
                 [xmltypeString, xmldata, self._home._resourceID, uid])
@@ -1342,13 +1590,14 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         self.properties()[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
 
 
+    @inlineCallbacks
     def _fieldQuery(self, field):
-        data = self._txn.execSQL(
+        data = yield self._txn.execSQL(
             "select " + field + " from NOTIFICATION "
             "where RESOURCE_ID = %s",
             [self._resourceID]
         )
-        return data[0][0]
+        returnValue(data[0][0])
 
 
     def xmldata(self):
@@ -1359,15 +1608,19 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         return self._fieldQuery("NOTIFICATION_UID")
 
 
-    @cached
     def properties(self):
-        props = PropertyStore(
+        return self._propertyStore
+
+
+    @inlineCallbacks
+    def _loadPropertyStore(self):
+        self._propertyStore = yield PropertyStore.load(
             self._home.uid(),
             self._txn,
             self._resourceID
         )
-        self.initPropertyStore(props)
-        return props
+        self.initPropertyStore(self._propertyStore)
+
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -1390,28 +1643,35 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         return hashlib.md5(self.xmldata()).hexdigest()
 
 
+    @inlineCallbacks
     def size(self):
-        size = self._txn.execSQL(
+        size = (yield self._txn.execSQL(
             "select character_length(XML_DATA) from NOTIFICATION "
             "where RESOURCE_ID = %s",
             [self._resourceID]
-        )[0][0]
-        return size
+        ))[0][0]
+        returnValue(size)
 
 
+    @inlineCallbacks
     def created(self):
-        created = self._txn.execSQL(
+        created = (yield self._txn.execSQL(
             "select CREATED from NOTIFICATION "
             "where RESOURCE_ID = %s",
             [self._resourceID]
-        )[0][0]
+        ))[0][0]
         utc = datetime.datetime.strptime(created, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        returnValue(datetimeMktime(utc))
 
+
+    @inlineCallbacks
     def modified(self):
-        modified = self._txn.execSQL(
+        modified = (yield self._txn.execSQL(
             "select MODIFIED from NOTIFICATION "
             "where RESOURCE_ID = %s", [self._resourceID]
-        )[0][0]
+        ))[0][0]
         utc = datetime.datetime.strptime(modified, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        returnValue(datetimeMktime(utc))
+
+
+

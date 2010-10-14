@@ -19,8 +19,6 @@ Tests for L{txdav.carddav.datastore.sql}, mostly based on
 L{txdav.carddav.datastore.test.common}.
 """
 
-import time
-
 from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests
 
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE
@@ -32,7 +30,7 @@ from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 
 from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.threads import deferToThread
+
 from twistedcaldav.vcard import Component as VCard
 
 
@@ -56,15 +54,15 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
                 home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
                 # We don't want the default addressbook to appear unless it's
                 # explicitly listed.
-                home.removeAddressBookWithName("addressbook")
+                yield home.removeAddressBookWithName("addressbook")
                 for addressbookName in addressbooks:
                     addressbookObjNames = addressbooks[addressbookName]
                     if addressbookObjNames is not None:
-                        home.createAddressBookWithName(addressbookName)
-                        addressbook = home.addressbookWithName(addressbookName)
+                        yield home.createAddressBookWithName(addressbookName)
+                        addressbook = yield home.addressbookWithName(addressbookName)
                         for objectName in addressbookObjNames:
                             objData = addressbookObjNames[objectName]
-                            addressbook.createAddressBookObjectWithName(
+                            yield addressbook.createAddressBookObjectWithName(
                                 objectName, VCard.fromString(objData)
                             )
 
@@ -89,7 +87,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         @inlineCallbacks
         def namesAndComponents(x, filter=lambda x:x.component()):
             fromObjs = yield x.addressbookObjects()
-            returnValue(dict([(fromObj.name(), filter(fromObj))
+            returnValue(dict([(fromObj.name(), (yield filter(fromObj)))
                               for fromObj in fromObjs]))
         if bAddressbookFilter is not None:
             extra = [bAddressbookFilter]
@@ -137,8 +135,8 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
             "new-home", create=True)
         toAddressbook = yield toHome.addressbookWithName("addressbook")
-        _migrateAddressbook(fromAddressbook, toAddressbook,
-                            lambda x: x.component())
+        yield _migrateAddressbook(fromAddressbook, toAddressbook,
+                                  lambda x: x.component())
         yield self.assertAddressbooksSimilar(fromAddressbook, toAddressbook)
 
 
@@ -165,7 +163,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
             "new-home", create=True
         )
-        migrateHome(fromHome, toHome, lambda x: x.component())
+        yield migrateHome(fromHome, toHome, lambda x: x.component())
         toAddressbooks = yield toHome.addressbooks()
         self.assertEquals(set([c.name() for c in toAddressbooks]),
                           set([k for k in self.requirements['home1'].keys()
@@ -173,7 +171,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         fromAddressbooks = yield fromHome.addressbooks()
         for c in fromAddressbooks:
             self.assertPropertiesSimilar(
-                c, toHome.addressbookWithName(c.name()),
+                c, (yield toHome.addressbookWithName(c.name())),
                 builtinProperties
             )
         self.assertPropertiesSimilar(fromHome, toHome, builtinProperties)
@@ -192,58 +190,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    def test_homeProvisioningConcurrency(self):
-        """
-        Test that two concurrent attempts to provision an addressbook home do
-        not cause a race-condition whereby the second commit results in a
-        second INSERT that violates a unique constraint. Also verify that,
-        whilst the two provisioning attempts are happening and doing various
-        lock operations, that we do not block other reads of the table.
-        """
-
-        addressbookStore1 = yield buildStore(self, self.notifierFactory)
-        addressbookStore2 = yield buildStore(self, self.notifierFactory)
-        addressbookStore3 = yield buildStore(self, self.notifierFactory)
-
-        txn1 = addressbookStore1.newTransaction()
-        txn2 = addressbookStore2.newTransaction()
-        txn3 = addressbookStore3.newTransaction()
-
-        # Provision one home now - we will use this to later verify we can do reads of
-        # existing data in the table
-        home_uid2 = txn3.homeWithUID(EADDRESSBOOKTYPE, "uid2", create=True)
-        self.assertNotEqual(home_uid2, None)
-        yield txn3.commit()
-
-        home_uid1_1 = txn1.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
-
-        def _defer_home_uid1_2():
-            home_uid1_2 = txn2.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
-            txn2.commit() # FIXME: CONCURRENT
-            return home_uid1_2
-        d1 = deferToThread(_defer_home_uid1_2)
-
-        def _pause_home_uid1_1():
-            time.sleep(1)
-            txn1.commit() # FIXME: CONCURRENT
-        d2 = deferToThread(_pause_home_uid1_1)
-
-        # Verify that we can still get to the existing home - i.e. the lock
-        # on the table allows concurrent reads
-        txn4 = addressbookStore3.newTransaction()
-        home_uid2 = txn4.homeWithUID(EADDRESSBOOKTYPE, "uid2", create=True)
-        self.assertNotEqual(home_uid2, None)
-        yield txn4.commit()
-
-        # Now do the concurrent provision attempt
-        yield d2
-        home_uid1_2 = yield d1
-
-        self.assertNotEqual(home_uid1_1, None)
-        self.assertNotEqual(home_uid1_2, None)
-
-
-    @inlineCallbacks
     def test_putConcurrency(self):
         """
         Test that two concurrent attempts to PUT different address book object resources to the
@@ -255,21 +201,22 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
         # Provision the home now
         txn = addressbookStore1.newTransaction()
-        home = txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
         self.assertNotEqual(home, None)
         yield txn.commit()
 
         txn1 = addressbookStore1.newTransaction()
         txn2 = addressbookStore2.newTransaction()
 
-        home1 = txn1.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
-        home2 = txn2.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
-        
-        adbk1 = home1.addressbookWithName("addressbook")
-        adbk2 = home2.addressbookWithName("addressbook")
+        home1 = yield txn1.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        home2 = yield txn2.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
 
+        adbk1 = yield home1.addressbookWithName("addressbook")
+        adbk2 = yield home2.addressbookWithName("addressbook")
+
+        @inlineCallbacks
         def _defer1():
-            adbk1.createObjectResourceWithName("1.vcf", VCard.fromString(
+            yield adbk1.createObjectResourceWithName("1.vcf", VCard.fromString(
                 """BEGIN:VCARD
 VERSION:3.0
 N:Thompson;Default1;;;
@@ -283,11 +230,12 @@ UID:uid1
 END:VCARD
 """.replace("\n", "\r\n")
             ))
-            txn1.commit() # FIXME: CONCURRENT
-        d1 = deferToThread(_defer1)
-            
+            yield txn1.commit() # FIXME: CONCURRENT
+        d1 = _defer1()
+
+        @inlineCallbacks
         def _defer2():
-            adbk2.createObjectResourceWithName("2.vcf", VCard.fromString(
+            yield adbk2.createObjectResourceWithName("2.vcf", VCard.fromString(
                 """BEGIN:VCARD
 VERSION:3.0
 N:Thompson;Default2;;;
@@ -301,8 +249,8 @@ UID:uid2
 END:VCARD
 """.replace("\n", "\r\n")
             ))
-            txn2.commit() # FIXME: CONCURRENT
-        d2 = deferToThread(_defer2)
+            yield txn2.commit() # FIXME: CONCURRENT
+        d2 = _defer2()
 
         yield d1
         yield d2

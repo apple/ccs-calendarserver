@@ -19,18 +19,17 @@ Tests for txdav.caldav.datastore.postgres, mostly based on
 L{txdav.caldav.datastore.test.common}.
 """
 
-import time
-
-from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests
-
-from txdav.common.datastore.sql import ECALENDARTYPE
-from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
-
 from twisted.trial import unittest
-from twisted.internet.defer import inlineCallbacks
-from twisted.internet.threads import deferToThread
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.task import deferLater
+from twisted.internet import reactor
+
 from twext.python.vcomponent import VComponent
 from twext.web2.dav.element.rfc2518 import GETContentLanguage, ResourceType
+
+from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests
+from txdav.common.datastore.sql import ECALENDARTYPE
+from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
 
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
@@ -63,19 +62,24 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         return self._sqlCalendarStore
 
 
+    @inlineCallbacks
     def assertCalendarsSimilar(self, a, b, bCalendarFilter=None):
         """
         Assert that two calendars have a similar structure (contain the same
         events).
         """
-        def namesAndComponents(x, filter=lambda x:x.component()):
-            return dict([(fromObj.name(), filter(fromObj))
-                         for fromObj in x.calendarObjects()])
+        @inlineCallbacks
+        def namesAndComponents(x, filter=lambda x: x.component()):
+            result = {}
+            for fromObj in (yield x.calendarObjects()):
+                result[fromObj.name()] = yield filter(fromObj)
+            returnValue(result)
         if bCalendarFilter is not None:
             extra = [bCalendarFilter]
         else:
             extra = []
-        self.assertEquals(namesAndComponents(a), namesAndComponents(b, *extra))
+        self.assertEquals((yield namesAndComponents(a)),
+                          (yield namesAndComponents(b, *extra)))
 
 
     def assertPropertiesSimilar(self, a, b, disregard=[]):
@@ -104,6 +108,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self.addCleanup(txn.commit)
         return txn
 
+
     @inlineCallbacks
     def test_attachmentPath(self):
         """
@@ -112,7 +117,9 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         L{ICalendarObject.attachmentWithName}.
         """
         yield self.createAttachmentTest(lambda x: x)
-        attachmentRoot = (yield self.calendarObjectUnderTest())._txn._store.attachmentsPath
+        attachmentRoot = (
+            yield self.calendarObjectUnderTest()
+        )._txn._store.attachmentsPath
         attachmentPath = attachmentRoot.child("ho").child("me").child("home1")
         attachmentPath = attachmentPath.child(
             (yield self.calendarObjectUnderTest()).uid()).child(
@@ -131,8 +138,9 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         toHome = yield self.transactionUnderTest().calendarHomeWithUID(
             "new-home", create=True)
         toCalendar = yield toHome.calendarWithName("calendar")
-        _migrateCalendar(fromCalendar, toCalendar, lambda x: x.component())
-        self.assertCalendarsSimilar(fromCalendar, toCalendar)
+        yield _migrateCalendar(fromCalendar, toCalendar,
+                               lambda x: x.component())
+        yield self.assertCalendarsSimilar(fromCalendar, toCalendar)
 
 
     @inlineCallbacks
@@ -157,7 +165,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         toHome = yield self.transactionUnderTest().calendarHomeWithUID(
             "new-home", create=True
         )
-        migrateHome(fromHome, toHome, lambda x: x.component())
+        yield migrateHome(fromHome, toHome, lambda x: x.component())
         toCalendars = yield toHome.calendars()
         self.assertEquals(set([c.name() for c in toCalendars]),
                           set([k for k in self.requirements['home1'].keys()
@@ -183,55 +191,58 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         "stubbed out, as migration only needs to go from file->sql currently")
 
 
-
-
     @inlineCallbacks
     def test_homeProvisioningConcurrency(self):
         """
-        Test that two concurrent attempts to provision a calendar home do not cause a race-condition
-        whereby the second commit results in a second INSERT that violates a unique constraint. Also verify
-        that, whilst the two provisioning attempts are happening and doing various lock operations, that we
-        do not block other reads of the table.
+        Test that two concurrent attempts to provision a calendar home do not
+        cause a race-condition whereby the second commit results in a second
+        C{INSERT} that violates a unique constraint. Also verify that, while
+        the two provisioning attempts are happening and doing various lock
+        operations, that we do not block other reads of the table.
         """
 
-        calendarStore1 = yield buildStore(self, self.notifierFactory)
-        calendarStore2 = yield buildStore(self, self.notifierFactory)
-        calendarStore3 = yield buildStore(self, self.notifierFactory)
+        calendarStore = yield buildStore(self, self.notifierFactory)
 
-        txn1 = calendarStore1.newTransaction()
-        txn2 = calendarStore2.newTransaction()
-        txn3 = calendarStore3.newTransaction()
-        
-        # Provision one home now - we will use this to later verify we can do reads of
-        # existing data in the table
-        home_uid2 = txn3.homeWithUID(ECALENDARTYPE, "uid2", create=True)
+        txn1 = calendarStore.newTransaction()
+        txn2 = calendarStore.newTransaction()
+        txn3 = calendarStore.newTransaction()
+
+        # Provision one home now - we will use this to later verify we can do
+        # reads of existing data in the table
+        home_uid2 = yield txn3.homeWithUID(ECALENDARTYPE, "uid2", create=True)
         self.assertNotEqual(home_uid2, None)
         txn3.commit()
 
-        home_uid1_1 = txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
-        
+        home_uid1_1 = yield txn1.homeWithUID(
+            ECALENDARTYPE, "uid1", create=True
+        )
+
+        @inlineCallbacks
         def _defer_home_uid1_2():
-            home_uid1_2 = txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
-            txn2.commit()
-            return home_uid1_2
-        d1 = deferToThread(_defer_home_uid1_2)
-        
+            home_uid1_2 = yield txn2.homeWithUID(
+                ECALENDARTYPE, "uid1", create=True
+            )
+            yield txn2.commit()
+            returnValue(home_uid1_2)
+        d1 = _defer_home_uid1_2()
+
+        @inlineCallbacks
         def _pause_home_uid1_1():
-            time.sleep(1)
-            txn1.commit()
-        d2 = deferToThread(_pause_home_uid1_1)
-        
+            yield deferLater(reactor, 1.0, lambda : None)
+            yield txn1.commit()
+        d2 = _pause_home_uid1_1()
+
         # Verify that we can still get to the existing home - i.e. the lock
         # on the table allows concurrent reads
-        txn4 = calendarStore3.newTransaction()
-        home_uid2 = txn4.homeWithUID(ECALENDARTYPE, "uid2", create=True)
+        txn4 = calendarStore.newTransaction()
+        home_uid2 = yield txn4.homeWithUID(ECALENDARTYPE, "uid2", create=True)
         self.assertNotEqual(home_uid2, None)
         txn4.commit()
-        
+
         # Now do the concurrent provision attempt
         yield d2
         home_uid1_2 = yield d1
-        
+
         self.assertNotEqual(home_uid1_1, None)
         self.assertNotEqual(home_uid1_2, None)
 
@@ -248,21 +259,22 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
         # Provision the home now
         txn = calendarStore1.newTransaction()
-        home = txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        home = yield txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
         self.assertNotEqual(home, None)
         txn.commit()
 
         txn1 = calendarStore1.newTransaction()
         txn2 = calendarStore2.newTransaction()
 
-        home1 = txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
-        home2 = txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
-        
+        home1 = yield txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        home2 = yield txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+
         adbk1 = yield home1.calendarWithName("calendar")
         adbk2 = yield home2.calendarWithName("calendar")
-        
+
+        @inlineCallbacks
         def _defer1():
-            adbk1.createObjectResourceWithName("1.ics", VComponent.fromString(
+            yield adbk1.createObjectResourceWithName("1.ics", VComponent.fromString(
     "BEGIN:VCALENDAR\r\n"
       "VERSION:2.0\r\n"
       "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
@@ -302,11 +314,12 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
       "END:VEVENT\r\n"
     "END:VCALENDAR\r\n"
             ))
-            txn1.commit()
-        d1 = deferToThread(_defer1)
-            
+            yield txn1.commit()
+        d1 = _defer1()
+
+        @inlineCallbacks
         def _defer2():
-            adbk2.createObjectResourceWithName("2.ics", VComponent.fromString(
+            yield adbk2.createObjectResourceWithName("2.ics", VComponent.fromString(
     "BEGIN:VCALENDAR\r\n"
       "VERSION:2.0\r\n"
       "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
@@ -346,8 +359,8 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
       "END:VEVENT\r\n"
     "END:VCALENDAR\r\n"
             ))
-            txn2.commit()
-        d2 = deferToThread(_defer2)
+            yield txn2.commit()
+        d2 = _defer2()
 
         yield d1
         yield d2

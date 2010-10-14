@@ -42,10 +42,10 @@ class PropertyStoreTest(base.PropertyStoreTest):
         self.notifierFactory = StubNotifierFactory()
         self.store = yield buildStore(self, self.notifierFactory)
         self._txn = self.store.newTransaction()
-        self.propertyStore = self.propertyStore1 = PropertyStore(
+        self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
             "user01", self._txn, 1
         )
-        self.propertyStore2 = PropertyStore("user01", self._txn, 1)
+        self.propertyStore2 = yield PropertyStore.load("user01", self._txn, 1)
         self.propertyStore2._setPerUserUID("user02")
 
 
@@ -60,42 +60,44 @@ class PropertyStoreTest(base.PropertyStoreTest):
         returnValue(result)
 
 
+    @inlineCallbacks
     def _changed(self, store):
         if hasattr(self, "_txn"):
-            self._txn.commit()
+            yield self._txn.commit()
             delattr(self, "_txn")
         self._txn = self.store.newTransaction()
         
         store = self.propertyStore1
-        self.propertyStore = self.propertyStore1 = PropertyStore(
+        self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
             "user01", self._txn, 1
         )
         self.propertyStore1._shadowableKeys = store._shadowableKeys
         self.propertyStore1._globalKeys = store._globalKeys
 
         store = self.propertyStore2
-        self.propertyStore2 = PropertyStore("user01", self._txn, 1)
+        self.propertyStore2 = yield PropertyStore.load("user01", self._txn, 1)
         self.propertyStore2._setPerUserUID("user02")
         self.propertyStore2._shadowableKeys = store._shadowableKeys
         self.propertyStore2._globalKeys = store._globalKeys
 
 
+    @inlineCallbacks
     def _abort(self, store):
         if hasattr(self, "_txn"):
-            self._txn.abort()
+            yield self._txn.abort()
             delattr(self, "_txn")
 
         self._txn = self.store.newTransaction()
 
         store = self.propertyStore1
-        self.propertyStore = self.propertyStore1 = PropertyStore(
+        self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
             "user01", self._txn, 1
         )
         self.propertyStore1._shadowableKeys = store._shadowableKeys
         self.propertyStore1._globalKeys = store._globalKeys
 
         store = self.propertyStore2
-        self.propertyStore2 = PropertyStore("user01", self._txn, 1)
+        self.propertyStore2 = yield PropertyStore.load("user01", self._txn, 1)
         self.propertyStore2._setPerUserUID("user02")
         self.propertyStore2._shadowableKeys = store._shadowableKeys
         self.propertyStore2._globalKeys = store._globalKeys

@@ -2550,8 +2550,6 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
 # Utilities
 ##
 
-def isCalendarHomeCollectionResource(resource):
-    return isinstance(resource, CalendarHomeResource)
 
 def isCalendarCollectionResource(resource):
     try:
@@ -2561,6 +2559,7 @@ def isCalendarCollectionResource(resource):
     else:
         return resource.isCalendarCollection()
 
+
 def isPseudoCalendarCollectionResource(resource):
     try:
         resource = ICalDAVResource(resource)
@@ -2569,8 +2568,6 @@ def isPseudoCalendarCollectionResource(resource):
     else:
         return resource.isPseudoCalendarCollection()
 
-def isAddressBookHomeCollectionResource(resource):
-    return isinstance(resource, AddressBookHomeResource)
 
 def isAddressBookCollectionResource(resource):
     try:

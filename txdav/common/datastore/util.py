@@ -101,7 +101,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             ("calendar", migrateCalendarHome,
                 self.fileStore.eachCalendarHome,
                 lambda txn: txn.calendarHomeWithUID),
-            ("addressbook", migrateAddressbookHome, self.fileStore.eachAddressbookHome,
+            ("addressbook", migrateAddressbookHome,
+                self.fileStore.eachAddressbookHome,
                 lambda txn: txn.addressbookHomeWithUID)
             ]:
             for fileTxn, fileHome in eachFunc():
@@ -109,7 +110,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                 self.log_warn("Migrating %s UID %r" % (homeType, uid))
                 sqlTxn = self.sqlStore.newTransaction(migrating=True)
                 homeGetter = destFunc(sqlTxn)
-                if homeGetter(uid, create=False) is not None:
+                if (yield homeGetter(uid, create=False)) is not None:
                     self.log_warn(
                         "%s home %r already existed not migrating" % (
                             homeType, uid))
@@ -117,6 +118,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                     yield fileTxn.commit()
                     continue
                 sqlHome = yield homeGetter(uid, create=True)
+                if sqlHome is None:
+                    raise RuntimeError("THIS SHOULD NOT BE POSSIBLE.")
                 yield migrateFunc(fileHome, sqlHome)
                 yield fileTxn.commit()
                 yield sqlTxn.commit()
