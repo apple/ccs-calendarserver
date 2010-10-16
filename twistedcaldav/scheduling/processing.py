@@ -441,7 +441,12 @@ class ImplicitProcessor(object):
             # Just try again to get the lock
             reactor.callLater(2.0, self.sendAttendeeAutoReply, *(calendar, resource, partstat))
         else:
+            # inNewTransaction wipes out the remembered resource<-> URL mappings in the
+            # request object but we need to be able to map the actual reply resource to its
+            # URL when doing auto-processing, so we have to sneak that mapping back in here.
             txn = resource.inNewTransaction(self.request)
+            self.request._rememberResource(resource, resource._url)
+
             try:
                 # Send out a reply
                 log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
@@ -629,6 +634,7 @@ class ImplicitProcessor(object):
         # Get a resource for the new item
         newchildURL = joinURL(collURL, name)
         newchild = yield self.request.locateResource(newchildURL)
+        newchild._url = newchildURL
         
         # Now write it to the resource
         from twistedcaldav.method.put_common import StoreCalendarObjectResource

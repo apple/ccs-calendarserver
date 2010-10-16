@@ -19,7 +19,6 @@ from twext.web2.dav.http import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
 from twext.web2.dav.util import joinURL
 from twext.web2.dav.util import parentForURL
 from twext.web2.http import HTTPError
@@ -330,28 +329,22 @@ class ImplicitScheduler(object):
     @inlineCallbacks
     def extractCalendarData(self):
         
-        # Get the originator who is the authenticated user
-        # TODO: the originator actually needs to be the owner of the calendar collection not the authenticated
-        # principal, who might be a proxy or admin
+        # Get the originator who is the owner of the calendar resource being modified
         self.originatorPrincipal = None
         self.originator = ""
-        authz_principal = self.resource.currentPrincipal(self.request).children[0]
-        if isinstance(authz_principal, davxml.HRef):
-            originatorPrincipalURL = str(authz_principal)
-            if originatorPrincipalURL:
-                self.originatorPrincipal = (yield self.request.locateResource(originatorPrincipalURL))
-                if not isinstance(self.originatorPrincipal, DirectoryCalendarPrincipalResource):
-                    log.error("Originator '%s' is not enabled for calendaring" % (originatorPrincipalURL,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "invalid-originator")))
-
-                if self.originatorPrincipal:
-                    # Pick the first mailto cu address or the first other type
-                    for item in self.originatorPrincipal.calendarUserAddresses():
-                        if not self.originator:
-                            self.originator = item
-                        if item.startswith("mailto:"):
-                            self.originator = item
-                            break
+        if self.resource:
+            self.originatorPrincipal = (yield self.resource.ownerPrincipal(self.request))
+            if not isinstance(self.originatorPrincipal, DirectoryCalendarPrincipalResource):
+                log.error("Originator '%s' is not enabled for calendaring" % (self.originatorPrincipal,))
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "invalid-originator")))
+    
+            # Pick the first mailto cu address or the first other type
+            for item in self.originatorPrincipal.calendarUserAddresses():
+                if not self.originator:
+                    self.originator = item
+                if item.startswith("mailto:"):
+                    self.originator = item
+                    break
 
         # Get the ORGANIZER and verify it is the same for all components
         try:
