@@ -424,6 +424,8 @@ class NoDropboxHere(_GetChildHelper):
     def isCollection(self):
         return False
 
+    def exists(self):
+        return False
 
     def http_GET(self, request):
         return NOT_FOUND
