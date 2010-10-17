@@ -24,7 +24,8 @@ import hashlib
 
 from urlparse import urlsplit
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue,\
+    maybeDeferred
 from twisted.internet.protocol import Protocol
 from twisted.python.log import err as logDefaultException
 from twisted.python.util import FancyEqMixin
@@ -172,7 +173,7 @@ class _NewStoreFileMetaDataHelper(object):
 
         # FIXME: direct tests
         try:
-            md5 = self._newStoreObject.md5()
+            md5 = yield self._newStoreObject.md5()
             if md5:
                 returnValue(ETag(md5))
             else:
@@ -334,19 +335,24 @@ class StoreScheduleInboxResource(_CalendarChildHelper, ScheduleInboxResource):
     def name(self):
         return self._newStoreCalendar.name()
 
+
+    @inlineCallbacks
     def etag(self):
-        return ETag(self._newStoreCalendar.md5())
+        returnValue(ETag((yield self._newStoreCalendar.md5())))
+
 
     def lastModified(self):
         return self._newStoreCalendar.modified()
 
+
     def creationDate(self):
         return self._newStoreCalendar.created()
+
 
     def getSyncToken(self):
         return self._newStoreCalendar.syncToken()
 
-    
+
     def provisionFile(self):
         pass
 
@@ -498,7 +504,7 @@ class CalendarObjectDropbox(_GetChildHelper):
         that refer to permissions not referenced by attendees in the iCalendar
         data.
         """
-        attendees = self._newStoreCalendarObject.component().getAttendees()
+        attendees = (yield self._newStoreCalendarObject.component()).getAttendees()
         attendees = [attendee.split("urn:uuid:")[-1] for attendee in attendees]
         document = yield davXMLFromStream(request.stream)
         for ace in document.root_element.children:
@@ -553,7 +559,7 @@ class CalendarObjectDropbox(_GetChildHelper):
             yield self._newStoreCalendarObject.attendeesCanManageAttachments()
         )
         originalACEs = list(originalACL.children)
-        cuas = (self._newStoreCalendarObject.component()).getAttendees()
+        cuas = (yield self._newStoreCalendarObject.component()).getAttendees()
         newACEs = []
         for calendarUserAddress in cuas:
             principal = self.principalForCalendarUserAddress(
@@ -650,10 +656,11 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         self._newStoreAttachment = self._newStoreObject = attachment
 
 
+    @inlineCallbacks
     def etag(self):
         # FIXME: test
-        md5 = self._newStoreAttachment.md5()
-        return ETag(md5)
+        md5 = yield self._newStoreAttachment.md5()
+        returnValue(ETag(md5))
 
 
     def contentType(self):
@@ -733,17 +740,23 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
     def name(self):
         return self._newStoreCalendar.name()
 
+
+    @inlineCallbacks
     def etag(self):
-        return ETag(self._newStoreCalendar.md5())
+        returnValue(ETag((yield self._newStoreCalendar.md5())))
+
 
     def lastModified(self):
         return self._newStoreCalendar.modified()
 
+
     def creationDate(self):
         return self._newStoreCalendar.created()
 
+
     def getSyncToken(self):
         return self._newStoreCalendar.syncToken()
+
 
     def isCollection(self):
         return True
@@ -773,7 +786,7 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
         isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
         accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
-        for name, uid, type in self.index().bruteForceSearch(): #@UnusedVariable
+        for name, uid, type in (yield self.index().bruteForceSearch()): #@UnusedVariable
             try:
                 child = yield request.locateChildResource(self, name)
             except TypeError:
@@ -807,7 +820,7 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
 
         # Cache the data
         data = str(calendar)
-        data = self.getSyncToken() + "\r\n" + data
+        data = (yield self.getSyncToken()) + "\r\n" + data
 
         returnValue(calendar)
 
@@ -1443,17 +1456,23 @@ class AddressBookCollectionResource(_AddressBookChildHelper, CalDAVResource):
     def name(self):
         return self._newStoreAddressBook.name()
 
+
+    @inlineCallbacks
     def etag(self):
-        return ETag(self._newStoreAddressBook.md5())
+        returnValue(ETag((yield self._newStoreAddressBook.md5())))
+
 
     def lastModified(self):
         return self._newStoreAddressBook.modified()
 
+
     def creationDate(self):
         return self._newStoreAddressBook.created()
 
+
     def getSyncToken(self):
         return self._newStoreAddressBook.syncToken()
+
 
     def isCollection(self):
         return True
@@ -1710,9 +1729,10 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
         return True
 
 
+    @inlineCallbacks
     def quotaSize(self, request):
         # FIXME: tests
-        return succeed(len(self._newStoreObject.vCardText()))
+        returnValue(len((yield self._newStoreObject.vCardText())))
 
 
     def vCardText(self, ignored=None):
@@ -1724,12 +1744,14 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
         return self.vCardText()
 
 
+    @inlineCallbacks
     def render(self, request):
-        output = self.vCardText()
+        output = yield self.vCardText()
 
         response = Response(200, {}, output)
         response.headers.setHeader("content-type", self.contentType())
-        return response
+        returnValue(response)
+
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
@@ -1901,12 +1923,15 @@ class _NotificationChildHelper(object):
         self._initializeWithNotifications(notifications, home)
 
 
+    @inlineCallbacks
     def makeChild(self, name):
         """
-        Create a L{NotificationObjectFile} or L{ProtoNotificationObjectFile} based on a
-        path object.
+        Create a L{NotificationObjectFile} or L{ProtoNotificationObjectFile}
+        based on the name of a notification.
         """
-        newStoreObject = self._newStoreNotifications.notificationObjectWithName(name)
+        newStoreObject = (
+            yield self._newStoreNotifications.notificationObjectWithName(name)
+        )
 
         if newStoreObject is not None:
             similar = StoreNotificationObjectFile(newStoreObject, self)
@@ -1919,7 +1944,7 @@ class _NotificationChildHelper(object):
         # FIXME: tests should be failing without this line.
         # Specifically, http_PUT won't be committing its transaction properly.
         self.propagateTransaction(similar)
-        return similar
+        returnValue(similar)
 
 
     @inlineCallbacks
@@ -1969,14 +1994,20 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
     def _indexWhatChanged(self, revision, depth):
         return self._newStoreNotifications.resourceNamesSinceToken(revision)
 
-    def addNotification(self, request, uid, xmltype, xmldata):
 
-        self._newStoreNotifications.writeNotificationObject(uid, xmltype, xmldata)
-        return succeed(None)
+    def addNotification(self, request, uid, xmltype, xmldata):
+        return maybeDeferred(
+            self._newStoreNotifications.writeNotificationObject,
+            uid, xmltype, xmldata
+        )
+
 
     def deleteNotification(self, request, record):
-        self._newStoreNotifications.removeNotificationObjectWithName(record.name)
-        return succeed(None)
+        return maybeDeferred(
+            self._newStoreNotifications.removeNotificationObjectWithName,
+            record.name
+        )
+
 
 class StoreProtoNotificationCollectionResource(NotificationCollectionResource):
     """
@@ -2076,6 +2107,7 @@ class StoreNotificationObjectFile(NotificationResource):
         return True
 
 
+    @inlineCallbacks
     def etag(self):
         # FIXME: far too slow to be used for real, but I needed something to
         # placate the etag computation in the case where the file doesn't exist
@@ -2083,19 +2115,20 @@ class StoreNotificationObjectFile(NotificationResource):
 
         # FIXME: direct tests
         try:
-            md5 = self._newStoreObject.md5()
+            md5 = yield self._newStoreObject.md5()
             if md5:
-                return ETag(md5)
+                returnValue(ETag(md5))
             else:
-                return ETag(
-                    hashlib.new("md5", self.text()).hexdigest(),
+                returnValue(ETag(
+                    hashlib.new("md5", (yield self.text())).hexdigest(),
                     weak=False
-                )
+                ))
         except NoSuchObjectResourceError:
             # FIXME: a workaround for the fact that DELETE still rudely vanishes
             # the calendar object out from underneath the store, and doesn't
             # call storeRemove.
-            return None
+            returnValue(None)
+
 
     def contentType(self):
         return self._newStoreObject.contentType()
@@ -2109,13 +2142,15 @@ class StoreNotificationObjectFile(NotificationResource):
     def creationDate(self):
         return self._newStoreObject.created()
 
+
     def newStoreProperties(self):
         return self._newStoreObject.properties()
 
 
+    @inlineCallbacks
     def quotaSize(self, request):
         # FIXME: tests
-        return succeed(len(self._newStoreObject.xmldata()))
+        returnValue(len((yield self._newStoreObject.xmldata())))
 
 
     def text(self, ignored=None):
@@ -2124,8 +2159,13 @@ class StoreNotificationObjectFile(NotificationResource):
 
 
     @requiresPermissions(davxml.Read())
+    @inlineCallbacks
     def http_GET(self, request):
-        return Response(OK, {"content-type":self.contentType()}, MemoryStream(self.text()))
+        returnValue(
+            Response(OK, {"content-type":self.contentType()},
+                     MemoryStream((yield self.text())))
+        )
+
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):

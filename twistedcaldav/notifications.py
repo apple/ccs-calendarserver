@@ -90,11 +90,14 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
         # Update database
         self.notificationsDB().addOrUpdateRecord(NotificationRecord(uid, rname, xmltype.name))
 
+
     def getNotifictionMessages(self, request, componentType=None, returnLatestVersion=True):
         return succeed([])
 
+
     def getNotifictionMessageByUID(self, request, uid):
         return maybeDeferred(self.notificationsDB().recordForUID, uid)
+
 
     @inlineCallbacks
     def deleteNotifictionMessageByUID(self, request, uid):
@@ -103,6 +106,7 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
         record = yield self.notificationsDB().recordForUID(uid)
         if record:
             yield self.deleteNotification(request, record)
+
 
     @inlineCallbacks
     def deleteNotifictionMessageByName(self, request, rname):
@@ -114,15 +118,17 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
         
         returnValue(None)
 
+
     @inlineCallbacks
     def deleteNotification(self, request, record):
         yield self._deleteNotification(request, record.name)
-        self.notificationsDB().removeRecordForUID(record.uid)
-        
+        yield self.notificationsDB().removeRecordForUID(record.uid)
+
+
     def removedNotifictionMessage(self, request, rname):
-        self.notificationsDB().removeRecordForName(rname)
-        return succeed(None)
-        
+        return maybeDeferred(self.notificationsDB().removeRecordForName, rname)
+
+
 class NotificationRecord(object):
     
     def __init__(self, uid, name, xmltype):

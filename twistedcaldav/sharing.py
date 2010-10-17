@@ -552,7 +552,7 @@ class SharedCollectionMixin(object):
         sharee = self.principalForCalendarUserAddress(record.userid)
         if sharee is None:
             raise ValueError("sharee is None but userid was valid before")
-        notifications = self._associatedTransaction.notificationsWithUID(
+        notifications = yield self._associatedTransaction.notificationsWithUID(
             sharee.principalUID()
         )
         

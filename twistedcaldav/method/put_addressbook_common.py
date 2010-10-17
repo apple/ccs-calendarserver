@@ -356,7 +356,7 @@ class StoreAddressObjectResource(object):
             # Retrieve information from the source, in case we have to delete
             # it.
             sourceProperties = dict(source.newStoreProperties().iteritems())
-            sourceText = source.vCardText()
+            sourceText = yield source.vCardText()
 
             # Delete the original source if needed (for example, if this is a
             # same-calendar MOVE of a calendar object, implemented as an

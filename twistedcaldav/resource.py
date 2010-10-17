@@ -1566,9 +1566,6 @@ class CalDAVResource (
         raise NotImplementedError
 
 
-    def vCardXML(self, name=None):
-        return carddavxml.AddressData.fromAddressData(self.vCardText(name))
-
     def supportedPrivileges(self, request):
         # read-free-busy support on calendar collection and calendar object resources
         if self.isCollection():
@@ -2111,10 +2108,11 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
         # Do normal child types
         returnValue((yield self.makeRegularChild(name)))
 
+
+    @inlineCallbacks
     def createNotificationsCollection(self):
-        
         txn = self._associatedTransaction
-        notifications = txn.notificationsWithUID(self._newStoreHome.uid())
+        notifications = yield txn.notificationsWithUID(self._newStoreHome.uid())
 
         from twistedcaldav.storebridge import StoreNotificationCollectionResource
         similar = StoreNotificationCollectionResource(
@@ -2123,7 +2121,7 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
             principalCollections = self.principalCollections(),
         )
         self.propagateTransaction(similar)
-        return similar
+        returnValue(similar)
 
     def makeRegularChild(self, name):
         raise NotImplementedError

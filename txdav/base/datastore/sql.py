@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import Deferred
 
 """
 Logic common to SQL implementations.
 """
 
+from twisted.internet.defer import Deferred
 from inspect import getargspec
 
 def _getarg(argname, argspec, args, kw):

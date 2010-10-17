@@ -63,11 +63,18 @@ class PostgresLegacyNotificationsEmulator(object):
         self._collection = notificationsCollection
 
 
+    @inlineCallbacks
     def _recordForObject(self, notificationObject):
-        return NotificationRecord(
-            notificationObject.uid(),
-            notificationObject.name(),
-            notificationObject._fieldQuery("XML_TYPE")) if notificationObject else None
+        if notificationObject:
+            returnValue(
+                NotificationRecord(
+                    notificationObject.uid(),
+                    notificationObject.name(),
+                    (yield notificationObject._fieldQuery("XML_TYPE"))
+                )
+            )
+        else:
+            returnValue(None)
 
 
     def recordForName(self, name):
@@ -76,18 +83,19 @@ class PostgresLegacyNotificationsEmulator(object):
         )
 
 
+    @inlineCallbacks
     def recordForUID(self, uid):
-        return self._recordForObject(
-            self._collection.notificationObjectWithUID(uid)
-        )
+        returnValue((yield self._recordForObject(
+            (yield self._collection.notificationObjectWithUID(uid))
+        )))
 
 
     def removeRecordForUID(self, uid):
-        self._collection.removeNotificationObjectWithUID(uid)
+        return self._collection.removeNotificationObjectWithUID(uid)
 
 
     def removeRecordForName(self, name):
-        self._collection.removeNotificationObjectWithName(name)
+        return self._collection.removeNotificationObjectWithName(name)
 
 
 
@@ -514,8 +522,8 @@ class SQLLegacyShares(object):
         splithost = record.hosturl.split('/')
         ownerUID = splithost[3]
         ownerCollectionName = splithost[4]
-        ownerHome = self._getHomeWithUID(ownerUID)
-        ownerCollection = ownerHome.childWithName(ownerCollectionName)
+        ownerHome = yield self._getHomeWithUID(ownerUID)
+        ownerCollection = yield ownerHome.childWithName(ownerCollectionName)
         collectionResourceID = ownerCollection._resourceID
 
         if record.sharetype == 'I':
@@ -524,7 +532,7 @@ class SQLLegacyShares(object):
             # invitation.  The invitation's UID is the same as the share UID.  I
             # just need to update its 'localname', i.e.
             # XXX_BIND.XXX_RESOURCE_NAME.
-    
+
             yield self._txn.execSQL(
                 """
                 update %(name)s
@@ -535,7 +543,6 @@ class SQLLegacyShares(object):
                 [record.localname, self._home._resourceID, collectionResourceID]
             )
         elif record.sharetype == 'D':
-            
             # There is no bind entry already so add one.
 
             yield self._txn.execSQL(
@@ -939,7 +946,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         """
         obj = yield self.calendar.calendarObjectWithName(name)
         yield obj.updateDatabase(
-            obj.component(), expand_until=expand_until, reCreate=True
+            (yield obj.component()), expand_until=expand_until, reCreate=True
         )
 
 

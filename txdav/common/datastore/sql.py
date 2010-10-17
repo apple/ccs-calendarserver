@@ -602,13 +602,13 @@ class CommonHome(LoggingMixIn):
 
     @inlineCallbacks
     def syncToken(self):
-        revision = yield self._txn.execSQL(
+        revision = (yield self._txn.execSQL(
             """
             select max(%(column_REVISION)s) from %(name)s
             where %(column_HOME_RESOURCE_ID)s = %%s
             """ % self._revisionsTable,
             [self._resourceID,]
-        )[0][0]
+        ))[0][0]
         returnValue("%s#%s" % (self._resourceID, revision))
 
 
@@ -896,13 +896,13 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     @inlineCallbacks
     def syncToken(self):
-        revision = yield self._txn.execSQL(
+        revision = (yield self._txn.execSQL(
             """
             select %(column_REVISION)s from %(name)s
             where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
             """ % self._revisionsTable,
             [self._resourceID,]
-        )[0][0]
+        ))[0][0]
         returnValue(("%s#%s" % (self._resourceID, revision,)))
 
 
@@ -1337,9 +1337,13 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     def uid(self):
         return self._uid
 
+
+    @inlineCallbacks
     def notificationObjects(self):
-        for name in self.listNotificationObjects():
-            yield self.notificationObjectWithName(name)
+        L = []
+        for name in (yield self.listNotificationObjects()):
+            L.append((yield self.notificationObjectWithName(name)))
+        returnValue(L)
 
 
     @inlineCallbacks
@@ -1372,7 +1376,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
             [uid, self._resourceID]))
         if rows:
             resourceID = rows[0][0]
-            no = NotificationObject(self, resourceID)
+            no = NotificationObject(self, uid, resourceID)
             yield no._loadPropertyStore()
             returnValue(no)
         else:
@@ -1385,7 +1389,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         inserting = False
         notificationObject = yield self.notificationObjectWithUID(uid)
         if notificationObject is None:
-            notificationObject = NotificationObject(self, None)
+            notificationObject = NotificationObject(self, uid, None)
             inserting = True
         yield notificationObject.setData(uid, xmltype, xmldata, inserting=inserting)
         if inserting:
@@ -1421,13 +1425,13 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
     @inlineCallbacks
     def syncToken(self):
-        revision = yield self._txn.execSQL(
+        revision = (yield self._txn.execSQL(
             """
             select %(column_REVISION)s from %(name)s
             where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
             """ % self._revisionsTable,
             [self._resourceID,]
-        )[0][0]
+        ))[0][0]
         returnValue("%s#%s" % (self._resourceID, revision,))
 
 
@@ -1576,8 +1580,9 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
     compareAttributes = '_resourceID _home'.split()
 
-    def __init__(self, home, resourceID):
+    def __init__(self, home, uid, resourceID):
         self._home = home
+        self._uid = uid
         self._resourceID = resourceID
 
 
@@ -1592,6 +1597,10 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
     def notificationCollection(self):
         return self._home
+
+
+    def uid(self):
+        return self._uid
 
 
     def name(self):
@@ -1633,10 +1642,6 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         return self._fieldQuery("XML_DATA")
 
 
-    def uid(self):
-        return self._fieldQuery("NOTIFICATION_UID")
-
-
     def properties(self):
         return self._propertyStore
 
@@ -1661,6 +1666,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
             ),
         )
 
+
     def contentType(self):
         """
         The content type of NotificationObjects is text/xml.
@@ -1668,8 +1674,9 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         return MimeType.fromString("text/xml")
 
 
+    @inlineCallbacks
     def md5(self):
-        return hashlib.md5(self.xmldata()).hexdigest()
+        returnValue(hashlib.md5((yield self.xmldata())).hexdigest())
 
 
     @inlineCallbacks

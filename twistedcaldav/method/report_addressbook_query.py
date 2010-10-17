@@ -214,7 +214,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                         index_query_ok = addrresource.index().searchValid(filter)
                     
                         # Get list of children that match the search and have read access
-                        names = [name for name, ignore_uid in addrresource.index().search(filter)] #@UnusedVariable
+                        names = [name for name, ignore_uid in (yield addrresource.index().search(filter))] #@UnusedVariable
                         if not names:
                             return
                           
