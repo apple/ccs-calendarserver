@@ -30,6 +30,8 @@ I hold the lowest-level L{Resource} class and related mix-in classes.
 # System Imports
 from zope.interface import implements
 
+from twisted.internet.defer import inlineCallbacks, returnValue
+
 from twext.web2 import iweb, http, server, responsecode
 
 class RenderMixin(object):
@@ -71,6 +73,8 @@ class RenderMixin(object):
         if method:
             return method(request)
 
+
+    @inlineCallbacks
     def renderHTTP(self, request):
         """
         See L{iweb.IResource.renderHTTP}.
@@ -96,16 +100,14 @@ class RenderMixin(object):
         @return: an object adaptable to L{iweb.IResponse}.
         """
         method = getattr(self, "http_" + request.method, None)
-        if not method:
+        if method is None:
             response = http.Response(responsecode.NOT_ALLOWED)
             response.headers.setHeader("allow", self.allowedMethods())
-            return response
+            returnValue(response)
 
-        d = self.checkPreconditions(request)
-        if d is None:
-            return method(request)
-        else:
-            return d.addCallback(lambda _: method(request))
+        yield self.checkPreconditions(request)
+        returnValue((yield method(request)))
+
 
     def http_OPTIONS(self, request):
         """

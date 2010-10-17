@@ -697,13 +697,14 @@ class StoreCalendarObjectResource(object):
             
         returnValue((is_scheduling_resource, data_changed, did_implicit_action,))
 
+
     @inlineCallbacks
     def mergePerUserData(self):
         if self.calendar:
             accessUID = (yield self.destination.resourceOwnerPrincipal(self.request))
             accessUID = accessUID.principalUID() if accessUID else ""
             if self.destination.exists() and self.destinationcal:
-                oldCal = self.destination.iCalendar()
+                oldCal = yield self.destination.iCalendar()
             else:
                 oldCal = None
 
@@ -718,7 +719,8 @@ class StoreCalendarObjectResource(object):
                 log.err(msg)
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
             self.calendardata = None
-            
+
+
     @inlineCallbacks
     def doStore(self, implicit):
 
@@ -733,7 +735,7 @@ class StoreCalendarObjectResource(object):
             sourceProperties = dict(source.newStoreProperties().iteritems())
             if not implicit:
                 # Only needed in implicit case; see below.
-                sourceText = source.iCalendarText()
+                sourceText = yield source.iCalendarText()
 
             # Delete the original source if needed (for example, if this is a
             # same-calendar MOVE of a calendar object, implemented as an
@@ -760,6 +762,7 @@ class StoreCalendarObjectResource(object):
             self.destination.removeDeadProperty(TwistedCalendarAccessProperty)                
 
         returnValue(IResponse(response))
+
 
     @inlineCallbacks
     def doStorePut(self):
@@ -934,7 +937,7 @@ class StoreCalendarObjectResource(object):
                             etags = self.destination.readDeadProperty(TwistedScheduleMatchETags).children
                         else:
                             etags = ()
-                    etags += (davxml.GETETag.fromString(self.destination.etag().tag),)
+                    etags += (davxml.GETETag.fromString((yield self.destination.etag()).tag),)
                     self.destination.writeDeadProperty(TwistedScheduleMatchETags(*etags))
                 else:
                     self.destination.removeDeadProperty(TwistedScheduleMatchETags)                

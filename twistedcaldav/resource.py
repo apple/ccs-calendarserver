@@ -1128,7 +1128,7 @@ class CalDAVResource (
                     ).iCalendarForUser(request))
             )
 
-        caldata = self.iCalendar()
+        caldata = yield self.iCalendar()
 
         accessUID = (yield self.resourceOwnerPrincipal(request))
         if accessUID is None:
@@ -1463,6 +1463,7 @@ class CalDAVResource (
         
 
 
+    @inlineCallbacks
     def iCalendarTextFiltered(self, isowner, accessUID=None):
         try:
             access = self.readDeadProperty(TwistedCalendarAccessProperty)
@@ -1470,10 +1471,12 @@ class CalDAVResource (
             access = None
 
         # Now "filter" the resource calendar data
-        caldata = PrivateEventFilter(access, isowner).filter(self.iCalendarText())
+        caldata = PrivateEventFilter(access, isowner).filter(
+            (yield self.iCalendarText())
+        )
         if accessUID:
             caldata = PerUserDataFilter(accessUID).filter(caldata)
-        return str(caldata)
+        returnValue(str(caldata))
 
 
     def iCalendarText(self):

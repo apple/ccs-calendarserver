@@ -160,44 +160,53 @@ class _NewStoreFileMetaDataHelper(object):
     def name(self):
         return self._newStoreObject.name() if self._newStoreObject is not None else None
 
+
+    @inlineCallbacks
     def etag(self):
         # FIXME: far too slow to be used for real, but I needed something to
         # placate the etag computation in the case where the file doesn't exist
         # yet (an uncommitted transaction creating this calendar file)
 
         if self._newStoreObject is None:
-            return None
+            returnValue(None)
 
         # FIXME: direct tests
         try:
             md5 = self._newStoreObject.md5()
             if md5:
-                return ETag(md5)
+                returnValue(ETag(md5))
             else:
-                return ETag(
-                    hashlib.new("md5", self.text()).hexdigest(),
+                returnValue(ETag(
+                    hashlib.new("md5", (yield self.text())).hexdigest(),
                     weak=False
-                )
+                ))
         except NoSuchObjectResourceError:
             # FIXME: a workaround for the fact that DELETE still rudely vanishes
             # the calendar object out from underneath the store, and doesn't
             # call storeRemove.
-            return None
+            returnValue(None)
+
 
     def contentType(self):
         return self._newStoreObject.contentType() if self._newStoreObject is not None else None
 
+
     def contentLength(self):
         return self._newStoreObject.size() if self._newStoreObject is not None else None
+
 
     def lastModified(self):
         return self._newStoreObject.modified() if self._newStoreObject is not None else None
 
+
     def creationDate(self):
         return self._newStoreObject.created() if self._newStoreObject is not None else None
 
+
     def newStoreProperties(self):
         return self._newStoreObject.properties() if self._newStoreObject is not None else None
+
+
 
 class _CalendarChildHelper(object):
     """
@@ -313,7 +322,7 @@ class StoreScheduleInboxResource(_CalendarChildHelper, ScheduleInboxResource):
             # FIXME: spurious error, sanity check, should not be needed;
             # unfortunately, user09's calendar home does not have an inbox, so
             # this is a temporary workaround.
-            home.createCalendarWithName("inbox")
+            yield home.createCalendarWithName("inbox")
             storage = yield home.calendarWithName("inbox")
         self._initializeWithCalendar(
             storage,
@@ -778,7 +787,7 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
                     continue
 
                 # Get the access filtered view of the data
-                caldata = child.iCalendarTextFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
+                caldata = yield child.iCalendarTextFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
                 try:
                     subcalendar = vcomponent.VComponent.fromString(caldata)
                 except ValueError:
@@ -1008,7 +1017,7 @@ class ProtoCalendarCollectionResource(CalDAVResource):
         """
         Override C{createCalendarCollection} to actually do the work.
         """
-        self._newStoreParentHome.createCalendarWithName(self._name)
+        yield self._newStoreParentHome.createCalendarWithName(self._name)
         newStoreCalendar = yield self._newStoreParentHome.calendarWithName(
             self._name
         )
@@ -1094,9 +1103,10 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         return True
 
 
+    @inlineCallbacks
     def quotaSize(self, request):
         # FIXME: tests
-        return succeed(len(self._newStoreObject.iCalendarText()))
+        returnValue(len((yield self.iCalendarText())))
 
 
     def iCalendarText(self):
@@ -1125,7 +1135,7 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         component = vcomponent.VComponent.fromString(
             (yield allDataFromStream(stream))
         )
-        self._newStoreObject.setComponent(component)
+        yield self._newStoreObject.setComponent(component)
         returnValue(NO_CONTENT)
 
 
@@ -1220,7 +1230,7 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
 
             # FIXME: public attribute please.  Should ICalendar maybe just have
             # a delete() method?
-            storeCalendar.removeCalendarObjectWithName(
+            yield storeCalendar.removeCalendarObjectWithName(
                 self._newStoreObject.name()
             )
 
@@ -1280,7 +1290,7 @@ class ProtoCalendarObjectResource(CalDAVResource, FancyEqMixin):
         component = vcomponent.VComponent.fromString(
             (yield allDataFromStream(stream))
         )
-        self._newStoreParentCalendar.createCalendarObjectWithName(
+        yield self._newStoreParentCalendar.createCalendarObjectWithName(
             self.name(), component
         )
         CalendarObjectResource.transform(
@@ -1534,7 +1544,7 @@ class AddressBookCollectionResource(_AddressBookChildHelper, CalDAVResource):
             yield self.downgradeFromShare(request)
 
         # Actually delete it.
-        self._newStoreParentHome.removeAddressBookWithName(
+        yield self._newStoreParentHome.removeAddressBookWithName(
             self._newStoreAddressBook.name()
         )
         self.__class__ = ProtoAddressBookCollectionResource
@@ -1630,7 +1640,7 @@ class ProtoAddressBookCollectionResource(CalDAVResource):
         """
         Override C{createAddressBookCollection} to actually do the work.
         """
-        self._newStoreParentHome.createAddressBookWithName(self._name)
+        yield self._newStoreParentHome.createAddressBookWithName(self._name)
         newStoreAddressBook = yield self._newStoreParentHome.addressbookWithName(
             self._name
         )
@@ -1735,7 +1745,7 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
         component = VCard.fromString(
             (yield allDataFromStream(stream))
         )
-        self._newStoreObject.setComponent(component)
+        yield self._newStoreObject.setComponent(component)
         returnValue(NO_CONTENT)
 
 
@@ -1758,7 +1768,9 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
             # Do delete
 
             # FIXME: public attribute please
-            storeAddressBook.removeAddressBookObjectWithName(self._newStoreObject.name())
+            yield storeAddressBook.removeAddressBookObjectWithName(
+                self._newStoreObject.name()
+            )
 
             # FIXME: clean this up with a 'transform' method
             self._newStoreParentAddressBook = storeAddressBook
@@ -1798,13 +1810,14 @@ class ProtoAddressBookObjectResource(CalDAVResource, FancyEqMixin):
         self._newStoreParentAddressBook = parentAddressBook
         self._name = name
 
+
     @inlineCallbacks
     def storeStream(self, stream):
         # FIXME: direct tests 
         component = VCard.fromString(
             (yield allDataFromStream(stream))
         )
-        self._newStoreParentAddressBook.createAddressBookObjectWithName(
+        yield self._newStoreParentAddressBook.createAddressBookObjectWithName(
             self.name(), component
         )
         AddressBookObjectResource.transform(

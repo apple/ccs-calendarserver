@@ -9,7 +9,7 @@ from sets import Set as set
 
 from zope.interface import implements
 
-from twisted.internet.defer import succeed, fail
+from twisted.internet.defer import succeed, fail, inlineCallbacks
 from twisted.trial import unittest
 from twext.web2 import responsecode
 from twext.web2.iweb import IResource
@@ -78,6 +78,8 @@ class RenderMixInTestCase (unittest.TestCase):
             self._my_allowed_methods
         )
 
+
+    @inlineCallbacks
     def test_checkPreconditions_raises(self):
         """
         RenderMixin.checkPreconditions()
@@ -87,11 +89,17 @@ class RenderMixInTestCase (unittest.TestCase):
         request = SimpleRequest(Site(resource), "BLEARGH", "/")
 
         # Check that checkPreconditions raises as expected
-        self.assertRaises(PreconditionError, resource.checkPreconditions, request)
+        self.assertRaises(
+            PreconditionError, resource.checkPreconditions, request
+        )
 
         # Check that renderHTTP calls checkPreconditions
-        self.assertRaises(PreconditionError, resource.renderHTTP, request)
+        yield self.failUnlessFailure(
+            resource.renderHTTP(request), PreconditionError
+        )
 
+
+    @inlineCallbacks
     def test_checkPreconditions_none(self):
         """
         RenderMixin.checkPreconditions()
@@ -101,7 +109,11 @@ class RenderMixInTestCase (unittest.TestCase):
         request = SimpleRequest(Site(resource), "SWEETHOOKUPS", "/")
 
         # Check that checkPreconditions without a raise doesn't barf
-        self.assertEquals(resource.renderHTTP(request), responsecode.NO_CONTENT)
+        self.assertEquals(
+            (yield resource.renderHTTP(request)),
+            responsecode.NO_CONTENT
+        )
+
 
     def test_checkPreconditions_deferred(self):
         """

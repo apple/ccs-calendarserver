@@ -15,6 +15,10 @@
 # limitations under the License.
 ##
 
+"""
+SQL backend for CalDAV storage.
+"""
+
 __all__ = [
     "CalendarHome",
     "Calendar",
@@ -216,6 +220,8 @@ indexfbtype_to_icalfbtype = {
 def _pathToName(path):
     return path.rsplit(".", 1)[0]
 
+
+
 class CalendarObject(CommonObjectResource):
     implements(ICalendarObject)
 
@@ -225,17 +231,20 @@ class CalendarObject(CommonObjectResource):
     def _calendar(self):
         return self._parentCollection
 
+
     def calendar(self):
         return self._calendar
 
+
+    @inlineCallbacks
     def setComponent(self, component, inserting=False):
         validateCalendarComponent(self, self._calendar, component, inserting)
 
-        self.updateDatabase(component, inserting=inserting)
+        yield self.updateDatabase(component, inserting=inserting)
         if inserting:
-            self._calendar._insertRevision(self._name)
+            yield self._calendar._insertRevision(self._name)
         else:
-            self._calendar._updateRevision(self._name)
+            yield self._calendar._updateRevision(self._name)
 
         self._calendar.notifyChanged()
 
@@ -306,7 +315,7 @@ class CalendarObject(CommonObjectResource):
                 ]
             ))[0][0]
         else:
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 update CALENDAR_OBJECT set
                 (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX, MODIFIED)
@@ -329,7 +338,7 @@ class CalendarObject(CommonObjectResource):
             )
 
             # Need to wipe the existing time-range for this and rebuild
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 delete from TIME_RANGE where CALENDAR_OBJECT_RESOURCE_ID = %s
                 """,
@@ -368,7 +377,7 @@ class CalendarObject(CommonObjectResource):
             ))[0][0]
             peruserdata = component.perUserTransparency(instance.rid)
             for useruid, transp in peruserdata:
-                self._txn.execSQL(
+                yield self._txn.execSQL(
                     """
                     insert into TRANSPARENCY
                     (TIME_RANGE_INSTANCE_ID, USER_ID, TRANSPARENT)
@@ -409,7 +418,7 @@ class CalendarObject(CommonObjectResource):
             ))[0][0]
             peruserdata = component.perUserTransparency(None)
             for useruid, transp in peruserdata:
-                self._txn.execSQL(
+                yield self._txn.execSQL(
                     """
                     insert into TRANSPARENCY
                     (TIME_RANGE_INSTANCE_ID, USER_ID, TRANSPARENT)
@@ -459,10 +468,11 @@ class CalendarObject(CommonObjectResource):
         returnValue(attachment.store(contentType))
 
 
+    @inlineCallbacks
     def removeAttachmentWithName(self, name):
         attachment = Attachment(self, name)
         self._txn.postCommit(attachment._path.remove)
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             """
             delete from ATTACHMENT where CALENDAR_OBJECT_RESOURCE_ID = %s AND
             PATH = %s
@@ -479,8 +489,11 @@ class CalendarObject(CommonObjectResource):
             returnValue(None)
 
 
+    @inlineCallbacks
     def attendeesCanManageAttachments(self):
-        return self.component().hasPropertyInAnyComponent("X-APPLE-DROPBOX")
+        returnValue((yield self.component()).hasPropertyInAnyComponent(
+            "X-APPLE-DROPBOX"
+        ))
 
 
     dropboxID = dropboxIDFromCalendarObject
@@ -551,16 +564,20 @@ class AttachmentStorageTransport(object):
         self.hash.update(data)
 
 
+    @inlineCallbacks
     def loseConnection(self):
         self.attachment._path.setContent(self.buf)
         contentTypeString = generateContentType(self.contentType)
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             """
             update ATTACHMENT set CONTENT_TYPE = %s, SIZE = %s, MD5 = %s,
             MODIFIED = timezone('UTC', CURRENT_TIMESTAMP) WHERE PATH = %s
             """,
-            [contentTypeString, len(self.buf), self.hash.hexdigest(), self.attachment.name()]
+            [contentTypeString, len(self.buf),
+             self.hash.hexdigest(), self.attachment.name()]
         )
+
+
 
 class Attachment(object):
 
@@ -586,7 +603,9 @@ class Attachment(object):
         rows = yield self._txn.execSQL(
             """
             select CONTENT_TYPE, SIZE, MD5, CREATED, MODIFIED from ATTACHMENT where PATH = %s
-            """, [self._name])
+            """,
+            [self._name]
+        )
         if not rows:
             returnValue(False)
         self._contentType = MimeType.fromString(rows[0][0])

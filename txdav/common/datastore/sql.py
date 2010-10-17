@@ -60,7 +60,7 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.base.datastore.sql import memoized
-from txdav.base.datastore.util import cached
+
 from txdav.idav import AlreadyFinishedError
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.sql import PropertyStore
@@ -274,18 +274,23 @@ class CommonStoreTransaction(object):
             return None
 
 
+    noisy = False
+
     def execSQL(self, *args, **kw):
-        def reportResult(results):
-            sys.stdout.write("\n".join([
-                "",
-                "SQL: %r %r" % (args, kw),
-                "Results: %r" % (results,),
-                "",
-                ]))
-            return results
-        return self._holder.submit(
+        result = self._holder.submit(
             lambda : self._reallyExecSQL(*args, **kw)
-        )#.addBoth(reportResult)
+        )
+        if self.noisy:
+            def reportResult(results):
+                sys.stdout.write("\n".join([
+                    "",
+                    "SQL: %r %r" % (args, kw),
+                    "Results: %r" % (results,),
+                    "",
+                    ]))
+                return results
+            result.addBoth(reportResult)
+        return result
 
 
     def __del__(self):
@@ -582,7 +587,7 @@ class CommonHome(LoggingMixIn):
         child = yield self.childWithName(name)
         if not child:
             raise NoSuchHomeChildError()
-        child._deletedSyncToken()
+        yield child._deletedSyncToken()
 
         yield self._txn.execSQL(
             "delete from %(name)s where %(column_RESOURCE_ID)s = %%s" % self._childTable,
@@ -931,10 +936,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         
         returnValue((changed, deleted))
 
+
+    @inlineCallbacks
     def _initSyncToken(self):
-        
+
         # Remove any deleted revision entry that uses the same name
-        self._txn.execSQL("""
+        yield self._txn.execSQL("""
             delete from %(name)s
             where %(column_HOME_RESOURCE_ID)s = %%s and %(column_COLLECTION_NAME)s = %%s
             """ % self._revisionsTable,
@@ -942,7 +949,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         )
 
         # Insert new entry
-        self._txn.execSQL("""
+        yield self._txn.execSQL("""
             insert into %(name)s
             (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_ID)s, %(column_COLLECTION_NAME)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
             values (%%s, %%s, %%s, null, nextval('%(sequence)s'), FALSE)
@@ -950,9 +957,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             [self._home._resourceID, self._resourceID, self._name]
         )
 
+
+    @inlineCallbacks
     def _updateSyncToken(self):
 
-        self._txn.execSQL("""
+        yield self._txn.execSQL("""
             update %(name)s
             set (%(column_REVISION)s) = (nextval('%(sequence)s'))
             where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
@@ -960,9 +969,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             [self._resourceID,]
         )
 
+
+    @inlineCallbacks
     def _renameSyncToken(self):
 
-        self._txn.execSQL("""
+        yield self._txn.execSQL("""
             update %(name)s
             set (%(column_REVISION)s, %(column_COLLECTION_NAME)s) = (nextval('%(sequence)s'), %%s)
             where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
@@ -970,18 +981,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             [self._name, self._resourceID,]
         )
 
+
+    @inlineCallbacks
     def _deletedSyncToken(self):
 
         # Remove all child entries
-        self._txn.execSQL("""
+        yield self._txn.execSQL("""
             delete from %(name)s
             where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_ID)s = %%s and %(column_COLLECTION_NAME)s is null
             """ % self._revisionsTable,
             [self._home._resourceID, self._resourceID,]
         )
-        
+
         # Then adjust collection entry to deleted state
-        self._txn.execSQL("""
+        yield self._txn.execSQL("""
             update %(name)s
             set (%(column_RESOURCE_ID)s, %(column_REVISION)s, %(column_DELETED)s)
              = (null, nextval('%(sequence)s'), TRUE)
@@ -990,14 +1003,15 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             [self._resourceID,]
         )
 
+
     def _insertRevision(self, name):
-        self._changeRevision("insert", name)
+        return self._changeRevision("insert", name)
 
     def _updateRevision(self, name):
-        self._changeRevision("update", name)
+        return self._changeRevision("update", name)
 
     def _deleteRevision(self, name):
-        self._changeRevision("delete", name)
+        return self._changeRevision("delete", name)
 
 
     @inlineCallbacks
@@ -1009,14 +1023,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         )
 
         if action == "delete":
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
                 update %(name)s
                 set (%(column_REVISION)s, %(column_DELETED)s) = (%%s, TRUE)
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
                 """ % self._revisionsTable,
                 [nextrevision, self._resourceID, name]
             )
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
                 update %(name)s
                 set (%(column_REVISION)s) = (%%s)
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
@@ -1024,14 +1038,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 [nextrevision, self._resourceID,]
             )
         elif action == "update":
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
               ;  update %(name)s
                 set (%(column_REVISION)s) = (%%s)
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
                 """ % self._revisionsTable,
                 [nextrevision, self._resourceID, name]
             )
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
                 update %(name)s
                 set (%(column_REVISION)s) = (%%s)
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
@@ -1050,7 +1064,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 [self._resourceID, name, ]
             )) )
             if found:
-                self._txn.execSQL("""
+                yield self._txn.execSQL("""
                     update %(name)s
                     set (%(column_REVISION)s, %(column_DELETED)s) = (%%s, FALSE)
                     where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
@@ -1058,14 +1072,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                     [nextrevision, self._resourceID, name]
                 )
             else:
-                self._txn.execSQL("""
+                yield self._txn.execSQL("""
                     insert into %(name)s
                     (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
                     values (%%s, %%s, %%s, %%s, FALSE)
                     """ % self._revisionsTable,
                     [self._home._resourceID, self._resourceID, name, nextrevision]
                 )
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
                 update %(name)s
                 set (%(column_REVISION)s) = (%%s)
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
@@ -1088,6 +1102,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     def properties(self):
         return self._properties
 
+
     def initPropertyStore(self, props):
         """
         A hook for subclasses to override in order to set up their property
@@ -1095,10 +1110,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
         @param props: the L{PropertyStore} from C{properties()}.
         """
-        pass
+
 
     def _doValidate(self, component):
         raise NotImplementedError
+
 
     # IDataStoreResource
     def contentType(self):
@@ -1113,23 +1129,27 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         return 0
 
 
+    @inlineCallbacks
     def created(self):
-        created = self._txn.execSQL(
+        created = (yield self._txn.execSQL(
             "select %(column_CREATED)s from %(name)s "
             "where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
             [self._resourceID]
-        )[0][0]
+        ))[0][0]
         utc = datetime.datetime.strptime(created, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        returnValue(datetimeMktime(utc))
 
+
+    @inlineCallbacks
     def modified(self):
-        modified = self._txn.execSQL(
+        modified = (yield self._txn.execSQL(
             "select %(column_MODIFIED)s from %(name)s "
             "where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
             [self._resourceID]
-        )[0][0]
+        ))[0][0]
         utc = datetime.datetime.strptime(modified, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        returnValue(datetimeMktime(utc))
+
 
     def notifierID(self, label="default"):
         if self._notifier:
@@ -1137,13 +1157,15 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         else:
             return None
 
+
     def notifyChanged(self):
         """
         Trigger a notification of a change
         """
         if self._notifier:
             self._txn.postCommit(self._notifier.notify)
-        
+
+
 
 class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     """
@@ -1227,33 +1249,36 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         return None
 
 
+    @inlineCallbacks
     def size(self):
-        size = self._txn.execSQL(
+        size = (yield self._txn.execSQL(
             "select character_length(%(column_TEXT)s) from %(name)s "
             "where %(column_RESOURCE_ID)s = %%s" % self._objectTable,
             [self._resourceID]
-        )[0][0]
-        return size
+        ))[0][0]
+        returnValue(size)
 
 
+    @inlineCallbacks
     def created(self):
-        created = self._txn.execSQL(
+        created = (yield self._txn.execSQL(
             "select %(column_CREATED)s from %(name)s "
             "where %(column_RESOURCE_ID)s = %%s" % self._objectTable,
             [self._resourceID]
-        )[0][0]
+        ))[0][0]
         utc = datetime.datetime.strptime(created, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        returnValue(datetimeMktime(utc))
 
 
+    @inlineCallbacks
     def modified(self):
-        modified = self._txn.execSQL(
+        modified = (yield self._txn.execSQL(
             "select %(column_MODIFIED)s from %(name)s "
             "where %(column_RESOURCE_ID)s = %%s" % self._objectTable,
             [self._resourceID]
-        )[0][0]
+        ))[0][0]
         utc = datetime.datetime.strptime(modified, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        returnValue(datetimeMktime(utc))
 
 
     @inlineCallbacks
@@ -1325,6 +1350,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
             [self._resourceID])
         returnValue(sorted(["%s.xml" % row[0] for row in rows]))
 
+
     def _nameToUID(self, name):
         """
         Based on the file-backed implementation, the 'name' is just uid +
@@ -1369,21 +1395,22 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
 
     def removeNotificationObjectWithName(self, name):
-        self.removeNotificationObjectWithUID(self._nameToUID(name))
+        return self.removeNotificationObjectWithUID(self._nameToUID(name))
 
 
+    @inlineCallbacks
     def removeNotificationObjectWithUID(self, uid):
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             "delete from NOTIFICATION "
             "where NOTIFICATION_UID = %s and NOTIFICATION_HOME_RESOURCE_ID = %s",
             [uid, self._resourceID]
         )
         self._notifications.pop(uid, None)
-        self._deleteRevision("%s.xml" % (uid,))
+        yield self._deleteRevision("%s.xml" % (uid,))
 
 
     def _initSyncToken(self):
-        self._txn.execSQL("""
+        return self._txn.execSQL("""
             insert into %(name)s
             (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
             values (%%s, null, nextval('%(sequence)s'), FALSE)
@@ -1428,7 +1455,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
             ))
         ]
         results.sort(key=lambda x:x[1])
-        
+
         changed = []
         deleted = []
         for name, wasdeleted in results:
@@ -1438,13 +1465,12 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                         deleted.append(name)
                 else:
                     changed.append(name)
-        
+
         returnValue((changed, deleted))
 
 
     def _updateSyncToken(self):
-
-        self._txn.execSQL("""
+        return self._txn.execSQL("""
             update %(name)s
             set (%(column_REVISION)s) = (nextval('%(sequence)s'))
             where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
@@ -1452,14 +1478,17 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
             [self._resourceID,]
         )
 
+
     def _insertRevision(self, name):
-        self._changeRevision("insert", name)
+        return self._changeRevision("insert", name)
+
 
     def _updateRevision(self, name):
-        self._changeRevision("update", name)
+        return self._changeRevision("update", name)
+
 
     def _deleteRevision(self, name):
-        self._changeRevision("delete", name)
+        return self._changeRevision("delete", name)
 
 
     @inlineCallbacks
@@ -1471,14 +1500,14 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         )
 
         if action == "delete":
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
                 update %(name)s
                 set (%(column_REVISION)s, %(column_DELETED)s) = (%%s, TRUE)
                 where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
                 """ % self._revisionsTable,
                 [nextrevision, self._resourceID, name]
             )
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
                 update %(name)s
                 set (%(column_REVISION)s) = (%%s)
                 where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
@@ -1486,14 +1515,14 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                 [nextrevision, self._resourceID]
             )
         elif action == "update":
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
                 update %(name)s
                 set (%(column_REVISION)s) = (%%s)
                 where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
                 """ % self._revisionsTable,
                 [nextrevision, self._resourceID, name]
             )
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
                 update %(name)s
                 set (%(column_REVISION)s) = (%%s)
                 where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
@@ -1512,7 +1541,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                 [self._resourceID, name, ]
             )))
             if found:
-                self._txn.execSQL("""
+                yield self._txn.execSQL("""
                     update %(name)s
                     set (%(column_REVISION)s, %(column_DELETED)s) = (%%s, FALSE)
                     where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
@@ -1520,14 +1549,14 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                     [nextrevision, self._resourceID, name]
                 )
             else:
-                self._txn.execSQL("""
+                yield self._txn.execSQL("""
                     insert into %(name)s
                     (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
                     values (%%s, %%s, %%s, FALSE)
                     """ % self._revisionsTable,
                     [self._resourceID, name, nextrevision]
                 )
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
                 update %(name)s
                 set (%(column_REVISION)s) = (%%s)
                 where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null

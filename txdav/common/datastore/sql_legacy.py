@@ -91,7 +91,6 @@ class PostgresLegacyNotificationsEmulator(object):
 
 
 
-
 class SQLLegacyInvites(object):
     """
     Emulator for the implicit interface specified by
@@ -111,20 +110,22 @@ class SQLLegacyInvites(object):
         for key, value in self._bindTable.iteritems():
             self._combinedTable["BIND:%s" % (key,)] = value 
 
+
     @property
     def _txn(self):
         return self._collection._txn
 
+
     def _getHomeWithUID(self, uid):
         raise NotImplementedError()
 
+
     def create(self):
         "No-op, because the index implicitly always exists in the database."
-        pass
+
 
     def remove(self):
         "No-op, because the index implicitly always exists in the database."
-        pass
 
 
     @inlineCallbacks
@@ -247,7 +248,7 @@ class SQLLegacyInvites(object):
         # it will always contain the UID.  The form is '/principals/__uids__/x'
         # (and may contain a trailing slash).
         principalUID = record.principalURL.split("/")[3]
-        shareeHome = self._getHomeWithUID(principalUID)
+        shareeHome = yield self._getHomeWithUID(principalUID)
         rows = yield self._txn.execSQL(
             "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where RECIPIENT_ADDRESS = %s",
             [record.userid]
@@ -255,7 +256,7 @@ class SQLLegacyInvites(object):
         if rows:
             [[resourceID, homeResourceID]] = rows
             # Invite(inviteuid, userid, principalURL, common_name, access, state, summary)
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 update %(BIND:name)s
                 set %(BIND:column_BIND_MODE)s = %%s,
@@ -266,7 +267,7 @@ class SQLLegacyInvites(object):
                 """ % self._combinedTable,
                 [bindMode, bindStatus, record.summary, resourceID, homeResourceID]
             )
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
                 update INVITE
                 set NAME = %s, INVITE_UID = %s
                 where RECIPIENT_ADDRESS = %s
@@ -274,7 +275,7 @@ class SQLLegacyInvites(object):
                 [record.name, record.inviteuid, record.userid]
             )
         else:
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 insert into INVITE
                 (
@@ -289,7 +290,7 @@ class SQLLegacyInvites(object):
                     shareeHome._resourceID, self._collection._resourceID,
                     record.userid
                 ])
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 insert into %(BIND:name)s
                 (
@@ -314,11 +315,13 @@ class SQLLegacyInvites(object):
                     False,
                     False,
                     record.summary
-                ])
+                ]
+            )
 
 
+    @inlineCallbacks
     def removeRecordForUserID(self, userid):
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             """
             delete from %(BIND:name)s using INVITE
             where INVITE.RECIPIENT_ADDRESS = %%s
@@ -327,14 +330,15 @@ class SQLLegacyInvites(object):
             """ % self._combinedTable,
             [userid]
         )
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             "delete from INVITE where RECIPIENT_ADDRESS = %s",
             [userid]
         )
 
 
+    @inlineCallbacks
     def removeRecordForInviteUID(self, inviteUID):
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             """
             delete from %(BIND:name)s using INVITE
             where INVITE.INVITE_UID = %s
@@ -343,10 +347,12 @@ class SQLLegacyInvites(object):
             """ % self._combinedTable,
             [inviteUID]
         )
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             "delete from INVITE where INVITE_UID = %s",
             [inviteUID]
         )
+
+
 
 class SQLLegacyCalendarInvites(SQLLegacyInvites):
     """
@@ -358,6 +364,7 @@ class SQLLegacyCalendarInvites(SQLLegacyInvites):
         self._homeTable = CALENDAR_HOME_TABLE
         self._bindTable = CALENDAR_BIND_TABLE
         super(SQLLegacyCalendarInvites, self).__init__(calendar)
+
 
     def _getHomeWithUID(self, uid):
         return self._txn.calendarHomeWithUID(uid, create=True)
@@ -375,8 +382,11 @@ class SQLLegacyAddressBookInvites(SQLLegacyInvites):
         self._bindTable = ADDRESSBOOK_BIND_TABLE
         super(SQLLegacyAddressBookInvites, self).__init__(addressbook)
 
+
     def _getHomeWithUID(self, uid):
         return self._txn.addressbookHomeWithUID(uid, create=True)
+
+
 
 class SQLLegacyShares(object):
 
@@ -498,6 +508,7 @@ class SQLLegacyShares(object):
         return self._search(shareuid=shareUID)
 
 
+    @inlineCallbacks
     def addOrUpdateRecord(self, record):
         # record.hosturl -> /.../__uids__/<uid>/<name>
         splithost = record.hosturl.split('/')
@@ -514,7 +525,7 @@ class SQLLegacyShares(object):
             # just need to update its 'localname', i.e.
             # XXX_BIND.XXX_RESOURCE_NAME.
     
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 update %(name)s
                 set %(column_RESOURCE_NAME)s = %%s
@@ -526,8 +537,8 @@ class SQLLegacyShares(object):
         elif record.sharetype == 'D':
             
             # There is no bind entry already so add one.
-    
-            self._txn.execSQL(
+
+            yield self._txn.execSQL(
                 """
                 insert into %(name)s
                 (
@@ -553,8 +564,9 @@ class SQLLegacyShares(object):
                     record.summary,
                 ])
 
+
     def removeRecordForLocalName(self, localname):
-        self._txn.execSQL(
+        return self._txn.execSQL(
             """
             update %(name)s
             set %(column_RESOURCE_NAME)s = NULL
@@ -565,9 +577,10 @@ class SQLLegacyShares(object):
         )
 
 
+    @inlineCallbacks
     def removeRecordForShareUID(self, shareUID):
         if not shareUID.startswith("Direct"):
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 update %(name)s
                 set %(column_RESOURCE_NAME)s = NULL
@@ -583,7 +596,7 @@ class SQLLegacyShares(object):
             homeID, resourceID = shareUID[len("Direct-"):].split("-")
             
             # Now remove the binding for the direct share
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 delete from %(name)s
                 where %(column_HOME_RESOURCE_ID)s = %%s
@@ -591,7 +604,6 @@ class SQLLegacyShares(object):
                 """ % self._bindTable,
                 [homeID, resourceID,]
             )
-            
 
 
 

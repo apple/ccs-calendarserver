@@ -14,13 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import inlineCallbacks, returnValue
+
+"""
+SQL backend for CardDAV storage.
+"""
 
 __all__ = [
     "AddressBookHome",
     "AddressBook",
     "AddressBookObject",
 ]
+
+from zope.interface.declarations import implements
+
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.web2.dav.element.rfc2518 import ResourceType
 from twext.web2.http_headers import MimeType
@@ -42,8 +49,6 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
     ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE,\
     ADDRESSBOOK_OBJECT_TABLE
 from txdav.base.propertystore.base import PropertyName
-
-from zope.interface.declarations import implements
 
 
 

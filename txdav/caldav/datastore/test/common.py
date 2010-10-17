@@ -876,7 +876,7 @@ class CommonTests(CommonCommonTests):
 
         calendar1 = yield self.calendarUnderTest()
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
-        oldComponent = calendarObject.component()
+        oldComponent = yield calendarObject.component()
         self.assertNotEqual(component, oldComponent)
         yield calendarObject.setComponent(component)
         self.assertEquals((yield calendarObject.component()), component)
