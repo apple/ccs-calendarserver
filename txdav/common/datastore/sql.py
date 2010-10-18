@@ -550,6 +550,7 @@ class CommonHome(LoggingMixIn):
         """
         return self._childWithName(name, owned=True)
 
+
     @memoized('name', '_sharedChildren')
     def sharedChildWithName(self, name):
         """

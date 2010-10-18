@@ -82,6 +82,7 @@ class CalendarHome(CommonHome):
     calendars = CommonHome.children
     listCalendars = CommonHome.listChildren
 
+
     @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
         """
@@ -89,7 +90,8 @@ class CalendarHome(CommonHome):
         """
         for calendar in (yield self.calendars()):
             for calendarObject in (yield calendar.calendarObjects()):
-                if dropboxID == calendarObject.dropboxID():
+                dbid = yield calendarObject.dropboxID()
+                if dropboxID == dbid:
                     returnValue(calendarObject)
 
 
