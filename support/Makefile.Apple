@@ -99,7 +99,7 @@ install::
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/calendarserver.plist" "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist"
 	@echo "Installing migration config..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/59_calendarmigrator.py" "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/59_calendarmigrator.py"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/calendarmigrator.py" "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/59_calendarmigrator.py"
 	$(_v) chmod ugo+x "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/59_calendarmigrator.py"
 	@echo "Installing changeip config..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/usr/libexec/changeip"
