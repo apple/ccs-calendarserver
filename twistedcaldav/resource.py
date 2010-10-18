@@ -80,7 +80,7 @@ from twistedcaldav.index import SyncTokenValidException, Index
 from twistedcaldav.linkresource import LinkResource
 from twistedcaldav.notify import (getPubSubConfiguration, getPubSubPath,
     getPubSubXMPPURI, getPubSubHeartbeatURI, getPubSubAPSConfiguration,
-    getNodeCacher)
+    getNodeCacher, NodeCreationException)
 from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
 from twistedcaldav.vcard import Component as vComponent
 from twistedcaldav.vcardindex import AddressBookIndex
