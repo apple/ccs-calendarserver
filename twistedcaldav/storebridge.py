@@ -714,14 +714,17 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         self._newStoreAttachment.retrieve(StreamProtocol())
         return Response(OK, {"content-type":self.contentType()}, stream)
 
+
     @requiresPermissions(fromParent=[davxml.Unbind()])
+    @inlineCallbacks
     def http_DELETE(self, request):
-        self._newStoreCalendarObject.removeAttachmentWithName(
+        yield self._newStoreCalendarObject.removeAttachmentWithName(
             self._newStoreAttachment.name()
         )
         del self._newStoreCalendarObject
         self.__class__ = ProtoCalendarAttachment
-        return NO_CONTENT
+        returnValue(NO_CONTENT)
+
 
     http_MKCOL = None
     http_MKCALENDAR = None
@@ -2224,7 +2227,9 @@ class StoreNotificationObjectFile(NotificationResource):
             # Do delete
 
             # FIXME: public attribute please
-            storeNotifications.removeNotificationObjectWithName(self._newStoreObject.name())
+            yield storeNotifications.removeNotificationObjectWithName(
+                self._newStoreObject.name()
+            )
 
             # FIXME: clean this up with a 'transform' method
             self._newStoreParentNotifications = storeNotifications

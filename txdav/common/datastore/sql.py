@@ -908,7 +908,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         # update memos
         del self._home._children[oldName]
         self._home._children[name] = self
-        self._renameSyncToken()
+        yield self._renameSyncToken()
 
         self.notifyChanged()
 
@@ -1016,7 +1016,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         uid = rows[0][0]
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
-        self._deleteRevision(name)
+        yield self._deleteRevision(name)
 
         self.notifyChanged()
 
@@ -1033,7 +1033,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         name = rows[0][0]
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
-        self._deleteRevision(name)
+        yield self._deleteRevision(name)
 
         self.notifyChanged()
 
@@ -1525,9 +1525,9 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
             inserting = True
         yield notificationObject.setData(uid, xmltype, xmldata, inserting=inserting)
         if inserting:
-            self._insertRevision("%s.xml" % (uid,))
+            yield self._insertRevision("%s.xml" % (uid,))
         else:
-            self._updateRevision("%s.xml" % (uid,))
+            yield self._updateRevision("%s.xml" % (uid,))
 
 
     def removeNotificationObjectWithName(self, name):
@@ -1578,13 +1578,6 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
     def objectResourcesSinceToken(self, token):
         raise NotImplementedError()
-
-
-    def notificationObjectsSinceToken(self, token):
-        changed = []
-        removed = []
-        token = self.syncToken()
-        return (changed, removed, token)
 
 
     @inlineCallbacks

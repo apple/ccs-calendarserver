@@ -181,9 +181,9 @@ class AddressBookObject(CommonObjectResource):
 
         yield self.updateDatabase(component, inserting=inserting)
         if inserting:
-            self._addressbook._insertRevision(self._name)
+            yield self._addressbook._insertRevision(self._name)
         else:
-            self._addressbook._updateRevision(self._name)
+            yield self._addressbook._updateRevision(self._name)
 
         self._addressbook.notifyChanged()
 
