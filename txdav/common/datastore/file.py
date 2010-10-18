@@ -49,7 +49,6 @@ from txdav.base.propertystore.xattr import PropertyStore
 from errno import EEXIST, ENOENT
 from zope.interface import implements, directlyProvides
 
-import os
 import uuid
 
 ECALENDARTYPE = 0
@@ -891,7 +890,6 @@ class NotificationCollection(CommonHomeChild):
     listNotificationObjects = CommonHomeChild.listObjectResources
     notificationObjectWithName = CommonHomeChild.objectResourceWithName
     removeNotificationObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
-    notificationObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
 
     def notificationObjectWithUID(self, uid):
         name = uid + ".xml"
