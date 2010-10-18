@@ -97,12 +97,14 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         @return: a Deferred which fires when the migration is complete.
         """
         self.log_warn("Beginning filesystem -> database upgrade.")
-        for homeType, migrateFunc, eachFunc, destFunc in [
+        for homeType, migrateFunc, eachFunc, destFunc, topPathName in [
             ("calendar", migrateCalendarHome,
                 self.fileStore.eachCalendarHome,
-                lambda txn: txn.calendarHomeWithUID),
+                lambda txn: txn.calendarHomeWithUID,
+                "calendars"),
             ("addressbook", migrateAddressbookHome, self.fileStore.eachAddressbookHome,
-                lambda txn: txn.addressbookHomeWithUID)
+                lambda txn: txn.addressbookHomeWithUID,
+                "addressbooks")
             ]:
             for fileTxn, fileHome in eachFunc():
                 uid = fileHome.uid()
@@ -122,10 +124,11 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                 sqlTxn.commit()
                 # FIXME: need a public remove...HomeWithUID() for de-
                 # provisioning
-                storePath = self.fileStore._path
-                fromParent = fileHome._path.segmentsFrom(storePath)
-                fromParent[0] += "-migrated"
-                backupPath = storePath
+                storePath = self.fileStore._path # Documents
+                topPath = storePath.child(topPathName) # calendars|addressbooks
+                fromParent = fileHome._path.segmentsFrom(topPath)
+                topPath = topPath.realpath() # follow possible symlink
+                backupPath = topPath.sibling(topPathName + "-migrated")
                 for segment in fromParent:
                     try:
                         backupPath.createDirectory()
