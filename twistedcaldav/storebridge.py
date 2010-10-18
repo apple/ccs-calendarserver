@@ -981,7 +981,7 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
         # FIXME: should really use something other than 'fp' attribute.
         basename = destination.name()
         calendar = self._newStoreCalendar
-        calendar.rename(basename)
+        yield calendar.rename(basename)
         CalendarCollectionResource.transform(destination, calendar,
                                          self._newStoreParentHome)
         del self._newStoreCalendar
@@ -1627,7 +1627,7 @@ class AddressBookCollectionResource(_AddressBookChildHelper, CalDAVResource):
         # FIXME: should really use something other than 'fp' attribute.
         basename = destination.name()
         addressbook = self._newStoreAddressBook
-        addressbook.rename(basename)
+        yield addressbook.rename(basename)
         AddressBookCollectionResource.transform(destination, addressbook,
                                          self._newStoreParentHome)
         del self._newStoreAddressBook
