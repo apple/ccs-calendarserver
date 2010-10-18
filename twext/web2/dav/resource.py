@@ -1082,6 +1082,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         self.writeDeadProperty(acl)
 
+
     @inlineCallbacks
     def mergeAccessControlList(self, new_acl, request):
         """
@@ -1245,9 +1246,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # FIXME: verify acl is self-consistent
 
         # Step 11
-        self.writeNewACEs(new_set)
+        yield self.writeNewACEs(new_set)
         returnValue(None)
-        
+
+
     def writeNewACEs(self, new_aces):
         """
         Write a new ACL to the resource's property store.  This is a
@@ -1256,7 +1258,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         command.
         @param new_aces: C{list} of L{ACE} for ACL being set.
         """
-        self.setAccessControlList(davxml.ACL(*new_aces))
+        return self.setAccessControlList(davxml.ACL(*new_aces))
+
 
     def matchPrivilege(self, privilege, ace_privileges, supportedPrivileges):
         for ace_privilege in ace_privileges:
@@ -1267,6 +1270,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 return True
 
         return False
+
 
     @inlineCallbacks
     def checkPrivileges(
