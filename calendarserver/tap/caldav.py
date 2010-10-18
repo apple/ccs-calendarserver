@@ -496,7 +496,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         additional = []
         if config.Scheduling.iMIP.Enabled:
-            additional.append(("inbox", IMIPReplyInboxResource, [], "basic"))
+            additional.append(("inbox", IMIPReplyInboxResource, [], "digest"))
         rootResource = getRootResource(config, additional)
 
         #

@@ -506,14 +506,6 @@ class CalDAVScheduler(Scheduler):
             if inboxURL is None:
                 log.err("Could not find inbox for originator: %s" % (self.originator,))
                 raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
-        
-            # Verify that Originator matches the authenticated user, but not if this is a server
-            # generated request
-            if not self.internal_request:
-                authn_principal = self.resource.currentPrincipal(self.request)
-                if davxml.Principal(davxml.HRef(originatorPrincipal.principalURL())) != authn_principal:
-                    log.err("Originator: %s does not match authorized user: %s" % (self.originator, authn_principal.children[0],))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
 
             self.originator = LocalCalendarUser(self.originator, originatorPrincipal)
 

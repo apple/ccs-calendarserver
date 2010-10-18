@@ -76,8 +76,9 @@ from twistedcaldav.ical import Component
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
-from twistedcaldav.notify import getPubSubConfiguration, getPubSubPath,\
-    getPubSubXMPPURI, getPubSubHeartbeatURI, getPubSubAPSConfiguration
+from twistedcaldav.notify import (getPubSubConfiguration, getPubSubPath,
+    getPubSubXMPPURI, getPubSubHeartbeatURI, getPubSubAPSConfiguration,
+    getNodeCacher)
 from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
 from twistedcaldav.vcard import Component as vComponent
 
@@ -1339,11 +1340,11 @@ class CalDAVResource (
             revision = 0
 
         try:
-            changed, removed = yield self._indexWhatChanged(revision, depth)
+            changed, removed, notallowed = yield self._indexWhatChanged(revision, depth)
         except SyncTokenValidException:
             raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "valid-sync-token")))
 
-        returnValue((changed, removed, current_token))
+        returnValue((changed, removed, notallowed, current_token))
 
     def _indexWhatChanged(self, revision, depth):
         # Now handled directly by newstore
@@ -2056,8 +2057,8 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
         """
         Always get quota root value from config.
 
-        @return: a C{int} containing the maximum allowed bytes if this collection
-            is quota-controlled, or C{None} if not quota controlled.
+        @return: a C{int} containing the maximum allowed bytes if this
+            collection is quota-controlled, or C{None} if not quota controlled.
         """
         return config.UserQuota if config.UserQuota != 0 else None
 
@@ -2068,13 +2069,16 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
             result.append(davxml.Report(SyncCollection(),))
         return result
 
-    def _indexWhatChanged(self, revision, depth):
-        # The newstore implementation supports this directly
-        return self._newStoreHome.resourceNamesSinceToken(revision, depth)
-
-    def getSyncToken(self):
-        # The newstore implementation supports this directly
-        return self._newStoreHome.syncToken()
+    def _mergeSyncTokens(self, hometoken, notificationtoken):
+        """
+        Merge two sync tokens, choosing the higher revision number of the two,
+        but keeping the home resource-id intact.
+        """
+        homekey, homerev = hometoken.split("#", 1)
+        notrev = notificationtoken.split("#", 1)[1]
+        if int(notrev) > int(homerev):
+            hometoken = "%s#%s" % (homekey, notrev,)
+        return hometoken
 
     def canShare(self):
         raise NotImplementedError
@@ -2123,6 +2127,7 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
         self.propagateTransaction(similar)
         returnValue(similar)
 
+
     def makeRegularChild(self, name):
         raise NotImplementedError
 
@@ -2139,6 +2144,7 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
         returnValue(children)
 
 
+    @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
             qname = property
@@ -2180,35 +2186,54 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
                         )
                     )
 
-                return succeed(customxml.PubSubPushTransportsProperty(*children))
+                returnValue(customxml.PubSubPushTransportsProperty(*children))
 
 
             else:
-                return succeed(customxml.PubSubPushTransportsProperty())
+                returnValue(customxml.PubSubPushTransportsProperty())
 
         if qname == (customxml.calendarserver_namespace, "pushkey"):
             notifierID = self._newStoreHome.notifierID()
             if notifierID is not None and config.Notifications.Services.XMPPNotifier.Enabled:
                 pubSubConfiguration = getPubSubConfiguration(config)
                 nodeName = getPubSubPath(notifierID, pubSubConfiguration)
-                return succeed(customxml.PubSubXMPPPushKeyProperty(nodeName))
+
+                # Create the pubsub node so client has something to subscribe
+                # to
+                try:
+                    (yield getNodeCacher().waitForNode(
+                        self._newStoreHome._notifier, nodeName))
+                except NodeCreationException, e:
+                    self.log_warn(e)
+
+                returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))
             else:
-                return succeed(customxml.PubSubXMPPPushKeyProperty())
+                returnValue(customxml.PubSubXMPPPushKeyProperty())
 
 
         if qname == (customxml.calendarserver_namespace, "xmpp-uri"):
             notifierID = self._newStoreHome.notifierID()
             if notifierID is not None and config.Notifications.Services.XMPPNotifier.Enabled:
                 pubSubConfiguration = getPubSubConfiguration(config)
-                return succeed(customxml.PubSubXMPPURIProperty(
+
+                # Create the pubsub node so client has something to subscribe
+                # to
+                nodeName = getPubSubPath(notifierID, pubSubConfiguration)
+                try:
+                    (yield getNodeCacher().waitForNode(
+                        self._newStoreHome._notifier, nodeName))
+                except NodeCreationException, e:
+                    self.log_warn(e)
+
+                returnValue(customxml.PubSubXMPPURIProperty(
                     getPubSubXMPPURI(notifierID, pubSubConfiguration)))
             else:
-                return succeed(customxml.PubSubXMPPURIProperty())
+                returnValue(customxml.PubSubXMPPURIProperty())
 
         elif qname == (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"):
             pubSubConfiguration = getPubSubConfiguration(config)
             if pubSubConfiguration['enabled']:
-                return succeed(
+                returnValue(
                     customxml.PubSubHeartbeatProperty(
                         customxml.PubSubHeartbeatURIProperty(
                             getPubSubHeartbeatURI(pubSubConfiguration)
@@ -2219,17 +2244,17 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
                     )
                 )
             else:
-                return succeed(customxml.PubSubHeartbeatURIProperty())
+                returnValue(customxml.PubSubHeartbeatURIProperty())
 
         elif qname == (customxml.calendarserver_namespace, "xmpp-server"):
             pubSubConfiguration = getPubSubConfiguration(config)
             if pubSubConfiguration['enabled']:
-                return succeed(customxml.PubSubXMPPServerProperty(
+                returnValue(customxml.PubSubXMPPServerProperty(
                     pubSubConfiguration['xmpp-server']))
             else:
-                return succeed(customxml.PubSubXMPPServerProperty())
+                returnValue(customxml.PubSubXMPPServerProperty())
 
-        return super(CommonHomeResource, self).readProperty(property, request)
+        returnValue((yield super(CommonHomeResource, self).readProperty(property, request)))
 
     ##
     # ACL
@@ -2411,6 +2436,55 @@ class CalendarHomeResource(CommonHomeResource):
 
         return davxml.ACL(*aces)
 
+
+    @inlineCallbacks
+    def getSyncToken(self):
+        # The newstore implementation supports this directly
+        caltoken = yield self._newStoreHome.syncToken()
+
+        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
+            notificationtoken = yield (yield self.getChild("notification")).getSyncToken()
+
+            # Merge tokens
+            caltoken = self._mergeSyncTokens(caltoken, notificationtoken)
+
+        returnValue(caltoken)
+
+
+    @inlineCallbacks
+    def _indexWhatChanged(self, revision, depth):
+        # The newstore implementation supports this directly
+        changed, deleted = yield self._newStoreHome.resourceNamesSinceToken(
+            revision, depth
+        )
+        notallowed = []
+
+        # Need to insert some addition items on first sync
+        if revision == 0:
+            changed.append("outbox/")
+
+            if config.FreeBusyURL.Enabled:
+                changed.append("freebusy")
+
+            if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
+                changed.append("notification/")
+
+            # Dropbox is never synchronized
+            if config.EnableDropBox:
+                notallowed.append("dropbox/")
+
+        # Add in notification changes
+        if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
+            noti_changed, noti_deleted, noti_notallowed = yield (yield self.getChild("notification"))._indexWhatChanged(revision, depth)
+
+            changed.extend([joinURL("notification", name) for name in noti_changed])
+            deleted.extend([joinURL("notification", name) for name in noti_deleted])
+            notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
+
+        returnValue((changed, deleted, notallowed))
+
+
+
 class AddressBookHomeResource (CommonHomeResource):
     """
     Address book home collection resource.
@@ -2476,6 +2550,48 @@ class AddressBookHomeResource (CommonHomeResource):
             )
         self.propagateTransaction(similar)
         returnValue(similar)
+
+
+    @inlineCallbacks
+    def getSyncToken(self):
+        # The newstore implementation supports this directly
+        adbktoken = yield self._newStoreHome.syncToken()
+
+        if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and not config.Sharing.Calendars.Enabled:
+            notifcationtoken = yield (yield self.getChild("notification")).getSyncToken()
+            
+            # Merge tokens
+            adbkkey, adbkrev = adbktoken.split("#", 1)
+            notrev = notifcationtoken.split("#", 1)[1]
+            if int(notrev) > int(adbkrev):
+                adbktoken = "%s#%s" % (adbkkey, notrev,)
+
+        returnValue(adbktoken)
+
+
+    @inlineCallbacks
+    def _indexWhatChanged(self, revision, depth):
+        # The newstore implementation supports this directly
+        changed, deleted = yield self._newStoreHome.resourceNamesSinceToken(
+            revision, depth
+        )
+        notallowed = []
+
+        # Need to insert some addition items on first sync
+        if revision == 0:
+            if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and not config.Sharing.Calendars.Enabled:
+                changed.append("notification/")
+
+        # Add in notification changes
+        if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and not config.Sharing.Calendars.Enabled:
+            noti_changed, noti_deleted, noti_notallowed = yield (yield self.getChild("notification"))._indexWhatChanged(revision, depth)
+
+            changed.extend([joinURL("notification", name) for name in noti_changed])
+            deleted.extend([joinURL("notification", name) for name in noti_deleted])
+            notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
+
+        returnValue((changed, deleted, notallowed))
+
 
 
 class GlobalAddressBookResource (ReadOnlyResourceMixIn, CalDAVResource):

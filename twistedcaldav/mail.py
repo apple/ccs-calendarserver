@@ -360,7 +360,7 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
 
     data = str(calendar)
 
-    if config.SSLPort:
+    if config.EnableSSL:
         useSSL = True
         port = config.SSLPort
     else:
@@ -597,7 +597,7 @@ class IScheduleService(service.Service, LoggingMixIn):
 
         rootResource = getRootResource(config,
             (
-                ("inbox", IMIPInvitationInboxResource, (mailer,), "basic"),
+                ("inbox", IMIPInvitationInboxResource, (mailer,), "digest"),
             )
         )
 

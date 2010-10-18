@@ -257,6 +257,13 @@ class PostgresService(MultiService):
         self.dataStoreDirectory = dataStoreDirectory
         self.resetSchema = resetSchema
 
+        # In order to delay a shutdown until database initialization has
+        # completed, our stopService( ) examines the delayedShutdown flag.
+        # If True, we wait on the shutdownDeferred to fire before proceeding.
+        # The deferred gets fired once database init is complete.
+        self.delayedShutdown = False # set to True when in critical code
+        self.shutdownDeferred = None # the actual deferred
+
         # Options from config
         self.databaseName = databaseName
         self.logFile = logFile
@@ -283,6 +290,25 @@ class PostgresService(MultiService):
         self.monitor = None
         self.openConnections = []
 
+    def activateDelayedShutdown(self):
+        """
+        Call this when starting database initialization code to protect against
+        shutdown.
+
+        Sets the delayedShutdown flag to True so that if reactor shutdown
+        commences, the shutdown will be delayed until deactivateDelayedShutdown
+        is called.
+        """
+        self.delayedShutdown = True
+
+    def deactivateDelayedShutdown(self):
+        """
+        Call this when database initialization code has completed so that the
+        reactor can shutdown.
+        """
+        self.delayedShutdown = False
+        if self.shutdownDeferred:
+            self.shutdownDeferred.callback(None)
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):
         """
@@ -339,7 +365,7 @@ class PostgresService(MultiService):
 
         try:
             createDatabaseCursor.execute(
-                "create database %s" % (self.databaseName)
+                "create database %s with encoding 'UTF8'" % (self.databaseName)
             )
         except:
             execSchema = False
@@ -359,8 +385,9 @@ class PostgresService(MultiService):
         connection = self.produceConnection()
         cursor = connection.cursor()
 
-        self.subServiceFactory(self.produceConnection).setServiceParent(self)
-
+        if self.shutdownDeferred is None:
+            # Only continue startup if we've not begun shutdown
+            self.subServiceFactory(self.produceConnection).setServiceParent(self)
 
     def pauseMonitor(self):
         """
@@ -418,14 +445,17 @@ class PostgresService(MultiService):
         self.monitor = monitor
         def gotReady(result):
             self.ready()
+            self.deactivateDelayedShutdown()
         def reportit(f):
             log.err(f)
+            self.deactivateDelayedShutdown()
         self.monitor.completionDeferred.addCallback(
             gotReady).addErrback(reportit)
 
 
     def startService(self):
         MultiService.startService(self)
+        self.activateDelayedShutdown()
         clusterDir = self.dataStoreDirectory.child("cluster")
         workingDir = self.dataStoreDirectory.child("working")
         env = self.env = os.environ.copy()
@@ -450,7 +480,7 @@ class PostgresService(MultiService):
             dbInited = Deferred()
             reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
-                initdb, [initdb], env, workingDir.path,
+                initdb, [initdb, "-E", "UTF8"], env, workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
             def doCreate(result):
@@ -462,10 +492,16 @@ class PostgresService(MultiService):
         """
         Stop all child services, then stop the subprocess, if it's running.
         """
-        d = MultiService.stopService(self)
+
+        if self.delayedShutdown:
+            # We're still in the process of initializing the database, so
+            # delay shutdown until the shutdownDeferred fires.
+            d = self.shutdownDeferred = Deferred()
+            d.addCallback(lambda ignored: MultiService.stopService(self))
+        else:
+            d = MultiService.stopService(self)
+
         def superStopped(result):
-            # Probably want to stop and wait for startup if that hasn't
-            # completed yet...
             monitor = _PostgresMonitor()
             pg_ctl = which("pg_ctl")[0]
             reactor.spawnProcess(monitor, pg_ctl,

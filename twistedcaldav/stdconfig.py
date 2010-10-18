@@ -982,6 +982,8 @@ def _updatePartitions(configDict):
 
 def _updateCompliance(configDict):
 
+    if not (configDict.EnableCalDAV or configDict.EnableCardDAV):
+        log.warn("Neither 'EnableCalDAV' nor 'EnableCardDAV' are set to True")
 
     if configDict.EnableCalDAV:
         if configDict.Scheduling.CalDAV.OldDraftCompatibility:

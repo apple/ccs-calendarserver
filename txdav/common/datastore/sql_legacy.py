@@ -44,8 +44,8 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     ReservationError
 from txdav.common.datastore.sql_tables import \
     _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_DIRECT, \
-    _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID,\
-    CALENDAR_BIND_TABLE, CALENDAR_HOME_TABLE, ADDRESSBOOK_HOME_TABLE,\
+    _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID, \
+    CALENDAR_BIND_TABLE, CALENDAR_HOME_TABLE, ADDRESSBOOK_HOME_TABLE, \
     ADDRESSBOOK_BIND_TABLE
 
 log = Logger()
@@ -114,9 +114,9 @@ class SQLLegacyInvites(object):
         # Since we do multi-table requests we need a dict that combines tables
         self._combinedTable = {}
         for key, value in self._homeTable.iteritems():
-            self._combinedTable["HOME:%s" % (key,)] = value 
+            self._combinedTable["HOME:%s" % (key,)] = value
         for key, value in self._bindTable.iteritems():
-            self._combinedTable["BIND:%s" % (key,)] = value 
+            self._combinedTable["BIND:%s" % (key,)] = value
 
 
     @property
@@ -571,9 +571,17 @@ class SQLLegacyShares(object):
                     record.summary,
                 ])
 
+        shareeCollection = yield self._home.sharedChildWithName(record.localname)
+        shareeCollection._initSyncToken()
 
+
+    @inlineCallbacks
     def removeRecordForLocalName(self, localname):
-        return self._txn.execSQL(
+        record = yield self.recordForLocalName(localname)
+        shareeCollection = yield self._home.sharedChildWithName(record.localname)
+        yield shareeCollection._deletedSyncToken()
+
+        returnValue((yield self._txn.execSQL(
             """
             update %(name)s
             set %(column_RESOURCE_NAME)s = NULL
@@ -581,11 +589,16 @@ class SQLLegacyShares(object):
              and %(column_HOME_RESOURCE_ID)s = %%s
             """ % self._bindTable,
             [localname, self._home._resourceID]
-        )
+        )))
 
 
     @inlineCallbacks
     def removeRecordForShareUID(self, shareUID):
+
+        record = yield self.recordForShareUID(shareUID)
+        shareeCollection = yield self._home.sharedChildWithName(record.localname)
+        yield shareeCollection._deletedSyncToken()
+
         if not shareUID.startswith("Direct"):
             yield self._txn.execSQL(
                 """
@@ -596,12 +609,12 @@ class SQLLegacyShares(object):
                  and %(name)s.%(column_HOME_RESOURCE_ID)s = INVITE.HOME_RESOURCE_ID
                  and %(name)s.%(column_RESOURCE_ID)s = INVITE.RESOURCE_ID
                 """ % self._bindTable,
-                [shareUID,]
+                [shareUID, ]
             )
         else:
             # Extract pieces from synthesised UID
             homeID, resourceID = shareUID[len("Direct-"):].split("-")
-            
+
             # Now remove the binding for the direct share
             yield self._txn.execSQL(
                 """
@@ -609,7 +622,7 @@ class SQLLegacyShares(object):
                 where %(column_HOME_RESOURCE_ID)s = %%s
                  and %(column_RESOURCE_ID)s = %%s
                 """ % self._bindTable,
-                [homeID, resourceID,]
+                [homeID, resourceID, ]
             )
 
 
@@ -624,7 +637,7 @@ class SQLLegacyCalendarShares(SQLLegacyShares):
         self._homeTable = CALENDAR_HOME_TABLE
         self._bindTable = CALENDAR_BIND_TABLE
         self._urlTopSegment = "calendars"
-    
+
         super(SQLLegacyCalendarShares, self).__init__(home)
 
 
@@ -648,7 +661,7 @@ class SQLLegacyAddressBookShares(SQLLegacyShares):
 
     def _getHomeWithUID(self, uid):
         return self._txn.addressbookHomeWithUID(uid, create=True)
-        
+
 
 class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
     def __init__(self, index, cachePool=None):

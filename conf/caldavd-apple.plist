@@ -514,6 +514,9 @@
     <key>EnableWebAdmin</key>
     <true/>
 
+    <!-- Directory searching -->
+    <key>EnableSearchAddressBook</key>
+    <true/>
 
   </dict>
 </plist>

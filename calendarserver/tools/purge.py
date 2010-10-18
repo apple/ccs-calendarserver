@@ -56,6 +56,7 @@ def usage_purge_events(e=None):
     print ""
 
     if e:
+        sys.stderr.write("%s\n" % (e,))
         sys.exit(64)
     else:
         sys.exit(0)
@@ -75,6 +76,7 @@ def usage_purge_principal(e=None):
     print ""
 
     if e:
+        sys.stderr.write("%s\n" % (e,))
         sys.exit(64)
     else:
         sys.exit(0)
@@ -160,10 +162,18 @@ def main_purge_events():
         else:
             raise NotImplementedError(opt)
 
+    if args:
+        usage_purge_events("Too many arguments: %s" % (args,))
+
     cutoff = (date.today()-timedelta(days=days)).strftime("%Y%m%dT000000Z")
 
-    shared_main(configFileName, purgeOldEvents, cutoff, verbose=verbose,
-        dryrun=dryrun)
+    shared_main(
+        configFileName,
+        purgeOldEvents,
+        cutoff,
+        verbose=verbose,
+        dryrun=dryrun,
+    )
 
 
 def main_purge_principals():
@@ -205,7 +215,13 @@ def main_purge_principals():
 
     # args is a list of guids
 
-    shared_main(configFileName, purgeGUIDs, args, verbose=verbose, dryrun=dryrun)
+    shared_main(
+        configFileName,
+        purgeGUIDs,
+        args,
+        verbose=verbose,
+        dryrun=dryrun,
+    )
 
 
 @inlineCallbacks

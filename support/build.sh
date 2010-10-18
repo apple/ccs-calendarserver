@@ -29,20 +29,6 @@ conditional_set () {
   fi;
 }
 
-# Read a configuration key from the configuration plist file and print it to
-# stdout.
-conf_read_key ()
-{
-  local key="$1"; shift;
-
-  local xpath="xpath";
-
-  # FIXME: This only works for simple values (no arrays, dicts)
-  tr '\n' ' ' < "${config}"                                                 \
-    | ${xpath} "/plist/dict/*[preceding-sibling::key[1]='${key}'" 2> /dev/null \
-    | sed -n 's|^<[^<][^<]*>\([^<]*\)</[^<][^<]*>.*$|\1|p';
-}
-
 # Initialize all the global state required to use this library.
 init_build () {
         verbose="";

@@ -246,14 +246,20 @@ class _CalendarChildHelper(object):
             self._invitesDB = self._newStoreCalendar.retrieveOldInvites()
         return self._invitesDB
 
+
     def exists(self):
         # FIXME: tests
         return True
 
 
+    @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
         # The newstore implementation supports this directly
-        return self._newStoreCalendar.resourceNamesSinceToken(revision)
+        returnValue(
+            (yield self._newStoreCalendar.resourceNamesSinceToken(revision))
+            + ([],)
+        )
+
 
     @classmethod
     def transform(cls, self, calendar, home):
@@ -448,6 +454,8 @@ class NoDropboxHere(_GetChildHelper):
     def isCollection(self):
         return False
 
+    def exists(self):
+        return False
 
     def http_GET(self, request):
         return NOT_FOUND
@@ -551,7 +559,8 @@ class CalendarObjectDropbox(_GetChildHelper):
     def accessControlList(self, *a, **kw):
         """
         All principals identified as ATTENDEEs on the event for this dropbox
-        may read all its children. Also include proxies of ATTENDEEs.
+        may read all its children. Also include proxies of ATTENDEEs. Ignore
+        unknown attendees.
         """
         originalACL = yield super(
             CalendarObjectDropbox, self).accessControlList(*a, **kw)
@@ -565,6 +574,9 @@ class CalendarObjectDropbox(_GetChildHelper):
             principal = self.principalForCalendarUserAddress(
                 calendarUserAddress
             )
+            if principal is None:
+                continue
+
             principalURL = principal.principalURL()
             writePrivileges = [
                 davxml.Privilege(davxml.Read()),
@@ -1373,14 +1385,20 @@ class _AddressBookChildHelper(object):
             self._invitesDB = self._newStoreAddressBook.retrieveOldInvites()
         return self._invitesDB
 
+
     def exists(self):
         # FIXME: tests
         return True
 
 
+    @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
         # The newstore implementation supports this directly
-        return self._newStoreAddressBook.resourceNamesSinceToken(revision)
+        returnValue(
+            (yield self._newStoreAddressBook.resourceNamesSinceToken(revision))
+            + ([],)
+        )
+
 
     @classmethod
     def transform(cls, self, addressbook, home):
@@ -1978,6 +1996,9 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
         self._initializeWithNotifications(notifications, home)
 
 
+    def name(self):
+        return "notification"
+
     @inlineCallbacks
     def listChildren(self):
         l = []
@@ -1988,11 +2009,18 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
     def isCollection(self):
         return True
 
+
     def getSyncToken(self):
         return self._newStoreNotifications.syncToken()
 
+
+    @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
-        return self._newStoreNotifications.resourceNamesSinceToken(revision)
+        # The newstore implementation supports this directly
+        returnValue(
+            (yield self._newStoreNotifications.resourceNamesSinceToken(revision))
+            + ([],)
+        )
 
 
     def addNotification(self, request, uid, xmltype, xmldata):

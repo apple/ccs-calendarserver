@@ -4,12 +4,12 @@
 Network Working Group                                           C. Daboo
 Internet-Draft                                               Apple, Inc.
 Intended status: Standards Track                             A. Quillaud
-Expires: May 22, 2010                                   Sun Microsystems
-                                                       November 18, 2009
+Expires: April 8, 2011                                            Oracle
+                                                         October 5, 2010
 
 
                  Collection Synchronization for WebDAV
-                       draft-daboo-webdav-sync-02
+                       draft-daboo-webdav-sync-04
 
 Abstract
 
@@ -27,48 +27,43 @@ Editorial Note (To be removed by RFC Editor before publication)
 
 Status of This Memo
 
-   This Internet-Draft is submitted to IETF in full conformance with the
+   This Internet-Draft is submitted in full conformance with the
    provisions of BCP 78 and BCP 79.
 
    Internet-Drafts are working documents of the Internet Engineering
-   Task Force (IETF), its areas, and its working groups.  Note that
-   other groups may also distribute working documents as Internet-
-   Drafts.
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at http://datatracker.ietf.org/drafts/current/.
 
    Internet-Drafts are draft documents valid for a maximum of six months
    and may be updated, replaced, or obsoleted by other documents at any
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   The list of current Internet-Drafts can be accessed at
-   http://www.ietf.org/ietf/1id-abstracts.txt.
-
-   The list of Internet-Draft Shadow Directories can be accessed at
-   http://www.ietf.org/shadow.html.
-
-   This Internet-Draft will expire on May 22, 2010.
+   This Internet-Draft will expire on April 8, 2011.
 
 Copyright Notice
 
-
-
-Daboo & Quillaud          Expires May 22, 2010                  [Page 1]
-
-Internet-Draft                 WebDAV Sync                 November 2009
-
-
-   Copyright (c) 2009 IETF Trust and the persons identified as the
+   Copyright (c) 2010 IETF Trust and the persons identified as the
    document authors.  All rights reserved.
 
    This document is subject to BCP 78 and the IETF Trust's Legal
    Provisions Relating to IETF Documents
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                 [Page 1]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
    (http://trustee.ietf.org/license-info) in effect on the date of
    publication of this document.  Please review these documents
    carefully, as they describe your rights and restrictions with respect
    to this document.  Code Components extracted from this document must
    include Simplified BSD License text as described in Section 4.e of
    the Trust Legal Provisions and are provided without warranty as
-   described in the BSD License.
+   described in the Simplified BSD License.
 
    This document may contain material from IETF Documents or IETF
    Contributions published or made publicly available before November
@@ -108,39 +103,53 @@ Internet-Draft                 WebDAV Sync                 November 2009
 
 
 
-Daboo & Quillaud          Expires May 22, 2010                  [Page 2]
+
+
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                 [Page 2]
 
-Internet-Draft                 WebDAV Sync                 November 2009
+Internet-Draft                 WebDAV Sync                  October 2010
 
 
 Table of Contents
 
-   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3
-   2.  Conventions Used in This Document  . . . . . . . . . . . . . .  3
-   3.  Open Issues  . . . . . . . . . . . . . . . . . . . . . . . . .  4
-   4.  WebDAV Synchronization . . . . . . . . . . . . . . . . . . . .  4
-     4.1.  Overview . . . . . . . . . . . . . . . . . . . . . . . . .  4
-     4.2.  DAV:sync-collection report . . . . . . . . . . . . . . . .  5
-     4.3.  Types of changes reported  . . . . . . . . . . . . . . . .  7
-       4.3.1.  New resource . . . . . . . . . . . . . . . . . . . . .  7
-       4.3.2.  Modified resource  . . . . . . . . . . . . . . . . . .  7
-       4.3.3.  Removed resource . . . . . . . . . . . . . . . . . . .  7
-     4.4.  Example: Initial DAV:sync-collection REPORT  . . . . . . .  8
-     4.5.  Example: DAV:sync-collection Report with token . . . . . . 10
-   5.  DAV:sync-token Property  . . . . . . . . . . . . . . . . . . . 11
-   6.  XML Element Definitions  . . . . . . . . . . . . . . . . . . . 12
-     6.1.  DAV:sync-collection XML Element  . . . . . . . . . . . . . 12
-     6.2.  DAV:sync-token XML Element . . . . . . . . . . . . . . . . 12
-     6.3.  DAV:multistatus XML Element  . . . . . . . . . . . . . . . 13
-     6.4.  DAV:sync-response XML Element  . . . . . . . . . . . . . . 13
-   7.  Security Considerations  . . . . . . . . . . . . . . . . . . . 14
-   8.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 14
-   9.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 14
-   10. References . . . . . . . . . . . . . . . . . . . . . . . . . . 14
-     10.1. Normative References . . . . . . . . . . . . . . . . . . . 14
-     10.2. Informative References . . . . . . . . . . . . . . . . . . 14
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  4
+   2.  Conventions Used in This Document  . . . . . . . . . . . . . .  4
+   3.  WebDAV Synchronization . . . . . . . . . . . . . . . . . . . .  5
+     3.1.  Overview . . . . . . . . . . . . . . . . . . . . . . . . .  5
+     3.2.  DAV:sync-collection Report . . . . . . . . . . . . . . . .  6
+     3.3.  Depth behavior . . . . . . . . . . . . . . . . . . . . . .  7
+     3.4.  Types of Changes Reported on Initial Synchronization . . .  8
+     3.5.  Types of Changes Reported on Subsequent
+           Synchronizations . . . . . . . . . . . . . . . . . . . . .  8
+       3.5.1.  Changed Resource . . . . . . . . . . . . . . . . . . .  8
+       3.5.2.  Removed Resource . . . . . . . . . . . . . . . . . . .  9
+     3.6.  Truncation of Results  . . . . . . . . . . . . . . . . . .  9
+     3.7.  Limiting Results . . . . . . . . . . . . . . . . . . . . . 10
+     3.8.  Example: Initial DAV:sync-collection Report  . . . . . . . 11
+     3.9.  Example: DAV:sync-collection Report with Token . . . . . . 12
+     3.10. Example: Initial DAV:sync-collection Report with
+           Truncation . . . . . . . . . . . . . . . . . . . . . . . . 15
+     3.11. Example: Initial DAV:sync-collection Report with Limit . . 16
+     3.12. Example: DAV:sync-collection Report with Unsupported
+           Limit  . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+     3.13. Example: Depth:infinity initial DAV:sync-collection
+           Report . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+   4.  DAV:sync-token Property  . . . . . . . . . . . . . . . . . . . 21
+   5.  XML Element Definitions  . . . . . . . . . . . . . . . . . . . 21
+     5.1.  DAV:sync-collection XML Element  . . . . . . . . . . . . . 22
+     5.2.  DAV:sync-token XML Element . . . . . . . . . . . . . . . . 22
+     5.3.  DAV:multistatus XML Element  . . . . . . . . . . . . . . . 22
+   6.  Security Considerations  . . . . . . . . . . . . . . . . . . . 23
+   7.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 23
+   8.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 23
+   9.  References . . . . . . . . . . . . . . . . . . . . . . . . . . 23
+     9.1.  Normative References . . . . . . . . . . . . . . . . . . . 23
+     9.2.  Informative References . . . . . . . . . . . . . . . . . . 24
    Appendix A.  Change History (to be removed prior to
-                publication as an RFC)  . . . . . . . . . . . . . . . 15
+                publication as an RFC)  . . . . . . . . . . . . . . . 24
 
 
 
@@ -155,18 +164,9 @@ Table of Contents
 
 
 
-
-
-
-
-
-
-
-
-
-Daboo & Quillaud          Expires May 22, 2010                  [Page 3]
+Daboo & Quillaud          Expires April 8, 2011                 [Page 3]
 
-Internet-Draft                 WebDAV Sync                 November 2009
+Internet-Draft                 WebDAV Sync                  October 2010
 
 
 1.  Introduction
@@ -220,9 +220,9 @@ Internet-Draft                 WebDAV Sync                 November 2009
 
 
 
-Daboo & Quillaud          Expires May 22, 2010                  [Page 4]
+Daboo & Quillaud          Expires April 8, 2011                 [Page 4]
 
-Internet-Draft                 WebDAV Sync                 November 2009
+Internet-Draft                 WebDAV Sync                  October 2010
 
 
    When an XML element type in the "DAV:" namespace is referenced in
@@ -232,28 +232,9 @@ Internet-Draft                 WebDAV Sync                 November 2009
    This document inherits, and sometimes extends, DTD productions from
    Section 14 of [RFC4918].
 
-3.  Open Issues
+3.  WebDAV Synchronization
 
-   1.  We are extending the multistatus response element in a
-       significant way.  The DAV:sync-response differs from a regular
-       DAV:response because, in the case of a created or modified
-       resource, it contains both a DAV:status (201 for created, 200 for
-       modified) and a DAV:propstat.  The DAV:response on the other hand
-       contains either a DAV:status or a DAV:propstat but not both.
-       Shall we define a DAV:multisyncstatus response element instead of
-       overloading DAV:multistatus ?
-
-   2.  Do clients really need to be notified that a resource was created
-       versus modified ?  They should be able to figure that out by
-       looking at the state of their current cache.  If this information
-       is not necessary, the response would not need to contain a DAV:
-       status along with the DAV:propstat.  This would allow the use of
-       a regular multistatus (simply extended with a sync-token
-       element).
-
-4.  WebDAV Synchronization
-
-4.1.  Overview
+3.1.  Overview
 
    One way to synchronize data between two entities is to use some form
    of synchronization token.  The token defines the state of the data
@@ -274,106 +255,106 @@ Internet-Draft                 WebDAV Sync                 November 2009
    The server also returns a new token representing the new state at the
    time the report was run.
 
-
-
-Daboo & Quillaud          Expires May 22, 2010                  [Page 5]
-
-Internet-Draft                 WebDAV Sync                 November 2009
-
-
-   Typically the first time a client connects to the server it will need
-   to be informed of the entire state of the collection (i.e., a full
-   list of all resources that are currently contained in the
+   Typically, the first time a client connects to the server it will
+   need to be informed of the entire state of the collection (i.e., a
+   full list of all resources that are currently contained in the
    collection).  That is done by the client sending an empty token value
    to the server.  This indicates to the server that a full listing is
-   required.  As an alternative, the client may choose to do its first
+   required.
+
+   As an alternative, the client might choose to do its first
    synchronization using some other mechanism on the collection (e.g.
    some other form of batch resource information retrieval such as
    PROPFIND, SEARCH [RFC5323], or specialized REPORTs such as those
    defined in CalDAV [RFC4791] and CardDAV [I-D.ietf-vcarddav-carddav])
    and ask for the DAV:sync-token property to be returned.  This
-   property (defined in Section 5) contains the same token that can be
+   property (defined in Section 4) contains the same token that can be
    used later on to issue a DAV:sync-collection report.
 
-   In some cases a server may only wish to maintain a limited amount of
-   history about changes to a collection.  In that situation it will
+   In some cases a server might only wish to maintain a limited amount
+   of history about changes to a collection.  In that situation it will
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                 [Page 5]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
    return an error to the client when the client presents a token that
    is "out of date".  At that point the client has to fall back to
    synchronizing the entire collection by re-running the report request
-   using an empty token value.  ACL changes may also cause a token to
-   become invalid.
+   using an empty token value.
 
-4.2.  DAV:sync-collection report
+3.2.  DAV:sync-collection Report
 
-   This specification defines the DAV:sync-collection report.
-
-   If this report is implemented by a WebDAV server, then the server
-   MUST list the report in the "DAV:supported-report-set" property on
-   any collection supporting synchronization.
+   If the DAV:sync-collection report is implemented by a WebDAV server,
+   then the server MUST list the report in the "DAV:supported-report-
+   set" property on any collection supporting synchronization.
 
    To implement the behavior for this report a server needs to keep
-   track of changes to any resources in a collection.  This includes
-   noting the addition of new resources, changes to existing resources
-   and removal of resources (where "removal" could be the result of a
-   DELETE or MOVE WebDAV request).  Only internal members of the
-   collection (as defined in [RFC4918]) are to be considered.  The
-   server will track each change and provide a synchronization "token"
-   to the client that describes the state of the server at a specific
-   point in time.  This "token" is returned as part of the response to
-   the "sync-collection" report.  Clients include the last token they
-   got from the server in the next "sync-collection" report that they
-   execute and the server provides the changes from the previous state,
-   represented by the token, to the current state, represented by the
-   new token returned.
+   track of changes to any member resources in a collection (as defined
+   in Section 3 of [RFC4918]).  This includes noting the addition of new
+   resources, changes to existing resources and removal of resources.
+   The server will track each change and provide a synchronization
+   "token" to the client that describes the state of the server at a
+   specific point in time.  This "token" is returned as part of the
+   response to the "sync-collection" report.  Clients include the last
+   token they got from the server in the next "sync-collection" report
+   that they execute and the server provides the changes from the
+   previous state, represented by the token, to the current state,
+   represented by the new token returned.
 
    The synchronization token itself is an "opaque" string - i.e., the
-   actual string data has no specific meaning or syntax.  A simple
-   implementation of such a token would be a numeric counter that counts
-
-
-
-Daboo & Quillaud          Expires May 22, 2010                  [Page 6]
-
-Internet-Draft                 WebDAV Sync                 November 2009
-
-
-   each change as it occurs and relates that change to the specific
-   object that changed.
+   actual string data has no specific meaning or syntax.  For example, a
+   simple implementation of such a token could be a numeric counter that
+   counts each change as it occurs and relates that change to the
+   specific object that changed.
 
    Marshalling:
 
-      The request URI MUST be a collection.  The request body MUST be a
-      DAV:sync-collection XML element (see Section 6.1), which MUST
-      contain one DAV:sync-token XML element, and optionally a DAV:
-      propstat XML element.
+      The request URI MUST identify a collection.  The request body MUST
+      be a DAV:sync-collection XML element (see Section 5.1), which MUST
+      contain one DAV:sync-token XML element, and one DAV:prop XML
+      element, and MAY contain a DAV:limit XML element.
 
-      The request MUST include a Depth header with a value of "1".
+      The request MUST include a Depth header with a value of "1" or
+      "infinity".
 
       The response body for a successful request MUST be a DAV:
       multistatus XML element, which MUST contain one DAV:sync-token
-      element in addition to any DAV:sync-response elements.
-
-      The response body for a successful DAV:sync-collection report
-      request MUST contain a DAV:sync-response element for each resource
+      element in addition to one DAV:response element for each resource
       that was created, has changed or been deleted since the last
       synchronization operation as specified by the DAV:sync-token
       provided in the request.  A given resource MUST appear only once
       in the response.
 
-      The DAV:status element in each DAV:sync-response element is used
-      to indicate how the resource may have changed:
 
-         A status code of '201 Created' is used to indicate resources
-         that are new.
 
-         A status code of '200 OK' is used to indicate resources that
-         have changed.
 
-         A status code of '404 Not Found' is used to indicate resources
-         that have been removed.
+Daboo & Quillaud          Expires April 8, 2011                 [Page 6]
+
+Internet-Draft                 WebDAV Sync                  October 2010
 
-      The conditions under which each type of change may occur is
-      further described in Section 4.3.
+
+      The content of each DAV:response element differs depending on how
+      the resource was altered:
+
+         For resources that have changed (i.e., are new or have been
+         modified) the DAV:response MUST contain at least one DAV:
+         propstat element and MUST NOT contain any DAV:status element.
+
+         For resources that have been removed, the DAV:response MUST
+         contain one DAV:status with a value set to '404 Not Found' and
+         MUST NOT contain any DAV:propstat element.
+
+         For child collection resources that are unable to support the
+         DAV:sync-collection report, the DAV:response MUST contain one
+         DAV:status with a value set to '405 Method Not Allowed' and
+         MUST NOT contain any DAV:propstat element.
+
+      The conditions under which each type of change can occur is
+      further described in Section 3.5.
 
    Preconditions:
 
@@ -381,89 +362,437 @@ Internet-Draft                 WebDAV Sync                 November 2009
       to a valid token previously returned by the server.  A token may
       become invalid as the result of being "out of date" (out of the
       range of change history maintained by the server), or for other
-      reasons (e.g. collection deleted, then recreated, ACL changes,
-      etc...).
+      reasons (e.g. collection deleted, then recreated, access control
+      changes, etc...).
 
    Postconditions:
 
+      (DAV:number-of-matches-within-limits): The number of changes
+      reported in the response must fall within the client specified
+      limit.  This condition might be triggered if a client requests a
+      limit on the number of responses (as per Section 3.7) but the
+      server is unable to truncate the result set at or below that
+      limit.
+
+3.3.  Depth behavior
+
+   The DAV:sync-collection report supports both Depth:1 and Depth:
+   infinity request headers.
+
+   o  When the client specifies Depth:1, only additions, changes or
+      removals of immediate children of the collection specified as the
+      request URI are reported.
+
+   o  When the client specifies Depth:infinity, additions, changes or
+      removals of any child resource of the collection specified as the
 
 
-Daboo & Quillaud          Expires May 22, 2010                  [Page 7]
+
+Daboo & Quillaud          Expires April 8, 2011                 [Page 7]
 
-Internet-Draft                 WebDAV Sync                 November 2009
+Internet-Draft                 WebDAV Sync                  October 2010
 
 
-      None.
+      request URI are reported, provided child collections themselves
+      also support the DAV:sync-collection report.
 
-4.3.  Types of changes reported
+   o  DAV:sync-token values returned by the server are not specific to
+      the value of the Depth header used in the request.  As such
+      clients MAY use a DAV:sync-token value from a request with one
+      Depth value for a similar request with a different Depth value,
+      however the utility of this is limited.
 
-   Three types of resource state changes can be returned by the DAV:
-   sync-collection report (new, modified, removed).  This section
-   further defines under which condition each of them shall be used.  It
-   also clarifies the case where a resource may have undergone multiple
-   changes in between two synchronizations.
+   Note that when a server supports Depth:infinity reports, it might not
+   be possible to synchronize some child collections within the
+   collection targeted by the report.  In such cases the server is
+   REQUIRED to return a DAV:response with status '405 Method Not
+   Allowed' to inform the client that alternative methods have to be
+   used to synchronize the contents of those collections.  The 405
+   response MUST be sent once, when the collection is first reported to
+   the client.
 
-4.3.1.  New resource
+3.4.  Types of Changes Reported on Initial Synchronization
 
-   A resource MUST be reported as new if it has been mapped directly
-   under the target collection since the request sync token was
+   When the DAV:sync-collection request contains an empty DAV:sync-token
+   element, the server MUST return all members of the collection (taking
+   account of Depth header requirements as per Section 3.3, and optional
+   truncation of results set as per Section 3.6) and it MUST NOT return
+   any removed resources.  All types of resource (collection or non-
+   collection) MUST be reported.
+
+3.5.  Types of Changes Reported on Subsequent Synchronizations
+
+   When the DAV:sync-collection request contains a valid value for the
+   DAV:sync-token element, two types of resource state changes can be
+   returned (changed or removed).  This section defines what triggers
+   each of these to be returned.  It also clarifies the case where a
+   resource may have undergone multiple changes between two
+   synchronization report requests.  In all cases, the Depth header
+   requirements as per Section 3.3, and optional truncation of results
+   set as per Section 3.6, are taken into account by the server.
+
+3.5.1.  Changed Resource
+
+   A resource MUST be reported as changed if it has been mapped as an
+   member of the target collection since the request sync-token was
    generated.  This includes resources that have been mapped as the
-   result of a COPY, MOVE or BIND ([I-D.ietf-webdav-bind]) operation.
-   This also includes collection resources that have been created.
+   result of a COPY, MOVE or BIND [RFC5842] request.  All types of
+   resource (collection or non-collection) MUST be reported.
 
    In the case where a mapping between a resource and the target
    collection was removed, then a new mapping with the same URI created,
-   the new resource MUST be reported as new, while the old resource MUST
-   NOT be reported as removed.  For example, if a resource was deleted,
-   then recreated using the same URI, it should be reported as a new
-   resource only.
 
-   A resource MAY be reported as new if the user issuing the request was
-   granted access to this resource, due to access control changes.
 
-4.3.2.  Modified resource
 
-   A resource MUST be reported as modified if it is not reported as new
-   and if its entity tag value (defined in [RFC2616]) has changed since
-   the request sync token was generated.  In other words, the new
-   resource change indicator takes precedence over the modified resource
-   change indicator.
+Daboo & Quillaud          Expires April 8, 2011                 [Page 8]
+
+Internet-Draft                 WebDAV Sync                  October 2010
 
-   Collection resources MUST NOT be returned as modified.  Instead
-   clients are expected to synchronize changes in child collection
-   resources on an individual basis.
 
-4.3.3.  Removed resource
+   the new resource MUST be reported as changed while the old resource
+   MUST NOT be reported as removed.  For example, if a resource was
+   deleted, then recreated using the same URI, it should be reported as
+   a changed resource only.
+
+   A resource MUST be reported as changed if its entity tag value
+   (defined in Section 3.11 of [RFC2616]) has changed since the request
+   sync-token was generated.
+
+   A resource MAY be reported as changed if the user issuing the request
+   was granted access to this resource, due to access control changes.
+
+   Collection resources MUST be returned as changed if they have an
+   entity tag associated with them and that entity tag changes.  There
+   is no guarantee that changes to members of a collection will result
+   in a change in any entity tag of that collection, so clients cannot
+   rely on a series of Depth:1 reports at multiple levels to track all
+   changes within a collection.  Instead Depth:infinity has to be used.
+
+3.5.2.  Removed Resource
 
    A resource MUST be reported as removed if its mapping under the
-   target collection has been removed since the request sync token was
+   target collection has been removed since the request sync-token was
    generated, and it has not been re-mapped since it was removed.  This
    includes resources that have been unmapped as the result of a MOVE or
-   UNBIND ([I-D.ietf-webdav-bind]) operation.  This also includes
-   collection resources that have been removed.
+   UNBIND [RFC5842] operation.  This also includes collection resources
+   that have been removed, including ones that themselves do not support
+   the DAV:sync-collection report.
 
-
-
-Daboo & Quillaud          Expires May 22, 2010                  [Page 8]
-
-Internet-Draft                 WebDAV Sync                 November 2009
-
-
-   If a resource was created (and possibly modified), then removed in
-   between two synchronizations, it MUST NOT be reported as new,
-   modified or removed.
+   If a resource was created (and possibly modified), then removed
+   between two synchronization report requests, it MUST be reported as
+   removed.  This ensures that a client that creates a resource is
+   informed of the removal of the resource, if the removal occurs before
+   the client has had a chance to request a synchronization report.
 
    A resource MAY be reported as removed if the user issuing the request
-   has no longer access to this resource, due to access control changes.
+   no longer has access to this resource, due to access control changes.
 
-4.4.  Example: Initial DAV:sync-collection REPORT
+   For a Depth:infinity report where a collection is removed, the server
+   MUST NOT report the removal of any resources that are members of the
+   removed collection.  Clients MUST assume that if a collection is
+   reported as being removed, then all internal members of that
+   collection have also been removed.
+
+3.6.  Truncation of Results
+
+   A server MAY limit the number of resources in a response, for
+   example, to limit the amount of work expended in processing a
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                 [Page 9]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+   request, or as the result of an explicit limit set by the client.  If
+   the result set is truncated, the response MUST use status code 207,
+   return a DAV:multistatus response body, and indicate a status of 507
+   (Insufficient Storage) for the request URI.  That DAV:response
+   element SHOULD include a DAV:error element with the DAV:number-of-
+   matches-within-limits precondition, as defined in [RFC3744] (Section
+   9.2).  DAV:response elements for all the changes being reported are
+   also included.
+
+   When truncation occurs, the DAV:sync-token value returned in the
+   response MUST represent the correct state for the partial set of
+   changes returned.  That allows the client to use the returned DAV:
+   sync-token to fetch the next set of changes.  In this way the client
+   can effectively "page" through the entire set of changes in a
+   consistent manner.
+
+   Clients MUST handle the 507 status on the request-URI in the response
+   to the report.
+
+   For example, consider a server that records changes using a
+   monotonically increasing integer to represent a "revision number" and
+   uses that quantity as the DAV:sync-token value.  Assume the last DAV:
+   sync-token used by the client was "10", and since then 15 additional
+   changes have occurred.  If the client executes a DAV:sync-collection
+   request with a DAV:sync-token of "10", without a limit the server
+   would return 15 DAV:response elements and a DAV:sync-token with value
+   "25".  But if the server choose to limit responses to at most 10
+   changes, then it would return only 10 DAV:response elements and a
+   DAV:sync-token with value "20", together with an addition DAV:
+   response element for the request-URI with a status code of 507.
+   Subsequently, the client can re-issue the request with the DAV:sync-
+   token value returned from the server and fetch the remaining 5
+   changes.
+
+3.7.  Limiting Results
+
+   A client can limit the number of results returned by the server
+   through use of the DAV:limit element ([RFC5323], Section 5.17) in the
+   request body.  This is useful when clients have limited space or
+   bandwidth for the results.  If a server is unable to truncate the
+   result at or below the requested number, then it MUST fail the
+   request with a DAV:number-of-matches-within-limits post-condition
+   error.  When the results can be correctly limited by the server, the
+   server MUST follow the rules above for indicating a result set
+   truncation to the client.
+
+
+
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 10]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+3.8.  Example: Initial DAV:sync-collection Report
+
+   In this example, the client is making its first synchronization
+   request to the server, so the DAV:sync-token element in the request
+   is empty.  It also asks for the DAV:getetag property and for a
+   proprietary property.  The server responds with the items currently
+   in the targeted collection.  The current synchronization token is
+   also returned.
+
+   >> Request <<
+
+
+   REPORT /home/cyrusdaboo/ HTTP/1.1
+   Host: webdav.example.com
+   Depth: 1
+   Content-Type: text/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:sync-collection xmlns:D="DAV:">
+     <D:sync-token/>
+     <D:prop xmlns:R="urn:ns.example.com:boxschema">
+       <D:getetag/>
+       <R:bigbox/>
+     </D:prop>
+   </D:sync-collection>
+
+
+   >> Response <<
+
+
+   HTTP/1.1 207 Multi-Status
+   Content-Type: text/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:multistatus xmlns:D="DAV:">
+     <D:response>
+     <D:href
+   >http://webdav.example.com/home/cyrusdaboo/test.doc</D:href>
+     <D:propstat>
+       <D:prop>
+         <D:getetag>"00001-abcd1"</D:getetag>
+         <R:bigbox xmlns:R="urn:ns.example.com:boxschema">
+           <R:BoxType>Box type A</R:BoxType>
+         </R:bigbox>
+       </D:prop>
+       <D:status>HTTP/1.1 200 OK</D:status>
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 11]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+     </D:propstat>
+     </D:response>
+     <D:response>
+     <D:href
+   >http://webdav.example.com/home/cyrusdaboo/vcard.vcf</D:href>
+     <D:propstat>
+       <D:prop>
+         <D:getetag>"00002-abcd1"</D:getetag>
+       </D:prop>
+       <D:status>HTTP/1.1 200 OK</D:status>
+     </D:propstat>
+     <D:propstat>
+       <D:prop>
+         <R:bigbox xmlns:R="urn:ns.example.com:boxschema"/>
+       </D:prop>
+       <D:status>HTTP/1.1 404 Not Found</D:status>
+     </D:propstat>
+     </D:response>
+     <D:response>
+     <D:href
+   >http://webdav.example.com/home/cyrusdaboo/calendar.ics</D:href>
+     <D:propstat>
+       <D:prop>
+         <D:getetag>"00003-abcd1"</D:getetag>
+       </D:prop>
+       <D:status>HTTP/1.1 200 OK</D:status>
+     </D:propstat>
+     <D:propstat>
+       <D:prop>
+         <R:bigbox xmlns:R="urn:ns.example.com:boxschema"/>
+       </D:prop>
+       <D:status>HTTP/1.1 404 Not Found</D:status>
+     </D:propstat>
+     </D:response>
+     <D:sync-token>1234</D:sync-token>
+   </D:multistatus>
+
+
+3.9.  Example: DAV:sync-collection Report with Token
+
+   In this example, the client is making a synchronization request to
+   the server and is using the DAV:sync-token element returned from the
+   last report it ran on this collection.  The server responds, listing
+   the items that have been added, changed or removed.  The (new)
+   current synchronization token is also returned.
+
+
+
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 12]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+   >> Request <<
+
+
+   REPORT /home/cyrusdaboo/ HTTP/1.1
+   Host: webdav.example.com
+   Depth: 1
+   Content-Type: text/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:sync-collection xmlns:D="DAV:">
+     <D:sync-token>1234</D:sync-token>
+     <D:prop xmlns:R="urn:ns.example.com:boxschema">
+       <D:getetag/>
+       <R:bigbox/>
+     </D:prop>
+   </D:sync-collection>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 13]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+   >> Response <<
+
+
+   HTTP/1.1 207 Multi-Status
+   Content-Type: text/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:multistatus xmlns:D="DAV:">
+     <D:response>
+     <D:href
+   >http://webdav.example.com/home/cyrusdaboo/file.xml</D:href>
+     <D:propstat>
+       <D:prop>
+         <D:getetag>"00004-abcd1"</D:getetag>
+       </D:prop>
+       <D:status>HTTP/1.1 200 OK</D:status>
+     </D:propstat>
+     <D:propstat>
+       <D:prop>
+         <R:bigbox xmlns:R="urn:ns.example.com:boxschema"/>
+       </D:prop>
+       <D:status>HTTP/1.1 404 Not Found</D:status>
+     </D:propstat>
+     </D:response>
+     <D:response>
+     <D:href
+   >http://webdav.example.com/home/cyrusdaboo/vcard.vcf</D:href>
+     <D:propstat>
+       <D:prop>
+         <D:getetag>"00002-abcd2"</D:getetag>
+       </D:prop>
+       <D:status>HTTP/1.1 200 OK</D:status>
+     </D:propstat>
+     <D:propstat>
+       <D:prop>
+         <R:bigbox xmlns:R="urn:ns.example.com:boxschema"/>
+       </D:prop>
+       <D:status>HTTP/1.1 404 Not Found</D:status>
+     </D:propstat>
+     </D:response>
+     <D:response>
+     <D:href
+   >http://webdav.example.com/home/cyrusdaboo/test.doc</D:href>
+     <D:status>HTTP/1.1 404 Not Found</D:status>
+     </D:response>
+     <D:sync-token>1238</D:sync-token>
+   </D:multistatus>
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 14]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+3.10.  Example: Initial DAV:sync-collection Report with Truncation
 
    In this example, the client is making its first synchronization
    request to the server, so the DAV:sync-token element in the request
    is empty.  It also asks for the DAV:getetag property.  The server
-   responds with the items currently in the targeted collection
-   (indicating that they are 'new' via the '201 Created' status code).
-   The current synchronization token is also returned.
+   responds with the items currently in the targeted collection, but
+   truncated at two items.  The synchronization token for the truncated
+   result set is returned.
 
    >> Request <<
 
@@ -500,9 +829,16 @@ Internet-Draft                 WebDAV Sync                 November 2009
 
 
 
-Daboo & Quillaud          Expires May 22, 2010                  [Page 9]
+
+
+
+
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 15]
 
-Internet-Draft                 WebDAV Sync                 November 2009
+Internet-Draft                 WebDAV Sync                  October 2010
 
 
    >> Response <<
@@ -514,60 +850,52 @@ Internet-Draft                 WebDAV Sync                 November 2009
 
    <?xml version="1.0" encoding="utf-8" ?>
    <D:multistatus xmlns:D="DAV:">
-     <D:sync-response>
+     <D:response>
      <D:href
    >http://webdav.example.com/home/cyrusdaboo/test.doc</D:href>
-     <D:status>HTTP/1.1 201 Created</D:status>
      <D:propstat>
        <D:prop>
          <D:getetag>"00001-abcd1"</D:getetag>
        </D:prop>
        <D:status>HTTP/1.1 200 OK</D:status>
      </D:propstat>
-     </D:sync-response>
-     <D:sync-response>
+     </D:response>
+     <D:response>
      <D:href
    >http://webdav.example.com/home/cyrusdaboo/vcard.vcf</D:href>
-     <D:status>HTTP/1.1 201 Created</D:status>
      <D:propstat>
        <D:prop>
          <D:getetag>"00002-abcd1"</D:getetag>
        </D:prop>
        <D:status>HTTP/1.1 200 OK</D:status>
      </D:propstat>
-     </D:sync-response>
-     <D:sync-response>
-     <D:href
-   >http://webdav.example.com/home/cyrusdaboo/calendar.ics</D:href>
-     <D:status>HTTP/1.1 201 Created</D:status>
-     <D:propstat>
-       <D:prop>
-         <D:getetag>"00003-abcd1"</D:getetag>
-       </D:prop>
-       <D:status>HTTP/1.1 200 OK</D:status>
-     </D:propstat>
-     </D:sync-response>
-     <D:sync-token>1234</D:sync-token>
+     </D:response>
+     <D:response>
+       <D:href
+   >http://webdav.example.com/home/cyrusdaboo/</D:href>
+       <D:status>HTTP/1.1 507 Insufficient Storage</D:status>
+       <D:error><D:number-of-matches-within-limits/></D:error>
+     </D:response>
+     <D:sync-token>1233</D:sync-token>
    </D:multistatus>
 
 
+3.11.  Example: Initial DAV:sync-collection Report with Limit
+
+   In this example, the client is making its first synchronization
+   request to the server, so the DAV:sync-token element in the request
+   is empty.  It requests a limit of 1 for the responses returned by the
+   server.  It also asks for the DAV:getetag property.  The server
+   responds with the items currently in the targeted collection, but
+   truncated at one item.  The synchronization token for the truncated
+   result set is returned.
 
 
 
-
-
-Daboo & Quillaud          Expires May 22, 2010                 [Page 10]
+Daboo & Quillaud          Expires April 8, 2011                [Page 16]
 
-Internet-Draft                 WebDAV Sync                 November 2009
+Internet-Draft                 WebDAV Sync                  October 2010
 
-
-4.5.  Example: DAV:sync-collection Report with token
-
-   In this example, the client is making a synchronization request to
-   the server and is using the DAV:sync-token element returned from the
-   last report it ran on this collection.  The server responds listing
-   the items that have been added, changed or removed.  The (new)
-   current synchronization token is also returned.
 
    >> Request <<
 
@@ -580,41 +908,14 @@ Internet-Draft                 WebDAV Sync                 November 2009
 
    <?xml version="1.0" encoding="utf-8" ?>
    <D:sync-collection xmlns:D="DAV:">
-     <D:sync-token>1234</D:sync-token>
+     <D:sync-token/>
+     <D:limit>
+       <D:nresults>1</D:nresults>
+     </D:limit>
      <D:prop>
        <D:getetag/>
      </D:prop>
    </D:sync-collection>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Daboo & Quillaud          Expires May 22, 2010                 [Page 11]
-
-Internet-Draft                 WebDAV Sync                 November 2009
 
 
    >> Response <<
@@ -626,52 +927,217 @@ Internet-Draft                 WebDAV Sync                 November 2009
 
    <?xml version="1.0" encoding="utf-8" ?>
    <D:multistatus xmlns:D="DAV:">
-     <D:sync-response>
-     <D:href
-   >http://webdav.example.com/home/cyrusdaboo/file.xml</D:href>
-     <D:status>HTTP/1.1 201 Created</D:status>
-     <D:propstat>
-       <D:prop>
-         <D:getetag>"00004-abcd1"</D:getetag>
-       </D:prop>
-       <D:status>HTTP/1.1 200 OK</D:status>
-     </D:propstat>
-     </D:sync-response>
-     <D:sync-response>
-     <D:href
-   >http://webdav.example.com/home/cyrusdaboo/vcard.vcf</D:href>
-     <D:status>HTTP/1.1 200 OK</D:status>
-     <D:propstat>
-       <D:prop>
-         <D:getetag>"00002-abcd2"</D:getetag>
-       </D:prop>
-       <D:status>HTTP/1.1 200 OK</D:status>
-     </D:propstat>
-     </D:sync-response>
-     <D:sync-response>
+     <D:response>
      <D:href
    >http://webdav.example.com/home/cyrusdaboo/test.doc</D:href>
-     <D:status>HTTP/1.1 404 Not Found</D:status>
-     </D:sync-response>
-     <D:sync-token>1238</D:sync-token>
+     <D:propstat>
+       <D:prop>
+         <D:getetag>"00001-abcd1"</D:getetag>
+       </D:prop>
+       <D:status>HTTP/1.1 200 OK</D:status>
+     </D:propstat>
+     </D:response>
+     <D:response>
+       <D:href
+   >http://webdav.example.com/home/cyrusdaboo/</D:href>
+       <D:status>HTTP/1.1 507 Insufficient Storage</D:status>
+       <D:error><D:number-of-matches-within-limits/></D:error>
+     </D:response>
+     <D:sync-token>1232</D:sync-token>
    </D:multistatus>
 
 
-5.  DAV:sync-token Property
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 17]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+3.12.  Example: DAV:sync-collection Report with Unsupported Limit
+
+   In this example, the client is making a synchronization request to
+   the server with a valid DAV:sync-token element value.  It requests a
+   limit of 100 for the responses returned by the server.  It also asks
+   for the DAV:getetag property.  The server is unable to limit the
+   results to the maximum specified by the client, so it responds with a
+   507 status code and appropriate post-condition error code.
+
+   >> Request <<
+
+
+   REPORT /home/cyrusdaboo/ HTTP/1.1
+   Host: webdav.example.com
+   Depth: 1
+   Content-Type: text/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:sync-collection xmlns:D="DAV:">
+     <D:sync-token>1232</D:sync-token>
+     <D:limit>
+       <D:nresults>100</D:nresults>
+     </D:limit>
+     <D:prop>
+       <D:getetag/>
+     </D:prop>
+   </D:sync-collection>
+
+
+   >> Response <<
+
+
+   HTTP/1.1 507 Insufficient Storage
+   Content-Type: text/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:error xmlns:D="DAV:">
+     <D:number-of-matches-within-limits/>
+   </D:error>
+
+
+3.13.  Example: Depth:infinity initial DAV:sync-collection Report
+
+   In this example, the client is making its first synchronization
+   request to the server, so the DAV:sync-token element in the request
+   is empty, and it is using Depth:infinity.  It also asks for the DAV:
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 18]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+   getetag property and for a proprietary property.  The server responds
+   with the items currently in the targeted collection.  The current
+   synchronization token is also returned.
+
+   The collection /home/cyrusdaboo/collection1/ exists and has one child
+   resource which is also reported.  The collection /home/cyrusdaboo/
+   collection2/ exists but has no child resources.  The collection
+   /home/cyrusdaboo/shared/ is returned with a 405 status indicating
+   that a collection exists but it is unable to report on changes within
+   it in the scope of the current Depth:infinity report.  Instead the
+   client can try a DAV:sync-collection report directly on the
+   collection URI.
+
+   >> Request <<
+
+
+   REPORT /home/cyrusdaboo/ HTTP/1.1
+   Host: webdav.example.com
+   Depth: 1
+   Content-Type: text/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:sync-collection xmlns:D="DAV:">
+     <D:sync-token/>
+     <D:prop xmlns:R="urn:ns.example.com:boxschema">
+       <D:getetag/>
+       <R:bigbox/>
+     </D:prop>
+   </D:sync-collection>
+
+
+   >> Response <<
+
+
+   HTTP/1.1 207 Multi-Status
+   Content-Type: text/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:multistatus xmlns:D="DAV:">
+     <D:response>
+     <D:href
+   >/home/cyrusdaboo/collection1/</D:href>
+     <D:propstat>
+       <D:prop>
+         <D:getetag>"00001-abcd1"</D:getetag>
+         <R:bigbox xmlns:R="urn:ns.example.com:boxschema">
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 19]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+           <R:BoxType>Box type A</R:BoxType>
+         </R:bigbox>
+       </D:prop>
+       <D:status>HTTP/1.1 200 OK</D:status>
+     </D:propstat>
+     </D:response>
+     <D:response>
+     <D:href
+   >/home/cyrusdaboo/collection1/test.doc</D:href>
+     <D:propstat>
+       <D:prop>
+         <D:getetag>"00001-abcd1"</D:getetag>
+         <R:bigbox xmlns:R="urn:ns.example.com:boxschema">
+           <R:BoxType>Box type A</R:BoxType>
+         </R:bigbox>
+       </D:prop>
+       <D:status>HTTP/1.1 200 OK</D:status>
+     </D:propstat>
+     </D:response>
+     <D:response>
+     <D:href
+   >/home/cyrusdaboo/collection2/</D:href>
+     <D:propstat>
+       <D:prop>
+         <D:getetag>"00002-abcd1"</D:getetag>
+       </D:prop>
+       <D:status>HTTP/1.1 200 OK</D:status>
+     </D:propstat>
+     <D:propstat>
+       <D:prop>
+         <R:bigbox xmlns:R="urn:ns.example.com:boxschema"/>
+       </D:prop>
+       <D:status>HTTP/1.1 404 Not Found</D:status>
+     </D:propstat>
+     </D:response>
+     <D:response>
+     <D:href
+   >/home/cyrusdaboo/calendar.ics</D:href>
+     <D:propstat>
+       <D:prop>
+         <D:getetag>"00003-abcd1"</D:getetag>
+       </D:prop>
+       <D:status>HTTP/1.1 200 OK</D:status>
+     </D:propstat>
+     <D:propstat>
+       <D:prop>
+         <R:bigbox xmlns:R="urn:ns.example.com:boxschema"/>
+       </D:prop>
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 20]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+       <D:status>HTTP/1.1 404 Not Found</D:status>
+     </D:propstat>
+     </D:response>
+     <D:response>
+     <D:href
+   >/home/cyrusdaboo/shared/</D:href>
+     <D:status>HTTP/1.1 405 Method Not Allowed</D:status>
+     </D:response>
+     <D:sync-token>1234</D:sync-token>
+   </D:multistatus>
+
+
+4.  DAV:sync-token Property
 
    Name:  sync-token
 
    Namespace:  DAV:
-
-
-
-
-
-
-Daboo & Quillaud          Expires May 22, 2010                 [Page 12]
-
-Internet-Draft                 WebDAV Sync                 November 2009
-
 
    Purpose:  Contains the value of the synchronization token as it would
       be returned by a DAV:sync-collection report.
@@ -690,7 +1156,7 @@ Internet-Draft                 WebDAV Sync                 November 2009
       contains the value of the synchronization token as it would be
       returned by a DAV:sync-collection report on that resource at the
       same point in time.  It SHOULD NOT be returned by a PROPFIND DAV:
-      allprop request (as defined in [RFC4918]).
+      allprop request (as defined in Section 14.2 of [RFC4918]).
 
    Definition:
 
@@ -698,9 +1164,20 @@ Internet-Draft                 WebDAV Sync                 November 2009
    <!ELEMENT sync-token #PCDATA>
 
 
-6.  XML Element Definitions
+5.  XML Element Definitions
 
-6.1.  DAV:sync-collection XML Element
+
+
+
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 21]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+5.1.  DAV:sync-collection XML Element
 
    Name:  sync-collection
 
@@ -709,25 +1186,17 @@ Internet-Draft                 WebDAV Sync                 November 2009
    Purpose:  WebDAV report used to synchronize data between client and
       server.
 
-   Description:  See Section 4.
+   Description:  See Section 3.
 
 
 
-   <!ELEMENT sync-collection (sync-token, DAV:prop?)>
+   <!ELEMENT sync-collection (sync-token, DAV:limit?, DAV:prop)>
+
+   <!-- DAV:limit defined in RFC 5323, Section 5.17 -->
+   <!-- DAV:prop defined in RFC 4918, Section 14.18 -->
 
 
-6.2.  DAV:sync-token XML Element
-
-
-
-
-
-
-
-Daboo & Quillaud          Expires May 22, 2010                 [Page 13]
-
-Internet-Draft                 WebDAV Sync                 November 2009
-
+5.2.  DAV:sync-token XML Element
 
    Name:  sync-token
 
@@ -736,14 +1205,14 @@ Internet-Draft                 WebDAV Sync                 November 2009
    Purpose:  The synchronization token provided by the server and
       returned by the client.
 
-   Description:  See Section 4.
+   Description:  See Section 3.
 
 
 
    <!ELEMENT sync-token CDATA>
 
 
-6.3.  DAV:multistatus XML Element
+5.3.  DAV:multistatus XML Element
 
    Name:  multistatus
 
@@ -752,57 +1221,48 @@ Internet-Draft                 WebDAV Sync                 November 2009
    Purpose:  Extends the DAV:multistatus element to include
       synchronization details.
 
-   Description:  See Section 4.
-
-
-
-   <!ELEMENT multistatus ((DAV:response*, DAV:responsedescription?) |
-                (DAV:sync-response*, DAV:sync-token,
-                 DAV:responsedescription?))>
-
-
-6.4.  DAV:sync-response XML Element
-
-   Name:  sync-response
-
-   Namespace:  DAV:
-
-   Purpose:  Contains the synchronization results returned by the
-      server.
-
-   Description:  See Section 4.
-
-
-
-   <!ELEMENT sync-response (DAV:href, DAV:status, DAV:propstat?)>
+   Description:  See Section 3.
 
 
 
 
 
-Daboo & Quillaud          Expires May 22, 2010                 [Page 14]
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 22]
 
-Internet-Draft                 WebDAV Sync                 November 2009
+Internet-Draft                 WebDAV Sync                  October 2010
 
 
-7.  Security Considerations
+   <!ELEMENT multistatus (DAV:response*, DAV:responsedescription?,
+                          sync-token?) >
+
+   <!-- DAV:multistatus originally defined in RFC 4918, Section 14.16
+        but overridden here to add the DAV:sync-token element -->
+   <!-- DAV:response defined in RFC 4918, Section 14.24 -->
+   <!-- DAV:responsedescription defined in RFC 4918, Section 14.25 -->
+
+
+6.  Security Considerations
 
    This extension does not introduce any new security concerns than
    those already described in HTTP and WebDAV.
 
-8.  IANA Considerations
+7.  IANA Considerations
 
    This document does not require any actions on the part of IANA.
 
-9.  Acknowledgments
+8.  Acknowledgments
 
    The following individuals contributed their ideas and support for
    writing this specification: Bernard Desruisseaux, Mike Douglass, Ciny
-   Joy and Julian Reschke.
+   Joy, Andrew McMillan, Julian Reschke, and Wilfredo Sanchez.  We would
+   like to thank the Calendaring and Scheduling Consortium for
+   facilitating interoperability testing for early implementations of
+   this specification.
 
-10.  References
+9.  References
 
-10.1.  Normative References
+9.1.  Normative References
 
    [RFC2119]                    Bradner, S., "Key words for use in RFCs
                                 to Indicate Requirement Levels", BCP 14,
@@ -814,50 +1274,94 @@ Internet-Draft                 WebDAV Sync                 November 2009
                                 Protocol -- HTTP/1.1", RFC 2616,
                                 June 1999.
 
+   [RFC3744]                    Clemm, G., Reschke, J., Sedlar, E., and
+                                J. Whitehead, "Web Distributed Authoring
+                                and Versioning (WebDAV)
+                                Access Control Protocol", RFC 3744,
+                                May 2004.
+
    [RFC4918]                    Dusseault, L., "HTTP Extensions for Web
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 23]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
                                 Distributed Authoring and Versioning
                                 (WebDAV)", RFC 4918, June 2007.
-
-   [W3C.REC-xml-20081126]       Sperberg-McQueen, C., Yergeau, F., Bray,
-                                T., Paoli, J., and E. Maler, "Extensible
-                                Markup Language (XML) 1.0 (Fifth
-                                Edition)", World Wide Web Consortium
-                                Recommendation REC-xml-20081126,
-                                November 2008, <http://www.w3.org/TR/
-                                2008/REC-xml-20081126>.
-
-10.2.  Informative References
-
-   [I-D.ietf-vcarddav-carddav]  Daboo, C., "vCard Extensions to WebDAV
-                                (CardDAV)",
-                                draft-ietf-vcarddav-carddav-10 (work in
-                                progress), November 2009.
-
-
-
-
-Daboo & Quillaud          Expires May 22, 2010                 [Page 15]
-
-Internet-Draft                 WebDAV Sync                 November 2009
-
-
-   [I-D.ietf-webdav-bind]       Clemm, G., Crawford, J., Reschke, J.,
-                                and J. Whitehead, "Binding Extensions to
-                                Web Distributed Authoring and Versioning
-                                (WebDAV)", draft-ietf-webdav-bind-26
-                                (work in progress), September 2009.
-
-   [RFC4791]                    Daboo, C., Desruisseaux, B., and L.
-                                Dusseault, "Calendaring Extensions to
-                                WebDAV (CalDAV)", RFC 4791, March 2007.
 
    [RFC5323]                    Reschke, J., Reddy, S., Davis, J., and
                                 A. Babich, "Web Distributed Authoring
                                 and Versioning (WebDAV) SEARCH",
                                 RFC 5323, November 2008.
 
+   [W3C.REC-xml-20081126]       Paoli, J., Yergeau, F., Bray, T.,
+                                Sperberg-McQueen, C., and E. Maler,
+                                "Extensible Markup Language (XML) 1.0
+                                (Fifth Edition)", World Wide Web
+                                Consortium Recommendation REC-xml-
+                                20081126, November 2008, <http://
+                                www.w3.org/TR/2008/REC-xml-20081126>.
+
+9.2.  Informative References
+
+   [I-D.ietf-vcarddav-carddav]  Daboo, C., "vCard Extensions to WebDAV
+                                (CardDAV)",
+                                draft-ietf-vcarddav-carddav-10 (work in
+                                progress), November 2009.
+
+   [RFC4791]                    Daboo, C., Desruisseaux, B., and L.
+                                Dusseault, "Calendaring Extensions to
+                                WebDAV (CalDAV)", RFC 4791, March 2007.
+
+   [RFC5842]                    Clemm, G., Crawford, J., Reschke, J.,
+                                and J. Whitehead, "Binding Extensions to
+                                Web Distributed Authoring and Versioning
+                                (WebDAV)", RFC 5842, April 2010.
+
 Appendix A.  Change History (to be removed prior to publication as an
              RFC)
+
+   Changes in -04:
+
+   1.  Depth:infinity support added.
+
+   2.  Collection resources are now reported as changed if they have a
+       valid entity tag associated with them.
+
+   Changes in -03:
+
+   1.  Changed D:propstat to D:prop in marshalling.
+
+   2.  Added request for dead property in examples.
+
+
+
+
+Daboo & Quillaud          Expires April 8, 2011                [Page 24]
+
+Internet-Draft                 WebDAV Sync                  October 2010
+
+
+   3.  Made D:prop mandatory in request so that D:response always
+       contains at least one D:propstat as per WebDAV definition.
+
+   4.  Removed DAV:status from response when resource is created/
+       modified, thus allowing to get rid of DAV:sync-response in favor
+       of a regular DAV:response.  As a consequence, there is no longer
+       any difference in the report between created and modified
+       resources.
+
+   5.  Resource created, then removed between 2 sync MUST be returned as
+       removed.
+
+   6.  Added ability for server to truncate results and indicate such to
+       the client.
+
+   7.  Added ability for client to request the server to limit the
+       result set.
 
    Changes in -02:
 
@@ -892,9 +1396,9 @@ Appendix A.  Change History (to be removed prior to publication as an
 
 
 
-Daboo & Quillaud          Expires May 22, 2010                 [Page 16]
+Daboo & Quillaud          Expires April 8, 2011                [Page 25]
 
-Internet-Draft                 WebDAV Sync                 November 2009
+Internet-Draft                 WebDAV Sync                  October 2010
 
 
 Authors' Addresses
@@ -910,13 +1414,13 @@ Authors' Addresses
 
 
    Arnaud Quillaud
-   Sun Microsystems
+   Oracle Corporation
    180, Avenue de l'Europe
    Saint Ismier cedex,   38334
    France
 
-   EMail: arnaud.quillaud@sun.com
-   URI:   http://www.sun.com/
+   EMail: arnaud.quillaud@oracle.com
+   URI:   http://www.oracle.com/
 
 
 
@@ -948,5 +1452,5 @@ Authors' Addresses
 
 
 
-Daboo & Quillaud          Expires May 22, 2010                 [Page 17]
+Daboo & Quillaud          Expires April 8, 2011                [Page 26]
 

@@ -119,7 +119,7 @@ def main():
             return
         setupMemcached(config)
     except ConfigurationError, e:
-        respondWithError(e)
+        respondWithError(str(e))
         return
 
     #

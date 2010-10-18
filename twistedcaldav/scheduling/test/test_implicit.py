@@ -18,7 +18,6 @@ from twistedcaldav.ical import Component
 import twistedcaldav.test.util
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from dateutil.tz import tzutc
-from twext.web2.dav import davxml
 import datetime
 
 class Implicit (twistedcaldav.test.util.TestCase):
@@ -747,15 +746,9 @@ END:VCALENDAR
             ),
         )
 
-        class TestResource(object):
-            def currentPrincipal(self, request):
-                return davxml.Principal(davxml.Unauthenticated)
-
-        resource = TestResource()
-
         for description, calendar1, calendar2, result in data:
             scheduler = ImplicitScheduler()
-            scheduler.resource = resource
+            scheduler.resource = None
             scheduler.request = None
             scheduler.oldcalendar = Component.fromString(calendar1)
             scheduler.calendar = Component.fromString(calendar2)
