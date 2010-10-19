@@ -68,6 +68,8 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
         calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB(os.path.abspath(self.mktemp()))
 
+
+    @inlineCallbacks
     def test_hierarchy(self):
         """
         DirectoryPrincipalProvisioningResource.listChildren(),
@@ -92,7 +94,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             principalCollections = provisioningResource.principalCollections()
             self.assertEquals(set((provisioningURL,)), set(pc.principalCollectionURL() for pc in principalCollections))
 
-            recordTypes = set(provisioningResource.listChildren())
+            recordTypes = set((yield provisioningResource.listChildren()))
             self.assertEquals(recordTypes, set(directory.recordTypes()))
 
             for recordType in recordTypes:
@@ -106,7 +108,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 principalCollections = typeResource.principalCollections()
                 self.assertEquals(set((provisioningURL,)), set(pc.principalCollectionURL() for pc in principalCollections))
 
-                shortNames = set(typeResource.listChildren())
+                shortNames = set((yield typeResource.listChildren()))
                 self.assertEquals(shortNames, set(r.shortNames[0] for r in directory.listRecords(recordType)))
 
                 for shortName in shortNames:
@@ -426,7 +428,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             for args in _authReadOnlyPrivileges(self, provisioningResource, provisioningResource.principalCollectionURL()):
                 yield self._checkPrivileges(*args)
 
-            for recordType in provisioningResource.listChildren():
+            for recordType in (yield provisioningResource.listChildren()):
                 #print "   -> %s" % (recordType,)
                 typeResource = provisioningResource.getChild(recordType)
 

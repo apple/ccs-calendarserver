@@ -14,12 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+import sys
 
 """
 Run and manage PostgreSQL as a subprocess.
 """
 import os
 import pwd
+import thread
+
+
 from hashlib import md5
 
 from twisted.python.procutils import which
@@ -67,6 +71,10 @@ class DiagnosticCursorWrapper(object):
 
     def execute(self, sql, args=()):
         self.connectionWrapper.state = 'executing %r' % (sql,)
+#        sys.stdout.write(
+#            "Really executing SQL %r in thread %r\n" %
+#            ((sql % tuple(args)), thread.get_ident())
+#        )
         self.realCursor.execute(sql, args)
 
 
@@ -75,7 +83,12 @@ class DiagnosticCursorWrapper(object):
 
 
     def fetchall(self):
-        return self.realCursor.fetchall()
+        results = self.realCursor.fetchall()
+#        sys.stdout.write(
+#            "Really fetching results %r thread %r\n" %
+#            (results, thread.get_ident())
+#        )
+        return results
 
 
 

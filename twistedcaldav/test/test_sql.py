@@ -17,7 +17,7 @@
 from twistedcaldav.sql import AbstractSQLDatabase
 
 import twistedcaldav.test.util
-from twistedcaldav.sql import db_prefix
+
 from threading import Thread
 import time
 import os

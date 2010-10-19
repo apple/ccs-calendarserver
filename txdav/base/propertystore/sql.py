@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 """
 PostgreSQL data store.
@@ -30,31 +31,35 @@ from twext.web2.dav.davxml import WebDAVDocument
 
 class PropertyStore(AbstractPropertyStore):
 
-    def __init__(self, defaultuser, txn, resourceID):
+    def __init__(self, *a, **kw):
+        raise NotImplementedError(
+            "do not construct directly, call PropertyStore.load()"
+        )
+
+
+    @classmethod
+    @inlineCallbacks
+    def load(cls, defaultuser, txn, resourceID):
+        self = cls.__new__(cls)
         super(PropertyStore, self).__init__(defaultuser)
         self._txn = txn
         self._resourceID = resourceID
+        self._cached = {}
+        rows = yield self._txn.execSQL(
+            """
+            select NAME, VIEWER_UID, VALUE from RESOURCE_PROPERTY
+            where RESOURCE_ID = %s
+            """,
+            [self._resourceID]
+        )
+        for name, uid, value in rows:
+            self._cached[(name, uid)] = value
+        returnValue(self)
 
-    @property
-    def _cached(self):
-        
-        if not hasattr(self, "_cached_properties"):
-            self._cached_properties = {}
-            rows = self._txn.execSQL(
-                """
-                select NAME, VIEWER_UID, VALUE from RESOURCE_PROPERTY
-                where RESOURCE_ID = %s
-                """,
-                [self._resourceID]
-            )
-            for name, uid, value in rows:
-                self._cached_properties[(name, uid)] = value
-        
-        return self._cached_properties
 
     def _getitem_uid(self, key, uid):
         validKey(key)
-        
+
         try:
             value = self._cached[(key.toString(), uid)]
         except KeyError:

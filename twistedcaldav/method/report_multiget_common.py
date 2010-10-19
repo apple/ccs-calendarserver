@@ -179,7 +179,9 @@ def multiget_common(self, request, multiget, collection_type):
                 returnValue(None)
         
             # Verify that valid requested resources are calendar objects
-            exists_names = tuple(self.index().resourcesExist(valid_names))
+            exists_names = tuple(
+                (yield self.index().resourcesExist(valid_names))
+            )
             checked_names = []
             for name in valid_names:
                 if name not in exists_names:
@@ -309,11 +311,11 @@ def multiget_common(self, request, multiget, collection_type):
                     parent = (yield child.locateParent(request, resource_uri))
     
                     if collection_type == COLLECTION_TYPE_CALENDAR:
-                        if not parent.isCalendarCollection() or not parent.index().resourceExists(name):
+                        if not parent.isCalendarCollection() or not (yield parent.index().resourceExists(name)):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                             continue
                     elif collection_type == COLLECTION_TYPE_ADDRESSBOOK:
-                        if not parent.isAddressBookCollection() or not parent.index().resourceExists(name):
+                        if not parent.isAddressBookCollection() or not (yield parent.index().resourceExists(name)):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                             continue
                     
@@ -343,11 +345,11 @@ def multiget_common(self, request, multiget, collection_type):
                     parent = (yield self.locateParent(request, resource_uri))
     
                     if collection_type == COLLECTION_TYPE_CALENDAR:
-                        if not parent.isPseudoCalendarCollection() or not parent.index().resourceExists(name):
+                        if not parent.isPseudoCalendarCollection() or not (yield parent.index().resourceExists(name)):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                             continue
                     elif collection_type == COLLECTION_TYPE_ADDRESSBOOK:
-                        if not parent.isAddressBookCollection() or not parent.index().resourceExists(name):
+                        if not parent.isAddressBookCollection() or not (yield parent.index().resourceExists(name)):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                             continue
                     child = self

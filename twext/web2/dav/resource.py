@@ -51,8 +51,9 @@ from zope.interface import implements
 
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.python.failure import Failure
-from twisted.internet.defer import Deferred, maybeDeferred, succeed
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import (
+    Deferred, maybeDeferred, succeed, inlineCallbacks, returnValue
+)
 from twisted.internet import reactor
 
 from twext.python.log import Logger
@@ -204,10 +205,12 @@ class DAVPropertyMixIn (MetaDataMixin):
             self.deadProperties().contains(qname)
         )
 
+
     def readProperty(self, property, request):
         """
         See L{IDAVResource.readProperty}.
         """
+        @inlineCallbacks
         def defer():
             if type(property) is tuple:
                 qname = property
@@ -222,22 +225,22 @@ class DAVPropertyMixIn (MetaDataMixin):
                 if name == "resourcetype":
                     # Allow live property to be overridden by dead property
                     if self.deadProperties().contains(qname):
-                        return self.deadProperties().get(qname)
+                        returnValue(self.deadProperties().get(qname))
                     if self.isCollection():
-                        return davxml.ResourceType.collection
-                    return davxml.ResourceType.empty
+                        returnValue(davxml.ResourceType.collection) #@UndefinedVariable
+                    returnValue(davxml.ResourceType.empty) #@UndefinedVariable
 
                 if name == "getetag":
-                    etag = self.etag()
+                    etag = yield self.etag()
                     if etag is None:
-                        return None
-                    return davxml.GETETag(etag.generate())
+                        returnValue(None)
+                    returnValue(davxml.GETETag(etag.generate()))
 
                 if name == "getcontenttype":
                     mimeType = self.contentType()
                     if mimeType is None:
-                        return None
-                    return davxml.GETContentType(generateContentType(mimeType))
+                        returnValue(None)
+                    returnValue(davxml.GETContentType(generateContentType(mimeType)))
 
                 if name == "getcontentlength":
                     length = self.contentLength()
@@ -245,139 +248,125 @@ class DAVPropertyMixIn (MetaDataMixin):
                         # TODO: really we should "render" the resource and 
                         # determine its size from that but for now we just 
                         # return an empty element.
-                        return davxml.GETContentLength("")
+                        returnValue(davxml.GETContentLength(""))
                     else:
-                        return davxml.GETContentLength(str(length))
+                        returnValue(davxml.GETContentLength(str(length)))
 
                 if name == "getlastmodified":
-                    lastModified = self.lastModified()
+                    lastModified = yield self.lastModified()
                     if lastModified is None:
-                        return None
-                    return davxml.GETLastModified.fromDate(lastModified)
+                        returnValue(None)
+                    returnValue(davxml.GETLastModified.fromDate(lastModified))
 
                 if name == "creationdate":
-                    creationDate = self.creationDate()
+                    creationDate = yield self.creationDate()
                     if creationDate is None:
-                        return None
-                    return davxml.CreationDate.fromDate(creationDate)
+                        returnValue(None)
+                    returnValue(davxml.CreationDate.fromDate(creationDate))
 
                 if name == "displayname":
                     displayName = self.displayName()
                     if displayName is None:
-                        return None
-                    return davxml.DisplayName(displayName)
+                        returnValue(None)
+                    returnValue(davxml.DisplayName(displayName))
 
                 if name == "supportedlock":
-                    return davxml.SupportedLock(
+                    returnValue(davxml.SupportedLock(
                         davxml.LockEntry(
-                            davxml.LockScope.exclusive,
-                            davxml.LockType.write
+                            davxml.LockScope.exclusive, #@UndefinedVariable
+                            davxml.LockType.write #@UndefinedVariable
                         ),
                         davxml.LockEntry(
-                            davxml.LockScope.shared,
-                            davxml.LockType.write
+                            davxml.LockScope.shared, #@UndefinedVariable
+                            davxml.LockType.write #@UndefinedVariable
                         ),
-                    )
+                    ))
 
                 if name == "supported-report-set":
-                    return davxml.SupportedReportSet(*[
+                    returnValue(davxml.SupportedReportSet(*[
                         davxml.SupportedReport(report,)
                         for report in self.supportedReports()
-                    ])
+                    ]))
 
                 if name == "supported-privilege-set":
-                    return self.supportedPrivileges(request)
+                    returnValue((yield self.supportedPrivileges(request)))
 
                 if name == "acl-restrictions":
-                    return davxml.ACLRestrictions()
+                    returnValue(davxml.ACLRestrictions())
 
                 if name == "inherited-acl-set":
-                    return davxml.InheritedACLSet(*self.inheritedACLSet())
+                    returnValue(davxml.InheritedACLSet(*self.inheritedACLSet()))
 
                 if name == "principal-collection-set":
-                    return davxml.PrincipalCollectionSet(*[
+                    returnValue(davxml.PrincipalCollectionSet(*[
                         davxml.HRef(
                             principalCollection.principalCollectionURL()
                         )
                         for principalCollection in self.principalCollections()
-                    ])
+                    ]))
 
+                @inlineCallbacks
                 def ifAllowed(privileges, callback):
-                    def onError(failure):
-                        failure.trap(AccessDeniedError)
-                        
+                    try:
+                        yield self.checkPrivileges(request, privileges)
+                        result = yield callback()
+                    except AccessDeniedError:
                         raise HTTPError(StatusResponse(
                             responsecode.UNAUTHORIZED,
                             "Access denied while reading property %s."
                             % (sname,)
                         ))
-
-                    d = self.checkPrivileges(request, privileges)
-                    d.addCallbacks(lambda _: callback(), onError)
-                    return d
+                    returnValue(result)
 
                 if name == "current-user-privilege-set":
+                    @inlineCallbacks
                     def callback():
-                        d = self.currentPrivileges(request)
-                        d.addCallback(
-                            lambda privs:
-                                davxml.CurrentUserPrivilegeSet(*privs)
-                        )
-                        return d
-                    return ifAllowed(
+                        privs = yield self.currentPrivileges(request)
+                        returnValue(davxml.CurrentUserPrivilegeSet(*privs))
+                    returnValue((yield ifAllowed(
                         (davxml.ReadCurrentUserPrivilegeSet(),),
                         callback
-                    )
+                    )))
 
                 if name == "acl":
+                    @inlineCallbacks
                     def callback():
-                        def gotACL(acl):
-                            if acl is None:
-                                acl = davxml.ACL()
-                            return acl
-                        d = self.accessControlList(request)
-                        d.addCallback(gotACL)
-                        return d
-                    return ifAllowed((davxml.ReadACL(),), callback)
-                
-                if name == "current-user-principal":
-                    return davxml.CurrentUserPrincipal(
-                        self.currentPrincipal(request).children[0]
+                        acl = yield self.accessControlList(request)
+                        if acl is None:
+                            acl = davxml.ACL()
+                        returnValue(acl)
+                    returnValue(
+                        (yield ifAllowed((davxml.ReadACL(),), callback))
                     )
 
+                if name == "current-user-principal":
+                    returnValue(davxml.CurrentUserPrincipal(
+                        self.currentPrincipal(request).children[0]
+                    ))
+
                 if name == "quota-available-bytes":
-                    def callback(qvalue):
-                        if qvalue is None:
-                            raise HTTPError(StatusResponse(
-                                responsecode.NOT_FOUND,
-                                "Property %s does not exist." % (sname,)
-                            ))
-                        else:
-                            return davxml.QuotaAvailableBytes(str(qvalue[0]))
-                    d = self.quota(request)
-                    d.addCallback(callback)
-                    return d
+                    qvalue = yield self.quota(request)
+                    if qvalue is None:
+                        raise HTTPError(StatusResponse(
+                            responsecode.NOT_FOUND,
+                            "Property %s does not exist." % (sname,)
+                        ))
+                    else:
+                        returnValue(davxml.QuotaAvailableBytes(str(qvalue[0])))
 
                 if name == "quota-used-bytes":
-                    def callback(qvalue):
-                        if qvalue is None:
-                            raise HTTPError(StatusResponse(
-                                responsecode.NOT_FOUND,
-                                "Property %s does not exist." % (sname,)
-                            ))
-                        else:
-                            return davxml.QuotaUsedBytes(str(qvalue[1]))
-                    d = self.quota(request)
-                    d.addCallback(callback)
-                    return d
+                    qvalue = yield self.quota(request)
+                    if qvalue is None:
+                        raise HTTPError(StatusResponse(
+                            responsecode.NOT_FOUND,
+                            "Property %s does not exist." % (sname,)
+                        ))
+                    else:
+                        returnValue(davxml.QuotaUsedBytes(str(qvalue[1])))
 
             elif namespace == twisted_dav_namespace:
                 if name == "resource-class":
-                    class ResourceClass (davxml.WebDAVTextElement):
-                        namespace = twisted_dav_namespace
-                        name = "resource-class"
-                        hidden = False
-                    return ResourceClass(self.__class__.__name__)
+                    returnValue(ResourceClass(self.__class__.__name__))
 
             elif namespace == twisted_private_namespace:
                 raise HTTPError(StatusResponse(
@@ -385,10 +374,10 @@ class DAVPropertyMixIn (MetaDataMixin):
                     "Properties in the %s namespace are private to the server."
                     % (sname,)
                 ))
+            returnValue(self.deadProperties().get(qname))
 
-            return self.deadProperties().get(qname)
+        return defer()
 
-        return maybeDeferred(defer)
 
     def writeProperty(self, property, request):
         """
@@ -629,7 +618,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         completionDeferred = Deferred()
         basepath = request.urlForResource(self)
-        children = list(self.listChildren())
+        children = []
 
         def checkPrivilegesError(failure):
             failure.trap(AccessDeniedError)
@@ -679,7 +668,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 d.addCallbacks(gotChild, checkPrivilegesError, (childpath,))
                 d.addErrback(completionDeferred.errback)
 
-        getChild()
+        def gotChildren(listChildrenResult):
+            children[:] = list(listChildrenResult)
+            getChild()
+        maybeDeferred(self.listChildren).addCallback(gotChildren)
 
         return completionDeferred
 
@@ -729,7 +721,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         children = []
         basepath = request.urlForResource(self)
-        childnames = list(self.listChildren())
+        childnames = list((yield self.listChildren()))
         for childname in childnames:
             childpath = joinURL(basepath, urllib.quote(childname))
             child = (yield request.locateChildResource(self, childname))
@@ -1090,6 +1082,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         self.writeDeadProperty(acl)
 
+
     @inlineCallbacks
     def mergeAccessControlList(self, new_acl, request):
         """
@@ -1253,9 +1246,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # FIXME: verify acl is self-consistent
 
         # Step 11
-        self.writeNewACEs(new_set)
+        yield self.writeNewACEs(new_set)
         returnValue(None)
-        
+
+
     def writeNewACEs(self, new_aces):
         """
         Write a new ACL to the resource's property store.  This is a
@@ -1264,7 +1258,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         command.
         @param new_aces: C{list} of L{ACE} for ACL being set.
         """
-        self.setAccessControlList(davxml.ACL(*new_aces))
+        return self.setAccessControlList(davxml.ACL(*new_aces))
+
 
     def matchPrivilege(self, privilege, ace_privileges, supportedPrivileges):
         for ace_privilege in ace_privileges:
@@ -1275,6 +1270,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 return True
 
         return False
+
 
     @inlineCallbacks
     def checkPrivileges(
@@ -2674,3 +2670,9 @@ davPrivilegeSet = davxml.SupportedPrivilegeSet(
 )
 
 unauthenticatedPrincipal = davxml.Principal(davxml.Unauthenticated())
+
+
+class ResourceClass (davxml.WebDAVTextElement):
+    namespace = twisted_dav_namespace
+    name = "resource-class"
+    hidden = False

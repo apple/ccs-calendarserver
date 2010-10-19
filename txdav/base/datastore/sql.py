@@ -18,6 +18,7 @@
 Logic common to SQL implementations.
 """
 
+from twisted.internet.defer import Deferred
 from inspect import getargspec
 
 def _getarg(argname, argspec, args, kw):
@@ -68,16 +69,37 @@ def memoized(keyArgument, memoAttribute):
     @type memoAttribute: C{str}
     """
     def decorate(thunk):
-        spec = getargspec(thunk)
+        # cheater move to try to get the right argspec from inlineCallbacks.
+        # This could probably be more robust, but the 'cell_contents' thing
+        # probably can't (that's the only real reference to the underlying
+        # function).
+        if thunk.func_code.co_name == 'unwindGenerator':
+            specTarget = thunk.func_closure[0].cell_contents
+        else:
+            specTarget = thunk
+        spec = getargspec(specTarget)
         def outer(*a, **kw):
             self = a[0]
             memo = getattr(self, memoAttribute)
             key = _getarg(keyArgument, spec, a, kw)
             if key in memo:
-                return memo[key]
-            result = thunk(*a, **kw)
-            if result is not None:
-                memo[key] = result
+                result = memo[key]
+            else:
+                result = thunk(*a, **kw)
+                if result is not None:
+                    memo[key] = result
+            if isinstance(result, Deferred):
+                # clone the Deferred so that the old one keeps its result.
+                # FIXME: cancellation?
+                returnResult = Deferred()
+                def relayAndPreserve(innerResult):
+                    if innerResult is None and key in memo and memo[key] is result:
+                        # The result was None, call it again.
+                        del memo[key]
+                    returnResult.callback(innerResult)
+                    return innerResult
+                result.addBoth(relayAndPreserve)
+                return returnResult
             return result
         return outer
     return decorate

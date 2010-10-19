@@ -44,8 +44,8 @@ class IAddressBookTransaction(ICommonTransaction):
         If C{create} is C{True}, create the addressbook home if it doesn't
         already exist.
 
-        @return: an L{IAddressBookHome} or C{None} if no such addressbook
-            home exists.
+        @return: a L{Deferred} which fires with an L{IAddressBookHome} or
+            C{None} if no such addressbook home exists.
         """
 
 
@@ -147,8 +147,9 @@ class IAddressBook(INotifier, IShareableCollection, IDataStoreResource):
         in this addressbook.
 
         @param name: a string.
-        @return: an L{IAddressBookObject} or C{None} if no such addressbook
-            object exists.
+        
+        @return: a L{Deferred} that fires with an L{IAddressBookObject} or
+            C{None} if no such addressbook object exists.
         """
 
     def addressbookObjectWithUID(uid):

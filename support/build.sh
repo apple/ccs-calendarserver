@@ -489,6 +489,10 @@ dependencies () {
   # Python dependencies
   #
 
+  # First, let's make sure that we ourselves are on PYTHONPATH, in case some
+  # code (like, let's say, trial) decides to chdir somewhere.
+  export PYTHONPATH="${wd}:${PYTHONPATH:-}";
+
   local zi="zope.interface-3.3.0";
   py_dependency \
     "Zope Interface" "zope.interface" "${zi}" \

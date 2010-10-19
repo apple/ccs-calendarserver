@@ -19,7 +19,6 @@ Implements a directory-backed addressbook hierarchy.
 """
 
 __all__ = [
-    "uidsResourceName",
     "DirectoryAddressBookHomeProvisioningResource",
     "DirectoryAddressBookHomeTypeProvisioningResource",
     "DirectoryAddressBookHomeUIDProvisioningResource",
@@ -32,10 +31,14 @@ from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError
 from twext.web2.http_headers import ETag, MimeType
 
+from twisted.internet.defer import inlineCallbacks, returnValue
+
 from twistedcaldav.config import config
 from twistedcaldav.directory.idirectory import IDirectoryService
-from twistedcaldav.directory.resource import DirectoryReverseProxyResource
-from twistedcaldav.directory.util import transactionFromRequest
+
+from twistedcaldav.directory.common import CommonUIDProvisioningResource,\
+    uidsResourceName, CommonHomeTypeProvisioningResource
+
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource,\
     DAVResourceWithChildrenMixin
 from twistedcaldav.resource import AddressBookHomeResource
@@ -44,8 +47,6 @@ from uuid import uuid4
 
 log = Logger()
 
-# Use __underbars__ convention to avoid conflicts with directory resource types.
-uidsResourceName = "__uids__"
 
 # FIXME: copied from resource.py to avoid circular dependency
 class CalDAVComplianceMixIn(object):
@@ -71,7 +72,9 @@ class DirectoryAddressBookProvisioningResource (
         return MimeType("httpd", "unix-directory")
 
 
-class DirectoryAddressBookHomeProvisioningResource (DirectoryAddressBookProvisioningResource):
+class DirectoryAddressBookHomeProvisioningResource (
+        DirectoryAddressBookProvisioningResource
+    ):
     """
     Resource which provisions address book home collections as needed.    
     """
@@ -134,7 +137,10 @@ class DirectoryAddressBookHomeProvisioningResource (DirectoryAddressBookProvisio
         return "addressbooks"
 
 
-class DirectoryAddressBookHomeTypeProvisioningResource (DirectoryAddressBookProvisioningResource):
+class DirectoryAddressBookHomeTypeProvisioningResource (
+        CommonHomeTypeProvisioningResource,
+        DirectoryAddressBookProvisioningResource
+    ):
     """
     Resource which provisions address book home collections of a specific
     record type as needed.
@@ -156,17 +162,6 @@ class DirectoryAddressBookHomeTypeProvisioningResource (DirectoryAddressBookProv
     def url(self):
         return joinURL(self._parent.url(), self.recordType)
 
-    def locateChild(self, request, segments):
-        name = segments[0]
-        if name == "":
-            return (self, segments[1:])
-
-        record = self.directory.recordWithShortName(self.recordType, name)
-        if record is None:
-            return None, []
-
-        return (self._parent.homeForDirectoryRecord(record, request),
-                segments[1:])
 
     def listChildren(self):
         if config.EnablePrincipalListings:
@@ -206,99 +201,33 @@ class DirectoryAddressBookHomeTypeProvisioningResource (DirectoryAddressBookProv
         return self._parent.principalForRecord(record)
 
 
-class DirectoryAddressBookHomeUIDProvisioningResource (DirectoryAddressBookProvisioningResource):
+class DirectoryAddressBookHomeUIDProvisioningResource (
+        CommonUIDProvisioningResource,
+        DirectoryAddressBookProvisioningResource
+    ):
 
-    def __init__(self, parent):
-        """
-        @param parent: the parent of this resource
-        """
-        assert parent is not None
+    homeResourceTypeName = 'addressbooks'
 
-        super(DirectoryAddressBookHomeUIDProvisioningResource, self).__init__()
+    enabledAttribute = 'enabledForAddressBooks'
 
-        self.directory = parent.directory
-        self.parent = parent
-
-    def url(self):
-        return joinURL(self.parent.url(), uidsResourceName)
-
-    def locateChild(self, request, segments):
-
-        name = segments[0]
-        if name == "":
-            return (self, ())
-
-        record = self.directory.recordWithUID(name)
-        if record:
-            return (self.homeResourceForRecord(record, request), segments[1:])
-        else:
-            return (None, ())
-
-    def getChild(self, name, record=None):
-        raise NotImplementedError("DirectoryAddressBookHomeUIDProvisioningResource.getChild no longer exists.")
-
-    def listChildren(self):
-        # Not a listable collection
-        raise HTTPError(responsecode.FORBIDDEN)
-
-    def homeResourceForRecord(self, record, request):
-
-        transaction = transactionFromRequest(request, self.parent._newStore)
-
-        name = record.uid
-
-        if record is None:
-            self.log_msg("No directory record with GUID %r" % (name,))
-            return None
-
-        if not record.enabledForAddressBooks:
-            self.log_msg("Directory record %r is not enabled for address books" % (record,))
-            return None
-
-        assert len(name) > 4, "Directory record has an invalid GUID: %r" % (name,)
-        
-        if record.locallyHosted():
-            child = DirectoryAddressBookHomeResource(self, record, transaction)
-        else:
-            child = DirectoryReverseProxyResource(self, record)
-
-        return child
-
-    ##
-    # DAV
-    ##
-    
-    def isCollection(self):
-        return True
-
-    def displayName(self):
-        return uidsResourceName
-
-    ##
-    # ACL
-    ##
-
-    def principalCollections(self):
-        return self.parent.principalCollections()
-
-    def principalForRecord(self, record):
-        return self.parent.principalForRecord(record)
+    def homeResourceCreator(self, record, transaction):
+        return DirectoryAddressBookHomeResource.createHomeResource(
+            self, record, transaction)
 
 
 class DirectoryAddressBookHomeResource (AddressBookHomeResource):
     """
     Address book home collection resource.
     """
-    def __init__(self, parent, record, transaction):
-        """
-        @param path: the path to the file which will back the resource.
-        """
-        assert parent is not None
-        assert record is not None
-        assert transaction is not None
 
+    @classmethod
+    @inlineCallbacks
+    def createHomeResource(cls, parent, record, transaction):
+        self = yield super(DirectoryAddressBookHomeResource, cls).createHomeResource(
+            parent, record.uid, transaction)
         self.record = record
-        super(DirectoryAddressBookHomeResource, self).__init__(parent, record.uid, transaction)
+        returnValue(self)
+
 
     def principalForRecord(self):
         return self.parent.principalForRecord(self.record)

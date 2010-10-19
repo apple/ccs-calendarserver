@@ -102,7 +102,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                 self.fileStore.eachCalendarHome,
                 lambda txn: txn.calendarHomeWithUID,
                 "calendars"),
-            ("addressbook", migrateAddressbookHome, self.fileStore.eachAddressbookHome,
+            ("addressbook", migrateAddressbookHome,
+                self.fileStore.eachAddressbookHome,
                 lambda txn: txn.addressbookHomeWithUID,
                 "addressbooks")
             ]:
@@ -111,17 +112,19 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                 self.log_warn("Migrating %s UID %r" % (homeType, uid))
                 sqlTxn = self.sqlStore.newTransaction(migrating=True)
                 homeGetter = destFunc(sqlTxn)
-                if homeGetter(uid, create=False) is not None:
+                if (yield homeGetter(uid, create=False)) is not None:
                     self.log_warn(
                         "%s home %r already existed not migrating" % (
                             homeType, uid))
-                    sqlTxn.abort()
-                    fileTxn.commit()
+                    yield sqlTxn.abort()
+                    yield fileTxn.commit()
                     continue
-                sqlHome = homeGetter(uid, create=True)
+                sqlHome = yield homeGetter(uid, create=True)
+                if sqlHome is None:
+                    raise RuntimeError("THIS SHOULD NOT BE POSSIBLE.")
                 yield migrateFunc(fileHome, sqlHome)
-                fileTxn.commit()
-                sqlTxn.commit()
+                yield fileTxn.commit()
+                yield sqlTxn.commit()
                 # FIXME: need a public remove...HomeWithUID() for de-
                 # provisioning
                 storePath = self.fileStore._path # Documents

@@ -54,22 +54,22 @@ SHARETYPE_DIRECT = "D"  # Direct linking based sharing
 
 class SharedCollectionMixin(object):
 
+    @inlineCallbacks
     def inviteProperty(self, request):
         """
         Calculate the customxml.Invite property (for readProperty) from the
         invites database.
         """
+        isShared = yield self.isShared(request)
+        if config.Sharing.Enabled and isShared:
+            yield self.validateInvites()
+            records = yield self.invitesDB().allRecords()
+            returnValue(customxml.Invite(
+                *[record.makePropertyElement() for record in records]
+            ))
+        else:
+            returnValue(None)
 
-        def sharedOK(isShared):
-            if config.Sharing.Enabled and isShared:
-                self.validateInvites()
-                return customxml.Invite(
-                    *[record.makePropertyElement() for
-                        record in self.invitesDB().allRecords()]
-                )
-            else:
-                return None
-        return self.isShared(request).addCallback(sharedOK)
 
     def upgradeToShare(self):
         """ Upgrade this collection to a shared state """
@@ -92,7 +92,7 @@ class SharedCollectionMixin(object):
         self.writeDeadProperty(rtype)
         
         # Remove all invitees
-        for record in self.invitesDB().allRecords():
+        for record in (yield self.invitesDB().allRecords()):
             yield self.uninviteRecordFromShare(record, request)
 
         # Remove invites database
@@ -101,15 +101,15 @@ class SharedCollectionMixin(object):
     
         returnValue(True)
 
+
+    @inlineCallbacks
     def removeUserFromInvite(self, userid, request):
         """ Remove a user from this shared calendar """
-        self.invitesDB().removeRecordForUserID(userid)            
+        returnValue((yield self.invitesDB().removeRecordForUserID(userid)))
 
-        return succeed(True)
 
     @inlineCallbacks
     def changeUserInviteState(self, request, inviteUID, principalURL, state, summary=None):
-        
         shared = (yield self.isShared(request))
         if not shared:
             raise HTTPError(ErrorResponse(
@@ -118,7 +118,7 @@ class SharedCollectionMixin(object):
                 "invalid share",
             ))
             
-        record = self.invitesDB().recordForInviteUID(inviteUID)
+        record = yield self.invitesDB().recordForInviteUID(inviteUID)
         if record is None or record.principalURL != principalURL:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -131,7 +131,8 @@ class SharedCollectionMixin(object):
             record.state = state
             if summary is not None:
                 record.summary = summary
-            self.invitesDB().addOrUpdateRecord(record)
+            yield self.invitesDB().addOrUpdateRecord(record)
+
 
     @inlineCallbacks
     def directShare(self, request):
@@ -174,9 +175,9 @@ class SharedCollectionMixin(object):
         
         # Get the home collection
         if self.isCalendarCollection():
-            home = principal.calendarHome(request)
+            home = yield principal.calendarHome(request)
         elif self.isAddressBookCollection():
-            home = principal.addressBookHome(request)
+            home = yield principal.addressBookHome(request)
         else:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -196,37 +197,44 @@ class SharedCollectionMixin(object):
 
         # Accept it
         response = (yield home.acceptDirectShare(request, request.path, self.resourceID(), self.displayName()))
-        
+
         # Return the URL of the shared calendar
         returnValue(response)
 
+
+    @inlineCallbacks
     def isShared(self, request):
         """ Return True if this is an owner shared calendar collection """
-        return succeed(self.isSpecialCollection(customxml.SharedOwner))
+        returnValue((yield self.isSpecialCollection(customxml.SharedOwner)))
+
 
     def setVirtualShare(self, shareePrincipal, share):
         self._isVirtualShare = True
         self._shareePrincipal = shareePrincipal
         self._share = share
-        
+
         if hasattr(self, "_newStoreCalendar"):
             self._newStoreCalendar.setSharingUID(self._shareePrincipal.principalUID())
         elif hasattr(self, "_newStoreAddressBook"):
             self._newStoreAddressBook.setSharingUID(self._shareePrincipal.principalUID())
 
+
     def isVirtualShare(self):
         """ Return True if this is a shared calendar collection """
         return hasattr(self, "_isVirtualShare")
 
+
+    @inlineCallbacks
     def removeVirtualShare(self, request):
         """ Return True if this is a shared calendar collection """
         
         # Remove from sharee's calendar/address book home
         if self.isCalendarCollection():
-            shareeHome = self._shareePrincipal.calendarHome(request)
+            shareeHome = yield self._shareePrincipal.calendarHome(request)
         elif self.isAddressBookCollection():
-            shareeHome = self._shareePrincipal.addressBookHome(request)
-        return shareeHome.removeShare(request, self._share)
+            shareeHome = yield self._shareePrincipal.addressBookHome(request)
+        returnValue((yield shareeHome.removeShare(request, self._share)))
+
 
     def resourceType(self):
         superObject = super(SharedCollectionMixin, self)
@@ -246,7 +254,8 @@ class SharedCollectionMixin(object):
                 )
             )
         return rtype
-        
+
+
     def sharedResourceType(self):
         """
         Return the DAV:resourcetype stripped of any shared elements.
@@ -258,6 +267,7 @@ class SharedCollectionMixin(object):
             return "addressbook"
         else:
             return ""
+
 
     @inlineCallbacks
     def shareeAccessControlList(self, request, *args, **kwargs):
@@ -273,7 +283,9 @@ class SharedCollectionMixin(object):
             # Invite shares use access mode from the invite
     
             # Get the invite for this sharee
-            invite = self.invitesDB().recordForInviteUID(self._share.shareuid)
+            invite = yield self.invitesDB().recordForInviteUID(
+                self._share.shareuid
+            )
             if invite is None:
                 returnValue(davxml.ACL())
             
@@ -289,7 +301,7 @@ class SharedCollectionMixin(object):
                 userprivs.append(davxml.Privilege(davxml.Write()))
             proxyprivs = list(userprivs)
             proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
-    
+
             aces = (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -299,7 +311,7 @@ class SharedCollectionMixin(object):
                     TwistedACLInheritable(),
                 ),
             )
-            
+
             if self.isCalendarCollection():
                 aces += (
                     # Inheritable CALDAV:read-free-busy access for authenticated users.
@@ -309,13 +321,13 @@ class SharedCollectionMixin(object):
                         TwistedACLInheritable(),
                     ),
                 )
-    
+
             # Give read access to config.ReadPrincipals
             aces += config.ReadACEs
-    
+
             # Give all access to config.AdminPrincipals
             aces += config.AdminACEs
-            
+
             if config.EnableProxyPrincipals:
                 aces += (
                     # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
@@ -336,7 +348,7 @@ class SharedCollectionMixin(object):
                         TwistedACLInheritable(),
                     ),
                 )
-    
+
             returnValue(davxml.ACL(*aces))
 
     def validUserIDForShare(self, userid):
@@ -389,17 +401,20 @@ class SharedCollectionMixin(object):
         else:
             return None, None, None
 
+
+    @inlineCallbacks
     def validateInvites(self):
         """
         Make sure each userid in an invite is valid - if not re-write status.
         """
         
-        records = self.invitesDB().allRecords()
+        records = yield self.invitesDB().allRecords()
         for record in records:
             if self.validUserIDForShare(record.userid) is None and record.state != "INVALID":
                 record.state = "INVALID"
-                self.invitesDB().addOrUpdateRecord(record)
-                
+                yield self.invitesDB().addOrUpdateRecord(record)
+
+
     def inviteUserToShare(self, userid, cn, ace, summary, request):
         """ Send out in invite first, and then add this user to the share list
             @param userid: 
@@ -455,6 +470,7 @@ class SharedCollectionMixin(object):
         dl = [self.inviteSingleUserUpdateToShare(user, cn, aceOLD, aceNEW, summary, request) for user, cn in zip(userid, cn)]
         return DeferredList(dl).addCallback(_defer)
 
+
     @inlineCallbacks
     def inviteSingleUserToShare(self, userid, cn, ace, summary, request):
         
@@ -466,7 +482,7 @@ class SharedCollectionMixin(object):
             returnValue(False)
 
         # Look for existing invite and update its fields or create new one
-        record = self.invitesDB().recordForPrincipalURL(principalURL)
+        record = yield self.invitesDB().recordForPrincipalURL(principalURL)
         if record:
             record.name = cn
             record.access = inviteAccessMapFromXML[type(ace)]
@@ -478,16 +494,22 @@ class SharedCollectionMixin(object):
         yield self.sendInvite(record, request)
         
         # Add to database
-        self.invitesDB().addOrUpdateRecord(record)
+        yield self.invitesDB().addOrUpdateRecord(record)
         
         returnValue(True)            
 
+
+    @inlineCallbacks
     def uninviteSingleUserFromShare(self, userid, aces, request):
-        
         # Cancel invites - we'll just use whatever userid we are given
-        record = self.invitesDB().recordForUserID(userid)
-        return self.uninviteRecordFromShare(record, request) if record else succeed(True)
-        
+        record = yield self.invitesDB().recordForUserID(userid)
+        if record:
+            result = (yield self.uninviteRecordFromShare(record, request))
+        else:
+            result = True
+        returnValue(result)
+
+
     @inlineCallbacks
     def uninviteRecordFromShare(self, record, request):
         
@@ -495,9 +517,9 @@ class SharedCollectionMixin(object):
         sharee = self.principalForCalendarUserAddress(record.userid)
         if sharee:
             if self.isCalendarCollection():
-                shareeHome = sharee.calendarHome(request)
+                shareeHome = yield sharee.calendarHome(request)
             elif self.isAddressBookCollection():
-                shareeHome = sharee.addressBookHome(request)
+                shareeHome = yield sharee.addressBookHome(request)
             yield shareeHome.removeShareByUID(request, record.inviteuid)
     
             # If current user state is accepted then we send an invite with the new state, otherwise
@@ -509,7 +531,7 @@ class SharedCollectionMixin(object):
                 yield self.sendInvite(record, request)
     
         # Remove from database
-        self.invitesDB().removeRecordForUserID(record.userid)
+        yield self.invitesDB().removeRecordForUserID(record.userid)
         
         returnValue(True)            
 
@@ -530,7 +552,7 @@ class SharedCollectionMixin(object):
         sharee = self.principalForCalendarUserAddress(record.userid)
         if sharee is None:
             raise ValueError("sharee is None but userid was valid before")
-        notifications = self._associatedTransaction.notificationsWithUID(
+        notifications = yield self._associatedTransaction.notificationsWithUID(
             sharee.principalUID()
         )
         
@@ -684,7 +706,7 @@ class SharedCollectionMixin(object):
                         (okusers if result else badusers).add(userid)
 
                 # Do a final validation of the entire set of invites
-                self.validateInvites()
+                yield self.validateInvites()
                 
                 # Create the multistatus response - only needed if some are bad
                 if badusers:
@@ -938,26 +960,34 @@ class SharedHomeMixin(LinkFollowerMixIn):
     A mix-in for calendar/addressbook homes that defines the operations for
     manipulating a sharee's set of shared calendars.
     """
-    
 
+
+    @inlineCallbacks
     def provisionShare(self, name):
-        
         # Try to find a matching share
         child = None
-        shares = self.allShares()
+        shares = yield self.allShares()
         if name in shares:
             from twistedcaldav.sharedcollection import SharedCollectionResource
             child = SharedCollectionResource(self, shares[name])
             self.putChild(name, child)
-        return child
+        returnValue(child)
 
+
+    @inlineCallbacks
     def allShares(self):
         if not hasattr(self, "_allShares"):
-            self._allShares = dict([(share.localname, share) for share in self.sharesDB().allRecords()])
-        return self._allShares
+            allShareRecords = yield self.sharesDB().allRecords()
+            self._allShares = dict([(share.localname, share) for share in
+                                    allShareRecords])
+        returnValue(self._allShares)
 
+
+    @inlineCallbacks
     def allShareNames(self):
-        return tuple(self.allShares().keys())
+        allShares = yield self.allShares()
+        returnValue(tuple(allShares.keys()))
+
 
     @inlineCallbacks
     def acceptInviteShare(self, request, hostUrl, inviteUID, displayname=None):
@@ -977,12 +1007,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
     def _acceptShare(self, request, sharetype, hostUrl, shareUID, displayname=None):
 
         # Add or update in DB
-        oldShare = self.sharesDB().recordForShareUID(shareUID)
+        oldShare = yield self.sharesDB().recordForShareUID(shareUID)
         if oldShare:
             share = oldShare
         else:
             share = SharedCollectionRecord(shareUID, sharetype, hostUrl, str(uuid4()), displayname)
-            self.sharesDB().addOrUpdateRecord(share)
+            yield self.sharesDB().addOrUpdateRecord(share)
         
         # Set per-user displayname to whatever was given
         sharedCollection = (yield request.locateResource(hostUrl))
@@ -1019,7 +1049,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
     def removeShareByUID(self, request, shareUID):
         """ Remove a shared collection but do not send a decline back """
 
-        share = self.sharesDB().recordForShareUID(shareUID)
+        share = yield self.sharesDB().recordForShareUID(shareUID)
         if share:
             yield self.removeDirectShare(request, share)
 
@@ -1039,7 +1069,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 inbox = (yield request.locateResource(inboxURL))
                 inbox.processFreeBusyCalendar(shareURL, False)
 
-        self.sharesDB().removeRecordForShareUID(share.shareuid)
+        yield self.sharesDB().removeRecordForShareUID(share.shareuid)
  
         # Notify client of changes
         self.notifyChanged()
@@ -1209,12 +1239,8 @@ class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
         
         records = self._db_execute("select * from SHARES order by LOCALNAME")
         return [self._makeRecord(row) for row in (records if records is not None else ())]
-    
-    def recordForLocalName(self, localname):
-        
-        row = self._db_execute("select * from SHARES where LOCALNAME = :1", localname)
-        return self._makeRecord(row[0]) if row else None
-    
+
+
     def recordForShareUID(self, shareUID):
 
         row = self._db_execute("select * from SHARES where SHAREUID = :1", shareUID)

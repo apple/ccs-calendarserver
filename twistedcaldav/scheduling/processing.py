@@ -20,6 +20,7 @@ from hashlib import md5
 
 from vobject.icalendar import dateTimeToString, utc
 
+from twisted.python.log import err as log_traceback
 from twext.python.log import Logger
 
 from twisted.internet import reactor
@@ -94,6 +95,7 @@ class ImplicitProcessor(object):
                 # We attempt to recover from this. That involves trying to re-write the attendee data
                 # to match that of the organizer assuming we have the organizer's full data available, then
                 # we try the processing operation again.
+                log_traceback()
                 log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - exception raised will try to fix: %s" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid, e))
                 result = (yield self.doImplicitAttendeeEventFix(e))
                 if result:
@@ -101,6 +103,7 @@ class ImplicitProcessor(object):
                     try:
                         result = (yield self.doImplicitAttendee())
                     except Exception, e:
+                        log_traceback()
                         log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - exception raised after fix: %s" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid, e))
                         raise ImplicitProcessorException("5.1;Service unavailable")
                 else:
@@ -422,7 +425,7 @@ class ImplicitProcessor(object):
 
         @param calendar: calendar data to examine
         @type calendar: L{Component}
-        
+
         @return: L{Component} for the new calendar data to write
         """
         
@@ -444,7 +447,7 @@ class ImplicitProcessor(object):
             # inNewTransaction wipes out the remembered resource<-> URL mappings in the
             # request object but we need to be able to map the actual reply resource to its
             # URL when doing auto-processing, so we have to sneak that mapping back in here.
-            txn = resource.inNewTransaction(self.request)
+            txn = yield resource.inNewTransaction(self.request)
             self.request._rememberResource(resource, resource._url)
 
             try:
@@ -454,9 +457,9 @@ class ImplicitProcessor(object):
                 scheduler = ImplicitScheduler()
                 yield scheduler.sendAttendeeReply(self.request, resource, calendar, self.recipient)
             except:
-                txn.abort()
+                yield txn.abort()
             else:
-                txn.commit()
+                yield txn.commit()
         finally:
             yield lock.clean()
 
@@ -653,6 +656,7 @@ class ImplicitProcessor(object):
     
         returnValue(newchild)
 
+
     @inlineCallbacks
     def deleteCalendarResource(self, collURL, collection, name):
         """
@@ -665,7 +669,7 @@ class ImplicitProcessor(object):
         @param name: the resource name to write into, or {None} to write a new resource.
         @type name: C{str}
         """
-        delchild = collection.getChild(name)
+        delchild = yield collection.getChild(name)
         childURL = joinURL(collURL, name)
         self.request._rememberResource(delchild, childURL)
         yield delchild.storeRemove(self.request, False, childURL)

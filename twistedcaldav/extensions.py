@@ -38,7 +38,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 
 import twext.web2.server
-from twext.web2 import responsecode, iweb, http, server
+from twext.web2 import responsecode, server
 from twext.web2.auth.wrapper import UnauthorizedResponse
 from twext.web2.http import HTTPError, Response, RedirectResponse
 from twext.web2.http import StatusResponse
@@ -521,7 +521,7 @@ class DirectoryRenderingMixIn(object):
         ]
 
         even = Alternator()
-        for name in sorted(self.listChildren()):
+        for name in sorted((yield self.listChildren())):
             child = self.getChild(name)
 
             url, name, size, lastModified, contentType = self.getChildDirectoryEntry(child, name, request)
@@ -734,6 +734,7 @@ class DAVResourceWithChildrenMixin (object):
         self.putChildren = {}
         super(DAVResourceWithChildrenMixin, self).__init__(principalCollections=principalCollections)
 
+
     def putChild(self, name, child):
         """
         Register a child with the given name with this resource.
@@ -742,9 +743,12 @@ class DAVResourceWithChildrenMixin (object):
         """
         self.putChildren[name] = child
 
+
     def getChild(self, name):
         """
-        Look up a child resource.
+        Look up a child resource.  First check C{self.putChildren}, then call
+        C{self.makeChild} if no pre-existing children were found.
+
         @return: the child of this resource with the given name.
         """
         if name == "":
@@ -755,9 +759,14 @@ class DAVResourceWithChildrenMixin (object):
             result = self.makeChild(name)
         return result
 
+
     def makeChild(self, name):
-        # Subclasses with real children need to override this and return the appropriate object
+        """
+        Called by L{DAVResourceWithChildrenMixin.getChild} to dynamically
+        create children that have not been pre-created with C{putChild}.
+        """
         return None
+
 
     def listChildren(self):
         """
@@ -765,12 +774,18 @@ class DAVResourceWithChildrenMixin (object):
         """
         return self.putChildren.keys()
 
+
     def locateChild(self, req, segments):
         """
-        See L{IResource}C{.locateChild}.
+        See L{IResource.locateChild}.
         """
-        # If getChild() finds a child resource, return it
-        return (self.getChild(segments[0]), segments[1:])
+        thisSegment = segments[0]
+        moreSegments = segments[1:]
+        return maybeDeferred(self.getChild, thisSegment).addCallback(
+            lambda it: (it, moreSegments)
+        )
+
+
 
 class DAVResourceWithoutChildrenMixin (object):
     """
@@ -788,6 +803,8 @@ class DAVResourceWithoutChildrenMixin (object):
         return succeed(None)
     def locateChild(self, request, segments):
         return self, server.StopTraversal
+
+
 
 class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
                             SuperDAVPrincipalResource, LoggingMixIn,
@@ -888,8 +905,8 @@ class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn,
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
             return self.deadProperties().get((dav_namespace, "resourcetype"))
         if self.isCollection():
-            return davxml.ResourceType.collection
-        return davxml.ResourceType.empty
+            return davxml.ResourceType.collection #@UndefinedVariable
+        return davxml.ResourceType.empty #@UndefinedVariable
 
     def render(self, request):
         if not self.fp.exists():

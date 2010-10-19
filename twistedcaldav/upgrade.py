@@ -35,7 +35,7 @@ from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.ical import Component
 from twistedcaldav import caldavxml
 
-from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+from twisted.internet.defer import inlineCallbacks, succeed
 
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.resources import migrateResources

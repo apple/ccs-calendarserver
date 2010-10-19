@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 """
 File calendar store.
@@ -44,13 +45,14 @@ from twext.web2.http_headers import generateContentType
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
-from twistedcaldav.index import Index as OldIndex, IndexSchedule as OldInboxIndex
 from twistedcaldav.sharing import InvitesDatabase
 
 from txdav.caldav.icalendarstore import IAttachment
 from txdav.caldav.icalendarstore import ICalendar, ICalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome
 
+from txdav.caldav.datastore.index_file import Index as OldIndex,\
+    IndexSchedule as OldInboxIndex
 from txdav.caldav.datastore.util import (
     validateCalendarComponent, dropboxIDFromCalendarObject
 )
@@ -100,6 +102,7 @@ class CalendarHome(CommonHome):
         for child in self.listCalendars():
             yield self.calendarWithName(child)
 
+
     def listCalendars(self):
         """
         Return a generator of the child resource names.
@@ -110,14 +113,16 @@ class CalendarHome(CommonHome):
             yield name
 
 
+
+    @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
         """
         Implement lookup with brute-force scanning.
         """
         for calendar in self.calendars():
             for calendarObject in calendar.calendarObjects():
-                if dropboxID == calendarObject.dropboxID():
-                    return calendarObject
+                if dropboxID == (yield calendarObject.dropboxID()):
+                    returnValue(calendarObject)
 
 
     @property
@@ -332,26 +337,30 @@ class CalendarObject(CommonObjectResource):
         return self.component().getOrganizer()
 
 
+    @inlineCallbacks
     def createAttachmentWithName(self, name, contentType):
         """
         Implement L{ICalendarObject.removeAttachmentWithName}.
         """
         # Make a (FIXME: temp, remember rollbacks) file in dropbox-land
-        attachment = Attachment(self, name)
+        dropboxPath = yield self._dropboxPath()
+        attachment = Attachment(self, name, dropboxPath)
         self._attachments[name] = attachment
-        return attachment.store(contentType)
+        returnValue(attachment.store(contentType))
 
 
+    @inlineCallbacks
     def removeAttachmentWithName(self, name):
         """
         Implement L{ICalendarObject.removeAttachmentWithName}.
         """
         # FIXME: rollback, tests for rollback
-        self._dropboxPath().child(name).remove()
+        (yield self._dropboxPath()).child(name).remove()
         if name in self._attachments:
             del self._attachments[name]
 
 
+    @inlineCallbacks
     def attachmentWithName(self, name):
         # Attachments can be local or remote, but right now we only care about
         # local.  So we're going to base this on the listing of files in the
@@ -359,36 +368,45 @@ class CalendarObject(CommonObjectResource):
         # 'attach' properties.
 
         if name in self._attachments:
-            return self._attachments[name]
+            returnValue(self._attachments[name])
         # FIXME: cache consistently (put it in self._attachments)
-        if self._dropboxPath().child(name).exists():
-            return Attachment(self, name)
+        dbp = yield self._dropboxPath()
+        if dbp.child(name).exists():
+            returnValue(Attachment(self, name, dbp))
         else:
             # FIXME: test for non-existent attachment.
-            return None
+            returnValue(None)
 
 
+    @inlineCallbacks
     def attendeesCanManageAttachments(self):
-        return self.component().hasPropertyInAnyComponent("X-APPLE-DROPBOX")
+        returnValue((yield self.component()).hasPropertyInAnyComponent("X-APPLE-DROPBOX"))
 
 
     def dropboxID(self):
+        # NB: Deferred
         return dropboxIDFromCalendarObject(self)
 
 
+    @inlineCallbacks
     def _dropboxPath(self):
         dropboxPath = self._parentCollection._home._path.child(
             "dropbox"
-        ).child(self.dropboxID())
+        ).child((yield self.dropboxID()))
         if not dropboxPath.isdir():
             dropboxPath.makedirs()
-        return dropboxPath
+        returnValue(dropboxPath)
 
 
+    @inlineCallbacks
     def attachments(self):
         # See comment on attachmentWithName.
-        return [Attachment(self, name)
-                for name in self._dropboxPath().listdir()]
+        dropboxPath = (yield self._dropboxPath())
+        returnValue(
+            [Attachment(self, name, dropboxPath)
+            for name in dropboxPath.listdir()]
+        )
+
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -406,6 +424,7 @@ class CalendarObject(CommonObjectResource):
                 PropertyName.fromElement(customxml.ScheduleChanges),
             ),
         )
+
 
 
 contentTypeKey = PropertyName.fromElement(GETContentType)
@@ -457,9 +476,10 @@ class Attachment(FileMetaDataMixin):
 
     implements(IAttachment)
 
-    def __init__(self, calendarObject, name):
+    def __init__(self, calendarObject, name, dropboxPath):
         self._calendarObject = calendarObject
         self._name = name
+        self._dropboxPath = dropboxPath
 
 
     def name(self):
@@ -474,6 +494,7 @@ class Attachment(FileMetaDataMixin):
     def store(self, contentType):
         return AttachmentStorageTransport(self, contentType)
 
+
     def retrieve(self, protocol):
         # FIXME: makeConnection
         # FIXME: actually stream
@@ -482,10 +503,10 @@ class Attachment(FileMetaDataMixin):
         # FIXME: ConnectionDone, not NotImplementedError
         protocol.connectionLost(Failure(NotImplementedError()))
 
+
     @property
     def _path(self):
-        dropboxPath = self._calendarObject._dropboxPath()
-        return dropboxPath.child(self.name())
+        return self._dropboxPath.child(self.name())
 
 
 

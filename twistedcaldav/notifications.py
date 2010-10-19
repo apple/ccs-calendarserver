@@ -27,7 +27,8 @@ from twext.python.log import Logger, LoggingMixIn
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue,\
+    maybeDeferred
 
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn, CalDAVResource
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
@@ -89,39 +90,45 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
         # Update database
         self.notificationsDB().addOrUpdateRecord(NotificationRecord(uid, rname, xmltype.name))
 
+
     def getNotifictionMessages(self, request, componentType=None, returnLatestVersion=True):
         return succeed([])
 
+
     def getNotifictionMessageByUID(self, request, uid):
-        return succeed(self.notificationsDB().recordForUID(uid))
+        return maybeDeferred(self.notificationsDB().recordForUID, uid)
+
 
     @inlineCallbacks
     def deleteNotifictionMessageByUID(self, request, uid):
         
         # See if it exists and delete the resource
-        record = self.notificationsDB().recordForUID(uid)
+        record = yield self.notificationsDB().recordForUID(uid)
         if record:
             yield self.deleteNotification(request, record)
+
 
     @inlineCallbacks
     def deleteNotifictionMessageByName(self, request, rname):
 
         # See if it exists and delete the resource
-        record = self.notificationsDB().recordForName(rname)
+        record = yield self.notificationsDB().recordForName(rname)
         if record:
             yield self.deleteNotification(request, record)
         
         returnValue(None)
 
+
     @inlineCallbacks
     def deleteNotification(self, request, record):
         yield self._deleteNotification(request, record.name)
-        self.notificationsDB().removeRecordForUID(record.uid)
-        
+        yield self.notificationsDB().removeRecordForUID(record.uid)
+
+
     def removedNotifictionMessage(self, request, rname):
-        self.notificationsDB().removeRecordForName(rname)
-        return succeed(None)
-        
+        return maybeDeferred(self.notificationsDB().removeRecordForName, rname)
+
+
 class NotificationRecord(object):
     
     def __init__(self, uid, name, xmltype):

@@ -38,7 +38,7 @@ from twistedcaldav.caldavxml import caldav_namespace,\
     NumberOfRecurrencesWithinLimits
 from twistedcaldav.config import config
 from twistedcaldav.customxml import TwistedCalendarAccessProperty
-from twistedcaldav.index import IndexedSearchException
+from txdav.common.icommondatastore import IndexedSearchException
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.method import report_common
 from twistedcaldav.query import calendarqueryfilter
@@ -175,12 +175,11 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 try:
                     # Get list of children that match the search and have read
                     # access
-                    names = [name for name, ignore_uid, ignore_type
-                        in calresource.index().indexedSearch(filter)]
+                    records = yield calresource.index().indexedSearch(filter)
                 except IndexedSearchException:
-                    names = [name for name, ignore_uid, ignore_type
-                        in calresource.index().bruteForceSearch()]
+                    records = yield calresource.index().bruteForceSearch()
                     index_query_ok = False
+                names = [name for name, ignore_uid, ignore_type in records]
 
                 if not names:
                     returnValue(True)

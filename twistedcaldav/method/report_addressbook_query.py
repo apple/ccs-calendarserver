@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test.test_addressbookquery -*-
 ##
 # Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
@@ -146,12 +147,12 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
             for vCardRecord in records:
                 
                 # match against original filter
-                if filter.match(vCardRecord.vCard()):
+                if filter.match((yield vCardRecord.vCard())):
  
                     # Check size of results is within limit
                     checkMaxResults()
                    
-                    yield report_common.responseForHref(request, responses, vCardRecord.hRef(), vCardRecord, propertiesForResource, query, vcard=vCardRecord.vCard())
+                    yield report_common.responseForHref(request, responses, vCardRecord.hRef(), vCardRecord, propertiesForResource, query, vcard=(yield vCardRecord.vCard()))
  
  
             
@@ -213,7 +214,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                         index_query_ok = addrresource.index().searchValid(filter)
                     
                         # Get list of children that match the search and have read access
-                        names = [name for name, ignore_uid in addrresource.index().search(filter)] #@UnusedVariable
+                        names = [name for name, ignore_uid in (yield addrresource.index().search(filter))] #@UnusedVariable
                         if not names:
                             return
                           
@@ -228,13 +229,12 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                             (davxml.Read(),),
                             inherited_aces=filteredaces
                         )
-                        
                         for child, child_uri in ok_resources:
                             child_uri_name = child_uri[child_uri.rfind("/") + 1:]
                             child_path_name = urllib.unquote(child_uri_name)
                             
                             if generate_address_data or not index_query_ok:
-                                vcard = addrresource.vCard(child_path_name)
+                                vcard = yield addrresource.vCard(child_path_name)
                                 assert vcard is not None, "vCard %s is missing from address book collection %r" % (child_uri_name, self)
                             else:
                                 vcard = None
@@ -262,7 +262,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                         handled = True
 
                 if not handled:
-                    vcard = addrresource.vCard()
+                    vcard = yield addrresource.vCard()
                     yield queryAddressBookObjectResource(addrresource, uri, None, vcard)
         
             if limited[0]:

@@ -376,7 +376,7 @@ class ImplicitScheduler(object):
 
         # Get owner's calendar-home
         calendar_owner_principal = (yield self.resource.resourceOwnerPrincipal(self.request))
-        calendar_home = calendar_owner_principal.calendarHome(self.request)
+        calendar_home = yield calendar_owner_principal.calendarHome(self.request)
 
         check_parent_uri = parentForURL(check_uri)[:-1] if check_uri else None
 
@@ -388,7 +388,7 @@ class ImplicitScheduler(object):
 
         @inlineCallbacks
         def queryCalendarCollection(collection, collection_uri):
-            rname = collection.index().resourceNameForUID(self.uid)
+            rname = yield collection.index().resourceNameForUID(self.uid)
             if rname:
                 child = (yield self.request.locateResource(joinURL(collection_uri, rname)))
                 if child == check_resource:

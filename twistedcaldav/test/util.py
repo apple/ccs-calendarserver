@@ -352,7 +352,7 @@ class HomeTestCase(TestCase):
         """
         if not self.committed:
             self.committed = True
-            self.site.resource._associatedTransaction.commit()
+            return self.site.resource._associatedTransaction.commit()
 
 
     @inlineCallbacks
@@ -361,10 +361,10 @@ class HomeTestCase(TestCase):
         Refresh the user resource positioned at the root of this site, to give
         it a new transaction.
         """
-        self.noRenderCommit()
+        yield self.noRenderCommit()
         if request is None:
             request = norequest()
-        users = self.homeProvisioner.getChild("users")
+        users = yield self.homeProvisioner.getChild("users")
 
         user, ignored = (yield users.locateChild(request, ["wsanchez"]))
 
@@ -387,7 +387,7 @@ class HomeTestCase(TestCase):
         Override C{send} in order to refresh the 'user' resource each time, to
         get a new transaction to associate with the calendar home.
         """
-        self.noRenderCommit()
+        yield self.noRenderCommit()
         yield self._refreshRoot(request)
         result = (yield super(HomeTestCase, self).send(request))
         self.committed = True
@@ -424,12 +424,13 @@ class AddressBookHomeTestCase(TestCase):
             self.directoryService, "/addressbooks/",
             _newStore
         )
-        
+
+        @inlineCallbacks
         def _defer(user):
             # Commit the transaction
-            self.site.resource._associatedTransaction.commit()
+            yield self.site.resource._associatedTransaction.commit()
             self.docroot = user._newStoreHome._path.path
-            
+
         return self._refreshRoot().addCallback(_defer)
 
     @inlineCallbacks

@@ -64,8 +64,10 @@ from twistedcaldav.datafilters.addressdata import AddressDataFilter
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
-from twistedcaldav.index import IndexedSearchException
+
 from twistedcaldav.query import calendarqueryfilter
+
+from txdav.common.icommondatastore import IndexedSearchException
 
 log = Logger()
 
@@ -381,9 +383,12 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
 fbtype_mapper = {"BUSY": 0, "BUSY-TENTATIVE": 1, "BUSY-UNAVAILABLE": 2}
 fbtype_index_mapper = {'B': 0, 'T': 1, 'U': 2}
 
+
+
 @inlineCallbacks
 def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
-                         excludeuid=None, organizer=None, organizerPrincipal=None, same_calendar_user=False,
+                         excludeuid=None, organizer=None,
+                         organizerPrincipal=None, same_calendar_user=False,
                          servertoserver=False):
     """
     Run a free busy report on the specified calendar collection
@@ -393,15 +398,18 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     @param fbinfo:      the array of busy periods to update.
     @param timerange:   the L{TimeRange} for the query.
     @param matchtotal:  the running total for the number of matches.
-    @param excludeuid:  a C{str} containing a UID value to exclude any components with that
-        UID from contributing to free-busy.
-    @param organizer:   a C{str} containing the value of the ORGANIZER property in the VFREEBUSY request.
-        This is used in conjunction with the UID value to process exclusions.
-    @param same_calendar_user:   a C{bool} indicating whether the calendar user requesting the free-busy information
-        is the same as the calendar user being targeted.
-    @param servertoserver:       a C{bool} indicating whether we are doing a local or remote lookup request.
+    @param excludeuid:  a C{str} containing a UID value to exclude any
+        components with that UID from contributing to free-busy.
+    @param organizer:   a C{str} containing the value of the ORGANIZER property
+        in the VFREEBUSY request.  This is used in conjunction with the UID
+        value to process exclusions.
+    @param same_calendar_user: a C{bool} indicating whether the calendar user
+        requesting the free-busy information is the same as the calendar user
+        being targeted.
+    @param servertoserver: a C{bool} indicating whether we are doing a local or
+        remote lookup request.
     """
-    
+
     # First check the privilege on this collection
     # TODO: for server-to-server we bypass this right now as we have no way to authorize external users.
     if not servertoserver:
@@ -441,16 +449,22 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         tz = None
     tzinfo = filter.settimezone(tz)
 
-    # Do some optimization of access control calculation by determining any inherited ACLs outside of
-    # the child resource loop and supply those to the checkPrivileges on each child.
+    # Do some optimization of access control calculation by determining any
+    # inherited ACLs outside of the child resource loop and supply those to the
+    # checkPrivileges on each child.
     filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
+    userPrincipal = (yield calresource.resourceOwnerPrincipal(request))
+    if userPrincipal:
+        useruid = userPrincipal.principalUID()
+    else:
+        useruid = ""
     try:
-        useruid = (yield calresource.resourceOwnerPrincipal(request))
-        useruid = useruid.principalUID() if useruid else ""
-        resources = calresource.index().indexedSearch(filter, useruid=useruid, fbtype=True)
+        resources = yield calresource.index().indexedSearch(
+            filter, useruid=useruid, fbtype=True
+        )
     except IndexedSearchException:
-        resources = calresource.index().bruteForceSearch()
+        resources = yield calresource.index().bruteForceSearch()
 
     # We care about separate instances for VEVENTs only
     aggregated_resources = {}

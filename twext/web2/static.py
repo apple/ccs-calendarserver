@@ -1,3 +1,4 @@
+# -*- test-case-name: twext.web2.test.test_static -*-
 ##
 # Copyright (c) 2001-2008 Twisted Matrix Laboratories.
 # Copyright (c) 2010 Apple Computer, Inc. All rights reserved.
@@ -34,10 +35,11 @@ import tempfile
 # Sibling Imports
 from twext.web2 import http_headers, resource
 from twext.web2 import http, iweb, stream, responsecode, server, dirlist
+from twext.web2.http import HTTPError
 
 # Twisted Imports
 from twext.python.filepath import CachingFilePath as FilePath
-from twisted.internet.defer import maybeDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from zope.interface import implements
 
 class MetaDataMixin(object):
@@ -94,21 +96,26 @@ class MetaDataMixin(object):
         return True
 
 class StaticRenderMixin(resource.RenderMixin, MetaDataMixin):
+
+
+    @inlineCallbacks
     def checkPreconditions(self, request):
         # This code replaces the code in resource.RenderMixin
         if request.method not in ("GET", "HEAD"):
             http.checkPreconditions(
                 request,
                 entityExists = self.exists(),
-                etag = self.etag(),
-                lastModified = self.lastModified(),
+                etag = (yield self.etag()),
+                lastModified = (yield self.lastModified()),
             )
 
         # Check per-method preconditions
         method = getattr(self, "preconditions_" + request.method, None)
         if method:
-            return method(request)
+            returnValue((yield method(request)))
 
+
+    @inlineCallbacks
     def renderHTTP(self, request):
         """
         See L{resource.RenderMixIn.renderHTTP}.
@@ -116,31 +123,26 @@ class StaticRenderMixin(resource.RenderMixin, MetaDataMixin):
         This implementation automatically sets some headers on the response
         based on data available from L{MetaDataMixin} methods.
         """
-        def setHeaders(response):
-            response = iweb.IResponse(response)
+        try:
+            response = yield super(StaticRenderMixin, self).renderHTTP(request)
+        except HTTPError, he:
+            response = he.response
 
-            # Don't provide additional resource information to error responses
-            if response.code < 400:
-                # Content-* headers refer to the response content, not
-                # (necessarily) to the resource content, so they depend on the
-                # request method, and therefore can't be set here.
-                for (header, value) in (
-                    ("etag", self.etag()),
-                    ("last-modified", self.lastModified()),
-                ):
-                    if value is not None:
-                        response.headers.setHeader(header, value)
+        response = iweb.IResponse(response)
+        # Don't provide additional resource information to error responses
+        if response.code < 400:
+            # Content-* headers refer to the response content, not
+            # (necessarily) to the resource content, so they depend on the
+            # request method, and therefore can't be set here.
+            for (header, value) in (
+                ("etag", (yield self.etag())),
+                ("last-modified", (yield self.lastModified())),
+            ):
+                if value is not None:
+                    response.headers.setHeader(header, value)
+        returnValue(response)
 
-            return response
 
-        def onError(f):
-            # If we get an HTTPError, run its response through setHeaders() as
-            # well.
-            f.trap(http.HTTPError)
-            return setHeaders(f.value.response)
-
-        d = maybeDeferred(super(StaticRenderMixin, self).renderHTTP, request)
-        return d.addCallbacks(setHeaders, onError)
 
 class Data(resource.Resource):
     """
@@ -319,12 +321,6 @@ class File(StaticRenderMixin):
         """
         self.ignoredExts.append(ext)
 
-    def directoryListing(self):
-        return dirlist.DirectoryLister(self.fp.path,
-                                       self.listChildren(),
-                                       self.contentTypes,
-                                       self.contentEncodings,
-                                       self.defaultType)
 
     def putChild(self, name, child):
         """
@@ -580,7 +576,7 @@ def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
     """
     import mimetypes
     # Grab Python's built-in mimetypes dictionary.
-    contentTypes = mimetypes.types_map
+    contentTypes = mimetypes.types_map #@UndefinedVariable
     # Update Python's semi-erroneous dictionary with a few of the
     # usual suspects.
     contentTypes.update(

@@ -17,9 +17,12 @@
 from twisted.internet import reactor
 from twisted.internet.task import deferLater
 
+from txdav.common.icommondatastore import ReservationError
+from txdav.carddav.datastore.index_file import AddressBookIndex,\
+    MemcachedUIDReserver
+
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
 from twistedcaldav.vcard import Component
-from twistedcaldav.vcardindex import AddressBookIndex, MemcachedUIDReserver, ReservationError
 import twistedcaldav.test.util
 
 import os

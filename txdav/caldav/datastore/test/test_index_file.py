@@ -17,11 +17,12 @@
 from twisted.internet import reactor
 from twisted.internet.task import deferLater
 
+from txdav.caldav.datastore.index_file import Index, MemcachedUIDReserver
+from txdav.common.icommondatastore import ReservationError
+
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.ical import Component
-from twistedcaldav.index import Index
-from twistedcaldav.index import ReservationError, MemcachedUIDReserver
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
@@ -29,6 +30,7 @@ import twistedcaldav.test.util
 
 import datetime
 import os
+from twisted.internet.defer import inlineCallbacks
 
 
 class MinimalResourceReplacement(object):
@@ -281,6 +283,8 @@ END:VCALENDAR
             else:
                 self.assertFalse(self.db.resourceExists(name), msg=description)
 
+
+    @inlineCallbacks
     def test_index_timespan(self):
         data = (
             (
@@ -451,7 +455,7 @@ END:VCALENDAR
               )
             filter = calendarqueryfilter.Filter(filter)
 
-            resources = self.db.indexedSearch(filter, fbtype=True)
+            resources = yield self.db.indexedSearch(filter, fbtype=True)
             index_results = set()
             for _ignore_name, _ignore_uid, type, test_organizer, float, start, end, fbtype, transp in resources:
                 self.assertEqual(test_organizer, organizer, msg=description)
@@ -459,6 +463,8 @@ END:VCALENDAR
 
             self.assertEqual(set(instances), index_results, msg=description)
 
+
+    @inlineCallbacks
     def test_index_timespan_per_user(self):
         data = (
             (
@@ -849,7 +855,7 @@ END:VCALENDAR
             filter = calendarqueryfilter.Filter(filter)
 
             for useruid, instances in peruserinstances:
-                resources = self.db.indexedSearch(filter, useruid=useruid, fbtype=True)
+                resources = yield self.db.indexedSearch(filter, useruid=useruid, fbtype=True)
                 index_results = set()
                 for _ignore_name, _ignore_uid, type, test_organizer, float, start, end, fbtype, transp in resources:
                     self.assertEqual(test_organizer, organizer, msg=description)
@@ -858,6 +864,7 @@ END:VCALENDAR
                 self.assertEqual(set(instances), index_results, msg="%s, user:%s" % (description, useruid,))
 
             self.db.deleteResource(name)
+
 
     def test_index_revisions(self):
         data1 = """BEGIN:VCALENDAR

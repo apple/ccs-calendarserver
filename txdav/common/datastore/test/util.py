@@ -20,12 +20,15 @@ Store test utility functions
 """
 
 import gc
+from zope.interface.verify import verifyObject
+from zope.interface.exceptions import BrokenMethodImplementation,\
+    DoesNotImplement
 
 from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, succeed
+from twisted.internet.defer import Deferred, succeed, inlineCallbacks
 from twisted.internet.task import deferLater
 from twisted.python import log
 
@@ -33,6 +36,7 @@ from txdav.common.datastore.sql import CommonDataStore, v1_schema
 from txdav.base.datastore.subpostgres import PostgresService,\
     DiagnosticConnectionWrapper
 from txdav.common.icommondatastore import NoSuchHomeChildError
+from twistedcaldav.notify import Notifier
 
 
 def allInstancesOf(cls):
@@ -149,6 +153,7 @@ theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore
 
 
+@inlineCallbacks
 def populateCalendarsFrom(requirements, store):
     """
     Populate C{store} from C{requirements}.
@@ -162,23 +167,112 @@ def populateCalendarsFrom(requirements, store):
     for homeUID in requirements:
         calendars = requirements[homeUID]
         if calendars is not None:
-            home = populateTxn.calendarHomeWithUID(homeUID, True)
+            home = yield populateTxn.calendarHomeWithUID(homeUID, True)
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
             try:
-                home.removeCalendarWithName("calendar")
-                home.removeCalendarWithName("inbox")
+                yield home.removeCalendarWithName("calendar")
+                yield home.removeCalendarWithName("inbox")
             except NoSuchHomeChildError:
                 pass
             for calendarName in calendars:
                 calendarObjNames = calendars[calendarName]
                 if calendarObjNames is not None:
-                    home.createCalendarWithName(calendarName)
-                    calendar = home.calendarWithName(calendarName)
+                    # XXX should not be yielding!  this SQL will be executed
+                    # first!
+                    yield home.createCalendarWithName(calendarName)
+                    calendar = yield home.calendarWithName(calendarName)
                     for objectName in calendarObjNames:
                         objData = calendarObjNames[objectName]
                         calendar.createCalendarObjectWithName(
                             objectName, VComponent.fromString(objData)
                         )
-    populateTxn.commit()
+    yield populateTxn.commit()
 
+
+def assertProvides(testCase, interface, provider):
+    """
+    Verify that C{provider} properly provides C{interface}
+
+    @type interface: L{zope.interface.Interface}
+    @type provider: C{provider}
+    """
+    try:
+        verifyObject(interface, provider)
+    except BrokenMethodImplementation, e:
+        testCase.fail(e)
+    except DoesNotImplement, e:
+        testCase.fail("%r does not provide %s.%s" %
+                      (provider, interface.__module__, interface.getName()))
+
+
+
+class CommonCommonTests(object):
+    """
+    Common utility functionality for file/store combination tests.
+    """
+
+    lastTransaction = None
+    savedStore = None
+    assertProvides = assertProvides
+
+    def transactionUnderTest(self):
+        """
+        Create a transaction from C{storeUnderTest} and save it as
+        C[lastTransaction}.  Also makes sure to use the same store, saving the
+        value from C{storeUnderTest}.
+        """
+        if self.lastTransaction is not None:
+            return self.lastTransaction
+        if self.savedStore is None:
+            self.savedStore = self.storeUnderTest()
+        self.counter += 1
+        txn = self.lastTransaction = self.savedStore.newTransaction(self.id() + " #" + str(self.counter))
+        return txn
+
+
+    def commit(self):
+        """
+        Commit the last transaction created from C{transactionUnderTest}, and
+        clear it.
+        """
+        result = self.lastTransaction.commit()
+        self.lastTransaction = None
+        return result
+
+
+    def abort(self):
+        """
+        Abort the last transaction created from C[transactionUnderTest}, and
+        clear it.
+        """
+        result = self.lastTransaction.abort()
+        self.lastTransaction = None
+        return result
+
+    def setUp(self):
+        self.counter = 0
+        self.notifierFactory = StubNotifierFactory()
+
+    def tearDown(self):
+        if self.lastTransaction is not None:
+            return self.commit()
+
+
+
+class StubNotifierFactory(object):
+    """
+    For testing push notifications without an XMPP server.
+    """
+
+    def __init__(self):
+        self.reset()
+
+    def newNotifier(self, label="default", id=None, prefix=None):
+        return Notifier(self, label=label, id=id, prefix=prefix)
+
+    def send(self, op, id):
+        self.history.append((op, id))
+
+    def reset(self):
+        self.history = []

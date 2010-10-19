@@ -15,11 +15,19 @@
 # limitations under the License.
 ##
 
+"""
+SQL backend for CardDAV storage.
+"""
+
 __all__ = [
     "AddressBookHome",
     "AddressBook",
     "AddressBookObject",
 ]
+
+from zope.interface.declarations import implements
+
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.web2.dav.element.rfc2518 import ResourceType
 from twext.web2.http_headers import MimeType
@@ -42,7 +50,7 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
     ADDRESSBOOK_OBJECT_TABLE
 from txdav.base.propertystore.base import PropertyName
 
-from zope.interface.declarations import implements
+
 
 class AddressBookHome(CommonHome):
 
@@ -58,14 +66,18 @@ class AddressBookHome(CommonHome):
         super(AddressBookHome, self).__init__(transaction, ownerUID, resourceID, notifier)
         self._shares = SQLLegacyAddressBookShares(self)
 
+
     addressbooks = CommonHome.children
     listAddressbooks = CommonHome.listChildren
     addressbookWithName = CommonHome.childWithName
     createAddressBookWithName = CommonHome.createChildWithName
     removeAddressBookWithName = CommonHome.removeChildWithName
 
+
     def createdHome(self):
-        self.createAddressBookWithName("addressbook")
+        return self.createAddressBookWithName("addressbook")
+
+
 
 class AddressBook(CommonHomeChild):
     """
@@ -99,12 +111,15 @@ class AddressBook(CommonHomeChild):
         self._revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
         self._objectTable = ADDRESSBOOK_OBJECT_TABLE
 
+
     @property
     def _addressbookHome(self):
         return self._home
 
+
     def resourceType(self):
         return ResourceType.addressbook #@UndefinedVariable
+
 
     ownerAddressBookHome = CommonHomeChild.ownerHome
     addressbookObjects = CommonHomeChild.objectResources
@@ -128,8 +143,10 @@ class AddressBook(CommonHomeChild):
             ),
         )
 
+
     def _doValidate(self, component):
         component.validForCardDAV()
+
 
     def contentType(self):
         """
@@ -137,34 +154,41 @@ class AddressBook(CommonHomeChild):
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
 
+
+
 class AddressBookObject(CommonObjectResource):
 
     implements(IAddressBookObject)
 
-    def __init__(self, name, addressbook, resid):
+    def __init__(self, name, addressbook, resid, uid):
 
-        super(AddressBookObject, self).__init__(name, addressbook, resid)
-
+        super(AddressBookObject, self).__init__(name, addressbook, resid, uid)
         self._objectTable = ADDRESSBOOK_OBJECT_TABLE
+
 
     @property
     def _addressbook(self):
         return self._parentCollection
 
+
     def addressbook(self):
         return self._addressbook
 
+
+    @inlineCallbacks
     def setComponent(self, component, inserting=False):
         validateAddressBookComponent(self, self._addressbook, component, inserting)
 
-        self.updateDatabase(component, inserting=inserting)
+        yield self.updateDatabase(component, inserting=inserting)
         if inserting:
-            self._addressbook._insertRevision(self._name)
+            yield self._addressbook._insertRevision(self._name)
         else:
-            self._addressbook._updateRevision(self._name)
+            yield self._addressbook._updateRevision(self._name)
 
         self._addressbook.notifyChanged()
 
+
+    @inlineCallbacks
     def updateDatabase(self, component, expand_until=None, reCreate=False, inserting=False):
         """
         Update the database tables for the new data being written.
@@ -178,7 +202,7 @@ class AddressBookObject(CommonObjectResource):
 
         # ADDRESSBOOK_OBJECT table update
         if inserting:
-            self._resourceID = self._txn.execSQL(
+            self._resourceID = (yield self._txn.execSQL(
                 """
                 insert into ADDRESSBOOK_OBJECT
                 (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME, VCARD_TEXT, VCARD_UID)
@@ -192,9 +216,9 @@ class AddressBookObject(CommonObjectResource):
                     componentText,
                     component.resourceUID(),
                 ]
-            )[0][0]
+            ))[0][0]
         else:
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 update ADDRESSBOOK_OBJECT set
                 (VCARD_TEXT, VCARD_UID, MODIFIED)
@@ -209,30 +233,14 @@ class AddressBookObject(CommonObjectResource):
                 ]
             )
 
+
+    @inlineCallbacks
     def component(self):
-        return VCard.fromString(self.vCardText())
+        returnValue(VCard.fromString((yield self.vCardText())))
 
-    def text(self):
-        if self._objectText is None:
-            text = self._txn.execSQL(
-                "select VCARD_TEXT from ADDRESSBOOK_OBJECT where "
-                "RESOURCE_ID = %s", [self._resourceID]
-            )[0][0]
-            self._objectText = text
-            return text
-        else:
-            return self._objectText
 
-    vCardText = text
+    vCardText = CommonObjectResource.text
 
-    def uid(self):
-        return self.component().resourceUID()
-
-    def name(self):
-        return self._name
-
-    def componentType(self):
-        return self.component().mainType()
 
     # IDataStoreResource
     def contentType(self):

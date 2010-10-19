@@ -34,8 +34,7 @@ from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase
 from twisted.internet.defer import inlineCallbacks, returnValue
-from txdav.common.datastore.test.util import buildStore
-from txdav.caldav.datastore.test.common import StubNotifierFactory
+from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 
 
 @inlineCallbacks

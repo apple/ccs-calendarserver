@@ -26,14 +26,13 @@ import StringIO
 from twistedcaldav.sharing import SharedCollectionRecord
 
 from twisted.python import hashlib
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex
-from twistedcaldav.index import IndexedSearchException, ReservationError
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.query import calendarqueryfilter, calendarquery, \
@@ -41,10 +40,12 @@ from twistedcaldav.query import calendarqueryfilter, calendarquery, \
 from twistedcaldav.query.sqlgenerator import sqlgenerator
 from twistedcaldav.sharing import Invite
 
+from txdav.common.icommondatastore import IndexedSearchException, \
+    ReservationError
 from txdav.common.datastore.sql_tables import \
     _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_DIRECT, \
-    _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID,\
-    CALENDAR_BIND_TABLE, CALENDAR_HOME_TABLE, ADDRESSBOOK_HOME_TABLE,\
+    _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID, \
+    CALENDAR_BIND_TABLE, CALENDAR_HOME_TABLE, ADDRESSBOOK_HOME_TABLE, \
     ADDRESSBOOK_BIND_TABLE
 
 log = Logger()
@@ -62,11 +63,18 @@ class PostgresLegacyNotificationsEmulator(object):
         self._collection = notificationsCollection
 
 
+    @inlineCallbacks
     def _recordForObject(self, notificationObject):
-        return NotificationRecord(
-            notificationObject.uid(),
-            notificationObject.name(),
-            notificationObject._fieldQuery("XML_TYPE")) if notificationObject else None
+        if notificationObject:
+            returnValue(
+                NotificationRecord(
+                    notificationObject.uid(),
+                    notificationObject.name(),
+                    (yield notificationObject._fieldQuery("XML_TYPE"))
+                )
+            )
+        else:
+            returnValue(None)
 
 
     def recordForName(self, name):
@@ -75,19 +83,19 @@ class PostgresLegacyNotificationsEmulator(object):
         )
 
 
+    @inlineCallbacks
     def recordForUID(self, uid):
-        return self._recordForObject(
-            self._collection.notificationObjectWithUID(uid)
-        )
+        returnValue((yield self._recordForObject(
+            (yield self._collection.notificationObjectWithUID(uid))
+        )))
 
 
     def removeRecordForUID(self, uid):
-        self._collection.removeNotificationObjectWithUID(uid)
+        return self._collection.removeNotificationObjectWithUID(uid)
 
 
     def removeRecordForName(self, name):
-        self._collection.removeNotificationObjectWithName(name)
-
+        return self._collection.removeNotificationObjectWithName(name)
 
 
 
@@ -106,27 +114,32 @@ class SQLLegacyInvites(object):
         # Since we do multi-table requests we need a dict that combines tables
         self._combinedTable = {}
         for key, value in self._homeTable.iteritems():
-            self._combinedTable["HOME:%s" % (key,)] = value 
+            self._combinedTable["HOME:%s" % (key,)] = value
         for key, value in self._bindTable.iteritems():
-            self._combinedTable["BIND:%s" % (key,)] = value 
+            self._combinedTable["BIND:%s" % (key,)] = value
+
 
     @property
     def _txn(self):
         return self._collection._txn
 
+
     def _getHomeWithUID(self, uid):
         raise NotImplementedError()
 
+
     def create(self):
         "No-op, because the index implicitly always exists in the database."
-        pass
+
 
     def remove(self):
         "No-op, because the index implicitly always exists in the database."
-        pass
 
+
+    @inlineCallbacks
     def allRecords(self):
-        for row in self._txn.execSQL(
+        values = []
+        for row in (yield self._txn.execSQL(
             """
             select
                 INVITE.INVITE_UID,
@@ -147,11 +160,14 @@ class SQLLegacyInvites(object):
                 INVITE.NAME asc
             """ % self._combinedTable,
             [self._collection._resourceID]
-        ):
-            yield self._makeInvite(row)
+        )):
+            values.append(self._makeInvite(row))
+        returnValue(values)
 
+
+    @inlineCallbacks
     def recordForUserID(self, userid):
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             """
             select
                 INVITE.INVITE_UID,
@@ -170,17 +186,19 @@ class SQLLegacyInvites(object):
             """ % self._combinedTable,
             [userid]
         )
-        return self._makeInvite(rows[0]) if rows else None
+        returnValue(self._makeInvite(rows[0]) if rows else None)
 
 
+    @inlineCallbacks
     def recordForPrincipalURL(self, principalURL):
-        for record in self.allRecords():
+        for record in (yield self.allRecords()):
             if record.principalURL == principalURL:
-                return record
+                returnValue(record)
 
 
+    @inlineCallbacks
     def recordForInviteUID(self, inviteUID):
-        rows = self._txn.execSQL(
+        rows = yield self._txn.execSQL(
             """
             select
                 INVITE.INVITE_UID,
@@ -199,7 +217,8 @@ class SQLLegacyInvites(object):
             """ % self._combinedTable,
             [inviteUID]
         )
-        return self._makeInvite(rows[0]) if rows else None
+        returnValue(self._makeInvite(rows[0]) if rows else None)
+
 
     def _makeInvite(self, row):
         [inviteuid, common_name, userid, ownerUID,
@@ -222,6 +241,8 @@ class SQLLegacyInvites(object):
             access, state, summary
         )
 
+
+    @inlineCallbacks
     def addOrUpdateRecord(self, record):
         bindMode = {'read-only': _BIND_MODE_READ,
                     'read-write': _BIND_MODE_WRITE}[record.access]
@@ -235,15 +256,15 @@ class SQLLegacyInvites(object):
         # it will always contain the UID.  The form is '/principals/__uids__/x'
         # (and may contain a trailing slash).
         principalUID = record.principalURL.split("/")[3]
-        shareeHome = self._getHomeWithUID(principalUID)
-        rows = self._txn.execSQL(
+        shareeHome = yield self._getHomeWithUID(principalUID)
+        rows = yield self._txn.execSQL(
             "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where RECIPIENT_ADDRESS = %s",
             [record.userid]
         )
         if rows:
             [[resourceID, homeResourceID]] = rows
             # Invite(inviteuid, userid, principalURL, common_name, access, state, summary)
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 update %(BIND:name)s
                 set %(BIND:column_BIND_MODE)s = %%s,
@@ -254,7 +275,7 @@ class SQLLegacyInvites(object):
                 """ % self._combinedTable,
                 [bindMode, bindStatus, record.summary, resourceID, homeResourceID]
             )
-            self._txn.execSQL("""
+            yield self._txn.execSQL("""
                 update INVITE
                 set NAME = %s, INVITE_UID = %s
                 where RECIPIENT_ADDRESS = %s
@@ -262,7 +283,7 @@ class SQLLegacyInvites(object):
                 [record.name, record.inviteuid, record.userid]
             )
         else:
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 insert into INVITE
                 (
@@ -277,7 +298,7 @@ class SQLLegacyInvites(object):
                     shareeHome._resourceID, self._collection._resourceID,
                     record.userid
                 ])
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 insert into %(BIND:name)s
                 (
@@ -302,11 +323,13 @@ class SQLLegacyInvites(object):
                     False,
                     False,
                     record.summary
-                ])
+                ]
+            )
 
 
+    @inlineCallbacks
     def removeRecordForUserID(self, userid):
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             """
             delete from %(BIND:name)s using INVITE
             where INVITE.RECIPIENT_ADDRESS = %%s
@@ -315,14 +338,15 @@ class SQLLegacyInvites(object):
             """ % self._combinedTable,
             [userid]
         )
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             "delete from INVITE where RECIPIENT_ADDRESS = %s",
             [userid]
         )
 
 
+    @inlineCallbacks
     def removeRecordForInviteUID(self, inviteUID):
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             """
             delete from %(BIND:name)s using INVITE
             where INVITE.INVITE_UID = %s
@@ -331,10 +355,12 @@ class SQLLegacyInvites(object):
             """ % self._combinedTable,
             [inviteUID]
         )
-        self._txn.execSQL(
+        yield self._txn.execSQL(
             "delete from INVITE where INVITE_UID = %s",
             [inviteUID]
         )
+
+
 
 class SQLLegacyCalendarInvites(SQLLegacyInvites):
     """
@@ -347,9 +373,12 @@ class SQLLegacyCalendarInvites(SQLLegacyInvites):
         self._bindTable = CALENDAR_BIND_TABLE
         super(SQLLegacyCalendarInvites, self).__init__(calendar)
 
+
     def _getHomeWithUID(self, uid):
         return self._txn.calendarHomeWithUID(uid, create=True)
-        
+
+
+
 class SQLLegacyAddressBookInvites(SQLLegacyInvites):
     """
     Emulator for the implicit interface specified by
@@ -361,8 +390,11 @@ class SQLLegacyAddressBookInvites(SQLLegacyInvites):
         self._bindTable = ADDRESSBOOK_BIND_TABLE
         super(SQLLegacyAddressBookInvites, self).__init__(addressbook)
 
+
     def _getHomeWithUID(self, uid):
         return self._txn.addressbookHomeWithUID(uid, create=True)
+
+
 
 class SQLLegacyShares(object):
 
@@ -390,12 +422,14 @@ class SQLLegacyShares(object):
         pass
 
 
+    @inlineCallbacks
     def allRecords(self):
         # This should have been a smart join that got all these columns at
         # once, but let's not bother to fix it, since the actual query we
         # _want_ to do (just look for binds in a particular homes) is
         # much simpler anyway; we should just do that.
-        shareRows = self._txn.execSQL(
+        all = []
+        shareRows = yield self._txn.execSQL(
             """
             select %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s, %(column_MESSAGE)s
             from %(name)s
@@ -407,7 +441,7 @@ class SQLLegacyShares(object):
         )
         for resourceID, resourceName, bindMode, summary in shareRows:
             if bindMode != _BIND_MODE_DIRECT:
-                [[shareuid]] = self._txn.execSQL(
+                [[shareuid]] = yield self._txn.execSQL(
                     """
                     select INVITE_UID
                     from INVITE
@@ -416,7 +450,7 @@ class SQLLegacyShares(object):
                     [resourceID, self._home._resourceID]
                 )
                 sharetype = 'I'
-                [[ownerHomeID, ownerResourceName]] = self._txn.execSQL(
+                [[ownerHomeID, ownerResourceName]] = yield self._txn.execSQL(
                     """
                     select %(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s
                     from %(name)s
@@ -425,7 +459,7 @@ class SQLLegacyShares(object):
                     """ % self._bindTable,
                     [resourceID, _BIND_MODE_OWN]
                 )
-                [[ownerUID]] = self._txn.execSQL(
+                [[ownerUID]] = yield self._txn.execSQL(
                     """
                     select %(column_OWNER_UID)s from %(name)s
                     where %(column_RESOURCE_ID)s = %%s
@@ -439,10 +473,10 @@ class SQLLegacyShares(object):
                 record = SharedCollectionRecord(
                     shareuid, sharetype, hosturl, localname, summary
                 )
-                yield record
+                all.append(record)
             else:
                 sharetype = 'D'
-                [[ownerHomeID, ownerResourceName]] = self._txn.execSQL(
+                [[ownerHomeID, ownerResourceName]] = yield self._txn.execSQL(
                     """
                     select %(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s
                     from %(name)s
@@ -451,7 +485,7 @@ class SQLLegacyShares(object):
                     """ % self._bindTable,
                     [resourceID, _BIND_MODE_OWN]
                 )
-                [[ownerUID]] = self._txn.execSQL(
+                [[ownerUID]] = yield self._txn.execSQL(
                     """
                     select %(column_OWNER_UID)s from %(name)s
                     where %(column_RESOURCE_ID)s = %%s
@@ -466,42 +500,40 @@ class SQLLegacyShares(object):
                 record = SharedCollectionRecord(
                     synthesisedUID, sharetype, hosturl, localname, summary
                 )
-                yield record
-                
+                all.append(record)
+        returnValue(all)
 
+
+    @inlineCallbacks
     def _search(self, **kw):
         [[key, value]] = kw.items()
-        for record in self.allRecords():
+        for record in (yield self.allRecords()):
             if getattr(record, key) == value:
-                return record
+                returnValue((record))
 
-    def recordForLocalName(self, localname):
-        return self._search(localname=localname)
 
     def recordForShareUID(self, shareUID):
         return self._search(shareuid=shareUID)
 
 
+    @inlineCallbacks
     def addOrUpdateRecord(self, record):
-#        print '*** SHARING***: Adding or updating this record:'
-#        import pprint
-#        pprint.pprint(record.__dict__)
         # record.hosturl -> /.../__uids__/<uid>/<name>
         splithost = record.hosturl.split('/')
         ownerUID = splithost[3]
         ownerCollectionName = splithost[4]
-        ownerHome = self._getHomeWithUID(ownerUID)
-        ownerCollection = ownerHome.childWithName(ownerCollectionName)
+        ownerHome = yield self._getHomeWithUID(ownerUID)
+        ownerCollection = yield ownerHome.childWithName(ownerCollectionName)
         collectionResourceID = ownerCollection._resourceID
 
         if record.sharetype == 'I':
-                
+
             # There needs to be a bind already, one that corresponds to the
             # invitation.  The invitation's UID is the same as the share UID.  I
             # just need to update its 'localname', i.e.
             # XXX_BIND.XXX_RESOURCE_NAME.
-    
-            self._txn.execSQL(
+
+            yield self._txn.execSQL(
                 """
                 update %(name)s
                 set %(column_RESOURCE_NAME)s = %%s
@@ -511,10 +543,9 @@ class SQLLegacyShares(object):
                 [record.localname, self._home._resourceID, collectionResourceID]
             )
         elif record.sharetype == 'D':
-            
             # There is no bind entry already so add one.
-    
-            self._txn.execSQL(
+
+            yield self._txn.execSQL(
                 """
                 insert into %(name)s
                 (
@@ -539,17 +570,18 @@ class SQLLegacyShares(object):
                     True,
                     record.summary,
                 ])
-            
-        shareeCollection = self._home.sharedChildWithName(record.localname)
+
+        shareeCollection = yield self._home.sharedChildWithName(record.localname)
         shareeCollection._initSyncToken()
 
+
+    @inlineCallbacks
     def removeRecordForLocalName(self, localname):
-        
-        record = self.recordForLocalName(localname)
-        shareeCollection = self._home.sharedChildWithName(record.localname)
-        shareeCollection._deletedSyncToken()
-        
-        self._txn.execSQL(
+        record = yield self.recordForLocalName(localname)
+        shareeCollection = yield self._home.sharedChildWithName(record.localname)
+        yield shareeCollection._deletedSyncToken()
+
+        returnValue((yield self._txn.execSQL(
             """
             update %(name)s
             set %(column_RESOURCE_NAME)s = NULL
@@ -557,17 +589,18 @@ class SQLLegacyShares(object):
              and %(column_HOME_RESOURCE_ID)s = %%s
             """ % self._bindTable,
             [localname, self._home._resourceID]
-        )
+        )))
 
 
+    @inlineCallbacks
     def removeRecordForShareUID(self, shareUID):
 
-        record = self.recordForShareUID(shareUID)
-        shareeCollection = self._home.sharedChildWithName(record.localname)
-        shareeCollection._deletedSyncToken()
-        
+        record = yield self.recordForShareUID(shareUID)
+        shareeCollection = yield self._home.sharedChildWithName(record.localname)
+        yield shareeCollection._deletedSyncToken()
+
         if not shareUID.startswith("Direct"):
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 update %(name)s
                 set %(column_RESOURCE_NAME)s = NULL
@@ -576,21 +609,22 @@ class SQLLegacyShares(object):
                  and %(name)s.%(column_HOME_RESOURCE_ID)s = INVITE.HOME_RESOURCE_ID
                  and %(name)s.%(column_RESOURCE_ID)s = INVITE.RESOURCE_ID
                 """ % self._bindTable,
-                [shareUID,]
+                [shareUID, ]
             )
         else:
             # Extract pieces from synthesised UID
             homeID, resourceID = shareUID[len("Direct-"):].split("-")
-            
+
             # Now remove the binding for the direct share
-            self._txn.execSQL(
+            yield self._txn.execSQL(
                 """
                 delete from %(name)s
                 where %(column_HOME_RESOURCE_ID)s = %%s
                  and %(column_RESOURCE_ID)s = %%s
                 """ % self._bindTable,
-                [homeID, resourceID,]
+                [homeID, resourceID, ]
             )
+
 
 
 class SQLLegacyCalendarShares(SQLLegacyShares):
@@ -603,12 +637,15 @@ class SQLLegacyCalendarShares(SQLLegacyShares):
         self._homeTable = CALENDAR_HOME_TABLE
         self._bindTable = CALENDAR_BIND_TABLE
         self._urlTopSegment = "calendars"
-    
+
         super(SQLLegacyCalendarShares, self).__init__(home)
+
 
     def _getHomeWithUID(self, uid):
         return self._txn.calendarHomeWithUID(uid, create=True)
-        
+
+
+
 class SQLLegacyAddressBookShares(SQLLegacyShares):
     """
     Emulator for the implicit interface specified by
@@ -624,7 +661,7 @@ class SQLLegacyAddressBookShares(SQLLegacyShares):
 
     def _getHomeWithUID(self, uid):
         return self._txn.addressbookHomeWithUID(uid, create=True)
-        
+
 
 class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
     def __init__(self, index, cachePool=None):
@@ -816,7 +853,38 @@ class postgresqlgenerator(sqlgenerator):
         return "%%%s%%" % (arg,)
 
 
-class PostgresLegacyIndexEmulator(LoggingMixIn):
+class LegacyIndexHelper(LoggingMixIn, object):
+
+    @inlineCallbacks
+    def isAllowedUID(self, uid, *names):
+        """
+        Checks to see whether to allow an operation which would add the
+        specified UID to the index.  Specifically, the operation may not
+        violate the constraint that UIDs must be unique.
+        @param uid: the UID to check
+        @param names: the names of resources being replaced or deleted by the
+            operation; UIDs associated with these resources are not checked.
+        @return: True if the UID is not in the index and is not reserved,
+            False otherwise.
+        """
+        rname = yield self.resourceNameForUID(uid)
+        returnValue(rname is None or rname in names)
+
+
+    def reserveUID(self, uid):
+        return self.reserver.reserveUID(uid)
+
+
+    def unreserveUID(self, uid):
+        return self.reserver.unreserveUID(uid)
+
+
+    def isReservedUID(self, uid):
+        return self.reserver.isReservedUID(uid)
+
+
+
+class PostgresLegacyIndexEmulator(LegacyIndexHelper):
     """
     Emulator for L{twistedcaldv.index.Index} and
     L{twistedcaldv.index.IndexSchedule}.
@@ -838,27 +906,7 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
         return self.calendar._txn
 
 
-    def reserveUID(self, uid):
-        if self.calendar._name == "inbox":
-            return succeed(None)
-        else:
-            return self.reserver.reserveUID(uid)
-
-
-    def unreserveUID(self, uid):
-        if self.calendar._name == "inbox":
-            return succeed(None)
-        else:
-            return self.reserver.unreserveUID(uid)
-
-
-    def isReservedUID(self, uid):
-        if self.calendar._name == "inbox":
-            return succeed(False)
-        else:
-            return self.reserver.isReservedUID(uid)
-
-
+    @inlineCallbacks
     def isAllowedUID(self, uid, *names):
         """
         Checks to see whether to allow an operation which would add the
@@ -870,112 +918,140 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
         @return: True if the UID is not in the index and is not reserved,
             False otherwise.
         """
-        if self.calendar._name == "inbox":
-            return True
-        else:
-            rname = self.resourceNameForUID(uid)
-            return (rname is None or rname in names)
+        rname = yield self.resourceNameForUID(uid)
+        returnValue(rname is None or rname in names)
 
+
+    @inlineCallbacks
     def resourceUIDForName(self, name):
-        obj = self.calendar.calendarObjectWithName(name)
+        obj = yield self.calendar.calendarObjectWithName(name)
         if obj is None:
-            return None
-        return obj.uid()
+            returnValue(None)
+        returnValue(obj.uid())
 
 
+    @inlineCallbacks
     def resourceNameForUID(self, uid):
-        obj = self.calendar.calendarObjectWithUID(uid)
+        obj = yield self.calendar.calendarObjectWithUID(uid)
         if obj is None:
-            return None
-        return obj.name()
+            returnValue(None)
+        returnValue(obj.name())
 
 
+    @inlineCallbacks
     def notExpandedBeyond(self, minDate):
         """
         Gives all resources which have not been expanded beyond a given date
         in the database.  (Unused; see above L{postgresqlgenerator}.
         """
-        return [row[0] for row in self._txn.execSQL(
+        returnValue([row[0] for row in (yield self._txn.execSQL(
             "select RESOURCE_NAME from CALENDAR_OBJECT "
             "where RECURRANCE_MAX < %s and CALENDAR_RESOURCE_ID = %s",
             [normalizeForIndex(minDate), self.calendar._resourceID]
-        )]
+        ))])
 
 
+    @inlineCallbacks
     def reExpandResource(self, name, expand_until):
         """
         Given a resource name, remove it from the database and re-add it
         with a longer expansion.
         """
-        obj = self.calendar.calendarObjectWithName(name)
-        obj.updateDatabase(obj.component(), expand_until=expand_until, reCreate=True)
+        obj = yield self.calendar.calendarObjectWithName(name)
+        yield obj.updateDatabase(
+            (yield obj.component()), expand_until=expand_until, reCreate=True
+        )
 
+
+    @inlineCallbacks
     def testAndUpdateIndex(self, minDate):
         # Find out if the index is expanded far enough
-        names = self.notExpandedBeyond(minDate)
+        names = yield self.notExpandedBeyond(minDate)
 
         # Actually expand recurrence max
         for name in names:
             self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
-            self.reExpandResource(name, minDate)
+            yield self.reExpandResource(name, minDate)
 
+
+    @inlineCallbacks
     def indexedSearch(self, filter, useruid='', fbtype=False):
         """
         Finds resources matching the given qualifiers.
         @param filter: the L{Filter} for the calendar-query to execute.
-        @return: an iterable of tuples for each resource matching the
-            given C{qualifiers}. The tuples are C{(name, uid, type)}, where
-            C{name} is the resource name, C{uid} is the resource UID, and
-            C{type} is the resource iCalendar component type.x
-        """
 
+        @return: a L{Deferred} which fires with an iterable of tuples for each
+            resource matching the given C{qualifiers}. The tuples are C{(name,
+            uid, type)}, where C{name} is the resource name, C{uid} is the
+            resource UID, and C{type} is the resource iCalendar component
+            type.
+        """
         # Make sure we have a proper Filter element and get the partial SQL
         # statement to use.
         if isinstance(filter, calendarqueryfilter.Filter):
-            qualifiers = calendarquery.sqlcalendarquery(filter, self.calendar._resourceID, useruid, generator=postgresqlgenerator)
+            qualifiers = calendarquery.sqlcalendarquery(
+                filter, self.calendar._resourceID, useruid,
+                generator=postgresqlgenerator
+            )
             if qualifiers is not None:
                 # Determine how far we need to extend the current expansion of
-                # events. If we have an open-ended time-range we will expand one
-                # year past the start. That should catch bounded recurrences - unbounded
-                # will have been indexed with an "infinite" value always included.
+                # events. If we have an open-ended time-range we will expand
+                # one year past the start. That should catch bounded
+                # recurrences - unbounded will have been indexed with an
+                # "infinite" value always included.
                 maxDate, isStartDate = filter.getmaxtimerange()
                 if maxDate:
                     maxDate = maxDate.date()
                     if isStartDate:
                         maxDate += datetime.timedelta(days=365)
-                    self.testAndUpdateIndex(maxDate)
+                    yield self.testAndUpdateIndex(maxDate)
             else:
                 # We cannot handler this filter in an indexed search
                 raise IndexedSearchException()
-
         else:
             qualifiers = None
 
         # Perform the search
         if qualifiers is None:
-            rowiter = self._txn.execSQL(
-                "select RESOURCE_NAME, ICALENDAR_UID, ICALENDAR_TYPE from CALENDAR_OBJECT where CALENDAR_RESOURCE_ID = %s",
-                [self.calendar._resourceID, ],
+            rowiter = yield self._txn.execSQL(
+                """
+                select RESOURCE_NAME, ICALENDAR_UID, ICALENDAR_TYPE
+                from CALENDAR_OBJECT where CALENDAR_RESOURCE_ID = %s
+                """,
+                [self.calendar._resourceID],
             )
         else:
             if fbtype:
                 # For a free-busy time-range query we return all instances
-                rowiter = self._txn.execSQL(
-                    """select DISTINCT
-                        CALENDAR_OBJECT.RESOURCE_NAME, CALENDAR_OBJECT.ICALENDAR_UID, CALENDAR_OBJECT.ICALENDAR_TYPE, CALENDAR_OBJECT.ORGANIZER,
-                        TIME_RANGE.FLOATING, TIME_RANGE.START_DATE, TIME_RANGE.END_DATE, TIME_RANGE.FBTYPE, TIME_RANGE.TRANSPARENT, TRANSPARENCY.TRANSPARENT""" +
+                rowiter = yield self._txn.execSQL(
+                    """
+                    select DISTINCT
+                        CALENDAR_OBJECT.RESOURCE_NAME,
+                        CALENDAR_OBJECT.ICALENDAR_UID,
+                        CALENDAR_OBJECT.ICALENDAR_TYPE,
+                        CALENDAR_OBJECT.ORGANIZER,
+                        TIME_RANGE.FLOATING, TIME_RANGE.START_DATE,
+                        TIME_RANGE.END_DATE, TIME_RANGE.FBTYPE,
+                        TIME_RANGE.TRANSPARENT, TRANSPARENCY.TRANSPARENT
+                    """ +
                     qualifiers[0],
                     qualifiers[1]
                 )
             else:
-                rowiter = self._txn.execSQL(
-                    "select DISTINCT CALENDAR_OBJECT.RESOURCE_NAME, CALENDAR_OBJECT.ICALENDAR_UID, CALENDAR_OBJECT.ICALENDAR_TYPE" +
+                rowiter = yield self._txn.execSQL(
+                    """
+                    select
+                        DISTINCT CALENDAR_OBJECT.RESOURCE_NAME,
+                        CALENDAR_OBJECT.ICALENDAR_UID,
+                        CALENDAR_OBJECT.ICALENDAR_TYPE
+                    """ +
                     qualifiers[0],
                     qualifiers[1]
                 )
 
         # Check result for missing resources
 
+        results = []
         for row in rowiter:
             if fbtype:
                 row = list(row)
@@ -983,7 +1059,8 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
                 row[7] = indexfbtype_to_icalfbtype[row[7]]
                 row[8] = 'T' if row[9] else 'F'
                 del row[9]
-            yield row
+            results.append(row)
+        returnValue(results)
 
 
     def bruteForceSearch(self):
@@ -994,20 +1071,41 @@ class PostgresLegacyIndexEmulator(LoggingMixIn):
         )
 
 
+    @inlineCallbacks
     def resourcesExist(self, names):
-        return list(set(names).intersection(
-            set(self.calendar.listCalendarObjects())))
+        returnValue(list(set(names).intersection(
+            set((yield self.calendar.listCalendarObjects())))))
 
 
+    @inlineCallbacks
     def resourceExists(self, name):
-        return bool(
-            self._txn.execSQL(
+        returnValue((bool(
+            (yield self._txn.execSQL(
                 "select RESOURCE_NAME from CALENDAR_OBJECT where "
                 "RESOURCE_NAME = %s and CALENDAR_RESOURCE_ID = %s",
                 [name, self.calendar._resourceID]
-            )
-        )
+            ))
+        )))
 
+
+
+class PostgresLegacyInboxIndexEmulator(PostgresLegacyIndexEmulator):
+    """
+    UIDs need not be unique in the 'inbox' calendar, so override those
+    behaviors intended to ensure that.
+    """
+
+    def isAllowedUID(self):
+        return succeed(True)
+
+    def reserveUID(self, uid):
+        return succeed(None)
+
+    def unreserveUID(self, uid):
+        return succeed(None)
+
+    def isReservedUID(self, uid):
+        return succeed(False)
 
 
 
@@ -1077,7 +1175,7 @@ class postgresqladbkgenerator(sqlgenerator):
         return "%%%s%%" % (arg,)
 
 
-class PostgresLegacyABIndexEmulator(object):
+class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
     """
     Emulator for L{twistedcaldv.index.Index} and
     L{twistedcaldv.index.IndexSchedule}.
@@ -1100,45 +1198,20 @@ class PostgresLegacyABIndexEmulator(object):
         return self.addressbook._txn
 
 
-    def reserveUID(self, uid):
-        return self.reserver.reserveUID(uid)
-
-
-    def unreserveUID(self, uid):
-        return self.reserver.unreserveUID(uid)
-
-
-    def isReservedUID(self, uid):
-        return self.reserver.isReservedUID(uid)
-
-
-    def isAllowedUID(self, uid, *names):
-        """
-        Checks to see whether to allow an operation which would add the
-        specified UID to the index.  Specifically, the operation may not
-        violate the constraint that UIDs must be unique.
-        @param uid: the UID to check
-        @param names: the names of resources being replaced or deleted by the
-            operation; UIDs associated with these resources are not checked.
-        @return: True if the UID is not in the index and is not reserved,
-            False otherwise.
-        """
-        rname = self.resourceNameForUID(uid)
-        return (rname is None or rname in names)
-
-
+    @inlineCallbacks
     def resourceUIDForName(self, name):
-        obj = self.addressbook.addressbookObjectWithName(name)
+        obj = yield self.addressbook.addressbookObjectWithName(name)
         if obj is None:
-            return None
-        return obj.uid()
+            returnValue(None)
+        returnValue(obj.uid())
 
 
+    @inlineCallbacks
     def resourceNameForUID(self, uid):
-        obj = self.addressbook.addressbookObjectWithUID(uid)
+        obj = yield self.addressbook.addressbookObjectWithUID(uid)
         if obj is None:
-            return None
-        return obj.name()
+            returnValue(None)
+        returnValue(obj.name())
 
 
     def searchValid(self, filter):
@@ -1149,6 +1222,8 @@ class PostgresLegacyABIndexEmulator(object):
 
         return qualifiers is not None
 
+
+    @inlineCallbacks
     def search(self, filter):
         """
         Finds resources matching the given qualifiers.
@@ -1165,19 +1240,19 @@ class PostgresLegacyABIndexEmulator(object):
         else:
             qualifiers = None
         if qualifiers is not None:
-            rowiter = self._txn.execSQL(
+            rowiter = yield self._txn.execSQL(
                 "select DISTINCT ADDRESSBOOK_OBJECT.RESOURCE_NAME, ADDRESSBOOK_OBJECT.VCARD_UID" +
                 qualifiers[0],
                 qualifiers[1]
             )
         else:
-            rowiter = self._txn.execSQL(
+            rowiter = yield self._txn.execSQL(
                 "select RESOURCE_NAME, VCARD_UID from ADDRESSBOOK_OBJECT where ADDRESSBOOK_RESOURCE_ID = %s",
                 [self.addressbook._resourceID, ],
             )
 
-        for row in rowiter:
-            yield row
+        returnValue(list(rowiter))
+
 
     def indexedSearch(self, filter, useruid='', fbtype=False):
         """
@@ -1195,16 +1270,18 @@ class PostgresLegacyABIndexEmulator(object):
         )
 
 
+    @inlineCallbacks
     def resourcesExist(self, names):
-        return list(set(names).intersection(
-            set(self.addressbook.listAddressbookObjects())))
+        returnValue(list(set(names).intersection(
+            set((yield self.addressbook.listAddressbookObjects())))))
 
 
+    @inlineCallbacks
     def resourceExists(self, name):
-        return bool(
-            self._txn.execSQL(
+        returnValue(bool(
+            (yield self._txn.execSQL(
                 "select RESOURCE_NAME from ADDRESSBOOK_OBJECT where "
                 "RESOURCE_NAME = %s and ADDRESSBOOK_RESOURCE_ID = %s",
                 [name, self.addressbook._resourceID]
-            )
-        )
+            ))
+        ))

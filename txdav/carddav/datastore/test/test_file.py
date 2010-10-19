@@ -18,8 +18,10 @@
 File addressbook store tests.
 """
 
-from twext.python.filepath import CachingFilePath as FilePath
+from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
+
+from twext.python.filepath import CachingFilePath as FilePath
 
 from twistedcaldav.vcard import Component as VComponent
 
@@ -33,7 +35,9 @@ from txdav.carddav.datastore.file import AddressBookStore, AddressBookHome
 from txdav.carddav.datastore.file import AddressBook, AddressBookObject
 
 from txdav.carddav.datastore.test.common import (
-    CommonTests, vcard4_text, vcard1modified_text, StubNotifierFactory)
+    CommonTests, vcard4_text, vcard1modified_text)
+
+from txdav.common.datastore.test.util import StubNotifierFactory
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
 
@@ -59,21 +63,23 @@ def setUpAddressBookStore(test):
 
     test.notifierFactory = StubNotifierFactory()
     test.addressbookStore = AddressBookStore(storeRootPath, test.notifierFactory)
-    test.txn = test.addressbookStore.newTransaction()
+    test.txn = test.addressbookStore.newTransaction(test.id() + " (old)")
     assert test.addressbookStore is not None, "No addressbook store?"
 
 
 
+@inlineCallbacks
 def setUpHome1(test):
     setUpAddressBookStore(test)
-    test.home1 = test.txn.addressbookHomeWithUID("home1")
+    test.home1 = yield test.txn.addressbookHomeWithUID("home1")
     assert test.home1 is not None, "No addressbook home?"
 
 
 
+@inlineCallbacks
 def setUpAddressBook1(test):
-    setUpHome1(test)
-    test.addressbook1 = test.home1.addressbookWithName("addressbook_1")
+    yield setUpHome1(test)
+    test.addressbook1 = yield test.home1.addressbookWithName("addressbook_1")
     assert test.addressbook1 is not None, "No addressbook?"
 
 
@@ -87,13 +93,15 @@ class AddressBookStoreTest(unittest.TestCase):
         setUpAddressBookStore(self)
 
 
+    @inlineCallbacks
     def test_addressbookHomeWithUID_dot(self):
         """
         Filenames starting with "." are reserved by this
         implementation, so no UIDs may start with ".".
         """
         self.assertEquals(
-            self.addressbookStore.newTransaction().addressbookHomeWithUID("xyzzy"),
+            (yield self.addressbookStore.newTransaction(self.id()
+                ).addressbookHomeWithUID(".xyzzy")),
             None
         )
 
@@ -102,7 +110,7 @@ class AddressBookStoreTest(unittest.TestCase):
 class AddressBookHomeTest(unittest.TestCase):
 
     def setUp(self):
-        setUpHome1(self)
+        return setUpHome1(self)
 
 
     def test_init(self):
@@ -176,6 +184,7 @@ class AddressBookTest(unittest.TestCase):
         )
 
 
+    @inlineCallbacks
     def test_useIndexImmediately(self):
         """
         L{AddressBook._index} is usable in the same transaction it is created, with
@@ -184,21 +193,22 @@ class AddressBookTest(unittest.TestCase):
         self.home1.createAddressBookWithName("addressbook2")
         addressbook = self.home1.addressbookWithName("addressbook2")
         index = addressbook._index
-        self.assertEquals(set(index.addressbookObjects()),
-                          set(addressbook.addressbookObjects()))
-        self.txn.commit()
-        self.txn = self.addressbookStore.newTransaction()
-        self.home1 = self.txn.addressbookHomeWithUID("home1")
-        addressbook = self.home1.addressbookWithName("addressbook2")
+        self.assertEquals(set((yield index.addressbookObjects())),
+                          set((yield addressbook.addressbookObjects())))
+        yield self.txn.commit()
+        self.txn = self.addressbookStore.newTransaction(self.id())
+        self.home1 = yield self.txn.addressbookHomeWithUID("home1")
+        addressbook = yield self.home1.addressbookWithName("addressbook2")
         # FIXME: we should be curating our own index here, but in order to fix
         # that the code in the old implicit scheduler needs to change.  This
         # test would be more effective if there were actually some objects in
         # this list.
         index = addressbook._index
-        self.assertEquals(set(index.addressbookObjects()),
-                          set(addressbook.addressbookObjects()))
+        self.assertEquals(set((yield index.addressbookObjects())),
+                          set((yield addressbook.addressbookObjects())))
 
 
+    @inlineCallbacks
     def test_addressbookObjectWithName_dot(self):
         """
         Filenames starting with "." are reserved by this
@@ -207,7 +217,10 @@ class AddressBookTest(unittest.TestCase):
         """
         name = ".foo.vcf"
         self.home1._path.child(name).touch()
-        self.assertEquals(self.addressbook1.addressbookObjectWithName(name), None)
+        self.assertEquals(
+            (yield self.addressbook1.addressbookObjectWithName(name)),
+            None
+        )
 
 
     @featureUnimplemented
@@ -215,14 +228,15 @@ class AddressBookTest(unittest.TestCase):
         """
         Find existing addressbook object by name.
         """
-        addressbookObject = self.addressbook1.addressbookObjectWithUID("1")
+        addressbookObject = yield self.addressbook1.addressbookObjectWithUID("1")
         self.failUnless(
             isinstance(addressbookObject, AddressBookObject),
             addressbookObject
         )
         self.assertEquals(
             addressbookObject.component(),
-            self.addressbook1.addressbookObjectWithName("1.vcf").component()
+            (yield self.addressbook1.addressbookObjectWithName("1.vcf")
+                ).component()
         )
 
 
@@ -246,7 +260,10 @@ class AddressBookTest(unittest.TestCase):
         should raise.
         """
         name = "foo.vcf"
-        assert self.addressbook1.addressbookObjectWithName(name) is None
+        self.assertIdentical(
+            (yield self.addressbook1.addressbookObjectWithName(name)),
+            None
+        )
         component = VComponent.fromString(vcard1modified_text)
         self.assertRaises(
             ObjectResourceUIDAlreadyExistsError,
@@ -280,16 +297,18 @@ class AddressBookTest(unittest.TestCase):
         )
 
 
+    @inlineCallbacks
     def _refresh(self):
         """
         Re-read the (committed) home1 and addressbook1 objects in a new
         transaction.
         """
-        self.txn = self.addressbookStore.newTransaction()
-        self.home1 = self.txn.addressbookHomeWithUID("home1")
-        self.addressbook1 = self.home1.addressbookWithName("addressbook_1")
+        self.txn = self.addressbookStore.newTransaction(self.id())
+        self.home1 = yield self.txn.addressbookHomeWithUID("home1")
+        self.addressbook1 = yield self.home1.addressbookWithName("addressbook_1")
 
 
+    @inlineCallbacks
     def test_undoCreateAddressBookObject(self):
         """
         If a addressbook object is created as part of a transaction, it will be
@@ -297,19 +316,21 @@ class AddressBookTest(unittest.TestCase):
         """
         # Make sure that the addressbook home is actually committed; rolling back
         # addressbook home creation will remove the whole directory.
-        self.txn.commit()
-        self._refresh()
+        yield self.txn.commit()
+        yield self._refresh()
         self.addressbook1.createAddressBookObjectWithName(
             "sample.vcf",
             VComponent.fromString(vcard4_text)
         )
-        self._refresh()
+        yield self.txn.abort()
+        yield self._refresh()
         self.assertIdentical(
-            self.addressbook1.addressbookObjectWithName("sample.vcf"),
+            (yield self.addressbook1.addressbookObjectWithName("sample.vcf")),
             None
         )
 
 
+    @inlineCallbacks
     def doThenUndo(self):
         """
         Commit the current transaction, but add an operation that will cause it
@@ -321,27 +342,28 @@ class AddressBookTest(unittest.TestCase):
             raise RuntimeError("oops")
         self.txn.addOperation(fail, "dummy failing operation")
         self.assertRaises(RuntimeError, self.txn.commit)
-        self._refresh()
+        yield self._refresh()
 
 
+    @inlineCallbacks
     def test_undoModifyAddressBookObject(self):
         """
         If an existing addressbook object is modified as part of a transaction, it
         should be restored to its previous status if the transaction aborts.
         """
-        originalComponent = self.addressbook1.addressbookObjectWithName(
+        originalComponent = yield self.addressbook1.addressbookObjectWithName(
             "1.vcf").component()
-        self.addressbook1.addressbookObjectWithName("1.vcf").setComponent(
+        (yield self.addressbook1.addressbookObjectWithName("1.vcf")).setComponent(
             VComponent.fromString(vcard1modified_text)
         )
         # Sanity check.
         self.assertEquals(
-            self.addressbook1.addressbookObjectWithName("1.vcf").component(),
+            (yield self.addressbook1.addressbookObjectWithName("1.vcf")).component(),
             VComponent.fromString(vcard1modified_text)
         )
-        self.doThenUndo()
+        yield self.doThenUndo()
         self.assertEquals(
-            self.addressbook1.addressbookObjectWithName("1.vcf").component(),
+            (yield self.addressbook1.addressbookObjectWithName("1.vcf")).component(),
             originalComponent
         )
 
@@ -352,13 +374,14 @@ class AddressBookTest(unittest.TestCase):
         memory, to avoid unnecessary parsing round-trips.
         """
         modifiedComponent = VComponent.fromString(vcard1modified_text)
-        self.addressbook1.addressbookObjectWithName("1.vcf").setComponent(
+        (yield self.addressbook1.addressbookObjectWithName("1.vcf")).setComponent(
             modifiedComponent
         )
         self.assertIdentical(
             modifiedComponent,
-            self.addressbook1.addressbookObjectWithName("1.vcf").component()
+            (yield self.addressbook1.addressbookObjectWithName("1.vcf")).component()
         )
+        self.txn.commit()
 
 
     @featureUnimplemented
@@ -399,9 +422,11 @@ class AddressBookTest(unittest.TestCase):
 
 
 class AddressBookObjectTest(unittest.TestCase):
+
+    @inlineCallbacks
     def setUp(self):
-        setUpAddressBook1(self)
-        self.object1 = self.addressbook1.addressbookObjectWithName("1.vcf")
+        yield setUpAddressBook1(self)
+        self.object1 = yield self.addressbook1.addressbookObjectWithName("1.vcf")
 
 
     def test_init(self):
@@ -420,7 +445,7 @@ class AddressBookObjectTest(unittest.TestCase):
         )
 
 
-class FileStorageTests(unittest.TestCase, CommonTests):
+class FileStorageTests(CommonTests, unittest.TestCase):
     """
     File storage tests.
     """
@@ -445,10 +470,12 @@ class FileStorageTests(unittest.TestCase, CommonTests):
                           self.storeRootPath)
 
 
+    @inlineCallbacks
     def test_addressbookObjectsWithDotFile(self):
         """
-        Adding a dotfile to the addressbook home should not increase
+        Adding a dotfile to the addressbook home should not create a new
+        addressbook object.
         """
         self.homeUnderTest()._path.child(".foo").createDirectory()
-        self.test_addressbookObjects()
+        yield self.test_addressbookObjects()
 

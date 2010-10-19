@@ -19,11 +19,9 @@ Tests for txdav.caldav.datastore.postgres, mostly based on
 L{txdav.caldav.datastore.test.common}.
 """
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 
-from txdav.caldav.datastore.test.common import StubNotifierFactory
-
-from txdav.common.datastore.test.util import buildStore
+from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.test import base
@@ -38,65 +36,73 @@ except ImportError, e:
 
 class PropertyStoreTest(base.PropertyStoreTest):
 
-    def _preTest(self):
-        self._txn = self.store.newTransaction()
-        self.propertyStore = self.propertyStore1 = PropertyStore(
-            "user01", self._txn, 1
-        )
-        self.propertyStore2 = PropertyStore("user01", self._txn, 1)
-        self.propertyStore2._setPerUserUID("user02")
-        
-        self.addCleanup(self._postTest)
-
-    def _postTest(self):
-        if hasattr(self, "_txn"):
-            self._txn.commit()
-            delattr(self, "_txn")
-        self.propertyStore = self.propertyStore1 = self.propertyStore2 = None
-
-    def _changed(self, store):
-        if hasattr(self, "_txn"):
-            self._txn.commit()
-            delattr(self, "_txn")
-        self._txn = self.store.newTransaction()
-        
-        store = self.propertyStore1
-        self.propertyStore = self.propertyStore1 = PropertyStore(
-            "user01", self._txn, 1
-        )
-        self.propertyStore1._shadowableKeys = store._shadowableKeys
-        self.propertyStore1._globalKeys = store._globalKeys
-
-        store = self.propertyStore2
-        self.propertyStore2 = PropertyStore("user01", self._txn, 1)
-        self.propertyStore2._setPerUserUID("user02")
-        self.propertyStore2._shadowableKeys = store._shadowableKeys
-        self.propertyStore2._globalKeys = store._globalKeys
-
-    def _abort(self, store):
-        if hasattr(self, "_txn"):
-            self._txn.abort()
-            delattr(self, "_txn")
-
-        self._txn = self.store.newTransaction()
-
-        store = self.propertyStore1
-        self.propertyStore = self.propertyStore1 = PropertyStore(
-            "user01", self._txn, 1
-        )
-        self.propertyStore1._shadowableKeys = store._shadowableKeys
-        self.propertyStore1._globalKeys = store._globalKeys
-
-        store = self.propertyStore2
-        self.propertyStore2 = PropertyStore("user01", self._txn, 1)
-        self.propertyStore2._setPerUserUID("user02")
-        self.propertyStore2._shadowableKeys = store._shadowableKeys
-        self.propertyStore2._globalKeys = store._globalKeys
 
     @inlineCallbacks
     def setUp(self):
         self.notifierFactory = StubNotifierFactory()
         self.store = yield buildStore(self, self.notifierFactory)
+        self._txn = self.store.newTransaction()
+        self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
+            "user01", self._txn, 1
+        )
+        self.propertyStore2 = yield PropertyStore.load("user01", self._txn, 1)
+        self.propertyStore2._setPerUserUID("user02")
+
+
+    @inlineCallbacks
+    def tearDown(self):
+        if hasattr(self, "_txn"):
+            result = yield self._txn.commit()
+            delattr(self, "_txn")
+        else:
+            result = None
+        self.propertyStore = self.propertyStore1 = self.propertyStore2 = None
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def _changed(self, store):
+        if hasattr(self, "_txn"):
+            yield self._txn.commit()
+            delattr(self, "_txn")
+        self._txn = self.store.newTransaction()
+        
+        store = self.propertyStore1
+        self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
+            "user01", self._txn, 1
+        )
+        self.propertyStore1._shadowableKeys = store._shadowableKeys
+        self.propertyStore1._globalKeys = store._globalKeys
+
+        store = self.propertyStore2
+        self.propertyStore2 = yield PropertyStore.load("user01", self._txn, 1)
+        self.propertyStore2._setPerUserUID("user02")
+        self.propertyStore2._shadowableKeys = store._shadowableKeys
+        self.propertyStore2._globalKeys = store._globalKeys
+
+
+    @inlineCallbacks
+    def _abort(self, store):
+        if hasattr(self, "_txn"):
+            yield self._txn.abort()
+            delattr(self, "_txn")
+
+        self._txn = self.store.newTransaction()
+
+        store = self.propertyStore1
+        self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
+            "user01", self._txn, 1
+        )
+        self.propertyStore1._shadowableKeys = store._shadowableKeys
+        self.propertyStore1._globalKeys = store._globalKeys
+
+        store = self.propertyStore2
+        self.propertyStore2 = yield PropertyStore.load("user01", self._txn, 1)
+        self.propertyStore2._setPerUserUID("user02")
+        self.propertyStore2._shadowableKeys = store._shadowableKeys
+        self.propertyStore2._globalKeys = store._globalKeys
+
+
 
 if PropertyStore is None:
     PropertyStoreTest.skip = importErrorMessage

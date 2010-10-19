@@ -57,8 +57,8 @@ class ICalendarTransaction(ICommonTransaction):
         If C{create} is C{True}, create the calendar home if it doesn't
         already exist.
 
-        @return: an L{ICalendarHome} or C{None} if no such calendar
-            home exists.
+        @return: a L{Deferred} which fires with L{ICalendarHome} or C{None} if
+            no such calendar home exists.
         """
 
 
@@ -202,8 +202,9 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreResource):
         in this calendar.
 
         @param uid: a string.
-        @return: an L{ICalendarObject} or C{None} if no such calendar
-            object exists.
+
+        @return: a L{Deferred} firing an L{ICalendarObject} or C{None} if no
+            such calendar object exists.
         """
 
     def createCalendarObjectWithName(name, component):

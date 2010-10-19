@@ -22,8 +22,10 @@ File calendar store tests.
 # deleted and replaced with either implementation-specific methods on
 # FileStorageTests, or implementation-agnostic methods on CommonTests.
 
-from twext.python.filepath import CachingFilePath as FilePath
 from twisted.trial import unittest
+from twisted.internet.defer import inlineCallbacks
+
+from twext.python.filepath import CachingFilePath as FilePath
 
 from twext.python.vcomponent import VComponent
 
@@ -63,21 +65,22 @@ def setUpCalendarStore(test):
     storePath.copyTo(calendarPath)
 
     test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory)
-    test.txn = test.calendarStore.newTransaction()
+    test.txn = test.calendarStore.newTransaction(test.id() + "(old)")
     assert test.calendarStore is not None, "No calendar store?"
 
 
 
+@inlineCallbacks
 def setUpHome1(test):
     setUpCalendarStore(test)
-    test.home1 = test.txn.calendarHomeWithUID("home1")
+    test.home1 = yield test.txn.calendarHomeWithUID("home1")
     assert test.home1 is not None, "No calendar home?"
 
 
-
+@inlineCallbacks
 def setUpCalendar1(test):
-    setUpHome1(test)
-    test.calendar1 = test.home1.calendarWithName("calendar_1")
+    yield setUpHome1(test)
+    test.calendar1 = yield test.home1.calendarWithName("calendar_1")
     assert test.calendar1 is not None, "No calendar?"
 
 
@@ -109,7 +112,7 @@ class CalendarHomeTest(unittest.TestCase):
 
     notifierFactory = None
     def setUp(self):
-        setUpHome1(self)
+        return setUpHome1(self)
 
 
     def test_init(self):
@@ -167,7 +170,7 @@ class CalendarTest(unittest.TestCase):
     notifierFactory = None
 
     def setUp(self):
-        setUpCalendar1(self)
+        return setUpCalendar1(self)
 
 
     def test_init(self):
@@ -185,29 +188,31 @@ class CalendarTest(unittest.TestCase):
         )
 
 
+    @inlineCallbacks
     def test_useIndexImmediately(self):
         """
         L{Calendar._index} is usable in the same transaction it is created, with
         a temporary filename.
         """
         self.home1.createCalendarWithName("calendar2")
-        calendar = self.home1.calendarWithName("calendar2")
+        calendar = yield self.home1.calendarWithName("calendar2")
         index = calendar._index
-        self.assertEquals(set(index.calendarObjects()),
-                          set(calendar.calendarObjects()))
-        self.txn.commit()
+        yield self.assertEquals(set((yield index.calendarObjects())),
+                                set((yield calendar.calendarObjects())))
+        yield self.txn.commit()
         self.txn = self.calendarStore.newTransaction()
-        self.home1 = self.txn.calendarHomeWithUID("home1")
-        calendar = self.home1.calendarWithName("calendar2")
+        self.home1 = yield self.txn.calendarHomeWithUID("home1")
+        calendar = yield self.home1.calendarWithName("calendar2")
         # FIXME: we should be curating our own index here, but in order to fix
         # that the code in the old implicit scheduler needs to change.  This
         # test would be more effective if there were actually some objects in
         # this list.
         index = calendar._index
-        self.assertEquals(set(index.calendarObjects()),
-                          set(calendar.calendarObjects()))
+        self.assertEquals(set((yield index.calendarObjects())),
+                          set((yield calendar.calendarObjects())))
 
 
+    @inlineCallbacks
     def test_calendarObjectWithName_dot(self):
         """
         Filenames starting with "." are reserved by this
@@ -216,22 +221,25 @@ class CalendarTest(unittest.TestCase):
         """
         name = ".foo.ics"
         self.home1._path.child(name).touch()
-        self.assertEquals(self.calendar1.calendarObjectWithName(name), None)
+        self.assertEquals(
+            (yield self.calendar1.calendarObjectWithName(name)),
+            None)
 
 
     @featureUnimplemented
+    @inlineCallbacks
     def test_calendarObjectWithUID_exists(self):
         """
         Find existing calendar object by name.
         """
-        calendarObject = self.calendar1.calendarObjectWithUID("1")
+        calendarObject = yield self.calendar1.calendarObjectWithUID("1")
         self.failUnless(
             isinstance(calendarObject, CalendarObject),
             calendarObject
         )
         self.assertEquals(
             calendarObject.component(),
-            self.calendar1.calendarObjectWithName("1.ics").component()
+            (yield self.calendar1.calendarObjectWithName("1.ics")).component()
         )
 
 
@@ -249,13 +257,14 @@ class CalendarTest(unittest.TestCase):
 
 
     @featureUnimplemented
+    @inlineCallbacks
     def test_createCalendarObjectWithName_uidconflict(self):
         """
         Attempt to create a calendar object with a conflicting UID
         should raise.
         """
         name = "foo.ics"
-        assert self.calendar1.calendarObjectWithName(name) is None
+        assert (yield self.calendar1.calendarObjectWithName(name)) is None
         component = VComponent.fromString(event1modified_text)
         self.assertRaises(
             ObjectResourceUIDAlreadyExistsError,
@@ -264,6 +273,7 @@ class CalendarTest(unittest.TestCase):
         )
 
 
+    @inlineCallbacks
     def test_removeCalendarObject_delayedEffect(self):
         """
         Removing a calendar object should not immediately remove the underlying
@@ -271,7 +281,7 @@ class CalendarTest(unittest.TestCase):
         """
         self.calendar1.removeCalendarObjectWithName("2.ics")
         self.failUnless(self.calendar1._path.child("2.ics").exists())
-        self.txn.commit()
+        yield self.txn.commit()
         self.failIf(self.calendar1._path.child("2.ics").exists())
 
 
@@ -289,16 +299,22 @@ class CalendarTest(unittest.TestCase):
         )
 
 
+    counter = 0
+    @inlineCallbacks
     def _refresh(self):
         """
         Re-read the (committed) home1 and calendar1 objects in a new
         transaction.
         """
-        self.txn = self.calendarStore.newTransaction()
-        self.home1 = self.txn.calendarHomeWithUID("home1")
-        self.calendar1 = self.home1.calendarWithName("calendar_1")
+        self.counter += 1
+        self.txn = self.calendarStore.newTransaction(
+            self.id() + " (old #" + str(self.counter) + ")"
+        )
+        self.home1 = yield self.txn.calendarHomeWithUID("home1")
+        self.calendar1 = yield self.home1.calendarWithName("calendar_1")
 
 
+    @inlineCallbacks
     def test_undoCreateCalendarObject(self):
         """
         If a calendar object is created as part of a transaction, it will be
@@ -306,19 +322,22 @@ class CalendarTest(unittest.TestCase):
         """
         # Make sure that the calendar home is actually committed; rolling back
         # calendar home creation will remove the whole directory.
-        self.txn.commit()
-        self._refresh()
+        yield self.txn.commit()
+        yield self._refresh()
         self.calendar1.createCalendarObjectWithName(
             "sample.ics",
             VComponent.fromString(event4_text)
         )
-        self._refresh()
+        yield self.txn.abort()
+        yield self._refresh()
         self.assertIdentical(
-            self.calendar1.calendarObjectWithName("sample.ics"),
+            (yield self.calendar1.calendarObjectWithName("sample.ics")),
             None
         )
+        yield self.txn.commit()
 
 
+    @inlineCallbacks
     def doThenUndo(self):
         """
         Commit the current transaction, but add an operation that will cause it
@@ -330,43 +349,46 @@ class CalendarTest(unittest.TestCase):
             raise RuntimeError("oops")
         self.txn.addOperation(fail, "dummy failing operation")
         self.assertRaises(RuntimeError, self.txn.commit)
-        self._refresh()
+        yield self._refresh()
 
 
+    @inlineCallbacks
     def test_undoModifyCalendarObject(self):
         """
         If an existing calendar object is modified as part of a transaction, it
         should be restored to its previous status if the transaction aborts.
         """
-        originalComponent = self.calendar1.calendarObjectWithName(
+        originalComponent = yield self.calendar1.calendarObjectWithName(
             "1.ics").component()
-        self.calendar1.calendarObjectWithName("1.ics").setComponent(
+        (yield self.calendar1.calendarObjectWithName("1.ics")).setComponent(
             VComponent.fromString(event1modified_text)
         )
         # Sanity check.
         self.assertEquals(
-            self.calendar1.calendarObjectWithName("1.ics").component(),
+            (yield self.calendar1.calendarObjectWithName("1.ics")).component(),
             VComponent.fromString(event1modified_text)
         )
-        self.doThenUndo()
+        yield self.doThenUndo()
         self.assertEquals(
-            self.calendar1.calendarObjectWithName("1.ics").component(),
+            (yield self.calendar1.calendarObjectWithName("1.ics")).component(),
             originalComponent
         )
 
 
+    @inlineCallbacks
     def test_modifyCalendarObjectCaches(self):
         """
         Modifying a calendar object should cache the modified component in
         memory, to avoid unnecessary parsing round-trips.
         """
+        self.addCleanup(self.txn.commit)
         modifiedComponent = VComponent.fromString(event1modified_text)
-        self.calendar1.calendarObjectWithName("1.ics").setComponent(
+        (yield self.calendar1.calendarObjectWithName("1.ics")).setComponent(
             modifiedComponent
         )
         self.assertIdentical(
             modifiedComponent,
-            self.calendar1.calendarObjectWithName("1.ics").component()
+            (yield self.calendar1.calendarObjectWithName("1.ics")).component()
         )
 
 
@@ -410,9 +432,10 @@ class CalendarTest(unittest.TestCase):
 class CalendarObjectTest(unittest.TestCase):
     notifierFactory = None
 
+    @inlineCallbacks
     def setUp(self):
-        setUpCalendar1(self)
-        self.object1 = self.calendar1.calendarObjectWithName("1.ics")
+        yield setUpCalendar1(self)
+        self.object1 = yield self.calendar1.calendarObjectWithName("1.ics")
 
 
     def test_init(self):
@@ -464,10 +487,11 @@ class FileStorageTests(CommonTests, unittest.TestCase):
                           self.storeRootPath)
 
 
+    @inlineCallbacks
     def test_calendarObjectsWithDotFile(self):
         """
         Adding a dotfile to the calendar home should not increase
         """
-        self.homeUnderTest()._path.child(".foo").createDirectory()
-        self.test_calendarObjects()
+        (yield self.homeUnderTest())._path.child(".foo").createDirectory()
+        yield self.test_calendarObjects()
 

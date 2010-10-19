@@ -1,3 +1,4 @@
+# -*- test-case-name: txdav.caldav.datastore.test.test_util -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -18,7 +19,7 @@
 Utility logic common to multiple backend implementations.
 """
 
-from twisted.internet.defer import inlineCallbacks, Deferred
+from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol
 
 from twext.python.vcomponent import InvalidICalendarDataError
@@ -69,6 +70,7 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting):
         raise InvalidObjectResourceError(e)
 
 
+@inlineCallbacks
 def dropboxIDFromCalendarObject(calendarObject):
     """
     Helper to implement L{ICalendarObject.dropboxID}.
@@ -78,16 +80,17 @@ def dropboxIDFromCalendarObject(calendarObject):
     """
 
     # Try "X-APPLE-DROPBOX" first
-    dropboxProperty = calendarObject.component(
-        ).getFirstPropertyInAnyComponent("X-APPLE-DROPBOX")
+    dropboxProperty = (yield calendarObject.component(
+        )).getFirstPropertyInAnyComponent("X-APPLE-DROPBOX")
     if dropboxProperty is not None:
         componentDropboxID = dropboxProperty.value().split("/")[-1]
-        return componentDropboxID
+        returnValue(componentDropboxID)
 
     # Now look at each ATTACH property and see if it might be a dropbox item
     # and if so extract the id from that
 
-    attachments = calendarObject.component().getAllPropertiesInAnyComponent(
+    attachments = (yield calendarObject.component()
+        ).getAllPropertiesInAnyComponent(
         "ATTACH",
         depth=1,
     )
@@ -99,11 +102,11 @@ def dropboxIDFromCalendarObject(calendarObject):
             segments = attachment.value().split("/")
             try:
                 if segments[-3] == "dropbox":
-                    return segments[-2]
+                    returnValue(segments[-2])
             except IndexError:
                 pass
 
-    return calendarObject.uid() + ".dropbox"
+    returnValue(calendarObject.uid() + ".dropbox")
 
 
 @inlineCallbacks
@@ -119,24 +122,24 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
     @return: a L{Deferred} which fires when the calendar has migrated.
     """
     outCalendar.properties().update(inCalendar.properties())
-    for calendarObject in inCalendar.calendarObjects():
+    for calendarObject in (yield inCalendar.calendarObjects()):
         
         try:
-            outCalendar.createCalendarObjectWithName(
+            yield outCalendar.createCalendarObjectWithName(
                 calendarObject.name(),
-                calendarObject.component()) # XXX WRONG SHOULD CALL getComponent
-    
+                (yield calendarObject.component())) # XXX WRONG SHOULD CALL getComponent
+
             # Only the owner's properties are migrated, since previous releases of
             # calendar server didn't have per-user properties.
-            outObject = outCalendar.calendarObjectWithName(
+            outObject = yield outCalendar.calendarObjectWithName(
                 calendarObject.name())
             outObject.properties().update(calendarObject.properties())
     
             # Migrate attachments.
-            for attachment in calendarObject.attachments():
+            for attachment in (yield calendarObject.attachments()):
                 name = attachment.name()
                 ctype = attachment.contentType()
-                transport = outObject.createAttachmentWithName(name, ctype)
+                transport = yield outObject.createAttachmentWithName(name, ctype)
                 proto =_AttachmentMigrationProto(transport)
                 attachment.retrieve(proto)
                 yield proto.done
@@ -184,15 +187,16 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
         (from a calendar in C{inHome}) and returns a L{VComponent} (to store in
         a calendar in outHome).
     """
-    outHome.removeCalendarWithName("calendar")
-    outHome.removeCalendarWithName("inbox")
+    yield outHome.removeCalendarWithName("calendar")
+    yield outHome.removeCalendarWithName("inbox")
     outHome.properties().update(inHome.properties())
-    for calendar in inHome.calendars():
+    inCalendars = yield inHome.calendars()
+    for calendar in inCalendars:
         name = calendar.name()
         if name == "outbox":
             continue
-        outHome.createCalendarWithName(name)
-        outCalendar = outHome.calendarWithName(name)
+        yield outHome.createCalendarWithName(name)
+        outCalendar = yield outHome.calendarWithName(name)
         try:
             yield _migrateCalendar(calendar, outCalendar, getComponent)
         except InternalDataStoreError:

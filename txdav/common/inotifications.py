@@ -105,8 +105,8 @@ class INotificationCollection(Interface):
         @param name: a string.
         @type name: C{str}
 
-        @raise NoSuchObjectResourceError: if no such NoSuchObjectResourceError object
-            exists.
+        @raise NoSuchObjectResourceError: if no such NoSuchObjectResourceError
+            object exists.
         """
 
     def removeNotificationObjectWithUID(uid):
@@ -124,17 +124,6 @@ class INotificationCollection(Interface):
         Retrieve the current sync token for this notification.
 
         @return: a string containing a sync token.
-        """
-
-    def notificationObjectsSinceToken(token):
-        """
-        Retrieve all notification objects in this notification collection that have
-        changed since the given C{token} was last valid.
-
-        @param token: a sync token.
-        @return: a 3-tuple containing an iterable of
-            L{INotificationObject}s that have changed, an iterable of uids
-            that have been removed, and the current sync token.
         """
 
     def properties():

@@ -154,7 +154,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             if not self.hasDeadProperty(property):
                 top = self.parent.url()
                 values = []
-                for cal in self.parent._newStoreHome.calendars():
+                for cal in (yield self.parent._newStoreHome.calendars()):
                     prop = cal.properties().get(PropertyName.fromString(ScheduleCalendarTransp.sname())) 
                     if prop == ScheduleCalendarTransp(Opaque()):
                         values.append(HRef(joinURL(top, cal.name())))
@@ -261,7 +261,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         defaultCalendarURL = joinURL(calendarHomeURL, "calendar")
         defaultCalendar = (yield request.locateResource(defaultCalendarURL))
         if defaultCalendar is None or not defaultCalendar.exists():
-            getter = iter(self.parent._newStoreHome.calendars())
+            getter = iter((yield self.parent._newStoreHome.calendars()))
             # FIXME: the back-end should re-provision a default calendar here.
             # Really, the dead property shouldn't be necessary, and this should
             # be entirely computed by a back-end method like 'defaultCalendar()'

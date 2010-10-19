@@ -42,9 +42,12 @@ except ImportError:
 
 from vobject.icalendar import utc
 
-from twisted.internet.defer import maybeDeferred, succeed
+from twisted.internet.defer import maybeDeferred, succeed, inlineCallbacks
 
 from twext.python.log import Logger, LoggingMixIn
+
+from txdav.common.icommondatastore import SyncTokenValidException,\
+    ReservationError, IndexedSearchException
 
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarquery, calendarqueryfilter
@@ -92,17 +95,6 @@ default_future_expansion_duration = datetime.timedelta(days=365*1)
 #
 maximum_future_expansion_duration = datetime.timedelta(days=365*5)
 
-class ReservationError(LookupError):
-    """
-    Attempt to reserve a UID which is already reserved or to unreserve a UID
-    which is not reserved.
-    """
-
-class IndexedSearchException(ValueError):
-    pass
-
-class SyncTokenValidException(ValueError):
-    pass
 
 class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
     """

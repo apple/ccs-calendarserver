@@ -30,7 +30,7 @@ from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.resource import DAVResource, TwistedACLInheritable
 from twext.web2.dav.util import joinURL
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
@@ -42,7 +42,7 @@ class DropBoxHomeResource (DAVResource):
     Drop box collection resource.
     """
     def resourceType(self):
-        return davxml.ResourceType.dropboxhome
+        return davxml.ResourceType.dropboxhome #@UndefinedVariable
 
     def isCollection(self):
         return True
@@ -83,11 +83,14 @@ class DropBoxCollectionResource (DAVResource):
     """
     Drop box resource.
     """
+
     def resourceType(self):
-        return davxml.ResourceType.dropbox
+        return davxml.ResourceType.dropbox #@UndefinedVariable
+
 
     def isCollection(self):
         return True
+
 
     def writeNewACEs(self, newaces):
         """
@@ -108,9 +111,10 @@ class DropBoxCollectionResource (DAVResource):
                 edited_aces.append(davxml.ACE(*children))
             else:
                 edited_aces.append(ace)
-        
+
         # Do inherited with possibly modified set of aces
-        super(DropBoxCollectionResource, self).writeNewACEs(edited_aces)
+        return super(DropBoxCollectionResource, self).writeNewACEs(edited_aces)
+
 
     def http_PUT(self, request):
         return ErrorResponse(

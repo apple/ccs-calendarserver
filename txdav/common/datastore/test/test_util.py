@@ -27,9 +27,9 @@ from twisted.application.service import Service, MultiService
 from txdav.common.datastore.util import UpgradeToDatabaseService
 from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import theStoreBuilder, \
-    populateCalendarsFrom
-from txdav.caldav.datastore.test.common import StubNotifierFactory, CommonTests
-from twisted.internet.defer import inlineCallbacks, Deferred
+    populateCalendarsFrom, StubNotifierFactory
+from txdav.caldav.datastore.test.common import CommonTests
+from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 
 
 class HomeMigrationTests(TestCase):
@@ -63,7 +63,7 @@ class HomeMigrationTests(TestCase):
         )
         self.upgrader.setServiceParent(self.topService)
         requirements = CommonTests.requirements
-        populateCalendarsFrom(requirements, fileStore)
+        yield populateCalendarsFrom(requirements, fileStore)
         self.filesPath.child("calendars").child(
             "__uids__").child("ho").child("me").child("home1").child(
             ".some-extra-data").setContent("some extra data")
@@ -82,7 +82,9 @@ class HomeMigrationTests(TestCase):
         self.addCleanup(txn.commit)
         for uid in CommonTests.requirements:
             if CommonTests.requirements[uid] is not None:
-                self.assertNotIdentical(None, txn.calendarHomeWithUID(uid))
+                self.assertNotIdentical(
+                    None, (yield txn.calendarHomeWithUID(uid))
+                )
         # Un-migrated data should be preserved.
         self.assertEquals(self.filesPath.child("calendars-migrated").child(
             "__uids__").child("ho").child("me").child("home1").child(
@@ -98,17 +100,17 @@ class HomeMigrationTests(TestCase):
         homes.
         """
         startTxn = self.sqlStore.newTransaction("populate empty sample")
-        startTxn.calendarHomeWithUID("home1", create=True)
-        startTxn.commit()
+        yield startTxn.calendarHomeWithUID("home1", create=True)
+        yield startTxn.commit()
         self.topService.startService()
         yield self.subStarted
         vrfyTxn = self.sqlStore.newTransaction("verify sample still empty")
         self.addCleanup(vrfyTxn.commit)
-        home = vrfyTxn.calendarHomeWithUID("home1")
+        home = yield vrfyTxn.calendarHomeWithUID("home1")
         # The default calendar is still there.
-        self.assertNotIdentical(None, home.calendarWithName("calendar"))
+        self.assertNotIdentical(None, (yield home.calendarWithName("calendar")))
         # The migrated calendar isn't.
-        self.assertIdentical(None, home.calendarWithName("calendar_1"))
+        self.assertIdentical(None, (yield home.calendarWithName("calendar_1")))
 
 
     @inlineCallbacks
@@ -117,32 +119,38 @@ class HomeMigrationTests(TestCase):
         L{UpgradeToDatabaseService.startService} upgrades calendar attachments
         as well.
         """
+
         txn = self.fileStore.newTransaction()
         committed = []
         def maybeCommit():
             if not committed:
                 committed.append(True)
-                txn.commit()
+                return txn.commit()
         self.addCleanup(maybeCommit)
+
+        @inlineCallbacks
         def getSampleObj():
-            return txn.calendarHomeWithUID("home1").calendarWithName(
-                "calendar_1").calendarObjectWithName("1.ics")
-        inObject = getSampleObj()
+            home = (yield txn.calendarHomeWithUID("home1"))
+            calendar = (yield home.calendarWithName("calendar_1"))
+            object = (yield calendar.calendarObjectWithName("1.ics"))
+            returnValue(object)
+
+        inObject = yield getSampleObj()
         someAttachmentName = "some-attachment"
         someAttachmentType = MimeType.fromString("application/x-custom-type")
-        transport = inObject.createAttachmentWithName(
+        transport = yield inObject.createAttachmentWithName(
             someAttachmentName, someAttachmentType
         )
         someAttachmentData = "Here is some data for your attachment, enjoy."
         transport.write(someAttachmentData)
         transport.loseConnection()
-        maybeCommit()
+        yield maybeCommit()
         self.topService.startService()
         yield self.subStarted
         committed = []
         txn = self.sqlStore.newTransaction()
-        outObject = getSampleObj()
-        outAttachment = outObject.attachmentWithName(someAttachmentName)
+        outObject = yield getSampleObj()
+        outAttachment = yield outObject.attachmentWithName(someAttachmentName)
         allDone = Deferred()
         class SimpleProto(Protocol):
             data = ''
