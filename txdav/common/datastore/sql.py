@@ -384,7 +384,7 @@ class CommonStoreTransaction(object):
         collection = NotificationCollection(self, uid, resourceID)
         yield collection._loadPropertyStore()
         if created:
-            collection._initSyncToken()
+            yield collection._initSyncToken()
         returnValue(collection)
 
 
@@ -659,7 +659,7 @@ class CommonHome(LoggingMixIn):
         newChild.properties()[
             PropertyName.fromElement(ResourceType)
         ] = newChild.resourceType()
-        newChild._initSyncToken()
+        yield newChild._initSyncToken()
         self.createdChild(newChild)
 
         self.notifyChanged()

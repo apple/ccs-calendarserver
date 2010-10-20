@@ -173,7 +173,7 @@ class StoreAddressObjectResource(object):
                         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "supported-address-data")))
                 
                     # At this point we need the calendar data to do more tests
-                    self.vcard = self.source.vCard()
+                    self.vcard = (yield self.source.vCard())
                 else:
                     try:
                         if type(self.vcard) in (types.StringType, types.UnicodeType,):
@@ -201,7 +201,7 @@ class StoreAddressObjectResource(object):
 
                 # FIXME: We need this here because we have to re-index the destination. Ideally it
                 # would be better to copy the index entries from the source and add to the destination.
-                self.vcard = self.source.vCard()
+                self.vcard = (yield self.source.vCard())
 
             # Valid vcard data size check
             result, message = self.validSizeCheck()

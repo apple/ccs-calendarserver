@@ -572,7 +572,7 @@ class SQLLegacyShares(object):
                 ])
 
         shareeCollection = yield self._home.sharedChildWithName(record.localname)
-        shareeCollection._initSyncToken()
+        yield shareeCollection._initSyncToken()
 
 
     @inlineCallbacks

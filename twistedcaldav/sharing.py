@@ -557,7 +557,7 @@ class SharedCollectionMixin(object):
         )
         
         # Look for existing notification
-        oldnotification = notifications.notificationObjectWithUID(record.inviteuid)
+        oldnotification = (yield notifications.notificationObjectWithUID(record.inviteuid))
         if oldnotification:
             # TODO: rollup changes?
             pass
@@ -585,7 +585,7 @@ class SharedCollectionMixin(object):
         ).toxml()
         
         # Add to collections
-        notifications.writeNotificationObject(record.inviteuid, xmltype, xmldata)
+        yield notifications.writeNotificationObject(record.inviteuid, xmltype, xmldata)
 
     @inlineCallbacks
     def removeInvite(self, record, request):

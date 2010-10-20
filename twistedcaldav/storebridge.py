@@ -654,7 +654,7 @@ class ProtoCalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         self._newStoreObject = yield self.calendarObject.attachmentWithName(
             self.attachmentName
         )
-        t.loseConnection()
+        yield t.loseConnection()
         returnValue(CREATED)
 
     http_MKCOL = None
@@ -986,7 +986,7 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
                                          self._newStoreParentHome)
         del self._newStoreCalendar
         self.__class__ = ProtoCalendarCollectionResource
-        self.movedCalendar(request, defaultCalendar,
+        yield self.movedCalendar(request, defaultCalendar,
                            destination, destinationURI)
         returnValue(NO_CONTENT)
 
