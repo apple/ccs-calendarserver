@@ -40,6 +40,7 @@ CARDDAVD_CONFIG_DIR = "private/etc/carddavd"
 CALDAVD_PLIST = "caldavd.plist"
 CARDDAVD_PLIST = "carddavd.plist"
 NEW_SERVER_ROOT = "/Library/Server/Calendar and Contacts"
+RESOURCE_MIGRATION_TRIGGER = "trigger_resource_migration"
 
 
 verbatimKeys = """
@@ -202,6 +203,7 @@ def main():
             newServerRootValue = migrateData(options)
             migrateConfiguration(options, newServerRootValue)
             migrateRunState(options)
+            triggerResourceMigration(newServerRootValue)
 
     else:
         log("ERROR: --sourceRoot must be specified")
@@ -224,6 +226,21 @@ def migrateRunState(options):
         return
 
     setServiceStateDisabled(options.targetRoot, LAUNCHD_KEY, disabled)
+
+def triggerResourceMigration(newServerRootValue):
+    """
+    Leave a file in the server root to act as a signal that the server
+    should migrate locations and resources from OD when it starts up.
+    """
+    triggerPath = os.path.join(newServerRootValue, RESOURCE_MIGRATION_TRIGGER)
+    if not os.path.exists(newServerRootValue):
+        log("New server root directory doesn't exist: %s" % (newServerRootValue,))
+        return
+
+    if not os.path.exists(triggerPath):
+        # Create an empty trigger file
+        log("Creating resource migration trigger file: %s" % (triggerPath,))
+        open(triggerPath, "w").close()
 
 
 def migrateConfiguration(options, newServerRootValue):

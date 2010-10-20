@@ -478,34 +478,39 @@ def upgrade_to_2(config):
     #
     # Migrates locations and resources from OD
     #
+    triggerFile = "trigger_resource_migration"
+    triggerPath = os.path.join(config.ServerRoot, triggerFile)
+    if os.path.exists(triggerPath):
 
-    directory = getDirectory()
-    userService = directory.serviceForRecordType("users")
-    resourceService = directory.serviceForRecordType("resources")
-    if (
-        not isinstance(userService, OpenDirectoryService) or
-        not isinstance(resourceService, XMLDirectoryService)
-    ):
-        # Configuration requires no migration
-        return succeed(None)
+        log.info("Migrating locations and resources")
 
-    # Fetch the autoSchedule assignments from resourceinfo.sqlite and pass
-    # those to migrateResources
-    autoSchedules = {}
-    dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
-    if os.path.exists(dbPath):
-        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-        results = resourceInfoDatabase._db_execute(
-            "select GUID, AUTOSCHEDULE from RESOURCEINFO"
-        )
-        for guid, autoSchedule in results:
-            autoSchedules[guid] = autoSchedule
+        directory = getDirectory()
+        userService = directory.serviceForRecordType("users")
+        resourceService = directory.serviceForRecordType("resources")
+        if (
+            not isinstance(userService, OpenDirectoryService) or
+            not isinstance(resourceService, XMLDirectoryService)
+        ):
+            # Configuration requires no migration
+            return succeed(None)
 
-    # Create internal copies of resources and locations based on what is found
-    # in OD, overriding the autoSchedule default with existing assignments
-    # from resourceinfo.sqlite
-    return migrateResources(userService, resourceService,
-        autoSchedules=autoSchedules)
+        # Fetch the autoSchedule assignments from resourceinfo.sqlite and pass
+        # those to migrateResources
+        autoSchedules = {}
+        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
+        if os.path.exists(dbPath):
+            resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+            results = resourceInfoDatabase._db_execute(
+                "select GUID, AUTOSCHEDULE from RESOURCEINFO"
+            )
+            for guid, autoSchedule in results:
+                autoSchedules[guid] = autoSchedule
+
+        # Create internal copies of resources and locations based on what is
+        # found in OD, overriding the autoSchedule default with existing
+        # assignments from resourceinfo.sqlite
+        return migrateResources(userService, resourceService,
+            autoSchedules=autoSchedules)
 
 
 
