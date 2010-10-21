@@ -102,47 +102,54 @@ py_have_module () {
     done;
 
     if [ -z "${module_version}" ]; then
-      echo "Unable to determine version for ${module}.";
+      if ! "${print_path}"; then
+        echo "Unable to determine version for ${module}.";
+      fi;
+      result=1;
+    elif ! cmp_version "${version}" "${module_version}"; then
+      if ! "${print_path}"; then
+        echo "A system version of ${module} exists, but version is ${module_version} (< ${version}).";
+      fi;
       result=1;
     fi;
-
-     v="${version}";
-    mv="${module_version}";
-
-    no_such_luck="A system version of ${module} exists, but version is ${module_version} (< ${version}).";
-
-    while [ $result != 1 ]; do
-       vh="${v%%.*}"; # Get highest-order segment
-      mvh="${mv%%.*}";
-
-      if [ "$vh" -gt "$mvh" ]; then
-        if ! "${print_path}"; then
-          echo "${no_such_luck}";
-        fi;
-        result=1;
-        break;
-      fi;
-
-      if [ "${v}" == "${v#*.}" ]; then
-        # No dots left, so we're ok
-        break;
-      fi;
-
-      if [ "${mv}" == "${mv#*.}" ]; then
-        # No dots left, so we're not gonna match
-        if ! "${print_path}"; then
-          echo "${no_such_luck}";
-        fi;
-        result=1;
-        break;
-      fi;
-
-       v="${v#*.}";
-      mv="${mv#*.}";
-    done;
   fi;
 
-  return $result;
+  return ${result};
+}
+
+# Compare version numbers
+
+cmp_version () {
+  local result=0;
+
+  local  v="$1"; shift;
+  local mv="$1"; shift;
+
+  while [ $result != 1 ]; do
+     vh="${v%%.*}"; # Get highest-order segment
+    mvh="${mv%%.*}";
+
+    if [ "${vh}" -gt "${mvh}" ]; then
+      result=1;
+      break;
+    fi;
+
+    if [ "${v}" == "${v#*.}" ]; then
+      # No dots left, so we're ok
+      break;
+    fi;
+
+    if [ "${mv}" == "${mv#*.}" ]; then
+      # No dots left, so we're not gonna match
+      result=1;
+      break;
+    fi;
+
+     v="${v#*.}";
+    mv="${mv#*.}";
+  done;
+
+  return ${result};
 }
 
 # Detect which python to use, and store it in the 'python' variable, as well as
