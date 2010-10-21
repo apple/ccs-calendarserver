@@ -477,10 +477,10 @@ dependencies () {
   fi;
 
   if ! type postgres > /dev/null 2>&1; then
-    local pgv="8.4.4";
+    local pgv="9.0.1";
     local pg="postgresql-${pgv}";
     c_dependency "PostgreSQL" "${pg}" \
-      "http://ftp9.us.postgresql.org/pub/mirrors/postgresql/source/v${pgv}/${pg}.tar.gz" \
+      "ftp://ftp5.us.postgresql.org/pub/PostgreSQL/source/v${pgv}/${pg}.tar.gz" \
       --with-python;
     :;
   fi;
@@ -530,7 +530,8 @@ dependencies () {
       "http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz";
   fi;
 
-  py_dependency -v 4.0 -m 1aca50e59ff4cc56abe9452a9a49c5ff -o \
+  py_dependency -v 4.0 \
+    -m "1aca50e59ff4cc56abe9452a9a49c5ff" -o \
     "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
     "http://pypi.python.org/packages/source/P/PyGreSQL/PyGreSQL-4.0.tar.gz";
 
