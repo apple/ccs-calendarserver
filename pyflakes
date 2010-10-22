@@ -12,6 +12,8 @@ if [ $# -eq 0 ]; then
   set - calendarserver twext twisted twistedcaldav txdav;
 fi;
 
+tmp="$(mktemp -t pyflakes)";
+
 cd "${wd}" && "${flakes}/bin/pyflakes" "$@" | sed                     \
   -e "/undefined name '_'/d"                                          \
   -e "/undefined name 'CalDAVFile'/d"                                 \
@@ -20,4 +22,10 @@ cd "${wd}" && "${flakes}/bin/pyflakes" "$@" | sed                     \
   -e "/redefinition of function/d"                                    \
   -e "/i[a-z]*store.py:[0-9][0-9]*: '.*' imported but unused/d"       \
   -e "/xmlext.py:[0-9][0-9]*: /d"                                     \
-  ;
+  | tee "${tmp}";
+
+if [ -s "${tmp}" ]; then error="true"; else error="false"; fi;
+
+rm -f "${tmp}";
+
+if "${error}"; then exit 1; fi;
