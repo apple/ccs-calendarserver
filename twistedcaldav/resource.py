@@ -2010,13 +2010,10 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
         pass
 
     def liveProperties(self):
-        
+
         return super(CommonHomeResource, self).liveProperties() + (
             (customxml.calendarserver_namespace, "push-transports"),
             (customxml.calendarserver_namespace, "pushkey"),
-            (customxml.calendarserver_namespace, "xmpp-uri"),
-            (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
-            (customxml.calendarserver_namespace, "xmpp-server"),
         )
 
     def sharesDB(self):
@@ -2484,6 +2481,13 @@ class CalendarHomeResource(CommonHomeResource):
         returnValue((changed, deleted, notallowed))
 
 
+    def liveProperties(self):
+
+        return super(CalendarHomeResource, self).liveProperties() + (
+            (customxml.calendarserver_namespace, "xmpp-uri"),
+            (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
+            (customxml.calendarserver_namespace, "xmpp-server"),
+        )
 
 class AddressBookHomeResource (CommonHomeResource):
     """

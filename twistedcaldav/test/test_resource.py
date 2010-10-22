@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.resource import CalDAVResource
+from twistedcaldav.resource import CalDAVResource, CommonHomeResource, CalendarHomeResource, AddressBookHomeResource
 
 from twistedcaldav.test.util import InMemoryPropertyStore
 from twistedcaldav.test.util import TestCase
@@ -23,6 +23,10 @@ from twistedcaldav.test.util import TestCase
 class StubProperty(object):
     def qname(self):
         return "StubQnamespace", "StubQname"
+
+class StubHome(object):
+    def properties(self):
+        return []
 
 
 class CalDAVResourceTests(TestCase):
@@ -36,3 +40,26 @@ class CalDAVResourceTests(TestCase):
         self.resource.writeDeadProperty(prop)
         self.assertEquals(self.resource._dead_properties.get(("StubQnamespace", "StubQname")),
                           prop)
+
+class CommonHomeResourceTests(TestCase):
+
+    def test_commonHomeliveProperties(self):
+        resource = CommonHomeResource(None, None, None, StubHome())
+        self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
+        self.assertTrue(('http://calendarserver.org/ns/', 'pushkey') in resource.liveProperties())
+
+    def test_calendarHomeliveProperties(self):
+        resource = CalendarHomeResource(None, None, None, StubHome())
+        self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
+        self.assertTrue(('http://calendarserver.org/ns/', 'pushkey') in resource.liveProperties())
+        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-uri') in resource.liveProperties())
+        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-heartbeat-uri') in resource.liveProperties())
+        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-server') in resource.liveProperties())
+
+    def test_addressBookHomeliveProperties(self):
+        resource = AddressBookHomeResource(None, None, None, StubHome())
+        self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
+        self.assertTrue(('http://calendarserver.org/ns/', 'pushkey') in resource.liveProperties())
+        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-uri') not in resource.liveProperties())
+        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-heartbeat-uri') not in resource.liveProperties())
+        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-server') not in resource.liveProperties())
