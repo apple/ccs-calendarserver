@@ -481,6 +481,7 @@ def upgrade_to_2(config):
     triggerFile = "trigger_resource_migration"
     triggerPath = os.path.join(config.ServerRoot, triggerFile)
     if os.path.exists(triggerPath):
+        os.remove(triggerPath)
 
         log.info("Migrating locations and resources")
 
