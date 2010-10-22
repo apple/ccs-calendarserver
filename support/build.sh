@@ -520,9 +520,9 @@ dependencies () {
       "${svn_uri_base}/PyOpenDirectory/trunk";
   #fi;
 
-  py_dependency -v 0.5 -r 1013 \
+  py_dependency -v 0.5 -r 1038 \
     "xattr" "xattr" "xattr" \
-    "http://svn.red-bean.com/bob/xattr/releases/xattr-0.5";
+    "http://svn.red-bean.com/bob/xattr/releases/xattr-0.6.1/";
 
   if [ "${py_version}" != "${py_version##2.5}" ] && ! py_have_module select26; then
     py_dependency \
@@ -535,9 +535,9 @@ dependencies () {
     "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
     "http://pypi.python.org/packages/source/P/PyGreSQL/PyGreSQL-4.0.tar.gz";
 
-  py_dependency -v 10 -r 28657 \
+  py_dependency -v 10.1 -r 30159 \
     "Twisted" "twisted" "Twisted" \
-    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-10.0.0";
+    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-10.1.0";
 
   local du="python-dateutil-1.5";
   py_dependency \
