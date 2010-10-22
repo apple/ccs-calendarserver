@@ -21,7 +21,7 @@ Extensions to web2.dav
 
 __all__ = [
     "DAVResource",
-    "DAVResourceWithChildren",
+    "DAVResourceWithChildrenMixin",
     "DAVPrincipalResource",
     "DAVFile",
     "ReadOnlyWritePropertiesResourceMixIn",

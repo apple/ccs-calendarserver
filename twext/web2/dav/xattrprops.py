@@ -34,7 +34,6 @@ change.
 __all__ = ["xattrPropertyStore"]
 
 import urllib
-import os
 import sys
 import zlib
 import errno

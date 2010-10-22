@@ -24,7 +24,7 @@ from txdav.idav import IDataStoreResource
 
 __all__ = [
     "INotificationCollection",
-    "INotification",
+    "INotificationObject",
 ]
 
 class INotificationCollection(Interface):

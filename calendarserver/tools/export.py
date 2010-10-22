@@ -36,7 +36,6 @@ import sys
 from getopt import getopt, GetoptError
 from os.path import dirname, abspath
 
-from twistedcaldav import config
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.ical import Component as iComponent, Property as iProperty
 from twistedcaldav.ical import iCalendarProductID

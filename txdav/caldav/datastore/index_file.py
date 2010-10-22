@@ -42,7 +42,7 @@ except ImportError:
 
 from vobject.icalendar import utc
 
-from twisted.internet.defer import maybeDeferred, succeed, inlineCallbacks
+from twisted.internet.defer import maybeDeferred, succeed
 
 from twext.python.log import Logger, LoggingMixIn
 

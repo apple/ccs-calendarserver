@@ -15,7 +15,7 @@
 ##
 
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks
 from twext.web2.dav import davxml
 from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB

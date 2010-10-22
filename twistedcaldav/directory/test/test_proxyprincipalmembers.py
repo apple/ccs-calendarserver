@@ -21,7 +21,6 @@ from twext.web2.dav import davxml
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
 import twistedcaldav.test.util

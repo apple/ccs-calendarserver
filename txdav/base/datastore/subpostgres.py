@@ -14,15 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-import sys
 
 """
 Run and manage PostgreSQL as a subprocess.
 """
 import os
 import pwd
-import thread
-
+#import thread
 
 from hashlib import md5
 
@@ -30,9 +28,8 @@ from twisted.python.procutils import which
 from twisted.internet.protocol import ProcessProtocol
 
 from twisted.python.reflect import namedAny
-from twisted.python import log
+from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath
-
 
 pgdb = namedAny("pgdb")
 
@@ -42,6 +39,7 @@ from twisted.internet.defer import Deferred
 
 from twisted.application.service import MultiService
 
+log = Logger()                                                                                                                     
 
 # This appears in the postgres log to indicate that it is accepting
 # connections.
@@ -71,6 +69,7 @@ class DiagnosticCursorWrapper(object):
 
     def execute(self, sql, args=()):
         self.connectionWrapper.state = 'executing %r' % (sql,)
+# Use log.debug
 #        sys.stdout.write(
 #            "Really executing SQL %r in thread %r\n" %
 #            ((sql % tuple(args)), thread.get_ident())
@@ -84,6 +83,7 @@ class DiagnosticCursorWrapper(object):
 
     def fetchall(self):
         results = self.realCursor.fetchall()
+# Use log.debug
 #        sys.stdout.write(
 #            "Really fetching results %r thread %r\n" %
 #            (results, thread.get_ident())

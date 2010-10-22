@@ -34,7 +34,6 @@ from os import listdir
 from os.path import join, abspath
 from tempfile import mkstemp, gettempdir
 from random import random
-from urllib import unquote
 
 import opendirectory
 import dsattributes
@@ -59,7 +58,6 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.ical import iCalendarProductID
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
-from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
 from twistedcaldav.query import addressbookqueryfilter
 from twistedcaldav.vcard import Component, Property
 

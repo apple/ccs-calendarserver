@@ -40,6 +40,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVResource
+from twistedcaldav.ical import allowedComponents
 
 
 class CalDAVResource(DAVResource, LoggingMixIn):

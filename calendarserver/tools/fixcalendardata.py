@@ -322,7 +322,7 @@ def main():
     doFix = False
     
     # Parse command line options
-    opts, _ignore_args = getopt.getopt(sys.argv[1:], "f:ho:v", ["config", "scan", "fix", "help",])
+    opts, _ignore_args = getopt.getopt(sys.argv[1:], "f:ho:", ["config", "scan", "fix", "help",])
     for option, value in opts:
         if option in ("-h", "--help"):
             usage()
@@ -332,8 +332,6 @@ def main():
                 usage("Path does not exist: %s" % (plistPath,))
         elif option == "-o":
             scanPath = value
-        elif option == "-v":
-            verbose = True
         elif option == "--scan":
             doScan = True
         elif option == "--fix":

@@ -129,6 +129,7 @@ class CachingFilePath(_FilePath, object):
         # Work with vanilla FilePath destinations to pacify the tests. 
         if hasattr(destination, "changed"):
             destination.changed()
+        return result
 
 
     def remove(self):
@@ -143,4 +144,4 @@ class CachingFilePath(_FilePath, object):
 
 CachingFilePath.clonePath = CachingFilePath
 
-__all__ = ['CachingFilePath']
+__all__ = ["CachingFilePath"]

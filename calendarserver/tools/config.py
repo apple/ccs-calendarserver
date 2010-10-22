@@ -24,11 +24,9 @@ requested value.
 import os, sys
 from getopt import getopt, GetoptError
 
-from twistedcaldav import config
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
-from calendarserver.tools.util import UsageError
 from calendarserver.tools.util import loadConfig
 
 def usage(e=None):

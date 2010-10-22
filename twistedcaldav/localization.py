@@ -21,7 +21,6 @@ import datetime
 import os
 import struct
 import array
-import codecs
 from locale import normalize
 
 from twext.python.log import Logger
