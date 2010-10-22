@@ -26,7 +26,7 @@ import xml
 from twext.python.plistlib import readPlistFromString, writePlistToString
 
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks
 from twisted.python.util import switchUID
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryError

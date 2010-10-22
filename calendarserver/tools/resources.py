@@ -16,7 +16,6 @@
 # limitations under the License.
 ##
 
-from calendarserver.tools.principals import updateRecord
 from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, checkDirectory
 from getopt import getopt, GetoptError
 from grp import getgrnam
