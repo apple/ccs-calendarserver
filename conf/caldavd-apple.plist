@@ -515,6 +515,16 @@
     <true/>
 
     <!-- Directory searching -->
+    <key>DirectoryAddressBook</key>
+    <dict>
+        <key>params</key>
+        <dict>
+            <key>queryUserRecords</key>
+            <true/>
+            <key>queryPeopleRecords</key>
+            <true/>
+        </dict>
+    </dict>
     <key>EnableSearchAddressBook</key>
     <true/>
 
