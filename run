@@ -120,7 +120,22 @@ run () {
       echo "";
       echo "  cp conf/${DAVD}davd-test.plist conf/${DAVD}davd-dev.plist";
       echo "";
-      exit 1;
+      if [ -t 0 ]; then
+        # Interactive shell
+        echo -n "Would you like to copy the test configuration now? [y/n]";
+        read answer;
+        case "${answer}" in
+          y|yes|Y|YES|Yes)
+            echo "Copying test cofiguration...";
+            cp "${wd}/conf/${DAVD}davd-test.plist" "${wd}/conf/${DAVD}davd-dev.plist";
+            ;;
+          *)
+            exit 1;
+            ;;
+        esac;
+      else
+        exit 1;
+      fi;
     fi;
 
     cd "${wd}";
