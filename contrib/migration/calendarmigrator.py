@@ -426,7 +426,8 @@ def migrateData(options):
     addressbookDataInDefaultLocation = True
     uid = -1
     gid = -1
-    newServerRoot = None
+    newServerRoot = None # actual path
+    newServerRootValue = NEW_SERVER_ROOT # value to put in plist
 
     oldCalConfigDir = os.path.join(options.sourceRoot, CALDAVD_CONFIG_DIR)
     oldCalPlistPath = os.path.join(oldCalConfigDir, CALDAVD_PLIST)
