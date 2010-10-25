@@ -23,8 +23,10 @@ from twext.python.log import LoggingMixIn
 from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType, HRef
 from twext.web2.dav.element.rfc5842 import ResourceID
 from twext.web2.http_headers import generateContentType, MimeType
+from twext.web2.dav.resource import TwistedGETContentMD5
 
 from twisted.python.util import FancyEqMixin
+from twisted.python import hashlib
 
 from twistedcaldav import customxml
 from twistedcaldav.customxml import NotificationType
@@ -945,6 +947,12 @@ class NotificationObject(CommonObjectResource):
         return self._parentCollection
 
 
+    def created(self):
+        if not self._path.exists():
+            from twisted.internet import reactor
+            return int(reactor.seconds())
+        return super(NotificationObject, self).created()
+
     def modified(self):
         if not self._path.exists():
             from twisted.internet import reactor
@@ -961,6 +969,7 @@ class NotificationObject(CommonObjectResource):
         )
 
         self._xmldata = xmldata
+        md5 = hashlib.md5(xmldata).hexdigest()
 
         def do():
             backup = None
@@ -991,6 +1000,7 @@ class NotificationObject(CommonObjectResource):
         props = self.properties()
         props[PropertyName(*GETContentType.qname())] = GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset":"utf-8"})))
         props[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
+        props[PropertyName.fromElement(TwistedGETContentMD5)] = TwistedGETContentMD5.fromString(md5)
 
 
         # FIXME: the property store's flush() method may already have been

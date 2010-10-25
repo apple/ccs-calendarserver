@@ -231,7 +231,7 @@ class DAVPropertyMixIn (MetaDataMixin):
                     returnValue(davxml.ResourceType.empty) #@UndefinedVariable
 
                 if name == "getetag":
-                    etag = yield self.etag()
+                    etag = self.etag()
                     if etag is None:
                         returnValue(None)
                     returnValue(davxml.GETETag(etag.generate()))
@@ -253,13 +253,13 @@ class DAVPropertyMixIn (MetaDataMixin):
                         returnValue(davxml.GETContentLength(str(length)))
 
                 if name == "getlastmodified":
-                    lastModified = yield self.lastModified()
+                    lastModified = self.lastModified()
                     if lastModified is None:
                         returnValue(None)
                     returnValue(davxml.GETLastModified.fromDate(lastModified))
 
                 if name == "creationdate":
-                    creationDate = yield self.creationDate()
+                    creationDate = self.creationDate()
                     if creationDate is None:
                         returnValue(None)
                     returnValue(davxml.CreationDate.fromDate(creationDate))

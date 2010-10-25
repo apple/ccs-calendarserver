@@ -295,13 +295,16 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_notificationObjectModified(self):
+    def test_notificationObjectMetaData(self):
         """
-        The objects retrieved from the notification home have a C{modified}
-        method which returns the timestamp of their last modification.
+        The objects retrieved from the notification home have various
+        methods which return metadata values.
         """
         notification = yield self.notificationUnderTest()
-        self.assertIsInstance((yield notification.modified()), int)
+        self.assertIsInstance(notification.md5(), basestring)
+        self.assertIsInstance(notification.size(), int)
+        self.assertIsInstance(notification.created(), int)
+        self.assertIsInstance(notification.modified(), int)
 
 
     @inlineCallbacks
@@ -647,6 +650,21 @@ class CommonTests(CommonCommonTests):
             (yield self.calendarObjectUnderTest()).name(),
             "1.ics"
         )
+
+
+    @inlineCallbacks
+    def test_calendarObjectMetaData(self):
+        """
+        The objects retrieved from the calendar have a variou
+        methods which return metadata values.
+        """
+        calendar = yield self.calendarObjectUnderTest()
+        self.assertIsInstance(calendar.name(), basestring)
+        self.assertIsInstance(calendar.uid(), basestring)
+        self.assertIsInstance(calendar.md5(), basestring)
+        self.assertIsInstance(calendar.size(), int)
+        self.assertIsInstance(calendar.created(), int)
+        self.assertIsInstance(calendar.modified(), int)
 
 
     @inlineCallbacks

@@ -29,7 +29,10 @@ __all__ = [
 
 from errno import ENOENT
 
-from twext.web2.dav.element.rfc2518 import ResourceType
+from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
+from twext.web2.dav.resource import TwistedGETContentMD5
+
+from twisted.python import hashlib
 
 from twistedcaldav.sharing import InvitesDatabase
 from twistedcaldav.vcard import Component as VComponent, InvalidVCardDataError
@@ -49,6 +52,9 @@ from txdav.base.propertystore.base import PropertyName
 from twistedcaldav import customxml, carddavxml
 
 from zope.interface import implements
+
+contentTypeKey = PropertyName.fromElement(GETContentType)
+md5key = PropertyName.fromElement(TwistedGETContentMD5)
 
 AddressBookStore = CommonDataStore
 
@@ -177,13 +183,18 @@ class AddressBookObject(CommonObjectResource):
             if self._path.exists():
                 backup = hidden(self._path.temporarySibling())
                 self._path.moveTo(backup)
+
+            componentText = str(component)
             fh = self._path.open("w")
             try:
                 # FIXME: concurrency problem; if this write is interrupted
                 # halfway through, the underlying file will be corrupt.
-                fh.write(str(component))
+                fh.write(componentText)
             finally:
                 fh.close()
+
+            md5 = hashlib.md5(componentText).hexdigest()
+            self.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
 
             # Now re-write the original properties on the updated file
             self.properties().flush()

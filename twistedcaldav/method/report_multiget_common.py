@@ -31,7 +31,7 @@ from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError, StatusResponse
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 
 from twistedcaldav import carddavxml
 from twistedcaldav.caldavxml import caldav_namespace
@@ -171,7 +171,8 @@ def multiget_common(self, request, multiget, collection_type):
             for href in resources:
                 resource_uri = str(href)
                 name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
-                if not self._isChildURI(request, resource_uri) or self.getChild(name) is None:
+                child = (yield maybeDeferred(self.getChild, name))
+                if not self._isChildURI(request, resource_uri) or child is None or not child.exists():
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                 else:
                     valid_names.append(name)

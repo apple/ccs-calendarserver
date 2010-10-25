@@ -538,6 +538,21 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_addressbookObjectMetaData(self):
+        """
+        The objects retrieved from the addressbook have various
+        methods which return metadata values.
+        """
+        adbk = yield self.addressbookObjectUnderTest()
+        self.assertIsInstance(adbk.name(), basestring)
+        self.assertIsInstance(adbk.uid(), basestring)
+        self.assertIsInstance(adbk.md5(), basestring)
+        self.assertIsInstance(adbk.size(), int)
+        self.assertIsInstance(adbk.created(), int)
+        self.assertIsInstance(adbk.modified(), int)
+
+
+    @inlineCallbacks
     def test_component(self):
         """
         L{IAddressBookObject.component} returns a L{VComponent} describing the

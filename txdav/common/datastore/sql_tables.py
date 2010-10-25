@@ -113,6 +113,7 @@ CALENDAR_OBJECT_TABLE = {
     "column_RESOURCE_NAME"      : "RESOURCE_NAME",
     "column_TEXT"               : "ICALENDAR_TEXT",
     "column_UID"                : "ICALENDAR_UID",
+    "column_MD5"                : "MD5",
     "column_CREATED"            : "CREATED",
     "column_MODIFIED"           : "MODIFIED",
 }
@@ -124,6 +125,7 @@ ADDRESSBOOK_OBJECT_TABLE = {
     "column_RESOURCE_NAME"      : "RESOURCE_NAME",
     "column_TEXT"               : "VCARD_TEXT",
     "column_UID"                : "VCARD_UID",
+    "column_MD5"                : "MD5",
     "column_CREATED"            : "CREATED",
     "column_MODIFIED"           : "MODIFIED",
 }

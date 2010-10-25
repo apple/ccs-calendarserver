@@ -69,6 +69,9 @@ from txdav.base.propertystore.base import PropertyName
 
 from zope.interface import implements
 
+contentTypeKey = PropertyName.fromElement(GETContentType)
+md5key = PropertyName.fromElement(TwistedGETContentMD5)
+
 CalendarStore = CommonDataStore
 
 CalendarStoreTransaction = CommonStoreTransaction
@@ -250,13 +253,18 @@ class CalendarObject(CommonObjectResource):
             if self._path.exists():
                 backup = hidden(self._path.temporarySibling())
                 self._path.moveTo(backup)
+            
+            componentText = str(component)
             fh = self._path.open("w")
             try:
                 # FIXME: concurrency problem; if this write is interrupted
                 # halfway through, the underlying file will be corrupt.
-                fh.write(str(component))
+                fh.write(componentText)
             finally:
                 fh.close()
+
+            md5 = hashlib.md5(componentText).hexdigest()
+            self.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
 
             # Now re-write the original properties on the updated file
             self.properties().flush()
@@ -426,9 +434,6 @@ class CalendarObject(CommonObjectResource):
         )
 
 
-
-contentTypeKey = PropertyName.fromElement(GETContentType)
-md5key = PropertyName.fromElement(TwistedGETContentMD5)
 
 class AttachmentStorageTransport(object):
 

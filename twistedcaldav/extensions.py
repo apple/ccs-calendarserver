@@ -522,7 +522,7 @@ class DirectoryRenderingMixIn(object):
 
         even = Alternator()
         for name in sorted((yield self.listChildren())):
-            child = self.getChild(name)
+            child = (yield maybeDeferred(self.getChild, name))
 
             url, name, size, lastModified, contentType = self.getChildDirectoryEntry(child, name, request)
 

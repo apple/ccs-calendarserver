@@ -40,8 +40,7 @@ from twext.python.log import LoggingMixIn
 from twext.web2.dav.davxml import SyncCollection
 from twext.web2.dav.http import ErrorResponse
 
-from twisted.internet import reactor
-from twisted.internet.defer import Deferred, succeed, maybeDeferred, fail
+from twisted.internet.defer import succeed, maybeDeferred, fail
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.web2 import responsecode, http, http_headers
@@ -971,61 +970,6 @@ class CalDAVResource (
     def findAddressBookCollections(self, depth, request, callback, privileges=None):
         return self.findSpecialCollections(carddavxml.AddressBook, depth, request, callback, privileges)
 
-    def findSpecialCollections(self, type, depth, request, callback, privileges=None):
-        assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
-
-        def checkPrivilegesError(failure):
-            failure.trap(AccessDeniedError)
-
-            reactor.callLater(0, getChild)
-
-        def checkPrivileges(child):
-            if privileges is None:
-                return child
-
-            ca = child.checkPrivileges(request, privileges)
-            ca.addCallback(lambda ign: child)
-            return ca
-
-        def gotChild(child, childpath):
-            if child.isSpecialCollection(type):
-                callback(child, childpath)
-                
-            # No more regular collections
-            #elif child.isCollection():
-            #    if depth == "infinity":
-            #        fc = child.findSpecialCollections(type, depth, request, callback, privileges)
-            #        fc.addCallback(lambda x: reactor.callLater(0, getChild))
-            #        return fc
-
-            reactor.callLater(0, getChild)
-
-        def getChild():
-            try:
-                childname = children.pop()
-            except IndexError:
-                completionDeferred.callback(None)
-            else:
-                childpath = joinURL(basepath, childname)
-                child = request.locateResource(childpath)
-                child.addCallback(checkPrivileges)
-                child.addCallbacks(gotChild, checkPrivilegesError, (childpath,))
-                child.addErrback(completionDeferred.errback)
-
-        completionDeferred = Deferred()
-
-        if depth != "0" and self.isCollection():
-            basepath = request.urlForResource(self)
-            children = []
-            def gotChildren(childNames):
-                children[:] = list(childNames)
-                getChild()
-            maybeDeferred(self.listChildren).addCallback(gotChildren)
-        else:
-            completionDeferred.callback(None)
-
-        return completionDeferred
-
     @inlineCallbacks
     def findSpecialCollectionsFaster(self, type, depth, request, callback, privileges=None):
         assert depth in ("0", "1", "infinity"), "Invalid depth: %s" % (depth,)
@@ -1037,7 +981,7 @@ class CalDAVResource (
                 child = (yield request.locateResource(childpath))
                 if privileges:
                     try:
-                        child.checkPrivileges(request, privileges)
+                        yield child.checkPrivileges(request, privileges)
                     except AccessDeniedError:
                         continue
                 if child.isSpecialCollection(type):
@@ -1045,6 +989,8 @@ class CalDAVResource (
                 elif child.isCollection():
                     if depth == "infinity":
                         yield child.findSpecialCollectionsFaster(type, depth, request, callback, privileges)                
+
+    findSpecialCollections = findSpecialCollectionsFaster
 
     def createdCalendar(self, request):
         """
@@ -1117,7 +1063,6 @@ class CalDAVResource (
                 returnValue(defaultURL == myURL)
 
         returnValue(False)
-
 
     @inlineCallbacks
     def iCalendarForUser(self, request, name=None):

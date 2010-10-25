@@ -619,7 +619,7 @@ class CommonHome(LoggingMixIn):
         else:
             notifier = None
         child = self._childClass(self, name, resourceID, notifier)
-        yield child._loadPropertyStore()
+        yield child.initFromStore()
         returnValue(child)
 
 
@@ -863,6 +863,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._home = home
         self._name = name
         self._resourceID = resourceID
+        self._created = None
+        self._modified = None
         self._objects = {}
         self._notifier = notifier
 
@@ -870,6 +872,21 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._invites = None # Derived classes need to set this
 
 
+    @inlineCallbacks
+    def initFromStore(self):
+        """
+        Initialise this object from the store. We read in and cache all the extra metadata
+        from the DB to avoid having to do DB queries for those individually later.
+        """
+
+        self._created, self._modified = (yield self._txn.execSQL(
+            "select %(column_CREATED)s, %(column_MODIFIED)s from %(name)s "
+            "where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
+            [self._resourceID]
+        ))[0]
+
+        yield self._loadPropertyStore()
+        
     @property
     def _txn(self):
         return self._home._txn
@@ -940,45 +957,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
 
     @memoized('name', '_objects')
-    @inlineCallbacks
     def objectResourceWithName(self, name):
-        rows = yield self._txn.execSQL(
-            "select %(column_RESOURCE_ID)s, %(column_UID)s from %(name)s "
-            "where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
-            [name, self._resourceID]
-        )
-        if not rows:
-            returnValue(None)
-        [resid, uid] = rows[0]
-        returnValue((yield self._makeObjectResource(name, resid, uid)))
-
-
-    @inlineCallbacks
-    def _makeObjectResource(self, name, resid, uid):
-        """
-        Create an instance of C{self._objectResourceClass}.
-        """
-        objectResource = yield self._objectResourceClass(
-            name, self, resid, uid
-        )
-        yield objectResource._loadPropertyStore()
-        returnValue(objectResource)
+        return self._makeObjectResource(name, None)
 
 
     @memoized('uid', '_objects')
-    @inlineCallbacks
     def objectResourceWithUID(self, uid):
-        rows = yield self._txn.execSQL(
-            "select %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s "
-            "from %(name)s where %(column_UID)s = %%s "
-            "and %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
-            [uid, self._resourceID]
-        )
-        if not rows:
-            returnValue(None)
-        resid = rows[0][0]
-        name = rows[0][1]
-        returnValue((yield self._makeObjectResource(name, resid, uid)))
+        return self._makeObjectResource(None, uid)
+
+
+    @inlineCallbacks
+    def _makeObjectResource(self, name, uid):
+        """
+        We create the empty object first then have it initialize itself from the store
+        """
+        objectResource = self._objectResourceClass(self, name, uid)
+        objectResource = (yield objectResource.initFromStore())
+        returnValue(objectResource)
 
 
     @inlineCallbacks
@@ -995,9 +990,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         if rows:
             raise ObjectResourceNameAlreadyExistsError()
 
-        objectResource = (
-            yield self._makeObjectResource(name, None, component.resourceUID())
-        )
+        objectResource = self._objectResourceClass(self, name, None)
         yield objectResource.setComponent(component, inserting=True)
 
         # Note: setComponent triggers a notification, so we don't need to
@@ -1261,26 +1254,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         return 0
 
 
-    @inlineCallbacks
     def created(self):
-        created = (yield self._txn.execSQL(
-            "select %(column_CREATED)s from %(name)s "
-            "where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
-            [self._resourceID]
-        ))[0][0]
-        utc = datetime.datetime.strptime(created, "%Y-%m-%d %H:%M:%S.%f")
-        returnValue(datetimeMktime(utc))
+        utc = datetime.datetime.strptime(self._created, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)
 
 
-    @inlineCallbacks
     def modified(self):
-        modified = (yield self._txn.execSQL(
-            "select %(column_MODIFIED)s from %(name)s "
-            "where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
-            [self._resourceID]
-        ))[0][0]
-        utc = datetime.datetime.strptime(modified, "%Y-%m-%d %H:%M:%S.%f")
-        returnValue(datetimeMktime(utc))
+        utc = datetime.datetime.strptime(self._modified, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)
 
 
     def notifierID(self, label="default"):
@@ -1310,12 +1291,70 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     _objectTable = None
 
-    def __init__(self, name, parent, resid, uid):
-        self._name = name
+    def __init__(self, parent, name, uid):
         self._parentCollection = parent
-        self._resourceID = resid
-        self._objectText = None
+        self._resourceID = None
+        self._name = name
         self._uid = uid
+        self._md5 = None
+        self._size = None
+        self._created = None
+        self._modified = None
+        self._objectText = None
+
+
+    @inlineCallbacks
+    def initFromStore(self):
+        """
+        Initialise this object from the store. We read in and cache all the extra metadata
+        from the DB to avoid having to do DB queries for those individually later. Either the
+        name or uid is present, so we have to tweak the query accordingly.
+        
+        @return: L{self} if object exists in the DB, else C{None}
+        """
+        
+        if self._name:
+            rows = yield self._txn.execSQL("""
+                select 
+                  %(column_RESOURCE_ID)s,
+                  %(column_RESOURCE_NAME)s,
+                  %(column_UID)s,
+                  %(column_MD5)s,
+                  character_length(%(column_TEXT)s),
+                  %(column_CREATED)s,
+                  %(column_MODIFIED)s
+                from %(name)s
+                where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
+                """ % self._objectTable,
+                [self._name, self._parentCollection._resourceID]
+            )
+        else:
+            rows = yield self._txn.execSQL("""
+                select 
+                  %(column_RESOURCE_ID)s,
+                  %(column_RESOURCE_NAME)s,
+                  %(column_UID)s,
+                  %(column_MD5)s,
+                  character_length(%(column_TEXT)s),
+                  %(column_CREATED)s,
+                  %(column_MODIFIED)s
+                from %(name)s
+                where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
+                """ % self._objectTable,
+                [self._uid, self._parentCollection._resourceID]
+            )
+        if rows:
+            (self._resourceID,
+             self._name,
+             self._uid,
+             self._md5,
+             self._size,
+             self._created,
+             self._modified,) = tuple(rows[0])
+            yield self._loadPropertyStore()
+            returnValue(self)
+        else:
+            returnValue(None)
 
 
     @inlineCallbacks
@@ -1378,39 +1417,21 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     def md5(self):
-        return None
+        return self._md5
 
 
-    @inlineCallbacks
     def size(self):
-        size = (yield self._txn.execSQL(
-            "select character_length(%(column_TEXT)s) from %(name)s "
-            "where %(column_RESOURCE_ID)s = %%s" % self._objectTable,
-            [self._resourceID]
-        ))[0][0]
-        returnValue(size)
+        return self._size
 
 
-    @inlineCallbacks
     def created(self):
-        created = (yield self._txn.execSQL(
-            "select %(column_CREATED)s from %(name)s "
-            "where %(column_RESOURCE_ID)s = %%s" % self._objectTable,
-            [self._resourceID]
-        ))[0][0]
-        utc = datetime.datetime.strptime(created, "%Y-%m-%d %H:%M:%S.%f")
-        returnValue(datetimeMktime(utc))
+        utc = datetime.datetime.strptime(self._created, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)
 
 
-    @inlineCallbacks
     def modified(self):
-        modified = (yield self._txn.execSQL(
-            "select %(column_MODIFIED)s from %(name)s "
-            "where %(column_RESOURCE_ID)s = %%s" % self._objectTable,
-            [self._resourceID]
-        ))[0][0]
-        utc = datetime.datetime.strptime(modified, "%Y-%m-%d %H:%M:%S.%f")
-        returnValue(datetimeMktime(utc))
+        utc = datetime.datetime.strptime(self._modified, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)
 
 
     @inlineCallbacks
@@ -1502,17 +1523,13 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     @memoized('uid', '_notifications')
     @inlineCallbacks
     def notificationObjectWithUID(self, uid):
-        rows = (yield self._txn.execSQL(
-            "select RESOURCE_ID from NOTIFICATION "
-            "where NOTIFICATION_UID = %s and NOTIFICATION_HOME_RESOURCE_ID = %s",
-            [uid, self._resourceID]))
-        if rows:
-            resourceID = rows[0][0]
-            no = NotificationObject(self, uid, resourceID)
-            yield no._loadPropertyStore()
-            returnValue(no)
-        else:
-            returnValue(None)
+        """
+        We create the empty object first then have it initialize itself from the store
+        """
+        
+        no = NotificationObject(self, uid)
+        no = (yield no.initFromStore())
+        returnValue(no)
 
 
     @inlineCallbacks
@@ -1521,7 +1538,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         inserting = False
         notificationObject = yield self.notificationObjectWithUID(uid)
         if notificationObject is None:
-            notificationObject = NotificationObject(self, uid, None)
+            notificationObject = NotificationObject(self, uid)
             inserting = True
         yield notificationObject.setData(uid, xmltype, xmldata, inserting=inserting)
         if inserting:
@@ -1693,15 +1710,47 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
     compareAttributes = '_resourceID _home'.split()
 
-    def __init__(self, home, uid, resourceID):
+    def __init__(self, home, uid):
         self._home = home
         self._uid = uid
-        self._resourceID = resourceID
-
+        self._resourceID = None
+        self._md5 = None
+        self._size = None
+        self._created = None
+        self._modified = None
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
+    @inlineCallbacks
+    def initFromStore(self):
+        """
+        Initialise this object from the store. We read in and cache all the extra metadata
+        from the DB to avoid having to do DB queries for those individually later.
+        
+        @return: L{self} if object exists in the DB, else C{None}
+        """
+        rows = (yield self._txn.execSQL("""
+            select
+                RESOURCE_ID,
+                MD5,
+                character_length(XML_DATA),
+                CREATED,
+                MODIFIED
+            from NOTIFICATION
+            where NOTIFICATION_UID = %s and NOTIFICATION_HOME_RESOURCE_ID = %s
+            """,
+            [self._uid, self._home._resourceID]))
+        if rows:
+            (self._resourceID,
+             self._md5,
+             self._size,
+             self._created,
+             self._modified,) = tuple(rows[0])
+            yield self._loadPropertyStore()
+            returnValue(self)
+        else:
+            returnValue(None)
 
     @property
     def _txn(self):
@@ -1722,21 +1771,37 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
     @inlineCallbacks
     def setData(self, uid, xmltype, xmldata, inserting=False):
+        """
+        Set the object resource data and update and cached metadata.
+        """
 
         xmltypeString = xmltype.toxml()
+        self._md5 = hashlib.md5(xmldata).hexdigest()
+        self._size = len(xmldata)
         if inserting:
-            rows = yield self._txn.execSQL(
-                "insert into NOTIFICATION (NOTIFICATION_HOME_RESOURCE_ID, NOTIFICATION_UID, XML_TYPE, XML_DATA) "
-                "values (%s, %s, %s, %s) returning RESOURCE_ID",
-                [self._home._resourceID, uid, xmltypeString, xmldata]
+            rows = yield self._txn.execSQL("""
+                insert into NOTIFICATION
+                  (NOTIFICATION_HOME_RESOURCE_ID, NOTIFICATION_UID, XML_TYPE, XML_DATA, MD5)
+                values
+                  (%s, %s, %s, %s, %s) 
+                returning
+                  RESOURCE_ID,
+                  CREATED,
+                  MODIFIED
+                """,
+                [self._home._resourceID, uid, xmltypeString, xmldata, self._md5]
             )
-            self._resourceID = rows[0][0]
+            self._resourceID, self._created, self._modified = rows[0]
             yield self._loadPropertyStore()
         else:
-            yield self._txn.execSQL(
-                "update NOTIFICATION set XML_TYPE = %s, XML_DATA = %s "
-                "where NOTIFICATION_HOME_RESOURCE_ID = %s and NOTIFICATION_UID = %s",
-                [xmltypeString, xmldata, self._home._resourceID, uid])
+            rows = yield self._txn.execSQL("""
+                update NOTIFICATION
+                set XML_TYPE = %s, XML_DATA = %s, MD5 = %s
+                where NOTIFICATION_HOME_RESOURCE_ID = %s and NOTIFICATION_UID = %s
+                returning MODIFIED
+                """,
+                [xmltypeString, xmldata, self._md5, self._home._resourceID, uid])
+            self._modified = rows[0][0]
 
         self.properties()[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
 
@@ -1787,40 +1852,22 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         return MimeType.fromString("text/xml")
 
 
-    @inlineCallbacks
     def md5(self):
-        returnValue(hashlib.md5((yield self.xmldata())).hexdigest())
+        return self._md5
 
 
-    @inlineCallbacks
     def size(self):
-        size = (yield self._txn.execSQL(
-            "select character_length(XML_DATA) from NOTIFICATION "
-            "where RESOURCE_ID = %s",
-            [self._resourceID]
-        ))[0][0]
-        returnValue(size)
+        return self._size
 
 
-    @inlineCallbacks
     def created(self):
-        created = (yield self._txn.execSQL(
-            "select CREATED from NOTIFICATION "
-            "where RESOURCE_ID = %s",
-            [self._resourceID]
-        ))[0][0]
-        utc = datetime.datetime.strptime(created, "%Y-%m-%d %H:%M:%S.%f")
-        returnValue(datetimeMktime(utc))
+        utc = datetime.datetime.strptime(self._created, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)
 
 
-    @inlineCallbacks
     def modified(self):
-        modified = (yield self._txn.execSQL(
-            "select MODIFIED from NOTIFICATION "
-            "where RESOURCE_ID = %s", [self._resourceID]
-        ))[0][0]
-        utc = datetime.datetime.strptime(modified, "%Y-%m-%d %H:%M:%S.%f")
-        returnValue(datetimeMktime(utc))
+        utc = datetime.datetime.strptime(self._modified, "%Y-%m-%d %H:%M:%S.%f")
+        return datetimeMktime(utc)
 
 
 

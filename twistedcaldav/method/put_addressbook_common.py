@@ -33,8 +33,6 @@ from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
 from twext.web2.dav.http import ErrorResponse
-from twext.web2.dav.resource import TwistedGETContentMD5
-from twext.web2.dav.stream import MD5StreamWrapper
 from twext.web2.dav.util import joinURL, parentForURL
 from twext.web2.http import HTTPError
 from twext.web2.http import StatusResponse
@@ -376,13 +374,8 @@ class StoreAddressObjectResource(object):
 
         if self.vcarddata is None:
             self.vcarddata = str(self.vcard)
-        md5 = MD5StreamWrapper(MemoryStream(self.vcarddata))
-        response = (yield self.destination.storeStream(md5))
-
-        # Finish MD5 calculation and write dead property
-        md5.close()
-        md5 = md5.getMD5()
-        self.destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5))
+        stream = MemoryStream(self.vcarddata)
+        response = (yield self.destination.storeStream(stream))
 
         returnValue(response)
 

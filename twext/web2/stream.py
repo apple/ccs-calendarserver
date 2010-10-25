@@ -654,7 +654,7 @@ class ProducerStream(object):
                 return defer.fail(f)
             return None
         else:
-            deferred = self.deferred = Deferred()
+            deferred = self.deferred = Deferred(noInlineCallbackDebugging=True)
             if self.producer is not None and (not self.streamingProducer
                                               or self.producerPaused):
                 self.producerPaused = False

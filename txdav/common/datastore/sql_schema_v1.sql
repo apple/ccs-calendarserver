@@ -55,6 +55,7 @@ create table NOTIFICATION (
   NOTIFICATION_UID              varchar(255) not null,
   XML_TYPE                      varchar      not null,
   XML_DATA                      varchar      not null,
+  MD5                           char(32)      not null,
   CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP),
 
@@ -126,6 +127,7 @@ create table CALENDAR_OBJECT (
   ORGANIZER            varchar(255),
   ORGANIZER_OBJECT     integer      references CALENDAR_OBJECT,
   RECURRANCE_MAX       date,        -- maximum date that recurrences have been expanded to.
+  MD5                  char(32)      not null,
   CREATED              timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED             timestamp default timezone('UTC', CURRENT_TIMESTAMP),
 
@@ -292,6 +294,7 @@ create table ADDRESSBOOK_OBJECT (
   RESOURCE_NAME           varchar(255) not null,
   VCARD_TEXT              text         not null,
   VCARD_UID               varchar(255) not null,
+  MD5                     char(32)     not null,
   CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 

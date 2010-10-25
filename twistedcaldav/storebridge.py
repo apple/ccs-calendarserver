@@ -20,8 +20,6 @@ Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
 L{txdav.carddav.iaddressbookstore} and those in L{twistedcaldav}.
 """
 
-import hashlib
-
 from urlparse import urlsplit
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue,\
@@ -56,7 +54,6 @@ from twistedcaldav.schedule import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard
 
-from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.base.propertystore.base import PropertyName
 
 log = Logger()
@@ -162,30 +159,8 @@ class _NewStoreFileMetaDataHelper(object):
         return self._newStoreObject.name() if self._newStoreObject is not None else None
 
 
-    @inlineCallbacks
     def etag(self):
-        # FIXME: far too slow to be used for real, but I needed something to
-        # placate the etag computation in the case where the file doesn't exist
-        # yet (an uncommitted transaction creating this calendar file)
-
-        if self._newStoreObject is None:
-            returnValue(None)
-
-        # FIXME: direct tests
-        try:
-            md5 = yield self._newStoreObject.md5()
-            if md5:
-                returnValue(ETag(md5))
-            else:
-                returnValue(ETag(
-                    hashlib.new("md5", (yield self.text())).hexdigest(),
-                    weak=False
-                ))
-        except NoSuchObjectResourceError:
-            # FIXME: a workaround for the fact that DELETE still rudely vanishes
-            # the calendar object out from underneath the store, and doesn't
-            # call storeRemove.
-            returnValue(None)
+        return ETag(self._newStoreObject.md5()) if self._newStoreObject is not None else None
 
 
     def contentType(self):
@@ -342,9 +317,8 @@ class StoreScheduleInboxResource(_CalendarChildHelper, ScheduleInboxResource):
         return self._newStoreCalendar.name()
 
 
-    @inlineCallbacks
     def etag(self):
-        returnValue(ETag((yield self._newStoreCalendar.md5())))
+        return ETag(self._newStoreCalendar.md5())
 
 
     def lastModified(self):
@@ -552,7 +526,7 @@ class CalendarObjectDropbox(_GetChildHelper):
     @inlineCallbacks
     def listChildren(self):
         l = []
-        for attachment in (self._newStoreCalendarObject.attachments()):
+        for attachment in (yield self._newStoreCalendarObject.attachments()):
             l.append(attachment.name())
         returnValue(l)
 
@@ -670,11 +644,9 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         self._newStoreAttachment = self._newStoreObject = attachment
 
 
-    @inlineCallbacks
     def etag(self):
         # FIXME: test
-        md5 = yield self._newStoreAttachment.md5()
-        returnValue(ETag(md5))
+        return ETag(self._newStoreAttachment.md5())
 
 
     def contentType(self):
@@ -758,9 +730,8 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
         return self._newStoreCalendar.name()
 
 
-    @inlineCallbacks
     def etag(self):
-        returnValue(ETag((yield self._newStoreCalendar.md5())))
+        return ETag(self._newStoreCalendar.md5())
 
 
     def lastModified(self):
@@ -1480,9 +1451,8 @@ class AddressBookCollectionResource(_AddressBookChildHelper, CalDAVResource):
         return self._newStoreAddressBook.name()
 
 
-    @inlineCallbacks
     def etag(self):
-        returnValue(ETag((yield self._newStoreAddressBook.md5())))
+        return ETag(self._newStoreAddressBook.md5())
 
 
     def lastModified(self):
@@ -2140,28 +2110,8 @@ class StoreNotificationObjectFile(NotificationResource):
         return True
 
 
-    @inlineCallbacks
     def etag(self):
-        # FIXME: far too slow to be used for real, but I needed something to
-        # placate the etag computation in the case where the file doesn't exist
-        # yet (an uncommited transaction creating this calendar file)
-
-        # FIXME: direct tests
-        try:
-            md5 = yield self._newStoreObject.md5()
-            if md5:
-                returnValue(ETag(md5))
-            else:
-                returnValue(ETag(
-                    hashlib.new("md5", (yield self.text())).hexdigest(),
-                    weak=False
-                ))
-        except NoSuchObjectResourceError:
-            # FIXME: a workaround for the fact that DELETE still rudely vanishes
-            # the calendar object out from underneath the store, and doesn't
-            # call storeRemove.
-            returnValue(None)
-
+        return ETag(self._newStoreObject.md5())
 
     def contentType(self):
         return self._newStoreObject.contentType()

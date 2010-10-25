@@ -28,6 +28,7 @@ __all__ = [
 from zope.interface.declarations import implements
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python import hashlib
 
 from twext.web2.dav.element.rfc2518 import ResourceType
 from twext.web2.http_headers import MimeType
@@ -160,9 +161,9 @@ class AddressBookObject(CommonObjectResource):
 
     implements(IAddressBookObject)
 
-    def __init__(self, name, addressbook, resid, uid):
+    def __init__(self, addressbook, name, uid):
 
-        super(AddressBookObject, self).__init__(name, addressbook, resid, uid)
+        super(AddressBookObject, self).__init__(addressbook, name, uid)
         self._objectTable = ADDRESSBOOK_OBJECT_TABLE
 
 
@@ -201,35 +202,44 @@ class AddressBookObject(CommonObjectResource):
         self._objectText = componentText
 
         # ADDRESSBOOK_OBJECT table update
+        self._md5 = hashlib.md5(componentText).hexdigest()
+        self._size = len(componentText)
         if inserting:
-            self._resourceID = (yield self._txn.execSQL(
+            self._resourceID, self._created, self._modified = (
+                yield self._txn.execSQL(
                 """
                 insert into ADDRESSBOOK_OBJECT
-                (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME, VCARD_TEXT, VCARD_UID)
+                (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME, VCARD_TEXT, VCARD_UID, MD5)
                  values
-                (%s, %s, %s, %s)
-                 returning RESOURCE_ID
+                (%s, %s, %s, %s, %s)
+                returning
+                 RESOURCE_ID,
+                 CREATED,
+                 MODIFIED
                 """,
                 [
                     self._addressbook._resourceID,
                     self._name,
                     componentText,
                     component.resourceUID(),
+                    self._md5,
                 ]
-            ))[0][0]
+            ))[0]
         else:
             yield self._txn.execSQL(
                 """
                 update ADDRESSBOOK_OBJECT set
-                (VCARD_TEXT, VCARD_UID, MODIFIED)
+                (VCARD_TEXT, VCARD_UID, MD5, MODIFIED)
                  =
-                (%s, %s, timezone('UTC', CURRENT_TIMESTAMP))
-                 where RESOURCE_ID = %s
+                (%s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
+                where RESOURCE_ID = %s
+                returning MODIFIED
                 """,
                 [
                     componentText,
                     component.resourceUID(),
-                    self._resourceID
+                    self._md5,
+                    self._resourceID,
                 ]
             )
 

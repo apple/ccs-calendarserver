@@ -227,7 +227,11 @@ def _pathToName(path):
 class CalendarObject(CommonObjectResource):
     implements(ICalendarObject)
 
-    _objectTable = CALENDAR_OBJECT_TABLE
+    def __init__(self, calendar, name, uid):
+
+        super(CalendarObject, self).__init__(calendar, name, uid)
+        self._objectTable = CALENDAR_OBJECT_TABLE
+
 
     @property
     def _calendar(self):
@@ -294,14 +298,20 @@ class CalendarObject(CommonObjectResource):
             organizer = ""
 
         # CALENDAR_OBJECT table update
+        self._md5 = hashlib.md5(componentText).hexdigest()
+        self._size = len(componentText)
         if inserting:
-            self._resourceID = (yield self._txn.execSQL(
+            self._resourceID, self._created, self._modified  = (
+                yield self._txn.execSQL(
                 """
                 insert into CALENDAR_OBJECT
-                (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX)
+                (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX, MD5)
                  values
-                (%s, %s, %s, %s, %s, %s, %s, %s)
-                 returning RESOURCE_ID
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                returning
+                 RESOURCE_ID,
+                 CREATED,
+                 MODIFIED
                 """,
                 # FIXME: correct ATTACHMENTS_MODE based on X-APPLE-
                 # DROPBOX
@@ -314,16 +324,18 @@ class CalendarObject(CommonObjectResource):
                     _ATTACHMENTS_MODE_WRITE,
                     organizer,
                     normalizeForIndex(instances.limit) if instances.limit else None,
+                    self._md5,
                 ]
-            ))[0][0]
+            ))[0]
         else:
             yield self._txn.execSQL(
                 """
                 update CALENDAR_OBJECT set
-                (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX, MODIFIED)
+                (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX, MD5, MODIFIED)
                  =
-                (%s, %s, %s, %s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
-                 where RESOURCE_ID = %s
+                (%s, %s, %s, %s, %s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
+                where RESOURCE_ID = %s
+                returning MODIFIED
                 """,
                 # should really be filling out more fields: ORGANIZER,
                 # ORGANIZER_OBJECT, a correct ATTACHMENTS_MODE based on X-APPLE-
@@ -335,7 +347,8 @@ class CalendarObject(CommonObjectResource):
                     _ATTACHMENTS_MODE_WRITE,
                     organizer,
                     normalizeForIndex(instances.limit) if instances.limit else None,
-                    self._resourceID
+                    self._md5,
+                    self._resourceID,
                 ]
             )
 
@@ -485,11 +498,8 @@ class CalendarObject(CommonObjectResource):
     @inlineCallbacks
     def attachmentWithName(self, name):
         attachment = Attachment(self, name)
-        if (yield attachment._populate()):
-            returnValue(attachment)
-        else:
-            returnValue(None)
-
+        attachment = (yield attachment.initFromStore())
+        returnValue(attachment)
 
     @inlineCallbacks
     def attendeesCanManageAttachments(self):
@@ -569,15 +579,23 @@ class AttachmentStorageTransport(object):
     @inlineCallbacks
     def loseConnection(self):
         self.attachment._path.setContent(self.buf)
-        contentTypeString = generateContentType(self.contentType)
-        yield self._txn.execSQL(
+        self.attachment._contentType = self.contentType
+        self.attachment._md5 = self.hash.hexdigest()
+        self.attachment._size = len(self.buf)
+        self.attachment._created, self.attachment._modified = (yield self._txn.execSQL(
             """
             update ATTACHMENT set CONTENT_TYPE = %s, SIZE = %s, MD5 = %s,
-            MODIFIED = timezone('UTC', CURRENT_TIMESTAMP) WHERE PATH = %s
+             MODIFIED = timezone('UTC', CURRENT_TIMESTAMP)
+            where PATH = %s
+            returning CREATED, MODIFIED
             """,
-            [contentTypeString, len(self.buf),
-             self.hash.hexdigest(), self.attachment.name()]
-        )
+            [
+                generateContentType(self.contentType),
+                self.attachment._size,
+                self.attachment._md5,
+                self.attachment.name()
+            ]
+        ))[0]
 
 
 
@@ -596,7 +614,7 @@ class Attachment(object):
 
 
     @inlineCallbacks
-    def _populate(self):
+    def initFromStore(self):
         """
         Execute necessary SQL queries to retrieve attributes.
 
@@ -609,13 +627,13 @@ class Attachment(object):
             [self._name]
         )
         if not rows:
-            returnValue(False)
+            returnValue(None)
         self._contentType = MimeType.fromString(rows[0][0])
         self._size = rows[0][1]
         self._md5 = rows[0][2]
         self._created = datetimeMktime(datetime.datetime.strptime(rows[0][3], "%Y-%m-%d %H:%M:%S.%f"))
         self._modified = datetimeMktime(datetime.datetime.strptime(rows[0][4], "%Y-%m-%d %H:%M:%S.%f"))
-        returnValue(True)
+        returnValue(self)
 
 
     def name(self):

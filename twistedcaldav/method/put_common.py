@@ -35,8 +35,6 @@ from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
 from twext.web2.dav.element.base import PCDATAElement
 
-from twext.web2.dav.resource import TwistedGETContentMD5
-from twext.web2.dav.stream import MD5StreamWrapper
 from twext.web2.http import HTTPError
 from twext.web2.http import StatusResponse
 from twext.web2.http_headers import generateContentType, MimeType
@@ -769,13 +767,8 @@ class StoreCalendarObjectResource(object):
 
         if self.calendardata is None:
             self.calendardata = str(self.calendar)
-        md5 = MD5StreamWrapper(MemoryStream(self.calendardata))
-        response = yield self.destination.storeStream(md5)
-
-        # Finish MD5 calculation and write dead property
-        md5.close()
-        md5 = md5.getMD5()
-        self.destination.writeDeadProperty(TwistedGETContentMD5.fromString(md5))
+        stream = MemoryStream(self.calendardata)
+        response = yield self.destination.storeStream(stream)
 
         returnValue(response)
 
@@ -937,7 +930,7 @@ class StoreCalendarObjectResource(object):
                             etags = self.destination.readDeadProperty(TwistedScheduleMatchETags).children
                         else:
                             etags = ()
-                    etags += (davxml.GETETag.fromString((yield self.destination.etag()).tag),)
+                    etags += (davxml.GETETag.fromString(self.destination.etag().tag),)
                     self.destination.writeDeadProperty(TwistedScheduleMatchETags(*etags))
                 else:
                     self.destination.removeDeadProperty(TwistedScheduleMatchETags)                

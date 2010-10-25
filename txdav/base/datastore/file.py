@@ -28,7 +28,7 @@ from txdav.base.propertystore.base import PropertyName
 from twext.web2.dav.element.rfc2518 import GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 
-
+from twisted.python import hashlib
 
 from zope.interface.declarations import implements
 
@@ -223,7 +223,15 @@ class FileMetaDataMixin(object):
         try:
             return str(self.properties()[PropertyName.fromElement(TwistedGETContentMD5)])
         except KeyError:
-            return None
+            # FIXME: Strictly speaking we should not need to read the data as the md5 property should always be
+            # present. However, our unit tests use static files for their data store and those currently
+            # do not include the md5 xattr.
+            try:
+                data = self._path.open().read()
+            except IOError:
+                return None
+            md5 = hashlib.md5(data).hexdigest()
+            return md5
 
     def size(self):
         """

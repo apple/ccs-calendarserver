@@ -105,8 +105,8 @@ class StaticRenderMixin(resource.RenderMixin, MetaDataMixin):
             http.checkPreconditions(
                 request,
                 entityExists = self.exists(),
-                etag = (yield self.etag()),
-                lastModified = (yield self.lastModified()),
+                etag = self.etag(),
+                lastModified = self.lastModified(),
             )
 
         # Check per-method preconditions
@@ -135,8 +135,8 @@ class StaticRenderMixin(resource.RenderMixin, MetaDataMixin):
             # (necessarily) to the resource content, so they depend on the
             # request method, and therefore can't be set here.
             for (header, value) in (
-                ("etag", (yield self.etag())),
-                ("last-modified", (yield self.lastModified())),
+                ("etag", self.etag()),
+                ("last-modified", self.lastModified()),
             ):
                 if value is not None:
                     response.headers.setHeader(header, value)

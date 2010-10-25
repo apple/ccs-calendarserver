@@ -18,7 +18,7 @@
 Logic common to SQL implementations.
 """
 
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, succeed
 from inspect import getargspec
 
 def _getarg(argname, argspec, args, kw):
@@ -54,19 +54,21 @@ def _getarg(argname, argspec, args, kw):
 
 
 
-def memoized(keyArgument, memoAttribute):
+def memoized(keyArgument, memoAttribute, deferredResult=True):
     """
     Decorator which memoizes the result of a method on that method's instance.
 
     @param keyArgument: The name of the 'key' argument.
-
     @type keyArgument: C{str}
 
     @param memoAttribute: The name of the attribute on the instance which
         should be used for memoizing the result of this method; the attribute
         itself must be a dictionary.
-
     @type memoAttribute: C{str}
+
+    @param deferredResult: Whether the result must be a deferred.
+    @type keyArgument: C{bool}
+
     """
     def decorate(thunk):
         # cheater move to try to get the right argspec from inlineCallbacks.
@@ -83,25 +85,17 @@ def memoized(keyArgument, memoAttribute):
             memo = getattr(self, memoAttribute)
             key = _getarg(keyArgument, spec, a, kw)
             if key in memo:
-                result = memo[key]
-            else:
-                result = thunk(*a, **kw)
-                if result is not None:
-                    memo[key] = result
+                memoed = memo[key]
+                return succeed(memoed) if deferredResult else memoed
+            result = thunk(*a, **kw)
             if isinstance(result, Deferred):
-                # clone the Deferred so that the old one keeps its result.
-                # FIXME: cancellation?
-                returnResult = Deferred()
-                def relayAndPreserve(innerResult):
-                    if innerResult is None and key in memo and memo[key] is result:
-                        # The result was None, call it again.
-                        del memo[key]
-                    returnResult.callback(innerResult)
-                    return innerResult
-                result.addBoth(relayAndPreserve)
-                return returnResult
+                def memoResult(finalResult):
+                    if finalResult is not None:
+                        memo[key] = finalResult
+                    return finalResult
+                result.addCallback(memoResult)
+            elif result is not None:
+                memo[key] = result
             return result
         return outer
     return decorate
-
-
