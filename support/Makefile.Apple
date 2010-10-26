@@ -74,13 +74,8 @@ install:: build
 	$(_v) cd $(BuildDirectory)/PyGreSQL-4.0     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(ETCDIR)/caldavd/caldavd.plist"
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-partitioning-primary.plist" "$(DSTROOT)$(ETCDIR)/caldavd/caldavd-partitioning-primary.plist"
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-partitioning-secondary.plist" "$(DSTROOT)$(ETCDIR)/caldavd/caldavd-partitioning-secondary.plist"
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/partitions.plist" "$(DSTROOT)$(ETCDIR)/caldavd/partitions.plist"
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/servertoserver.xml" "$(DSTROOT)$(ETCDIR)/caldavd/servertoserver.xml"
 	$(_v) chmod -R ugo+r "$(DSTROOT)$(PY_HOME)"
 	$(_v) for f in $$(find "$(DSTROOT)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/servertoserver.dtd" "$(DSTROOT)$(ETCDIR)/caldavd/servertoserver.dtd"
 
 install::
 	@echo "Installing manual pages..."
