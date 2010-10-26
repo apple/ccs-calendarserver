@@ -883,12 +883,15 @@ class MailHandler(LoggingMixIn):
             pre, post = serverAddress.split('@')
             addressWithToken = "%s+%s@%s" % (pre, token, post)
 
-            calendar.getOrganizerProperty().setValue("mailto:%s" %
-                (addressWithToken,))
+            organizerProperty = calendar.getOrganizerProperty()
+            organizerValue = organizerProperty.value()
+            organizerProperty.setValue("mailto:%s" % (addressWithToken,))
 
-            originatorAttendee = calendar.getAttendeeProperty([originator])
-            if originatorAttendee is not None:
-                originatorAttendee.setValue("mailto:%s" % (addressWithToken,))
+            # If the organizer is also an attendee, update that attendee value
+            # to match
+            organizerAttendeeProperty = calendar.getAttendeeProperty([organizerValue])
+            if organizerAttendeeProperty is not None:
+                organizerAttendeeProperty.setValue("mailto:%s" % (addressWithToken,))
 
             # The email's From will include the originator's real name email
             # address if available.  Otherwise it will be the server's email

@@ -259,6 +259,15 @@ END:VCALENDAR
                 self.assertEquals(actualReplyTo,
                     "server+%s@example.com" % (token,))
 
+                # Make sure attendee property for organizer exists and matches
+                # the CUA of the organizer property
+                orgValue = actualCalendar.getOrganizerProperty().value()
+                self.assertEquals(
+                    orgValue,
+                    actualCalendar.getAttendeeProperty([orgValue]).value()
+                )
+
+
             else: # Reply only -- the attendee is local, and server is sending
                   # reply to remote organizer
 
