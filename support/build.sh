@@ -483,9 +483,11 @@ dependencies () {
   if ! type memcached > /dev/null 2>&1; then
     local le="libevent-1.4.13-stable";
     local mc="memcached-1.4.5";
-    c_dependency "libevent" "${le}" \
+    c_dependency -m "0b3ea18c634072d12b3c1ee734263664" \
+      "libevent" "${le}" \
       "http://monkey.org/~provos/${le}.tar.gz";
-    c_dependency "memcached" "${mc}" \
+    c_dependency -m "583441a25f937360624024f2881e5ea8" \
+      "memcached" "${mc}" \
       "http://memcached.googlecode.com/files/${mc}.tar.gz" \
       --enable-threads --with-libevent="${top}/${le}/_root";
   fi;
@@ -509,7 +511,7 @@ dependencies () {
   export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 
   local zi="zope.interface-3.3.0";
-  py_dependency \
+  py_dependency -m "93668855e37b4691c5c956665c33392c" \
     "Zope Interface" "zope.interface" "${zi}" \
     "http://www.zope.org/Products/ZopeInterface/3.3.0/zope.interface-3.3.0.tar.gz";
 
@@ -519,7 +521,7 @@ dependencies () {
     "http://static.calendarserver.org/${px}.tar.gz";
 
   local po="pyOpenSSL-0.10";
-  py_dependency -v 0.9 \
+  py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
     "PyOpenSSL" "OpenSSL" "${po}" \
     "http://pypi.python.org/packages/source/p/pyOpenSSL/${po}.tar.gz";
 
@@ -540,7 +542,7 @@ dependencies () {
     "http://svn.red-bean.com/bob/xattr/releases/xattr-0.6.1/";
 
   if [ "${py_version}" != "${py_version##2.5}" ] && ! py_have_module select26; then
-    py_dependency \
+    py_dependency -m "01b8929e7cfc4a8deb777b92e3115c15" \
       "select26" "select26" "select26-0.1a3" \
       "http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz";
   fi;
@@ -554,7 +556,7 @@ dependencies () {
     "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-10.1.0";
 
   local du="python-dateutil-1.5";
-  py_dependency \
+  py_dependency -m "35f3732db3f2cc4afdc68a8533b60a52" \
     "dateutil" "dateutil" "${du}" \
     "http://www.labix.org/download/python-dateutil/${du}.tar.gz";
 
@@ -577,7 +579,7 @@ dependencies () {
   svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes HEAD;
 
   local pd="pydoctor-0.3";
-  py_dependency \
+  py_dependency -m "b000aa1fb458fe25952dadf26049ae68" \
     "pydoctor" "pydoctor" "${pd}" \
     "http://launchpadlibrarian.net/42323121/${pd}.tar.gz";
 
