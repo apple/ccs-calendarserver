@@ -188,12 +188,16 @@ www_get () {
         curl -L "${url}" -o "${cache_file}";
       fi;
 
-      if [ -n "${md5}" ] && [ "${hash}" == "md5" ]; then
-        echo "Checking MD5 sum for ${name}...";
+      if [ "${hash}" == "md5" ]; then
         local sum="$(hash "${cache_file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
-        if [ "${md5}" != "${sum}" ]; then
-          echo "ERROR: MD5 sum for cache file ${cache_file} ${sum} != ${md5}. Corrupt file?";
-          exit 1;
+        if [ -n "${md5}" ]; then
+          echo "Checking MD5 sum for ${name}...";
+          if [ "${md5}" != "${sum}" ]; then
+            echo "ERROR: MD5 sum for cache file ${cache_file} ${sum} != ${md5}. Corrupt file?";
+            exit 1;
+          fi;
+        else
+          echo "MD5 sum for ${name} is ${sum}";
         fi;
       fi;
 
@@ -427,6 +431,16 @@ jmake () {
 
 # Declare a dependency on a C project built with autotools.
 c_dependency () {
+  local f_hash="";
+
+  OPTIND=1;
+  while getopts "m:" option; do
+    case "${option}" in
+      'm') f_hash="-m ${OPTARG}"; ;;
+    esac;
+  done;
+  shift $((${OPTIND} - 1));
+
   local name="$1"; shift;
   local path="$1"; shift;
   local  uri="$1"; shift;
@@ -435,7 +449,7 @@ c_dependency () {
 
   srcdir="${top}/${path}";
 
-  www_get "${name}" "${srcdir}" "${uri}";
+  www_get ${f_hash} "${name}" "${srcdir}" "${uri}";
 
   if "${do_setup}" && (
       "${force_setup}" || [ ! -d "${srcdir}/_root" ]); then
@@ -479,7 +493,8 @@ dependencies () {
   if ! type postgres > /dev/null 2>&1; then
     local pgv="9.0.1";
     local pg="postgresql-${pgv}";
-    c_dependency "PostgreSQL" "${pg}" \
+    c_dependency -m "5093c321bc47af2ea9afa726605ff1ce" \
+      "PostgreSQL" "${pg}" \
       "ftp://ftp5.us.postgresql.org/pub/PostgreSQL/source/v${pgv}/${pg}.tar.gz" \
       --with-python;
     :;
@@ -499,7 +514,7 @@ dependencies () {
     "http://www.zope.org/Products/ZopeInterface/3.3.0/zope.interface-3.3.0.tar.gz";
 
   local px="PyXML-0.8.4";
-  py_dependency \
+  py_dependency -m "1f7655050cebbb664db976405fdba209" \
     "PyXML" "xml.dom.ext" "${px}" \
     "http://static.calendarserver.org/${px}.tar.gz";
 
@@ -530,8 +545,7 @@ dependencies () {
       "http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz";
   fi;
 
-  py_dependency -v 4.0 \
-    -m "1aca50e59ff4cc56abe9452a9a49c5ff" -o \
+  py_dependency -v 4.0 -m "1aca50e59ff4cc56abe9452a9a49c5ff" -o \
     "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
     "http://pypi.python.org/packages/source/P/PyGreSQL/PyGreSQL-4.0.tar.gz";
 
