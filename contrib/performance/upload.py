@@ -39,9 +39,9 @@ class UploadOptions(Options):
 
 
 
-def upload(reactor, url, project, revision, revision_date, benchmark,
-           executable, environment, result_value, result_date, std_dev,
-           max_value, min_value):
+def _upload(reactor, url, project, revision, revision_date, benchmark,
+            executable, environment, result_value, result_date, std_dev,
+            max_value, min_value):
     data = {
         'commitid': str(revision),
         'revision_date': revision_date,
@@ -70,6 +70,25 @@ def upload(reactor, url, project, revision, revision_date, benchmark,
     return d
 
 
+def upload(reactor, url, project, revision, revision_date, benchmark, param, statistic, backend, environment, samples):
+    d = _upload(
+        reactor,
+        url=url,
+        project=project,
+        revision=revision,
+        revision_date=revision_date,
+        benchmark='%s-%s-%s' % (benchmark, param, statistic),
+        executable='%s-backend' % (backend,),
+        environment=environment,
+        result_value=median(samples),
+        result_date=datetime.now(),
+        std_dev=mad(samples),  # Not really!
+        max_value=max(samples),
+        min_value=min(samples))
+    d.addErrback(err, "Upload failed")
+    return d
+
+
 def main():
     options = UploadOptions()
     try:
@@ -85,18 +104,10 @@ def main():
 
     d = upload(
         reactor,
-        url=options['url'],
-        project=options['project'],
-        revision=options['revision'],
-        revision_date=options['revision-date'],
-        benchmark='%s-%s-%s' % (benchmark, param, statistic),
-        executable='%s-backend' % (options['backend'],),
-        environment=options['environment'],
-        result_value=median(samples),
-        result_date=datetime.now(),
-        std_dev=mad(samples),  # Not really!
-        max_value=max(samples),
-        min_value=min(samples))
-    d.addErrback(err, "Upload failed")
+        options['url'], options['project'], options['revision'],
+        options['revision-date'],
+        benchmark, param, statistic,
+        options['backend'], options['environment'],
+        samples)
     reactor.callWhenRunning(d.addCallback, lambda ign: reactor.stop())
     reactor.run()

@@ -10,7 +10,7 @@ BACKENDS="filesystem postgresql"
 SOURCE=~/Projects/CalendarServer/trunk
 NUM_INSTANCES=2
 BENCHMARKS="event_move event_delete_attendee event_add_attendee event_change_date event_change_summary event_delete vfreebusy event"
-STATISTICS=(HTTP SQL read write)
+STATISTICS=(HTTP SQL read write pagein pageout)
 ADDURL=http://localhost:8000/result/add/
 export PYTHONPATH=$PYTHONPATH:$SOURCE/../Twisted
 
@@ -52,17 +52,13 @@ for backend in $BACKENDS; do
   popd
   sudo PYTHONPATH=$PYTHONPATH ./benchmark --label r$REV-$backend --log-directory $LOGS $BENCHMARKS
   data=`echo -n r$REV-$backend*`
-  for p in 1 9 81; do
-    for b in $BENCHMARKS; do
-      for stat in "${STATISTICS[@]}"; do
-        sudo -v # Bump timestamp again
-        ./upload \
-            --url $ADDURL --revision $REV \
-            --revision-date "$DATE" --environment nmosbuilder \
-            --backend $backend --statistic "$data,$b,$p,$stat"
-      done
-    done
-  done
-
+  ./massupload \
+      --url $ADDURL --revision $REV \
+      --revision-date "$DATE" --environment nmosbuilder \
+      --backend $backend \
+      --benchmarks "$BENCHMARKS" \
+      --parameters "1 9 81" \
+      --statistics "${STATISTICS[*]}" \
+      $data
   mv $data $RESULTS
 done

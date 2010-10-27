@@ -113,7 +113,12 @@ class _DTraceParser(LineReceiver):
 
 
     def _op_EXECUTE(self, cmd, rest):
-        which, when = rest.split(None, 1)
+        try:
+            which, when = rest.split(None, 1)
+        except ValueError:
+            print 'Bad EXECUTE line: %r' % (rest,)
+            return
+
         if which == 'SQL':
             self.sql = when
             return

@@ -1,0 +1,3 @@
+#!/usr/bin/python
+from massupload import main
+main()
