@@ -9,4 +9,5 @@ def replaceSummary(event, i):
 
 def measure(host, port, dtrace, attendeeCount, samples):
     return _event_change.measure(
-        host, port, dtrace, attendeeCount, samples, "summary", replaceSummary)
+        host, port, dtrace, attendeeCount, samples, "change-summary",
+        replaceSummary)

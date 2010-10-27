@@ -17,5 +17,5 @@ def measure(host, port, dtrace, attendeeCount, samples):
         return event[:created] + attendees + event[created:]
 
     return _event_change.measure(
-        host, port, dtrace, 0, samples, "date", addAttendees,
-        eventPerSample=True)
+        host, port, dtrace, 0, samples, "add-attendee",
+        addAttendees, eventPerSample=True)

@@ -16,5 +16,5 @@ def measure(host, port, dtrace, attendeeCount, samples):
         return event
 
     return _event_change.measure(
-        host, port, dtrace, attendeeCount, samples, "date", deleteAttendees,
-        eventPerSample=True)
+        host, port, dtrace, attendeeCount, samples, "delete-attendee",
+        deleteAttendees, eventPerSample=True)

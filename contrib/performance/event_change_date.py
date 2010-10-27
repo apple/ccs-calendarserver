@@ -32,4 +32,5 @@ def replaceTimestamp(event, i):
 
 def measure(host, port, dtrace, attendeeCount, samples):
     return _event_change.measure(
-        host, port, dtrace, attendeeCount, samples, "date", replaceTimestamp)
+        host, port, dtrace, attendeeCount, samples, "change-date",
+        replaceTimestamp)

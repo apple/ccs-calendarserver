@@ -24,7 +24,7 @@ def measure(host, port, dtrace, attendeeCount, samples, fieldName,
     user = password = "user01"
     root = "/"
     principal = "/"
-    calendar = "event-change-%s-benchmark" % (fieldName,)
+    calendar = "event-%s-benchmark" % (fieldName,)
 
     authinfo = HTTPDigestAuthHandler()
     authinfo.add_password(
