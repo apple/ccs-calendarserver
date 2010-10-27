@@ -554,6 +554,10 @@ dependencies () {
   # they are useful to developers.
   #
 
+  py_dependency -v 0.1.1 -m "000053e0352f5bf19c2f8d5242329ea4" \
+    "SQLParse" "sqlparse" "sqlparse-0.1.1" \
+    "http://python-sqlparse.googlecode.com/files/sqlparse-0.1.1.tar.gz";
+
   svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
   svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes HEAD;
