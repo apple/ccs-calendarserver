@@ -14,15 +14,16 @@
 # limitations under the License.
 ##
 
+
 from twext.python.log import LoggingMixIn
+from twext.web2 import responsecode, server, http
+from twext.web2.dav import davxml
+from twext.web2.http import HTTPError, StatusResponse
+from twext.web2.resource import WrapperResource
 
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 
-from twext.web2.http import HTTPError
-from twext.web2 import responsecode
-from twext.web2.resource import WrapperResource
 from twistedcaldav.config import config
-from twext.web2.dav import davxml
 
 __all__ = [
     "LinkResource",
@@ -42,27 +43,34 @@ A resource that is a soft-link to another.
 
 class LinkResource(CalDAVComplianceMixIn, WrapperResource, LoggingMixIn):
     """
-    This is similar to a WrapperResource except that we locate our resource dynamically. 
+    This is similar to a WrapperResource except that we locate our resource dynamically. We need to deal with the
+    case of a missing underlying resource (broken link) as indicated by self._linkedResource being None.
     """
     
     def __init__(self, parent, link_url):
         self.parent = parent
         self.linkURL = link_url
+        self.loopDetect = set()
         super(LinkResource, self).__init__(self.parent.principalCollections())
 
     @inlineCallbacks
     def linkedResource(self, request):
         
         if not hasattr(self, "_linkedResource"):
+            if self.linkURL in self.loopDetect:
+                raise HTTPError(StatusResponse(responsecode.LOOP_DETECTED, "Recursive link target: %s" % (self.linkURL,)))
+            else:
+                self.loopDetect.add(self.linkURL)
             self._linkedResource = (yield request.locateResource(self.linkURL))
+            self.loopDetect.remove(self.linkURL)
 
         if self._linkedResource is None:
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(StatusResponse(responsecode.NOT_FOUND, "Missing link target: %s" % (self.linkURL,)))
             
         returnValue(self._linkedResource)
 
     def isCollection(self):
-        return True
+        return True if hasattr(self, "_linkedResource") else False
 
     def resourceType(self):
         return self._linkedResource.resourceType() if hasattr(self, "_linkedResource") else davxml.ResourceType.link
@@ -70,33 +78,41 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource, LoggingMixIn):
     def locateChild(self, request, segments):
         
         def _defer(result):
-            return (result, segments)
+            if result is None:
+                return (self, server.StopTraversal)
+            else:
+                return (result, segments)
         d = self.linkedResource(request)
         d.addCallback(_defer)
         return d
 
+    @inlineCallbacks
     def renderHTTP(self, request):
-        return self.linkedResource(request)
+        linked_to = (yield self.linkedResource(request))
+        if linked_to:
+            returnValue(linked_to)
+        else:
+            returnValue(http.StatusResponse(responsecode.OK, "Link resource with missing target: %s" % (self.linkURL,)))
 
     def getChild(self, name):
-        return self._linkedResource.getChild(name)
+        return self._linkedResource.getChild(name) if hasattr(self, "_linkedResource") else None
 
     @inlineCallbacks
     def hasProperty(self, property, request):
         hosted = (yield self.linkedResource(request))
-        result = (yield hosted.hasProperty(property, request))
+        result = (yield hosted.hasProperty(property, request)) if hosted else False
         returnValue(result)
 
     @inlineCallbacks
     def readProperty(self, property, request):
         hosted = (yield self.linkedResource(request))
-        result = (yield hosted.readProperty(property, request))
+        result = (yield hosted.readProperty(property, request)) if hosted else None
         returnValue(result)
 
     @inlineCallbacks
     def writeProperty(self, property, request):
         hosted = (yield self.linkedResource(request))
-        result = (yield hosted.writeProperty(property, request))
+        result = (yield hosted.writeProperty(property, request)) if hosted else None
         returnValue(result)
 
 class LinkFollowerMixIn(object):
@@ -104,17 +120,13 @@ class LinkFollowerMixIn(object):
     @inlineCallbacks
     def locateChild(self, req, segments):
 
+        self._inside_locateChild = True
         resource, path = (yield maybeDeferred(super(LinkFollowerMixIn, self).locateChild, req, segments))
-        MAX_LINK_DEPTH = 10
-        ctr = 0
-        seenResource = set()
         while isinstance(resource, LinkResource):
-            seenResource.add(resource)
-            ctr += 1
-            resource = (yield resource.linkedResource(req))
-            
-            if ctr > MAX_LINK_DEPTH or resource in seenResource:
-                raise HTTPError(responsecode.LOOP_DETECTED)
+            linked_to = (yield resource.linkedResource(req))
+            if linked_to is None:
+                break
+            resource = linked_to
         
         returnValue((resource, path))
         
