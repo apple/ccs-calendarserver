@@ -21,8 +21,6 @@ set -u;
 
 wd="$(cd "$(dirname "$0")" && pwd -L)";
 
-DAVD=cal;
-
 . support/build.sh;
 
 do_setup="false";

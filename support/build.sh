@@ -51,7 +51,7 @@ init_build () {
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.
   conditional_set wd "$(pwd)";
-  conditional_set config "${wd}/conf/${DAVD}davd-dev.plist";
+  conditional_set config "${wd}/conf/caldavd-dev.plist";
   conditional_set caldav "${wd}";
 
   if [ -z "${CALENDARSERVER_CACHE_DEPS-}" ]; then

@@ -35,8 +35,6 @@ set -u;
 
 wd="$(cd "$(dirname "$0")" && pwd)";
 
-DAVD="cal"
-
 # Echo the usage for the main 'run' script, then exit with an error.
 usage () {
   program="$(basename "$0")";
@@ -55,9 +53,9 @@ usage () {
   echo "	-f  Force setup to run";
   echo "	-n  Do not run setup";
   echo "	-p  Print PYTHONPATH value for server and exit";
-  echo "	-d  Run ${DAVD}davd as a daemon";
-  echo "	-k  Stop ${DAVD}davd";
-  echo "	-r  Restart ${DAVD}davd";
+  echo "	-d  Run caldavd as a daemon";
+  echo "	-k  Stop caldavd";
+  echo "	-r  Restart caldavd";
   echo "	-K  Print value of configuration key and exit";
   echo "	-i  Perform a system install into dst; implies -s";
   echo "	-I  Perform a home install into dst; implies -s";
@@ -118,7 +116,7 @@ run () {
       echo "Missing config file: ${config}";
       echo "You might want to start by copying the test configuration:";
       echo "";
-      echo "  cp conf/${DAVD}davd-test.plist conf/${DAVD}davd-dev.plist";
+      echo "  cp conf/caldavd-test.plist conf/caldavd-dev.plist";
       echo "";
       if [ -t 0 ]; then
         # Interactive shell
@@ -127,7 +125,7 @@ run () {
         case "${answer}" in
           y|yes|Y|YES|Yes)
             echo "Copying test cofiguration...";
-            cp "${wd}/conf/${DAVD}davd-test.plist" "${wd}/conf/${DAVD}davd-dev.plist";
+            cp "${wd}/conf/caldavd-test.plist" "${wd}/conf/caldavd-dev.plist";
             ;;
           *)
             exit 1;
@@ -146,7 +144,7 @@ run () {
     echo "";
     echo "Starting server...";
     exec ${caldavd_wrapper_command}                   \
-        "${caldav}/bin/${DAVD}davd" ${daemonize}      \
+        "${caldav}/bin/caldavd" ${daemonize}      \
         -f "${config}"                                \
         -P "${plugin_name}"                           \
         -t "${service_type}"                          \
