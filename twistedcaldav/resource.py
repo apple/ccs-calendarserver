@@ -986,9 +986,13 @@ class CalDAVResource (
                         continue
                 if child.isSpecialCollection(type):
                     callback(child, childpath)
-                elif child.isCollection():
-                    if depth == "infinity":
-                        yield child.findSpecialCollectionsFaster(type, depth, request, callback, privileges)                
+                    
+                # No more regular collections. If we leave this in then dropbox is scanned at depth:infinity
+                # and that is very painful as it requires scanning all calendar resources too. Eventually we need
+                # to fix drop box and probably re-enable this for the generic case.
+#                elif child.isCollection():
+#                    if depth == "infinity":
+#                        yield child.findSpecialCollectionsFaster(type, depth, request, callback, privileges)                
 
     findSpecialCollections = findSpecialCollectionsFaster
 
