@@ -76,4 +76,6 @@ else
     test_modules="calendarserver twistedcaldav twext txdav ${m_twisted}";
 fi;
 
+find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
+
 cd "${wd}" && "${python}" "${trial}" --rterrors ${random} ${until_fail} ${no_colour} ${coverage} ${test_modules};
