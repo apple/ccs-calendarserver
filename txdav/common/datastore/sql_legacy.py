@@ -929,18 +929,14 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
 
     @inlineCallbacks
     def resourceUIDForName(self, name):
-        obj = yield self.calendar.calendarObjectWithName(name)
-        if obj is None:
-            returnValue(None)
-        returnValue(obj.uid())
+        uid = yield self.calendar.resourceUIDForName(name)
+        returnValue(uid)
 
 
     @inlineCallbacks
     def resourceNameForUID(self, uid):
-        obj = yield self.calendar.calendarObjectWithUID(uid)
-        if obj is None:
-            returnValue(None)
-        returnValue(obj.name())
+        name = yield self.calendar.resourceNameForUID(uid)
+        returnValue(name)
 
 
     @inlineCallbacks

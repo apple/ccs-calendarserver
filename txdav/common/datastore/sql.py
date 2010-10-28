@@ -956,15 +956,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         returnValue(sorted([row[0] for row in rows]))
 
 
-    @memoized('name', '_objects')
     def objectResourceWithName(self, name):
         return self._makeObjectResource(name, None)
 
 
-    @memoized('uid', '_objects')
     def objectResourceWithUID(self, uid):
         return self._makeObjectResource(None, uid)
-
 
     @inlineCallbacks
     def _makeObjectResource(self, name, uid):
@@ -973,7 +970,55 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         """
         objectResource = self._objectResourceClass(self, name, uid)
         objectResource = (yield objectResource.initFromStore())
+        if objectResource:
+            self._objects[objectResource.name()] = objectResource
+            self._objects[objectResource.uid()] = objectResource
+        else:
+            self._objects[name if name else uid] = None
         returnValue(objectResource)
+
+
+    @inlineCallbacks
+    def resourceNameForUID(self, uid):
+        try:
+            resource = self._objects[uid]
+            returnValue(resource.name() if resource else None)
+        except KeyError:
+            pass
+
+        rows = yield self._txn.execSQL("""
+            select %(column_RESOURCE_NAME)s
+            from %(name)s
+            where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
+            """ % self._objectTable,
+            [uid, self._resourceID]
+        )
+        if rows:
+            returnValue(rows[0][0])
+        else:
+            self._objects[uid] = None
+            returnValue(None)
+
+    @inlineCallbacks
+    def resourceUIDForName(self, name):
+        try:
+            resource = self._objects[name]
+            returnValue(resource.uid() if resource else None)
+        except KeyError:
+            pass
+
+        rows = yield self._txn.execSQL("""
+            select %(column_UID)s
+            from %(name)s
+            where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
+            """ % self._objectTable,
+            [name, self._resourceID]
+        )
+        if rows:
+            returnValue(rows[0][0])
+        else:
+            self._objects[name] = None
+            returnValue(None)
 
 
     @inlineCallbacks
@@ -981,17 +1026,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
-        rows = yield self._txn.execSQL(
-            "select %(column_RESOURCE_ID)s from %(name)s "
-            "where %(column_RESOURCE_NAME)s = %%s "
-            "and %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
-            [name, self._resourceID]
-        )
-        if rows:
-            raise ObjectResourceNameAlreadyExistsError()
+        if name in self._objects:
+            if self._objects[name]:
+                raise ObjectResourceNameAlreadyExistsError()
+        else:
+            rows = yield self._txn.execSQL(
+                "select %(column_RESOURCE_ID)s from %(name)s "
+                "where %(column_RESOURCE_NAME)s = %%s "
+                "and %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
+                [name, self._resourceID]
+            )
+            if rows:
+                raise ObjectResourceNameAlreadyExistsError()
 
         objectResource = self._objectResourceClass(self, name, None)
         yield objectResource.setComponent(component, inserting=True)
+        self._objects[objectResource.name()] = objectResource
+        self._objects[objectResource.uid()] = objectResource
 
         # Note: setComponent triggers a notification, so we don't need to
         # call notify( ) here like we do for object removal.
