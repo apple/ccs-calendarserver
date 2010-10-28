@@ -725,13 +725,11 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         for childname in childnames:
             childpath = joinURL(basepath, urllib.quote(childname))
             child = (yield request.locateChildResource(self, childname))
-            if child.isCollection():
-                collections1.append((child, childpath + "/"))
-            if names and childname not in names1:
-                continue
-            if child is None:
-                children.append((None, childpath + "/"))
-            else:
+            if child is not None:
+                if child.isCollection():
+                    collections1.append((child, childpath + "/"))
+                if names and childname not in names1:
+                    continue
                 if child.isCollection():
                     children.append((child, childpath + "/"))
                 else:

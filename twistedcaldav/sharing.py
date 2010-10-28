@@ -196,7 +196,7 @@ class SharedCollectionMixin(object):
             ))
 
         # Accept it
-        response = (yield home.acceptDirectShare(request, request.path, self.resourceID(), self.displayName()))
+        response = (yield home.acceptDirectShare(request, compareURL, self.resourceID(), self.displayName()))
 
         # Return the URL of the shared calendar
         returnValue(response)

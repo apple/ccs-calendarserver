@@ -520,6 +520,11 @@ class SQLLegacyShares(object):
     def addOrUpdateRecord(self, record):
         # record.hosturl -> /.../__uids__/<uid>/<name>
         splithost = record.hosturl.split('/')
+        
+        # Double-check the path
+        if splithost[2] != "__uids__":
+            raise ValueError("Sharing URL must be a __uids__ path: %s" % (record.hosturl,))
+            
         ownerUID = splithost[3]
         ownerCollectionName = splithost[4]
         ownerHome = yield self._getHomeWithUID(ownerUID)
