@@ -15,50 +15,24 @@
 ##
 
 """
-Logic common to SQL implementations.
+Decorators.
 """
 
-from twisted.internet.defer import Deferred, succeed
+__all__ = [
+    "memoizedKey",
+]
+
+
 from inspect import getargspec
 
-def _getarg(argname, argspec, args, kw):
-    """
-    Get an argument from some arguments.
-
-    @param argname: The name of the argument to retrieve.
-
-    @param argspec: The result of L{inspect.getargspec}.
-
-    @param args: positional arguments passed to the function specified by
-        argspec.
-
-    @param kw: keyword arguments passed to the function specified by
-        argspec.
-
-    @return: The value of the argument named by 'argname'.
-    """
-    argnames = argspec[0]
-    try:
-        argpos = argnames.index(argname)
-    except ValueError:
-        argpos = None
-    if argpos is not None:
-        if len(args) > argpos:
-            return args[argpos]
-    if argname in kw:
-        return kw[argname]
-    else:
-        raise TypeError("could not find key argument %r in %r/%r (%r)" %
-            (argname, args, kw, argpos)
-        )
+from twisted.internet.defer import Deferred, succeed
 
 
-
-def memoized(keyArgument, memoAttribute, deferredResult=True):
+def memoizedKey(keyArgument, memoAttribute, deferredResult=True):
     """
     Decorator which memoizes the result of a method on that method's instance.
 
-    @param keyArgument: The name of the 'key' argument.
+    @param keyArgument: The name of the "key" argument.
     @type keyArgument: C{str}
 
     @param memoAttribute: The name of the attribute on the instance which
@@ -68,26 +42,62 @@ def memoized(keyArgument, memoAttribute, deferredResult=True):
 
     @param deferredResult: Whether the result must be a deferred.
     @type keyArgument: C{bool}
-
     """
+
+    def getarg(argname, argspec, args, kw):
+        """
+        Get an argument from some arguments.
+
+        @param argname: The name of the argument to retrieve.
+
+        @param argspec: The result of L{inspect.getargspec}.
+
+        @param args: positional arguments passed to the function specified by
+            argspec.
+
+        @param kw: keyword arguments passed to the function specified by
+            argspec.
+
+        @return: The value of the argument named by 'argname'.
+        """
+        argnames = argspec[0]
+        try:
+            argpos = argnames.index(argname)
+        except ValueError:
+            argpos = None
+        if argpos is not None:
+            if len(args) > argpos:
+                return args[argpos]
+        if argname in kw:
+            return kw[argname]
+        else:
+            raise TypeError("could not find key argument %r in %r/%r (%r)" %
+                (argname, args, kw, argpos)
+            )
+
     def decorate(thunk):
         # cheater move to try to get the right argspec from inlineCallbacks.
         # This could probably be more robust, but the 'cell_contents' thing
         # probably can't (that's the only real reference to the underlying
         # function).
-        if thunk.func_code.co_name == 'unwindGenerator':
+        if thunk.func_code.co_name == "unwindGenerator":
             specTarget = thunk.func_closure[0].cell_contents
         else:
             specTarget = thunk
         spec = getargspec(specTarget)
+
         def outer(*a, **kw):
             self = a[0]
             memo = getattr(self, memoAttribute)
-            key = _getarg(keyArgument, spec, a, kw)
+            key = getarg(keyArgument, spec, a, kw)
             if key in memo:
                 memoed = memo[key]
-                return succeed(memoed) if deferredResult else memoed
+                if deferredResult:
+                    return succeed(memoed)
+                else:
+                    return memoed
             result = thunk(*a, **kw)
+
             if isinstance(result, Deferred):
                 def memoResult(finalResult):
                     if finalResult is not None:
@@ -96,6 +106,9 @@ def memoized(keyArgument, memoAttribute, deferredResult=True):
                 result.addCallback(memoResult)
             elif result is not None:
                 memo[key] = result
+
             return result
+
         return outer
+
     return decorate

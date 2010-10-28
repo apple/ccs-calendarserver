@@ -26,24 +26,25 @@ __all__ = [
 ]
 
 import sys
-
+import datetime
 from Queue import Queue
 
-from twext.python.log import Logger, LoggingMixIn
-from twext.web2.dav.element.rfc2518 import ResourceType
-from twext.web2.http_headers import MimeType
+from zope.interface.declarations import implements, directlyProvides
 
-from twisted.application.service import Service
 from twisted.python import hashlib
 from twisted.python.modules import getModule
 from twisted.python.util import FancyEqMixin
+from twisted.python.failure import Failure
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
-from twisted.python.failure import Failure
 
-from twistedcaldav.customxml import NotificationType
-from twistedcaldav.dateops import datetimeMktime
+from twisted.application.service import Service
+
+from twext.python.log import Logger, LoggingMixIn
+from twext.internet.decorate import memoizedKey
+from twext.web2.dav.element.rfc2518 import ResourceType
+from twext.web2.http_headers import MimeType
 
 from txdav.common.datastore.sql_legacy import PostgresLegacyNotificationsEmulator
 from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
@@ -59,18 +60,16 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     NoSuchObjectResourceError
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
-from txdav.base.datastore.sql import memoized
 
 from txdav.idav import AlreadyFinishedError
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.sql import PropertyStore
 
-from zope.interface.declarations import implements, directlyProvides
+from twistedcaldav.customxml import NotificationType
+from twistedcaldav.dateops import datetimeMktime
 
-import datetime
 
-v1_schema = getModule(__name__).filePath.sibling(
-    "sql_schema_v1.sql").getContent()
+v1_schema = getModule(__name__).filePath.sibling("sql_schema_v1.sql").getContent()
 
 log = Logger()
 
@@ -127,9 +126,9 @@ class CommonDataStore(Service, object):
 
 _DONE = object()
 
-_STATE_STOPPED = 'STOPPED'
-_STATE_RUNNING = 'RUNNING'
-_STATE_STOPPING = 'STOPPING'
+_STATE_STOPPED = "STOPPED"
+_STATE_RUNNING = "RUNNING"
+_STATE_STOPPING = "STOPPING"
 
 class ThreadHolder(object):
     """
@@ -261,7 +260,7 @@ class CommonStoreTransaction(object):
 
 
     def __repr__(self):
-        return 'PG-TXN<%s>' % (self._label,)
+        return "PG-TXN<%s>" % (self._label,)
 
 
     def _reallyExecSQL(self, sql, args=[], raiseOnZeroRowCount=None):
@@ -295,16 +294,16 @@ class CommonStoreTransaction(object):
 
     def __del__(self):
         if not self._completed:
-            print 'CommonStoreTransaction.__del__: OK'
+            print "CommonStoreTransaction.__del__: OK"
             self.abort()
 
 
-    @memoized('uid', '_calendarHomes')
+    @memoizedKey("uid", "_calendarHomes")
     def calendarHomeWithUID(self, uid, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, create=create)
 
 
-    @memoized('uid', '_addressbookHomes')
+    @memoizedKey("uid", "_addressbookHomes")
     def addressbookHomeWithUID(self, uid, create=False):
         return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
@@ -360,7 +359,7 @@ class CommonStoreTransaction(object):
         returnValue(homeObject)
 
 
-    @memoized('uid', '_notificationHomes')
+    @memoizedKey("uid", "_notificationHomes")
     @inlineCallbacks
     def notificationsWithUID(self, uid):
         """
@@ -419,7 +418,7 @@ class CommonStoreTransaction(object):
 
     def postCommit(self, operation):
         """
-        Run things after 'commit.'
+        Run things after C{commit}.
         """
         self._postCommitOperations.append(operation)
 
@@ -539,7 +538,7 @@ class CommonHome(LoggingMixIn):
         returnValue(names)
 
 
-    @memoized('name', '_children')
+    @memoizedKey("name", "_children")
     def childWithName(self, name):
         """
         Retrieve the child with the given C{name} contained in this
@@ -551,7 +550,7 @@ class CommonHome(LoggingMixIn):
         return self._childWithName(name, owned=True)
 
 
-    @memoized('name', '_sharedChildren')
+    @memoizedKey("name", "_sharedChildren")
     def sharedChildWithName(self, name):
         """
         Retrieve the shared child with the given C{name} contained in this
@@ -851,7 +850,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     Common ancestor class of AddressBooks and Calendars.
     """
 
-    compareAttributes = '_name _home _resourceID'.split()
+    compareAttributes = "_name _home _resourceID".split()
 
     _objectResourceClass = None
     _bindTable = None
@@ -962,6 +961,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     def objectResourceWithUID(self, uid):
         return self._makeObjectResource(None, uid)
+
 
     @inlineCallbacks
     def _makeObjectResource(self, name, uid):
@@ -1338,7 +1338,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     @type _path: L{FilePath}
     """
 
-    compareAttributes = '_name _parentCollection'.split()
+    compareAttributes = "_name _parentCollection".split()
 
     _objectTable = None
 
@@ -1504,7 +1504,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
     implements(INotificationCollection)
 
-    compareAttributes = '_uid _resourceID'.split()
+    compareAttributes = "_uid _resourceID".split()
 
     _objectResourceClass = None
     _revisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
@@ -1536,7 +1536,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
     def name(self):
-        return 'notification'
+        return "notification"
 
     def uid(self):
         return self._uid
@@ -1571,7 +1571,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         return self.notificationObjectWithUID(self._nameToUID(name))
 
 
-    @memoized('uid', '_notifications')
+    @memoizedKey("uid", "_notifications")
     @inlineCallbacks
     def notificationObjectWithUID(self, uid):
         """
@@ -1759,7 +1759,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
     implements(INotificationObject)
 
-    compareAttributes = '_resourceID _home'.split()
+    compareAttributes = "_resourceID _home".split()
 
     def __init__(self, home, uid):
         self._home = home
