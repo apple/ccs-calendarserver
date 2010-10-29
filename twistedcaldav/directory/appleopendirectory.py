@@ -753,11 +753,6 @@ class OpenDirectoryService(CachingDirectoryService):
                 origIndexKey = origIndexKey.encode("utf-8")
             self.log_debug("Storing (%s %s) %s in internal cache" % (indexType, origIndexKey, record))
 
-            # Fetch the set of groups this record is a member of so we can
-            # cache it, rather than have each process make the same group
-            # lookup
-            record._groupMembershipGUIDs = self.groupsForGUID(record.guid)
-
             self.recordCacheForType(recordType).addRecord(record, indexType, origIndexKey)
 
     def isAvailable(self):
