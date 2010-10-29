@@ -22,6 +22,11 @@ from twext.web2.dav.util import joinURL
 from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.directory.resource import DirectoryReverseProxyResource
 
+from twext.python.log import Logger
+
+log = Logger()
+
+
 __all__ = [
     'uidsResourceName',
     'CommonUIDProvisioningResource'
@@ -63,11 +68,11 @@ class CommonUIDProvisioningResource(object):
         name = record.uid
 
         if record is None:
-            self.log_msg("No directory record with GUID %r" % (name,))
+            log.debug("No directory record with GUID %r" % (name,))
             returnValue(None)
 
         if not getattr(record, self.enabledAttribute):
-            self.log_msg("Directory record %r is not enabled for %s" % (
+            log.debug("Directory record %r is not enabled for %s" % (
                 record, self.homeResourceTypeName))
             returnValue(None)
 
