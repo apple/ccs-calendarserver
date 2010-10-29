@@ -613,18 +613,10 @@ class OpenDirectoryService(CachingDirectoryService):
                 raise UnknownRecordTypeError("Unknown OpenDirectory record type: %s" % (recordType))
 
 
-            try:
-                self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
-                    self.directory,
-                    query.attribute,
-                    query.value,
-                    query.matchType,
-                    caseInsensitive,
-                    listRecordTypes,
-                    attrs,
-                ))
-                results.extend(
-                    lookupMethod(
+            # Because we're getting transient OD error -14987, try 3 times:
+            for i in xrange(3):
+                try:
+                    self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                         self.directory,
                         query.attribute,
                         query.value,
@@ -632,16 +624,32 @@ class OpenDirectoryService(CachingDirectoryService):
                         caseInsensitive,
                         listRecordTypes,
                         attrs,
+                    ))
+                    results.extend(
+                        lookupMethod(
+                            self.directory,
+                            query.attribute,
+                            query.value,
+                            query.matchType,
+                            caseInsensitive,
+                            listRecordTypes,
+                            attrs,
+                        )
                     )
-                )
 
-            except opendirectory.ODError, ex:
-                if ex.message[1] == -14140 or ex.message[1] == -14200:
-                    # Unsupported attribute on record - don't fail
-                    return
+                except opendirectory.ODError, ex:
+                    if ex.message[1] == -14987:
+                        # Fall through and retry
+                        self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
+                    elif ex.message[1] == -14140 or ex.message[1] == -14200:
+                        # Unsupported attribute on record - don't fail
+                        return
+                    else:
+                        self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
+                        raise
                 else:
-                    self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
-                    raise
+                    # Success, so break the retry loop
+                    break
 
         self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
 
