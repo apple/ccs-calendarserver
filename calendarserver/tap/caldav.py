@@ -26,14 +26,12 @@ import socket
 import stat
 import sys
 from time import time
-
 from subprocess import Popen, PIPE
 from pwd import getpwuid, getpwnam
 from grp import getgrnam
 from inspect import getargspec
-
-from OpenSSL.SSL import Error as SSLError
 import OpenSSL
+from OpenSSL.SSL import Error as SSLError
 
 from zope.interface import implements
 
@@ -51,21 +49,20 @@ from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
 from twisted.scripts.mktap import getid
 from twisted.runner import procmon
-from twext.web2.server import Site
 
+import twext
+from twext.web2.server import Site
 from twext.python.log import Logger, LoggingMixIn
 from twext.python.log import logLevelForNamespace, setLogLevelForNamespace
+from twext.python.filepath import CachingFilePath
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
-
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
+from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
-try:
-    from twistedcaldav.version import version
-except ImportError:
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "support"))
-    from version import version as getVersion
-    version = "%s (%s)" % getVersion()
+from txdav.common.datastore.sql import v1_schema
+from txdav.base.datastore.subpostgres import PostgresService
+from txdav.common.datastore.util import UpgradeToDatabaseService
 
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
@@ -75,8 +72,6 @@ from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
-
-from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -90,10 +85,15 @@ from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource, computeProcessCount
 from calendarserver.tools.util import checkDirectory
 
-from txdav.common.datastore.sql import v1_schema
-from txdav.base.datastore.subpostgres import PostgresService
-from txdav.common.datastore.util import UpgradeToDatabaseService
-from twext.python.filepath import CachingFilePath
+try:
+    from calendarserver.version import version
+except ImportError:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "support"))
+    from version import version as getVersion
+    version = "%s (%s*)" % getVersion()
+twext.web2.server.VERSION = "CalendarServer/%s %s" % (
+    version.replace(" ", ""), twext.web2.server.VERSION,
+)
 
 log = Logger()
 

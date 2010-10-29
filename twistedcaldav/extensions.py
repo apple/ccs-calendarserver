@@ -69,17 +69,6 @@ from twistedcaldav.method.report import http_REPORT
 log = Logger()
 
 
-if twistedcaldav.__version__:
-    twext.web2.server.VERSION = "CalendarServer/%s %s" % (
-        twistedcaldav.__version__.replace(" ", ""),
-        twext.web2.server.VERSION,
-    )
-else:
-    twext.web2.server.VERSION = "CalendarServer/? %s" % (
-        twext.web2.server.VERSION,
-    )
-
-
 class SudoersMixin (object):
     """
     Mixin class to let DAVResource, and DAVFile subclasses know about

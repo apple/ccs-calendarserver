@@ -19,7 +19,18 @@
 CalendarServer application code.
 """
 
+#
 # setuptools is annoying
+#
 from warnings import filterwarnings
 filterwarnings("ignore", "Module (.*) was already imported (.*)")
 del filterwarnings
+
+#
+# Set __version__
+#
+
+try:
+    from calendarserver.version import version as __version__
+except ImportError:
+    __version__ = None

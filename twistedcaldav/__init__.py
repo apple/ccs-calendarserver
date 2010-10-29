@@ -22,15 +22,6 @@ See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
 
 #
-# Set __version__
-#
-
-try:
-    from twistedcaldav.version import version as __version__
-except ImportError:
-    __version__ = None
-
-#
 # Load in suitable file extension/content-type map from OS X
 #
 

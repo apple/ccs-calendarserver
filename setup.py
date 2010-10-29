@@ -58,7 +58,7 @@ classifiers = None
 #
 
 version_string = "%s (%s)" % version()
-version_file = file(os.path.join("twistedcaldav", "version.py"), "w")
+version_file = file(os.path.join("calendarserver", "version.py"), "w")
 version_file.write('version = "%s"\n' % version_string)
 version_file.close()
 
