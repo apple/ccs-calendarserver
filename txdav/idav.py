@@ -180,21 +180,41 @@ class IAsyncTransaction(Interface):
     it is assumed to have been started.
     """
 
-    def execSQL(sql, args):
+    def execSQL(sql, args, raiseOnZeroRowCount=None):
         """
         Execute some SQL.
 
+        @param sql: an SQL string.
+
+        @type sql: C{str}
+
+        @param args: C{list} of arguments to interpolate into C{sql}.
+
+        @param raiseOnZeroRowCount: a 0-argument callable which returns an
+            exception to raise if the executed SQL does not affect any rows.
+
         @return: L{Deferred} which fires C{list} of C{tuple}
+
+        @raise: C{raiseOnZeroRowCount} if it was specified and no rows were
+            affected.
         """
 
 
     def commit():
         """
+        Commit changes caused by this transaction.
+
+        @return: L{Deferred} which fires with C{None} upon successful
+            completion of this transaction.
         """
 
 
     def abort():
         """
+        Roll back changes caused by this transaction.
+
+        @return: L{Deferred} which fires with C{None} upon successful
+            rollback of this transaction.
         """
 
 
