@@ -250,8 +250,8 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     @inlineCallbacks
     def test_putConcurrency(self):
         """
-        Test that two concurrent attempts to PUT different address book object resources to the
-        same address book home does not cause a deadlock.
+        Test that two concurrent attempts to PUT different calendar object
+        resources to the same address book home does not cause a deadlock.
         """
 
         calendarStore1 = yield buildStore(self, self.notifierFactory)
@@ -364,3 +364,6 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
         yield d1
         yield d2
+
+
+
