@@ -113,7 +113,9 @@ class WrappingTests(TestCase):
         txn = self.calendarCollection._newStore.newTransaction()
         home = yield txn.calendarHomeWithUID(uid, True)
         cal = yield home.calendarWithName("calendar")
-        cal.createCalendarObjectWithName(objectName, VComponent.fromString(objectText))
+        yield cal.createCalendarObjectWithName(
+            objectName, VComponent.fromString(objectText)
+        )
         yield txn.commit()
 
 
@@ -141,7 +143,9 @@ class WrappingTests(TestCase):
         if adbk is None:
             yield home.createAddressBookWithName("addressbook")
             adbk = yield home.addressbookWithName("addressbook")
-        adbk.createAddressBookObjectWithName(objectName, VCComponent.fromString(objectText))
+        yield adbk.createAddressBookObjectWithName(
+            objectName, VCComponent.fromString(objectText)
+        )
         yield txn.commit()
 
 
