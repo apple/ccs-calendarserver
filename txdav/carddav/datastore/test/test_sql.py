@@ -41,7 +41,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
-        super(AddressBookSQLStorageTests, self).setUp()
+        yield super(AddressBookSQLStorageTests, self).setUp()
         self._sqlStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()
 
@@ -195,18 +195,16 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         Test that two concurrent attempts to PUT different address book object resources to the
         same address book home does not cause a deadlock.
         """
-
-        addressbookStore1 = yield buildStore(self, self.notifierFactory)
-        addressbookStore2 = yield buildStore(self, self.notifierFactory)
+        addressbookStore = yield buildStore(self, self.notifierFactory)
 
         # Provision the home now
-        txn = addressbookStore1.newTransaction()
+        txn = addressbookStore.newTransaction()
         home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
         self.assertNotEqual(home, None)
         yield txn.commit()
 
-        txn1 = addressbookStore1.newTransaction()
-        txn2 = addressbookStore2.newTransaction()
+        txn1 = addressbookStore.newTransaction()
+        txn2 = addressbookStore.newTransaction()
 
         home1 = yield txn1.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
         home2 = yield txn2.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
