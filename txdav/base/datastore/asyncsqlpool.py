@@ -145,22 +145,22 @@ class BaseSqlTxn(object):
 
 
 
-class PooledDBAPITransaction(BaseSqlTxn):
+class PooledSqlTxn(BaseSqlTxn):
 
     def __init__(self, pool):
         self.pool = pool
-        super(PooledDBAPITransaction, self).__init__(
+        super(PooledSqlTxn, self).__init__(
             self.pool.connectionFactory,
             self.pool.reactor
         )
 
 
     def commit(self):
-        return self.repoolAfter(super(PooledDBAPITransaction, self).commit())
+        return self.repoolAfter(super(PooledSqlTxn, self).commit())
 
 
     def abort(self):
-        return self.repoolAfter(super(PooledDBAPITransaction, self).abort())
+        return self.repoolAfter(super(PooledSqlTxn, self).abort())
 
 
     def repoolAfter(self, d):
@@ -208,7 +208,7 @@ class ConnectionPool(Service, object):
         if self.free:
             txn = self.free.pop(0)
         else:
-            txn = PooledDBAPITransaction(self)
+            txn = PooledSqlTxn(self)
         self.busy.append(txn)
         return self.txn
 
