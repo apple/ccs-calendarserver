@@ -338,7 +338,7 @@ class ConnectionPoolConnection(AMP):
 
     @ExecSQL.responder
     @inlineCallbacks
-    def sendSQL(self, transactionID, queryID, sql, args):
+    def receivedSQL(self, transactionID, queryID, sql, args):
         norows = True
         try:
             rows = yield self._txns[transactionID].execSQL(sql, args)
@@ -348,6 +348,8 @@ class ConnectionPoolConnection(AMP):
             if rows is not None:
                 for row in rows:
                     norows = False
+                    # Either this should be yielded or it should be
+                    # requiresAnswer=False
                     self.callRemote(Row, queryID=queryID, row=row)
         self.callRemote(QueryComplete, queryID=queryID, norows=norows)
         returnValue({})
