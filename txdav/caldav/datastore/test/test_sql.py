@@ -254,17 +254,16 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         resources to the same address book home does not cause a deadlock.
         """
 
-        calendarStore1 = yield buildStore(self, self.notifierFactory)
-        calendarStore2 = yield buildStore(self, self.notifierFactory)
+        calendarStore = yield buildStore(self, self.notifierFactory)
 
         # Provision the home now
-        txn = calendarStore1.newTransaction()
+        txn = calendarStore.newTransaction()
         home = yield txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
         self.assertNotEqual(home, None)
         txn.commit()
 
-        txn1 = calendarStore1.newTransaction()
-        txn2 = calendarStore2.newTransaction()
+        txn1 = calendarStore.newTransaction()
+        txn2 = calendarStore.newTransaction()
 
         home1 = yield txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
         home2 = yield txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
