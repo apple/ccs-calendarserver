@@ -111,19 +111,19 @@ def getid(uid, gid):
         gid = gidFromString(gid)
     return (uid, gid)
 
-class CalDAVStatisticsProtocol (Protocol): 
+class CalDAVStatisticsProtocol (Protocol):
 
-    def connectionMade(self): 
-        stats = self.factory.logger.observer.getGlobalHits() 
-        self.transport.write("%s\r\n" % (stats,)) 
-        self.transport.loseConnection() 
+    def connectionMade(self):
+        stats = self.factory.logger.observer.getGlobalHits()
+        self.transport.write("%s\r\n" % (stats,))
+        self.transport.loseConnection()
 
-class CalDAVStatisticsServer (Factory): 
+class CalDAVStatisticsServer (Factory):
 
-    protocol = CalDAVStatisticsProtocol 
+    protocol = CalDAVStatisticsProtocol
 
-    def __init__(self, logObserver): 
-        self.logger = logObserver 
+    def __init__(self, logObserver):
+        self.logger = logObserver
 
 
 class ErrorLoggingMultiService(MultiService):
@@ -246,7 +246,7 @@ class CalDAVOptions (Options, LoggingMixIn):
     def postOptions(self):
         self.loadConfiguration()
         self.checkConfiguration()
-            
+
     def loadConfiguration(self):
         if not os.path.exists(self["config"]):
             print "Config file %s not found. Exiting." % (self["config"],)
@@ -261,7 +261,7 @@ class CalDAVOptions (Options, LoggingMixIn):
             sys.exit(1)
 
         config.updateDefaults(self.overrides)
-        
+
     def checkDirectory(self, dirpath, description, access=None, create=None):
         checkDirectory(dirpath, description, access=access, create=create)
 
@@ -295,7 +295,7 @@ class CalDAVOptions (Options, LoggingMixIn):
             # Require write access because one might not allow editing on /
             access=os.W_OK,
         )
-        
+
         #
         # Verify that other root paths are OK
         #
@@ -338,7 +338,7 @@ class CalDAVOptions (Options, LoggingMixIn):
                 access=os.W_OK,
                 create=(0750, config.UserName, config.GroupName),
             )
-            
+
         #
         # Nuke the file log observer's time format.
         #
@@ -926,21 +926,21 @@ class CalDAVServiceMaker (LoggingMixIn):
         for name, pool in config.Memcached.Pools.items():
             if pool.ServerEnabled:
                 self.log_info("Adding memcached service for pool: %s" % (name,))
-        
+
                 memcachedArgv = [
                     config.Memcached.memcached,
                     "-p", str(pool.Port),
                     "-l", pool.BindAddress,
                     "-U", "0",
                 ]
-        
+
                 if config.Memcached.MaxMemory is not 0:
                     memcachedArgv.extend(["-m", str(config.Memcached.MaxMemory)])
                 if config.UserName:
                     memcachedArgv.extend(["-u", config.UserName])
-        
+
                 memcachedArgv.extend(config.Memcached.Options)
-        
+
                 monitor.addProcess('memcached-%s' % (name,), memcachedArgv, env=parentEnv)
 
         if (
@@ -1005,7 +1005,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         monitor.addProcess("caldav_task", taskArgv, env=parentEnv)
 
 
-        stats = CalDAVStatisticsServer(logger) 
+        stats = CalDAVStatisticsServer(logger)
         statsService = GroupOwnedUNIXServer(
             gid, config.GlobalStatsSocket, stats, mode=0440
         )
@@ -1016,10 +1016,10 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
     def deleteStaleSocketFiles(self):
-        
+
         # Check all socket files we use.
         for checkSocket in [config.ControlSocket, config.GlobalStatsSocket] :
-    
+
             # See if the file exists.
             if (os.path.exists(checkSocket)):
                 # See if the file represents a socket.  If not, delete it.
