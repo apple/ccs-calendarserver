@@ -47,7 +47,6 @@ from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
-from twisted.scripts.mktap import getid
 from twisted.runner import procmon
 
 import twext
@@ -98,6 +97,14 @@ twext.web2.server.VERSION = "CalendarServer/%s %s" % (
 
 log = Logger()
 
+from twisted.python.util import uidFromString, gidFromString
+
+def getid(uid, gid):
+    if uid is not None:
+        uid = uidFromString(uid)
+    if gid is not None:
+        gid = gidFromString(gid)
+    return (uid, gid)
 
 class CalDAVStatisticsProtocol (Protocol): 
 
