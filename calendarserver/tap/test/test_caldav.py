@@ -894,22 +894,22 @@ class DirectoryServiceTest(BaseServiceMakerTests):
 
 class DummyProcessObject(object):
     """
-    Simple stub for the Process Object API that will run a test script.
+    Simple stub for Process Object API which just has an executable and some
+    arguments.
 
     This is a stand in for L{TwistdSlaveProcess}.
     """
 
     def __init__(self, scriptname, *args):
         self.scriptname = scriptname
-        self.args = list(args)
+        self.args = args
 
 
     def getCommandLine(self):
         """
-        Get the command line to invoke this script.
+        Simple command line.
         """
-        return [sys.executable,
-                FilePath(__file__).sibling(self.scriptname).path] + self.args
+        return [self.scriptname] + list(self.args)
 
 
     def getFileDescriptors(self):
@@ -926,6 +926,23 @@ class DummyProcessObject(object):
         return 'Dummy'
 
 
+class ScriptProcessObject(DummyProcessObject):
+    """
+    Simple stub for the Process Object API that will run a test script.
+    """
+
+    def getCommandLine(self):
+        """
+        Get the command line to invoke this script.
+        """
+        return [
+            sys.executable,
+            FilePath(__file__).sibling(self.scriptname).path
+        ] + list(self.args)
+
+
+
+
 
 class DelayedStartupProcessMonitorTests(TestCase):
     """
@@ -939,7 +956,7 @@ class DelayedStartupProcessMonitorTests(TestCase):
         at once, to avoid resource exhaustion.
         """
         dspm = DelayedStartupProcessMonitor()
-        dspm.addProcessObject(DummyProcessObject(
+        dspm.addProcessObject(ScriptProcessObject(
                 'longlines.py', str(DelayedStartupLineLogger.MAX_LENGTH)),
                           os.environ)
         dspm.startService()
@@ -1009,6 +1026,27 @@ class DelayedStartupProcessMonitorTests(TestCase):
                           {0: 'w', 1: 'r', 2: 'r',
                            3: 3, 7: 7,
                            19: 19, 25: 25})
+
+
+    def test_changedArgumentEachSpawn(self):
+        """
+        If the result of C{getCommandLine} changes on subsequent calls,
+        subsequent calls should result in different arguments being passed to
+        C{spawnProcess} each time.
+        """
+        imps = InMemoryProcessSpawner()
+        dspm = DelayedStartupProcessMonitor(imps)
+        slave = DummyProcessObject('scriptname', 'first')
+        dspm.addProcessObject(slave, {})
+        dspm.startService()
+        oneProcessTransport = imps.waitForOneProcess()
+        self.assertEquals(oneProcessTransport.args,
+                          ['scriptname', 'first'])
+        slave.args = ['second']
+        oneProcessTransport.processProtocol.processEnded(None)
+        twoProcessTransport = imps.waitForOneProcess()
+        self.assertEquals(twoProcessTransport.args,
+                          ['scriptname', 'second'])
 
 
     def test_metaDescriptorInheritance(self):
