@@ -1301,7 +1301,7 @@ class DelayedStartupProcessMonitor(Service, object):
                 return name
             def getCommandLine(self):
                 return args
-            def getFileDescriptors():
+            def getFileDescriptors(self):
                 return []
         self.addProcessObject(SimpleProcessObject(), env, uid, gid)
 
