@@ -867,7 +867,7 @@ class CommonTests(CommonCommonTests):
         # Sanity check; make sure the test has the right idea of the subject.
         self.assertNotEquals(vcard1_text, vcard1_text_withDifferentNote)
         newComponent = VComponent.fromString(vcard1_text_withDifferentNote)
-        obj.setComponent(newComponent)
+        yield obj.setComponent(newComponent)
 
         # Putting everything into a separate transaction to account for any
         # caching that may take place.
