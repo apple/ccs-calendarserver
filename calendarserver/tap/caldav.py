@@ -679,16 +679,22 @@ class CalDAVServiceMaker (LoggingMixIn):
         return service
 
 
+    def scheduleOnDiskUpgrade(self):
+        """
+        Schedule any on disk upgrades we might need.  Note that this will only
+        do the filesystem-format upgrades; migration to the database needs to
+        be done when the connection and possibly server is already up and
+        running.
+        """
+        addSystemEventTrigger("before", "startup", upgradeData, config)
+
+
     def makeService_Single(self, options):
         """
         Create a service to be used in a single-process, stand-alone
         configuration.
         """
-        # Schedule any on disk upgrades we might need.  Note that this
-        # will only do the filesystem-format upgrades; migration to the
-        # database needs to be done when the connection and possibly
-        # server is already up and running. -glyph
-        addSystemEventTrigger("before", "startup", upgradeData, config)
+        self.scheduleOnDiskUpgrade()
 
         return self.storageService(self.makeService_Slave(options))
 
@@ -733,7 +739,9 @@ class CalDAVServiceMaker (LoggingMixIn):
                     # FIXME: somehow, this should be a connection pool too, not
                     # unpooled connections; this only runs in the master
                     # process, so this would be a good point to bootstrap that
-                    # whole process.
+                    # whole process.  However, it's somewhat tricky to do that
+                    # right.  The upgrade needs to run in the master, before
+                    # any other things have run.
                     pgserv.produceLocalTransaction, attachmentsRoot,
                     uid=postgresUID, gid=postgresGID
                 )
@@ -766,11 +774,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         """
         s = ErrorLoggingMultiService()
 
-        # Schedule any on disk upgrades we might need.  Note that this
-        # will only do the filesystem-format upgrades; migration to the
-        # database needs to be done when the connection and possibly
-        # server is already up and running. -glyph
-        addSystemEventTrigger("before", "startup", upgradeData, config)
+        self.scheduleOnDiskUpgrade()
 
         # Make sure no old socket files are lying around.
         self.deleteStaleSocketFiles()
@@ -1066,11 +1070,17 @@ class TwistdSlaveProcess(object):
         subprocess and used to accept incoming connections.
 
     @type metaSocket: L{socket.socket}
+
+    @ivar ampDBSocket: an AF_UNIX/SOCK_STREAM socket that is to be inherited by
+        subprocesses and used for sending AMP SQL commands back to its parent.
+
+    @type ampDBSocket: L{socket.socket}
     """
     prefix = "caldav"
 
     def __init__(self, twistd, tapname, configFile, id, interfaces,
-                 inheritFDs=None, inheritSSLFDs=None, metaSocket=None):
+                 inheritFDs=None, inheritSSLFDs=None, metaSocket=None,
+                 ampDBSocket=None):
 
         self.twistd = twistd
 
@@ -1088,6 +1098,7 @@ class TwistdSlaveProcess(object):
         self.inheritSSLFDs = emptyIfNone(inheritSSLFDs)
         self.metaSocket = metaSocket
         self.interfaces = interfaces
+        self.ampDBSocket = ampDBSocket
 
     def getName(self):
         return '%s-%s' % (self.prefix, self.id)
@@ -1099,10 +1110,11 @@ class TwistdSlaveProcess(object):
             process to file descriptor numbers in the current (master) process.
         """
         fds = {}
-        maybeMetaFD = []
-        if self.metaSocket is not None:
-            maybeMetaFD.append(self.metaSocket.fileno())
-        for fd in self.inheritSSLFDs + self.inheritFDs + maybeMetaFD:
+        extraFDs = []
+        for it in [self.metaSocket, self.ampDBSocket]:
+            if it is not None:
+                extraFDs.append(it.fileno())
+        for fd in self.inheritSSLFDs + self.inheritFDs + extraFDs:
             fds[fd] = fd
         return fds
 
@@ -1155,11 +1167,15 @@ class TwistdSlaveProcess(object):
                 "-o", "InheritSSLFDs=%s" % (",".join(map(str, self.inheritSSLFDs)),)
             ])
 
+
         if self.metaSocket is not None:
             args.extend([
                     "-o", "MetaFD=%s" % (self.metaSocket.fileno(),)
                 ])
-
+        if self.ampDBSocket is not None:
+            args.extend([
+                    "-o", "DBAMPFD=%s" % (self.ampDBSocket.fileno(),)
+                ])
         return args
 
 

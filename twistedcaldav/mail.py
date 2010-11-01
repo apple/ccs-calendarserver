@@ -587,10 +587,10 @@ class MailGatewayServiceMaker(LoggingMixIn):
         return multiService
 
 
-#
-# ISchedule Inbox
-#
 class IScheduleService(service.MultiService, LoggingMixIn):
+    """
+    ISchedule Inbox
+    """
 
     def __init__(self, settings, mailer):
         self.settings = settings
@@ -608,8 +608,6 @@ class IScheduleService(service.MultiService, LoggingMixIn):
         self.server = internet.TCPServer(settings['MailGatewayPort'],
             self.factory)
         self.server.setServiceParent(self)
-
-
 
 
 
