@@ -101,6 +101,12 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
     )
 
 
+class ConnectionWithPeer(Connection):
+    def getPeer(self):
+        return "<local>"
+
+    def getHost(self):
+        return "<local>"
 
 def storeFromConfig(config, serviceParent, notifierFactory=None):
     """
@@ -118,8 +124,7 @@ def storeFromConfig(config, serviceParent, notifierFactory=None):
             skt = fromfd(AF_UNIX, SOCK_STREAM, config.DBAMPFD)
             os.close(config.DBAMPFD)
             protocol = ConnectionPoolClient()
-            transport = Connection(skt, protocol) # XXX may need subclass for
-                                                  # getPeer and getHost
+            transport = ConnectionWithPeer(skt, protocol)
             protocol.makeConnection(transport)
             txnFactory = protocol.newTransaction
         dataStore = CommonSQLDataStore(

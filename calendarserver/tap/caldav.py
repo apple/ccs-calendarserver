@@ -43,7 +43,6 @@ from twisted.plugin import IPlugin
 from twisted.internet.defer import gatherResults
 from twisted.internet import reactor
 from twisted.internet.reactor import addSystemEventTrigger
-from twisted.internet.tcp import Connection
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.application.internet import TCPServer, UNIXServer
@@ -77,6 +76,7 @@ from txdav.base.datastore.asyncsqlpool import ConnectionPool
 
 from txdav.base.datastore.asyncsqlpool import ConnectionPoolConnection
 
+from calendarserver.tap.util import ConnectionWithPeer
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
     NegotiateCredentialFactory  # pacify pyflakes
@@ -756,7 +756,9 @@ class CalDAVServiceMaker (LoggingMixIn):
             else:
                 postgresUID = None
                 postgresGID = None
-            pgserv = pgServiceFromConfig(config, subServiceFactory, uid, gid)
+            pgserv = pgServiceFromConfig(
+                config, subServiceFactory, postgresUID, postgresGID
+            )
             return pgserv
         else:
             return mainService
@@ -1054,9 +1056,11 @@ class ConnectionDispenser(object):
         Dispense a file descriptor, already connected to a server, for a
         client.
         """
+        # FIXME: these sockets need to be re-dispensed when the process is
+        # respawned, and they currently won't be.
         c, s = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
         protocol = ConnectionPoolConnection(self.pool)
-        transport = Connection(s, protocol)
+        transport = ConnectionWithPeer(s, protocol)
         protocol.makeConnection(transport)
         return c
 
@@ -1122,6 +1126,7 @@ class TwistdSlaveProcess(object):
         self.metaSocket = metaSocket
         self.interfaces = interfaces
         self.ampSQLDispenser = ampSQLDispenser
+        self.ampDBSocket = None
 
 
     def getName(self):
@@ -1138,8 +1143,8 @@ class TwistdSlaveProcess(object):
         if self.metaSocket is not None:
             extraFDs.append(self.metaSocket.fileno())
         if self.ampSQLDispenser is not None:
-            skt = self.ampSQLDispenser()
-            extraFDs.append(skt.fileno())
+            self.ampDBSocket = self.ampSQLDispenser.dispense()
+            extraFDs.append(self.ampDBSocket.fileno())
         for fd in self.inheritSSLFDs + self.inheritFDs + extraFDs:
             fds[fd] = fd
         return fds
@@ -1192,7 +1197,6 @@ class TwistdSlaveProcess(object):
             args.extend([
                 "-o", "InheritSSLFDs=%s" % (",".join(map(str, self.inheritSSLFDs)),)
             ])
-
 
         if self.metaSocket is not None:
             args.extend([
