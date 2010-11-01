@@ -336,14 +336,9 @@ class ConnectionPoolConnection(AMP):
         returnValue({})
 
 
-    @inlineCallbacks
     def _complete(self, transactionID, thunk):
         txn = self._txns.pop(transactionID)
-        try:
-            yield thunk(txn)
-            returnValue({})
-        finally:
-            self.pool.reclaim(txn)
+        return thunk(txn).addCallback(lambda ignored: {})
 
 
     @Commit.responder
