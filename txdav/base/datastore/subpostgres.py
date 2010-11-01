@@ -402,7 +402,7 @@ class PostgresService(MultiService):
     def unpauseMonitor(self):
         """
         Unpause monitoring.
-        
+
         @see: L{pauseMonitor} 
         """
 #        for pipe in self.monitor.transport.pipes.values():

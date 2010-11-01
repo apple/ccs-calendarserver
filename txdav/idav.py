@@ -172,6 +172,33 @@ class IDataStoreResource(Interface):
 
 
 
+class IAsyncTransaction(Interface):
+    """
+    Asynchronous execution of SQL.
+
+    Note that there is no {begin()} method; if an L{IAsyncTransaction} exists,
+    it is assumed to have been started.
+    """
+
+    def execSQL(sql, args):
+        """
+        Execute some SQL.
+
+        @return: L{Deferred} which fires C{list} of C{tuple}
+        """
+
+
+    def commit():
+        """
+        """
+
+
+    def abort():
+        """
+        """
+
+
+
 class ITransaction(Interface):
     """
     Transaction that can be aborted and either succeeds or fails in
