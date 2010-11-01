@@ -25,26 +25,23 @@ __all__ = [
     "CommonHome",
 ]
 
-import sys
 import datetime
-from Queue import Queue
 
-from zope.interface.declarations import implements, directlyProvides
+from zope.interface import implements, directlyProvides
+
+from twext.python.log import Logger, LoggingMixIn
+from twext.web2.dav.element.rfc2518 import ResourceType
+from twext.web2.http_headers import MimeType
 
 from twisted.python import hashlib
 from twisted.python.modules import getModule
 from twisted.python.util import FancyEqMixin
-from twisted.python.failure import Failure
 
-from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twisted.application.service import Service
 
-from twext.python.log import Logger, LoggingMixIn
 from twext.internet.decorate import memoizedKey
-from twext.web2.dav.element.rfc2518 import ResourceType
-from twext.web2.http_headers import MimeType
 
 from txdav.common.datastore.sql_legacy import PostgresLegacyNotificationsEmulator
 from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
@@ -60,9 +57,6 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     NoSuchObjectResourceError
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
-from txdav.idav import IAsyncTransaction
-from txdav.idav import AlreadyFinishedError
-
 
 from txdav.base.propertystore.sql import PropertyStore
 from txdav.base.propertystore.base import PropertyName
@@ -89,15 +83,17 @@ class CommonDataStore(Service, object):
 
     implements(ICalendarStore)
 
-    def __init__(self, connectionFactory, notifierFactory, attachmentsPath,
-                 enableCalendars=True, enableAddressBooks=True):
+    def __init__(self, sqlTxnFactory, notifierFactory, attachmentsPath,
+                 enableCalendars=True, enableAddressBooks=True,
+                 label="unlabeled"):
         assert enableCalendars or enableAddressBooks
 
-        self.connectionFactory = connectionFactory
+        self.sqlTxnFactory = sqlTxnFactory
         self.notifierFactory = notifierFactory
         self.attachmentsPath = attachmentsPath
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
+        self.label = label
 
 
     def eachCalendarHome(self):
@@ -117,194 +113,13 @@ class CommonDataStore(Service, object):
     def newTransaction(self, label="unlabeled", migrating=False):
         return CommonStoreTransaction(
             self,
-            self.connectionFactory,
+            self.sqlTxnFactory(),
             self.enableCalendars,
             self.enableAddressBooks,
             self.notifierFactory,
             label,
             migrating,
         )
-
-
-_DONE = object()
-
-_STATE_STOPPED = "STOPPED"
-_STATE_RUNNING = "RUNNING"
-_STATE_STOPPING = "STOPPING"
-
-class ThreadHolder(object):
-    """
-    A queue which will hold a reactor threadpool thread open until all of the
-    work in that queue is done.
-    """
-
-    def __init__(self, reactor):
-        self._reactor = reactor
-        self._state = _STATE_STOPPED
-        self._stopper = None
-        self._q = None
-
-
-    def _run(self):
-        """
-        Worker function which runs in a non-reactor thread.
-        """
-        while True:
-            work = self._q.get()
-            if work is _DONE:
-                def finishStopping():
-                    self._state = _STATE_STOPPED
-                    self._q = None
-                    s = self._stopper
-                    self._stopper = None
-                    s.callback(None)
-                self._reactor.callFromThread(finishStopping)
-                return
-            self._oneWorkUnit(*work)
-
-
-    def _oneWorkUnit(self, deferred, instruction):
-        try: 
-            result = instruction()
-        except:
-            etype, evalue, etb = sys.exc_info()
-            def relayFailure():
-                f = Failure(evalue, etype, etb)
-                deferred.errback(f)
-            self._reactor.callFromThread(relayFailure)
-        else:
-            self._reactor.callFromThread(deferred.callback, result)
-
-
-    def submit(self, work):
-        """
-        Submit some work to be run.
-
-        @param work: a 0-argument callable, which will be run in a thread.
-
-        @return: L{Deferred} that fires with the result of L{work}
-        """
-        d = Deferred()
-        self._q.put((d, work))
-        return d
-
-
-    def start(self):
-        """
-        Start this thing, if it's stopped.
-        """
-        if self._state != _STATE_STOPPED:
-            raise RuntimeError("Not stopped.")
-        self._state = _STATE_RUNNING
-        self._q = Queue(0)
-        self._reactor.callInThread(self._run)
-
-
-    def stop(self):
-        """
-        Stop this thing and release its thread, if it's running.
-        """
-        if self._state != _STATE_RUNNING:
-            raise RuntimeError("Not running.")
-        s = self._stopper = Deferred()
-        self._state = _STATE_STOPPING
-        self._q.put(_DONE)
-        return s
-
-
-
-class ThisProcessSqlTxn(object):
-    """
-    L{IAsyncTransaction} implementation based on a L{ThreadHolder} in the
-    current process.
-    """
-    implements(IAsyncTransaction)
-
-    def __init__(self, connectionFactory):
-        """
-        @param connectionFactory: A 0-argument callable which returns a DB-API
-            2.0 connection.
-        """
-        self._completed = False
-        self._holder = ThreadHolder(reactor)
-        self._holder.start()
-        def initCursor():
-            # support threadlevel=1; we can't necessarily cursor() in a
-            # different thread than we do transactions in.
-
-            # FIXME: may need to be pooling ThreadHolders along with
-            # connections, if threadlevel=1 requires connect() be called in the
-            # same thread as cursor() et. al.
-            self._connection = connectionFactory()
-            self._cursor = self._connection.cursor()
-        self._holder.submit(initCursor)
-
-
-    def store(self):
-        return self._store
-
-
-    def __repr__(self):
-        return "PG-TXN<%s>" % (self._label,)
-
-
-    def _reallyExecSQL(self, sql, args=[], raiseOnZeroRowCount=None):
-        self._cursor.execute(sql, args)
-        if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
-            raise raiseOnZeroRowCount()
-        if self._cursor.description:
-            return self._cursor.fetchall()
-        else:
-            return None
-
-
-    def execSQL(self, *args, **kw):
-        result = self._holder.submit(
-            lambda : self._reallyExecSQL(*args, **kw)
-        )
-        if self.noisy:
-            def reportResult(results):
-                sys.stdout.write("\n".join([
-                    "",
-                    "SQL (%d): %r %r" % (self._txid, args, kw),
-                    "Results (%d): %r" % (self._txid, results,),
-                    "",
-                    ]))
-                return results
-            result.addBoth(reportResult)
-        return result
-
-
-    def commit(self):
-        if not self._completed:
-            self._completed = True
-            def reallyCommit():
-                self._connection.commit()
-                self._connection.close()
-            result = self._holder.submit(reallyCommit)
-            self._holder.stop()
-            return result
-        else:
-            raise AlreadyFinishedError()
-
-
-    def abort(self):
-        if not self._completed:
-            def reallyAbort():
-                self._connection.rollback()
-                self._connection.close()
-            self._completed = True
-            result = self._holder.submit(reallyAbort)
-            self._holder.stop()
-            return result
-        else:
-            raise AlreadyFinishedError()
-
-
-    def __del__(self):
-        if not self._completed:
-            print "CommonStoreTransaction.__del__: OK"
-            self.abort()
 
 
 
@@ -317,7 +132,7 @@ class CommonStoreTransaction(object):
 
     id = 0
 
-    def __init__(self, store, cursorFactory,
+    def __init__(self, store, sqlTxn,
                  enableCalendars, enableAddressBooks,
                  notifierFactory, label, migrating=False):
         self._store = store
@@ -345,7 +160,7 @@ class CommonStoreTransaction(object):
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
         CommonStoreTransaction._homeTable[ECALENDARTYPE] = CALENDAR_HOME_TABLE
         CommonStoreTransaction._homeTable[EADDRESSBOOKTYPE] = ADDRESSBOOK_HOME_TABLE
-        self._sqlTxn = ThisProcessSqlTxn(cursorFactory)
+        self._sqlTxn = sqlTxn
 
 
     def store(self):

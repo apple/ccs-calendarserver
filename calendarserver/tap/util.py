@@ -94,7 +94,7 @@ def storeFromConfig(config, notifierFactory=None):
             maxConnections=config.Postgres.MaxConnections,
             options=config.Postgres.Options,
         )
-        return CommonSQLDataStore(postgresService.produceConnection,
+        return CommonSQLDataStore(postgresService.produceLocalTransaction,
             notifierFactory, dbRoot.child("attachments"),
             config.EnableCalDAV, config.EnableCardDAV)
     else:

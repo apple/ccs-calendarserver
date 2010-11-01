@@ -28,7 +28,7 @@ from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, succeed, inlineCallbacks
+from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.task import deferLater
 from twisted.python import log
 
@@ -51,6 +51,8 @@ def dumpConnectionStatus():
     for connection in allInstancesOf(DiagnosticConnectionWrapper):
         print connection.label, connection.state
     print '--- CONNECTIONS END ---'
+
+
 
 class SQLStoreBuilder(object):
     """
@@ -79,18 +81,18 @@ class SQLStoreBuilder(object):
                     pass
                 try:
                     self.store = CommonDataStore(
-                        lambda label=None: connectionFactory(
-                            label or currentTestID
-                        ),
+                        self.sharedService.produceLocalTransaction,
                         notifierFactory,
                         attachmentRoot
                     )
+                    self.store.label = currentTestID
                 except:
                     ready.errback()
                     raise
                 else:
-                    self.cleanDatabase(testCase)
-                    ready.callback(self.store)
+                    def readyNow(ignored):
+                        ready.callback(self.store)
+                    return self.cleanDatabase(testCase).addCallback(readyNow)
                 return self.store
             self.sharedService = PostgresService(
                 dbRoot, getReady, v1_schema, resetSchema=True,
@@ -107,8 +109,9 @@ class SQLStoreBuilder(object):
             result = ready
         else:
             self.store.notifierFactory = notifierFactory
-            self.cleanDatabase(testCase)
-            result = succeed(self.store)
+            result = self.cleanDatabase(testCase).addCallback(
+                lambda ignored: self.store
+            )
 
         def cleanUp():
             # FIXME: clean up any leaked connections and report them with an
@@ -120,11 +123,13 @@ class SQLStoreBuilder(object):
         return result
 
 
+    @inlineCallbacks
     def cleanDatabase(self, testCase):
-        cleanupConn = self.store.connectionFactory(
+        cleanupTxn = self.store.sqlTxnFactory(
             "%s schema-cleanup" % (testCase.id(),)
         )
-        cursor = cleanupConn.cursor()
+        # TODO: should be getting these tables from a declaration of the schema
+        # somewhere.
         tables = ['INVITE',
                   'RESOURCE_PROPERTY',
                   'ATTACHMENT',
@@ -143,14 +148,14 @@ class SQLStoreBuilder(object):
                   'NOTIFICATION_HOME']
         for table in tables:
             try:
-                cursor.execute("delete from "+table)
+                yield cleanupTxn.execSQL("delete from "+table, [])
             except:
                 log.err()
-        cleanupConn.commit()
-        cleanupConn.close()
+        yield cleanupTxn.commit()
 
 theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore
+
 
 
 @inlineCallbacks
