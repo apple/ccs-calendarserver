@@ -78,7 +78,7 @@ log = Logger()
 
 
 
-def storeFromConfig(config, notifierFactory=None):
+def storeFromConfig(config, serviceParent, notifierFactory=None):
     """
     Produce an L{IDataStore} from the given configuration and notifier factory.
     """
@@ -114,6 +114,7 @@ def directoryFromConfig(config):
     directories = []
 
     directoryClass = namedClass(config.DirectoryService.type)
+    principalResourceClass       = DirectoryPrincipalProvisioningResource
 
     log.info("Configuring directory service of type: %s"
         % (config.DirectoryService.type,))
@@ -189,11 +190,13 @@ def directoryFromConfig(config):
         directory.setRealm(realmName)
     except ImportError:
         pass
-
+    log.info("Setting up principal collection: %r"
+                  % (principalResourceClass,))
+    principalResourceClass("/principals/", directory)
     return directory
 
 
-def getRootResource(config, resources=None):
+def getRootResource(config, serviceParent, resources=None):
     """
     Set up directory service and resource hierarchy based on config.
     Return root resource.
@@ -210,7 +213,6 @@ def getRootResource(config, resources=None):
     # Default resource classes
     #
     rootResourceClass            = RootResource
-    principalResourceClass       = DirectoryPrincipalProvisioningResource
     calendarResourceClass        = DirectoryCalendarHomeProvisioningResource
     iScheduleResourceClass       = IScheduleInboxResource
     timezoneServiceResourceClass = TimezoneServiceResource
@@ -322,10 +324,8 @@ def getRootResource(config, resources=None):
     #
     log.info("Setting up document root at: %s"
                   % (config.DocumentRoot,))
-    log.info("Setting up principal collection: %r"
-                  % (principalResourceClass,))
 
-    principalCollection = principalResourceClass("/principals/", directory)
+    principalCollection = directory.principalCollection
 
     #
     # Configure NotifierFactory
@@ -338,7 +338,7 @@ def getRootResource(config, resources=None):
     else:
         notifierFactory = None
 
-    newStore = storeFromConfig(config, notifierFactory)
+    newStore = storeFromConfig(config, serviceParent, notifierFactory)
 
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: %r" % (calendarResourceClass,))

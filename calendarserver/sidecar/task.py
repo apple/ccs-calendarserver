@@ -27,7 +27,7 @@ from datetime import date, timedelta
 
 from zope.interface import implements
 
-from twisted.application.service import Service, IServiceMaker
+from twisted.application.service import MultiService, Service, IServiceMaker
 from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue
 from twisted.internet.reactor import callLater
 from twisted.plugin import IPlugin
@@ -318,6 +318,7 @@ class CalDAVTaskServiceMaker (LoggingMixIn):
 
     def makeService(self, options):
 
+        svc = MultiService()
         #
         # The task sidecar doesn't care about system SACLs
         #
@@ -330,11 +331,12 @@ class CalDAVTaskServiceMaker (LoggingMixIn):
         oldLogLevel = logLevelForNamespace(None)
         setLogLevelForNamespace(None, "info")
 
-        rootResource = getRootResource(config)
+        rootResource = getRootResource(config, svc)
 
-        service = CalDAVTaskService(rootResource)
+        CalDAVTaskService(rootResource).setServiceParent(svc)
 
         # Change log level back to what it was before
         setLogLevelForNamespace(None, oldLogLevel)
 
-        return service
+        return svc
+

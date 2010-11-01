@@ -87,6 +87,7 @@ from calendarserver.tools.util import checkDirectory
 
 try:
     from calendarserver.version import version
+    version
 except ImportError:
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "support"))
     from version import version as getVersion
@@ -497,7 +498,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         additional = []
         if config.Scheduling.iMIP.Enabled:
             additional.append(("inbox", IMIPReplyInboxResource, [], "digest"))
-        rootResource = getRootResource(config, additional)
 
         #
         # Configure the service
@@ -527,6 +527,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("Configuring access log observer: %s" % (logObserver,))
 
         service = CalDAVService(logObserver)
+
+        rootResource = getRootResource(config, service, additional)
 
         underlyingSite = Site(rootResource)
         requestFactory = underlyingSite

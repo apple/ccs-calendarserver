@@ -24,7 +24,7 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryError
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 
-from calendarserver.tap.util import getRootResource
+from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools.principals import parseCreationArgs, matchStrings, updateRecord, principalForPrincipalID, getProxies, setProxies
 
 
@@ -226,7 +226,7 @@ class ManagePrincipalsTestCase(TestCase):
 
     @inlineCallbacks
     def test_updateRecord(self):
-        directory = getRootResource(config).getDirectory()
+        directory = directoryFromConfig(config)
         guid = "eee28807-a8c5-46c8-a558-a08281c558a7"
 
         (yield updateRecord(True, directory, "locations",
@@ -264,7 +264,7 @@ class ManagePrincipalsTestCase(TestCase):
         """
         Read and Write proxies can be set en masse
         """
-        directory = getRootResource(config).getDirectory()
+        directory = directoryFromConfig(config)
 
         principal = principalForPrincipalID("users:user01", directory=directory)
         readProxies, writeProxies = (yield getProxies(principal, directory=directory))
