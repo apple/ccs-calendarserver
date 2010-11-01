@@ -574,7 +574,8 @@ class SlaveServiceTest(BaseServiceMakerTests):
         service = self.makeService()
 
         for s in service.services:
-            self.assertEquals(s.kwargs["interface"], "127.0.0.1")
+            if isinstance(s, (internet.TCPServer, internet.SSLServer)):
+                self.assertEquals(s.kwargs["interface"], "127.0.0.1")
 
     def test_multipleBindAddresses(self):
         """
