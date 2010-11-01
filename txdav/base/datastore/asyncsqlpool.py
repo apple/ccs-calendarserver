@@ -20,6 +20,7 @@ Asynchronous multi-process connection pool.
 """
 
 import sys
+
 from cStringIO import StringIO
 from cPickle import dumps, loads
 from itertools import count
@@ -148,9 +149,12 @@ class BaseSqlTxn(object):
         Release the thread and database connection associated with this
         transaction.
         """
+        self._completed = True
         self._stopped = True
-        self._holder.submit(self._connection.close)
-        return self._holder.stop()
+        holder = self._holder
+        self._holder = None
+        holder.submit(self._connection.close)
+        return holder.stop()
 
 
 
@@ -170,23 +174,34 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
 
 
     def execSQL(self, *a, **kw):
-        if self._complete:
-            raise AlreadyFinishedError()
+        self._checkComplete()
         return super(PooledSqlTxn, self).execSQL(*a, **kw)
 
 
     def commit(self):
-        if self._complete:
-            raise AlreadyFinishedError()
-        self._complete = True
+        self._markComplete()
         return self._repoolAfter(super(PooledSqlTxn, self).commit())
 
 
     def abort(self):
+        self._markComplete()
+        return self._repoolAfter(super(PooledSqlTxn, self).abort())
+
+
+    def _checkComplete(self):
+        """
+        If the transaction is complete, raise L{AlreadyFinishedError}
+        """
         if self._complete:
             raise AlreadyFinishedError()
+
+
+    def _markComplete(self):
+        """
+        Mark the transaction as complete, raising AlreadyFinishedError.
+        """
+        self._checkComplete()
         self._complete = True
-        return self._repoolAfter(super(PooledSqlTxn, self).abort())
 
 
     def _repoolAfter(self, d):
@@ -234,7 +249,7 @@ class ConnectionPool(Service, object):
             yield free.stop()
 
 
-    def connection(self):
+    def connection(self, label="<unlabeled>"):
         """
         Find a transaction; either retrieve a free one from the list or
         allocate a new one if no free ones are available.
