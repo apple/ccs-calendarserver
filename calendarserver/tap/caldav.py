@@ -723,7 +723,11 @@ class CalDAVServiceMaker (LoggingMixIn):
                 attachmentsRoot = dbRoot.child("attachments")
                 return UpgradeToDatabaseService.wrapService(
                     CachingFilePath(config.DocumentRoot), mainService,
-                    connectionFactory, attachmentsRoot,
+                    # FIXME: somehow, this should be a connection pool too, not
+                    # unpooled connections; this only runs in the master
+                    # process, so this would be a good point to bootstrap that
+                    # whole process.
+                    pgserv.produceLocalTransaction, attachmentsRoot,
                     uid=postgresUID, gid=postgresGID
                 )
             if os.getuid() == 0: # Only override if root
