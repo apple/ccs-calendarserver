@@ -819,7 +819,9 @@ class CalDAVServiceMaker (LoggingMixIn):
         if isinstance(ssvc, PostgresService):
             # TODO: better way of doing this conditional.  Look at the config
             # again, possibly?
-            dispenser = ConnectionDispenser(ssvc.produceConnection)
+            pool = ConnectionPool(ssvc.produceConnection)
+            pool.setServiceParent(s)
+            dispenser = ConnectionDispenser(pool)
         else:
             dispenser = None
 
@@ -1047,8 +1049,8 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 class ConnectionDispenser(object):
 
-    def __init__(self, connectionFactory):
-        self.pool = ConnectionPool(connectionFactory)
+    def __init__(self, connectionPool):
+        self.pool = connectionPool
 
 
     def dispense(self):
