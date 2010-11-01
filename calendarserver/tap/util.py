@@ -61,6 +61,7 @@ try:
     NegotiateCredentialFactory  # pacify pyflakes
 except ImportError:
     NegotiateCredentialFactory = None
+from txdav.base.datastore.asyncsqlpool import ConnectionPool
 
 from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
@@ -84,6 +85,9 @@ def storeFromConfig(config, serviceParent, notifierFactory=None):
     """
     if config.UseDatabase:
         dbRoot = CachingFilePath(config.DatabaseRoot)
+
+        # Construct a PostgresService exactly as the parent would, so that we
+        # can establish connection information.
         postgresService = PostgresService(
             dbRoot, None, v1_schema,
             databaseName=config.Postgres.DatabaseName,
@@ -94,9 +98,17 @@ def storeFromConfig(config, serviceParent, notifierFactory=None):
             maxConnections=config.Postgres.MaxConnections,
             options=config.Postgres.Options,
         )
-        return CommonSQLDataStore(postgresService.produceLocalTransaction,
+
+        cp = ConnectionPool(postgresService.produceConnection)
+        cp.setServiceParent(serviceParent)
+
+        dataStore = CommonSQLDataStore(
+            cp.connection,
             notifierFactory, dbRoot.child("attachments"),
-            config.EnableCalDAV, config.EnableCardDAV)
+            config.EnableCalDAV, config.EnableCardDAV
+        )
+        dataStore.setServiceParent(serviceParent)
+        return dataStore
     else:
         return CommonFileDataStore(FilePath(config.DocumentRoot),
             notifierFactory, config.EnableCalDAV, config.EnableCardDAV) 
