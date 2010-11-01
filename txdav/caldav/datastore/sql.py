@@ -589,7 +589,7 @@ class AttachmentStorageTransport(object):
 
     @inlineCallbacks
     def loseConnection(self):
-        
+
         old_size = self.attachment.size()
 
         self.attachment._path.setContent(self.buf)
