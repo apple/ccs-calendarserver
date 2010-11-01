@@ -596,7 +596,8 @@ class IScheduleService(service.MultiService, LoggingMixIn):
         self.settings = settings
         self.mailer = mailer
 
-        rootResource = getRootResource(config,
+        rootResource = getRootResource(
+            config,
             self,
             (
                 ("inbox", IMIPInvitationInboxResource, (mailer,), "digest"),
