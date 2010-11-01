@@ -103,44 +103,10 @@ def storeFromConfig(config, notifierFactory=None):
 
 
 
-def getRootResource(config, resources=None):
+def directoryFromConfig(config):
     """
-    Set up directory service and resource hierarchy based on config.
-    Return root resource.
-
-    Additional resources can be added to the hierarchy by passing a list of
-    tuples containing: path, resource class, __init__ args list, and optional
-    authentication scheme ("basic" or "digest").
+    Create an L{AggregateDirectoryService} from the given configuration.
     """
-    
-    # FIXME: this is only here to workaround circular imports
-    doBind()
-
-    #
-    # Default resource classes
-    #
-    rootResourceClass            = RootResource
-    principalResourceClass       = DirectoryPrincipalProvisioningResource
-    calendarResourceClass        = DirectoryCalendarHomeProvisioningResource
-    iScheduleResourceClass       = IScheduleInboxResource
-    timezoneServiceResourceClass = TimezoneServiceResource
-    webCalendarResourceClass     = WebCalendarResource
-    webAdminResourceClass        = WebAdminResource
-    addressBookResourceClass     = DirectoryAddressBookHomeProvisioningResource
-    directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
-
-    #
-    # Setup the Augment Service
-    #
-    augmentClass = namedClass(config.AugmentService.type)
-
-    log.info("Configuring augment service of type: %s" % (augmentClass,))
-
-    try:
-        augment.AugmentService = augmentClass(**config.AugmentService.params)
-    except IOError:
-        log.error("Could not start augment service")
-        raise
 
     #
     # Setup the Directory
@@ -223,6 +189,51 @@ def getRootResource(config, resources=None):
         directory.setRealm(realmName)
     except ImportError:
         pass
+
+    return directory
+
+
+def getRootResource(config, resources=None):
+    """
+    Set up directory service and resource hierarchy based on config.
+    Return root resource.
+
+    Additional resources can be added to the hierarchy by passing a list of
+    tuples containing: path, resource class, __init__ args list, and optional
+    authentication scheme ("basic" or "digest").
+    """
+
+    # FIXME: this is only here to workaround circular imports
+    doBind()
+
+    #
+    # Default resource classes
+    #
+    rootResourceClass            = RootResource
+    principalResourceClass       = DirectoryPrincipalProvisioningResource
+    calendarResourceClass        = DirectoryCalendarHomeProvisioningResource
+    iScheduleResourceClass       = IScheduleInboxResource
+    timezoneServiceResourceClass = TimezoneServiceResource
+    webCalendarResourceClass     = WebCalendarResource
+    webAdminResourceClass        = WebAdminResource
+    addressBookResourceClass     = DirectoryAddressBookHomeProvisioningResource
+    directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
+
+    #
+    # Setup the Augment Service
+    #
+    augmentClass = namedClass(config.AugmentService.type)
+
+    log.info("Configuring augment service of type: %s" % (augmentClass,))
+
+    try:
+        augment.AugmentService = augmentClass(**config.AugmentService.params)
+    except IOError:
+        log.error("Could not start augment service")
+        raise
+
+
+    directory = directoryFromConfig(config)
 
     #
     # Setup the ProxyDB Service
