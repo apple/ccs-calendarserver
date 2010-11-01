@@ -993,7 +993,7 @@ class CommonTests(CommonCommonTests):
         # Sanity check; make sure the test has the right idea of the subject.
         self.assertNotEquals(event1_text, event1_text_withDifferentSubject)
         newComponent = VComponent.fromString(event1_text_withDifferentSubject)
-        obj.setComponent(newComponent)
+        yield obj.setComponent(newComponent)
 
         # Putting everything into a separate transaction to account for any
         # caching that may take place.
