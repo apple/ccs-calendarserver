@@ -102,7 +102,7 @@ class IDataStore(Interface):
     def newTransaction(label=None):
         """
         Create a new transaction.
-        
+
         @param label: A label to assign to this transaction for diagnostic
             purposes.
         @type label: C{str}
