@@ -111,6 +111,9 @@ class CommonDataStore(Service, object):
 
 
     def newTransaction(self, label="unlabeled", migrating=False):
+        """
+        @see L{IDataStore.newTransaction}
+        """
         return CommonStoreTransaction(
             self,
             self.sqlTxnFactory(),
