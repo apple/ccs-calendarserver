@@ -285,13 +285,14 @@ class CommonStoreTransaction(object):
 
     def execSQL(self, *a, **kw):
         """
+        Execute some SQL (delegate to L{IAsyncTransaction}).
         """
         return self._sqlTxn.execSQL(*a, **kw)
 
 
     def commit(self):
         """
-        Commit the transaction and return 
+        Commit the transaction and execute any post-commit hooks.
         """
         def postCommit(ignored):
             for operation in self._postCommitOperations:
@@ -302,7 +303,7 @@ class CommonStoreTransaction(object):
 
     def abort(self):
         """
-        docstring for abort
+        Abort the transaction.
         """
         return self._sqlTxn.abort()
 
