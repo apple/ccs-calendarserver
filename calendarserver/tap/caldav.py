@@ -1233,9 +1233,6 @@ class DelayedStartupProcessMonitor(Service, object):
     L{Deferred} which fires only when all processes have shut down, to allow
     for a clean service shutdown.
 
-    @ivar processObjects: a C{list} of L{TwistdSlaveProcess} to add using
-        C{self.addProcess} when this service starts up.
-
     @ivar _extraFDs: a mapping from process names to extra file-descriptor
         maps.  (By default, all processes will have the standard stdio mapping,
         so all file descriptors here should be >2.)  This is updated during
@@ -1266,7 +1263,6 @@ class DelayedStartupProcessMonitor(Service, object):
         self.timeStarted = {}
         self.murder = {}
         self.restart = {}
-        self.processObjects = []
         self._extraFDs = {}
         self.stopping = False
         if config.MultiProcess.StaggeredStartup.Enabled:
@@ -1300,15 +1296,17 @@ class DelayedStartupProcessMonitor(Service, object):
         @raises: C{KeyError} if a process with the given name already
             exists
         """
-        if name in self.processes:
-            raise KeyError("remove %s first" % (name,))
-        self.processes[name] = args, uid, gid, env
-        self.delay[name] = self.minRestartDelay
-        if self.running:
-            self.startProcess(name)
+        class SimpleProcessObject(object):
+            def getName(self):
+                return name
+            def getCommandLine(self):
+                return args
+            def getFileDescriptors():
+                return []
+        self.addProcessObject(SimpleProcessObject(), env, uid, gid)
 
 
-    def addProcessObject(self, process, env):
+    def addProcessObject(self, process, env, uid=None, gid=None):
         """
         Add a process object to be run when this service is started.
 
@@ -1317,18 +1315,16 @@ class DelayedStartupProcessMonitor(Service, object):
         @param process: a L{TwistdSlaveProcesses} object to be started upon
             service startup.
         """
-        self.processObjects.append((process, env))
+        name = process.getName()
+        self.processes[name] = (process, env, uid, gid)
+        self.delay[name] = self.minRestartDelay
+        if self.running:
+            self.startProcess(name)
 
 
     def startService(self):
         # Now we're ready to build the command lines and actualy add the
         # processes to procmon.
-        for processObject, env in self.processObjects:
-            name = processObject.getName()
-            cmdline = processObject.getCommandLine()
-            filedes = processObject.getFileDescriptors()
-            self._extraFDs[name] = filedes
-            self.addProcess(name, cmdline, env=env)
         super(DelayedStartupProcessMonitor, self).startService()
         for name in self.processes:
             self.startProcess(name)
@@ -1475,12 +1471,14 @@ class DelayedStartupProcessMonitor(Service, object):
         p = self.protocols[name] = DelayedStartupLoggingProtocol()
         p.service = self
         p.name = name
-        args, uid, gid, env = self.processes[name]
+        procObj, env, uid, gid= self.processes[name]
         self.timeStarted[name] = time()
 
         childFDs = { 0 : "w", 1 : "r", 2 : "r" }
 
-        childFDs.update(self._extraFDs.get(name, {}))
+        childFDs.update(procObj.getFileDescriptors())
+
+        args = procObj.getCommandLine()
 
         self._reactor.spawnProcess(
             p, args[0], args, uid=uid, gid=gid, env=env,
@@ -1518,16 +1516,16 @@ class DelayedStartupProcessMonitor(Service, object):
 
     def __repr__(self):
         l = []
-        for name, proc in self.processes.items():
+        for name, (procObj, uid, gid, env) in self.processes.items():
             uidgid = ''
-            if proc[1] is not None:
-                uidgid = str(proc[1])
-            if proc[2] is not None:
-                uidgid += ':'+str(proc[2])
+            if uid is not None:
+                uidgid = str(uid)
+            if gid is not None:
+                uidgid += ':'+str(gid)
 
             if uidgid:
                 uidgid = '(' + uidgid + ')'
-            l.append('%r%s: %r' % (name, uidgid, proc[0]))
+            l.append('%r%s: %r' % (name, uidgid, procObj))
         return ('<' + self.__class__.__name__ + ' '
                 + ' '.join(l)
                 + '>')
