@@ -22,7 +22,7 @@ __all__ = [
 import errno
 import os
 from time import sleep
-from socket import fromfd
+from socket import fromfd, AF_UNIX, SOCK_STREAM
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
@@ -115,7 +115,8 @@ def storeFromConfig(config, serviceParent, notifierFactory=None):
         else:
             # TODO: something to do with loseConnection here, maybe?  I don't
             # think it actually needs to be shut down, though.
-            skt = fromfd(config.DBAMPFD)
+            skt = fromfd(AF_UNIX, SOCK_STREAM, config.DBAMPFD)
+            os.close(config.DBAMPFD)
             protocol = ConnectionPoolClient()
             transport = Connection(skt, protocol) # XXX may need subclass for
                                                   # getPeer and getHost

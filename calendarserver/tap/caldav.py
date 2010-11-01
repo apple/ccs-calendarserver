@@ -43,6 +43,7 @@ from twisted.plugin import IPlugin
 from twisted.internet.defer import gatherResults
 from twisted.internet import reactor
 from twisted.internet.reactor import addSystemEventTrigger
+from twisted.internet.tcp import Connection
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.application.internet import TCPServer, UNIXServer
@@ -69,8 +70,13 @@ from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
+from txdav.base.datastore.subpostgres import PostgresService
 
 from calendarserver.tap.util import pgServiceFromConfig
+from txdav.base.datastore.asyncsqlpool import ConnectionPool
+
+from txdav.base.datastore.asyncsqlpool import ConnectionPoolConnection
+
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
     NegotiateCredentialFactory  # pacify pyflakes
@@ -805,7 +811,15 @@ class CalDAVServiceMaker (LoggingMixIn):
         monitor = DelayedStartupProcessMonitor()
         s.processMonitor = monitor
 
-        self.storageService(monitor, uid, gid).setServiceParent(s)
+        ssvc = self.storageService(monitor, uid, gid)
+        ssvc.setServiceParent(s)
+
+        if isinstance(ssvc, PostgresService):
+            # TODO: better way of doing this conditional.  Look at the config
+            # again, possibly?
+            dispenser = ConnectionDispenser(ssvc.produceConnection)
+        else:
+            dispenser = None
 
         parentEnv = {
             "PATH": os.environ.get("PATH", ""),
@@ -895,6 +909,8 @@ class CalDAVServiceMaker (LoggingMixIn):
             else:
                 extraArgs = dict(inheritFDs=inheritFDs,
                                  inheritSSLFDs=inheritSSLFDs)
+            if dispenser is not None:
+                extraArgs.update(ampSQLDispenser=dispenser)
             process = TwistdSlaveProcess(
                 sys.argv[0],
                 self.tapname,
@@ -1027,6 +1043,25 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
 
+class ConnectionDispenser(object):
+
+    def __init__(self, connectionFactory):
+        self.pool = ConnectionPool(connectionFactory)
+
+
+    def dispense(self):
+        """
+        Dispense a file descriptor, already connected to a server, for a
+        client.
+        """
+        c, s = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+        protocol = ConnectionPoolConnection(self.pool)
+        transport = Connection(s, protocol)
+        protocol.makeConnection(transport)
+        return c
+
+
+
 class TwistdSlaveProcess(object):
     """
     A L{TwistdSlaveProcess} is information about how to start a slave process
@@ -1060,16 +1095,15 @@ class TwistdSlaveProcess(object):
 
     @type metaSocket: L{socket.socket}
 
-    @ivar ampDBSocket: an AF_UNIX/SOCK_STREAM socket that is to be inherited by
-        subprocesses and used for sending AMP SQL commands back to its parent.
-
-    @type ampDBSocket: L{socket.socket}
+    @ivar ampSQLDispenser: a factory for AF_UNIX/SOCK_STREAM sockets that are
+        to be inherited by subprocesses and used for sending AMP SQL commands
+        back to its parent.
     """
     prefix = "caldav"
 
     def __init__(self, twistd, tapname, configFile, id, interfaces,
                  inheritFDs=None, inheritSSLFDs=None, metaSocket=None,
-                 ampDBSocket=None):
+                 ampSQLDispenser=None):
 
         self.twistd = twistd
 
@@ -1087,7 +1121,8 @@ class TwistdSlaveProcess(object):
         self.inheritSSLFDs = emptyIfNone(inheritSSLFDs)
         self.metaSocket = metaSocket
         self.interfaces = interfaces
-        self.ampDBSocket = ampDBSocket
+        self.ampSQLDispenser = ampSQLDispenser
+
 
     def getName(self):
         return '%s-%s' % (self.prefix, self.id)
@@ -1100,9 +1135,11 @@ class TwistdSlaveProcess(object):
         """
         fds = {}
         extraFDs = []
-        for it in [self.metaSocket, self.ampDBSocket]:
-            if it is not None:
-                extraFDs.append(it.fileno())
+        if self.metaSocket is not None:
+            extraFDs.append(self.metaSocket.fileno())
+        if self.ampSQLDispenser is not None:
+            skt = self.ampSQLDispenser()
+            extraFDs.append(skt.fileno())
         for fd in self.inheritSSLFDs + self.inheritFDs + extraFDs:
             fds[fd] = fd
         return fds
