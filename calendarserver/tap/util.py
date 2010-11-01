@@ -22,6 +22,7 @@ __all__ = [
 import errno
 import os
 from time import sleep
+from socket import fromfd
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
@@ -34,6 +35,7 @@ from twext.web2.static import File as FileResource
 from twisted.cred.portal import Portal
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.reactor import addSystemEventTrigger
+from twisted.internet.tcp import Connection
 from twisted.python.reflect import namedClass
 
 from twistedcaldav import memcachepool
@@ -62,6 +64,7 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 from txdav.base.datastore.asyncsqlpool import ConnectionPool
+from txdav.base.datastore.asyncsqlpool import ConnectionPoolClient
 
 from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
@@ -105,11 +108,21 @@ def storeFromConfig(config, serviceParent, notifierFactory=None):
     """
     if config.UseDatabase:
         postgresService = pgServiceFromConfig(config, None)
-        cp = ConnectionPool(postgresService.produceConnection)
-        cp.setServiceParent(serviceParent)
-
+        if config.DBAMPFD == 0:
+            cp = ConnectionPool(postgresService.produceConnection)
+            cp.setServiceParent(serviceParent)
+            txnFactory = cp.connection
+        else:
+            # TODO: something to do with loseConnection here, maybe?  I don't
+            # think it actually needs to be shut down, though.
+            skt = fromfd(config.DBAMPFD)
+            protocol = ConnectionPoolClient()
+            transport = Connection(skt, protocol) # XXX may need subclass for
+                                                  # getPeer and getHost
+            protocol.makeConnection(transport)
+            txnFactory = protocol.newTransaction
         dataStore = CommonSQLDataStore(
-            cp.connection, notifierFactory,
+            txnFactory, notifierFactory,
             postgresService.dataStoreDirectory.child("attachments"),
             config.EnableCalDAV, config.EnableCardDAV
         )
