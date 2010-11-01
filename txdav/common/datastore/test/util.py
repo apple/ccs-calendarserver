@@ -128,7 +128,9 @@ class SQLStoreBuilder(object):
         currentTestID = testCase.id()
         store.label = currentTestID
         cp.startService()
-        testCase.addCleanup(cp.stopService)
+        def stopIt():
+            return cp.stopService()
+        testCase.addCleanup(stopIt)
         yield self.cleanStore(testCase, store)
         returnValue(store)
 
@@ -230,6 +232,7 @@ class CommonCommonTests(object):
     lastTransaction = None
     savedStore = None
     assertProvides = assertProvides
+    lastCommitSetUp = False
 
     def transactionUnderTest(self):
         """
@@ -237,6 +240,9 @@ class CommonCommonTests(object):
         C[lastTransaction}.  Also makes sure to use the same store, saving the
         value from C{storeUnderTest}.
         """
+        if not self.lastCommitSetUp:
+            self.lastCommitSetUp = True
+            self.addCleanup(self.commitLast)
         if self.lastTransaction is not None:
             return self.lastTransaction
         if self.savedStore is None:
@@ -271,8 +277,6 @@ class CommonCommonTests(object):
     def setUp(self):
         self.counter = 0
         self.notifierFactory = StubNotifierFactory()
-        self.addCleanup(self.commitLast)
-
 
     def commitLast(self):
         if self.lastTransaction is not None:
