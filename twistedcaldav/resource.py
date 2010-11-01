@@ -2008,6 +2008,12 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
         """
         return config.UserQuota if config.UserQuota != 0 else None
 
+    def currentQuotaUse(self, request):
+        """
+        Get the quota use value
+        """  
+        return maybeDeferred(self._newStoreHome.quotaUsedBytes)
+
     def supportedReports(self):
         result = super(CommonHomeResource, self).supportedReports()
         if config.EnableSyncReport:
@@ -2544,7 +2550,6 @@ class AddressBookHomeResource (CommonHomeResource):
             notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
 
         returnValue((changed, deleted, notallowed))
-
 
 
 class GlobalAddressBookResource (ReadOnlyResourceMixIn, CalDAVResource):

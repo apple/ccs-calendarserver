@@ -413,7 +413,7 @@ class CommonTests(CommonCommonTests):
         transaction, even if it has not yet been committed.
         """
         addressbook1 = yield self.addressbookUnderTest()
-        addressbook1.removeAddressBookObjectWithName("2.vcf")
+        yield addressbook1.removeAddressBookObjectWithName("2.vcf")
         addressbookObjects = list((yield addressbook1.addressbookObjects()))
         self.assertEquals(set(o.name() for o in addressbookObjects),
                           set(addressbook1_objectNames) - set(["2.vcf"]))

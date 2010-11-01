@@ -23,8 +23,10 @@ from twext.python.log import LoggingMixIn
 from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType, HRef
 from twext.web2.dav.element.rfc5842 import ResourceID
 from twext.web2.http_headers import generateContentType, MimeType
-from twext.web2.dav.resource import TwistedGETContentMD5
+from twext.web2.dav.resource import TwistedGETContentMD5,\
+    TwistedQuotaUsedProperty
 
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.python.util import FancyEqMixin
 from twisted.python import hashlib
 
@@ -511,6 +513,27 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
         child.notifyChanged()
 
+    @inlineCallbacks
+    def syncToken(self):
+        
+        maxrev = 0
+        for child in self.children():
+            maxrev = max(int((yield child.syncToken()).split("#")[1]), maxrev)
+            
+        try:
+            urnuuid = str(self.properties()[PropertyName.fromElement(ResourceID)].children[0])
+        except KeyError:
+            urnuuid = uuid.uuid4().urn
+            self.properties()[PropertyName(*ResourceID.qname())] = ResourceID(HRef.fromString(urnuuid))
+        returnValue("%s#%s" % (urnuuid[9:], maxrev))
+
+
+    def resourceNamesSinceToken(self, token, depth):
+        deleted = []
+        changed = []
+        return succeed((changed, deleted))
+
+
     # @cached
     def properties(self):
         # FIXME: needs tests for actual functionality
@@ -519,6 +542,27 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         props = PropertyStore(self.uid(), lambda : self._path)
         self._transaction.addOperation(props.flush, "flush home properties")
         return props
+
+    def quotaUsedBytes(self):
+
+        try:
+            return int(str(self.properties()[PropertyName.fromElement(TwistedQuotaUsedProperty)]))
+        except KeyError:
+            return 0
+
+    def adjustQuotaUsedBytes(self, delta):
+        """
+        Adjust quota used. We need to get a lock on the row first so that the adjustment
+        is done atomically.
+        """
+        
+        old_used = self.quotaUsedBytes()
+        new_used = old_used + delta
+        if new_used < 0:
+            self.log_error("Fixing quota adjusted below zero to %s by change amount %s" % (new_used, delta,))
+            new_used = 0
+        self.properties()[PropertyName.fromElement(TwistedQuotaUsedProperty)] = TwistedQuotaUsedProperty(str(new_used))
+            
 
     def notifierID(self, label="default"):
         if self._notifier:
@@ -714,6 +758,10 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
         objectResourcePath = self._path.child(name)
         if objectResourcePath.isfile():
+            # Handle quota adjustment
+            child = self.objectResourceWithName(name)
+            old_size = child.size()
+
             self._removedObjectResources.add(name)
             # FIXME: test for undo
             def do():
@@ -721,6 +769,10 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
                 return lambda: None
             self._transaction.addOperation(do, "remove object resource object %r" %
                                            (name,))
+
+            # Adjust quota
+            self._home.adjustQuotaUsedBytes(-old_size)
+
             self.notifyChanged()
         else:
             raise NoSuchObjectResourceError(name)
@@ -739,11 +791,15 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         except KeyError:
             urnuuid = uuid.uuid4().urn
             self.properties()[PropertyName(*ResourceID.qname())] = ResourceID(HRef.fromString(urnuuid))
-        return "%s#%s" % (urnuuid[9:], self.retrieveOldIndex().lastRevision())
+        return succeed("%s#%s" % (urnuuid[9:], self.retrieveOldIndex().lastRevision()))
 
 
     def objectResourcesSinceToken(self, token):
         raise NotImplementedError()
+
+
+    def resourceNamesSinceToken(self, token):
+        return succeed(self.retrieveOldIndex().whatchanged(token))
 
 
     # FIXME: property writes should be a write operation

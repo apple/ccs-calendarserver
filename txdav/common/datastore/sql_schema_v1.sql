@@ -10,8 +10,9 @@ create sequence RESOURCE_ID_SEQ;
 -------------------
 
 create table CALENDAR_HOME (
-  RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'),
-  OWNER_UID   varchar(255) not null unique
+  RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'),
+  OWNER_UID        varchar(255) not null unique,
+  QUOTA_USED_BYTES integer      default 0 not null
 );
 
 
@@ -247,8 +248,9 @@ create table RESOURCE_PROPERTY (
 ----------------------
 
 create table ADDRESSBOOK_HOME (
-  RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'),
-  OWNER_UID   varchar(255) not null unique
+  RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'),
+  OWNER_UID        varchar(255) not null unique,
+  QUOTA_USED_BYTES integer      default 0 not null
 );
 
 

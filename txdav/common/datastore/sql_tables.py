@@ -20,15 +20,17 @@ SQL Table definitions.
 """
 
 CALENDAR_HOME_TABLE = {
-    "name"               : "CALENDAR_HOME",
-    "column_RESOURCE_ID" : "RESOURCE_ID",
-    "column_OWNER_UID"   : "OWNER_UID",
+    "name"                    : "CALENDAR_HOME",
+    "column_RESOURCE_ID"      : "RESOURCE_ID",
+    "column_OWNER_UID"        : "OWNER_UID",
+    "column_QUOTA_USED_BYTES" : "QUOTA_USED_BYTES",
 }
 
 ADDRESSBOOK_HOME_TABLE = {
-    "name"               : "ADDRESSBOOK_HOME",
-    "column_RESOURCE_ID" : "RESOURCE_ID",
-    "column_OWNER_UID"   : "OWNER_UID",
+    "name"                    : "ADDRESSBOOK_HOME",
+    "column_RESOURCE_ID"      : "RESOURCE_ID",
+    "column_OWNER_UID"        : "OWNER_UID",
+    "column_QUOTA_USED_BYTES" : "QUOTA_USED_BYTES",
 }
 
 NOTIFICATION_HOME_TABLE = {

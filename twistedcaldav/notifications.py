@@ -33,6 +33,8 @@ from twisted.internet.defer import succeed, inlineCallbacks, returnValue,\
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn, CalDAVResource
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 
+from txdav.common.icommondatastore import SyncTokenValidException
+
 import os
 import types
 
@@ -167,15 +169,66 @@ class NotificationsDatabase(AbstractSQLDatabase, LoggingMixIn):
             values (:1, :2, :3)
             """, record.uid, record.name, record.xmltype,
         )
+            
+        self._db_execute(
+            """
+            insert or replace into REVISIONS (NAME, REVISION, DELETED)
+            values (:1, :2, :3)
+            """, record.name, self.bumpRevision(fast=True), 'N',
+        )
     
     def removeRecordForUID(self, uid):
 
-        self._db_execute("delete from NOTIFICATIONS where UID = :1", uid)
+        record = self.recordForUID(uid)
+        self.removeRecordForName(record.name)
     
     def removeRecordForName(self, rname):
 
         self._db_execute("delete from NOTIFICATIONS where NAME = :1", rname)
+        self._db_execute(
+            """
+            update REVISIONS SET REVISION = :1, DELETED = :2
+            where NAME = :3
+            """, self.bumpRevision(fast=True), 'Y', rname
+        )
     
+    def whatchanged(self, revision):
+
+        results = [(name.encode("utf-8"), deleted) for name, deleted in self._db_execute("select NAME, DELETED from REVISIONS where REVISION > :1", revision)]
+        results.sort(key=lambda x:x[1])
+        
+        changed = []
+        deleted = []
+        for name, wasdeleted in results:
+            if name:
+                if wasdeleted == 'Y':
+                    if revision:
+                        deleted.append(name)
+                else:
+                    changed.append(name)
+            else:
+                raise SyncTokenValidException
+        
+        return changed, deleted,
+
+    def lastRevision(self):
+        return self._db_value_for_sql(
+            "select REVISION from REVISION_SEQUENCE"
+        )
+
+    def bumpRevision(self, fast=False):
+        self._db_execute(
+            """
+            update REVISION_SEQUENCE set REVISION = REVISION + 1
+            """,
+        )
+        self._db_commit()
+        return self._db_value_for_sql(
+            """
+            select REVISION from REVISION_SEQUENCE
+            """,
+        )
+
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
@@ -212,6 +265,39 @@ class NotificationsDatabase(AbstractSQLDatabase, LoggingMixIn):
         q.execute(
             """
             create index UID on NOTIFICATIONS (UID)
+            """
+        )
+
+        #
+        # REVISIONS table tracks changes
+        #   NAME: Last URI component (eg. <uid>.ics, RESOURCE primary key)
+        #   REVISION: revision number
+        #   WASDELETED: Y if revision deleted, N if added or changed
+        #
+        q.execute(
+            """
+            create table REVISION_SEQUENCE (
+                REVISION        integer
+            )
+            """
+        )
+        q.execute(
+            """
+            insert into REVISION_SEQUENCE (REVISION) values (0)
+            """
+        )
+        q.execute(
+            """
+            create table REVISIONS (
+                NAME            text unique,
+                REVISION        integer,
+                DELETED         text(1)
+            )
+            """
+        )
+        q.execute(
+            """
+            create index REVISION on REVISIONS (REVISION)
             """
         )
 

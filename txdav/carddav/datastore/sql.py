@@ -48,7 +48,7 @@ from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
     CommonObjectResource
 from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
     ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE,\
-    ADDRESSBOOK_OBJECT_TABLE
+    ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE
 from txdav.base.propertystore.base import PropertyName
 
 
@@ -57,14 +57,15 @@ class AddressBookHome(CommonHome):
 
     implements(IAddressBookHome)
 
-    def __init__(self, transaction, ownerUID, resourceID, notifier):
+    def __init__(self, transaction, ownerUID, notifier):
 
+        self._homeTable = ADDRESSBOOK_HOME_TABLE
         self._childClass = AddressBook
         self._childTable = ADDRESSBOOK_TABLE
         self._bindTable = ADDRESSBOOK_BIND_TABLE
         self._revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
 
-        super(AddressBookHome, self).__init__(transaction, ownerUID, resourceID, notifier)
+        super(AddressBookHome, self).__init__(transaction, ownerUID, notifier)
         self._shares = SQLLegacyAddressBookShares(self)
 
 
@@ -178,6 +179,9 @@ class AddressBookObject(CommonObjectResource):
 
     @inlineCallbacks
     def setComponent(self, component, inserting=False):
+
+        old_size = 0 if inserting else self.size()
+
         validateAddressBookComponent(self, self._addressbook, component, inserting)
 
         yield self.updateDatabase(component, inserting=inserting)
@@ -185,6 +189,9 @@ class AddressBookObject(CommonObjectResource):
             yield self._addressbook._insertRevision(self._name)
         else:
             yield self._addressbook._updateRevision(self._name)
+
+        # Adjust quota
+        yield self._addressbook._home.adjustQuotaUsedBytes(self.size() - old_size)
 
         self._addressbook.notifyChanged()
 

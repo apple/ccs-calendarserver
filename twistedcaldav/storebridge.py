@@ -280,11 +280,6 @@ class _CalendarChildHelper(object):
         returnValue(sorted(children))
 
 
-    def quotaSize(self, request):
-        # FIXME: tests, workingness
-        return succeed(0)
-
-
 
 class StoreScheduleInboxResource(_CalendarChildHelper, ScheduleInboxResource):
 
@@ -774,7 +769,7 @@ class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
         isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
         accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
-        for name, uid, type in (yield self.index().bruteForceSearch()): #@UnusedVariable
+        for name, uid, type in (yield maybeDeferred(self.index().bruteForceSearch)): #@UnusedVariable
             try:
                 child = yield request.locateChildResource(self, name)
             except TypeError:
@@ -1043,11 +1038,6 @@ class ProtoCalendarCollectionResource(CalDAVResource):
         # FIXME: should be deleted, or raise an exception
 
 
-    def quotaSize(self, request):
-        # FIXME: tests, workingness
-        return succeed(0)
-
-
 
 class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEqMixin):
     """
@@ -1104,10 +1094,8 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         return True
 
 
-    @inlineCallbacks
     def quotaSize(self, request):
-        # FIXME: tests
-        returnValue(len((yield self.iCalendarText())))
+        return succeed(self._newStoreObject.size())
 
 
     def iCalendarText(self):
@@ -1132,6 +1120,7 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
 
     @inlineCallbacks
     def storeStream(self, stream):
+
         # FIXME: direct tests
         component = vcomponent.VComponent.fromString(
             (yield allDataFromStream(stream))
@@ -1199,13 +1188,6 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
         if not isinbox:
             self.validIfScheduleMatch(request)
 
-        # Do quota checks before we start deleting things
-        myquota = (yield self.quota(request))
-        if myquota is not None:
-            old_size = (yield self.quotaSize(request))
-        else:
-            old_size = 0
-
         scheduler = None
         lock = None
         if not isinbox and implicitly:
@@ -1239,10 +1221,6 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
             self._newStoreParentCalendar = storeCalendar
             del self._newStoreObject
             self.__class__ = ProtoCalendarObjectResource
-
-            # Adjust quota
-            if myquota is not None:
-                yield self.quotaSizeAdjust(request, -old_size)
 
             # Do scheduling
             if not isinbox and implicitly:
@@ -1319,7 +1297,6 @@ class ProtoCalendarObjectResource(CalDAVResource, FancyEqMixin):
         return self._name
 
     def quotaSize(self, request):
-        # FIXME: tests, workingness
         return succeed(0)
 
 
@@ -1424,12 +1401,6 @@ class _AddressBookChildHelper(object):
             (yield self._newStoreAddressBook.listAddressbookObjects())
         )
         returnValue(sorted(children))
-
-
-
-    def quotaSize(self, request):
-        # FIXME: tests, workingness
-        return succeed(0)
 
 
 
@@ -1677,11 +1648,6 @@ class ProtoAddressBookCollectionResource(CalDAVResource):
         # FIXME: should be deleted, or raise an exception
 
 
-    def quotaSize(self, request):
-        # FIXME: tests, workingness
-        return succeed(0)
-
-
 class GlobalAddressBookCollectionResource(GlobalAddressBookResource, AddressBookCollectionResource):
     """
     Wrapper around a L{txdav.carddav.iaddressbook.IAddressBook}.
@@ -1722,10 +1688,8 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
         return True
 
 
-    @inlineCallbacks
     def quotaSize(self, request):
-        # FIXME: tests
-        returnValue(len((yield self._newStoreObject.vCardText())))
+        return succeed(self._newStoreObject.size())
 
 
     def vCardText(self, ignored=None):
@@ -1756,6 +1720,7 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
 
     @inlineCallbacks
     def storeStream(self, stream):
+
         # FIXME: direct tests
         component = VCard.fromString(
             (yield allDataFromStream(stream))
@@ -1769,12 +1734,6 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
         """
         Remove this addressbook object.
         """
-        # Do quota checks before we start deleting things
-        myquota = (yield self.quota(request))
-        if myquota is not None:
-            old_size = (yield self.quotaSize(request))
-        else:
-            old_size = 0
 
         try:
 
@@ -1791,10 +1750,6 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
             self._newStoreParentAddressBook = storeAddressBook
             del self._newStoreObject
             self.__class__ = ProtoAddressBookObjectResource
-
-            # Adjust quota
-            if myquota is not None:
-                yield self.quotaSizeAdjust(request, -old_size)
 
         except MemcacheLockTimeoutError:
             raise HTTPError(StatusResponse(CONFLICT, "Resource: %s currently in use on the server." % (where,)))
@@ -1950,11 +1905,6 @@ class _NotificationChildHelper(object):
         returnValue(children)
 
 
-    def quotaSize(self, request):
-        # FIXME: tests, workingness
-        return succeed(0)
-
-
 
 class StoreNotificationCollectionResource(_NotificationChildHelper,
                                       NotificationCollectionResource):
@@ -2079,11 +2029,6 @@ class StoreProtoNotificationCollectionResource(NotificationCollectionResource):
         # FIXME: should be deleted, or raise an exception
 
 
-    def quotaSize(self, request):
-        # FIXME: tests, workingness
-        return succeed(0)
-
-
 
 class StoreNotificationObjectFile(NotificationResource):
     """
@@ -2130,10 +2075,8 @@ class StoreNotificationObjectFile(NotificationResource):
         return self._newStoreObject.properties()
 
 
-    @inlineCallbacks
     def quotaSize(self, request):
-        # FIXME: tests
-        returnValue(len((yield self._newStoreObject.xmldata())))
+        return succeed(self._newStoreObject.size())
 
 
     def text(self, ignored=None):
@@ -2163,13 +2106,6 @@ class StoreNotificationObjectFile(NotificationResource):
         """
         Remove this notification object.
         """
-        # Do quota checks before we start deleting things
-        myquota = (yield self.quota(request))
-        if myquota is not None:
-            old_size = (yield self.quotaSize(request))
-        else:
-            old_size = 0
-
         try:
 
             storeNotifications = self._newStoreObject.notificationCollection()
@@ -2185,10 +2121,6 @@ class StoreNotificationObjectFile(NotificationResource):
             self._newStoreParentNotifications = storeNotifications
             del self._newStoreObject
             self.__class__ = ProtoStoreNotificationObjectFile
-
-            # Adjust quota
-            if myquota is not None:
-                yield self.quotaSizeAdjust(request, -old_size)
 
         except MemcacheLockTimeoutError:
             raise HTTPError(StatusResponse(CONFLICT, "Resource: %s currently in use on the server." % (where,)))

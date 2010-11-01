@@ -39,7 +39,7 @@ except ImportError:
 
 from vobject.icalendar import utc
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
@@ -460,11 +460,11 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     else:
         useruid = ""
     try:
-        resources = yield calresource.index().indexedSearch(
+        resources = yield maybeDeferred(calresource.index().indexedSearch,
             filter, useruid=useruid, fbtype=True
         )
     except IndexedSearchException:
-        resources = yield calresource.index().bruteForceSearch()
+        resources = yield maybeDeferred(calresource.index().bruteForceSearch)
 
     # We care about separate instances for VEVENTs only
     aggregated_resources = {}

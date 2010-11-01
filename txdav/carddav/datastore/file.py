@@ -165,6 +165,9 @@ class AddressBookObject(CommonObjectResource):
 
     @writeOperation
     def setComponent(self, component, inserting=False):
+
+        old_size = 0 if inserting else self.size()
+
         validateAddressBookComponent(self, self._addressbook, component, inserting)
 
         self._addressbook.retrieveOldIndex().addResource(
@@ -199,11 +202,16 @@ class AddressBookObject(CommonObjectResource):
             # Now re-write the original properties on the updated file
             self.properties().flush()
 
+            # Adjust quota
+            quota_adjustment = self.size() - old_size
+            self._addressbook._home.adjustQuotaUsedBytes(quota_adjustment)
+
             def undo():
                 if backup:
                     backup.moveTo(self._path)
                 else:
                     self._path.remove()
+                self._addressbook._home.adjustQuotaUsedBytes(-quota_adjustment)
             return undo
         self._transaction.addOperation(do, "set addressbook component %r" % (self.name(),))
 

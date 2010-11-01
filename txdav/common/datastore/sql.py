@@ -216,6 +216,10 @@ class CommonStoreTransaction(object):
     Transaction implementation for SQL database.
     """
     _homeClass = {}
+    _homeTable = {}
+
+    noisy = False
+    id = 0
 
     def __init__(self, store, connectionFactory,
                  enableCalendars, enableAddressBooks,
@@ -229,6 +233,8 @@ class CommonStoreTransaction(object):
         self._notifierFactory = notifierFactory
         self._label = label
         self._migrating = migrating
+        CommonStoreTransaction.id += 1
+        self._txid = CommonStoreTransaction.id
 
         extraInterfaces = []
         if enableCalendars:
@@ -241,6 +247,8 @@ class CommonStoreTransaction(object):
         from txdav.carddav.datastore.sql import AddressBookHome
         CommonStoreTransaction._homeClass[ECALENDARTYPE] = CalendarHome
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
+        CommonStoreTransaction._homeTable[ECALENDARTYPE] = CALENDAR_HOME_TABLE
+        CommonStoreTransaction._homeTable[EADDRESSBOOKTYPE] = ADDRESSBOOK_HOME_TABLE
         self._holder = ThreadHolder(reactor)
         self._holder.start()
         def initCursor():
@@ -273,8 +281,6 @@ class CommonStoreTransaction(object):
             return None
 
 
-    noisy = False
-
     def execSQL(self, *args, **kw):
         result = self._holder.submit(
             lambda : self._reallyExecSQL(*args, **kw)
@@ -283,8 +289,8 @@ class CommonStoreTransaction(object):
             def reportResult(results):
                 sys.stdout.write("\n".join([
                     "",
-                    "SQL: %r %r" % (args, kw),
-                    "Results: %r" % (results,),
+                    "SQL (%d): %r %r" % (self._txid, args, kw),
+                    "Results (%d): %r" % (self._txid, results,),
                     "",
                     ]))
                 return results
@@ -310,19 +316,20 @@ class CommonStoreTransaction(object):
 
     @inlineCallbacks
     def homeWithUID(self, storeType, uid, create=False):
-        if storeType == ECALENDARTYPE:
-            homeTable = CALENDAR_HOME_TABLE
-        elif storeType == EADDRESSBOOKTYPE:
-            homeTable = ADDRESSBOOK_HOME_TABLE
-        else:
+        if storeType not in (ECALENDARTYPE, EADDRESSBOOKTYPE):
             raise RuntimeError("Unknown home type.")
 
-        data = yield self.execSQL(
-            "select %(column_RESOURCE_ID)s from %(name)s"
-            " where %(column_OWNER_UID)s = %%s" % homeTable,
-            [uid]
-        )
-        if not data:
+        if self._notifierFactory:
+            notifier = self._notifierFactory.newNotifier(
+                id=uid, prefix=NotifierPrefixes[storeType]
+            )
+        else:
+            notifier = None
+        homeObject = self._homeClass[storeType](self, uid, notifier)
+        homeObject = (yield homeObject.initFromStore())
+        if homeObject is not None:
+            returnValue(homeObject)
+        else:
             if not create:
                 returnValue(None)
             # Need to lock to prevent race condition
@@ -331,33 +338,48 @@ class CommonStoreTransaction(object):
             # does allow concurrent reads so the only thing we block is other
             # attempts to provision a home, which is not too bad
             yield self.execSQL(
-                "lock %(name)s in exclusive mode" % homeTable,
+                "lock %(name)s in exclusive mode" % CommonStoreTransaction._homeTable[storeType],
             )
             # Now test again
-            data = yield self.execSQL(
+            exists = yield self.execSQL(
                 "select %(column_RESOURCE_ID)s from %(name)s"
-                " where %(column_OWNER_UID)s = %%s" % homeTable,
+                " where %(column_OWNER_UID)s = %%s" % CommonStoreTransaction._homeTable[storeType],
                 [uid]
             )
-            if not data:
+            if not exists:
                 yield self.execSQL(
-                    "insert into %(name)s (%(column_OWNER_UID)s) values (%%s)" % homeTable,
+                    "insert into %(name)s (%(column_OWNER_UID)s) values (%%s)" % CommonStoreTransaction._homeTable[storeType],
                     [uid]
                 )
-                home = yield self.homeWithUID(storeType, uid)
+            home = yield self.homeWithUID(storeType, uid)
+            if not exists:
                 yield home.createdHome()
-                returnValue(home)
-        resid = data[0][0]
-        if self._notifierFactory:
-            notifier = self._notifierFactory.newNotifier(
-                id=uid, prefix=NotifierPrefixes[storeType]
-            )
-        else:
-            notifier = None
-        homeObject = self._homeClass[storeType](self, uid, resid, notifier)
-        yield homeObject._loadPropertyStore()
-        returnValue(homeObject)
+            returnValue(home)
 
+    def createHomeWithUIDLocked(self, storeType, uid):
+        # Need to lock to prevent race condition
+        # FIXME: this is an entire table lock - ideally we want a row lock
+        # but the row does not exist yet. However, the "exclusive" mode
+        # does allow concurrent reads so the only thing we block is other
+        # attempts to provision a home, which is not too bad
+
+        if storeType not in (ECALENDARTYPE, EADDRESSBOOKTYPE):
+            raise RuntimeError("Unknown home type.")
+
+        yield self.execSQL(
+            "lock %(name)s in exclusive mode" % CommonStoreTransaction._homeTable[storeType],
+        )
+        # Now test again
+        exists = yield self.execSQL(
+            "select %(column_RESOURCE_ID)s from %(name)s"
+            " where %(column_OWNER_UID)s = %%s" % CommonStoreTransaction._homeTable[storeType],
+            [uid]
+        )
+        if not exists:
+            yield self.execSQL(
+                "insert into %(name)s (%(column_OWNER_UID)s) values (%%s)" % CommonStoreTransaction._homeTable[storeType],
+                [uid]
+            )
 
     @memoizedKey("uid", "_notificationHomes")
     @inlineCallbacks
@@ -426,16 +448,17 @@ class CommonStoreTransaction(object):
 
 class CommonHome(LoggingMixIn):
 
+    _homeTable = None
     _childClass = None
     _childTable = None
     _bindTable = None
     _revisionsTable = None
     _notificationRevisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
 
-    def __init__(self, transaction, ownerUID, resourceID, notifier):
+    def __init__(self, transaction, ownerUID, notifier):
         self._txn = transaction
         self._ownerUID = ownerUID
-        self._resourceID = resourceID
+        self._resourceID = None
         self._shares = None
         self._children = {}
         self._sharedChildren = {}
@@ -448,6 +471,25 @@ class CommonHome(LoggingMixIn):
         for key, value in self._bindTable.iteritems():
             self._revisionBindJoinTable["BIND:%s" % (key,)] = value 
 
+    @inlineCallbacks
+    def initFromStore(self):
+        """
+        Initialise this object from the store. We read in and cache all the extra metadata
+        from the DB to avoid having to do DB queries for those individually later.
+        """
+
+        result = yield self._txn.execSQL(
+            "select %(column_RESOURCE_ID)s from %(name)s"
+            " where %(column_OWNER_UID)s = %%s" % self._homeTable,
+            [self._ownerUID]
+        )
+        if result:
+            self._resourceID = result[0][0]
+            yield self._loadPropertyStore()
+            returnValue(self)
+        else:
+            returnValue(None)
+        
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
@@ -831,6 +873,51 @@ class CommonHome(LoggingMixIn):
         return None
 
 
+    @inlineCallbacks
+    def quotaUsedBytes(self):
+        returnValue((yield self._txn.execSQL(
+            "select %(column_QUOTA_USED_BYTES)s from %(name)s"
+            " where %(column_OWNER_UID)s = %%s" % self._homeTable,
+            [self._ownerUID]
+        ))[0][0])
+
+    @inlineCallbacks
+    def adjustQuotaUsedBytes(self, delta):
+        """
+        Adjust quota used. We need to get a lock on the row first so that the adjustment
+        is done atomically. It is import to do the 'select ... for update' because a race also
+        exists in the 'update ... x = x + 1' case as seen via unit tests.
+        """
+        
+        yield self._txn.execSQL("""
+            select * from %(name)s
+            where %(column_RESOURCE_ID)s = %%s
+            for update
+            """ % self._homeTable,
+            [self._resourceID]
+        )
+
+        quotaUsedBytes = (yield self._txn.execSQL("""
+            update %(name)s
+            set %(column_QUOTA_USED_BYTES)s = %(column_QUOTA_USED_BYTES)s + %%s
+            where %(column_RESOURCE_ID)s = %%s
+            returning %(column_QUOTA_USED_BYTES)s
+            """ % self._homeTable,
+            [delta, self._resourceID]
+        ))[0][0]
+        
+        # Double check integrity
+        if quotaUsedBytes < 0:
+            log.error("Fixing quota adjusted below zero to %s by change amount %s" % (quotaUsedBytes, delta,))
+            yield self._txn.execSQL("""
+                update %(name)s
+                set %(column_QUOTA_USED_BYTES)s = 0
+                where %(column_RESOURCE_ID)s = %%s
+                """ % self._homeTable,
+                [self._resourceID]
+            )
+            
+
     def notifierID(self, label="default"):
         if self._notifier:
             return self._notifier.getID(label)
@@ -1050,34 +1137,40 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     @inlineCallbacks
     def removeObjectResourceWithName(self, name):
-        rows = yield self._txn.execSQL(
+        
+        uid, old_size = (yield self._txn.execSQL(
             "delete from %(name)s "
             "where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "
-            "returning %(column_UID)s" % self._objectTable,
+            "returning %(column_UID)s, character_length(%(column_TEXT)s)" % self._objectTable,
             [name, self._resourceID],
             raiseOnZeroRowCount=lambda:NoSuchObjectResourceError()
-        )
-        uid = rows[0][0]
+        ))[0]
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
         yield self._deleteRevision(name)
+
+        # Adjust quota
+        yield self._home.adjustQuotaUsedBytes(-old_size)
 
         self.notifyChanged()
 
 
     @inlineCallbacks
     def removeObjectResourceWithUID(self, uid):
-        rows = yield self._txn.execSQL(
+
+        name, old_size = (yield self._txn.execSQL(
             "delete from %(name)s "
             "where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "
-            "returning %(column_RESOURCE_NAME)s" % self._objectTable,
+            "returning %(column_RESOURCE_NAME)s, character_length(%(column_TEXT)s)" % self._objectTable,
             [uid, self._resourceID],
             raiseOnZeroRowCount=lambda:NoSuchObjectResourceError()
-        )
-        name = rows[0][0]
+        ))[0]
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
         yield self._deleteRevision(name)
+
+        # Adjust quota
+        yield self._home.adjustQuotaUsedBytes(-old_size)
 
         self.notifyChanged()
 
@@ -1411,7 +1504,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def _loadPropertyStore(self):
         props = yield PropertyStore.load(
-            self.uid(),
+            self._parentCollection.ownerHome().uid(),
             self._txn,
             self._resourceID
         )
@@ -1422,6 +1515,14 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     def properties(self):
         return self._propertyStore
 
+
+    def initPropertyStore(self, props):
+        """
+        A hook for subclasses to override in order to set up their property
+        store after it's been created.
+
+        @param props: the L{PropertyStore} from C{properties()}.
+        """
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
@@ -1452,14 +1553,6 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     def name(self):
         return self._name
 
-
-    def initPropertyStore(self, props):
-        """
-        A hook for subclasses to override in order to set up their property
-        store after it's been created.
-
-        @param props: the L{PropertyStore} from C{properties()}.
-        """
 
 
     # IDataStoreResource

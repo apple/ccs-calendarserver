@@ -53,7 +53,7 @@ from txdav.common.datastore.sql_legacy import \
     SQLLegacyCalendarShares, PostgresLegacyInboxIndexEmulator
 from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE,\
-    _ATTACHMENTS_MODE_WRITE
+    _ATTACHMENTS_MODE_WRITE, CALENDAR_HOME_TABLE
 from txdav.base.propertystore.base import PropertyName
 
 from vobject.icalendar import utc
@@ -66,14 +66,15 @@ class CalendarHome(CommonHome):
 
     implements(ICalendarHome)
 
-    def __init__(self, transaction, ownerUID, resourceID, notifier):
+    def __init__(self, transaction, ownerUID, notifier):
 
+        self._homeTable = CALENDAR_HOME_TABLE
         self._childClass = Calendar
         self._childTable = CALENDAR_TABLE
         self._bindTable = CALENDAR_BIND_TABLE
         self._revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
 
-        super(CalendarHome, self).__init__(transaction, ownerUID, resourceID, notifier)
+        super(CalendarHome, self).__init__(transaction, ownerUID, notifier)
         self._shares = SQLLegacyCalendarShares(self)
 
     createCalendarWithName = CommonHome.createChildWithName
@@ -244,6 +245,9 @@ class CalendarObject(CommonObjectResource):
 
     @inlineCallbacks
     def setComponent(self, component, inserting=False):
+
+        old_size = 0 if inserting else self.size()
+
         validateCalendarComponent(self, self._calendar, component, inserting)
 
         yield self.updateDatabase(component, inserting=inserting)
@@ -251,6 +255,9 @@ class CalendarObject(CommonObjectResource):
             yield self._calendar._insertRevision(self._name)
         else:
             yield self._calendar._updateRevision(self._name)
+
+        # Adjust quota
+        yield self._calendar._home.adjustQuotaUsedBytes(self.size() - old_size)
 
         self._calendar.notifyChanged()
 
@@ -485,7 +492,8 @@ class CalendarObject(CommonObjectResource):
 
     @inlineCallbacks
     def removeAttachmentWithName(self, name):
-        attachment = Attachment(self, name)
+        attachment = (yield self.attachmentWithName(name))
+        old_size = attachment.size()
         self._txn.postCommit(attachment._path.remove)
         yield self._txn.execSQL(
             """
@@ -493,6 +501,9 @@ class CalendarObject(CommonObjectResource):
             PATH = %s
             """, [self._resourceID, name]
         )
+
+        # Adjust quota
+        yield self._calendar._home.adjustQuotaUsedBytes(-old_size)
 
 
     @inlineCallbacks
@@ -578,6 +589,9 @@ class AttachmentStorageTransport(object):
 
     @inlineCallbacks
     def loseConnection(self):
+        
+        old_size = self.attachment.size()
+
         self.attachment._path.setContent(self.buf)
         self.attachment._contentType = self.contentType
         self.attachment._md5 = self.hash.hexdigest()
@@ -597,6 +611,8 @@ class AttachmentStorageTransport(object):
             ]
         ))[0]
 
+        # Adjust quota
+        yield self.attachment._calendarObject._calendar._home.adjustQuotaUsedBytes(self.attachment.size() - old_size)
 
 
 class Attachment(object):
@@ -606,6 +622,7 @@ class Attachment(object):
     def __init__(self, calendarObject, name):
         self._calendarObject = calendarObject
         self._name = name
+        self._size = 0
 
 
     @property

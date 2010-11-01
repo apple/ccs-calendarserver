@@ -28,7 +28,6 @@ __all__ = [
     "MemcachedUIDReserver",
     "Index",
     "IndexSchedule",
-    "IndexedSearchException",
 ]
 
 import datetime
@@ -269,7 +268,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
             self.reExpandResource(name, minDate)
 
-    def whatchanged(self, revision, depth):
+    def whatchanged(self, revision):
 
         results = [(name.encode("utf-8"), deleted) for name, deleted in self._db_execute("select NAME, DELETED from REVISIONS where REVISION > :1", revision)]
         results.sort(key=lambda x:x[1])
@@ -341,7 +340,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
                         maxDate += datetime.timedelta(days=365)
                     self.testAndUpdateIndex(maxDate)
             else:
-                # We cannot handler this filter in an indexed search
+                # We cannot handle this filter in an indexed search
                 raise IndexedSearchException()
 
         else:
@@ -368,7 +367,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
                 rowiter = self._db_execute("select DISTINCT RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE" + qualifiers[0], *qualifiers[1])
 
         # Check result for missing resources
-
+        results = []
         for row in rowiter:
             name = row[0]
             if self.resource.getChild(name.encode("utf-8")):
@@ -377,11 +376,13 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
                     if row[9]:
                         row[8] = row[9]
                     del row[9]
-                yield row
+                results.append(row)
             else:
                 log.err("Calendar resource %s is missing from %s. Removing from index."
                         % (name, self.resource))
                 self.deleteResource(name)
+
+        return results
 
     def bruteForceSearch(self):
         """
@@ -393,14 +394,17 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
 
         # Check result for missing resources:
 
+        results = []
         for row in rowiter:
             name = row[0]
             if self.resource.getChild(name.encode("utf-8")):
-                yield row
+                results.append(row)
             else:
                 log.err("Calendar resource %s is missing from %s. Removing from index."
                         % (name, self.resource))
                 self.deleteResource(name)
+
+        return results
 
 
     def _db_version(self):
@@ -666,7 +670,7 @@ class CalendarIndex (AbstractCalendarIndex):
                 expand = datetime.date.today() + default_future_expansion_duration
     
             if expand > (datetime.date.today() + maximum_future_expansion_duration):
-                raise IndexedSearchException
+                raise IndexedSearchException()
 
         try:
             instances = calendar.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)

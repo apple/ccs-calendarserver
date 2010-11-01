@@ -1147,7 +1147,7 @@ END:VCALENDAR
         @inlineCallbacks
         def deleteIt(ignored):
             obj = yield self.calendarObjectUnderTest()
-            obj.removeAttachmentWithName("new.attachment")
+            yield obj.removeAttachmentWithName("new.attachment")
             obj = yield refresh(obj)
             self.assertIdentical(
                 None, (yield obj.attachmentWithName("new.attachment"))

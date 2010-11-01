@@ -499,36 +499,6 @@ class StoreCalendarObjectResource(object):
         return succeed(None)
 
 
-    @inlineCallbacks
-    def checkQuota(self):
-        """
-        Get quota details for destination and source before we start messing with adding other files.
-        """
-
-        if self.request is None:
-            self.destquota = None
-        else:
-            self.destquota = (yield self.destination.quota(self.request))
-            if self.destquota is not None and self.destination.exists():
-                self.old_dest_size = (yield self.destination.quotaSize(self.request))
-            else:
-                self.old_dest_size = 0
-            
-        if self.request is None:
-            self.sourcequota = None
-        elif self.source is not None:
-            self.sourcequota = (yield self.source.quota(self.request))
-            if self.sourcequota is not None and self.source.exists():
-                self.old_source_size = (yield self.source.quotaSize(self.request))
-            else:
-                self.old_source_size = 0
-        else:
-            self.sourcequota = None
-            self.old_source_size = 0
-
-        returnValue(None)
-
-
     def truncateRecurrence(self):
         
         if config.MaxInstancesForRRULE != 0:
@@ -780,27 +750,14 @@ class StoreCalendarObjectResource(object):
         returnValue(None)
 
     @inlineCallbacks
-    def doSourceQuotaCheck(self):
-        # Update quota
-        if self.sourcequota is not None:
-            delete_size = 0 - self.old_source_size
-            yield self.source.quotaSizeAdjust(self.request, delete_size)
-  
-        returnValue(None)
-
-    @inlineCallbacks
     def doDestinationQuotaCheck(self):
-        # Get size of new/old resources
-        new_dest_size = (yield self.destination.quotaSize(self.request))
-
-        diff_size = new_dest_size - self.old_dest_size
-
-        if diff_size >= self.destquota[0]:
-            log.err("Over quota: available %d, need %d" % (self.destquota[0], diff_size))
+        """
+        Look at current quota after changes and see if we have gone over the top.
+        """
+        quota = (yield self.destination.quota(self.request))
+        if quota[0] < 0:
+            log.err("Over quota by %d" % (-quota[0],))
             raise HTTPError(ErrorResponse(responsecode.INSUFFICIENT_STORAGE_SPACE, (dav_namespace, "quota-not-exceeded")))
-        yield self.destination.quotaSizeAdjust(self.request, diff_size)
-
-        returnValue(None)
 
 
     @inlineCallbacks
@@ -837,9 +794,6 @@ class StoreCalendarObjectResource(object):
                                 joinURL(parentForURL(self.destination_uri),
                                         rname.encode("utf-8"))))))
 
-
-            # Get current quota state.
-            yield self.checkQuota()
 
             # Handle RRULE truncation
             rruleChanged = self.truncateRecurrence()
@@ -956,13 +910,8 @@ class StoreCalendarObjectResource(object):
                     davxml.GETContentType.fromString(generateContentType(content_type))
                 )
 
-            # Delete the original source if needed.
-            if self.deletesource:
-                yield self.doSourceQuotaCheck()
-
             # Do quota check on destination
-            if self.destquota is not None:
-                yield self.doDestinationQuotaCheck()
+            yield self.doDestinationQuotaCheck()
     
             if reservation:
                 yield reservation.unreserve()

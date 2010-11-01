@@ -235,6 +235,9 @@ class CalendarObject(CommonObjectResource):
 
     @writeOperation
     def setComponent(self, component, inserting=False):
+
+        old_size = 0 if inserting else self.size()
+
         validateCalendarComponent(self, self._calendar, component, inserting)
 
         self._calendar.retrieveOldIndex().addResource(
@@ -269,11 +272,16 @@ class CalendarObject(CommonObjectResource):
             # Now re-write the original properties on the updated file
             self.properties().flush()
 
+            # Adjust quota
+            quota_adjustment = self.size() - old_size
+            self._calendar._home.adjustQuotaUsedBytes(quota_adjustment)
+
             def undo():
                 if backup:
                     backup.moveTo(self._path)
                 else:
                     self._path.remove()
+                self._calendar._home.adjustQuotaUsedBytes(-quota_adjustment)
             return undo
         self._transaction.addOperation(do, "set calendar component %r" % (self.name(),))
 
@@ -363,9 +371,16 @@ class CalendarObject(CommonObjectResource):
         Implement L{ICalendarObject.removeAttachmentWithName}.
         """
         # FIXME: rollback, tests for rollback
+
+        attachment = (yield self.attachmentWithName(name))
+        old_size = attachment.size()
+
         (yield self._dropboxPath()).child(name).remove()
         if name in self._attachments:
             del self._attachments[name]
+
+        # Adjust quota
+        self._calendar._home.adjustQuotaUsedBytes(-old_size)
 
 
     @inlineCallbacks
@@ -458,6 +473,9 @@ class AttachmentStorageTransport(object):
 
 
     def loseConnection(self):
+        
+        old_size = self._attachment.size()
+
         # FIXME: do anything
         self._file.close()
 
@@ -465,6 +483,9 @@ class AttachmentStorageTransport(object):
         props = self._attachment.properties()
         props[contentTypeKey] = GETContentType(generateContentType(self._contentType))
         props[md5key] = TwistedGETContentMD5.fromString(md5)
+
+        # Adjust quota
+        self._attachment._calendarObject._calendar._home.adjustQuotaUsedBytes(self._attachment.size() - old_size)
         props.flush()
 
 

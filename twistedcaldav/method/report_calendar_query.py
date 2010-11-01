@@ -25,7 +25,8 @@ import urllib
 from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue,\
+    maybeDeferred
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import PCDATAElement
@@ -175,9 +176,9 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 try:
                     # Get list of children that match the search and have read
                     # access
-                    records = yield calresource.index().indexedSearch(filter)
+                    records = yield maybeDeferred(calresource.index().indexedSearch, filter)
                 except IndexedSearchException:
-                    records = yield calresource.index().bruteForceSearch()
+                    records = yield maybeDeferred(calresource.index().bruteForceSearch)
                     index_query_ok = False
                 names = [name for name, ignore_uid, ignore_type in records]
 
