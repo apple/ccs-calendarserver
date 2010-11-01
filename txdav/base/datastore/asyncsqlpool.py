@@ -20,6 +20,7 @@ Asynchronous multi-process connection pool.
 """
 
 import sys
+from cStringIO import StringIO
 from cPickle import dumps, loads
 from itertools import count
 
@@ -268,15 +269,45 @@ def txnarg():
     return [('transactionID', Integer())]
 
 
+CHUNK_MAX = 0xffff
 
-class Pickle(Argument):
+class BigArgument(Argument):
+    """
+    An argument whose payload can be larger than L{CHUNK_MAX}, by splitting
+    across multiple AMP keys.
+    """
+    def fromBox(self, name, strings, objects, proto):
+        value = StringIO()
+        for counter in count():
+            chunk = strings.get("%s.%d" % (name, counter))
+            if chunk is None:
+                break
+            value.write(chunk)
+        objects[name] = self.fromString(value.getvalue())
+
+
+    def toBox(self, name, strings, objects, proto):
+        value = StringIO(self.toString(objects[name]))
+        for counter in count():
+            nextChunk = value.read(CHUNK_MAX)
+            if not nextChunk:
+                break
+            strings["%s.%d" % (name, counter)] = nextChunk
+
+
+
+class Pickle(BigArgument):
     """
     A pickle sent over AMP.  This is to serialize the 'args' argument to
-    execSQL, which is the dynamically-typed 'args' list argument to a DB-API
+    C{execSQL}, which is the dynamically-typed 'args' list argument to a DB-API
     C{execute} function, as well as its dynamically-typed result ('rows').
 
     This should be cleaned up into a nicer structure, but this is not a network
     protocol, so we can be a little relaxed about security.
+
+    This is a L{BigArgument} rather than a regular L{Argument} because
+    individual arguments and query results need to contain entire vCard or
+    iCalendar documents, which can easily be greater than 64k.
     """
 
     def toString(self, inObject):
