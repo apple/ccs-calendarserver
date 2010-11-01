@@ -47,7 +47,7 @@ from twisted.internet.defer import Deferred
 
 from twisted.application.service import MultiService
 
-log = Logger()                                                                                                                     
+log = Logger()
 
 # This appears in the postgres log to indicate that it is accepting
 # connections.
