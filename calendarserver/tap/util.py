@@ -78,33 +78,39 @@ from twext.python.filepath import CachingFilePath
 log = Logger()
 
 
+def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
+    """
+    Construct a L{PostgresService} from a given configuration and subservice.
+    """
+    dbRoot = CachingFilePath(config.DatabaseRoot)
+    # Construct a PostgresService exactly as the parent would, so that we
+    # can establish connection information.
+    return PostgresService(
+        dbRoot, subServiceFactory, v1_schema,
+        databaseName=config.Postgres.DatabaseName,
+        logFile=config.Postgres.LogFile,
+        socketDir=config.RunRoot,
+        listenAddresses=config.Postgres.ListenAddresses,
+        sharedBuffers=config.Postgres.SharedBuffers,
+        maxConnections=config.Postgres.MaxConnections,
+        options=config.Postgres.Options,
+        uid=uid, gid=gid
+    )
+
+
 
 def storeFromConfig(config, serviceParent, notifierFactory=None):
     """
     Produce an L{IDataStore} from the given configuration and notifier factory.
     """
     if config.UseDatabase:
-        dbRoot = CachingFilePath(config.DatabaseRoot)
-
-        # Construct a PostgresService exactly as the parent would, so that we
-        # can establish connection information.
-        postgresService = PostgresService(
-            dbRoot, None, v1_schema,
-            databaseName=config.Postgres.DatabaseName,
-            logFile=config.Postgres.LogFile,
-            socketDir=config.RunRoot,
-            listenAddresses=config.Postgres.ListenAddresses,
-            sharedBuffers=config.Postgres.SharedBuffers,
-            maxConnections=config.Postgres.MaxConnections,
-            options=config.Postgres.Options,
-        )
-
+        postgresService = pgServiceFromConfig(config, None)
         cp = ConnectionPool(postgresService.produceConnection)
         cp.setServiceParent(serviceParent)
 
         dataStore = CommonSQLDataStore(
-            cp.connection,
-            notifierFactory, dbRoot.child("attachments"),
+            cp.connection, notifierFactory,
+            postgresService.dataStoreDirectory.child("attachments"),
             config.EnableCalDAV, config.EnableCardDAV
         )
         dataStore.setServiceParent(serviceParent)

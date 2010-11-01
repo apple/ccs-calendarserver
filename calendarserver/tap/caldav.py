@@ -59,8 +59,6 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
-from txdav.common.datastore.sql import v1_schema
-from txdav.base.datastore.subpostgres import PostgresService
 from txdav.common.datastore.util import UpgradeToDatabaseService
 
 from twistedcaldav.config import ConfigurationError
@@ -72,6 +70,7 @@ from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
 
+from calendarserver.tap.util import pgServiceFromConfig
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
     NegotiateCredentialFactory  # pacify pyflakes
@@ -751,17 +750,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             else:
                 postgresUID = None
                 postgresGID = None
-            pgserv = PostgresService(
-                dbRoot, subServiceFactory, v1_schema,
-                databaseName=config.Postgres.DatabaseName,
-                logFile=config.Postgres.LogFile,
-                socketDir=config.RunRoot,
-                listenAddresses=config.Postgres.ListenAddresses,
-                sharedBuffers=config.Postgres.SharedBuffers,
-                maxConnections=config.Postgres.MaxConnections,
-                options=config.Postgres.Options,
-                uid=postgresUID, gid=postgresGID
-            )
+            pgserv = pgServiceFromConfig(config, subServiceFactory, uid, gid)
             return pgserv
         else:
             return mainService
