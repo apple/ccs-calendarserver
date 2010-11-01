@@ -29,7 +29,6 @@ from time import time
 from subprocess import Popen, PIPE
 from pwd import getpwuid, getpwnam
 from grp import getgrnam
-from inspect import getargspec
 import OpenSSL
 from OpenSSL.SSL import Error as SSLError
 
@@ -41,14 +40,14 @@ from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
 from twisted.internet.defer import gatherResults
-from twisted.internet import reactor
+from twisted.internet import reactor as _reactor
 from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
+from twisted.internet.protocol import ProcessProtocol
 from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
-from twisted.scripts.mktap import getid
-from twisted.runner import procmon
+from twisted.application.service import Service
 
 import twext
 from twext.web2.server import Site
@@ -60,8 +59,6 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
-from txdav.common.datastore.sql import v1_schema
-from txdav.base.datastore.subpostgres import PostgresService
 from txdav.common.datastore.util import UpgradeToDatabaseService
 
 from twistedcaldav.config import ConfigurationError
@@ -72,6 +69,12 @@ from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
+from txdav.base.datastore.subpostgres import PostgresService
+
+from calendarserver.tap.util import pgServiceFromConfig
+from txdav.base.datastore.asyncsqlpool import ConnectionPool
+
+from txdav.base.datastore.asyncsqlpool import ConnectionPoolConnection
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -83,10 +86,12 @@ from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource, computeProcessCount
+from calendarserver.tap.util import ConnectionWithPeer
 from calendarserver.tools.util import checkDirectory
 
 try:
     from calendarserver.version import version
+    version
 except ImportError:
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "support"))
     from version import version as getVersion
@@ -97,20 +102,28 @@ twext.web2.server.VERSION = "CalendarServer/%s %s" % (
 
 log = Logger()
 
+from twisted.python.util import uidFromString, gidFromString
 
-class CalDAVStatisticsProtocol (Protocol): 
+def getid(uid, gid):
+    if uid is not None:
+        uid = uidFromString(uid)
+    if gid is not None:
+        gid = gidFromString(gid)
+    return (uid, gid)
 
-    def connectionMade(self): 
-        stats = self.factory.logger.observer.getGlobalHits() 
-        self.transport.write("%s\r\n" % (stats,)) 
-        self.transport.loseConnection() 
+class CalDAVStatisticsProtocol (Protocol):
 
-class CalDAVStatisticsServer (Factory): 
+    def connectionMade(self):
+        stats = self.factory.logger.observer.getGlobalHits()
+        self.transport.write("%s\r\n" % (stats,))
+        self.transport.loseConnection()
 
-    protocol = CalDAVStatisticsProtocol 
+class CalDAVStatisticsServer (Factory):
 
-    def __init__(self, logObserver): 
-        self.logger = logObserver 
+    protocol = CalDAVStatisticsProtocol
+
+    def __init__(self, logObserver):
+        self.logger = logObserver
 
 
 class ErrorLoggingMultiService(MultiService):
@@ -233,7 +246,7 @@ class CalDAVOptions (Options, LoggingMixIn):
     def postOptions(self):
         self.loadConfiguration()
         self.checkConfiguration()
-            
+
     def loadConfiguration(self):
         if not os.path.exists(self["config"]):
             print "Config file %s not found. Exiting." % (self["config"],)
@@ -248,7 +261,7 @@ class CalDAVOptions (Options, LoggingMixIn):
             sys.exit(1)
 
         config.updateDefaults(self.overrides)
-        
+
     def checkDirectory(self, dirpath, description, access=None, create=None):
         checkDirectory(dirpath, description, access=access, create=create)
 
@@ -282,7 +295,7 @@ class CalDAVOptions (Options, LoggingMixIn):
             # Require write access because one might not allow editing on /
             access=os.W_OK,
         )
-        
+
         #
         # Verify that other root paths are OK
         #
@@ -325,7 +338,7 @@ class CalDAVOptions (Options, LoggingMixIn):
                 access=os.W_OK,
                 create=(0750, config.UserName, config.GroupName),
             )
-            
+
         #
         # Nuke the file log observer's time format.
         #
@@ -497,7 +510,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         additional = []
         if config.Scheduling.iMIP.Enabled:
             additional.append(("inbox", IMIPReplyInboxResource, [], "digest"))
-        rootResource = getRootResource(config, additional)
 
         #
         # Configure the service
@@ -527,6 +539,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("Configuring access log observer: %s" % (logObserver,))
 
         service = CalDAVService(logObserver)
+
+        rootResource = getRootResource(config, service, additional)
 
         underlyingSite = Site(rootResource)
         requestFactory = underlyingSite
@@ -670,16 +684,22 @@ class CalDAVServiceMaker (LoggingMixIn):
         return service
 
 
+    def scheduleOnDiskUpgrade(self):
+        """
+        Schedule any on disk upgrades we might need.  Note that this will only
+        do the filesystem-format upgrades; migration to the database needs to
+        be done when the connection and possibly server is already up and
+        running.
+        """
+        addSystemEventTrigger("before", "startup", upgradeData, config)
+
+
     def makeService_Single(self, options):
         """
         Create a service to be used in a single-process, stand-alone
         configuration.
         """
-        # Schedule any on disk upgrades we might need.  Note that this
-        # will only do the filesystem-format upgrades; migration to the
-        # database needs to be done when the connection and possibly
-        # server is already up and running. -glyph
-        addSystemEventTrigger("before", "startup", upgradeData, config)
+        self.scheduleOnDiskUpgrade()
 
         return self.storageService(self.makeService_Slave(options))
 
@@ -721,7 +741,13 @@ class CalDAVServiceMaker (LoggingMixIn):
                 attachmentsRoot = dbRoot.child("attachments")
                 return UpgradeToDatabaseService.wrapService(
                     CachingFilePath(config.DocumentRoot), mainService,
-                    connectionFactory, attachmentsRoot,
+                    # FIXME: somehow, this should be a connection pool too, not
+                    # unpooled connections; this only runs in the master
+                    # process, so this would be a good point to bootstrap that
+                    # whole process.  However, it's somewhat tricky to do that
+                    # right.  The upgrade needs to run in the master, before
+                    # any other things have run.
+                    pgserv.produceLocalTransaction, attachmentsRoot,
                     uid=postgresUID, gid=postgresGID
                 )
             if os.getuid() == 0: # Only override if root
@@ -730,16 +756,8 @@ class CalDAVServiceMaker (LoggingMixIn):
             else:
                 postgresUID = None
                 postgresGID = None
-            pgserv = PostgresService(
-                dbRoot, subServiceFactory, v1_schema,
-                databaseName=config.Postgres.DatabaseName,
-                logFile=config.Postgres.LogFile,
-                socketDir=config.RunRoot,
-                listenAddresses=config.Postgres.ListenAddresses,
-                sharedBuffers=config.Postgres.SharedBuffers,
-                maxConnections=config.Postgres.MaxConnections,
-                options=config.Postgres.Options,
-                uid=postgresUID, gid=postgresGID
+            pgserv = pgServiceFromConfig(
+                config, subServiceFactory, postgresUID, postgresGID
             )
             return pgserv
         else:
@@ -753,11 +771,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         """
         s = ErrorLoggingMultiService()
 
-        # Schedule any on disk upgrades we might need.  Note that this
-        # will only do the filesystem-format upgrades; migration to the
-        # database needs to be done when the connection and possibly
-        # server is already up and running. -glyph
-        addSystemEventTrigger("before", "startup", upgradeData, config)
+        self.scheduleOnDiskUpgrade()
 
         # Make sure no old socket files are lying around.
         self.deleteStaleSocketFiles()
@@ -799,7 +813,17 @@ class CalDAVServiceMaker (LoggingMixIn):
         monitor = DelayedStartupProcessMonitor()
         s.processMonitor = monitor
 
-        self.storageService(monitor, uid, gid).setServiceParent(s)
+        ssvc = self.storageService(monitor, uid, gid)
+        ssvc.setServiceParent(s)
+
+        if isinstance(ssvc, PostgresService):
+            # TODO: better way of doing this conditional.  Look at the config
+            # again, possibly?
+            pool = ConnectionPool(ssvc.produceConnection)
+            pool.setServiceParent(s)
+            dispenser = ConnectionDispenser(pool)
+        else:
+            dispenser = None
 
         parentEnv = {
             "PATH": os.environ.get("PATH", ""),
@@ -889,6 +913,8 @@ class CalDAVServiceMaker (LoggingMixIn):
             else:
                 extraArgs = dict(inheritFDs=inheritFDs,
                                  inheritSSLFDs=inheritSSLFDs)
+            if dispenser is not None:
+                extraArgs.update(ampSQLDispenser=dispenser)
             process = TwistdSlaveProcess(
                 sys.argv[0],
                 self.tapname,
@@ -902,21 +928,21 @@ class CalDAVServiceMaker (LoggingMixIn):
         for name, pool in config.Memcached.Pools.items():
             if pool.ServerEnabled:
                 self.log_info("Adding memcached service for pool: %s" % (name,))
-        
+
                 memcachedArgv = [
                     config.Memcached.memcached,
                     "-p", str(pool.Port),
                     "-l", pool.BindAddress,
                     "-U", "0",
                 ]
-        
+
                 if config.Memcached.MaxMemory is not 0:
                     memcachedArgv.extend(["-m", str(config.Memcached.MaxMemory)])
                 if config.UserName:
                     memcachedArgv.extend(["-u", config.UserName])
-        
+
                 memcachedArgv.extend(config.Memcached.Options)
-        
+
                 monitor.addProcess('memcached-%s' % (name,), memcachedArgv, env=parentEnv)
 
         if (
@@ -981,7 +1007,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         monitor.addProcess("caldav_task", taskArgv, env=parentEnv)
 
 
-        stats = CalDAVStatisticsServer(logger) 
+        stats = CalDAVStatisticsServer(logger)
         statsService = GroupOwnedUNIXServer(
             gid, config.GlobalStatsSocket, stats, mode=0440
         )
@@ -992,10 +1018,10 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
     def deleteStaleSocketFiles(self):
-        
+
         # Check all socket files we use.
         for checkSocket in [config.ControlSocket, config.GlobalStatsSocket] :
-    
+
             # See if the file exists.
             if (os.path.exists(checkSocket)):
                 # See if the file represents a socket.  If not, delete it.
@@ -1018,6 +1044,28 @@ class CalDAVServiceMaker (LoggingMixIn):
                     if numConnectFailures == len(testPorts):
                         self.log_warn("Deleting stale socket file (not accepting connections): %s" % checkSocket)
                         os.remove(checkSocket)
+
+
+
+class ConnectionDispenser(object):
+
+    def __init__(self, connectionPool):
+        self.pool = connectionPool
+
+
+    def dispense(self):
+        """
+        Dispense a file descriptor, already connected to a server, for a
+        client.
+        """
+        # FIXME: these sockets need to be re-dispensed when the process is
+        # respawned, and they currently won't be.
+        c, s = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+        protocol = ConnectionPoolConnection(self.pool)
+        transport = ConnectionWithPeer(s, protocol)
+        protocol.makeConnection(transport)
+        transport.startReading()
+        return c
 
 
 
@@ -1053,11 +1101,16 @@ class TwistdSlaveProcess(object):
         subprocess and used to accept incoming connections.
 
     @type metaSocket: L{socket.socket}
+
+    @ivar ampSQLDispenser: a factory for AF_UNIX/SOCK_STREAM sockets that are
+        to be inherited by subprocesses and used for sending AMP SQL commands
+        back to its parent.
     """
     prefix = "caldav"
 
     def __init__(self, twistd, tapname, configFile, id, interfaces,
-                 inheritFDs=None, inheritSSLFDs=None, metaSocket=None):
+                 inheritFDs=None, inheritSSLFDs=None, metaSocket=None,
+                 ampSQLDispenser=None):
 
         self.twistd = twistd
 
@@ -1075,6 +1128,9 @@ class TwistdSlaveProcess(object):
         self.inheritSSLFDs = emptyIfNone(inheritSSLFDs)
         self.metaSocket = metaSocket
         self.interfaces = interfaces
+        self.ampSQLDispenser = ampSQLDispenser
+        self.ampDBSocket = None
+
 
     def getName(self):
         return '%s-%s' % (self.prefix, self.id)
@@ -1086,10 +1142,13 @@ class TwistdSlaveProcess(object):
             process to file descriptor numbers in the current (master) process.
         """
         fds = {}
-        maybeMetaFD = []
+        extraFDs = []
         if self.metaSocket is not None:
-            maybeMetaFD.append(self.metaSocket.fileno())
-        for fd in self.inheritSSLFDs + self.inheritFDs + maybeMetaFD:
+            extraFDs.append(self.metaSocket.fileno())
+        if self.ampSQLDispenser is not None:
+            self.ampDBSocket = self.ampSQLDispenser.dispense()
+            extraFDs.append(self.ampDBSocket.fileno())
+        for fd in self.inheritSSLFDs + self.inheritFDs + extraFDs:
             fds[fd] = fd
         return fds
 
@@ -1146,7 +1205,10 @@ class TwistdSlaveProcess(object):
             args.extend([
                     "-o", "MetaFD=%s" % (self.metaSocket.fileno(),)
                 ])
-
+        if self.ampDBSocket is not None:
+            args.extend([
+                    "-o", "DBAMPFD=%s" % (self.ampDBSocket.fileno(),)
+                ])
         return args
 
 
@@ -1162,7 +1224,7 @@ class ControlPortTCPServer(TCPServer):
 
 
 
-class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
+class DelayedStartupProcessMonitor(Service, object):
     """
     A L{DelayedStartupProcessMonitor} is a L{procmon.ProcessMonitor} that
     defers building its command lines until the service is actually ready to
@@ -1174,15 +1236,6 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
     L{Deferred} which fires only when all processes have shut down, to allow
     for a clean service shutdown.
 
-    @ivar processObjects: a C{list} of L{TwistdSlaveProcess} to add using
-        C{self.addProcess} when this service starts up.
-
-    @ivar _extraFDs: a mapping from process names to extra file-descriptor
-        maps.  (By default, all processes will have the standard stdio mapping,
-        so all file descriptors here should be >2.)  This is updated during
-        L{DelayedStartupProcessMonitor.startService}, by inspecting the result
-        of L{TwistdSlaveProcess.getFileDescriptors}.
-
     @ivar reactor: an L{IReactorProcess} for spawning processes, defaulting to
         the global reactor.
 
@@ -1193,22 +1246,20 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         Deferreds that track service shutdown.
     """
 
-    _shouldPassReactor = (
-        len(getargspec(procmon.ProcessMonitor.__init__)[0]) > 1
-    )
+    threshold = 1
+    killTime = 5
+    minRestartDelay = 1
+    maxRestartDelay = 3600
 
-    def __init__(self, *args, **kwargs):
-        reactorToUse = kwargs.get("reactor", reactor)
-        if not self._shouldPassReactor:
-            # Try to do this the right way if we can, otherwise, let the tests
-            # monkeypatch.  (Our superclass does not accept a 'reactor'
-            # argument in Twisted 10.0.0, but does in Twisted 10.1.0 and
-            # later.)
-            kwargs.pop('reactor', None)
-        procmon.ProcessMonitor.__init__(self, *args, **kwargs)
-        self.processObjects = []
-        self._extraFDs = {}
-        self.reactor = reactorToUse
+    def __init__(self, reactor=_reactor):
+        super(DelayedStartupProcessMonitor, self).__init__()
+        self._reactor = reactor
+        self.processes = {}
+        self.protocols = {}
+        self.delay = {}
+        self.timeStarted = {}
+        self.murder = {}
+        self.restart = {}
         self.stopping = False
         if config.MultiProcess.StaggeredStartup.Enabled:
             self.delayInterval = config.MultiProcess.StaggeredStartup.Interval
@@ -1216,7 +1267,42 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
             self.delayInterval = 0
 
 
-    def addProcessObject(self, process, env):
+    def addProcess(self, name, args, uid=None, gid=None, env={}):
+        """
+        Add a new monitored process and start it immediately if the
+        L{DelayedStartupProcessMonitor} service is running.
+
+        Note that args are passed to the system call, not to the shell. If
+        running the shell is desired, the common idiom is to use
+        C{ProcessMonitor.addProcess("name", ['/bin/sh', '-c', shell_script])}
+
+        @param name: A name for this process.  This value must be
+            unique across all processes added to this monitor.
+        @type name: C{str}
+        @param args: The argv sequence for the process to launch.
+        @param uid: The user ID to use to run the process.  If C{None},
+            the current UID is used.
+        @type uid: C{int}
+        @param gid: The group ID to use to run the process.  If C{None},
+            the current GID is used.
+        @type uid: C{int}
+        @param env: The environment to give to the launched process. See
+            L{IReactorProcess.spawnProcess}'s C{env} parameter.
+        @type env: C{dict}
+        @raises: C{KeyError} if a process with the given name already
+            exists
+        """
+        class SimpleProcessObject(object):
+            def getName(self):
+                return name
+            def getCommandLine(self):
+                return args
+            def getFileDescriptors(self):
+                return []
+        self.addProcessObject(SimpleProcessObject(), env, uid, gid)
+
+
+    def addProcessObject(self, process, env, uid=None, gid=None):
         """
         Add a process object to be run when this service is started.
 
@@ -1225,19 +1311,19 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         @param process: a L{TwistdSlaveProcesses} object to be started upon
             service startup.
         """
-        self.processObjects.append((process, env))
+        name = process.getName()
+        self.processes[name] = (process, env, uid, gid)
+        self.delay[name] = self.minRestartDelay
+        if self.running:
+            self.startProcess(name)
 
 
     def startService(self):
         # Now we're ready to build the command lines and actualy add the
         # processes to procmon.
-        for processObject, env in self.processObjects:
-            name = processObject.getName()
-            cmdline = processObject.getCommandLine()
-            filedes = processObject.getFileDescriptors()
-            self._extraFDs[name] = filedes
-            self.addProcess(name, cmdline, env=env)
-        procmon.ProcessMonitor.startService(self)
+        super(DelayedStartupProcessMonitor, self).startService()
+        for name in self.processes:
+            self.startProcess(name)
 
 
     def stopService(self):
@@ -1246,8 +1332,48 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         """
         self.stopping = True
         self.deferreds = {}
-        procmon.ProcessMonitor.stopService(self)
+        super(DelayedStartupProcessMonitor, self).stopService()
+
+        # Cancel any outstanding restarts
+        for name, delayedCall in self.restart.items():
+            if delayedCall.active():
+                delayedCall.cancel()
+
+        for name in self.processes:
+            self.stopProcess(name)
         return gatherResults(self.deferreds.values())
+
+
+    def removeProcess(self, name):
+        """
+        Stop the named process and remove it from the list of monitored
+        processes.
+
+        @type name: C{str}
+        @param name: A string that uniquely identifies the process.
+        """
+        self.stopProcess(name)
+        del self.processes[name]
+
+
+    def stopProcess(self, name):
+        """
+        @param name: The name of the process to be stopped
+        """
+        if name not in self.processes:
+            raise KeyError('Unrecognized process name: %s' % (name,))
+
+        proto = self.protocols.get(name, None)
+        if proto is not None:
+            proc = proto.transport
+            try:
+                proc.signalProcess('TERM')
+            except ProcessExitedAlready:
+                pass
+            else:
+                self.murder[name] = self._reactor.callLater(
+                                            self.killTime,
+                                            self._forceStopProcess, proc)
 
 
     def processEnded(self, name):
@@ -1255,10 +1381,45 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         When a child process has ended it calls me so I can fire the
         appropriate deferred which was created in stopService
         """
+        # Cancel the scheduled _forceStopProcess function if the process
+        # dies naturally
+        if name in self.murder:
+            if self.murder[name].active():
+                self.murder[name].cancel()
+            del self.murder[name]
+
+        del self.protocols[name]
+
+        if self._reactor.seconds() - self.timeStarted[name] < self.threshold:
+            # The process died too fast - backoff
+            nextDelay = self.delay[name]
+            self.delay[name] = min(self.delay[name] * 2, self.maxRestartDelay)
+
+        else:
+            # Process had been running for a significant amount of time
+            # restart immediately
+            nextDelay = 0
+            self.delay[name] = self.minRestartDelay
+
+        # Schedule a process restart if the service is running
+        if self.running and name in self.processes:
+            self.restart[name] = self._reactor.callLater(nextDelay,
+                                                         self.startProcess,
+                                                         name)
         if self.stopping:
             deferred = self.deferreds.get(name, None)
             if deferred is not None:
                 deferred.callback(None)
+
+
+    def _forceStopProcess(self, proc):
+        """
+        @param proc: An L{IProcessTransport} provider
+        """
+        try:
+            proc.signalProcess('KILL')
+        except ProcessExitedAlready:
+            pass
 
 
     def signalAll(self, signal, startswithname=None):
@@ -1306,14 +1467,16 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         p = self.protocols[name] = DelayedStartupLoggingProtocol()
         p.service = self
         p.name = name
-        args, uid, gid, env = self.processes[name]
+        procObj, env, uid, gid= self.processes[name]
         self.timeStarted[name] = time()
 
         childFDs = { 0 : "w", 1 : "r", 2 : "r" }
 
-        childFDs.update(self._extraFDs.get(name, {}))
+        childFDs.update(procObj.getFileDescriptors())
 
-        self.reactor.spawnProcess(
+        args = procObj.getCommandLine()
+
+        self._reactor.spawnProcess(
             p, args[0], args, uid=uid, gid=gid, env=env,
             childFDs=childFDs
         )
@@ -1333,7 +1496,35 @@ class DelayedStartupProcessMonitor(procmon.ProcessMonitor):
         def delayedStart():
             self._pendingStarts -= 1
             self.reallyStartProcess(name)
-        self.reactor.callLater(interval, delayedStart)
+        self._reactor.callLater(interval, delayedStart)
+
+
+    def restartAll(self):
+        """
+        Restart all processes. This is useful for third party management
+        services to allow a user to restart servers because of an outside change
+        in circumstances -- for example, a new version of a library is
+        installed.
+        """
+        for name in self.processes:
+            self.stopProcess(name)
+
+
+    def __repr__(self):
+        l = []
+        for name, (procObj, uid, gid, env) in self.processes.items():
+            uidgid = ''
+            if uid is not None:
+                uidgid = str(uid)
+            if gid is not None:
+                uidgid += ':'+str(gid)
+
+            if uidgid:
+                uidgid = '(' + uidgid + ')'
+            l.append('%r%s: %r' % (name, uidgid, procObj))
+        return ('<' + self.__class__.__name__ + ' '
+                + ' '.join(l)
+                + '>')
 
 
 
@@ -1389,26 +1580,40 @@ class DelayedStartupLineLogger(object):
 
 
 
-class DelayedStartupLoggingProtocol(procmon.LoggingProtocol, object):
+class DelayedStartupLoggingProtocol(ProcessProtocol):
     """
     Logging protocol that handles lines which are too long.
     """
+
+    service = None
+    name = None
+    empty = 1
 
     def connectionMade(self):
         """
         Replace the superclass's output monitoring logic with one that can
         handle lineLengthExceeded.
         """
-        super(DelayedStartupLoggingProtocol, self).connectionMade()
         self.output = DelayedStartupLineLogger()
+        self.output.makeConnection(self.transport)
         self.output.tag = self.name
+
+
+    def outReceived(self, data):
+        self.output.dataReceived(data)
+        self.empty = data[-1] == '\n'
+
+    errReceived = outReceived
+
 
     def processEnded(self, reason):
         """
         Let the service know that this child process has ended
         """
-        procmon.LoggingProtocol.processEnded(self, reason)
+        if not self.empty:
+            self.output.dataReceived('\n')
         self.service.processEnded(self.name)
+
 
 
 def getSSLPassphrase(*ignored):

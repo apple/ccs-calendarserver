@@ -41,6 +41,7 @@ class PropertyStoreTest(base.PropertyStoreTest):
     def setUp(self):
         self.notifierFactory = StubNotifierFactory()
         self.store = yield buildStore(self, self.notifierFactory)
+        self.addCleanup(self.maybeCommitLast)
         self._txn = self.store.newTransaction()
         self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
             "user01", self._txn, 1
@@ -50,7 +51,7 @@ class PropertyStoreTest(base.PropertyStoreTest):
 
 
     @inlineCallbacks
-    def tearDown(self):
+    def maybeCommitLast(self):
         if hasattr(self, "_txn"):
             result = yield self._txn.commit()
             delattr(self, "_txn")
@@ -66,7 +67,7 @@ class PropertyStoreTest(base.PropertyStoreTest):
             yield self._txn.commit()
             delattr(self, "_txn")
         self._txn = self.store.newTransaction()
-        
+
         store = self.propertyStore1
         self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
             "user01", self._txn, 1

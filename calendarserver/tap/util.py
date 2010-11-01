@@ -14,6 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
+"""
+Utilities for assembling the service and resource hierarchy.
+"""
+
 __all__ = [
     "getRootResource",
     "FakeRequest",
@@ -22,6 +27,7 @@ __all__ = [
 import errno
 import os
 from time import sleep
+from socket import fromfd, AF_UNIX, SOCK_STREAM
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
@@ -34,6 +40,7 @@ from twext.web2.static import File as FileResource
 from twisted.cred.portal import Portal
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.reactor import addSystemEventTrigger
+from twisted.internet.tcp import Connection
 from twisted.python.reflect import namedClass
 
 from twistedcaldav import memcachepool
@@ -61,6 +68,8 @@ try:
     NegotiateCredentialFactory  # pacify pyflakes
 except ImportError:
     NegotiateCredentialFactory = None
+from txdav.base.datastore.asyncsqlpool import ConnectionPool
+from txdav.base.datastore.asyncsqlpool import ConnectionPoolClient
 
 from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
@@ -77,70 +86,87 @@ from twext.python.filepath import CachingFilePath
 log = Logger()
 
 
+def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
+    """
+    Construct a L{PostgresService} from a given configuration and subservice.
 
-def storeFromConfig(config, notifierFactory=None):
+    @param config: the configuration to derive postgres configuration
+        parameters from.
+
+    @param subServiceFactory: A factory for the service to start once the
+        L{PostgresService} has been initialized.
+
+    @param uid: The user-ID to run the PostgreSQL server as.
+
+    @param gid: The group-ID to run the PostgreSQL server as.
+
+    @return: a service which can start postgres.
+
+    @rtype: L{PostgresService}
+    """
+    dbRoot = CachingFilePath(config.DatabaseRoot)
+    # Construct a PostgresService exactly as the parent would, so that we
+    # can establish connection information.
+    return PostgresService(
+        dbRoot, subServiceFactory, v1_schema,
+        databaseName=config.Postgres.DatabaseName,
+        logFile=config.Postgres.LogFile,
+        socketDir=config.RunRoot,
+        listenAddresses=config.Postgres.ListenAddresses,
+        sharedBuffers=config.Postgres.SharedBuffers,
+        maxConnections=config.Postgres.MaxConnections,
+        options=config.Postgres.Options,
+        uid=uid, gid=gid
+    )
+
+
+class ConnectionWithPeer(Connection):
+
+    connected = True
+
+    def getPeer(self):
+        return "<peer: %r %r>" % (self.socket.fileno(), id(self))
+
+    def getHost(self):
+        return "<host: %r %r>" % (self.socket.fileno(), id(self))
+
+def storeFromConfig(config, serviceParent, notifierFactory=None):
     """
     Produce an L{IDataStore} from the given configuration and notifier factory.
     """
     if config.UseDatabase:
-        dbRoot = CachingFilePath(config.DatabaseRoot)
-        postgresService = PostgresService(
-            dbRoot, None, v1_schema,
-            databaseName=config.Postgres.DatabaseName,
-            logFile=config.Postgres.LogFile,
-            socketDir=config.RunRoot,
-            listenAddresses=config.Postgres.ListenAddresses,
-            sharedBuffers=config.Postgres.SharedBuffers,
-            maxConnections=config.Postgres.MaxConnections,
-            options=config.Postgres.Options,
+        postgresService = pgServiceFromConfig(config, None)
+        if config.DBAMPFD == 0:
+            cp = ConnectionPool(postgresService.produceConnection)
+            cp.setServiceParent(serviceParent)
+            txnFactory = cp.connection
+        else:
+            # TODO: something to do with loseConnection here, maybe?  I don't
+            # think it actually needs to be shut down, though.
+            skt = fromfd(int(config.DBAMPFD), AF_UNIX, SOCK_STREAM)
+            os.close(config.DBAMPFD)
+            protocol = ConnectionPoolClient()
+            transport = ConnectionWithPeer(skt, protocol)
+            protocol.makeConnection(transport)
+            transport.startReading()
+            txnFactory = protocol.newTransaction
+        dataStore = CommonSQLDataStore(
+            txnFactory, notifierFactory,
+            postgresService.dataStoreDirectory.child("attachments"),
+            config.EnableCalDAV, config.EnableCardDAV
         )
-        return CommonSQLDataStore(postgresService.produceConnection,
-            notifierFactory, dbRoot.child("attachments"),
-            config.EnableCalDAV, config.EnableCardDAV)
+        dataStore.setServiceParent(serviceParent)
+        return dataStore
     else:
         return CommonFileDataStore(FilePath(config.DocumentRoot),
             notifierFactory, config.EnableCalDAV, config.EnableCardDAV) 
 
 
 
-def getRootResource(config, resources=None):
+def directoryFromConfig(config):
     """
-    Set up directory service and resource hierarchy based on config.
-    Return root resource.
-
-    Additional resources can be added to the hierarchy by passing a list of
-    tuples containing: path, resource class, __init__ args list, and optional
-    authentication scheme ("basic" or "digest").
+    Create an L{AggregateDirectoryService} from the given configuration.
     """
-    
-    # FIXME: this is only here to workaround circular imports
-    doBind()
-
-    #
-    # Default resource classes
-    #
-    rootResourceClass            = RootResource
-    principalResourceClass       = DirectoryPrincipalProvisioningResource
-    calendarResourceClass        = DirectoryCalendarHomeProvisioningResource
-    iScheduleResourceClass       = IScheduleInboxResource
-    timezoneServiceResourceClass = TimezoneServiceResource
-    webCalendarResourceClass     = WebCalendarResource
-    webAdminResourceClass        = WebAdminResource
-    addressBookResourceClass     = DirectoryAddressBookHomeProvisioningResource
-    directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
-
-    #
-    # Setup the Augment Service
-    #
-    augmentClass = namedClass(config.AugmentService.type)
-
-    log.info("Configuring augment service of type: %s" % (augmentClass,))
-
-    try:
-        augment.AugmentService = augmentClass(**config.AugmentService.params)
-    except IOError:
-        log.error("Could not start augment service")
-        raise
 
     #
     # Setup the Directory
@@ -148,6 +174,7 @@ def getRootResource(config, resources=None):
     directories = []
 
     directoryClass = namedClass(config.DirectoryService.type)
+    principalResourceClass       = DirectoryPrincipalProvisioningResource
 
     log.info("Configuring directory service of type: %s"
         % (config.DirectoryService.type,))
@@ -223,6 +250,52 @@ def getRootResource(config, resources=None):
         directory.setRealm(realmName)
     except ImportError:
         pass
+    log.info("Setting up principal collection: %r"
+                  % (principalResourceClass,))
+    principalResourceClass("/principals/", directory)
+    return directory
+
+
+def getRootResource(config, serviceParent, resources=None):
+    """
+    Set up directory service and resource hierarchy based on config.
+    Return root resource.
+
+    Additional resources can be added to the hierarchy by passing a list of
+    tuples containing: path, resource class, __init__ args list, and optional
+    authentication scheme ("basic" or "digest").
+    """
+
+    # FIXME: this is only here to workaround circular imports
+    doBind()
+
+    #
+    # Default resource classes
+    #
+    rootResourceClass            = RootResource
+    calendarResourceClass        = DirectoryCalendarHomeProvisioningResource
+    iScheduleResourceClass       = IScheduleInboxResource
+    timezoneServiceResourceClass = TimezoneServiceResource
+    webCalendarResourceClass     = WebCalendarResource
+    webAdminResourceClass        = WebAdminResource
+    addressBookResourceClass     = DirectoryAddressBookHomeProvisioningResource
+    directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
+
+    #
+    # Setup the Augment Service
+    #
+    augmentClass = namedClass(config.AugmentService.type)
+
+    log.info("Configuring augment service of type: %s" % (augmentClass,))
+
+    try:
+        augment.AugmentService = augmentClass(**config.AugmentService.params)
+    except IOError:
+        log.error("Could not start augment service")
+        raise
+
+
+    directory = directoryFromConfig(config)
 
     #
     # Setup the ProxyDB Service
@@ -311,10 +384,8 @@ def getRootResource(config, resources=None):
     #
     log.info("Setting up document root at: %s"
                   % (config.DocumentRoot,))
-    log.info("Setting up principal collection: %r"
-                  % (principalResourceClass,))
 
-    principalCollection = principalResourceClass("/principals/", directory)
+    principalCollection = directory.principalCollection
 
     #
     # Configure NotifierFactory
@@ -327,7 +398,7 @@ def getRootResource(config, resources=None):
     else:
         notifierFactory = None
 
-    newStore = storeFromConfig(config, notifierFactory)
+    newStore = storeFromConfig(config, serviceParent, notifierFactory)
 
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: %r" % (calendarResourceClass,))

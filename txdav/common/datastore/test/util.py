@@ -28,14 +28,17 @@ from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, succeed, inlineCallbacks
+from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.task import deferLater
 from twisted.python import log
+from twisted.application.service import Service
 
 from txdav.common.datastore.sql import CommonDataStore, v1_schema
 from txdav.base.datastore.subpostgres import PostgresService,\
     DiagnosticConnectionWrapper
 from txdav.common.icommondatastore import NoSuchHomeChildError
+from txdav.base.datastore.asyncsqlpool import ConnectionPool
+from twisted.internet.defer import returnValue
 from twistedcaldav.notify import Notifier
 
 
@@ -52,6 +55,8 @@ def dumpConnectionStatus():
         print connection.label, connection.state
     print '--- CONNECTIONS END ---'
 
+
+
 class SQLStoreBuilder(object):
     """
     Test-fixture-builder which can construct a PostgresStore.
@@ -67,31 +72,15 @@ class SQLStoreBuilder(object):
 
         @return: a L{Deferred} which fires with an L{IDataStore}.
         """
-        currentTestID = testCase.id()
         dbRoot = CachingFilePath(self.SHARED_DB_PATH)
+        attachmentRoot = dbRoot.child("attachments")
         if self.sharedService is None:
             ready = Deferred()
             def getReady(connectionFactory):
-                attachmentRoot = dbRoot.child("attachments")
-                try:
-                    attachmentRoot.createDirectory()
-                except OSError:
-                    pass
-                try:
-                    self.store = CommonDataStore(
-                        lambda label=None: connectionFactory(
-                            label or currentTestID
-                        ),
-                        notifierFactory,
-                        attachmentRoot
-                    )
-                except:
-                    ready.errback()
-                    raise
-                else:
-                    self.cleanDatabase(testCase)
-                    ready.callback(self.store)
-                return self.store
+                self.makeAndCleanStore(
+                    testCase, notifierFactory, attachmentRoot
+                ).chainDeferred(ready)
+                return Service()
             self.sharedService = PostgresService(
                 dbRoot, getReady, v1_schema, resetSchema=True,
                 databaseName="caldav",
@@ -106,13 +95,10 @@ class SQLStoreBuilder(object):
                 "before", "shutdown", startStopping)
             result = ready
         else:
-            self.store.notifierFactory = notifierFactory
-            self.cleanDatabase(testCase)
-            result = succeed(self.store)
-
+            result = self.makeAndCleanStore(
+                testCase, notifierFactory, attachmentRoot
+            )
         def cleanUp():
-            # FIXME: clean up any leaked connections and report them with an
-            # immediate test failure.
             def stopit():
                 self.sharedService.pauseMonitor()
             return deferLater(reactor, 0.1, stopit)
@@ -120,11 +106,42 @@ class SQLStoreBuilder(object):
         return result
 
 
-    def cleanDatabase(self, testCase):
-        cleanupConn = self.store.connectionFactory(
+    @inlineCallbacks
+    def makeAndCleanStore(self, testCase, notifierFactory, attachmentRoot):
+        """
+        Create a L{CommonDataStore} specific to the given L{TestCase}.
+
+        This also creates a L{ConnectionPool} that gets stopped when the test
+        finishes, to make sure that any test which fails will terminate
+        cleanly.
+
+        @return: a L{Deferred} that fires with a L{CommonDataStore}
+        """
+        try:
+            attachmentRoot.createDirectory()
+        except OSError:
+            pass
+        cp = ConnectionPool(self.sharedService.produceConnection)
+        store = CommonDataStore(
+            cp.connection, notifierFactory, attachmentRoot
+        )
+        currentTestID = testCase.id()
+        store.label = currentTestID
+        cp.startService()
+        def stopIt():
+            return cp.stopService()
+        testCase.addCleanup(stopIt)
+        yield self.cleanStore(testCase, store)
+        returnValue(store)
+
+
+    @inlineCallbacks
+    def cleanStore(self, testCase, storeToClean):
+        cleanupTxn = storeToClean.sqlTxnFactory(
             "%s schema-cleanup" % (testCase.id(),)
         )
-        cursor = cleanupConn.cursor()
+        # TODO: should be getting these tables from a declaration of the schema
+        # somewhere.
         tables = ['INVITE',
                   'RESOURCE_PROPERTY',
                   'ATTACHMENT',
@@ -143,14 +160,14 @@ class SQLStoreBuilder(object):
                   'NOTIFICATION_HOME']
         for table in tables:
             try:
-                cursor.execute("delete from "+table)
+                yield cleanupTxn.execSQL("delete from "+table, [])
             except:
                 log.err()
-        cleanupConn.commit()
-        cleanupConn.close()
+        yield cleanupTxn.commit()
 
 theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore
+
 
 
 @inlineCallbacks
@@ -215,6 +232,7 @@ class CommonCommonTests(object):
     lastTransaction = None
     savedStore = None
     assertProvides = assertProvides
+    lastCommitSetUp = False
 
     def transactionUnderTest(self):
         """
@@ -222,12 +240,17 @@ class CommonCommonTests(object):
         C[lastTransaction}.  Also makes sure to use the same store, saving the
         value from C{storeUnderTest}.
         """
+        if not self.lastCommitSetUp:
+            self.lastCommitSetUp = True
+            self.addCleanup(self.commitLast)
         if self.lastTransaction is not None:
             return self.lastTransaction
         if self.savedStore is None:
             self.savedStore = self.storeUnderTest()
         self.counter += 1
-        txn = self.lastTransaction = self.savedStore.newTransaction(self.id() + " #" + str(self.counter))
+        txn = self.lastTransaction = self.savedStore.newTransaction(
+            self.id() + " #" + str(self.counter)
+        )
         return txn
 
 
@@ -250,11 +273,12 @@ class CommonCommonTests(object):
         self.lastTransaction = None
         return result
 
+
     def setUp(self):
         self.counter = 0
         self.notifierFactory = StubNotifierFactory()
 
-    def tearDown(self):
+    def commitLast(self):
         if self.lastTransaction is not None:
             return self.commit()
 

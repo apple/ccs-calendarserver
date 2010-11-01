@@ -27,6 +27,7 @@ import uuid
 
 try:
     from cStringIO import StringIO
+    StringIO
 except ImportError:
     from StringIO import StringIO
 
@@ -37,7 +38,7 @@ from email.mime.text import MIMEText
 from zope.interface import implements
 
 from twisted.application import internet, service
-from twisted.internet import protocol, defer, ssl, reactor
+from twisted.internet import protocol, defer, ssl, reactor as _reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
 from twisted.mail.smtp import messageid, rfc822date, ESMTPSenderFactory
@@ -60,7 +61,7 @@ from twistedcaldav import memcachepool
 from twistedcaldav.config import config
 from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.ical import Property
-from twistedcaldav.localization import translationTo
+from twistedcaldav.localization import translationTo, _
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.schedule import deliverSchedulePrivilegeSet
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
@@ -350,7 +351,7 @@ class IMIPInvitationInboxResource(IMIPInboxResource):
 def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
 
     if reactor is None:
-        from twisted.internet import reactor
+        reactor = _reactor
 
     headers = {
         'Content-Type' : 'text/calendar',
@@ -586,16 +587,18 @@ class MailGatewayServiceMaker(LoggingMixIn):
         return multiService
 
 
-#
-# ISchedule Inbox
-#
-class IScheduleService(service.Service, LoggingMixIn):
+class IScheduleService(service.MultiService, LoggingMixIn):
+    """
+    ISchedule Inbox
+    """
 
     def __init__(self, settings, mailer):
         self.settings = settings
         self.mailer = mailer
 
-        rootResource = getRootResource(config,
+        rootResource = getRootResource(
+            config,
+            self,
             (
                 ("inbox", IMIPInvitationInboxResource, (mailer,), "digest"),
             )
@@ -604,13 +607,7 @@ class IScheduleService(service.Service, LoggingMixIn):
         self.factory = HTTPFactory(server.Site(rootResource))
         self.server = internet.TCPServer(settings['MailGatewayPort'],
             self.factory)
-
-    def startService(self):
-        self.server.startService()
-
-    def stopService(self):
-        self.server.stopService()
-
+        self.server.setServiceParent(self)
 
 
 
@@ -767,7 +764,7 @@ class MailHandler(LoggingMixIn):
                 requireTransportSecurity=settings["UseSSL"],
             )
 
-            reactor.connectTCP(settings["Server"], settings["Port"], factory)
+            _reactor.connectTCP(settings["Server"], settings["Port"], factory)
             return deferred
 
 
@@ -954,7 +951,7 @@ class MailHandler(LoggingMixIn):
                 requireAuthentication=False,
                 requireTransportSecurity=settings["UseSSL"])
 
-            reactor.connectTCP(settings['Server'], settings['Port'], factory)
+            _reactor.connectTCP(settings['Server'], settings['Port'], factory)
             deferred.addCallback(_success, msgId, fromAddr, toAddr)
             deferred.addErrback(_failure, msgId, fromAddr, toAddr)
             return deferred

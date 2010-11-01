@@ -359,7 +359,8 @@ class BaseServiceMakerTests(TestCase):
         """
         service = self.makeService()
 
-        return service.services[0].args[1].protocolArgs["requestFactory"]
+        # FIXME: should at least use service name, not index
+        return service.services[2].args[1].protocolArgs["requestFactory"]
 
 
 
@@ -489,20 +490,23 @@ class SlaveServiceTest(BaseServiceMakerTests):
         """
         service = self.makeService()
 
-        expectedSubServices = (
+        expectedSubServices = dict((
             (MaxAcceptTCPServer, self.config["HTTPPort"]),
             (MaxAcceptSSLServer, self.config["SSLPort"]),
-        )
+        ))
 
-        configuredSubServices = [(s.__class__, s.args) for s in service.services]
-
+        configuredSubServices = [(s.__class__, getattr(s, 'args', None))
+                                 for s in service.services]
+        checked = 0
         for serviceClass, serviceArgs in configuredSubServices:
-            self.failUnless(serviceClass in (s[0] for s in expectedSubServices))
+            if serviceClass in expectedSubServices:
+                checked += 1
+                self.assertEquals(
+                    serviceArgs[0],
+                    dict(expectedSubServices)[serviceClass]
+                )
+        self.assertEquals(checked, len(expectedSubServices))
 
-            self.assertEquals(
-                serviceArgs[0],
-                dict(expectedSubServices)[serviceClass]
-            )
 
     def test_SSLKeyConfiguration(self):
         """
@@ -570,7 +574,8 @@ class SlaveServiceTest(BaseServiceMakerTests):
         service = self.makeService()
 
         for s in service.services:
-            self.assertEquals(s.kwargs["interface"], "127.0.0.1")
+            if isinstance(s, (internet.TCPServer, internet.SSLServer)):
+                self.assertEquals(s.kwargs["interface"], "127.0.0.1")
 
     def test_multipleBindAddresses(self):
         """
@@ -619,7 +624,8 @@ class SlaveServiceTest(BaseServiceMakerTests):
         service = self.makeService()
 
         for s in service.services:
-            self.assertEquals(s.kwargs["backlog"], 1024)
+            if isinstance(s, (internet.TCPServer, internet.SSLServer)):
+                self.assertEquals(s.kwargs["backlog"], 1024)
 
 
 class ServiceHTTPFactoryTests(BaseServiceMakerTests):
@@ -888,22 +894,22 @@ class DirectoryServiceTest(BaseServiceMakerTests):
 
 class DummyProcessObject(object):
     """
-    Simple stub for the Process Object API that will run a test script.
+    Simple stub for Process Object API which just has an executable and some
+    arguments.
 
     This is a stand in for L{TwistdSlaveProcess}.
     """
 
     def __init__(self, scriptname, *args):
         self.scriptname = scriptname
-        self.args = list(args)
+        self.args = args
 
 
     def getCommandLine(self):
         """
-        Get the command line to invoke this script.
+        Simple command line.
         """
-        return [sys.executable,
-                FilePath(__file__).sibling(self.scriptname).path] + self.args
+        return [self.scriptname] + list(self.args)
 
 
     def getFileDescriptors(self):
@@ -920,22 +926,28 @@ class DummyProcessObject(object):
         return 'Dummy'
 
 
+class ScriptProcessObject(DummyProcessObject):
+    """
+    Simple stub for the Process Object API that will run a test script.
+    """
+
+    def getCommandLine(self):
+        """
+        Get the command line to invoke this script.
+        """
+        return [
+            sys.executable,
+            FilePath(__file__).sibling(self.scriptname).path
+        ] + list(self.args)
+
+
+
+
 
 class DelayedStartupProcessMonitorTests(TestCase):
     """
     Test cases for L{DelayedStartupProcessMonitor}.
     """
-
-    def useFakeReactor(self, fakeReactor):
-        """
-        Earlier versions of Twisted used a global reactor in
-        L{twisted.runner.procmon}, so we need to take that into account when
-        testing.
-        """
-        if not DelayedStartupProcessMonitor._shouldPassReactor:
-            import twisted.runner.procmon as inherited
-            self.patch(inherited, "reactor", fakeReactor)
-
 
     def test_lineAfterLongLine(self):
         """
@@ -944,7 +956,7 @@ class DelayedStartupProcessMonitorTests(TestCase):
         at once, to avoid resource exhaustion.
         """
         dspm = DelayedStartupProcessMonitor()
-        dspm.addProcessObject(DummyProcessObject(
+        dspm.addProcessObject(ScriptProcessObject(
                 'longlines.py', str(DelayedStartupLineLogger.MAX_LENGTH)),
                           os.environ)
         dspm.startService()
@@ -966,7 +978,7 @@ class DelayedStartupProcessMonitorTests(TestCase):
                 logged.append(event)
                 if m == '[Dummy] z':
                     d.callback("done")
-            
+
         log.addObserver(tempObserver)
         self.addCleanup(log.removeObserver, tempObserver)
         d = Deferred()
@@ -990,9 +1002,8 @@ class DelayedStartupProcessMonitorTests(TestCase):
         If a L{TwistdSlaveProcess} specifies some file descriptors to be
         inherited, they should be inherited by the subprocess.
         """
-        dspm                = DelayedStartupProcessMonitor()
-        imps = dspm.reactor = InMemoryProcessSpawner()
-        self.useFakeReactor(imps)
+        imps = InMemoryProcessSpawner()
+        dspm = DelayedStartupProcessMonitor(imps)
 
         # Most arguments here will be ignored, so these are bogus values.
         slave = TwistdSlaveProcess(
@@ -1017,6 +1028,27 @@ class DelayedStartupProcessMonitorTests(TestCase):
                            19: 19, 25: 25})
 
 
+    def test_changedArgumentEachSpawn(self):
+        """
+        If the result of C{getCommandLine} changes on subsequent calls,
+        subsequent calls should result in different arguments being passed to
+        C{spawnProcess} each time.
+        """
+        imps = InMemoryProcessSpawner()
+        dspm = DelayedStartupProcessMonitor(imps)
+        slave = DummyProcessObject('scriptname', 'first')
+        dspm.addProcessObject(slave, {})
+        dspm.startService()
+        oneProcessTransport = imps.waitForOneProcess()
+        self.assertEquals(oneProcessTransport.args,
+                          ['scriptname', 'first'])
+        slave.args = ['second']
+        oneProcessTransport.processProtocol.processEnded(None)
+        twoProcessTransport = imps.waitForOneProcess()
+        self.assertEquals(twoProcessTransport.args,
+                          ['scriptname', 'second'])
+
+
     def test_metaDescriptorInheritance(self):
         """
         If a L{TwistdSlaveProcess} specifies a meta-file-descriptor to be
@@ -1024,9 +1056,8 @@ class DelayedStartupProcessMonitorTests(TestCase):
         configuration argument should be passed that indicates to the
         subprocess.
         """
-        dspm                = DelayedStartupProcessMonitor()
-        imps = dspm.reactor = InMemoryProcessSpawner()
-        self.useFakeReactor(imps)
+        imps = InMemoryProcessSpawner()
+        dspm = DelayedStartupProcessMonitor(imps)
         # Most arguments here will be ignored, so these are bogus values.
         slave = TwistdSlaveProcess(
             twistd     = "bleh",
@@ -1057,10 +1088,9 @@ class DelayedStartupProcessMonitorTests(TestCase):
         objects that have been added to it being started once per
         delayInterval.
         """
-        dspm                = DelayedStartupProcessMonitor()
+        imps = InMemoryProcessSpawner()
+        dspm = DelayedStartupProcessMonitor(imps)
         dspm.delayInterval = 3.0
-        imps = dspm.reactor = InMemoryProcessSpawner()
-        self.useFakeReactor(imps)
         sampleCounter = range(0, 5)
         for counter in sampleCounter:
             slave = TwistdSlaveProcess(

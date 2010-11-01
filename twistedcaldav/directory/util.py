@@ -66,6 +66,10 @@ def transactionFromRequest(request, newStore):
         transaction = newStore.newTransaction(repr(request))
         def abortIfUncommitted(request, response):
             try:
+                # TODO: missing 'yield' here.  For formal correctness as per
+                # the interface, this should be allowed to be a Deferred.  (The
+                # actual implementation still raises synchronously, so there's
+                # no bug currently.)
                 transaction.abort()
             except AlreadyFinishedError:
                 pass

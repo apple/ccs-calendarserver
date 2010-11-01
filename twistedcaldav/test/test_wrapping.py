@@ -113,7 +113,9 @@ class WrappingTests(TestCase):
         txn = self.calendarCollection._newStore.newTransaction()
         home = yield txn.calendarHomeWithUID(uid, True)
         cal = yield home.calendarWithName("calendar")
-        cal.createCalendarObjectWithName(objectName, VComponent.fromString(objectText))
+        yield cal.createCalendarObjectWithName(
+            objectName, VComponent.fromString(objectText)
+        )
         yield txn.commit()
 
 
@@ -141,7 +143,9 @@ class WrappingTests(TestCase):
         if adbk is None:
             yield home.createAddressBookWithName("addressbook")
             adbk = yield home.addressbookWithName("addressbook")
-        adbk.createAddressBookObjectWithName(objectName, VCComponent.fromString(objectText))
+        yield adbk.createAddressBookObjectWithName(
+            objectName, VCComponent.fromString(objectText)
+        )
         yield txn.commit()
 
 
@@ -287,14 +291,14 @@ class WrappingTests(TestCase):
     def test_lookupNewCalendar(self):
         """
         When a L{CalDAVResource} which represents a not-yet-created calendar
-        collection is looked up in a L{CalendarHomeResource} representing a calendar
-        home, it will initially have a new storage backend set to C{None}, but
-        when the calendar is created via a protocol action, the backend will be
-        initialized to match.
+        collection is looked up in a L{CalendarHomeResource} representing a
+        calendar home, it will initially have a new storage backend set to
+        C{None}, but when the calendar is created via a protocol action, the
+        backend will be initialized to match.
         """
         calDavFile = yield self.getResource("calendars/users/wsanchez/frobozz")
         self.assertIsInstance(calDavFile, ProtoCalendarCollectionResource)
-        calDavFile.createCalendarCollection()
+        yield calDavFile.createCalendarCollection()
         yield self.commit()
 
 
@@ -417,7 +421,7 @@ class WrappingTests(TestCase):
         """
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/frobozz")
         self.assertIsInstance(calDavFile, ProtoAddressBookCollectionResource)
-        calDavFile.createAddressBookCollection()
+        yield calDavFile.createAddressBookCollection()
         yield self.commit()
         self.assertEquals(calDavFile._principalCollections,
                           frozenset([self.principalsResource]))

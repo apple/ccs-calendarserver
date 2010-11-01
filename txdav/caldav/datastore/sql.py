@@ -589,31 +589,37 @@ class AttachmentStorageTransport(object):
 
     @inlineCallbacks
     def loseConnection(self):
-        
+
         old_size = self.attachment.size()
 
         self.attachment._path.setContent(self.buf)
         self.attachment._contentType = self.contentType
         self.attachment._md5 = self.hash.hexdigest()
         self.attachment._size = len(self.buf)
-        self.attachment._created, self.attachment._modified = (yield self._txn.execSQL(
-            """
-            update ATTACHMENT set CONTENT_TYPE = %s, SIZE = %s, MD5 = %s,
-             MODIFIED = timezone('UTC', CURRENT_TIMESTAMP)
-            where PATH = %s
-            returning CREATED, MODIFIED
-            """,
-            [
-                generateContentType(self.contentType),
-                self.attachment._size,
-                self.attachment._md5,
-                self.attachment.name()
-            ]
-        ))[0]
+        self.attachment._created, self.attachment._modified = map(
+            sqltime,
+            (yield self._txn.execSQL(
+                """
+                update ATTACHMENT set CONTENT_TYPE = %s, SIZE = %s, MD5 = %s,
+                 MODIFIED = timezone('UTC', CURRENT_TIMESTAMP)
+                where PATH = %s
+                returning CREATED, MODIFIED
+                """,
+                [
+                    generateContentType(self.contentType),
+                    self.attachment._size,
+                    self.attachment._md5,
+                    self.attachment.name()
+                ]
+            ))[0]
+        )
 
         # Adjust quota
         yield self.attachment._calendarObject._calendar._home.adjustQuotaUsedBytes(self.attachment.size() - old_size)
 
+
+def sqltime(value):
+    return datetimeMktime(datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f"))
 
 class Attachment(object):
 
@@ -648,8 +654,8 @@ class Attachment(object):
         self._contentType = MimeType.fromString(rows[0][0])
         self._size = rows[0][1]
         self._md5 = rows[0][2]
-        self._created = datetimeMktime(datetime.datetime.strptime(rows[0][3], "%Y-%m-%d %H:%M:%S.%f"))
-        self._modified = datetimeMktime(datetime.datetime.strptime(rows[0][4], "%Y-%m-%d %H:%M:%S.%f"))
+        self._created = sqltime(rows[0][3])
+        self._modified = sqltime(rows[0][4])
         returnValue(self)
 
 
@@ -692,3 +698,5 @@ class Attachment(object):
 
     def modified(self):
         return self._modified
+
+

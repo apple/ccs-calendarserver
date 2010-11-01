@@ -993,7 +993,7 @@ class CommonTests(CommonCommonTests):
         # Sanity check; make sure the test has the right idea of the subject.
         self.assertNotEquals(event1_text, event1_text_withDifferentSubject)
         newComponent = VComponent.fromString(event1_text_withDifferentSubject)
-        obj.setComponent(newComponent)
+        yield obj.setComponent(newComponent)
 
         # Putting everything into a separate transaction to account for any
         # caching that may take place.
@@ -1067,7 +1067,7 @@ END:VCALENDAR
         """
         objName = "with-dropbox.ics"
         cal = yield self.calendarUnderTest()
-        cal.createCalendarObjectWithName(
+        yield cal.createCalendarObjectWithName(
             objName, VComponent.fromString(
                 self.eventWithDropbox
             )
@@ -1091,7 +1091,7 @@ END:VCALENDAR
         )
         t.write("new attachment")
         t.write(" text")
-        t.loseConnection()
+        yield t.loseConnection()
         obj = yield refresh(obj)
         class CaptureProtocol(Protocol):
             buf = ''
@@ -1181,7 +1181,7 @@ END:VCALENDAR
             "new.attachment", MimeType("text", "plain")
         )
         t.write("new attachment text")
-        t.loseConnection()
+        yield t.loseConnection()
         yield self.commit()
         home = (yield self.homeUnderTest())
         calendars = (yield home.calendars())

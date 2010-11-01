@@ -47,7 +47,11 @@ class PurgeOldEventsTestCase(TestCase):
     def setUp(self):
         super(PurgeOldEventsTestCase, self).setUp()
 
-        config.DirectoryService.params['xmlFile'] = os.path.join(os.path.dirname(__file__), "purge", "accounts.xml")
+        config.DirectoryService.params['xmlFile'] = os.path.join(
+            os.path.dirname(__file__), "purge", "accounts.xml"
+        )
+        # TODO: when rewriting for new-store, getRootResource needs a parent
+        # service argument now, to know when to start/stop the connection pool.
         self.rootResource = getRootResource(config)
         self.directory = self.rootResource.getDirectory()
 
@@ -381,6 +385,8 @@ class DeprovisionTestCase(TestCase):
         copyAugmentFile = FilePath(config.DataRoot).child("augments.xml")
         origAugmentFile.copyTo(copyAugmentFile)
 
+        # TODO: when rewriting for new-store, getRootResource needs a parent
+        # service argument now, to know when to start/stop the connection pool.
         self.rootResource = getRootResource(config)
         self.directory = self.rootResource.getDirectory()
 

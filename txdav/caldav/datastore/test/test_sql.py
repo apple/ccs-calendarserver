@@ -44,7 +44,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
-        super(CalendarSQLStorageTests, self).setUp()
+        yield super(CalendarSQLStorageTests, self).setUp()
         self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()
 
@@ -86,7 +86,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         """
         Assert that two objects with C{properties} methods have similar
         properties.
-        
+
         @param disregard: a list of L{PropertyName} keys to discard from both
             input and output.
         """
@@ -201,7 +201,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         operations, that we do not block other reads of the table.
         """
 
-        calendarStore = yield buildStore(self, self.notifierFactory)
+        calendarStore = self._sqlCalendarStore
 
         txn1 = calendarStore.newTransaction()
         txn2 = calendarStore.newTransaction()
@@ -211,7 +211,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         # reads of existing data in the table
         home_uid2 = yield txn3.homeWithUID(ECALENDARTYPE, "uid2", create=True)
         self.assertNotEqual(home_uid2, None)
-        txn3.commit()
+        yield txn3.commit()
 
         home_uid1_1 = yield txn1.homeWithUID(
             ECALENDARTYPE, "uid1", create=True
@@ -237,7 +237,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         txn4 = calendarStore.newTransaction()
         home_uid2 = yield txn4.homeWithUID(ECALENDARTYPE, "uid2", create=True)
         self.assertNotEqual(home_uid2, None)
-        txn4.commit()
+        yield txn4.commit()
 
         # Now do the concurrent provision attempt
         yield d2
@@ -250,21 +250,20 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     @inlineCallbacks
     def test_putConcurrency(self):
         """
-        Test that two concurrent attempts to PUT different address book object resources to the
-        same address book home does not cause a deadlock.
+        Test that two concurrent attempts to PUT different calendar object
+        resources to the same address book home does not cause a deadlock.
         """
 
-        calendarStore1 = yield buildStore(self, self.notifierFactory)
-        calendarStore2 = yield buildStore(self, self.notifierFactory)
+        calendarStore = self._sqlCalendarStore
 
         # Provision the home now
-        txn = calendarStore1.newTransaction()
+        txn = calendarStore.newTransaction()
         home = yield txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
         self.assertNotEqual(home, None)
-        txn.commit()
+        yield txn.commit()
 
-        txn1 = calendarStore1.newTransaction()
-        txn2 = calendarStore2.newTransaction()
+        txn1 = calendarStore.newTransaction()
+        txn2 = calendarStore.newTransaction()
 
         home1 = yield txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
         home2 = yield txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
@@ -364,3 +363,6 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
         yield d1
         yield d2
+
+
+

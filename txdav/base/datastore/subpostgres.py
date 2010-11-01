@@ -18,9 +18,9 @@
 """
 Run and manage PostgreSQL as a subprocess.
 """
+
 import os
 import pwd
-#import thread
 
 from hashlib import md5
 
@@ -36,10 +36,11 @@ pgdb = namedAny("pgdb")
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
+from txdav.base.datastore.asyncsqlpool import BaseSqlTxn
 
 from twisted.application.service import MultiService
 
-log = Logger()                                                                                                                     
+log = Logger()
 
 # This appears in the postgres log to indicate that it is accepting
 # connections.
@@ -167,11 +168,13 @@ class _PostgresMonitor(ProcessProtocol):
         self.completionDeferred.callback(None)
 
 
+
 class ErrorOutput(Exception):
     """
     The process produced some error output and exited with a non-zero exit
     code.
     """
+
 
 
 class CapturingProcessProtocol(ProcessProtocol):
@@ -212,6 +215,7 @@ class CapturingProcessProtocol(ProcessProtocol):
         """
         self.output.append(data)
 
+
     def errReceived(self, data):
         """
         Some output was received on stderr.
@@ -224,6 +228,24 @@ class CapturingProcessProtocol(ProcessProtocol):
         The process is over, fire the Deferred with the output.
         """
         self.deferred.callback(''.join(self.output))
+
+
+
+class UnpooledSqlTxn(BaseSqlTxn):
+    """
+    Unpooled variant (releases thread immediately on commit or abort),
+    currently exclusively for testing.
+    """
+    def commit(self):
+        result = super(UnpooledSqlTxn, self).commit()
+        self.stop()
+        return result
+
+    def abort(self):
+        result = super(UnpooledSqlTxn, self).abort()
+        self.stop()
+        return result
+
 
 
 class PostgresService(MultiService):
@@ -290,6 +312,7 @@ class PostgresService(MultiService):
         self.monitor = None
         self.openConnections = []
 
+
     def activateDelayedShutdown(self):
         """
         Call this when starting database initialization code to protect against
@@ -301,6 +324,7 @@ class PostgresService(MultiService):
         """
         self.delayedShutdown = True
 
+
     def deactivateDelayedShutdown(self):
         """
         Call this when database initialization code has completed so that the
@@ -309,6 +333,7 @@ class PostgresService(MultiService):
         self.delayedShutdown = False
         if self.shutdownDeferred:
             self.shutdownDeferred.callback(None)
+
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):
         """
@@ -326,6 +351,7 @@ class PostgresService(MultiService):
 
         w = DiagnosticConnectionWrapper(connection, label)
         c = w.cursor()
+
         # Turn on standard conforming strings.  This option is _required_ if
         # you want to get correct behavior out of parameter-passing with the
         # pgdb module.  If it is not set then the server is potentially
@@ -340,9 +366,22 @@ class PostgresService(MultiService):
         # preferable to see some exceptions while we're in this state than to
         # have the entire worker process hang.
         c.execute("set statement_timeout=30000")
+
+        # pgdb (as per DB-API 2.0) automatically puts the connection into a
+        # 'executing a transaction' state when _any_ statement is executed on
+        # it (even these not-touching-any-data statements); make sure to commit
+        # first so that the application sees a fresh transaction, and the
+        # connection can safely be pooled without executing anything on it.
         w.commit()
         c.close()
         return w
+
+
+    def produceLocalTransaction(self, label="<unlabeled>"):
+        """
+        Create a L{IAsyncTransaction} based on a thread in the current process.
+        """
+        return UnpooledSqlTxn(lambda : self.produceConnection(label))
 
 
     def ready(self):
@@ -389,6 +428,7 @@ class PostgresService(MultiService):
             # Only continue startup if we've not begun shutdown
             self.subServiceFactory(self.produceConnection).setServiceParent(self)
 
+
     def pauseMonitor(self):
         """
         Pause monitoring.  This is a testing hook for when (if) we are
@@ -402,7 +442,7 @@ class PostgresService(MultiService):
     def unpauseMonitor(self):
         """
         Unpause monitoring.
-        
+
         @see: L{pauseMonitor} 
         """
 #        for pipe in self.monitor.transport.pipes.values():
@@ -417,9 +457,11 @@ class PostgresService(MultiService):
         monitor = _PostgresMonitor(self)
         pg_ctl = which("pg_ctl")[0]
         # check consistency of initdb and postgres?
-        
+
         options = []
-        options.append("-c listen_addresses='%s'" % (",".join(self.listenAddresses)))
+        options.append(
+            "-c listen_addresses='%s'" % (",".join(self.listenAddresses))
+        )
         if self.socketDir:
             options.append("-k '%s'" % (self.socketDir.path,))
         options.append("-c shared_buffers=%d" % (self.sharedBuffers,))

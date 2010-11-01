@@ -664,9 +664,10 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
             content_type = MimeType("application", "octet-stream")
 
         t = self._newStoreAttachment.store(content_type)
+        @inlineCallbacks
         def done(ignored):
-            t.loseConnection()
-            return NO_CONTENT
+            yield t.loseConnection()
+            returnValue(NO_CONTENT)
         return readStream(request.stream, t.write).addCallback(done)
 
 

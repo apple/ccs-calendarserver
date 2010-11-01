@@ -102,7 +102,7 @@ class AddressBook(CommonHomeChild):
         will eventually have on disk.
         @type realName: C{str}
         """
-        
+
         super(AddressBook, self).__init__(home, name, resourceID, notifier)
 
         self._index = PostgresLegacyABIndexEmulator(self)

@@ -25,26 +25,23 @@ __all__ = [
     "CommonHome",
 ]
 
-import sys
 import datetime
-from Queue import Queue
 
-from zope.interface.declarations import implements, directlyProvides
+from zope.interface import implements, directlyProvides
+
+from twext.python.log import Logger, LoggingMixIn
+from twext.web2.dav.element.rfc2518 import ResourceType
+from twext.web2.http_headers import MimeType
 
 from twisted.python import hashlib
 from twisted.python.modules import getModule
 from twisted.python.util import FancyEqMixin
-from twisted.python.failure import Failure
 
-from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twisted.application.service import Service
 
-from twext.python.log import Logger, LoggingMixIn
 from twext.internet.decorate import memoizedKey
-from twext.web2.dav.element.rfc2518 import ResourceType
-from twext.web2.http_headers import MimeType
 
 from txdav.common.datastore.sql_legacy import PostgresLegacyNotificationsEmulator
 from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
@@ -61,9 +58,8 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 
-from txdav.idav import AlreadyFinishedError
-from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.sql import PropertyStore
+from txdav.base.propertystore.base import PropertyName
 
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime
@@ -87,15 +83,17 @@ class CommonDataStore(Service, object):
 
     implements(ICalendarStore)
 
-    def __init__(self, connectionFactory, notifierFactory, attachmentsPath,
-                 enableCalendars=True, enableAddressBooks=True):
+    def __init__(self, sqlTxnFactory, notifierFactory, attachmentsPath,
+                 enableCalendars=True, enableAddressBooks=True,
+                 label="unlabeled"):
         assert enableCalendars or enableAddressBooks
 
-        self.connectionFactory = connectionFactory
+        self.sqlTxnFactory = sqlTxnFactory
         self.notifierFactory = notifierFactory
         self.attachmentsPath = attachmentsPath
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
+        self.label = label
 
 
     def eachCalendarHome(self):
@@ -113,101 +111,18 @@ class CommonDataStore(Service, object):
 
 
     def newTransaction(self, label="unlabeled", migrating=False):
+        """
+        @see L{IDataStore.newTransaction}
+        """
         return CommonStoreTransaction(
             self,
-            self.connectionFactory,
+            self.sqlTxnFactory(),
             self.enableCalendars,
             self.enableAddressBooks,
             self.notifierFactory,
             label,
             migrating,
         )
-
-
-_DONE = object()
-
-_STATE_STOPPED = "STOPPED"
-_STATE_RUNNING = "RUNNING"
-_STATE_STOPPING = "STOPPING"
-
-class ThreadHolder(object):
-    """
-    A queue which will hold a reactor threadpool thread open until all of the
-    work in that queue is done.
-    """
-
-    def __init__(self, reactor):
-        self._reactor = reactor
-        self._state = _STATE_STOPPED
-        self._stopper = None
-        self._q = None
-
-
-    def _run(self):
-        """
-        Worker function which runs in a non-reactor thread.
-        """
-        while True:
-            work = self._q.get()
-            if work is _DONE:
-                def finishStopping():
-                    self._state = _STATE_STOPPED
-                    self._q = None
-                    s = self._stopper
-                    self._stopper = None
-                    s.callback(None)
-                self._reactor.callFromThread(finishStopping)
-                return
-            self._oneWorkUnit(*work)
-
-
-    def _oneWorkUnit(self, deferred, instruction):
-        try: 
-            result = instruction()
-        except:
-            etype, evalue, etb = sys.exc_info()
-            def relayFailure():
-                f = Failure(evalue, etype, etb)
-                deferred.errback(f)
-            self._reactor.callFromThread(relayFailure)
-        else:
-            self._reactor.callFromThread(deferred.callback, result)
-
-
-    def submit(self, work):
-        """
-        Submit some work to be run.
-
-        @param work: a 0-argument callable, which will be run in a thread.
-
-        @return: L{Deferred} that fires with the result of L{work}
-        """
-        d = Deferred()
-        self._q.put((d, work))
-        return d
-
-
-    def start(self):
-        """
-        Start this thing, if it's stopped.
-        """
-        if self._state != _STATE_STOPPED:
-            raise RuntimeError("Not stopped.")
-        self._state = _STATE_RUNNING
-        self._q = Queue(0)
-        self._reactor.callInThread(self._run)
-
-
-    def stop(self):
-        """
-        Stop this thing and release its thread, if it's running.
-        """
-        if self._state != _STATE_RUNNING:
-            raise RuntimeError("Not running.")
-        s = self._stopper = Deferred()
-        self._state = _STATE_STOPPING
-        self._q.put(_DONE)
-        return s
 
 
 
@@ -218,14 +133,12 @@ class CommonStoreTransaction(object):
     _homeClass = {}
     _homeTable = {}
 
-    noisy = False
     id = 0
 
-    def __init__(self, store, connectionFactory,
+    def __init__(self, store, sqlTxn,
                  enableCalendars, enableAddressBooks,
                  notifierFactory, label, migrating=False):
         self._store = store
-        self._completed = False
         self._calendarHomes = {}
         self._addressbookHomes = {}
         self._notificationHomes = {}
@@ -233,6 +146,7 @@ class CommonStoreTransaction(object):
         self._notifierFactory = notifierFactory
         self._label = label
         self._migrating = migrating
+
         CommonStoreTransaction.id += 1
         self._txid = CommonStoreTransaction.id
 
@@ -249,18 +163,7 @@ class CommonStoreTransaction(object):
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
         CommonStoreTransaction._homeTable[ECALENDARTYPE] = CALENDAR_HOME_TABLE
         CommonStoreTransaction._homeTable[EADDRESSBOOKTYPE] = ADDRESSBOOK_HOME_TABLE
-        self._holder = ThreadHolder(reactor)
-        self._holder.start()
-        def initCursor():
-            # support threadlevel=1; we can't necessarily cursor() in a
-            # different thread than we do transactions in.
-
-            # FIXME: may need to be pooling ThreadHolders along with
-            # connections, if threadlevel=1 requires connect() be called in the
-            # same thread as cursor() et. al.
-            self._connection = connectionFactory()
-            self._cursor = self._connection.cursor()
-        self._holder.submit(initCursor)
+        self._sqlTxn = sqlTxn
 
 
     def store(self):
@@ -268,43 +171,10 @@ class CommonStoreTransaction(object):
 
 
     def __repr__(self):
-        return "PG-TXN<%s>" % (self._label,)
+        return 'PG-TXN<%s>' % (self._label,)
 
 
-    def _reallyExecSQL(self, sql, args=[], raiseOnZeroRowCount=None):
-        self._cursor.execute(sql, args)
-        if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
-            raise raiseOnZeroRowCount()
-        if self._cursor.description:
-            return self._cursor.fetchall()
-        else:
-            return None
-
-
-    def execSQL(self, *args, **kw):
-        result = self._holder.submit(
-            lambda : self._reallyExecSQL(*args, **kw)
-        )
-        if self.noisy:
-            def reportResult(results):
-                sys.stdout.write("\n".join([
-                    "",
-                    "SQL (%d): %r %r" % (self._txid, args, kw),
-                    "Results (%d): %r" % (self._txid, results,),
-                    "",
-                    ]))
-                return results
-            result.addBoth(reportResult)
-        return result
-
-
-    def __del__(self):
-        if not self._completed:
-            print "CommonStoreTransaction.__del__: OK"
-            self.abort()
-
-
-    @memoizedKey("uid", "_calendarHomes")
+    @memoizedKey('uid', '_calendarHomes')
     def calendarHomeWithUID(self, uid, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, create=create)
 
@@ -409,40 +279,36 @@ class CommonStoreTransaction(object):
         returnValue(collection)
 
 
-    def abort(self):
-        if not self._completed:
-            def reallyAbort():
-                self._connection.rollback()
-                self._connection.close()
-            self._completed = True
-            result = self._holder.submit(reallyAbort)
-            self._holder.stop()
-            return result
-        else:
-            raise AlreadyFinishedError()
-
-
-    def commit(self):
-        if not self._completed:
-            self._completed = True
-            def postCommit(ignored):
-                for operation in self._postCommitOperations:
-                    operation()
-            def reallyCommit():
-                self._connection.commit()
-                self._connection.close()
-            result = self._holder.submit(reallyCommit).addCallback(postCommit)
-            self._holder.stop()
-            return result
-        else:
-            raise AlreadyFinishedError()
-
-
     def postCommit(self, operation):
         """
         Run things after C{commit}.
         """
         self._postCommitOperations.append(operation)
+
+
+    def execSQL(self, *a, **kw):
+        """
+        Execute some SQL (delegate to L{IAsyncTransaction}).
+        """
+        return self._sqlTxn.execSQL(*a, **kw)
+
+
+    def commit(self):
+        """
+        Commit the transaction and execute any post-commit hooks.
+        """
+        def postCommit(ignored):
+            for operation in self._postCommitOperations:
+                operation()
+            return ignored
+        return self._sqlTxn.commit().addCallback(postCommit)
+
+
+    def abort(self):
+        """
+        Abort the transaction.
+        """
+        return self._sqlTxn.abort()
 
 
 
@@ -717,13 +583,14 @@ class CommonHome(LoggingMixIn):
             raise NoSuchHomeChildError()
         yield child._deletedSyncToken()
 
-        yield self._txn.execSQL(
-            "delete from %(name)s where %(column_RESOURCE_ID)s = %%s" % self._childTable,
-            [child._resourceID]
-        )
-        self._children.pop(name, None)
-        if self._txn._cursor.rowcount == 0:
-            raise NoSuchHomeChildError()
+        try:
+            yield self._txn.execSQL(
+                "delete from %(name)s where %(column_RESOURCE_ID)s = %%s" % self._childTable,
+                [child._resourceID],
+                raiseOnZeroRowCount=NoSuchHomeChildError
+            )
+        finally:
+            self._children.pop(name, None)
 
         child.notifyChanged()
 
@@ -881,6 +748,7 @@ class CommonHome(LoggingMixIn):
             [self._ownerUID]
         ))[0][0])
 
+
     @inlineCallbacks
     def adjustQuotaUsedBytes(self, delta):
         """
@@ -888,7 +756,6 @@ class CommonHome(LoggingMixIn):
         is done atomically. It is import to do the 'select ... for update' because a race also
         exists in the 'update ... x = x + 1' case as seen via unit tests.
         """
-        
         yield self._txn.execSQL("""
             select * from %(name)s
             where %(column_RESOURCE_ID)s = %%s
@@ -905,7 +772,6 @@ class CommonHome(LoggingMixIn):
             """ % self._homeTable,
             [delta, self._resourceID]
         ))[0][0]
-        
         # Double check integrity
         if quotaUsedBytes < 0:
             log.error("Fixing quota adjusted below zero to %s by change amount %s" % (quotaUsedBytes, delta,))
@@ -916,7 +782,7 @@ class CommonHome(LoggingMixIn):
                 """ % self._homeTable,
                 [self._resourceID]
             )
-            
+
 
     def notifierID(self, label="default"):
         if self._notifier:
@@ -1137,7 +1003,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     @inlineCallbacks
     def removeObjectResourceWithName(self, name):
-        
+
         uid, old_size = (yield self._txn.execSQL(
             "delete from %(name)s "
             "where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "

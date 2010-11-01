@@ -97,6 +97,7 @@ def shared_main(configFileName, method, *args, **kwds):
         os.umask(config.umask)
 
         try:
+            # TODO: getRootResource needs a parent service now.
             rootResource = getRootResource(config)
             directory = rootResource.getDirectory()
         except DirectoryError, e:

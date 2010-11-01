@@ -139,16 +139,26 @@ DEFAULT_CONFIG = {
     #    This configures the actual network address that the server binds to.
     #
     "BindAddresses": [],   # List of IP addresses to bind to [empty = all]
-    "BindHTTPPorts": [],   # List of port numbers to bind to for HTTP [empty = same as "Port"]
-    "BindSSLPorts" : [],   # List of port numbers to bind to for SSL [empty = same as "SSLPort"]
-    "InheritFDs"   : [],   # File descriptors to inherit for HTTP requests (empty = don't inherit)
-    "InheritSSLFDs": [],   # File descriptors to inherit for HTTPS requests (empty = don't inherit)
-    "MetaFD": 0,        # Inherited file descriptor to call recvmsg() on to receive sockets (none = don't inherit)
+    "BindHTTPPorts": [],   # List of port numbers to bind to for HTTP
+                           # [empty = same as "Port"]
+    "BindSSLPorts" : [],   # List of port numbers to bind to for SSL
+                           # [empty = same as "SSLPort"]
+    "InheritFDs"   : [],   # File descriptors to inherit for HTTP requests
+                           # (empty = don't inherit)
+    "InheritSSLFDs": [],   # File descriptors to inherit for HTTPS requests
+                           # (empty = don't inherit)
+    "MetaFD"       : 0,    # Inherited file descriptor to call recvmsg() on to
+                           # receive sockets (none = don't inherit)
 
-    "UseMetaFD": True,         # Use a 'meta' FD, i.e. an FD to transmit other
-                               # FDs to slave processes.
+    "UseMetaFD"    : True, # Use a 'meta' FD, i.e. an FD to transmit other FDs
+                           # to slave processes.
 
-    "UseDatabase" : True,      # True: postgres; False: files
+    "UseDatabase"  : True, # True: postgres; False: files
+
+    "DBAMPFD"      : 0,    # Internally used by database to tell slave
+                           # processes to inherit a file descriptor and use it
+                           # as an AMP connection over a UNIX socket; see
+                           # txdav.base.datastore.asyncsqlpool.
 
     #
     # Types of service provided

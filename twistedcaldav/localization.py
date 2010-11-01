@@ -26,7 +26,9 @@ from locale import normalize
 from twext.python.log import Logger
 
 try:
-    from Foundation import *
+    from Foundation import (
+        NSPropertyListImmutable, NSPropertyListSerialization, NSData
+    )
     foundationImported = True
 except ImportError:
     foundationImported = False

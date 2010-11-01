@@ -14,7 +14,6 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.mail import *
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.ical import Component
 from twistedcaldav.config import config
@@ -23,6 +22,8 @@ from twistedcaldav.scheduling.itip import iTIPRequestStatus
 
 from twisted.internet.defer import inlineCallbacks
 import email
+from twistedcaldav.mail import MailHandler
+from twistedcaldav.mail import MailGatewayTokensDatabase
 import os
 
 
