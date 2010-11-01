@@ -1067,7 +1067,7 @@ END:VCALENDAR
         """
         objName = "with-dropbox.ics"
         cal = yield self.calendarUnderTest()
-        cal.createCalendarObjectWithName(
+        yield cal.createCalendarObjectWithName(
             objName, VComponent.fromString(
                 self.eventWithDropbox
             )
@@ -1091,7 +1091,7 @@ END:VCALENDAR
         )
         t.write("new attachment")
         t.write(" text")
-        t.loseConnection()
+        yield t.loseConnection()
         obj = yield refresh(obj)
         class CaptureProtocol(Protocol):
             buf = ''
@@ -1181,7 +1181,7 @@ END:VCALENDAR
             "new.attachment", MimeType("text", "plain")
         )
         t.write("new attachment text")
-        t.loseConnection()
+        yield t.loseConnection()
         yield self.commit()
         home = (yield self.homeUnderTest())
         calendars = (yield home.calendars())
