@@ -359,7 +359,8 @@ class BaseServiceMakerTests(TestCase):
         """
         service = self.makeService()
 
-        return service.services[0].args[1].protocolArgs["requestFactory"]
+        # FIXME: should at least use service name, not index
+        return service.services[2].args[1].protocolArgs["requestFactory"]
 
 
 
@@ -489,20 +490,23 @@ class SlaveServiceTest(BaseServiceMakerTests):
         """
         service = self.makeService()
 
-        expectedSubServices = (
+        expectedSubServices = dict((
             (MaxAcceptTCPServer, self.config["HTTPPort"]),
             (MaxAcceptSSLServer, self.config["SSLPort"]),
-        )
+        ))
 
-        configuredSubServices = [(s.__class__, s.args) for s in service.services]
-
+        configuredSubServices = [(s.__class__, getattr(s, 'args', None))
+                                 for s in service.services]
+        checked = 0
         for serviceClass, serviceArgs in configuredSubServices:
-            self.failUnless(serviceClass in (s[0] for s in expectedSubServices))
+            if serviceClass in expectedSubServices:
+                checked += 1
+                self.assertEquals(
+                    serviceArgs[0],
+                    dict(expectedSubServices)[serviceClass]
+                )
+        self.assertEquals(checked, len(expectedSubServices))
 
-            self.assertEquals(
-                serviceArgs[0],
-                dict(expectedSubServices)[serviceClass]
-            )
 
     def test_SSLKeyConfiguration(self):
         """
@@ -619,7 +623,8 @@ class SlaveServiceTest(BaseServiceMakerTests):
         service = self.makeService()
 
         for s in service.services:
-            self.assertEquals(s.kwargs["backlog"], 1024)
+            if isinstance(s, (internet.TCPServer, internet.SSLServer)):
+                self.assertEquals(s.kwargs["backlog"], 1024)
 
 
 class ServiceHTTPFactoryTests(BaseServiceMakerTests):
