@@ -417,7 +417,7 @@ class WrappingTests(TestCase):
         """
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/frobozz")
         self.assertIsInstance(calDavFile, ProtoAddressBookCollectionResource)
-        calDavFile.createAddressBookCollection()
+        yield calDavFile.createAddressBookCollection()
         yield self.commit()
         self.assertEquals(calDavFile._principalCollections,
                           frozenset([self.principalsResource]))
