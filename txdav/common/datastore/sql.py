@@ -748,6 +748,7 @@ class CommonHome(LoggingMixIn):
             [self._ownerUID]
         ))[0][0])
 
+
     @inlineCallbacks
     def adjustQuotaUsedBytes(self, delta):
         """
@@ -755,7 +756,6 @@ class CommonHome(LoggingMixIn):
         is done atomically. It is import to do the 'select ... for update' because a race also
         exists in the 'update ... x = x + 1' case as seen via unit tests.
         """
-        
         yield self._txn.execSQL("""
             select * from %(name)s
             where %(column_RESOURCE_ID)s = %%s
@@ -772,7 +772,6 @@ class CommonHome(LoggingMixIn):
             """ % self._homeTable,
             [delta, self._resourceID]
         ))[0][0]
-        
         # Double check integrity
         if quotaUsedBytes < 0:
             log.error("Fixing quota adjusted below zero to %s by change amount %s" % (quotaUsedBytes, delta,))
@@ -783,7 +782,7 @@ class CommonHome(LoggingMixIn):
                 """ % self._homeTable,
                 [self._resourceID]
             )
-            
+
 
     def notifierID(self, label="default"):
         if self._notifier:
@@ -1004,7 +1003,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     @inlineCallbacks
     def removeObjectResourceWithName(self, name):
-        
+
         uid, old_size = (yield self._txn.execSQL(
             "delete from %(name)s "
             "where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "
