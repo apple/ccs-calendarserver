@@ -14,6 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
+"""
+Utilities for assembling the service and resource hierarchy.
+"""
+
 __all__ = [
     "getRootResource",
     "FakeRequest",
@@ -84,6 +89,20 @@ log = Logger()
 def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
     """
     Construct a L{PostgresService} from a given configuration and subservice.
+
+    @param config: the configuration to derive postgres configuration
+        parameters from.
+
+    @param subServiceFactory: A factory for the service to start once the
+        L{PostgresService} has been initialized.
+
+    @param uid: The user-ID to run the PostgreSQL server as.
+
+    @param gid: The group-ID to run the PostgreSQL server as.
+
+    @return: a service which can start postgres.
+
+    @rtype: L{PostgresService}
     """
     dbRoot = CachingFilePath(config.DatabaseRoot)
     # Construct a PostgresService exactly as the parent would, so that we
@@ -102,11 +121,14 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
 
 
 class ConnectionWithPeer(Connection):
+
+    connected = True
+
     def getPeer(self):
-        return "<local>"
+        return "<peer: %r %r>" % (self.socket.fileno(), id(self))
 
     def getHost(self):
-        return "<local>"
+        return "<host: %r %r>" % (self.socket.fileno(), id(self))
 
 def storeFromConfig(config, serviceParent, notifierFactory=None):
     """
@@ -121,11 +143,12 @@ def storeFromConfig(config, serviceParent, notifierFactory=None):
         else:
             # TODO: something to do with loseConnection here, maybe?  I don't
             # think it actually needs to be shut down, though.
-            skt = fromfd(AF_UNIX, SOCK_STREAM, config.DBAMPFD)
+            skt = fromfd(int(config.DBAMPFD), AF_UNIX, SOCK_STREAM)
             os.close(config.DBAMPFD)
             protocol = ConnectionPoolClient()
             transport = ConnectionWithPeer(skt, protocol)
             protocol.makeConnection(transport)
+            transport.startReading()
             txnFactory = protocol.newTransaction
         dataStore = CommonSQLDataStore(
             txnFactory, notifierFactory,

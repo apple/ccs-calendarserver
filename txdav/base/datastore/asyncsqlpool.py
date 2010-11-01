@@ -71,7 +71,9 @@ class BaseSqlTxn(object):
         self._holder.submit(initCursor)
 
 
-    def _reallyExecSQL(self, sql, args=[], raiseOnZeroRowCount=None):
+    def _reallyExecSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+        if args is None:
+            args = []
         self._cursor.execute(sql, args)
         if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
             raise raiseOnZeroRowCount()
@@ -175,17 +177,18 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
     def commit(self):
         if self._complete:
             raise AlreadyFinishedError()
+        self._complete = True
         return self._repoolAfter(super(PooledSqlTxn, self).commit())
 
 
     def abort(self):
         if self._complete:
             raise AlreadyFinishedError()
+        self._complete = True
         return self._repoolAfter(super(PooledSqlTxn, self).abort())
 
 
     def _repoolAfter(self, d):
-        self._complete = True
         def repool(result):
             self._pool.reclaim(self)
             return result
@@ -352,6 +355,7 @@ class ConnectionPoolConnection(AMP):
         """
         super(ConnectionPoolConnection, self).__init__()
         self.pool = pool
+        self._txns = {}
 
 
     @StartTxn.responder
@@ -414,9 +418,9 @@ class ConnectionPoolClient(AMP):
 
     def newTransaction(self):
         txnid = str(self._nextID())
+        self.callRemote(StartTxn, transactionID=txnid)
         txn = Transaction(client=self, transactionID=txnid)
         self._txns[txnid] = txn
-        self.callRemote(StartTxn, transactionID=txnid)
         return txn
 
 
@@ -428,7 +432,7 @@ class ConnectionPoolClient(AMP):
 
     @QueryComplete.responder
     def complete(self, queryID, norows):
-        self.queries.pop(queryID).done(norows)
+        self._queries.pop(queryID).done(norows)
         return {}
 
 
@@ -474,29 +478,35 @@ class Transaction(object):
         Initialize a transaction with a L{ConnectionPoolClient} and a unique
         transaction identifier.
         """
-        self.client = client
-        self.transactionID = transactionID
+        self._client = client
+        self._transactionID = transactionID
+        self._completed = False
 
 
-    def execSQL(self, sql, args, raiseOnZeroRowCount=None):
-        queryID = self.client._nextID()
-        d = Deferred()
-        self.client._queries[queryID] = _Query(raiseOnZeroRowCount)
-        self.client.callRemote(ExecSQL, queryID=queryID, sql=sql, args=args)
-        return d
+    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+        if args is None:
+            args = []
+        queryID = str(self._client._nextID())
+        query = self._client._queries[queryID] = _Query(raiseOnZeroRowCount)
+        self._client.callRemote(ExecSQL, queryID=queryID, sql=sql, args=args,
+                                transactionID=self._transactionID)
+        return query.deferred
 
 
-    def complete(self, command):
-        return self.client.callRemote(
-            command, transactionID=self.transactionID
+    def _complete(self, command):
+        if self._completed:
+            raise AlreadyFinishedError()
+        self._completed = True
+        return self._client.callRemote(
+            command, transactionID=self._transactionID
             ).addCallback(lambda x: None)
 
 
     def commit(self):
-        return self.complete(Commit)
+        return self._complete(Commit)
 
 
     def abort(self):
-        return self.complete(Abort)
+        return self._complete(Abort)
 
 

@@ -180,7 +180,7 @@ class IAsyncTransaction(Interface):
     it is assumed to have been started.
     """
 
-    def execSQL(sql, args, raiseOnZeroRowCount=None):
+    def execSQL(sql, args=(), raiseOnZeroRowCount=None):
         """
         Execute some SQL.
 

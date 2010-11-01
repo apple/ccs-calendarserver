@@ -76,7 +76,6 @@ from txdav.base.datastore.asyncsqlpool import ConnectionPool
 
 from txdav.base.datastore.asyncsqlpool import ConnectionPoolConnection
 
-from calendarserver.tap.util import ConnectionWithPeer
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
     NegotiateCredentialFactory  # pacify pyflakes
@@ -87,6 +86,7 @@ from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource, computeProcessCount
+from calendarserver.tap.util import ConnectionWithPeer
 from calendarserver.tools.util import checkDirectory
 
 try:
@@ -1062,6 +1062,7 @@ class ConnectionDispenser(object):
         protocol = ConnectionPoolConnection(self.pool)
         transport = ConnectionWithPeer(s, protocol)
         protocol.makeConnection(transport)
+        transport.startReading()
         return c
 
 
@@ -1233,12 +1234,6 @@ class DelayedStartupProcessMonitor(Service, object):
     L{Deferred} which fires only when all processes have shut down, to allow
     for a clean service shutdown.
 
-    @ivar _extraFDs: a mapping from process names to extra file-descriptor
-        maps.  (By default, all processes will have the standard stdio mapping,
-        so all file descriptors here should be >2.)  This is updated during
-        L{DelayedStartupProcessMonitor.startService}, by inspecting the result
-        of L{TwistdSlaveProcess.getFileDescriptors}.
-
     @ivar reactor: an L{IReactorProcess} for spawning processes, defaulting to
         the global reactor.
 
@@ -1263,7 +1258,6 @@ class DelayedStartupProcessMonitor(Service, object):
         self.timeStarted = {}
         self.murder = {}
         self.restart = {}
-        self._extraFDs = {}
         self.stopping = False
         if config.MultiProcess.StaggeredStartup.Enabled:
             self.delayInterval = config.MultiProcess.StaggeredStartup.Interval
