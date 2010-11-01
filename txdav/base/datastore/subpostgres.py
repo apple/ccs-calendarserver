@@ -18,16 +18,11 @@
 """
 Run and manage PostgreSQL as a subprocess.
 """
+
 import os
 import pwd
-import sys
-#import thread
-
-from Queue import Queue
 
 from hashlib import md5
-
-from zope.interface import implements
 
 from twisted.python.procutils import which
 from twisted.internet.protocol import ProcessProtocol
@@ -40,10 +35,8 @@ pgdb = namedAny("pgdb")
 
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor
-from twisted.python.failure import Failure
-from txdav.idav import IAsyncTransaction
-from txdav.idav import AlreadyFinishedError
 from twisted.internet.defer import Deferred
+from txdav.base.datastore.asyncsqlpool import BaseSqlTxn
 
 from twisted.application.service import MultiService
 
@@ -222,6 +215,7 @@ class CapturingProcessProtocol(ProcessProtocol):
         """
         self.output.append(data)
 
+
     def errReceived(self, data):
         """
         Some output was received on stderr.
@@ -237,179 +231,20 @@ class CapturingProcessProtocol(ProcessProtocol):
 
 
 
-_DONE = object()
-
-_STATE_STOPPED = 'STOPPED'
-_STATE_RUNNING = 'RUNNING'
-_STATE_STOPPING = 'STOPPING'
-
-class ThreadHolder(object):
+class UnpooledSqlTxn(BaseSqlTxn):
     """
-    A queue which will hold a reactor threadpool thread open until all of the
-    work in that queue is done.
+    Unpooled variant (releases thread immediately on commit or abort),
+    currently exclusively for testing.
     """
-
-    def __init__(self, reactor):
-        self._reactor = reactor
-        self._state = _STATE_STOPPED
-        self._stopper = None
-        self._q = None
-
-
-    def _run(self):
-        """
-        Worker function which runs in a non-reactor thread.
-        """
-        while True:
-            work = self._q.get()
-            if work is _DONE:
-                def finishStopping():
-                    self._state = _STATE_STOPPED
-                    self._q = None
-                    s = self._stopper
-                    self._stopper = None
-                    s.callback(None)
-                self._reactor.callFromThread(finishStopping)
-                return
-            self._oneWorkUnit(*work)
-
-
-    def _oneWorkUnit(self, deferred, instruction):
-        try: 
-            result = instruction()
-        except:
-            etype, evalue, etb = sys.exc_info()
-            def relayFailure():
-                f = Failure(evalue, etype, etb)
-                deferred.errback(f)
-            self._reactor.callFromThread(relayFailure)
-        else:
-            self._reactor.callFromThread(deferred.callback, result)
-
-
-    def submit(self, work):
-        """
-        Submit some work to be run.
-
-        @param work: a 0-argument callable, which will be run in a thread.
-
-        @return: L{Deferred} that fires with the result of L{work}
-        """
-        d = Deferred()
-        self._q.put((d, work))
-        return d
-
-
-    def start(self):
-        """
-        Start this thing, if it's stopped.
-        """
-        if self._state != _STATE_STOPPED:
-            raise RuntimeError("Not stopped.")
-        self._state = _STATE_RUNNING
-        self._q = Queue(0)
-        self._reactor.callInThread(self._run)
-
-
-    def stop(self):
-        """
-        Stop this thing and release its thread, if it's running.
-        """
-        if self._state != _STATE_RUNNING:
-            raise RuntimeError("Not running.")
-        s = self._stopper = Deferred()
-        self._state = _STATE_STOPPING
-        self._q.put(_DONE)
-        return s
-
-
-
-class ThisProcessSqlTxn(object):
-    """
-    L{IAsyncTransaction} implementation based on a L{ThreadHolder} in the
-    current process.
-    """
-    implements(IAsyncTransaction)
-
-    def __init__(self, connectionFactory):
-        """
-        @param connectionFactory: A 0-argument callable which returns a DB-API
-            2.0 connection.
-        """
-        self._completed = False
-        self._holder = ThreadHolder(reactor)
-        self._holder.start()
-        def initCursor():
-            # support threadlevel=1; we can't necessarily cursor() in a
-            # different thread than we do transactions in.
-
-            # FIXME: may need to be pooling ThreadHolders along with
-            # connections, if threadlevel=1 requires connect() be called in the
-            # same thread as cursor() et. al.
-            self._connection = connectionFactory()
-            self._cursor = self._connection.cursor()
-        self._holder.submit(initCursor)
-
-
-    def _reallyExecSQL(self, sql, args=[], raiseOnZeroRowCount=None):
-        self._cursor.execute(sql, args)
-        if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
-            raise raiseOnZeroRowCount()
-        if self._cursor.description:
-            return self._cursor.fetchall()
-        else:
-            return None
-
-
-    noisy = False
-
-    def execSQL(self, *args, **kw):
-        result = self._holder.submit(
-            lambda : self._reallyExecSQL(*args, **kw)
-        )
-        if self.noisy:
-            def reportResult(results):
-                sys.stdout.write("\n".join([
-                    "",
-                    "SQL: %r %r" % (args, kw),
-                    "Results: %r" % (results,),
-                    "",
-                    ]))
-                return results
-            result.addBoth(reportResult)
+    def commit(self):
+        result = super(UnpooledSqlTxn, self).commit()
+        self.stop()
         return result
 
-
-    def commit(self):
-        if not self._completed:
-            self._completed = True
-            def reallyCommit():
-                self._connection.commit()
-                self._connection.close()
-            result = self._holder.submit(reallyCommit)
-            self._holder.stop()
-            return result
-        else:
-            raise AlreadyFinishedError()
-
-
     def abort(self):
-        if not self._completed:
-            def reallyAbort():
-                self._connection.rollback()
-                self._connection.close()
-            self._completed = True
-            result = self._holder.submit(reallyAbort)
-            self._holder.stop()
-            return result
-        else:
-            raise AlreadyFinishedError()
-
-
-    def __del__(self):
-        if not self._completed:
-            print 'CommonStoreTransaction.__del__: OK'
-            self.abort()
+        result = super(UnpooledSqlTxn, self).abort()
+        self.stop()
+        return result
 
 
 
@@ -516,6 +351,7 @@ class PostgresService(MultiService):
 
         w = DiagnosticConnectionWrapper(connection, label)
         c = w.cursor()
+
         # Turn on standard conforming strings.  This option is _required_ if
         # you want to get correct behavior out of parameter-passing with the
         # pgdb module.  If it is not set then the server is potentially
@@ -530,6 +366,12 @@ class PostgresService(MultiService):
         # preferable to see some exceptions while we're in this state than to
         # have the entire worker process hang.
         c.execute("set statement_timeout=30000")
+
+        # pgdb (as per DB-API 2.0) automatically puts the connection into a
+        # 'executing a transaction' state when _any_ statement is executed on
+        # it (even these not-touching-any-data statements); make sure to commit
+        # first so that the application sees a fresh transaction, and the
+        # connection can safely be pooled without executing anything on it.
         w.commit()
         c.close()
         return w
@@ -539,7 +381,7 @@ class PostgresService(MultiService):
         """
         Create a L{IAsyncTransaction} based on a thread in the current process.
         """
-        return ThisProcessSqlTxn(lambda : self.produceConnection(label))
+        return UnpooledSqlTxn(lambda : self.produceConnection(label))
 
 
     def ready(self):
