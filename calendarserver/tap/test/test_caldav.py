@@ -932,17 +932,6 @@ class DelayedStartupProcessMonitorTests(TestCase):
     Test cases for L{DelayedStartupProcessMonitor}.
     """
 
-    def useFakeReactor(self, fakeReactor):
-        """
-        Earlier versions of Twisted used a global reactor in
-        L{twisted.runner.procmon}, so we need to take that into account when
-        testing.
-        """
-        if not DelayedStartupProcessMonitor._shouldPassReactor:
-            import twisted.runner.procmon as inherited
-            self.patch(inherited, "reactor", fakeReactor)
-
-
     def test_lineAfterLongLine(self):
         """
         A "long" line of output from a monitored process (longer than
@@ -972,7 +961,7 @@ class DelayedStartupProcessMonitorTests(TestCase):
                 logged.append(event)
                 if m == '[Dummy] z':
                     d.callback("done")
-            
+
         log.addObserver(tempObserver)
         self.addCleanup(log.removeObserver, tempObserver)
         d = Deferred()
@@ -996,9 +985,8 @@ class DelayedStartupProcessMonitorTests(TestCase):
         If a L{TwistdSlaveProcess} specifies some file descriptors to be
         inherited, they should be inherited by the subprocess.
         """
-        dspm                = DelayedStartupProcessMonitor()
-        imps = dspm.reactor = InMemoryProcessSpawner()
-        self.useFakeReactor(imps)
+        imps = InMemoryProcessSpawner()
+        dspm = DelayedStartupProcessMonitor(imps)
 
         # Most arguments here will be ignored, so these are bogus values.
         slave = TwistdSlaveProcess(
@@ -1030,9 +1018,8 @@ class DelayedStartupProcessMonitorTests(TestCase):
         configuration argument should be passed that indicates to the
         subprocess.
         """
-        dspm                = DelayedStartupProcessMonitor()
-        imps = dspm.reactor = InMemoryProcessSpawner()
-        self.useFakeReactor(imps)
+        imps = InMemoryProcessSpawner()
+        dspm = DelayedStartupProcessMonitor(imps)
         # Most arguments here will be ignored, so these are bogus values.
         slave = TwistdSlaveProcess(
             twistd     = "bleh",
@@ -1063,10 +1050,9 @@ class DelayedStartupProcessMonitorTests(TestCase):
         objects that have been added to it being started once per
         delayInterval.
         """
-        dspm                = DelayedStartupProcessMonitor()
+        imps = InMemoryProcessSpawner()
+        dspm = DelayedStartupProcessMonitor(imps)
         dspm.delayInterval = 3.0
-        imps = dspm.reactor = InMemoryProcessSpawner()
-        self.useFakeReactor(imps)
         sampleCounter = range(0, 5)
         for counter in sampleCounter:
             slave = TwistdSlaveProcess(
