@@ -91,6 +91,9 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
             ),
         )
 
+    def contentType(self):
+        return MimeType.fromString("text/xml")
+
     def resourceType(self):
         return davxml.ResourceType.timezones
 
