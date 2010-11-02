@@ -26,6 +26,9 @@ from twext.web2.dav.resource import TwistedQuotaUsedProperty
 """
 Tool to manage schema upgrade of SQL database during internal development phase as we don't have
 a "real" upgrade in place just yet.
+
+To run: first start the postgres server by hand pointing at the appropriate database, then
+run this script - no arguments needed.
 """
 
 import pg
