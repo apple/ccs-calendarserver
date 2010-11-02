@@ -59,6 +59,11 @@ calendarserver_sharing_compliance = (
     "calendarserver-sharing",
 )
 
+# TODO: This is only needed whilst we do not support scheduling in shared calendars
+calendarserver_sharing_no_scheduling_compliance = (
+    "calendarserver-sharing-no-scheduling",
+)
+
 class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
     """
     Contains the calendar access level (private events) for the resource.

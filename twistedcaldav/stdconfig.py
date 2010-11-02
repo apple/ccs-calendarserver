@@ -1008,6 +1008,8 @@ def _updateCompliance(configDict):
             compliance += customxml.calendarserver_private_comments_compliance
         if config.Sharing.Enabled:
             compliance += customxml.calendarserver_sharing_compliance
+            # TODO: This is only needed whilst we do not support scheduling in shared calendars
+            compliance += customxml.calendarserver_sharing_no_scheduling_compliance
     else:
         compliance = ()
 
