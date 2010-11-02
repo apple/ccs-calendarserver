@@ -70,6 +70,9 @@ class IOMeasureConsumer(ProcessProtocol):
             self.started.errback(RuntimeError("Exited too soon: %r/%r" % (self._out, self._err)))
 
 
+def masterPID(directory):
+    return int(directory.child('caldavd.pid').getContent())
+
 
 def instancePIDs(directory):
     pids = []
@@ -271,7 +274,7 @@ class DTraceCollector(object):
 def benchmark(host, port, directory, label, benchmarks):
     # Figure out which pids we are benchmarking.
     if directory:
-        pids = instancePIDs(directory)
+        pids = [masterPID(directory)]
     else:
         pids = []
 
