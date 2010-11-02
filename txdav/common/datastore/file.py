@@ -732,8 +732,20 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
                 return obj
 
 
+    def emptyObjectWithName(self, name):
+        """
+        Sometimes we need an "empty" object that we can store meta-data on prior to actually
+        creating it with "real" data.
+        """
+        return self._objectResourceClass(name, self)
+
     @writeOperation
-    def createObjectResourceWithName(self, name, component):
+    def createObjectResourceWithName(self, name, component, objectResource=None):
+        """
+        As per L{emptyObjectWithName} we may get passed an already created object which we need
+        to use for the one being created in order to preserve any meta-data that might have been
+        set prior to the actual creation of the data.
+        """
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
@@ -741,7 +753,8 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         if objectResourcePath.exists():
             raise ObjectResourceNameAlreadyExistsError(name)
 
-        objectResource = self._objectResourceClass(name, self)
+        if objectResource is None:
+            objectResource = self._objectResourceClass(name, self)
         objectResource.setComponent(component, inserting=True)
         self._cachedObjectResources[name] = objectResource
 

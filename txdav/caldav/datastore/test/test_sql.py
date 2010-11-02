@@ -256,10 +256,12 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
         calendarStore = self._sqlCalendarStore
 
-        # Provision the home now
+        # Provision the home and calendar now
         txn = calendarStore.newTransaction()
         home = yield txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
         self.assertNotEqual(home, None)
+        cal = yield home.calendarWithName("calendar")
+        self.assertNotEqual(cal, None)
         yield txn.commit()
 
         txn1 = calendarStore.newTransaction()
@@ -268,12 +270,12 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         home1 = yield txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
         home2 = yield txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
 
-        adbk1 = yield home1.calendarWithName("calendar")
-        adbk2 = yield home2.calendarWithName("calendar")
+        cal1 = yield home1.calendarWithName("calendar")
+        cal2 = yield home2.calendarWithName("calendar")
 
         @inlineCallbacks
         def _defer1():
-            yield adbk1.createObjectResourceWithName("1.ics", VComponent.fromString(
+            yield cal1.createObjectResourceWithName("1.ics", VComponent.fromString(
     "BEGIN:VCALENDAR\r\n"
       "VERSION:2.0\r\n"
       "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
@@ -318,7 +320,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
         @inlineCallbacks
         def _defer2():
-            yield adbk2.createObjectResourceWithName("2.ics", VComponent.fromString(
+            yield cal2.createObjectResourceWithName("2.ics", VComponent.fromString(
     "BEGIN:VCALENDAR\r\n"
       "VERSION:2.0\r\n"
       "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
@@ -363,6 +365,3 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
         yield d1
         yield d2
-
-
-

@@ -38,7 +38,6 @@ from twext.web2.http import HTTPError, StatusResponse
 from twistedcaldav.caldavxml import caldav_namespace,\
     NumberOfRecurrencesWithinLimits
 from twistedcaldav.config import config
-from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from txdav.common.icommondatastore import IndexedSearchException
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.method import report_common
@@ -130,10 +129,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             
             # Handle private events access restrictions
             if not isowner:
-                try:
-                    access = resource.readDeadProperty(TwistedCalendarAccessProperty)
-                except HTTPError:
-                    access = None
+                access = resource.accessMode
             else:
                 access = None
 

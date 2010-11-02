@@ -28,6 +28,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.defer import returnValue
 from twisted.python.failure import Failure
+from twisted.python import hashlib
 
 from twext.web2.dav.util import joinURL, parentForURL
 from twext.web2 import responsecode
@@ -50,10 +51,7 @@ from twistedcaldav.config import config
 from twistedcaldav.caldavxml import ScheduleTag, NoUIDConflict
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance
-from twistedcaldav.customxml import calendarserver_namespace ,\
-    TwistedCalendarHasPrivateCommentsProperty, TwistedSchedulingObjectResource,\
-    TwistedScheduleMatchETags
-from twistedcaldav.customxml import TwistedCalendarAccessProperty
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
 from twistedcaldav.ical import Component, Property
@@ -191,7 +189,8 @@ class StoreCalendarObjectResource(object):
         self.processing_organizer = processing_organizer
 
         self.access = None
-
+        self.hasPrivateComments = False
+        self.isScheduleResource = False
 
     @inlineCallbacks
     def fullValidation(self):
@@ -491,8 +490,8 @@ class StoreCalendarObjectResource(object):
                 return d
         else:
             # Check whether an access property was present before and write that into the calendar data
-            if not self.source and self.destination.exists() and self.destination.hasDeadProperty(TwistedCalendarAccessProperty):
-                old_access = str(self.destination.readDeadProperty(TwistedCalendarAccessProperty))
+            if not self.source and self.destination.exists() and self.destination.accessMode:
+                old_access = self.destination.accessMode
                 self.calendar.addProperty(Property(name=Component.ACCESS_PROPERTY, value=old_access))
                 self.calendardata = str(self.calendar)
                 
@@ -521,15 +520,15 @@ class StoreCalendarObjectResource(object):
         #
         # NB Do this before implicit scheduling as we don't want old clients to trigger scheduling when
         # the X- property is missing.
-        new_has_private_comments = False
+        self.hasPrivateComments = False
         if config.Scheduling.CalDAV.get("EnablePrivateComments", True) and self.calendar is not None:
-            old_has_private_comments = self.destination.exists() and self.destinationcal and self.destination.hasDeadProperty(TwistedCalendarHasPrivateCommentsProperty)
-            new_has_private_comments = self.calendar.hasPropertyInAnyComponent((
+            old_has_private_comments = self.destination.exists() and self.destinationcal and self.destination.hasPrivateComment
+            self.hasPrivateComments = self.calendar.hasPropertyInAnyComponent((
                 "X-CALENDARSERVER-PRIVATE-COMMENT",
                 "X-CALENDARSERVER-ATTENDEE-COMMENT",
             ))
             
-            if old_has_private_comments and not new_has_private_comments:
+            if old_has_private_comments and not self.hasPrivateComments:
                 # Transfer old comments to new calendar
                 log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
                 old_calendar = (yield self.destination.iCalendarForUser(self.request))
@@ -538,8 +537,6 @@ class StoreCalendarObjectResource(object):
                     "X-CALENDARSERVER-ATTENDEE-COMMENT",
                 ))
                 self.calendardata = None
-        
-        returnValue(new_has_private_comments)
 
 
     @inlineCallbacks
@@ -714,31 +711,90 @@ class StoreCalendarObjectResource(object):
             if implicit:
                 response = (yield self.doStorePut())
             else:
-                response = (yield self.destination.storeStream(MemoryStream(sourceText)))
+                response = (yield self.doStorePut(sourceText))
             self.destination.newStoreProperties().update(sourceProperties)
         else:
             response = (yield self.doStorePut())
-    
-        # Update calendar-access property value on the resource
+
+        returnValue(response)
+
+
+    @inlineCallbacks
+    def doStorePut(self, data=None):
+
+        if data is None:
+            if self.calendardata is None:
+                self.calendardata = str(self.calendar)
+            data = self.calendardata
+
+        # Update calendar-access property value on the resource. We need to do this before the
+        # store as the store will "commit" the new value.
         if self.access:
-            self.destination.writeDeadProperty(TwistedCalendarAccessProperty(self.access))
+            self.destination.accessMode = self.access
             
         # Do not remove the property if access was not specified and we are storing in a calendar.
         # This ensure that clients that do not preserve the iCalendar property do not cause access
         # restrictions to be lost.
         elif not self.destinationcal:
-            self.destination.removeDeadProperty(TwistedCalendarAccessProperty)                
+            self.destination.accessMode = ""
 
-        returnValue(IResponse(response))
+        # Check for existence of private comments and write property
+        if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
+            self.destination.hasPrivateComment = self.hasPrivateComments
+
+        # Check for scheduling object resource and write property
+        self.destination.isScheduleObject = self.isScheduleResource
+        if self.isScheduleResource:
+            # Need to figure out when to change the schedule tag:
+            #
+            # 1. If this is not an internal request then the resource is being explicitly changed
+            # 2. If it is an internal request for the Organizer, schedule tag never changes
+            # 3. If it is an internal request for an Attendee and the message being processed came
+            #    from the Organizer then the schedule tag changes.
+
+            change_scheduletag = True
+            if self.internal_request:
+                # Check what kind of processing is going on
+                if self.processing_organizer == True:
+                    # All auto-processed updates for an Organizer leave the tag unchanged
+                    change_scheduletag = False
+                elif self.processing_organizer == False:
+                    # Auto-processed updates that are the result of an organizer "refresh' due
+                    # to another Attendee's REPLY should leave the tag unchanged
+                    change_scheduletag = not hasattr(self.request, "doing_attendee_refresh")
+
+            if change_scheduletag or self.scheduletag is None:
+                self.scheduletag = str(uuid.uuid4())
 
 
-    @inlineCallbacks
-    def doStorePut(self):
+            # Handle weak etag compatibility
+            if config.Scheduling.CalDAV.ScheduleTagCompatibility:
+                if change_scheduletag:
+                    # Schedule-Tag change => weak ETag behavior must not happen
+                    etags = ()
+                else:
+                    # Schedule-Tag did not change => add current ETag to list of those that can
+                    # be used in a weak pre-condition test
+                    etags = self.destination.scheduleEtags
+                etags += (hashlib.md5(data).hexdigest(),)
+                self.destination.scheduleEtags = etags
+            else:
+                self.destination.scheduleEtags = ()                
+        else:
+            self.destination.scheduleEtags = ()                
 
-        if self.calendardata is None:
-            self.calendardata = str(self.calendar)
-        stream = MemoryStream(self.calendardata)
+
+        stream = MemoryStream(data)
         response = yield self.destination.storeStream(stream)
+        response = IResponse(response)
+
+        if self.isScheduleResource:
+            # Add a response header
+            response.headers.setHeader("Schedule-Tag", self.scheduletag)                
+
+            self.destination.writeDeadProperty(ScheduleTag.fromString(self.scheduletag))
+        else:
+            self.destination.removeDeadProperty(ScheduleTag)                
 
         returnValue(response)
 
@@ -799,7 +855,7 @@ class StoreCalendarObjectResource(object):
             rruleChanged = self.truncateRecurrence()
 
             # Preserve private comments
-            new_has_private_comments = (yield self.preservePrivateComments())
+            yield self.preservePrivateComments()
     
             # Do scheduling
             implicit_result = (yield self.doImplicitScheduling())
@@ -829,7 +885,7 @@ class StoreCalendarObjectResource(object):
                     log.err(msg)
                     raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
             else:
-                is_scheduling_resource, data_changed, did_implicit_action = implicit_result
+                self.isScheduleResource, data_changed, did_implicit_action = implicit_result
 
             # Do the actual put or copy
             response = (yield self.doStore(data_changed))
@@ -842,63 +898,6 @@ class StoreCalendarObjectResource(object):
                 _removeEtag.handleErrors = True
 
                 self.request.addResponseFilter(_removeEtag, atEnd=True)
-
-            # Check for scheduling object resource and write property
-            if is_scheduling_resource:
-                self.destination.writeDeadProperty(TwistedSchedulingObjectResource.fromString("true"))
-
-                # Need to figure out when to change the schedule tag:
-                #
-                # 1. If this is not an internal request then the resource is being explicitly changed
-                # 2. If it is an internal request for the Organizer, schedule tag never changes
-                # 3. If it is an internal request for an Attendee and the message being processed came
-                #    from the Organizer then the schedule tag changes.
-
-                change_scheduletag = True
-                if self.internal_request:
-                    # Check what kind of processing is going on
-                    if self.processing_organizer == True:
-                        # All auto-processed updates for an Organizer leave the tag unchanged
-                        change_scheduletag = False
-                    elif self.processing_organizer == False:
-                        # Auto-processed updates that are the result of an organizer "refresh' due
-                        # to another Attendee's REPLY should leave the tag unchanged
-                        change_scheduletag = not hasattr(self.request, "doing_attendee_refresh")
-
-                if change_scheduletag or self.scheduletag is None:
-                    self.scheduletag = str(uuid.uuid4())
-                self.destination.writeDeadProperty(ScheduleTag.fromString(self.scheduletag))
-
-                # Add a response header
-                response.headers.setHeader("Schedule-Tag", self.scheduletag)                
-
-                # Handle weak etag compatibility
-                if config.Scheduling.CalDAV.ScheduleTagCompatibility:
-                    if change_scheduletag:
-                        # Schedule-Tag change => weak ETag behavior must not happen
-                        etags = ()
-                    else:
-                        # Schedule-Tag did not change => add current ETag to list of those that can
-                        # be used in a weak pre-condition test
-                        if self.destination.hasDeadProperty(TwistedScheduleMatchETags):
-                            etags = self.destination.readDeadProperty(TwistedScheduleMatchETags).children
-                        else:
-                            etags = ()
-                    etags += (davxml.GETETag.fromString(self.destination.etag().tag),)
-                    self.destination.writeDeadProperty(TwistedScheduleMatchETags(*etags))
-                else:
-                    self.destination.removeDeadProperty(TwistedScheduleMatchETags)                
-            else:
-                self.destination.writeDeadProperty(TwistedSchedulingObjectResource.fromString("false"))                
-                self.destination.removeDeadProperty(ScheduleTag)                
-                self.destination.removeDeadProperty(TwistedScheduleMatchETags)                
-
-            # Check for existence of private comments and write property
-            if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
-                if new_has_private_comments:
-                    self.destination.writeDeadProperty(TwistedCalendarHasPrivateCommentsProperty())
-                elif not self.destinationcal:
-                    self.destination.removeDeadProperty(TwistedCalendarHasPrivateCommentsProperty)                
 
             # Remember the resource's content-type.
             if self.destinationcal:

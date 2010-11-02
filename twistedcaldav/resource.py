@@ -62,8 +62,6 @@ from twistedcaldav import carddavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
-from twistedcaldav.customxml import TwistedCalendarAccessProperty,\
-    TwistedScheduleMatchETags
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
@@ -750,6 +748,18 @@ class CalDAVResource (
     # ACL
     ##
 
+    def _get_accessMode(self):
+        """
+        Needed as a stub because only calendar object resources use this but we need to do ACL
+        determination on the generic CalDAVResource for now.
+        """
+        return ""
+
+    def _set_accessMode(self, value):
+        raise NotImplementedError
+
+    accessMode = property(_get_accessMode, _set_accessMode)
+
     # FIXME: Perhaps this is better done in authorize() instead.
     @inlineCallbacks
     def accessControlList(self, request, *args, **kwargs):
@@ -763,13 +773,12 @@ class CalDAVResource (
             acls = (yield super(CalDAVResource, self).accessControlList(request, *args, **kwargs))
 
         # Look for private events access classification
-        if self.hasDeadProperty(TwistedCalendarAccessProperty):
-            access = self.readDeadProperty(TwistedCalendarAccessProperty)
-            if access.getValue() in (Component.ACCESS_PRIVATE, Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED,):
+        if self.accessMode:
+            if self.accessMode in (Component.ACCESS_PRIVATE, Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED,):
                 # Need to insert ACE to prevent non-owner principals from seeing this resource
                 owner = (yield self.owner(request))
                 newacls = []
-                if access.getValue() == Component.ACCESS_PRIVATE:
+                if self.accessMode == Component.ACCESS_PRIVATE:
                     newacls.extend(config.AdminACEs)
                     newacls.extend(config.ReadACEs)
                     newacls.append(davxml.ACE(
@@ -1317,8 +1326,8 @@ class CalDAVResource (
         
         if config.Scheduling.CalDAV.ScheduleTagCompatibility:
             
-            if self.exists() and self.hasDeadProperty(TwistedScheduleMatchETags):
-                etags = self.readDeadProperty(TwistedScheduleMatchETags).children
+            if self.exists() and hasattr(self, "scheduleEtags"):
+                etags = self.scheduleEtags
                 if len(etags) > 1:
                     # This is almost verbatim from twext.web2.static.checkPreconditions
                     if request.method not in ("GET", "HEAD"):
@@ -1415,13 +1424,9 @@ class CalDAVResource (
 
     @inlineCallbacks
     def iCalendarTextFiltered(self, isowner, accessUID=None):
-        try:
-            access = self.readDeadProperty(TwistedCalendarAccessProperty)
-        except HTTPError:
-            access = None
 
         # Now "filter" the resource calendar data
-        caldata = PrivateEventFilter(access, isowner).filter(
+        caldata = PrivateEventFilter(self.accessMode, isowner).filter(
             (yield self.iCalendarText())
         )
         if accessUID:

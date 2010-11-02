@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import inlineCallbacks, returnValue
 
 """
 File calendar store.
@@ -32,6 +31,7 @@ import hashlib
 
 from errno import ENOENT
 
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.interfaces import ITransport
 from twisted.python.failure import Failure
 
@@ -39,12 +39,16 @@ from txdav.base.propertystore.xattr import PropertyStore
 
 from twext.python.vcomponent import InvalidICalendarDataError
 from twext.python.vcomponent import VComponent
+from twext.web2.dav import davxml
 from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.http_headers import generateContentType
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
+from twistedcaldav.customxml import TwistedCalendarAccessProperty,\
+    TwistedCalendarHasPrivateCommentsProperty, TwistedSchedulingObjectResource,\
+    TwistedScheduleMatchETags
 from twistedcaldav.sharing import InvitesDatabase
 
 from txdav.caldav.icalendarstore import IAttachment
@@ -352,6 +356,48 @@ class CalendarObject(CommonObjectResource):
     def organizer(self):
         return self.component().getOrganizer()
 
+    def _get_accessMode(self):
+        return str(self.properties().get(PropertyName.fromElement(TwistedCalendarAccessProperty), ""))
+
+    def _set_accessMode(self, value):
+        self.properties()[PropertyName.fromElement(TwistedCalendarAccessProperty)] = TwistedCalendarAccessProperty(value)
+
+    accessMode = property(_get_accessMode, _set_accessMode)
+
+    def _get_isScheduleObject(self):
+        return str(self.properties().get(PropertyName.fromElement(TwistedSchedulingObjectResource), "false")) == "true"
+
+    def _set_isScheduleObject(self, value):
+        self.properties()[PropertyName.fromElement(TwistedSchedulingObjectResource)] = TwistedSchedulingObjectResource.fromString("true" if value else "false")
+
+    isScheduleObject = property(_get_isScheduleObject, _set_isScheduleObject)
+
+    def _get_scheduleEtags(self):
+        return tuple([str(etag) for etag in self.properties().get(PropertyName.fromElement(TwistedScheduleMatchETags), TwistedScheduleMatchETags()).children])
+
+    def _set_scheduleEtags(self, value):
+        if value:
+            etags = [davxml.GETETag.fromString(etag) for etag in value]
+            self.properties()[PropertyName.fromElement(TwistedScheduleMatchETags)] = TwistedScheduleMatchETags(*etags)
+        else:
+            try:
+                del self.properties()[PropertyName.fromElement(TwistedScheduleMatchETags)]
+            except KeyError:
+                pass
+
+    scheduleEtags = property(_get_scheduleEtags, _set_scheduleEtags)
+
+    def _get_hasPrivateComment(self):
+        return PropertyName.fromElement(TwistedCalendarHasPrivateCommentsProperty) in self.properties()
+
+    def _set_hasPrivateComment(self, value):
+        pname = PropertyName.fromElement(TwistedCalendarHasPrivateCommentsProperty)
+        if value:
+            self.properties()[pname] = TwistedCalendarHasPrivateCommentsProperty()
+        elif pname in self.properties():
+            del self.properties()[pname]
+
+    hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
 
     @inlineCallbacks
     def createAttachmentWithName(self, name, contentType):

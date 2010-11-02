@@ -46,6 +46,7 @@ from twext.web2.dav.element.base import WebDAVUnknownElement
 from twext.python.vcomponent import VComponent
 
 from twistedcaldav.customxml import InviteNotification, InviteSummary
+from twistedcaldav.ical import Component
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -661,10 +662,29 @@ class CommonTests(CommonCommonTests):
         calendar = yield self.calendarObjectUnderTest()
         self.assertIsInstance(calendar.name(), basestring)
         self.assertIsInstance(calendar.uid(), basestring)
+        self.assertIsInstance(calendar.accessMode, basestring)
+        self.assertIsInstance(calendar.isScheduleObject, bool)
+        self.assertIsInstance(calendar.scheduleEtags, tuple)
+        self.assertIsInstance(calendar.hasPrivateComment, bool)
         self.assertIsInstance(calendar.md5(), basestring)
         self.assertIsInstance(calendar.size(), int)
         self.assertIsInstance(calendar.created(), int)
         self.assertIsInstance(calendar.modified(), int)
+        
+        self.assertEqual(calendar.accessMode, "")
+        self.assertEqual(calendar.isScheduleObject, False)
+        self.assertEqual(calendar.scheduleEtags, ())
+        self.assertEqual(calendar.hasPrivateComment, False)
+        
+        calendar.accessMode = Component.ACCESS_PRIVATE
+        calendar.isScheduleObject = True
+        calendar.scheduleEtags = ("1234", "5678",)
+        calendar.hasPrivateComment = True
+        
+        self.assertEqual(calendar.accessMode, Component.ACCESS_PRIVATE)
+        self.assertEqual(calendar.isScheduleObject, True)
+        self.assertEqual(calendar.scheduleEtags, ("1234", "5678",))
+        self.assertEqual(calendar.hasPrivateComment, True)
 
 
     @inlineCallbacks

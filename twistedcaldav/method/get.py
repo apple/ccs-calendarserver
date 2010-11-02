@@ -31,8 +31,7 @@ from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
 from twistedcaldav.caldavxml import ScheduleTag
-from twistedcaldav.customxml import TwistedCalendarAccessProperty,\
-    calendarserver_namespace
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.resource import isPseudoCalendarCollectionResource,\
     CalDAVResource
@@ -72,18 +71,13 @@ def http_GET(self, request):
     
                 caldata = (yield self.iCalendarForUser(request))
     
-                try:
-                    access = self.readDeadProperty(TwistedCalendarAccessProperty)
-                except HTTPError:
-                    access = None
-                    
-                if access:
+                if self.accessMode:
             
                     # Non DAV:owner's have limited access to the data
                     isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
                     
                     # Now "filter" the resource calendar data
-                    caldata = PrivateEventFilter(access, isowner).filter(caldata)
+                    caldata = PrivateEventFilter(self.accessMode, isowner).filter(caldata)
         
                 response = Response()
                 response.stream = MemoryStream(str(caldata))

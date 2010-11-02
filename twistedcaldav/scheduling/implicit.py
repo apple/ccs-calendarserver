@@ -25,7 +25,6 @@ from twext.web2.http import HTTPError
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.customxml import TwistedSchedulingObjectResource
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.ical import Property
 from twistedcaldav.method import report_common
@@ -70,7 +69,7 @@ class ImplicitScheduler(object):
         self.internal_request = internal_request
 
         existing_resource = resource.exists()
-        is_scheduling_object = (yield self.checkSchedulingObjectResource(resource))
+        is_scheduling_object = self.checkSchedulingObjectResource(resource)
         existing_type = "schedule" if is_scheduling_object else "calendar"
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
@@ -108,8 +107,8 @@ class ImplicitScheduler(object):
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
         dest_exists = destresource.exists()
-        dest_is_implicit = (yield self.checkSchedulingObjectResource(destresource))
-        src_is_implicit = (yield self.checkSchedulingObjectResource(srcresource)) or new_type == "schedule"
+        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
+        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit and dest_exists or dest_is_implicit:
@@ -138,8 +137,8 @@ class ImplicitScheduler(object):
 
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
-        dest_is_implicit = (yield self.checkSchedulingObjectResource(destresource))
-        src_is_implicit = (yield self.checkSchedulingObjectResource(srcresource)) or new_type == "schedule"
+        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
+        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit or dest_is_implicit:
@@ -167,39 +166,15 @@ class ImplicitScheduler(object):
 
         yield self.checkImplicitState()
 
-        is_scheduling_object = (yield self.checkSchedulingObjectResource(resource))
+        is_scheduling_object = self.checkSchedulingObjectResource(resource)
         resource_type = "schedule" if is_scheduling_object else "calendar"
         self.action = "remove" if resource_type == "schedule" else "none"
 
         returnValue((self.action != "none", False,))
 
-    @inlineCallbacks
     def checkSchedulingObjectResource(self, resource):
         
-        if resource and resource.exists():
-            try:
-                implicit = resource.readDeadProperty(TwistedSchedulingObjectResource)
-            except HTTPError:
-                implicit = None
-            if implicit is not None:
-                returnValue(implicit != "false")
-            else:
-                calendar = (yield resource.iCalendarForUser(self.request))
-                # Get the ORGANIZER and verify it is the same for all components
-                try:
-                    organizer = calendar.validOrganizerForScheduling()
-                except ValueError:
-                    # We have different ORGANIZERs in the same iCalendar object - this is an error
-                    returnValue(False)
-                organizerPrincipal = resource.principalForCalendarUserAddress(organizer) if organizer else None
-                resource.writeDeadProperty(TwistedSchedulingObjectResource("true" if organizerPrincipal != None else "false"))
-                log.debug("Implicit - checked scheduling object resource state for UID: '%s', result: %s" % (
-                    calendar.resourceUID(),
-                    "true" if organizerPrincipal != None else "false",
-                ))
-                returnValue(organizerPrincipal != None)
-
-        returnValue(False)
+        return resource.isScheduleObject if resource and resource.exists() else False
         
     @inlineCallbacks
     def checkImplicitState(self):
@@ -393,7 +368,7 @@ class ImplicitScheduler(object):
                 child = (yield self.request.locateResource(joinURL(collection_uri, rname)))
                 if child == check_resource:
                     returnValue(True)
-                is_scheduling_object = (yield self.checkSchedulingObjectResource(child))
+                is_scheduling_object = self.checkSchedulingObjectResource(child)
                 matched_type = "schedule" if is_scheduling_object else "calendar"
                 if (
                     collection_uri != check_parent_uri and
@@ -581,7 +556,7 @@ class ImplicitScheduler(object):
                 newOrganizer = self.calendar.getOrganizer()
                 if oldOrganizer != newOrganizer:
                     log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-organizer-change")))
         else:
             # Special case of SCHEDULE-FORCE-SEND added to attendees and no other change
             reinvites = set()

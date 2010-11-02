@@ -38,14 +38,14 @@ from twisted.python.failure import Failure
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime
-from txdav.common.icommondatastore import IndexedSearchException
+from twistedcaldav.ical import Component
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 
+from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.util import validateCalendarComponent,\
     dropboxIDFromCalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject,\
     IAttachment
-
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
     CommonObjectResource
 from txdav.common.datastore.sql_legacy import \
@@ -54,7 +54,7 @@ from txdav.common.datastore.sql_legacy import \
 from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE,\
     _ATTACHMENTS_MODE_WRITE, CALENDAR_HOME_TABLE
-from txdav.base.propertystore.base import PropertyName
+from txdav.common.icommondatastore import IndexedSearchException
 
 from vobject.icalendar import utc
 
@@ -220,6 +220,15 @@ indexfbtype_to_icalfbtype = {
     4: 'T',
 }
 
+accessMode_to_type = {
+    ""                           : 0,
+    Component.ACCESS_PUBLIC      : 1,
+    Component.ACCESS_PRIVATE     : 2,
+    Component.ACCESS_CONFIDENTIAL: 3,
+    Component.ACCESS_RESTRICTED  : 4,
+}
+accesstype_to_accessMode = dict([(v, k) for k,v in accessMode_to_type.items()])
+
 def _pathToName(path):
     return path.rsplit(".", 1)[0]
 
@@ -232,7 +241,77 @@ class CalendarObject(CommonObjectResource):
 
         super(CalendarObject, self).__init__(calendar, name, uid)
         self._objectTable = CALENDAR_OBJECT_TABLE
+        
+        self._access = accessMode_to_type[""]
+        self._schedule_object = False
+        self._schedule_etags = ""
+        self._private_comments = False
 
+
+    @inlineCallbacks
+    def initFromStore(self):
+        """
+        Initialise this object from the store. We read in and cache all the extra metadata
+        from the DB to avoid having to do DB queries for those individually later. Either the
+        name or uid is present, so we have to tweak the query accordingly.
+        
+        @return: L{self} if object exists in the DB, else C{None}
+        """
+        
+        if self._name:
+            rows = yield self._txn.execSQL("""
+                select 
+                  %(column_RESOURCE_ID)s,
+                  %(column_RESOURCE_NAME)s,
+                  %(column_UID)s,
+                  %(column_MD5)s,
+                  character_length(%(column_TEXT)s),
+                  %(column_ACCESS)s,
+                  %(column_SCHEDULE_OBJECT)s,
+                  %(column_SCHEDULE_ETAGS)s,
+                  %(column_PRIVATE_COMMENTS)s,
+                  %(column_CREATED)s,
+                  %(column_MODIFIED)s
+                from %(name)s
+                where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
+                """ % self._objectTable,
+                [self._name, self._parentCollection._resourceID]
+            )
+        else:
+            rows = yield self._txn.execSQL("""
+                select 
+                  %(column_RESOURCE_ID)s,
+                  %(column_RESOURCE_NAME)s,
+                  %(column_UID)s,
+                  %(column_MD5)s,
+                  character_length(%(column_TEXT)s),
+                  %(column_ACCESS)s,
+                  %(column_SCHEDULE_OBJECT)s,
+                  %(column_SCHEDULE_ETAGS)s,
+                  %(column_PRIVATE_COMMENTS)s,
+                  %(column_CREATED)s,
+                  %(column_MODIFIED)s
+                from %(name)s
+                where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
+                """ % self._objectTable,
+                [self._uid, self._parentCollection._resourceID]
+            )
+        if rows:
+            (self._resourceID,
+             self._name,
+             self._uid,
+             self._md5,
+             self._size,
+             self._access,
+             self._schedule_object,
+             self._schedule_etags,
+             self._private_comments,
+             self._created,
+             self._modified,) = tuple(rows[0])
+            yield self._loadPropertyStore()
+            returnValue(self)
+        else:
+            returnValue(None)
 
     @property
     def _calendar(self):
@@ -312,9 +391,11 @@ class CalendarObject(CommonObjectResource):
                 yield self._txn.execSQL(
                 """
                 insert into CALENDAR_OBJECT
-                (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX, MD5)
+                (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE,
+                 ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_ETAGS,
+                 PRIVATE_COMMENTS, MD5)
                  values
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 returning
                  RESOURCE_ID,
                  CREATED,
@@ -331,6 +412,10 @@ class CalendarObject(CommonObjectResource):
                     _ATTACHMENTS_MODE_WRITE,
                     organizer,
                     normalizeForIndex(instances.limit) if instances.limit else None,
+                    self._access,
+                    self._schedule_object,
+                    self._schedule_etags,
+                    self._private_comments,
                     self._md5,
                 ]
             ))[0]
@@ -338,9 +423,11 @@ class CalendarObject(CommonObjectResource):
             yield self._txn.execSQL(
                 """
                 update CALENDAR_OBJECT set
-                (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX, MD5, MODIFIED)
+                (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE,
+                 ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_ETAGS,
+                 PRIVATE_COMMENTS, MD5, MODIFIED)
                  =
-                (%s, %s, %s, %s, %s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
                 where RESOURCE_ID = %s
                 returning MODIFIED
                 """,
@@ -354,6 +441,10 @@ class CalendarObject(CommonObjectResource):
                     _ATTACHMENTS_MODE_WRITE,
                     organizer,
                     normalizeForIndex(instances.limit) if instances.limit else None,
+                    self._access,
+                    self._schedule_object,
+                    self._schedule_etags,
+                    self._private_comments,
                     self._md5,
                     self._resourceID,
                 ]
@@ -468,6 +559,38 @@ class CalendarObject(CommonObjectResource):
         returnValue((yield self.component()).getOrganizer())
 
 
+    def _get_accessMode(self):
+        return accesstype_to_accessMode[self._access]
+
+    def _set_accessMode(self, value):
+        self._access = accessMode_to_type[value]
+
+    accessMode = property(_get_accessMode, _set_accessMode)
+
+    def _get_isScheduleObject(self):
+        return self._schedule_object
+
+    def _set_isScheduleObject(self, value):
+        self._schedule_object = value
+
+    isScheduleObject = property(_get_isScheduleObject, _set_isScheduleObject)
+
+    def _get_scheduleEtags(self):
+        return tuple(self._schedule_etags.split(",")) if self._schedule_etags else ()
+
+    def _set_scheduleEtags(self, value):
+        self._schedule_etags = ",".join(value) if value else ""
+
+    scheduleEtags = property(_get_scheduleEtags, _set_scheduleEtags)
+
+    def _get_hasPrivateComment(self):
+        return self._private_comments
+
+    def _set_hasPrivateComment(self, value):
+        self._private_comments = value
+
+    hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
+
     @inlineCallbacks
     def createAttachmentWithName(self, name, contentType):
 
@@ -548,11 +671,8 @@ class CalendarObject(CommonObjectResource):
             (
             ),
             (
-                PropertyName.fromElement(customxml.TwistedCalendarAccessProperty),
-                PropertyName.fromElement(customxml.TwistedSchedulingObjectResource),
                 PropertyName.fromElement(caldavxml.ScheduleTag),
                 PropertyName.fromElement(customxml.TwistedScheduleMatchETags),
-                PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty),
                 PropertyName.fromElement(caldavxml.Originator),
                 PropertyName.fromElement(caldavxml.Recipient),
                 PropertyName.fromElement(customxml.ScheduleChanges),

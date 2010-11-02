@@ -53,7 +53,7 @@ class PrivateEventFilter(CalendarFilter):
         @return: L{Component} for the filtered calendar data
         """
         
-        if self.isowner or self.accessRestriction == Component.ACCESS_PUBLIC or self.accessRestriction is None:
+        if self.isowner or self.accessRestriction == Component.ACCESS_PUBLIC or not self.accessRestriction:
             # No need to filter for the owner or public event
             return ical
         

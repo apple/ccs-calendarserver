@@ -973,9 +973,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             self._objects[name] = None
             returnValue(None)
 
+    def emptyObjectWithName(self, name):
+        """
+        Sometimes we need an "empty" object that we can store meta-data on prior to actually
+        creating it with "real" data.
+        """
+        return self._objectResourceClass(self, name, None)
 
     @inlineCallbacks
-    def createObjectResourceWithName(self, name, component):
+    def createObjectResourceWithName(self, name, component, objectResource=None):
+        """
+        As per L{emptyObjectWithName} we may get passed an already created object which we need
+        to use for the one being created in order to preserve any meta-data that might have been
+        set prior to the actual creation of the data.
+        """
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
@@ -992,7 +1003,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             if rows:
                 raise ObjectResourceNameAlreadyExistsError()
 
-        objectResource = self._objectResourceClass(self, name, None)
+        if objectResource is None:
+            objectResource = self._objectResourceClass(self, name, None)
         yield objectResource.setComponent(component, inserting=True)
         self._objects[objectResource.name()] = objectResource
         self._objects[objectResource.uid()] = objectResource

@@ -1039,8 +1039,41 @@ class ProtoCalendarCollectionResource(CalDAVResource):
         # FIXME: should be deleted, or raise an exception
 
 
+class _CalendarObjectMetaDataMixin(object):
 
-class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEqMixin):
+    def _get_accessMode(self):
+        return self._newStoreObject.accessMode
+
+    def _set_accessMode(self, value):
+        self._newStoreObject.accessMode = value
+
+    accessMode = property(_get_accessMode, _set_accessMode)
+
+    def _get_isScheduleObject(self):
+        return self._newStoreObject.isScheduleObject
+
+    def _set_isScheduleObject(self, value):
+        self._newStoreObject.isScheduleObject = value
+
+    isScheduleObject = property(_get_isScheduleObject, _set_isScheduleObject)
+
+    def _get_scheduleEtags(self):
+        return self._newStoreObject.scheduleEtags
+
+    def _set_scheduleEtags(self, value):
+        self._newStoreObject.scheduleEtags = value
+
+    scheduleEtags = property(_get_scheduleEtags, _set_scheduleEtags)
+
+    def _get_hasPrivateComment(self):
+        return self._newStoreObject.hasPrivateComment
+
+    def _set_hasPrivateComment(self, value):
+        self._newStoreObject.hasPrivateComment = value
+
+    hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
+
+class CalendarObjectResource(_NewStoreFileMetaDataHelper, _CalendarObjectMetaDataMixin, CalDAVResource, FancyEqMixin):
     """
     A resource wrapping a calendar object.
     """
@@ -1254,13 +1287,20 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyE
 
 
 
-class ProtoCalendarObjectResource(CalDAVResource, FancyEqMixin):
+class ProtoCalendarObjectResource(_CalendarObjectMetaDataMixin, CalDAVResource, FancyEqMixin):
 
     compareAttributes = '_newStoreParentCalendar'.split()
 
     def __init__(self, parentCalendar, name, *a, **kw):
+        """
+        We need to create an "empty" resource object here because resource meta-data does get
+        changed before the actual calendar data is written. So we need some kind of "container" for
+        that to ensure those meta-data values actually get pushed to the store when the resource is
+        created.
+        """
         super(ProtoCalendarObjectResource, self).__init__(*a, **kw)
         self._newStoreParentCalendar = parentCalendar
+        self._newStoreObject = self._newStoreParentCalendar.emptyObjectWithName(name)
         self._name = name
 
 
@@ -1271,7 +1311,7 @@ class ProtoCalendarObjectResource(CalDAVResource, FancyEqMixin):
             (yield allDataFromStream(stream))
         )
         yield self._newStoreParentCalendar.createCalendarObjectWithName(
-            self.name(), component
+            self.name(), component, objectResource=self._newStoreObject
         )
         CalendarObjectResource.transform(
             self,

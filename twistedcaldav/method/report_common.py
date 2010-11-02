@@ -57,7 +57,6 @@ from twistedcaldav import caldavxml
 from twistedcaldav import carddavxml
 from twistedcaldav.caldavxml import caldav_namespace, CalendarData
 from twistedcaldav.carddavxml import AddressData
-from twistedcaldav.customxml import TwistedCalendarAccessProperty
 from twistedcaldav.datafilters.calendardata import CalendarDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.datafilters.addressdata import AddressDataFilter
@@ -332,14 +331,9 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
     for property in props:
         if isinstance(property, caldavxml.CalendarData):
             # Handle private events access restrictions
-            try:
-                access = resource.readDeadProperty(TwistedCalendarAccessProperty)
-            except HTTPError:
-                access = None
-
             if calendar is None:
                 calendar = (yield resource.iCalendarForUser(request))
-            filtered = PrivateEventFilter(access, isowner).filter(calendar)
+            filtered = PrivateEventFilter(resource.accessMode, isowner).filter(calendar)
             filtered = CalendarDataFilter(property, timezone).filter(filtered)
             propvalue = CalendarData().fromCalendar(filtered)
             properties_by_status[responsecode.OK].append(propvalue)

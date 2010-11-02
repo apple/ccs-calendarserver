@@ -197,10 +197,12 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         """
         addressbookStore = yield buildStore(self, self.notifierFactory)
 
-        # Provision the home now
+        # Provision the home and addressbook now
         txn = addressbookStore.newTransaction()
         home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
         self.assertNotEqual(home, None)
+        adbk = yield home.addressbookWithName("addressbook")
+        self.assertNotEqual(adbk, None)
         yield txn.commit()
 
         txn1 = addressbookStore.newTransaction()
