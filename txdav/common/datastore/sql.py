@@ -333,9 +333,9 @@ class CommonHome(LoggingMixIn):
         # Needed for REVISION/BIND table join
         self._revisionBindJoinTable = {}
         for key, value in self._revisionsTable.iteritems():
-            self._revisionBindJoinTable["REV:%s" % (key,)] = value 
+            self._revisionBindJoinTable["REV:%s" % (key,)] = value
         for key, value in self._bindTable.iteritems():
-            self._revisionBindJoinTable["BIND:%s" % (key,)] = value 
+            self._revisionBindJoinTable["BIND:%s" % (key,)] = value
 
     @inlineCallbacks
     def initFromStore(self):
@@ -355,7 +355,7 @@ class CommonHome(LoggingMixIn):
             returnValue(self)
         else:
             returnValue(None)
-        
+
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
@@ -487,7 +487,7 @@ class CommonHome(LoggingMixIn):
         @return: an L{ICalendar} or C{None} if no such child
             exists.
         """
-        
+
         if owned:
             data = yield self._txn.execSQL("""
                 select %(column_RESOURCE_ID)s from %(name)s
@@ -601,7 +601,7 @@ class CommonHome(LoggingMixIn):
             """
             select max(%(REV:column_REVISION)s) from %(REV:name)s
             where %(REV:column_RESOURCE_ID)s in (
-              select %(BIND:column_RESOURCE_ID)s from %(BIND:name)s 
+              select %(BIND:column_RESOURCE_ID)s from %(BIND:name)s
               where %(BIND:column_HOME_RESOURCE_ID)s = %%s
             ) or (
               %(REV:column_HOME_RESOURCE_ID)s = %%s and
@@ -630,14 +630,14 @@ class CommonHome(LoggingMixIn):
                   %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s and
                   %(REV:name)s.%(REV:column_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
                 )
-                where 
-                  %(REV:column_REVISION)s > %%s and 
+                where
+                  %(REV:column_REVISION)s > %%s and
                   %(REV:name)s.%(REV:column_HOME_RESOURCE_ID)s = %%s
                 """ % self._revisionBindJoinTable,
                 [self._resourceID, token, self._resourceID],
             ))
         ]
-        
+
         deleted = []
         deleted_collections = set()
         changed_collections = set()
@@ -647,14 +647,14 @@ class CommonHome(LoggingMixIn):
                     deleted.append("%s/%s" % (path, name,))
                 if not name:
                     deleted_collections.add(path)
-        
+
         changed = []
         for path, name, wasdeleted in results:
             if path not in deleted_collections:
                 changed.append("%s/%s" % (path, name,))
                 if not name:
                     changed_collections.add(path)
-        
+
         # Now deal with shared collections
         shares = yield self.listSharedChildren()
         for sharename in shares:
@@ -692,11 +692,11 @@ class CommonHome(LoggingMixIn):
                 if wasdeleted:
                     if sharetoken:
                         deleted.append("%s/%s" % (path, name,))
-            
+
             for path, name, wasdeleted in results:
                 changed.append("%s/%s" % (path, name,))
-        
-        
+
+
         changed.sort()
         deleted.sort()
         returnValue((changed, deleted))
@@ -715,7 +715,7 @@ class CommonHome(LoggingMixIn):
     def properties(self):
         return self._propertyStore
 
-    
+
     # IDataStoreResource
     def contentType(self):
         """
@@ -796,7 +796,7 @@ class CommonHome(LoggingMixIn):
         """
         if self._notifier:
             self._txn.postCommit(self._notifier.notify)
-        
+
 
 class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     """
@@ -838,7 +838,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         ))[0]
 
         yield self._loadPropertyStore()
-        
+
     @property
     def _txn(self):
         return self._home._txn
@@ -1078,7 +1078,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             ))
         ]
         results.sort(key=lambda x:x[1])
-        
+
         changed = []
         deleted = []
         for name, wasdeleted in results:
@@ -1088,7 +1088,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                         deleted.append(name)
                 else:
                     changed.append(name)
-        
+
         returnValue((changed, deleted))
 
 
@@ -1319,13 +1319,13 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         Initialise this object from the store. We read in and cache all the extra metadata
         from the DB to avoid having to do DB queries for those individually later. Either the
         name or uid is present, so we have to tweak the query accordingly.
-        
+
         @return: L{self} if object exists in the DB, else C{None}
         """
-        
+
         if self._name:
             rows = yield self._txn.execSQL("""
-                select 
+                select
                   %(column_RESOURCE_ID)s,
                   %(column_RESOURCE_NAME)s,
                   %(column_UID)s,
@@ -1340,7 +1340,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
             )
         else:
             rows = yield self._txn.execSQL("""
-                select 
+                select
                   %(column_RESOURCE_ID)s,
                   %(column_RESOURCE_NAME)s,
                   %(column_UID)s,
@@ -1536,7 +1536,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         """
         We create the empty object first then have it initialize itself from the store
         """
-        
+
         no = NotificationObject(self, uid)
         no = (yield no.initFromStore())
         returnValue(no)
@@ -1737,7 +1737,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         """
         Initialise this object from the store. We read in and cache all the extra metadata
         from the DB to avoid having to do DB queries for those individually later.
-        
+
         @return: L{self} if object exists in the DB, else C{None}
         """
         rows = (yield self._txn.execSQL("""
@@ -1793,7 +1793,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
                 insert into NOTIFICATION
                   (NOTIFICATION_HOME_RESOURCE_ID, NOTIFICATION_UID, XML_TYPE, XML_DATA, MD5)
                 values
-                  (%s, %s, %s, %s, %s) 
+                  (%s, %s, %s, %s, %s)
                 returning
                   RESOURCE_ID,
                   CREATED,
