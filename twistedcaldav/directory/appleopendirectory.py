@@ -27,11 +27,7 @@ import sys
 import time
 from uuid import UUID
 
-import opendirectory
-import dsattributes
-import dsquery
-
-from twisted.internet.threads import deferToThread
+from twisted.internet.defer import succeed
 from twisted.cred.credentials import UsernamePassword
 from twext.web2.auth.digest import DigestedCredentials
 
@@ -42,6 +38,14 @@ from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
 from twistedcaldav.directory.principal import cuAddressConverter
+
+# TODO: Temporary means of switching to PyObjC version
+import os
+if os.path.exists("/tmp/calendarserver_use_pyobjc"):
+    from calendarserver.od import opendirectory, dsattributes, dsquery
+else:
+    import opendirectory, dsattributes, dsquery
+
 
 class OpenDirectoryService(CachingDirectoryService):
     """
@@ -67,7 +71,6 @@ class OpenDirectoryService(CachingDirectoryService):
                         if C{False} they are not.
                         This should only be set to C{False} when doing unit tests.
         """
-
         defaults = {
             'node' : '/Search',
             'restrictEnabledRecords' : False,
@@ -238,22 +241,21 @@ class OpenDirectoryService(CachingDirectoryService):
 
         guids = set()
 
-        query = dsquery.match(dsattributes.kDSNAttrGroupMembers, guid, dsattributes.eDSExact)
         try:
             self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                 self.directory,
-                query.attribute,
-                query.value,
-                query.matchType,
+                dsattributes.kDSNAttrGroupMembers,
+                guid,
+                dsattributes.eDSExact,
                 False,
                 recordType,
                 attrs,
             ))
             results = opendirectory.queryRecordsWithAttribute_list(
                 self.directory,
-                query.attribute,
-                query.value,
-                query.matchType,
+                dsattributes.kDSNAttrGroupMembers,
+                guid,
+                dsattributes.eDSExact,
                 False,
                 recordType,
                 attrs,
@@ -269,22 +271,21 @@ class OpenDirectoryService(CachingDirectoryService):
             if recordGUID:
                 guids.add(recordGUID)
 
-        query = dsquery.match(dsattributes.kDSNAttrNestedGroups, guid, dsattributes.eDSExact)
         try:
             self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                 self.directory,
-                query.attribute,
-                query.value,
-                query.matchType,
+                dsattributes.kDSNAttrNestedGroups,
+                guid,
+                dsattributes.eDSExact,
                 False,
                 recordType,
                 attrs,
             ))
             results = opendirectory.queryRecordsWithAttribute_list(
                 self.directory,
-                query.attribute,
-                query.value,
-                query.matchType,
+                dsattributes.kDSNAttrNestedGroups,
+                guid,
+                dsattributes.eDSExact,
                 False,
                 recordType,
                 attrs,
@@ -482,30 +483,36 @@ class OpenDirectoryService(CachingDirectoryService):
                 self.log_debug("Calling OD: Types %s, Field %s, Value %s, Match %s, Caseless %s" %
                     (recordTypes, ODField, value, matchType, caseless))
 
-                queryResults = lookupMethod(
-                    directory,
-                    ODField,
-                    value,
-                    comparison,
-                    caseless,
-                    recordTypes,
-                    attrs,
-                )
+                try:
+                    queryResults = lookupMethod(
+                        directory,
+                        ODField,
+                        value,
+                        comparison,
+                        caseless,
+                        recordTypes,
+                        attrs,
+                    )
 
-                if operand == dsquery.expression.OR:
-                    for recordName, data in queryResults:
-                        guid = data.get(dsattributes.kDS1AttrGeneratedUID, None)
-                        if guid:
-                            byGUID[guid] = (recordName, data)
-                else: # AND
-                    newSet = set()
-                    for recordName, data in queryResults:
-                        guid = data.get(dsattributes.kDS1AttrGeneratedUID, None)
-                        if guid:
-                            byGUID[guid] = (recordName, data)
-                            newSet.add(guid)
+                    if operand == dsquery.expression.OR:
+                        for recordName, data in queryResults:
+                            guid = data.get(dsattributes.kDS1AttrGeneratedUID, None)
+                            if guid:
+                                byGUID[guid] = (recordName, data)
+                    else: # AND
+                        newSet = set()
+                        for recordName, data in queryResults:
+                            guid = data.get(dsattributes.kDS1AttrGeneratedUID, None)
+                            if guid:
+                                byGUID[guid] = (recordName, data)
+                                newSet.add(guid)
 
-                    sets.append(newSet)
+                        sets.append(newSet)
+
+                except opendirectory.ODError, e:
+                    self.log_error("Ignoring OD Error: %d %s" %
+                        (e.message[1], e.message[0]))
+                    continue
 
             if operand == dsquery.expression.OR:
                 return byGUID.values()
@@ -531,8 +538,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
         queries = buildQueries(recordTypes, fields, self._ODFields)
 
-        deferred = deferToThread(
-            multiQuery,
+        results = multiQuery(
             self.directory,
             queries,
             [
@@ -548,9 +554,7 @@ class OpenDirectoryService(CachingDirectoryService):
             ],
             operand
         )
-        deferred.addCallback(collectResults)
-        return deferred
-
+        return succeed(collectResults(results))
 
 
     def queryDirectory(self, recordTypes, indexType, indexKey,
@@ -579,8 +583,6 @@ class OpenDirectoryService(CachingDirectoryService):
             caseInsensitive = True
         else:
             caseInsensitive = False
-
-        query = dsquery.match(queryattr, indexKey, dsattributes.eDSExact)
 
         results = []
         for recordType in recordTypes:
@@ -618,9 +620,9 @@ class OpenDirectoryService(CachingDirectoryService):
                 try:
                     self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                         self.directory,
-                        query.attribute,
-                        query.value,
-                        query.matchType,
+                        queryattr,
+                        indexKey,
+                        dsattributes.eDSExact,
                         caseInsensitive,
                         listRecordTypes,
                         attrs,
@@ -628,9 +630,9 @@ class OpenDirectoryService(CachingDirectoryService):
                     results.extend(
                         lookupMethod(
                             self.directory,
-                            query.attribute,
-                            query.value,
-                            query.matchType,
+                            queryattr,
+                            indexKey,
+                            dsattributes.eDSExact,
                             caseInsensitive,
                             listRecordTypes,
                             attrs,

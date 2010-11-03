@@ -25,7 +25,7 @@ else:
     from twisted.internet.defer import inlineCallbacks
     from twistedcaldav.directory.directory import DirectoryService
     from twistedcaldav.directory.appleopendirectory import OpenDirectoryRecord
-    import dsattributes
+    from calendarserver.od import dsattributes
 
     # Wonky hack to prevent unclean reactor shutdowns
     class DummyReactor(object):

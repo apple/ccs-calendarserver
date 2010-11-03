@@ -16,7 +16,7 @@
 
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory.appleopendirectory import buildQueries, OpenDirectoryService
-import dsattributes
+from calendarserver.od import dsattributes
 
 class BuildQueryTests(TestCase):
 

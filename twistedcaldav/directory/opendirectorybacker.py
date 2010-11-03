@@ -35,15 +35,10 @@ from os.path import join, abspath
 from tempfile import mkstemp, gettempdir
 from random import random
 
-import opendirectory
-import dsattributes
-
-from dsquery import match, expression
 from socket import getfqdn
 
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, deferredGenerator
-from twisted.internet.threads import deferToThread
+from twisted.internet.defer import inlineCallbacks, returnValue, deferredGenerator, succeed
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import twisted_dav_namespace, dav_namespace, parse_date, twisted_private_namespace
@@ -64,6 +59,11 @@ from twistedcaldav.vcard import Component, Property
 from xmlrpclib import datetime
 from vobject.vcard import Name, Address
 
+# TODO: Temporary means of switching to PyObjC version
+if os.path.exists("/tmp/calendarserver_use_pyobjc"):
+    from calendarserver.od import opendirectory, dsattributes, dsquery
+else:
+    import opendirectory, dsattributes, dsquery
 
 class OpenDirectoryBackingService(DirectoryService):
     """
@@ -439,11 +439,11 @@ class OpenDirectoryBackingService(DirectoryService):
                         recordTypes,
                         self.returnedAttributes,
                     ))
-                results = opendirectory.listAllRecordsWithAttributes_list(
+                results = list(opendirectory.listAllRecordsWithAttributes_list(
                         localNodeDirectory,
                         recordTypes,
                         self.returnedAttributes,
-                    )
+                    ))
             except opendirectory.ODError, ex:
                 self.log_error("Open Directory (node=%s) error: %s" % ("/Local/Default", str(ex)))
                 raise
@@ -521,7 +521,6 @@ class OpenDirectoryBackingService(DirectoryService):
         returnValue((records, limited, ))
 
 
-    @inlineCallbacks
     def _queryDirectory(self, query=None, attributes=None, maxRecords=0 ):
         
         startTime = time.time()
@@ -546,7 +545,7 @@ class OpenDirectoryBackingService(DirectoryService):
         for directory, node, recordType in directoryAndRecordTypes:
             try:
                 if query:
-                    if isinstance(query, match) and query.value is not "":
+                    if isinstance(query, dsquery.match) and query.value is not "":
                         self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r,%r)" % (
                             node,
                             query.attribute,
@@ -557,17 +556,17 @@ class OpenDirectoryBackingService(DirectoryService):
                             attributes,
                             maxRecords,
                         ))
-                        results = (yield deferToThread(
-                            opendirectory.queryRecordsWithAttribute_list,
-                            directory,
-                            query.attribute,
-                            query.value,
-                            query.matchType,
-                            False,
-                            recordType,
-                            attributes,
-                            maxRecords,
-                        ))
+                        results = list(
+                            opendirectory.queryRecordsWithAttribute_list(
+                                directory,
+                                query.attribute,
+                                query.value,
+                                query.matchType,
+                                False,
+                                recordType,
+                                attributes,
+                                maxRecords,
+                            ))
                     else:
                         self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r)" % (
                             node,
@@ -577,15 +576,15 @@ class OpenDirectoryBackingService(DirectoryService):
                             attributes,
                             maxRecords,
                         ))
-                        results = (yield deferToThread(
-                            opendirectory.queryRecordsWithAttributes_list,
-                            directory,
-                            query.generate(),
-                            False,
-                            recordType,
-                            attributes,
-                            maxRecords,
-                        ))
+                        results = list(
+                            opendirectory.queryRecordsWithAttributes_list(
+                                directory,
+                                query.generate(),
+                                False,
+                                recordType,
+                                attributes,
+                                maxRecords,
+                            ))
                 else:
                     self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r,%r)" % (
                         node,
@@ -593,13 +592,13 @@ class OpenDirectoryBackingService(DirectoryService):
                         attributes,
                         maxRecords,
                     ))
-                    results = (yield deferToThread(
-                        opendirectory.listAllRecordsWithAttributes_list,
-                        directory,
-                        recordType,
-                        attributes,
-                        maxRecords,
-                    ))
+                    results = list(
+                        opendirectory.listAllRecordsWithAttributes_list(
+                            directory,
+                            recordType,
+                            attributes,
+                            maxRecords,
+                        ))
             except opendirectory.ODError, ex:
                 self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
@@ -614,7 +613,7 @@ class OpenDirectoryBackingService(DirectoryService):
 
         elaspedTime = time.time()-startTime
         self.log_info("Timing: Directory query: %.1f ms (%d records, %.2f records/sec)" % (elaspedTime*1000, len(allResults), len(allResults)/elaspedTime))
-        returnValue( allResults )
+        return succeed(allResults)
     
     def _getDSFilter(self, addressBookFilter):
         """
@@ -638,15 +637,15 @@ class OpenDirectoryBackingService(DirectoryService):
                     if constant or filterName in ("N" , "FN", "UID", ):
                         return (defined, [], [])     # all records have this property so no records do not have it
                     else:
-                        matchList = list(set([match(attrName, "", dsattributes.eDSStartsWith) for attrName in allAttrStrings]))
+                        matchList = list(set([dsquery.match(attrName, "", dsattributes.eDSStartsWith) for attrName in allAttrStrings]))
                         if defined:
                             return andOrExpression(allOf, queryAttributes, matchList)
                         else:
                             if len(matchList) > 1:
-                                expr = expression( expression.OR, matchList )
+                                expr = dsquery.expression( dsquery.expression.OR, matchList )
                             else:
                                 expr = matchList
-                            return (False, queryAttributes, [expression( expression.NOT, expr),])
+                            return (False, queryAttributes, [dsquery.expression( dsquery.expression.NOT, expr),])
                     #end isNotDefinedExpression()
     
     
@@ -654,7 +653,7 @@ class OpenDirectoryBackingService(DirectoryService):
                     #print("andOrExpression(propFilterAllOf=%r, queryAttributes%r, matchList%r)" % (propFilterAllOf, queryAttributes, matchList))
                     if propFilterAllOf and len(matchList):
                         # add OR expression because parent will AND
-                        return (False, queryAttributes, [expression( expression.OR, matchList),])
+                        return (False, queryAttributes, [dsquery.expression( dsquery.expression.OR, matchList),])
                     else:
                         return (False, queryAttributes, matchList)
                     #end andOrExpression()
@@ -786,11 +785,11 @@ class OpenDirectoryBackingService(DirectoryService):
                                     else:
                                         if textMatchElement.negate:
                                             return (False, queryAttributes, 
-                                                    [expression(expression.NOT, match(dsattributes.kDSNAttrRecordName, recordNameQualifier, dsattributes.eDSExact)),]
+                                                    [dsquery.expression(dsquery.expression.NOT, dsquery.match(dsattributes.kDSNAttrRecordName, recordNameQualifier, dsattributes.eDSExact)),]
                                                     )
                                         else:
                                             return (False, queryAttributes, 
-                                                    [match(dsattributes.kDSNAttrRecordName, recordNameQualifier, dsattributes.eDSExact),]
+                                                    [dsquery.match(dsattributes.kDSNAttrRecordName, recordNameQualifier, dsattributes.eDSExact),]
                                                     )
                             
                             # use match_type where possible depending on property/attribute mapping
@@ -807,16 +806,16 @@ class OpenDirectoryBackingService(DirectoryService):
                             
                             matchList = []
                             for matchString in matchStrings:
-                                matchList += [match(attrName, matchString, matchType) for attrName in stringAttrStrs]
+                                matchList += [dsquery.match(attrName, matchString, matchType) for attrName in stringAttrStrs]
                             
                             matchList = list(set(matchList))
     
                             if textMatchElement.negate:
                                 if len(matchList) > 1:
-                                    expr = expression( expression.OR, matchList )
+                                    expr = dsquery.expression( dsquery.expression.OR, matchList )
                                 else:
                                     expr = matchList
-                                return (False, queryAttributes, [expression( expression.NOT, expr),])
+                                return (False, queryAttributes, [dsquery.expression( dsquery.expression.NOT, expr),])
                             else:
                                 return andOrExpression(propFilterAllOf, queryAttributes, matchList)
     
@@ -873,7 +872,7 @@ class OpenDirectoryBackingService(DirectoryService):
     
 
                 if (len(propFilterExpressionList) > 1) and (filterAllOf != propFilterAllOf):
-                    propFilterExpressions = [expression(expression.AND if propFilterAllOf else expression.OR , list(set(propFilterExpressionList)))] # remove duplicates
+                    propFilterExpressions = [dsquery.expression(dsquery.expression.AND if propFilterAllOf else dsquery.expression.OR , list(set(propFilterExpressionList)))] # remove duplicates
                 else:
                     propFilterExpressions = list(set(propFilterExpressionList))
                 
@@ -902,7 +901,7 @@ class OpenDirectoryBackingService(DirectoryService):
                 expressions += propExpression
 
             if len(expressions) > 1:
-                expr = expression(expression.AND if filterAllOf else expression.OR , list(set(expressions))) # remove duplicates
+                expr = dsquery.expression(dsquery.expression.AND if filterAllOf else dsquery.expression.OR , list(set(expressions))) # remove duplicates
             elif len(expressions):
                 expr = expressions[0]
             else:

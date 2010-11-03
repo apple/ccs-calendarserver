@@ -318,7 +318,7 @@ DEFAULT_CONFIG = {
         "ProcessCount": 0,
         "MinProcessCount": 2,
         "PerCPU": 1,
-        "PerGB": 2,
+        "PerGB": 1,
         "StaggeredStartup": {
             "Enabled": False,
             "Interval": 15,
@@ -598,7 +598,7 @@ DEFAULT_CONFIG = {
     },
 
     "EnableKeepAlive": True,
-    
+
     "Includes": [],     # Other plists to parse after this one
 }
 

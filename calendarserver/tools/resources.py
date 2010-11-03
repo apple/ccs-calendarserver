@@ -30,9 +30,14 @@ from twistedcaldav.directory import augment
 from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
-import opendirectory, dsattributes
 import os
 import sys
+
+# TODO: Temporary means of switching to PyObjC version
+if os.path.exists("/tmp/calendarserver_use_pyobjc"):
+    from calendarserver.od import opendirectory, dsattributes
+else:
+    import opendirectory, dsattributes
 
 __all__ = [ "migrateResources", ]
 
@@ -168,17 +173,16 @@ def queryForType(sourceService, recordType, verbose=False):
     attrs = [
         dsattributes.kDS1AttrGeneratedUID,
         dsattributes.kDS1AttrDistinguishedName,
-        # NEED THIS? dsattributes.kDSNAttrServicesLocator,
     ]
 
     if verbose:
         print "Querying for all %s records" % (recordType,)
 
-    results = opendirectory.listAllRecordsWithAttributes_list(
+    results = list(opendirectory.listAllRecordsWithAttributes_list(
         sourceService.directory,
         recordType,
         attrs,
-    )
+    ))
 
     if verbose:
         print "Found %d records" % (len(results),)
