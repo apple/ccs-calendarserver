@@ -53,7 +53,7 @@ from txdav.common.datastore.sql_legacy import \
     SQLLegacyCalendarShares, PostgresLegacyInboxIndexEmulator
 from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE,\
-    _ATTACHMENTS_MODE_WRITE, CALENDAR_HOME_TABLE
+    _ATTACHMENTS_MODE_WRITE, CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE
 from txdav.common.icommondatastore import IndexedSearchException
 
 from vobject.icalendar import utc
@@ -69,6 +69,7 @@ class CalendarHome(CommonHome):
     def __init__(self, transaction, ownerUID, notifier):
 
         self._homeTable = CALENDAR_HOME_TABLE
+        self._homeMetaDataTable = CALENDAR_HOME_METADATA_TABLE
         self._childClass = Calendar
         self._childTable = CALENDAR_TABLE
         self._bindTable = CALENDAR_BIND_TABLE

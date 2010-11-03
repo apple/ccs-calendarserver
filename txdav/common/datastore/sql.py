@@ -50,7 +50,8 @@ from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 
 from txdav.common.datastore.sql_tables import CALENDAR_HOME_TABLE, \
     ADDRESSBOOK_HOME_TABLE, NOTIFICATION_HOME_TABLE, _BIND_MODE_OWN, \
-    _BIND_STATUS_ACCEPTED, NOTIFICATION_OBJECT_REVISIONS_TABLE
+    _BIND_STATUS_ACCEPTED, NOTIFICATION_OBJECT_REVISIONS_TABLE,\
+    CALENDAR_HOME_METADATA_TABLE, ADDRESSBOOK_HOME_METADATA_TABLE
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
@@ -132,6 +133,7 @@ class CommonStoreTransaction(object):
     """
     _homeClass = {}
     _homeTable = {}
+    _homeMetaDataTable = {}
 
     id = 0
 
@@ -163,6 +165,8 @@ class CommonStoreTransaction(object):
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
         CommonStoreTransaction._homeTable[ECALENDARTYPE] = CALENDAR_HOME_TABLE
         CommonStoreTransaction._homeTable[EADDRESSBOOKTYPE] = ADDRESSBOOK_HOME_TABLE
+        CommonStoreTransaction._homeMetaDataTable[ECALENDARTYPE] = CALENDAR_HOME_METADATA_TABLE
+        CommonStoreTransaction._homeMetaDataTable[EADDRESSBOOKTYPE] = ADDRESSBOOK_HOME_METADATA_TABLE
         self._sqlTxn = sqlTxn
 
 
@@ -217,9 +221,15 @@ class CommonStoreTransaction(object):
                 [uid]
             )
             if not exists:
-                yield self.execSQL(
-                    "insert into %(name)s (%(column_OWNER_UID)s) values (%%s)" % CommonStoreTransaction._homeTable[storeType],
+                resourceid = (yield self.execSQL("""
+                    insert into %(name)s (%(column_OWNER_UID)s) values (%%s)
+                    returning %(column_RESOURCE_ID)s
+                    """ % CommonStoreTransaction._homeTable[storeType],
                     [uid]
+                ))[0][0]
+                yield self.execSQL(
+                    "insert into %(name)s (%(column_RESOURCE_ID)s) values (%%s)" % CommonStoreTransaction._homeMetaDataTable[storeType],
+                    [resourceid]
                 )
             home = yield self.homeWithUID(storeType, uid)
             if not exists:
@@ -315,6 +325,7 @@ class CommonStoreTransaction(object):
 class CommonHome(LoggingMixIn):
 
     _homeTable = None
+    _homeMetaDataTable = None
     _childClass = None
     _childTable = None
     _bindTable = None
@@ -744,8 +755,8 @@ class CommonHome(LoggingMixIn):
     def quotaUsedBytes(self):
         returnValue((yield self._txn.execSQL(
             "select %(column_QUOTA_USED_BYTES)s from %(name)s"
-            " where %(column_OWNER_UID)s = %%s" % self._homeTable,
-            [self._ownerUID]
+            " where %(column_RESOURCE_ID)s = %%s" % self._homeMetaDataTable,
+            [self._resourceID]
         ))[0][0])
 
 
@@ -760,7 +771,7 @@ class CommonHome(LoggingMixIn):
             select * from %(name)s
             where %(column_RESOURCE_ID)s = %%s
             for update
-            """ % self._homeTable,
+            """ % self._homeMetaDataTable,
             [self._resourceID]
         )
 
@@ -769,7 +780,7 @@ class CommonHome(LoggingMixIn):
             set %(column_QUOTA_USED_BYTES)s = %(column_QUOTA_USED_BYTES)s + %%s
             where %(column_RESOURCE_ID)s = %%s
             returning %(column_QUOTA_USED_BYTES)s
-            """ % self._homeTable,
+            """ % self._homeMetaDataTable,
             [delta, self._resourceID]
         ))[0][0]
         # Double check integrity
@@ -779,7 +790,7 @@ class CommonHome(LoggingMixIn):
                 update %(name)s
                 set %(column_QUOTA_USED_BYTES)s = 0
                 where %(column_RESOURCE_ID)s = %%s
-                """ % self._homeTable,
+                """ % self._homeMetaDataTable,
                 [self._resourceID]
             )
 

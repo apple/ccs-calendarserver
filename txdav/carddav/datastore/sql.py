@@ -48,7 +48,8 @@ from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
     CommonObjectResource
 from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
     ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE,\
-    ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE
+    ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE,\
+    ADDRESSBOOK_HOME_METADATA_TABLE
 from txdav.base.propertystore.base import PropertyName
 
 
@@ -60,6 +61,7 @@ class AddressBookHome(CommonHome):
     def __init__(self, transaction, ownerUID, notifier):
 
         self._homeTable = ADDRESSBOOK_HOME_TABLE
+        self._homeMetaDataTable = ADDRESSBOOK_HOME_METADATA_TABLE
         self._childClass = AddressBook
         self._childTable = ADDRESSBOOK_TABLE
         self._bindTable = ADDRESSBOOK_BIND_TABLE

@@ -23,6 +23,11 @@ CALENDAR_HOME_TABLE = {
     "name"                    : "CALENDAR_HOME",
     "column_RESOURCE_ID"      : "RESOURCE_ID",
     "column_OWNER_UID"        : "OWNER_UID",
+}
+
+CALENDAR_HOME_METADATA_TABLE = {
+    "name"                    : "CALENDAR_HOME_METADATA",
+    "column_RESOURCE_ID"      : "RESOURCE_ID",
     "column_QUOTA_USED_BYTES" : "QUOTA_USED_BYTES",
 }
 
@@ -30,6 +35,11 @@ ADDRESSBOOK_HOME_TABLE = {
     "name"                    : "ADDRESSBOOK_HOME",
     "column_RESOURCE_ID"      : "RESOURCE_ID",
     "column_OWNER_UID"        : "OWNER_UID",
+}
+
+ADDRESSBOOK_HOME_METADATA_TABLE = {
+    "name"                    : "ADDRESSBOOK_HOME_METADATA",
+    "column_RESOURCE_ID"      : "RESOURCE_ID",
     "column_QUOTA_USED_BYTES" : "QUOTA_USED_BYTES",
 }
 

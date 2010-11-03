@@ -160,14 +160,26 @@ if __name__ == "__main__":
     removeProperty(TwistedCalendarHasPrivateCommentsProperty)
     db.commit()
     
-    # Alter the CALENDAR_HOME table and add columns
-    print "Alter the CALENDAR_HOME table"
+    # Create the CALENDAR_HOME_METADATA table
+    print "Create the CALENDAR_HOME_METADATA table"
     try:
         query(db, """
-            alter table CALENDAR_HOME
-            add column
-              QUOTA_USED_BYTES integer default 0 not null;
+            ----------------------------
+            -- Calendar Home Metadata --
+            ----------------------------
+            
+            create table CALENDAR_HOME_METADATA (
+              RESOURCE_ID      integer      not null references CALENDAR_HOME on delete cascade,
+              QUOTA_USED_BYTES integer      default 0 not null
+            );
         """)
+        
+        # Provision with empty data
+        query(db, """
+            insert into CALENDAR_HOME_METADATA
+            select RESOURCE_ID from CALENDAR_HOME
+        """, ()
+        )
         
     except pg.DatabaseError, e:
         if str(e).find("already exists") == -1:
@@ -175,14 +187,26 @@ if __name__ == "__main__":
             sys.exit(1)
     db.commit()
     
-    # Alter the ADDRESSBOOK_HOME table and add columns
-    print "Alter the ADDRESSBOOK_HOME table"
+    # Alter the ADDRESSBOOK_HOME_METADATA table
+    print "Create the ADDRESSBOOK_HOME_METADATA table"
     try:
         query(db, """
-            alter table ADDRESSBOOK_HOME
-            add column
-              QUOTA_USED_BYTES integer default 0 not null;
+            --------------------------------
+            -- AddressBook Home Meta-data --
+            --------------------------------
+            
+            create table ADDRESSBOOK_HOME_METADATA (
+              RESOURCE_ID      integer      not null references ADDRESSBOOK_HOME on delete cascade,
+              QUOTA_USED_BYTES integer      default 0 not null
+            );
         """)
+        
+        # Provision with empty data
+        query(db, """
+            insert into ADDRESSBOOK_HOME_METADATA
+            select RESOURCE_ID from ADDRESSBOOK_HOME
+        """, ()
+        )
         
     except pg.DatabaseError, e:
         if str(e).find("already exists") == -1:
@@ -201,13 +225,13 @@ if __name__ == "__main__":
         # Since we don't know whether the resource-id is a calendar home or addressbook home
         # just try updating both tables - the one that does not match will simply be ignored.
         query(db, """
-            update CALENDAR_HOME
+            update CALENDAR_HOME_METADATA
             set QUOTA_USED_BYTES = %s
             where RESOURCE_ID = %s
         """, (int(str(prop)), resource_id,)
         )
         query(db, """
-            update ADDRESSBOOK_HOME
+            update ADDRESSBOOK_HOME_METADATA
             set QUOTA_USED_BYTES = %s
             where RESOURCE_ID = %s
         """, (int(str(prop)), resource_id,)

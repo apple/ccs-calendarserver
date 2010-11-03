@@ -11,7 +11,16 @@ create sequence RESOURCE_ID_SEQ;
 
 create table CALENDAR_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'),
-  OWNER_UID        varchar(255) not null unique,
+  OWNER_UID        varchar(255) not null unique
+);
+
+
+----------------------------
+-- Calendar Home Metadata --
+----------------------------
+
+create table CALENDAR_HOME_METADATA (
+  RESOURCE_ID      integer      not null references CALENDAR_HOME on delete cascade,
   QUOTA_USED_BYTES integer      default 0 not null
 );
 
@@ -266,7 +275,16 @@ create table RESOURCE_PROPERTY (
 
 create table ADDRESSBOOK_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'),
-  OWNER_UID        varchar(255) not null unique,
+  OWNER_UID        varchar(255) not null unique
+);
+
+
+--------------------------------
+-- AddressBook Home Meta-data --
+--------------------------------
+
+create table ADDRESSBOOK_HOME_METADATA (
+  RESOURCE_ID      integer      not null references ADDRESSBOOK_HOME on delete cascade,
   QUOTA_USED_BYTES integer      default 0 not null
 );
 
