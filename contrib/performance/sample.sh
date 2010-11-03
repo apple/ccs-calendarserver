@@ -48,7 +48,7 @@ for backend in $BACKENDS; do
       break
     fi
   done
-  echo "instance pid files: $instances"
+  echo "instance pid files: ${instances[*]}"
   popd
   sudo PYTHONPATH=$PYTHONPATH ./benchmark --label r$REV-$backend --log-directory $LOGS $BENCHMARKS
   data=`echo -n r$REV-$backend*`
