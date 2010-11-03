@@ -274,7 +274,7 @@ class DTraceCollector(object):
 def benchmark(host, port, directory, label, benchmarks):
     # Figure out which pids we are benchmarking.
     if directory:
-        pids = [masterPID(directory)]
+        pids = [masterPID(directory)] + instancePIDs(directory)
     else:
         pids = []
 
