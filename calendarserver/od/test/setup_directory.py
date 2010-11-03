@@ -29,7 +29,6 @@ masterUsers = [
     (
         "odtestamanda",
         {
-            OpenDirectory.kODAttributeTypePassword : ["password"],
             OpenDirectory.kODAttributeTypeFirstName : ["Amanda"],
             OpenDirectory.kODAttributeTypeLastName  : ["Test"],
             OpenDirectory.kODAttributeTypeFullName : ["Amanda Test"],
@@ -41,7 +40,6 @@ masterUsers = [
     (
         "odtestbetty",
         {
-            OpenDirectory.kODAttributeTypePassword : ["password"],
             OpenDirectory.kODAttributeTypeFirstName : ["Betty"],
             OpenDirectory.kODAttributeTypeLastName  : ["Test"],
             OpenDirectory.kODAttributeTypeFullName : ["Betty Test"],
@@ -53,9 +51,9 @@ masterUsers = [
     (
         "odtestcarlene",
         {
-            OpenDirectory.kODAttributeTypePassword : ["password"],
             OpenDirectory.kODAttributeTypeFirstName : ["Carlene"],
             OpenDirectory.kODAttributeTypeLastName  : ["Test"],
+            OpenDirectory.kODAttributeTypeFullName : ["Carlene Test"],
             OpenDirectory.kODAttributeTypeEMailAddress : ["carlene@example.com"],
             OpenDirectory.kODAttributeTypeGUID : ["9dc04a72-e6dd-11df-9492-0800200c9a66"],
             OpenDirectory.kODAttributeTypeUniqueID : ["33302"],
@@ -64,9 +62,9 @@ masterUsers = [
     (
         "odtestdenise",
         {
-            OpenDirectory.kODAttributeTypePassword : ["password"],
             OpenDirectory.kODAttributeTypeFirstName : ["Denise"],
             OpenDirectory.kODAttributeTypeLastName  : ["Test"],
+            OpenDirectory.kODAttributeTypeFullName : ["Denise Test"],
             OpenDirectory.kODAttributeTypeEMailAddress : ["denise@example.com"],
             OpenDirectory.kODAttributeTypeGUID : ["9dc04a73-e6dd-11df-9492-0800200c9a66"],
             OpenDirectory.kODAttributeTypeUniqueID : ["33303"],
@@ -90,7 +88,6 @@ localUsers = [
     (
         "odtestalbert",
         {
-            OpenDirectory.kODAttributeTypePassword : ["password"],
             OpenDirectory.kODAttributeTypeFirstName : ["Albert"],
             OpenDirectory.kODAttributeTypeLastName  : ["Test"],
             OpenDirectory.kODAttributeTypeFullName : ["Albert Test"],
@@ -102,7 +99,6 @@ localUsers = [
     (
         "odtestbill",
         {
-            OpenDirectory.kODAttributeTypePassword : ["password"],
             OpenDirectory.kODAttributeTypeFirstName : ["Bill"],
             OpenDirectory.kODAttributeTypeLastName  : ["Test"],
             OpenDirectory.kODAttributeTypeFullName : ["Bill Test"],
@@ -114,9 +110,9 @@ localUsers = [
     (
         "odtestcarl",
         {
-            OpenDirectory.kODAttributeTypePassword : ["password"],
             OpenDirectory.kODAttributeTypeFirstName : ["Carl"],
             OpenDirectory.kODAttributeTypeLastName  : ["Test"],
+            OpenDirectory.kODAttributeTypeFullName : ["Carl Test"],
             OpenDirectory.kODAttributeTypeEMailAddress : ["carl@example.com"],
             OpenDirectory.kODAttributeTypeGUID : ["9dc04a76-e6dd-11df-9492-0800200c9a66"],
             OpenDirectory.kODAttributeTypeUniqueID : ["33352"],
@@ -125,9 +121,9 @@ localUsers = [
     (
         "odtestdavid",
         {
-            OpenDirectory.kODAttributeTypePassword : ["password"],
             OpenDirectory.kODAttributeTypeFirstName : ["David"],
             OpenDirectory.kODAttributeTypeLastName  : ["Test"],
+            OpenDirectory.kODAttributeTypeFullName : ["David Test"],
             OpenDirectory.kODAttributeTypeEMailAddress : ["david@example.com"],
             OpenDirectory.kODAttributeTypeGUID : ["9dc04a77-e6dd-11df-9492-0800200c9a66"],
             OpenDirectory.kODAttributeTypeUniqueID : ["33353"],
@@ -262,6 +258,12 @@ def main():
                 try:
                     record = createRecord(node, OpenDirectory.kODRecordTypeUsers, recordName, attrs)
                     print "Successfully created user %s" % (recordName,)
+                    result, error = record.changePassword_toPassword_error_(
+                        None, "password", None)
+                    if error or not result:
+                        print "Failed to set password for %s: %s" % (recordName, error)
+                    else:
+                        print "Successfully set password for %s" % (recordName,)
                 except ODError, e:
                     print "Failed to create user %s: %s" % (recordName, e)
             else:

@@ -19,6 +19,7 @@ OpenDirectory.framework access via PyObjC
 """
 
 import OpenDirectory
+import objc
 from twext.python.log import Logger
 
 log = Logger()
@@ -67,6 +68,11 @@ def adjustMatchType(matchType, caseInsensitive):
     return caseInsensitiveEquivalents[matchType] if caseInsensitive else matchType
 
 def recordToResult(record):
+    """
+    Takes an ODRecord and turns it into a (recordName, attributesDictionary)
+    tuple.  Only unicode values are returned. (Not sure what to do with
+    non-unicode values)
+    """
     details, error = record.recordDetailsForAttributes_error_(None, None)
     if error:
         log.error(error)
@@ -74,9 +80,13 @@ def recordToResult(record):
     result = {}
     for key, value in details.iteritems():
         if key in SINGLE_VALUE_ATTRIBUTES:
-            result[key] = None if len(value) == 0 else unicode(value[0])
+            if len(value) == 0:
+                result[key] = None
+            else:
+                if isinstance(value[0], objc.pyobjc_unicode):
+                    result[key] = value[0]
         else:
-            result[key] = [unicode(v) for v in value]
+            result[key] = [unicode(v) for v in value if isinstance(v, objc.pyobjc_unicode)]
 
     return (details.get(OpenDirectory.kODAttributeTypeRecordName, [None])[0], result)
 

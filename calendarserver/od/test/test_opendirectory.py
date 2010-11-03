@@ -715,19 +715,13 @@ if runTests:
             self.assertEquals(record, None)
 
         def test_basicAuth_master(self):
-
             directory = opendirectory.odInit("/Search")
             result = opendirectory.authenticateUserBasic(directory,
                 "/LDAPv3/127.0.0.1", "odtestamanda", "password")
             self.assertTrue(result)
 
-        test_basicAuth_master.todo = "Not assigning passwords correctly, apparently"
-
         def test_basicAuth_local(self):
-
             directory = opendirectory.odInit("/Search")
             result = opendirectory.authenticateUserBasic(directory,
                 "/Local/Default", "odtestalbert", "password")
             self.assertTrue(result)
-
-        test_basicAuth_local.todo = "Not assigning passwords correctly, apparently"
