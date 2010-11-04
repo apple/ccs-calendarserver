@@ -604,7 +604,7 @@ DEFAULT_CONFIG = {
     # DirectoryService.framework)
     # "calendarserver.od.opendirectory" is the new PyObjC version which uses
     # OpenDirectory.framework
-    "OpenDirectoryModule": "opendirectory",
+    "OpenDirectoryModule": "calendarserver.od.opendirectory",
 
     "Includes": [],     # Other plists to parse after this one
 }
