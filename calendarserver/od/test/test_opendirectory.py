@@ -725,3 +725,15 @@ if runTests:
             result = opendirectory.authenticateUserBasic(directory,
                 "/Local/Default", "odtestalbert", "password")
             self.assertTrue(result)
+
+        def test_unicode_results(self):
+            directory = opendirectory.odInit("/Search")
+            record = opendirectory.getUserRecord(directory, "odtestbill")
+            name, data = opendirectory.recordToResult(record)
+            for value in data.values():
+                if isinstance(value, list):
+                    for item in value:
+                        self.assertTrue(type(item) is unicode)
+                else:
+                    self.assertTrue(type(value) is unicode)
+

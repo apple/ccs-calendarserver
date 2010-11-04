@@ -84,7 +84,7 @@ def recordToResult(record):
                 result[key] = None
             else:
                 if isinstance(value[0], objc.pyobjc_unicode):
-                    result[key] = value[0]
+                    result[key] = unicode(value[0]) # convert from pyobjc
         else:
             result[key] = [unicode(v) for v in value if isinstance(v, objc.pyobjc_unicode)]
 
