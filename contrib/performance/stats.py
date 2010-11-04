@@ -52,7 +52,7 @@ class _Statistic(object):
         return '<Stat %r>' % (self.name,)
 
 
-    def squash(self, samples):
+    def squash(self, samples, mode=None):
         """
         Normalize the sample data into float values (one per sample)
         in seconds (I hope time is the only thing you measure).
@@ -61,11 +61,12 @@ class _Statistic(object):
 
 
     def summarize(self, data):
-        print self.name, 'mean', mean(data)
-        print self.name, 'median', median(data)
-        print self.name, 'stddev', stddev(data)
-        print self.name, 'median absolute deviation', mad(data)
-        print self.name, 'sum', sum(data)
+        return ''.join([
+                self.name, ' mean ', str(mean(data)), '\n',
+                self.name, ' median ', str(median(data)), '\n',
+                self.name, ' stddev ', str(stddev(data)), '\n',
+                self.name, ' median absolute deviation ', str(mad(data)), '\n',
+                self.name, ' sum ', str(sum(data)), '\n'])
 
 
     def write(self, basename, data):
@@ -113,12 +114,22 @@ class SQLDuration(_Statistic):
         return sqlparse.format(statement.to_unicode().encode('ascii'))
 
 
-    def squash(self, samples):
-        times = []
+    def squash(self, samples, mode="duration"):
+        """
+        Summarize the execution of a number of SQL statements.
+
+        @param mode: C{"duration"} to squash the durations into the
+            result.  C{"count"} to squash the count of statements
+            executed into the result.
+        """
+        results = []
         for data in samples:
-            times.append(
-                sum([interval for (sql, interval) in data]) / NANO)
-        return times
+            if mode == "duration":
+                value = sum([interval for (sql, interval) in data]) / NANO
+            else:
+                value = len(data)
+            results.append(value)
+        return results
 
 
     def summarize(self, samples):
@@ -131,9 +142,10 @@ class SQLDuration(_Statistic):
                 statements[sql] = statements.get(sql, 0) + 1
                 total += interval
             times.append(total / NANO * 1000)
-        for statement, count in statements.iteritems():
-            print count, ':', statement
-        return _Statistic.summarize(self, times)
+        return ''.join([
+                '%d: %s\n' % (count, statement)
+                for (statement, count) 
+                in statements.iteritems()]) + _Statistic.summarize(self, times)
 
 
     def statements(self, samples):

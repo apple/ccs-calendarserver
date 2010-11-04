@@ -9,9 +9,9 @@ def main():
         stat, samples = select(pickle.load(file(sys.argv[1])), *sys.argv[2:5])
         if len(sys.argv) == 5:
             print 'Samples'
-            print '\t' + '\n\t'.join(map(str, samples))
+            print '\t' + '\n\t'.join(map(str, stat.squash(samples)))
             print 'Commands'
             print '\t' + '\n\t'.join(stat.commands)
         else:
-            getattr(stat, sys.argv[5])(samples)
+            print getattr(stat, sys.argv[5])(samples, *sys.argv[6:])
 

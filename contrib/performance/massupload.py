@@ -46,6 +46,21 @@ def main():
                         benchmark, param, statistic,
                         options['backend'], options['environment'],
                         samples)
+                    
+                    # This is somewhat hard-coded to the currently
+                    # collected stats.
+                    if statistic == 'SQL':
+                        stat, samples = select(
+                            raw, benchmark, param, 'execute')
+                        samples = stat.squash(samples, 'count')
+                        yield upload(
+                            reactor, 
+                            options['url'], options['project'],
+                            options['revision'], options['revision-date'],
+                            benchmark, param, statistic + 'count',
+                            options['backend'], options['environment'],
+                            samples)
+
 
     d = coiterate(go())
     d.addErrback(err, "Mass upload failed")
