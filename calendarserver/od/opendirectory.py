@@ -18,31 +18,34 @@
 OpenDirectory.framework access via PyObjC
 """
 
-import OpenDirectory
+import odframework
 import objc
+import dsattributes
 from twext.python.log import Logger
 
 log = Logger()
 
 # Single-value attributes (must be converted from lists):
 SINGLE_VALUE_ATTRIBUTES = [
-    OpenDirectory.kODAttributeTypeBirthday,
-    OpenDirectory.kODAttributeTypeComment,
-    OpenDirectory.kODAttributeTypeCreationTimestamp,
-    OpenDirectory.kODAttributeTypeFullName,
-    OpenDirectory.kODAttributeTypeFirstName,
-    OpenDirectory.kODAttributeTypeGUID,
-    OpenDirectory.kODAttributeTypeLastName,
-    OpenDirectory.kODAttributeTypeMiddleName,
-    OpenDirectory.kODAttributeTypeModificationTimestamp,
-    OpenDirectory.kODAttributeTypeNote,
-    OpenDirectory.kODAttributeTypeSearchPath,
-    OpenDirectory.kODAttributeTypeUserCertificate,
-    OpenDirectory.kODAttributeTypeUserPKCS12Data,
-    OpenDirectory.kODAttributeTypeUserSMIMECertificate,
-    OpenDirectory.kODAttributeTypeWeblogURI,
+    dsattributes.kDS1AttrBirthday,
+    dsattributes.kDS1AttrComment,
+    dsattributes.kDS1AttrCreationTimestamp,
+    dsattributes.kDS1AttrDistinguishedName,
+    dsattributes.kDS1AttrFirstName,
+    dsattributes.kDS1AttrGeneratedUID,
+    dsattributes.kDS1AttrLastName,
+    dsattributes.kDS1AttrMiddleName,
+    dsattributes.kDS1AttrModificationTimestamp,
+    dsattributes.kDS1AttrNote,
+    dsattributes.kDS1AttrSearchPath,
+    dsattributes.kDS1AttrUserCertificate,
+    dsattributes.kDS1AttrUserPKCS12Data,
+    dsattributes.kDS1AttrUserSMIMECertificate,
+    dsattributes.kDS1AttrWeblogURI,
 ]
 
+MATCHANY = 1
+DIGEST_MD5 = "dsAuthMethodStandard:dsAuthNodeDIGEST-MD5"
 
 class Directory(object):
     """ Encapsulates OpenDirectory session and node """
@@ -56,16 +59,12 @@ class Directory(object):
         return "OpenDirectory node: %s" % (self.nodeName)
 
 
-caseInsensitiveEquivalents = {
-    OpenDirectory.kODMatchBeginsWith : OpenDirectory.kODMatchInsensitiveBeginsWith,
-    OpenDirectory.kODMatchContains : OpenDirectory.kODMatchInsensitiveContains,
-    OpenDirectory.kODMatchEndsWith : OpenDirectory.kODMatchInsensitiveEndsWith,
-    OpenDirectory.kODMatchEqualTo : OpenDirectory.kODMatchInsensitiveEqualTo,
-}
 
 def adjustMatchType(matchType, caseInsensitive):
     """ Return the case-insensitive equivalent matchType """
-    return caseInsensitiveEquivalents[matchType] if caseInsensitive else matchType
+    return (matchType | 0x100) if caseInsensitive else matchType
+
+    # return caseInsensitiveEquivalents[matchType] if caseInsensitive else matchType
 
 def recordToResult(record):
     """
@@ -88,7 +87,7 @@ def recordToResult(record):
         else:
             result[key] = [unicode(v) for v in value if isinstance(v, objc.pyobjc_unicode)]
 
-    return (details.get(OpenDirectory.kODAttributeTypeRecordName, [None])[0], result)
+    return (details.get(dsattributes.kDSNAttrRecordName, [None])[0], result)
 
 def odInit(nodeName):
     """
@@ -98,8 +97,8 @@ def odInit(nodeName):
     @return: C{object} an object to be passed to all subsequent functions on success,
         C{None} on failure.
     """
-    session = OpenDirectory.ODSession.defaultSession()
-    node, error = OpenDirectory.ODNode.nodeWithSession_name_error_(session,
+    session = odframework.ODSession.defaultSession()
+    node, error = odframework.ODNode.nodeWithSession_name_error_(session,
         nodeName, None)
     if error:
         log.error(error)
@@ -139,11 +138,11 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
     @return: C{list} containing a C{list} of C{str} (record name) and C{dict} attributes
         for each record found, or C{None} otherwise.
     """
-    query, error = OpenDirectory.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+    query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         directory.node,
         recordType,
         None,
-        OpenDirectory.kODMatchAny,
+        MATCHANY,
         None,
         attributes,
         count,
@@ -176,7 +175,7 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
         for each record found, or C{None} otherwise.
     """
 
-    query, error = OpenDirectory.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+    query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         directory.node,
         recordType,
         attr,
@@ -211,7 +210,7 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
     @return: C{list} containing a C{list} of C{str} (record name) and C{dict} attributes
         for each record found, or C{None} otherwise.
     """
-    query, error = OpenDirectory.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+    query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         directory.node,
         recordType,
         None,
@@ -240,7 +239,7 @@ def getUserRecord(directory, user):
     @return: OD record if the user was found, None otherwise.
     """
     record, error = directory.node.recordWithRecordType_name_attributes_error_(
-        OpenDirectory.kODRecordTypeUsers,
+        dsattributes.kDSStdRecordTypeUsers,
         user,
         None,
         None
@@ -289,7 +288,7 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
 
     # TODO: what are these other return values?
     result, mystery1, mystery2, error = record.verifyExtendedWithAuthenticationType_authenticationItems_continueItems_context_error_(
-        OpenDirectory.kODAuthenticationTypeDIGEST_MD5,
+        DIGEST_MD5,
         [user, challenge, response, method],
         None, None, None
     )

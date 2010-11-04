@@ -599,6 +599,13 @@ DEFAULT_CONFIG = {
 
     "EnableKeepAlive": True,
 
+    # Specify which opendirectory module to use:
+    # "opendirectory" is PyOpenDirectory (the old one which uses
+    # DirectoryService.framework)
+    # "calendarserver.od.opendirectory" is the new PyObjC version which uses
+    # OpenDirectory.framework
+    "OpenDirectoryModule": "opendirectory",
+
     "Includes": [],     # Other plists to parse after this one
 }
 

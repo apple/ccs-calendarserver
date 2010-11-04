@@ -33,11 +33,7 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 import os
 import sys
 
-# TODO: Temporary means of switching to PyObjC version
-if os.path.exists("/tmp/calendarserver_use_pyobjc"):
-    from calendarserver.od import opendirectory, dsattributes
-else:
-    import opendirectory, dsattributes
+from calendarserver.od import dsattributes
 
 __all__ = [ "migrateResources", ]
 
@@ -178,7 +174,7 @@ def queryForType(sourceService, recordType, verbose=False):
     if verbose:
         print "Querying for all %s records" % (recordType,)
 
-    results = list(opendirectory.listAllRecordsWithAttributes_list(
+    results = list(sourceService.odModule.listAllRecordsWithAttributes_list(
         sourceService.directory,
         recordType,
         attrs,

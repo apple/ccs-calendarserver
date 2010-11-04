@@ -15,13 +15,14 @@
 ##
 
 from twistedcaldav.test.util import TestCase
+import hashlib
+import random
+import sys
 
 runTests = False
 
 try:
-    import OpenDirectory
-    from calendarserver.od import opendirectory, dsattributes, dsquery
-    import setup_directory
+    from calendarserver.od import opendirectory, dsattributes, dsquery, setup_directory
 
     directory = opendirectory.odInit("/Search")
 
@@ -44,6 +45,41 @@ try:
 
 except ImportError:
     print "Unable to import OpenDirectory framework"
+
+
+def generateNonce():
+    c = tuple([random.randrange(sys.maxint) for _ in range(3)])
+    c = '%d%d%d' % c
+    return c
+
+def getChallengeResponse(user, password, node, uri, method):
+    nonce = generateNonce()
+
+    ha1 = hashlib.md5("%s:%s:%s" % (user, node, password)).hexdigest()
+    ha2 = hashlib.md5("%s:%s" % (method, uri)).hexdigest()
+    response = hashlib.md5("%s:%s:%s"% (ha1, nonce, ha2)).hexdigest()
+
+    fields = {
+        'username': user,
+        'nonce': nonce,
+        'realm': node,
+        'algorithm': 'md5',
+        'uri': uri,
+        'response': response,
+    }
+
+    challenge = 'Digest realm="%(realm)s", nonce="%(nonce)s", algorithm=%(algorithm)s' % fields
+
+    response = (
+        'Digest username="%(username)s", '
+        'realm="%(realm)s", '
+        'nonce="%(nonce)s", '
+        'uri="%(uri)s", '
+        'response="%(response)s",'
+        'algorithm=%(algorithm)s'
+    ) % fields
+
+    return challenge, response
 
 if runTests:
 
@@ -72,28 +108,20 @@ if runTests:
 
         def test_adjustMatchType(self):
             self.assertEquals(
-                opendirectory.adjustMatchType(OpenDirectory.kODMatchEqualTo, False),
-                OpenDirectory.kODMatchEqualTo
+                opendirectory.adjustMatchType(dsattributes.eDSExact, False),
+                dsattributes.eDSExact
             )
             self.assertEquals(
-                opendirectory.adjustMatchType(OpenDirectory.kODMatchEqualTo, True),
-                OpenDirectory.kODMatchInsensitiveEqualTo
-            )
-            self.assertEquals(
-                opendirectory.adjustMatchType(OpenDirectory.kODMatchContains, False),
-                OpenDirectory.kODMatchContains
-            )
-            self.assertEquals(
-                opendirectory.adjustMatchType(OpenDirectory.kODMatchContains, True),
-                OpenDirectory.kODMatchInsensitiveContains
+                opendirectory.adjustMatchType(dsattributes.eDSExact, True),
+                dsattributes.eDSExact | 0x100
             )
 
         def test_getNodeAttributes(self):
 
             directory = opendirectory.odInit("/Search")
-            results = opendirectory.getNodeAttributes(directory, "/Search", [OpenDirectory.kODAttributeTypeSearchPath])
-            self.assertTrue("/Local/Default" in results[OpenDirectory.kODAttributeTypeSearchPath])
-            self.assertTrue("/LDAPv3/127.0.0.1" in results[OpenDirectory.kODAttributeTypeSearchPath])
+            results = opendirectory.getNodeAttributes(directory, "/Search", [dsattributes.kDS1AttrSearchPath])
+            self.assertTrue("/Local/Default" in results[dsattributes.kDS1AttrSearchPath])
+            self.assertTrue("/LDAPv3/127.0.0.1" in results[dsattributes.kDS1AttrSearchPath])
 
         def test_listAllRecordsWithAttributes_list_master(self):
 
@@ -528,7 +556,7 @@ if runTests:
             groupMembers = results[0][1][dsattributes.kDSNAttrGroupMembers]
             self.assertEquals(
                 groupMembers,
-                setup_directory.masterGroups[0][1][OpenDirectory.kODAttributeTypeGroupMembers]
+                setup_directory.masterGroups[0][1][dsattributes.kDSNAttrGroupMembers]
             )
 
         def test_queryRecordsWithAttribute_list_groupMembers_recordName_local(self):
@@ -553,7 +581,7 @@ if runTests:
             groupMembers = results[0][1][dsattributes.kDSNAttrGroupMembers]
             self.assertEquals(
                 groupMembers,
-                setup_directory.localGroups[0][1][OpenDirectory.kODAttributeTypeGroupMembers]
+                setup_directory.localGroups[0][1][dsattributes.kDSNAttrGroupMembers]
             )
 
 
@@ -579,7 +607,7 @@ if runTests:
             groupMembers = results[0][1][dsattributes.kDSNAttrGroupMembers]
             self.assertEquals(
                 groupMembers,
-                setup_directory.masterGroups[0][1][OpenDirectory.kODAttributeTypeGroupMembers]
+                setup_directory.masterGroups[0][1][dsattributes.kDSNAttrGroupMembers]
             )
 
         def test_queryRecordsWithAttribute_list_groupMembers_guid_local(self):
@@ -604,7 +632,7 @@ if runTests:
             groupMembers = results[0][1][dsattributes.kDSNAttrGroupMembers]
             self.assertEquals(
                 groupMembers,
-                setup_directory.localGroups[0][1][OpenDirectory.kODAttributeTypeGroupMembers]
+                setup_directory.localGroups[0][1][dsattributes.kDSNAttrGroupMembers]
             )
 
 
@@ -724,6 +752,38 @@ if runTests:
             directory = opendirectory.odInit("/Search")
             result = opendirectory.authenticateUserBasic(directory,
                 "/Local/Default", "odtestalbert", "password")
+            self.assertTrue(result)
+
+        def test_digestAuth_master(self):
+            directory = opendirectory.odInit("/Search")
+
+            user = "odtestamanda"
+            password = "password"
+            node = "/LDAPv3/127.0.0.1"
+            uri = "principals/users/odtestamanda"
+            method = "PROPFIND"
+
+            challenge, response = getChallengeResponse(user, password, node,
+                uri, method)
+
+            result = opendirectory.authenticateUserDigest(directory, node,
+                user, challenge, response, method)
+            self.assertTrue(result)
+
+        def test_digestAuth_local(self):
+            directory = opendirectory.odInit("/Search")
+
+            user = "odtestalbert"
+            password = "password"
+            node = "/Local/Default"
+            uri = "principals/users/odtestalbert"
+            method = "PROPFIND"
+
+            challenge, response = getChallengeResponse(user, password, node,
+                uri, method)
+
+            result = opendirectory.authenticateUserDigest(directory, node,
+                user, challenge, response, method)
             self.assertTrue(result)
 
         def test_unicode_results(self):

@@ -29,7 +29,8 @@ from twisted.internet.defer import inlineCallbacks
 sourceRoot = dirname(dirname(dirname(dirname(abspath(__file__)))))
 
 
-class CalDAVTaskServiceTest(TestCase):
+# TODO: update or delete task sidecar
+class CalDAVTaskServiceTest(object): # TestCase):
     """
     Test various parameters of our usage.Options subclass
     """

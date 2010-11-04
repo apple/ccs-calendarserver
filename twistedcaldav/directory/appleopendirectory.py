@@ -39,12 +39,9 @@ from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
 from twistedcaldav.directory.principal import cuAddressConverter
 
-# TODO: Temporary means of switching to PyObjC version
-import os
-if os.path.exists("/tmp/calendarserver_use_pyobjc"):
-    from calendarserver.od import opendirectory, dsattributes, dsquery
-else:
-    import opendirectory, dsattributes, dsquery
+from calendarserver.od import dsattributes, dsquery
+from twisted.python.reflect import namedModule
+
 
 
 class OpenDirectoryService(CachingDirectoryService):
@@ -88,9 +85,11 @@ class OpenDirectoryService(CachingDirectoryService):
 
         super(OpenDirectoryService, self).__init__(params['cacheTimeout'])
 
+        self.odModule = namedModule(config.OpenDirectoryModule)
+
         try:
-            directory = opendirectory.odInit(params['node'])
-        except opendirectory.ODError, e:
+            directory = self.odModule.odInit(params['node'])
+        except self.odModule.ODError, e:
             self.log_error("OpenDirectory (node=%s) Initialization error: %s" % (params['node'], e))
             raise
 
@@ -130,7 +129,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     dsattributes.kDSStdRecordTypeGroups,
                     [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
                 ))
-                results = opendirectory.queryRecordsWithAttribute_list(
+                results = self.odModule.queryRecordsWithAttribute_list(
                     self.directory,
                     attributeToMatch,
                     valueToMatch,
@@ -199,7 +198,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 dsattributes.kDSStdRecordTypeGroups,
                 [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups]
             ))
-            result = opendirectory.queryRecordsWithAttribute_list(
+            result = self.odModule.queryRecordsWithAttribute_list(
                 self.directory,
                 dsattributes.kDS1AttrGeneratedUID,
                 groupGUID,
@@ -251,7 +250,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 recordType,
                 attrs,
             ))
-            results = opendirectory.queryRecordsWithAttribute_list(
+            results = self.odModule.queryRecordsWithAttribute_list(
                 self.directory,
                 dsattributes.kDSNAttrGroupMembers,
                 guid,
@@ -260,7 +259,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 recordType,
                 attrs,
             )
-        except opendirectory.ODError, ex:
+        except self.odModule.ODError, ex:
             self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
             raise
 
@@ -281,7 +280,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 recordType,
                 attrs,
             ))
-            results = opendirectory.queryRecordsWithAttribute_list(
+            results = self.odModule.queryRecordsWithAttribute_list(
                 self.directory,
                 dsattributes.kDSNAttrNestedGroups,
                 guid,
@@ -290,7 +289,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 recordType,
                 attrs,
             )
-        except opendirectory.ODError, ex:
+        except self.odModule.ODError, ex:
             self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
             raise
 
@@ -393,7 +392,10 @@ class OpenDirectoryService(CachingDirectoryService):
             return ()
 
     def recordsMatchingFields(self, fields, operand="or", recordType=None,
-        lookupMethod=opendirectory.queryRecordsWithAttribute_list):
+        lookupMethod=None):
+
+        if lookupMethod is None:
+            lookupMethod=self.odModule.queryRecordsWithAttribute_list
 
         # Note that OD applies case-sensitivity globally across the entire
         # query, not per expression, so the current code uses whatever is
@@ -509,7 +511,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
                         sets.append(newSet)
 
-                except opendirectory.ODError, e:
+                except self.odModule.ODError, e:
                     self.log_error("Ignoring OD Error: %d %s" %
                         (e.message[1], e.message[0]))
                     continue
@@ -558,7 +560,10 @@ class OpenDirectoryService(CachingDirectoryService):
 
 
     def queryDirectory(self, recordTypes, indexType, indexKey,
-        lookupMethod=opendirectory.queryRecordsWithAttribute_list):
+        lookupMethod=None):
+
+        if lookupMethod is None:
+            lookupMethod=self.odModule.queryRecordsWithAttribute_list
 
         origIndexKey = indexKey
         if indexType == self.INDEX_TYPE_CUA:
@@ -639,7 +644,7 @@ class OpenDirectoryService(CachingDirectoryService):
                         )
                     )
 
-                except opendirectory.ODError, ex:
+                except self.odModule.ODError, ex:
                     if ex.message[1] == -14987:
                         # Fall through and retry
                         self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
@@ -771,7 +776,7 @@ class OpenDirectoryService(CachingDirectoryService):
         """
 
         if self.node == "/Search":
-            result = opendirectory.getNodeAttributes(self.directory, "/Search",
+            result = self.odModule.getNodeAttributes(self.directory, "/Search",
                 (dsattributes.kDS1AttrSearchPath,))
             nodes = result[dsattributes.kDS1AttrSearchPath]
         else:
@@ -779,8 +784,8 @@ class OpenDirectoryService(CachingDirectoryService):
 
         try:
             for node in nodes:
-                opendirectory.getNodeAttributes(self.directory, node, [dsattributes.kDSNAttrNodePath])
-        except opendirectory.ODError:
+                self.odModule.getNodeAttributes(self.directory, node, [dsattributes.kDSNAttrNodePath])
+        except self.odModule.ODError:
             self.log_warn("OpenDirectory Node %s not available" % (node,))
             return False
 
@@ -877,11 +882,11 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
 
             # Check with directory services
             try:
-                if opendirectory.authenticateUserBasic(self.service.directory, self.nodeName, self.shortNames[0], credentials.password):
+                if self.service.odModule.authenticateUserBasic(self.service.directory, self.nodeName, self.shortNames[0], credentials.password):
                     # Cache the password to avoid future DS queries
                     self.password = credentials.password
                     return True
-            except opendirectory.ODError, e:
+            except self.service.odModule.ODError, e:
                 self.log_error("OpenDirectory (node=%s) error while performing basic authentication for user %s: %s"
                             % (self.service.realmName, self.shortNames[0], e))
 
@@ -919,7 +924,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
                 pass
 
             try:
-                if opendirectory.authenticateUserDigest(
+                if self.service.odModule.authenticateUserDigest(
                     self.service.directory,
                     self.nodeName,
                     self.shortNames[0],
@@ -945,7 +950,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
     Method:    %s
 """ % (self.nodeName, self.shortNames[0], challenge, response, credentials.originalMethod if credentials.originalMethod else credentials.method))
 
-            except opendirectory.ODError, e:
+            except self.service.odModule.ODError, e:
                 self.log_error(
                     "OpenDirectory (node=%s) error while performing digest authentication for user %s: %s"
                     % (self.service.realmName, self.shortNames[0], e)

@@ -59,11 +59,8 @@ from twistedcaldav.vcard import Component, Property
 from xmlrpclib import datetime
 from vobject.vcard import Name, Address
 
-# TODO: Temporary means of switching to PyObjC version
-if os.path.exists("/tmp/calendarserver_use_pyobjc"):
-    from calendarserver.od import opendirectory, dsattributes, dsquery
-else:
-    import opendirectory, dsattributes, dsquery
+from calendarserver.od import dsattributes, dsquery
+from twisted.python.reflect import namedModule
 
 class OpenDirectoryBackingService(DirectoryService):
     """
@@ -127,12 +124,14 @@ class OpenDirectoryBackingService(DirectoryService):
         self.userNode = None
         
         self.realmName = None # needed for super
+
+        self.odModule = namedModule(config.OpenDirectoryModule)
         
         if queryPeopleRecords or not queryUserRecords:
             self.peopleNode = peopleNode
             try:
-                self.peopleDirectory = opendirectory.odInit(peopleNode)
-            except opendirectory.ODError, e:
+                self.peopleDirectory = self.odModule.odInit(peopleNode)
+            except self.odModule.ODError, e:
                 self.log_error("Open Directory (node=%s) Initialization error: %s" % (peopleNode, e))
                 raise
             self.realmName = peopleNode
@@ -144,8 +143,8 @@ class OpenDirectoryBackingService(DirectoryService):
             else:
                 self.userNode = userNode
                 try:
-                    self.userDirectory = opendirectory.odInit(userNode)
-                except opendirectory.ODError, e:
+                    self.userDirectory = self.odModule.odInit(userNode)
+                except self.odModule.ODError, e:
                     self.log_error("Open Directory (node=%s) Initialization error: %s" % (userNode, e))
                     raise
                 if self.realmName:
@@ -433,18 +432,18 @@ class OpenDirectoryBackingService(DirectoryService):
             
             recordTypes = [dsattributes.kDSStdRecordTypePeople, dsattributes.kDSStdRecordTypeUsers, ]
             try:
-                localNodeDirectory = opendirectory.odInit("/Local/Default")
+                localNodeDirectory = self.odModule.odInit("/Local/Default")
                 self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
                         "/DSLocal",
                         recordTypes,
                         self.returnedAttributes,
                     ))
-                results = list(opendirectory.listAllRecordsWithAttributes_list(
+                results = list(self.odModule.listAllRecordsWithAttributes_list(
                         localNodeDirectory,
                         recordTypes,
                         self.returnedAttributes,
                     ))
-            except opendirectory.ODError, ex:
+            except self.odModule.ODError, ex:
                 self.log_error("Open Directory (node=%s) error: %s" % ("/Local/Default", str(ex)))
                 raise
             
@@ -557,7 +556,7 @@ class OpenDirectoryBackingService(DirectoryService):
                             maxRecords,
                         ))
                         results = list(
-                            opendirectory.queryRecordsWithAttribute_list(
+                            self.odModule.queryRecordsWithAttribute_list(
                                 directory,
                                 query.attribute,
                                 query.value,
@@ -577,7 +576,7 @@ class OpenDirectoryBackingService(DirectoryService):
                             maxRecords,
                         ))
                         results = list(
-                            opendirectory.queryRecordsWithAttributes_list(
+                            self.odModule.queryRecordsWithAttributes_list(
                                 directory,
                                 query.generate(),
                                 False,
@@ -593,13 +592,13 @@ class OpenDirectoryBackingService(DirectoryService):
                         maxRecords,
                     ))
                     results = list(
-                        opendirectory.listAllRecordsWithAttributes_list(
+                        self.odModule.listAllRecordsWithAttributes_list(
                             directory,
                             recordType,
                             attributes,
                             maxRecords,
                         ))
-            except opendirectory.ODError, ex:
+            except self.odModule.ODError, ex:
                 self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
             

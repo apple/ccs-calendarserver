@@ -16,7 +16,8 @@
 
 import os
 import sys
-import OpenDirectory
+import odframework
+import dsattributes
 from getopt import getopt, GetoptError
 
 # TODO: Nested groups
@@ -29,45 +30,45 @@ masterUsers = [
     (
         "odtestamanda",
         {
-            OpenDirectory.kODAttributeTypeFirstName : ["Amanda"],
-            OpenDirectory.kODAttributeTypeLastName  : ["Test"],
-            OpenDirectory.kODAttributeTypeFullName : ["Amanda Test"],
-            OpenDirectory.kODAttributeTypeEMailAddress : ["amanda@example.com"],
-            OpenDirectory.kODAttributeTypeGUID : ["9dc04a70-e6dd-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypeUniqueID : ["33300"],
+            dsattributes.kDS1AttrFirstName : ["Amanda"],
+            dsattributes.kDS1AttrLastName  : ["Test"],
+            dsattributes.kDS1AttrDistinguishedName : ["Amanda Test"],
+            dsattributes.kDSNAttrEMailAddress : ["amanda@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["9dc04a70-e6dd-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrUniqueID : ["33300"],
         },
     ),
     (
         "odtestbetty",
         {
-            OpenDirectory.kODAttributeTypeFirstName : ["Betty"],
-            OpenDirectory.kODAttributeTypeLastName  : ["Test"],
-            OpenDirectory.kODAttributeTypeFullName : ["Betty Test"],
-            OpenDirectory.kODAttributeTypeEMailAddress : ["betty@example.com"],
-            OpenDirectory.kODAttributeTypeGUID : ["9dc04a71-e6dd-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypeUniqueID : ["33301"],
+            dsattributes.kDS1AttrFirstName : ["Betty"],
+            dsattributes.kDS1AttrLastName  : ["Test"],
+            dsattributes.kDS1AttrDistinguishedName : ["Betty Test"],
+            dsattributes.kDSNAttrEMailAddress : ["betty@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["9dc04a71-e6dd-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrUniqueID : ["33301"],
         },
     ),
     (
         "odtestcarlene",
         {
-            OpenDirectory.kODAttributeTypeFirstName : ["Carlene"],
-            OpenDirectory.kODAttributeTypeLastName  : ["Test"],
-            OpenDirectory.kODAttributeTypeFullName : ["Carlene Test"],
-            OpenDirectory.kODAttributeTypeEMailAddress : ["carlene@example.com"],
-            OpenDirectory.kODAttributeTypeGUID : ["9dc04a72-e6dd-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypeUniqueID : ["33302"],
+            dsattributes.kDS1AttrFirstName : ["Carlene"],
+            dsattributes.kDS1AttrLastName  : ["Test"],
+            dsattributes.kDS1AttrDistinguishedName : ["Carlene Test"],
+            dsattributes.kDSNAttrEMailAddress : ["carlene@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["9dc04a72-e6dd-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrUniqueID : ["33302"],
         },
     ),
     (
         "odtestdenise",
         {
-            OpenDirectory.kODAttributeTypeFirstName : ["Denise"],
-            OpenDirectory.kODAttributeTypeLastName  : ["Test"],
-            OpenDirectory.kODAttributeTypeFullName : ["Denise Test"],
-            OpenDirectory.kODAttributeTypeEMailAddress : ["denise@example.com"],
-            OpenDirectory.kODAttributeTypeGUID : ["9dc04a73-e6dd-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypeUniqueID : ["33303"],
+            dsattributes.kDS1AttrFirstName : ["Denise"],
+            dsattributes.kDS1AttrLastName  : ["Test"],
+            dsattributes.kDS1AttrDistinguishedName : ["Denise Test"],
+            dsattributes.kDSNAttrEMailAddress : ["denise@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["9dc04a73-e6dd-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrUniqueID : ["33303"],
         },
     ),
 ]
@@ -76,10 +77,10 @@ masterGroups = [
     (
         "odtestgrouptop",
         {
-            OpenDirectory.kODAttributeTypeGUID : ["6c6cd280-e6e3-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypeFullName : ["OD Test Group Top"],
-            OpenDirectory.kODAttributeTypeGroupMembers : ["9dc04a70-e6dd-11df-9492-0800200c9a66", "9dc04a71-e6dd-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypePrimaryGroupID : ["33400"],
+            dsattributes.kDS1AttrGeneratedUID : ["6c6cd280-e6e3-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrDistinguishedName : ["OD Test Group Top"],
+            dsattributes.kDSNAttrGroupMembers : ["9dc04a70-e6dd-11df-9492-0800200c9a66", "9dc04a71-e6dd-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrPrimaryGroupID : ["33400"],
         },
     ),
 ]
@@ -88,45 +89,45 @@ localUsers = [
     (
         "odtestalbert",
         {
-            OpenDirectory.kODAttributeTypeFirstName : ["Albert"],
-            OpenDirectory.kODAttributeTypeLastName  : ["Test"],
-            OpenDirectory.kODAttributeTypeFullName : ["Albert Test"],
-            OpenDirectory.kODAttributeTypeEMailAddress : ["albert@example.com"],
-            OpenDirectory.kODAttributeTypeGUID : ["9dc04a74-e6dd-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypeUniqueID : ["33350"],
+            dsattributes.kDS1AttrFirstName : ["Albert"],
+            dsattributes.kDS1AttrLastName  : ["Test"],
+            dsattributes.kDS1AttrDistinguishedName : ["Albert Test"],
+            dsattributes.kDSNAttrEMailAddress : ["albert@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["9dc04a74-e6dd-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrUniqueID : ["33350"],
         },
     ),
     (
         "odtestbill",
         {
-            OpenDirectory.kODAttributeTypeFirstName : ["Bill"],
-            OpenDirectory.kODAttributeTypeLastName  : ["Test"],
-            OpenDirectory.kODAttributeTypeFullName : ["Bill Test"],
-            OpenDirectory.kODAttributeTypeEMailAddress : ["bill@example.com"],
-            OpenDirectory.kODAttributeTypeGUID : ["9dc04a75-e6dd-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypeUniqueID : ["33351"],
+            dsattributes.kDS1AttrFirstName : ["Bill"],
+            dsattributes.kDS1AttrLastName  : ["Test"],
+            dsattributes.kDS1AttrDistinguishedName : ["Bill Test"],
+            dsattributes.kDSNAttrEMailAddress : ["bill@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["9dc04a75-e6dd-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrUniqueID : ["33351"],
         },
     ),
     (
         "odtestcarl",
         {
-            OpenDirectory.kODAttributeTypeFirstName : ["Carl"],
-            OpenDirectory.kODAttributeTypeLastName  : ["Test"],
-            OpenDirectory.kODAttributeTypeFullName : ["Carl Test"],
-            OpenDirectory.kODAttributeTypeEMailAddress : ["carl@example.com"],
-            OpenDirectory.kODAttributeTypeGUID : ["9dc04a76-e6dd-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypeUniqueID : ["33352"],
+            dsattributes.kDS1AttrFirstName : ["Carl"],
+            dsattributes.kDS1AttrLastName  : ["Test"],
+            dsattributes.kDS1AttrDistinguishedName : ["Carl Test"],
+            dsattributes.kDSNAttrEMailAddress : ["carl@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["9dc04a76-e6dd-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrUniqueID : ["33352"],
         },
     ),
     (
         "odtestdavid",
         {
-            OpenDirectory.kODAttributeTypeFirstName : ["David"],
-            OpenDirectory.kODAttributeTypeLastName  : ["Test"],
-            OpenDirectory.kODAttributeTypeFullName : ["David Test"],
-            OpenDirectory.kODAttributeTypeEMailAddress : ["david@example.com"],
-            OpenDirectory.kODAttributeTypeGUID : ["9dc04a77-e6dd-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypeUniqueID : ["33353"],
+            dsattributes.kDS1AttrFirstName : ["David"],
+            dsattributes.kDS1AttrLastName  : ["Test"],
+            dsattributes.kDS1AttrDistinguishedName : ["David Test"],
+            dsattributes.kDSNAttrEMailAddress : ["david@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["9dc04a77-e6dd-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrUniqueID : ["33353"],
         },
     ),
 ]
@@ -135,10 +136,10 @@ localGroups = [
     (
         "odtestsubgroupa",
         {
-            OpenDirectory.kODAttributeTypeGUID : ["6c6cd281-e6e3-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypeFullName : ["OD Test Subgroup A"],
-            OpenDirectory.kODAttributeTypeGroupMembers : ["9dc04a74-e6dd-11df-9492-0800200c9a66", "9dc04a75-e6dd-11df-9492-0800200c9a66"],
-            OpenDirectory.kODAttributeTypePrimaryGroupID : ["33400"],
+            dsattributes.kDS1AttrGeneratedUID : ["6c6cd281-e6e3-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrDistinguishedName : ["OD Test Subgroup A"],
+            dsattributes.kDSNAttrGroupMembers : ["9dc04a74-e6dd-11df-9492-0800200c9a66", "9dc04a75-e6dd-11df-9492-0800200c9a66"],
+            dsattributes.kDS1AttrPrimaryGroupID : ["33400"],
         },
     ),
 ]
@@ -159,11 +160,11 @@ def usage(e=None):
 
 
 def lookupRecordName(node, recordType, name):
-    query, error = OpenDirectory.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+    query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         node,
         recordType,
-        OpenDirectory.kODAttributeTypeRecordName,
-        OpenDirectory.kODMatchEqualTo,
+        dsattributes.kDSNAttrRecordName,
+        dsattributes.eDSExact,
         name,
         None,
         0,
@@ -224,7 +225,7 @@ def main():
     }
 
 
-    session = OpenDirectory.ODSession.defaultSession()
+    session = odframework.ODSession.defaultSession()
 
     for nodeName, info in userInfo.iteritems():
 
@@ -233,13 +234,13 @@ def main():
         users = info["users"]
         groups = info["groups"]
 
-        node, error = OpenDirectory.ODNode.nodeWithSession_name_error_(session, nodeName, None)
+        node, error = odframework.ODNode.nodeWithSession_name_error_(session, nodeName, None)
         if error:
             print error
             raise ODError(error)
 
         result, error = node.setCredentialsWithRecordType_recordName_password_error_(
-            OpenDirectory.kODRecordTypeUsers,
+            dsattributes.kDSStdRecordTypeUsers,
             userName,
             password,
             None
@@ -252,11 +253,11 @@ def main():
 
         print "Creating users within %s:" % (nodeName,)
         for recordName, attrs in users:
-            record = lookupRecordName(node, OpenDirectory.kODRecordTypeUsers, recordName)
+            record = lookupRecordName(node, dsattributes.kDSStdRecordTypeUsers, recordName)
             if record is None:
                 print "Creating user %s" % (recordName,)
                 try:
-                    record = createRecord(node, OpenDirectory.kODRecordTypeUsers, recordName, attrs)
+                    record = createRecord(node, dsattributes.kDSStdRecordTypeUsers, recordName, attrs)
                     print "Successfully created user %s" % (recordName,)
                     result, error = record.changePassword_toPassword_error_(
                         None, "password", None)
@@ -271,11 +272,11 @@ def main():
 
         print "Creating groups within %s:" % (nodeName,)
         for recordName, attrs in groups:
-            record = lookupRecordName(node, OpenDirectory.kODRecordTypeGroups, recordName)
+            record = lookupRecordName(node, dsattributes.kDSStdRecordTypeGroups, recordName)
             if record is None:
                 print "Creating group %s" % (recordName,)
                 try:
-                    record = createRecord(node, OpenDirectory.kODRecordTypeGroups, recordName, attrs)
+                    record = createRecord(node, dsattributes.kDSStdRecordTypeGroups, recordName, attrs)
                     print "Successfully created group %s" % (recordName,)
                 except ODError, e:
                     print "Failed to create group %s: %s" % (recordName, e)
