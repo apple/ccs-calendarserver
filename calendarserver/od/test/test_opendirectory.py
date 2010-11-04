@@ -29,7 +29,7 @@ try:
     results = list(opendirectory.queryRecordsWithAttribute_list(
         directory,
         dsattributes.kDS1AttrGeneratedUID,
-        "9dc04a74-e6dd-11df-9492-0800200c9a66",
+        "9DC04A74-E6DD-11DF-9492-0800200C9A66",
         dsattributes.eDSExact,
         False,
         dsattributes.kDSStdRecordTypeUsers,
