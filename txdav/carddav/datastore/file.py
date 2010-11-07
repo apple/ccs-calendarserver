@@ -64,6 +64,9 @@ class AddressBookHome(CommonHome):
 
     implements(IAddressBookHome)
 
+    _topPath = "addressbooks"
+    _notifierPrefix = "CardDAV"
+
     def __init__(self, uid, path, addressbookStore, transaction, notifier):
         super(AddressBookHome, self).__init__(uid, path, addressbookStore, transaction, notifier)
 
@@ -88,7 +91,7 @@ class AddressBook(CommonHomeChild):
     """
     implements(IAddressBook)
 
-    def __init__(self, name, addressbookHome, notifier, realName=None):
+    def __init__(self, name, addressbookHome, realName=None):
         """
         Initialize an addressbook pointing at a path on disk.
 
@@ -104,8 +107,7 @@ class AddressBook(CommonHomeChild):
         @type realName: C{str}
         """
         
-        super(AddressBook, self).__init__(name, addressbookHome, notifier,
-            realName=realName)
+        super(AddressBook, self).__init__(name, addressbookHome, realName=realName)
 
         self._index = Index(self)
         self._invites = Invites(self)

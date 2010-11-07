@@ -58,15 +58,16 @@ class AddressBookHome(CommonHome):
 
     implements(IAddressBookHome)
 
+    _homeTable = ADDRESSBOOK_HOME_TABLE
+    _homeMetaDataTable = ADDRESSBOOK_HOME_METADATA_TABLE
+    _childTable = ADDRESSBOOK_TABLE
+    _bindTable = ADDRESSBOOK_BIND_TABLE
+    _notifierPrefix = "CardDAV"
+    _revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
+
     def __init__(self, transaction, ownerUID, notifier):
 
-        self._homeTable = ADDRESSBOOK_HOME_TABLE
-        self._homeMetaDataTable = ADDRESSBOOK_HOME_METADATA_TABLE
         self._childClass = AddressBook
-        self._childTable = ADDRESSBOOK_TABLE
-        self._bindTable = ADDRESSBOOK_BIND_TABLE
-        self._revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
-
         super(AddressBookHome, self).__init__(transaction, ownerUID, notifier)
         self._shares = SQLLegacyAddressBookShares(self)
 
@@ -89,7 +90,12 @@ class AddressBook(CommonHomeChild):
     """
     implements(IAddressBook)
 
-    def __init__(self, home, name, resourceID, notifier):
+    _bindTable = ADDRESSBOOK_BIND_TABLE
+    _homeChildTable = ADDRESSBOOK_TABLE
+    _revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
+    _objectTable = ADDRESSBOOK_OBJECT_TABLE
+
+    def __init__(self, home, name, resourceID):
         """
         Initialize an addressbook pointing at a path on disk.
 
@@ -105,15 +111,11 @@ class AddressBook(CommonHomeChild):
         @type realName: C{str}
         """
 
-        super(AddressBook, self).__init__(home, name, resourceID, notifier)
+        super(AddressBook, self).__init__(home, name, resourceID)
 
         self._index = PostgresLegacyABIndexEmulator(self)
         self._invites = SQLLegacyAddressBookInvites(self)
         self._objectResourceClass = AddressBookObject
-        self._bindTable = ADDRESSBOOK_BIND_TABLE
-        self._homeChildTable = ADDRESSBOOK_TABLE
-        self._revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
-        self._objectTable = ADDRESSBOOK_OBJECT_TABLE
 
 
     @property

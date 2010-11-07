@@ -353,7 +353,7 @@ class StoreAddressObjectResource(object):
     @inlineCallbacks
     def doSourceDelete(self):
         # Delete the source resource
-        yield self.source.storeRemove(self.request, self.source_uri)
+        yield self.source.storeRemove(self.request, False, self.source_uri)
         log.debug("Source removed %s" % (self.source,))
         returnValue(None)
 

@@ -85,40 +85,48 @@ IGNORE_NAMES = ('dropbox', 'notification', 'freebusy')
 class CalendarHome(CommonHome):
     implements(ICalendarHome)
 
+    _topPath = "calendars"
+    _notifierPrefix = "CalDAV"
+
     def __init__(self, uid, path, calendarStore, transaction, notifier):
         super(CalendarHome, self).__init__(uid, path, calendarStore, transaction, notifier)
 
         self._childClass = Calendar
 
 
-    def calendarWithName(self, name):
+    createCalendarWithName = CommonHome.createChildWithName
+    removeCalendarWithName = CommonHome.removeChildWithName
+
+
+    def childWithName(self, name):
         if name in IGNORE_NAMES:
             # "dropbox" is a file storage area, not a calendar.
             return None
         else:
-            return self.childWithName(name)
+            return super(CalendarHome, self).childWithName(name)
+
+    calendarWithName = childWithName
 
 
-    createCalendarWithName = CommonHome.createChildWithName
-    removeCalendarWithName = CommonHome.removeChildWithName
-
-    def calendars(self):
+    def children(self):
         """
         Return a generator of the child resource objects.
         """
         for child in self.listCalendars():
             yield self.calendarWithName(child)
 
+    calendars = children
 
-    def listCalendars(self):
+    def listChildren(self):
         """
         Return a generator of the child resource names.
         """
-        for name in self.listChildren():
+        for name in super(CalendarHome, self).listChildren():
             if name in IGNORE_NAMES:
                 continue
             yield name
 
+    listCalendars = listChildren
 
 
     @inlineCallbacks
@@ -138,8 +146,7 @@ class CalendarHome(CommonHome):
 
 
     def createdHome(self):
-        self.createCalendarWithName("calendar")
-        defaultCal = self.calendarWithName("calendar")
+        defaultCal = self.createCalendarWithName("calendar")
         props = defaultCal.properties()
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(
             Opaque())
@@ -153,7 +160,7 @@ class Calendar(CommonHomeChild):
     """
     implements(ICalendar)
 
-    def __init__(self, name, calendarHome, notifier, realName=None):
+    def __init__(self, name, calendarHome, realName=None):
         """
         Initialize a calendar pointing at a path on disk.
 
@@ -168,8 +175,7 @@ class Calendar(CommonHomeChild):
         will eventually have on disk.
         @type realName: C{str}
         """
-        super(Calendar, self).__init__(name, calendarHome, notifier,
-            realName=realName)
+        super(Calendar, self).__init__(name, calendarHome, realName=realName)
 
         self._index = Index(self)
         self._invites = Invites(self)

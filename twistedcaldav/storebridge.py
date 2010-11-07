@@ -31,9 +31,11 @@ from twisted.python.util import FancyEqMixin
 from twext.python import vcomponent
 from twext.python.log import Logger
 
+from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.dav.element.base import dav_namespace
 from twext.web2.dav.http import ErrorResponse, ResponseQueue
+from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError
 from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, \
     davXMLFromStream
@@ -184,33 +186,36 @@ class _NewStoreFileMetaDataHelper(object):
 
 
 
-class _CalendarChildHelper(object):
+class _CommonHomeChildCollectionMixin(object):
     """
     Methods for things which are like calendars.
     """
 
-    def _initializeWithCalendar(self, calendar, home):
-        """
-        Initialize with a calendar.
+    _childClass = None
+    _protoChildClass = None
 
-        @param calendar: the wrapped calendar.
-        @type calendar: L{txdav.caldav.icalendarstore.ICalendar}
-
-        @param home: the home through which the given calendar was accessed.
-        @type home: L{txdav.caldav.icalendarstore.ICalendarHome}
+    def _initializeWithHomeChild(self, child, home):
         """
-        self._newStoreCalendar = calendar
+        Initialize with a home child object.
+
+        @param child: the new store home child object.
+        @type calendar: L{txdav.common._.CommonHomeChild}
+
+        @param home: the home through which the given home child was accessed.
+        @type home: L{txdav.common._.CommonHome}
+        """
+        self._newStoreObject = child
         self._newStoreParentHome = home
         self._dead_properties = _NewStorePropertiesWrapper(
-            self._newStoreCalendar.properties()
-        )
+            self._newStoreObject.properties()
+        ) if self._newStoreObject else NonePropertyStore(self)
 
 
     def index(self):
         """
         Retrieve the new-style index wrapper.
         """
-        return self._newStoreCalendar.retrieveOldIndex()
+        return self._newStoreObject.retrieveOldIndex()
 
 
     def invitesDB(self):
@@ -218,31 +223,22 @@ class _CalendarChildHelper(object):
         Retrieve the new-style invites DB wrapper.
         """
         if not hasattr(self, "_invitesDB"):
-            self._invitesDB = self._newStoreCalendar.retrieveOldInvites()
+            self._invitesDB = self._newStoreObject.retrieveOldInvites()
         return self._invitesDB
 
 
     def exists(self):
         # FIXME: tests
-        return True
+        return self._newStoreObject is not None
 
 
     @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
         # The newstore implementation supports this directly
         returnValue(
-            (yield self._newStoreCalendar.resourceNamesSinceToken(revision))
+            (yield self._newStoreObject.resourceNamesSinceToken(revision))
             + ([],)
         )
-
-
-    @classmethod
-    def transform(cls, self, calendar, home):
-        """
-        Transform C{self} into a L{CalendarCollectionResource}.
-        """
-        self.__class__ = cls
-        self._initializeWithCalendar(calendar, home)
 
 
     @inlineCallbacks
@@ -252,23 +248,24 @@ class _CalendarChildHelper(object):
         based on a calendar object name.
         """
 
-        cal = self._newStoreCalendar
-        newStoreObject = yield cal.calendarObjectWithName(name)
-
-        if newStoreObject is not None:
-            similar = CalendarObjectResource(
-                newStoreObject,
-                principalCollections=self._principalCollections
-            )
+        if self._newStoreObject:
+            newStoreObject = yield self._newStoreObject.objectResourceWithName(name)
+    
+            if newStoreObject is not None:
+                similar = self._childClass(
+                    newStoreObject,
+                    principalCollections=self._principalCollections
+                )
+            else:
+                similar = self._protoChildClass(
+                    self._newStoreObject, name,
+                    principalCollections=self._principalCollections
+                )
+    
+            self.propagateTransaction(similar)
+            returnValue(similar)
         else:
-            similar = ProtoCalendarObjectResource(
-                cal, name,
-                principalCollections=self._principalCollections
-            )
-
-        self.propagateTransaction(similar)
-        returnValue(similar)
-
+            returnValue(NoParent())
 
     @inlineCallbacks
     def listChildren(self):
@@ -276,14 +273,344 @@ class _CalendarChildHelper(object):
         @return: a sequence of the names of all known children of this resource.
         """
         children = set(self.putChildren.keys())
-        children.update((yield self._newStoreCalendar.listCalendarObjects()))
+        children.update((yield self._newStoreObject.listObjectResources()))
         returnValue(sorted(children))
 
+    def name(self):
+        return self._name
 
 
-class StoreScheduleInboxResource(_CalendarChildHelper, ScheduleInboxResource):
+    def etag(self):
+        return ETag(self._newStoreObject.md5()) if self._newStoreObject else None
+
+
+    def lastModified(self):
+        return self._newStoreObject.modified() if self._newStoreObject else None
+
+
+    def creationDate(self):
+        return self._newStoreObject.created() if self._newStoreObject else None
+
+
+    def getSyncToken(self):
+        return self._newStoreObject.syncToken() if self._newStoreObject else None
+
+    @inlineCallbacks
+    def createCollection(self):
+        """
+        Override C{createCollection} to actually do the work.
+        """
+        self._newStoreObject = (yield self._newStoreParentHome.createChildWithName(self._name))
+        
+        # Re-initialize to get stuff setup again now we have a "real" object
+        self._initializeWithHomeChild(self._newStoreObject, self._newStoreParentHome)
+
+        returnValue(CREATED)
+
+    @requiresPermissions(fromParent=[davxml.Unbind()])
+    @inlineCallbacks
+    def http_DELETE(self, request):
+        """
+        Override http_DELETE to validate 'depth' header. 
+        """
+
+        if not self.exists():
+            log.err("Resource not found: %s" % (self,))
+            raise HTTPError(responsecode.NOT_FOUND)
+
+        depth = request.headers.getHeader("depth", "infinity")
+        if depth != "infinity":
+            msg = "illegal depth header for DELETE on collection: %s" % (
+                depth,
+            )
+            log.err(msg)
+            raise HTTPError(StatusResponse(BAD_REQUEST, msg))
+        response = (yield self.storeRemove(request, True, request.uri))
+        returnValue(response)
+
+    @inlineCallbacks
+    def storeRemove(self, request, viaRequest, where):
+        """
+        Delete this collection resource, first deleting each contained
+        object resource.
+
+        This has to emulate the behavior in fileop.delete in that any errors
+        need to be reported back in a multistatus response.
+
+        @param request: The request used to locate child resources.  Note that
+            this is the request which I{triggered} the C{DELETE}, but which may
+            not actually be a C{DELETE} request itself.
+
+        @type request: L{twext.web2.iweb.IRequest}
+
+        @param viaRequest: Indicates if the delete was a direct result of an http_DELETE
+        which for calendars at least will require implicit cancels to be sent.
+
+        @type request: C{bool}
+
+        @param where: the URI at which the resource is being deleted.
+        @type where: C{str}
+
+        @return: an HTTP response suitable for sending to a client (or
+            including in a multi-status).
+
+        @rtype: something adaptable to L{twext.web2.iweb.IResponse}
+        """
+
+        # Check virtual share first
+        isVirtual = self.isVirtualShare()
+        if isVirtual:
+            log.debug("Removing shared collection %s" % (self,))
+            yield self.removeVirtualShare(request)
+            returnValue(NO_CONTENT)
+
+        log.debug("Deleting collection %s" % (self,))
+
+        # 'deluri' is this resource's URI; I should be able to synthesize it
+        # from 'self'.
+
+        errors = ResponseQueue(where, "DELETE", NO_CONTENT)
+
+        for childname in (yield self.listChildren()):
+
+            childurl = joinURL(where, childname)
+
+            # FIXME: use a more specific API; we should know what this child
+            # resource is, and not have to look it up.  (Sharing information
+            # needs to move into the back-end first, though.)
+            child = (yield request.locateChildResource(self, childname))
+
+            try:
+                yield child.storeRemove(request, viaRequest, childurl)
+            except:
+                logDefaultException()
+                errors.add(childurl, BAD_REQUEST)
+
+        # Now do normal delete
+
+        # Handle sharing
+        wasShared = (yield self.isShared(request))
+        if wasShared:
+            yield self.downgradeFromShare(request)
+
+        # Actually delete it.
+        yield self._newStoreObject.remove()
+
+        # FIXME: handle exceptions, possibly like this:
+
+        #        if isinstance(more_responses, MultiStatusResponse):
+        #            # Merge errors
+        #            errors.responses.update(more_responses.children)
+
+        response = errors.response()
+
+        returnValue(response)
+
+    def http_COPY(self, request):
+        """
+        Copying of calendar collections isn't allowed.
+        """
+        # FIXME: no direct tests
+        return FORBIDDEN
+
+
+    # FIXME: access control
+    @inlineCallbacks
+    def http_MOVE(self, request):
+        """
+        Moving a collection is allowed for the purposes of changing
+        that collections's name.
+        """
+        if not self.exists():
+            log.err("Resource not found: %s" % (self,))
+            raise HTTPError(responsecode.NOT_FOUND)
+
+        # Can not move outside of home or to existing collection
+        sourceURI = request.uri
+        destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
+        if parentForURL(sourceURI) != parentForURL(destinationURI):
+            returnValue(FORBIDDEN)
+
+        destination = yield request.locateResource(destinationURI)
+        if destination.exists():
+            returnValue(FORBIDDEN)
+            
+        # Forget the destination now as after the move we will need to re-init it with its
+        # new store object
+        request._forgetResource(destination, destinationURI)
+
+        # Move is valid so do it
+        basename = destinationURI.rstrip("/").split("/")[-1]
+        yield self._newStoreObject.rename(basename)
+        returnValue(NO_CONTENT)
+
+class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource):
+    """
+    Wrapper around a L{txdav.caldav.icalendar.ICalendar}.
+    """
+
+ 
+    def __init__(self, calendar, home, name=None, *args, **kw):
+        """
+        Create a CalendarCollectionResource from a L{txdav.caldav.icalendar.ICalendar}
+        and the arguments required for L{CalDAVResource}.
+        """
+
+        self._childClass = CalendarObjectResource
+        self._protoChildClass = ProtoCalendarObjectResource
+        super(CalendarCollectionResource, self).__init__(*args, **kw)
+        self._initializeWithHomeChild(calendar, home)
+        self._name = calendar.name() if calendar else name
+
+
+    def __repr__(self):
+        return "<Calendar Collection Resource %r:%r %s>" % (
+            self._newStoreParentHome.uid(),
+            self._name,
+            "" if self._newStoreObject else "Non-existent"
+        )
+
+
+    def isCollection(self):
+        return True
+
+
+    def isCalendarCollection(self):
+        """
+        Yes, it is a calendar collection.
+        """
+        return True
+
+
+    @inlineCallbacks
+    def iCalendarRolledup(self, request):
+        # FIXME: uncached: implement cache in the storage layer
+
+        # Generate a monolithic calendar
+        calendar = vcomponent.VComponent("VCALENDAR")
+        calendar.addProperty(vcomponent.VProperty("VERSION", "2.0"))
+
+        # Do some optimisation of access control calculation by determining any
+        # inherited ACLs outside of the child resource loop and supply those to
+        # the checkPrivileges on each child.
+        filteredaces = (yield self.inheritedACEsforChildren(request))
+
+        tzids = set()
+        isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+        accessPrincipal = (yield self.resourceOwnerPrincipal(request))
+
+        for name, uid, type in (yield maybeDeferred(self.index().bruteForceSearch)): #@UnusedVariable
+            try:
+                child = yield request.locateChildResource(self, name)
+            except TypeError:
+                child = None
+
+            if child is not None:
+                # Check privileges of child - skip if access denied
+                try:
+                    yield child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces)
+                except AccessDeniedError:
+                    continue
+
+                # Get the access filtered view of the data
+                caldata = yield child.iCalendarTextFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
+                try:
+                    subcalendar = vcomponent.VComponent.fromString(caldata)
+                except ValueError:
+                    continue
+                assert subcalendar.name() == "VCALENDAR"
+
+                for component in subcalendar.subcomponents():
+                    
+                    # Only insert VTIMEZONEs once
+                    if component.name() == "VTIMEZONE":
+                        tzid = component.propertyValue("TZID")
+                        if tzid in tzids:
+                            continue
+                        tzids.add(tzid)
+
+                    calendar.addComponent(component)
+
+        # Cache the data
+        data = str(calendar)
+        data = (yield self.getSyncToken()) + "\r\n" + data
+
+        returnValue(calendar)
+
+
+    createCalendarCollection = _CommonHomeChildCollectionMixin.createCollection
+
+
+    @inlineCallbacks
+    def storeRemove(self, request, implicitly, where):
+        """
+        Delete this calendar collection resource, first deleting each contained
+        calendar resource.
+
+        This has to emulate the behavior in fileop.delete in that any errors
+        need to be reported back in a multistatus response.
+
+        @param request: The request used to locate child resources.  Note that
+            this is the request which I{triggered} the C{DELETE}, but which may
+            not actually be a C{DELETE} request itself.
+
+        @type request: L{twext.web2.iweb.IRequest}
+
+        @param implicitly: Should implicit scheduling operations be triggered
+            as a resut of this C{DELETE}?
+
+        @type implicitly: C{bool}
+
+        @param where: the URI at which the resource is being deleted.
+        @type where: C{str}
+
+        @return: an HTTP response suitable for sending to a client (or
+            including in a multi-status).
+
+        @rtype: something adaptable to L{twext.web2.iweb.IResponse}
+        """
+
+        # Not allowed to delete the default calendar
+        default = (yield self.isDefaultCalendar(request))
+        if default:
+            log.err("Cannot DELETE default calendar: %s" % (self,))
+            raise HTTPError(ErrorResponse(FORBIDDEN,
+                            (caldav_namespace,
+                             "default-calendar-delete-allowed",)))
+
+        response = (yield super(CalendarCollectionResource, self).storeRemove(request, implicitly, where))
+
+        if response == NO_CONTENT:
+            # Do some clean up
+            yield self.deletedCalendar(request)
+
+        returnValue(response)
+
+
+    # FIXME: access control
+    @inlineCallbacks
+    def http_MOVE(self, request):
+        """
+        Moving a calendar collection is allowed for the purposes of changing
+        that calendar's name.
+        """
+        defaultCalendar = (yield self.isDefaultCalendar(request))
+        
+        result = (yield super(CalendarCollectionResource, self).http_MOVE(request))
+        if result == NO_CONTENT:
+            destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
+            destination = yield request.locateResource(destinationURI)
+            yield self.movedCalendar(request, defaultCalendar,
+                               destination, destinationURI)
+        returnValue(result)
+
+
+class StoreScheduleInboxResource(_CommonHomeChildCollectionMixin, ScheduleInboxResource):
 
     def __init__(self, *a, **kw):
+
+        self._childClass = CalendarObjectResource
+        self._protoChildClass = ProtoCalendarObjectResource
         super(StoreScheduleInboxResource, self).__init__(*a, **kw)
         self.parent.propagateTransaction(self)
 
@@ -301,40 +628,28 @@ class StoreScheduleInboxResource(_CalendarChildHelper, ScheduleInboxResource):
             # this is a temporary workaround.
             yield home.createCalendarWithName("inbox")
             storage = yield home.calendarWithName("inbox")
-        self._initializeWithCalendar(
+        self._initializeWithHomeChild(
             storage,
             self.parent._newStoreHome
         )
+        self._name = storage.name()
         returnValue(self)
-
-
-    def name(self):
-        return self._newStoreCalendar.name()
-
-
-    def etag(self):
-        return ETag(self._newStoreCalendar.md5())
-
-
-    def lastModified(self):
-        return self._newStoreCalendar.modified()
-
-
-    def creationDate(self):
-        return self._newStoreCalendar.created()
-
-
-    def getSyncToken(self):
-        return self._newStoreCalendar.syncToken()
 
 
     def provisionFile(self):
         pass
 
-
     def provision(self):
         pass
 
+    def http_DELETE(self, request):
+        return FORBIDDEN
+
+    def http_COPY(self, request):
+        return FORBIDDEN
+
+    def http_MOVE(self, request):
+        return FORBIDDEN
 
 
 class _GetChildHelper(CalDAVResource):
@@ -702,260 +1017,6 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
 
 
-class CalendarCollectionResource(_CalendarChildHelper, CalDAVResource):
-    """
-    Wrapper around a L{txdav.caldav.icalendar.ICalendar}.
-    """
-
-    def __init__(self, calendar, home, *args, **kw):
-        """
-        Create a CalendarCollectionResource from a L{txdav.caldav.icalendar.ICalendar}
-        and the arguments required for L{CalDAVResource}.
-        """
-        super(CalendarCollectionResource, self).__init__(*args, **kw)
-        self._initializeWithCalendar(calendar, home)
-
-
-    def __repr__(self):
-        return "<Calendar Collection Resource %r:%r>" % (
-            self._newStoreCalendar.ownerCalendarHome().uid(),
-            self._newStoreCalendar.name())
-
-
-    def name(self):
-        return self._newStoreCalendar.name()
-
-
-    def etag(self):
-        return ETag(self._newStoreCalendar.md5())
-
-
-    def lastModified(self):
-        return self._newStoreCalendar.modified()
-
-
-    def creationDate(self):
-        return self._newStoreCalendar.created()
-
-
-    def getSyncToken(self):
-        return self._newStoreCalendar.syncToken()
-
-
-    def isCollection(self):
-        return True
-
-
-    def isCalendarCollection(self):
-        """
-        Yes, it is a calendar collection.
-        """
-        return True
-
-
-    @inlineCallbacks
-    def iCalendarRolledup(self, request):
-        # FIXME: uncached: implement cache in the storage layer
-
-        # Generate a monolithic calendar
-        calendar = vcomponent.VComponent("VCALENDAR")
-        calendar.addProperty(vcomponent.VProperty("VERSION", "2.0"))
-
-        # Do some optimisation of access control calculation by determining any
-        # inherited ACLs outside of the child resource loop and supply those to
-        # the checkPrivileges on each child.
-        filteredaces = (yield self.inheritedACEsforChildren(request))
-
-        tzids = set()
-        isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
-        accessPrincipal = (yield self.resourceOwnerPrincipal(request))
-
-        for name, uid, type in (yield maybeDeferred(self.index().bruteForceSearch)): #@UnusedVariable
-            try:
-                child = yield request.locateChildResource(self, name)
-            except TypeError:
-                child = None
-
-            if child is not None:
-                # Check privileges of child - skip if access denied
-                try:
-                    yield child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces)
-                except AccessDeniedError:
-                    continue
-
-                # Get the access filtered view of the data
-                caldata = yield child.iCalendarTextFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
-                try:
-                    subcalendar = vcomponent.VComponent.fromString(caldata)
-                except ValueError:
-                    continue
-                assert subcalendar.name() == "VCALENDAR"
-
-                for component in subcalendar.subcomponents():
-                    
-                    # Only insert VTIMEZONEs once
-                    if component.name() == "VTIMEZONE":
-                        tzid = component.propertyValue("TZID")
-                        if tzid in tzids:
-                            continue
-                        tzids.add(tzid)
-
-                    calendar.addComponent(component)
-
-        # Cache the data
-        data = str(calendar)
-        data = (yield self.getSyncToken()) + "\r\n" + data
-
-        returnValue(calendar)
-
-
-    @requiresPermissions(fromParent=[davxml.Unbind()])
-    @inlineCallbacks
-    def http_DELETE(self, request):
-        """
-        Override http_DELETE to validate 'depth' header. 
-        """
-
-        depth = request.headers.getHeader("depth", "infinity")
-        if depth != "infinity":
-            msg = "illegal depth header for DELETE on collection: %s" % (
-                depth,
-            )
-            log.err(msg)
-            raise HTTPError(StatusResponse(BAD_REQUEST, msg))
-        response = (yield self.storeRemove(request, True, request.uri))
-        returnValue(response)
-
-
-    @inlineCallbacks
-    def storeRemove(self, request, implicitly, where):
-        """
-        Delete this calendar collection resource, first deleting each contained
-        calendar resource.
-
-        This has to emulate the behavior in fileop.delete in that any errors
-        need to be reported back in a multistatus response.
-
-        @param request: The request used to locate child resources.  Note that
-            this is the request which I{triggered} the C{DELETE}, but which may
-            not actually be a C{DELETE} request itself.
-
-        @type request: L{twext.web2.iweb.IRequest}
-
-        @param implicitly: Should implicit scheduling operations be triggered
-            as a resut of this C{DELETE}?
-
-        @type implicitly: C{bool}
-
-        @param where: the URI at which the resource is being deleted.
-        @type where: C{str}
-
-        @return: an HTTP response suitable for sending to a client (or
-            including in a multi-status).
-
-         @rtype: something adaptable to L{twext.web2.iweb.IResponse}
-        """
-
-        # Not allowed to delete the default calendar
-        default = (yield self.isDefaultCalendar(request))
-        if default:
-            log.err("Cannot DELETE default calendar: %s" % (self,))
-            raise HTTPError(ErrorResponse(FORBIDDEN,
-                            (caldav_namespace,
-                             "default-calendar-delete-allowed",)))
-
-        # Is this a sharee's view of a shared calendar?  If so, they can't do
-        # scheduling onto it, so just delete it and move on.
-        isVirtual = self.isVirtualShare()
-        if isVirtual:
-            log.debug("Removing shared calendar %s" % (self,))
-            yield self.removeVirtualShare(request)
-            returnValue(NO_CONTENT)
-
-        log.debug("Deleting calendar %s" % (self,))
-
-        # 'deluri' is this resource's URI; I should be able to synthesize it
-        # from 'self'.
-
-        errors = ResponseQueue(where, "DELETE", NO_CONTENT)
-
-        for childname in (yield self.listChildren()):
-
-            childurl = joinURL(where, childname)
-
-            # FIXME: use a more specific API; we should know what this child
-            # resource is, and not have to look it up.  (Sharing information
-            # needs to move into the back-end first, though.)
-            child = (yield request.locateChildResource(self, childname))
-
-            try:
-                yield child.storeRemove(request, implicitly, childurl)
-            except:
-                logDefaultException()
-                errors.add(childurl, BAD_REQUEST)
-
-        # Now do normal delete
-
-        # Handle sharing
-        wasShared = (yield self.isShared(request))
-        if wasShared:
-            yield self.downgradeFromShare(request)
-
-        # Actually delete it.
-        yield self._newStoreParentHome.removeCalendarWithName(
-            self._newStoreCalendar.name()
-        )
-        self.__class__ = ProtoCalendarCollectionResource
-        del self._newStoreCalendar
-
-        # FIXME: handle exceptions, possibly like this:
-
-        #        if isinstance(more_responses, MultiStatusResponse):
-        #            # Merge errors
-        #            errors.responses.update(more_responses.children)
-
-        response = errors.response()
-
-        if response == NO_CONTENT:
-            # Do some clean up
-            yield self.deletedCalendar(request)
-
-        returnValue(response)
-
-
-    def http_COPY(self, request):
-        """
-        Copying of calendar collections isn't allowed.
-        """
-        # FIXME: no direct tests
-        return FORBIDDEN
-
-
-    # FIXME: access control
-    @inlineCallbacks
-    def http_MOVE(self, request):
-        """
-        Moving a calendar collection is allowed for the purposes of changing
-        that calendar's name.
-        """
-        defaultCalendar = (yield self.isDefaultCalendar(request))
-        # FIXME: created to fix CDT test, no unit tests yet
-        sourceURI = request.uri
-        destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
-        if parentForURL(sourceURI) != parentForURL(destinationURI):
-            returnValue(FORBIDDEN)
-        destination = yield request.locateResource(destinationURI)
-        # FIXME: should really use something other than 'fp' attribute.
-        basename = destination.name()
-        calendar = self._newStoreCalendar
-        yield calendar.rename(basename)
-        CalendarCollectionResource.transform(destination, calendar,
-                                         self._newStoreParentHome)
-        del self._newStoreCalendar
-        self.__class__ = ProtoCalendarCollectionResource
-        yield self.movedCalendar(request, defaultCalendar,
-                           destination, destinationURI)
-        returnValue(NO_CONTENT)
 
 
 
@@ -969,75 +1030,6 @@ class NoParent(CalDAVResource):
 
     def isCollection(self):
         return False
-
-class ProtoCalendarCollectionResource(CalDAVResource):
-    """
-    A resource representing a calendar collection which hasn't yet been created.
-    """
-
-    def __init__(self, home, name, *args, **kw):
-        """
-        A placeholder resource for a calendar collection which does not yet
-        exist, but will become a L{CalendarCollectionResource}.
-
-        @param home: The calendar home which will be this resource's parent,
-            when it exists.
-
-        @type home: L{txdav.caldav.icalendarstore.ICalendarHome}
-        """
-        super(ProtoCalendarCollectionResource, self).__init__(*args, **kw)
-        self._newStoreParentHome = home
-        self._name = name
-
-
-    def isCollection(self):
-        return True
-
-    def makeChild(self, name):
-        # FIXME: this is necessary for 
-        # twistedcaldav.test.test_mkcalendar.
-        #     MKCALENDAR.test_make_calendar_no_parent - there should be a more
-        # structured way to refuse creation with a non-existent parent.
-        return NoParent()
-
-
-    def provisionFile(self):
-        """
-        Create a calendar collection.
-        """
-        # FIXME: there should be no need for this.
-        return self.createCalendarCollection()
-
-
-    @inlineCallbacks
-    def createCalendarCollection(self):
-        """
-        Override C{createCalendarCollection} to actually do the work.
-        """
-        yield self._newStoreParentHome.createCalendarWithName(self._name)
-        newStoreCalendar = yield self._newStoreParentHome.calendarWithName(
-            self._name
-        )
-        CalendarCollectionResource.transform(
-            self, newStoreCalendar, self._newStoreParentHome
-        )
-        returnValue(CREATED)
-
-
-    def exists(self):
-        # FIXME: tests
-        return False
-
-
-    def name(self):
-        return self._name
-
-    def provision(self):
-        """
-        This resource should do nothing if it's provisioned.
-        """
-        # FIXME: should be deleted, or raise an exception
-
 
 class _CalendarObjectMetaDataMixin(object):
 
@@ -1341,142 +1333,30 @@ class ProtoCalendarObjectResource(_CalendarObjectMetaDataMixin, CalDAVResource, 
         return succeed(0)
 
 
-
-class _AddressBookChildHelper(object):
-    """
-    Methods for things which are like addressbooks.
-    """
-
-    def _initializeWithAddressBook(self, addressbook, home):
-        """
-        Initialize with a addressbook.
-
-        @param addressbook: the wrapped addressbook.
-        @type addressbook: L{txdav.carddav.iaddressbookstore.IAddressBook}
-
-        @param home: the home through which the given addressbook was accessed.
-        @type home: L{txdav.carddav.iaddressbookstore.IAddressBookHome}
-        """
-        self._newStoreAddressBook = addressbook
-        self._newStoreParentHome = home
-        self._dead_properties = _NewStorePropertiesWrapper(
-            self._newStoreAddressBook.properties()
-        )
-
-
-    def index(self):
-        """
-        Retrieve the new-style index wrapper.
-        """
-        return self._newStoreAddressBook.retrieveOldIndex()
-
-
-    def invitesDB(self):
-        """
-        Retrieve the new-style invites DB wrapper.
-        """
-        if not hasattr(self, "_invitesDB"):
-            self._invitesDB = self._newStoreAddressBook.retrieveOldInvites()
-        return self._invitesDB
-
-
-    def exists(self):
-        # FIXME: tests
-        return True
-
-
-    @inlineCallbacks
-    def _indexWhatChanged(self, revision, depth):
-        # The newstore implementation supports this directly
-        returnValue(
-            (yield self._newStoreAddressBook.resourceNamesSinceToken(revision))
-            + ([],)
-        )
-
-
-    @classmethod
-    def transform(cls, self, addressbook, home):
-        """
-        Transform C{self} into a L{AddressBookCollectionResource}.
-        """
-        self.__class__ = cls
-        self._initializeWithAddressBook(addressbook, home)
-
-
-    @inlineCallbacks
-    def makeChild(self, name):
-        """
-        Create a L{AddressBookObjectResource} or L{ProtoAddressBookObjectResource} based on a
-        path object.
-        """
-        newStoreObject = yield self._newStoreAddressBook.addressbookObjectWithName(name)
-
-        if newStoreObject is not None:
-            similar = AddressBookObjectResource(
-                newStoreObject,
-                principalCollections=self._principalCollections
-            )
-        else:
-            # FIXME: creation in http_PUT should talk to a specific resource
-            # type; this is the domain of StoreAddressBookObjectResource.
-            # similar = ProtoAddressBookObjectFile(self._newStoreAddressBook, path)
-            similar = ProtoAddressBookObjectResource(
-                self._newStoreAddressBook,
-                name,
-                principalCollections=self._principalCollections
-            )
-
-        # FIXME: tests should be failing without this line.
-        # Specifically, http_PUT won't be committing its transaction properly.
-        self.propagateTransaction(similar)
-        returnValue(similar)
-
-
-    @inlineCallbacks
-    def listChildren(self):
-        """
-        @return: a sequence of the names of all known children of this resource.
-        """
-        children = set(self.putChildren.keys())
-        children.update(
-            (yield self._newStoreAddressBook.listAddressbookObjects())
-        )
-        returnValue(sorted(children))
-
-
-
-class AddressBookCollectionResource(_AddressBookChildHelper, CalDAVResource):
+class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource):
     """
     Wrapper around a L{txdav.carddav.iaddressbook.IAddressBook}.
     """
 
-    def __init__(self, addressbook, home, *args, **kw):
+    def __init__(self, addressbook, home, name=None, *args, **kw):
         """
         Create a AddressBookCollectionResource from a L{txdav.carddav.iaddressbook.IAddressBook}
         and the arguments required for L{CalDAVResource}.
         """
+
+        self._childClass = AddressBookObjectResource
+        self._protoChildClass = ProtoAddressBookObjectResource
         super(AddressBookCollectionResource, self).__init__(*args, **kw)
-        self._initializeWithAddressBook(addressbook, home)
+        self._initializeWithHomeChild(addressbook, home)
+        self._name = addressbook.name() if addressbook else name
 
 
-    def name(self):
-        return self._newStoreAddressBook.name()
-
-
-    def etag(self):
-        return ETag(self._newStoreAddressBook.md5())
-
-
-    def lastModified(self):
-        return self._newStoreAddressBook.modified()
-
-
-    def creationDate(self):
-        return self._newStoreAddressBook.created()
-
-
-    def getSyncToken(self):
-        return self._newStoreAddressBook.syncToken()
+    def __repr__(self):
+        return "<AddressBook Collection Resource %r:%r %s>" % (
+            self._newStoreParentHome.uid(),
+            self._name,
+            "" if self._newStoreObject else "Non-existent"
+        )
 
 
     def isCollection(self):
@@ -1490,203 +1370,7 @@ class AddressBookCollectionResource(_AddressBookChildHelper, CalDAVResource):
         return True
 
 
-    @requiresPermissions(fromParent=[davxml.Unbind()])
-    @inlineCallbacks
-    def http_DELETE(self, request):
-        """
-        Override http_DELETE to validate 'depth' header. 
-        """
-        depth = request.headers.getHeader("depth", "infinity")
-        if depth != "infinity":
-            msg = "illegal depth header for DELETE on collection: %s" % (
-                depth,
-            )
-            log.err(msg)
-            raise HTTPError(StatusResponse(BAD_REQUEST, msg))
-        response = (yield self.storeRemove(request, request.uri))
-        returnValue(response)
-
-
-    @inlineCallbacks
-    def storeRemove(self, request, where):
-        """
-        Delete this addressbook collection resource, first deleting each contained
-        addressbook resource.
-
-        This has to emulate the behavior in fileop.delete in that any errors
-        need to be reported back in a multistatus response.
-
-        @param request: The request used to locate child resources.  Note that
-            this is the request which I{triggered} the C{DELETE}, but which may
-            not actually be a C{DELETE} request itself.
-
-        @type request: L{twext.web2.iweb.IRequest}
-
-        @param where: the URI at which the resource is being deleted.
-        @type where: C{str}
-
-        @return: an HTTP response suitable for sending to a client (or
-            including in a multi-status).
-
-         @rtype: something adaptable to L{twext.web2.iweb.IResponse}
-        """
-
-        # Check virtual share first
-        isVirtual = self.isVirtualShare()
-        if isVirtual:
-            log.debug("Removing shared calendar %s" % (self,))
-            yield self.removeVirtualShare(request)
-            returnValue(NO_CONTENT)
-
-        log.debug("Deleting addressbook %s" % (self,))
-
-        # 'deluri' is this resource's URI; I should be able to synthesize it
-        # from 'self'.
-
-        errors = ResponseQueue(where, "DELETE", NO_CONTENT)
-
-        for childname in (yield self.listChildren()):
-
-            childurl = joinURL(where, childname)
-
-            # FIXME: use a more specific API; we should know what this child
-            # resource is, and not have to look it up.  (Sharing information
-            # needs to move into the back-end first, though.)
-            child = (yield request.locateChildResource(self, childname))
-
-            try:
-                yield child.storeRemove(request, childurl)
-            except:
-                logDefaultException()
-                errors.add(childurl, BAD_REQUEST)
-
-        # Now do normal delete
-
-        # Handle sharing
-        wasShared = (yield self.isShared(request))
-        if wasShared:
-            yield self.downgradeFromShare(request)
-
-        # Actually delete it.
-        yield self._newStoreParentHome.removeAddressBookWithName(
-            self._newStoreAddressBook.name()
-        )
-        self.__class__ = ProtoAddressBookCollectionResource
-        del self._newStoreAddressBook
-
-        # FIXME: handle exceptions, possibly like this:
-
-        #        if isinstance(more_responses, MultiStatusResponse):
-        #            # Merge errors
-        #            errors.responses.update(more_responses.children)
-
-        response = errors.response()
-
-        returnValue(response)
-
-
-    def http_COPY(self, request):
-        """
-        Copying of addressbook collections isn't allowed.
-        """
-        # FIXME: no direct tests
-        return FORBIDDEN
-
-
-    # FIXME: access control
-    @inlineCallbacks
-    def http_MOVE(self, request):
-        """
-        Moving a addressbook collection is allowed for the purposes of changing
-        that addressbook's name.
-        """
-        # FIXME: created to fix CDT test, no unit tests yet
-        sourceURI = request.uri
-        destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
-        if parentForURL(sourceURI) != parentForURL(destinationURI):
-            returnValue(FORBIDDEN)
-        destination = yield request.locateResource(destinationURI)
-        # FIXME: should really use something other than 'fp' attribute.
-        basename = destination.name()
-        addressbook = self._newStoreAddressBook
-        yield addressbook.rename(basename)
-        AddressBookCollectionResource.transform(destination, addressbook,
-                                         self._newStoreParentHome)
-        del self._newStoreAddressBook
-        self.__class__ = ProtoAddressBookCollectionResource
-        returnValue(NO_CONTENT)
-
-
-
-class ProtoAddressBookCollectionResource(CalDAVResource):
-    """
-    A resource representing an addressbook collection which hasn't yet been created.
-    """
-
-    def __init__(self, home, name, *args, **kw):
-        """
-        A placeholder resource for an addressbook collection which does not yet
-        exist, but will become a L{AddressBookCollectionResource}.
-
-        @param home: The addressbook home which will be this resource's parent,
-            when it exists.
-
-        @type home: L{txdav.carddav.iaddressbookstore.IAddressBookHome}
-        """
-        super(ProtoAddressBookCollectionResource, self).__init__(*args, **kw)
-        self._newStoreParentHome = home
-        self._name = name
-
-
-    def isCollection(self):
-        return True
-
-
-    def makeChild(self, name):
-        # FIXME: this is necessary for 
-        # twistedcaldav.test.test_mkcol.
-        #     MKCOL.test_make_addressbook_no_parent - there should be a more
-        # structured way to refuse creation with a non-existent parent.
-        return NoParent()
-
-
-    def provisionFile(self):
-        """
-        Create an addressbook collection.
-        """
-        # FIXME: this should be done in the backend; provisionDefaultAddressBooks
-        # should go away.
-        return self.createAddressBookCollection()
-
-
-    @inlineCallbacks
-    def createAddressBookCollection(self):
-        """
-        Override C{createAddressBookCollection} to actually do the work.
-        """
-        yield self._newStoreParentHome.createAddressBookWithName(self._name)
-        newStoreAddressBook = yield self._newStoreParentHome.addressbookWithName(
-            self._name
-        )
-        AddressBookCollectionResource.transform(
-            self, newStoreAddressBook, self._newStoreParentHome
-        )
-        returnValue(CREATED)
-
-
-    def exists(self):
-        # FIXME: tests
-        return False
-
-
-    def name(self):
-        return self._name
-
-    def provision(self):
-        """
-        This resource should do nothing if it's provisioned.
-        """
-        # FIXME: should be deleted, or raise an exception
+    createAddressBookCollection = _CommonHomeChildCollectionMixin.createCollection
 
 
 class GlobalAddressBookCollectionResource(GlobalAddressBookResource, AddressBookCollectionResource):
@@ -1694,13 +1378,6 @@ class GlobalAddressBookCollectionResource(GlobalAddressBookResource, AddressBook
     Wrapper around a L{txdav.carddav.iaddressbook.IAddressBook}.
     """
     pass
-
-class ProtoGlobalAddressBookCollectionResource(GlobalAddressBookResource, ProtoAddressBookCollectionResource):
-    """
-    A resource representing an addressbook collection which hasn't yet been created.
-    """
-    pass
-
 
 class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEqMixin):
     """
@@ -1756,7 +1433,7 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
         """
         Override http_DELETE to validate 'depth' header. 
         """
-        return self.storeRemove(request, request.uri)
+        return self.storeRemove(request, True, request.uri)
 
 
     @inlineCallbacks
@@ -1771,7 +1448,7 @@ class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, Fan
 
 
     @inlineCallbacks
-    def storeRemove(self, request, where):
+    def storeRemove(self, request, viaRequest, where):
         """
         Remove this addressbook object.
         """

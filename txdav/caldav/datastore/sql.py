@@ -66,15 +66,16 @@ class CalendarHome(CommonHome):
 
     implements(ICalendarHome)
 
+    _homeTable = CALENDAR_HOME_TABLE
+    _homeMetaDataTable = CALENDAR_HOME_METADATA_TABLE
+    _childTable = CALENDAR_TABLE
+    _bindTable = CALENDAR_BIND_TABLE
+    _notifierPrefix = "CalDAV"
+    _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
+
     def __init__(self, transaction, ownerUID, notifier):
 
-        self._homeTable = CALENDAR_HOME_TABLE
-        self._homeMetaDataTable = CALENDAR_HOME_METADATA_TABLE
         self._childClass = Calendar
-        self._childTable = CALENDAR_TABLE
-        self._bindTable = CALENDAR_BIND_TABLE
-        self._revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-
         super(CalendarHome, self).__init__(transaction, ownerUID, notifier)
         self._shares = SQLLegacyCalendarShares(self)
 
@@ -99,8 +100,7 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def createdHome(self):
-        yield self.createCalendarWithName("calendar")
-        defaultCal = yield self.calendarWithName("calendar")
+        defaultCal = yield self.createCalendarWithName("calendar")
         props = defaultCal.properties()
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(
             Opaque())
@@ -114,7 +114,12 @@ class Calendar(CommonHomeChild):
     """
     implements(ICalendar)
 
-    def __init__(self, home, name, resourceID, notifier):
+    _bindTable = CALENDAR_BIND_TABLE
+    _homeChildTable = CALENDAR_TABLE
+    _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
+    _objectTable = CALENDAR_OBJECT_TABLE
+
+    def __init__(self, home, name, resourceID):
         """
         Initialize a calendar pointing at a record in a database.
 
@@ -124,7 +129,7 @@ class Calendar(CommonHomeChild):
         @param home: the home containing this calendar.
         @type home: L{CalendarHome}
         """
-        super(Calendar, self).__init__(home, name, resourceID, notifier)
+        super(Calendar, self).__init__(home, name, resourceID)
 
         if name == 'inbox':
             self._index = PostgresLegacyInboxIndexEmulator(self)
@@ -132,10 +137,6 @@ class Calendar(CommonHomeChild):
             self._index = PostgresLegacyIndexEmulator(self)
         self._invites = SQLLegacyCalendarInvites(self)
         self._objectResourceClass = CalendarObject
-        self._bindTable = CALENDAR_BIND_TABLE
-        self._homeChildTable = CALENDAR_TABLE
-        self._revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-        self._objectTable = CALENDAR_OBJECT_TABLE
 
 
     @property

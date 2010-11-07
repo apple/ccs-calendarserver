@@ -192,6 +192,10 @@ class CalDAVResource (
     ##
 
     def render(self, request):
+
+        if not self.exists():
+            return responsecode.NOT_FOUND
+
         if config.EnableMonolithicCalendars:
             #
             # Send listing instead of iCalendar data to HTML agents
@@ -487,9 +491,8 @@ class CalDAVResource (
                 # FIXME: is there a better way to get back to the associated
                 # datastore object?
                 dataObject = None
-                for attr in ("_newStoreCalendar", "_newStoreAddressBook"):
-                    if hasattr(self, attr):
-                        dataObject = getattr(self, attr)
+                if hasattr(self, "_newStoreObject"):
+                    dataObject = getattr(self, "_newStoreObject")
                 if dataObject:
                     label = "collection" if isvirt else "default"
                     notifierID = dataObject.notifierID(label=label)
@@ -2322,21 +2325,11 @@ class CalendarHomeResource(CommonHomeResource):
     @inlineCallbacks
     def makeRegularChild(self, name):
         newCalendar = yield self._newStoreHome.calendarWithName(name)
-        if newCalendar is None:
-            # Local imports.due to circular dependency between modules.
-            from twistedcaldav.storebridge import (
-                 ProtoCalendarCollectionResource)
-            similar = ProtoCalendarCollectionResource(
-                self._newStoreHome,
-                name,
-                principalCollections=self.principalCollections()
-            )
-        else:
-            from twistedcaldav.storebridge import CalendarCollectionResource
-            similar = CalendarCollectionResource(
-                newCalendar, self._newStoreHome,
-                principalCollections=self.principalCollections()
-            )
+        from twistedcaldav.storebridge import CalendarCollectionResource
+        similar = CalendarCollectionResource(
+            newCalendar, self._newStoreHome, name=name,
+            principalCollections=self.principalCollections()
+        )
         self.propagateTransaction(similar)
         returnValue(similar)
 
@@ -2488,30 +2481,18 @@ class AddressBookHomeResource (CommonHomeResource):
         # Check for public/global path
         from twistedcaldav.storebridge import (
             AddressBookCollectionResource,
-            ProtoAddressBookCollectionResource,
             GlobalAddressBookCollectionResource,
-            ProtoGlobalAddressBookCollectionResource,
         )
         mainCls = AddressBookCollectionResource
-        protoCls = ProtoAddressBookCollectionResource
         if isinstance(self.record, InternalDirectoryRecord):
             if "global" in self.record.shortNames:
                 mainCls = GlobalAddressBookCollectionResource
-                protoCls = ProtoGlobalAddressBookCollectionResource
 
         newAddressBook = yield self._newStoreHome.addressbookWithName(name)
-        if newAddressBook is None:
-            # Local imports.due to circular dependency between modules.
-            similar = protoCls(
-                self._newStoreHome,
-                name,
-                principalCollections=self.principalCollections()
-            )
-        else:
-            similar = mainCls(
-                newAddressBook, self._newStoreHome,
-                principalCollections=self.principalCollections()
-            )
+        similar = mainCls(
+            newAddressBook, self._newStoreHome, name,
+            principalCollections=self.principalCollections()
+        )
         self.propagateTransaction(similar)
         returnValue(similar)
 

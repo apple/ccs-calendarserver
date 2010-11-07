@@ -48,10 +48,8 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 
-from txdav.common.datastore.sql_tables import CALENDAR_HOME_TABLE, \
-    ADDRESSBOOK_HOME_TABLE, NOTIFICATION_HOME_TABLE, _BIND_MODE_OWN, \
-    _BIND_STATUS_ACCEPTED, NOTIFICATION_OBJECT_REVISIONS_TABLE,\
-    CALENDAR_HOME_METADATA_TABLE, ADDRESSBOOK_HOME_METADATA_TABLE
+from txdav.common.datastore.sql_tables import NOTIFICATION_HOME_TABLE, _BIND_MODE_OWN, \
+    _BIND_STATUS_ACCEPTED, NOTIFICATION_OBJECT_REVISIONS_TABLE
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
@@ -132,8 +130,6 @@ class CommonStoreTransaction(object):
     Transaction implementation for SQL database.
     """
     _homeClass = {}
-    _homeTable = {}
-    _homeMetaDataTable = {}
 
     id = 0
 
@@ -163,10 +159,6 @@ class CommonStoreTransaction(object):
         from txdav.carddav.datastore.sql import AddressBookHome
         CommonStoreTransaction._homeClass[ECALENDARTYPE] = CalendarHome
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
-        CommonStoreTransaction._homeTable[ECALENDARTYPE] = CALENDAR_HOME_TABLE
-        CommonStoreTransaction._homeTable[EADDRESSBOOKTYPE] = ADDRESSBOOK_HOME_TABLE
-        CommonStoreTransaction._homeMetaDataTable[ECALENDARTYPE] = CALENDAR_HOME_METADATA_TABLE
-        CommonStoreTransaction._homeMetaDataTable[EADDRESSBOOKTYPE] = ADDRESSBOOK_HOME_METADATA_TABLE
         self._sqlTxn = sqlTxn
 
 
@@ -188,105 +180,18 @@ class CommonStoreTransaction(object):
         return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
 
-    @inlineCallbacks
     def homeWithUID(self, storeType, uid, create=False):
         if storeType not in (ECALENDARTYPE, EADDRESSBOOKTYPE):
             raise RuntimeError("Unknown home type.")
 
-        if self._notifierFactory:
-            notifier = self._notifierFactory.newNotifier(
-                id=uid, prefix=NotifierPrefixes[storeType]
-            )
-        else:
-            notifier = None
-        homeObject = self._homeClass[storeType](self, uid, notifier)
-        homeObject = (yield homeObject.initFromStore())
-        if homeObject is not None:
-            returnValue(homeObject)
-        else:
-            if not create:
-                returnValue(None)
-            # Need to lock to prevent race condition
-            # FIXME: this is an entire table lock - ideally we want a row lock
-            # but the row does not exist yet. However, the "exclusive" mode
-            # does allow concurrent reads so the only thing we block is other
-            # attempts to provision a home, which is not too bad
-            yield self.execSQL(
-                "lock %(name)s in exclusive mode" % CommonStoreTransaction._homeTable[storeType],
-            )
-            # Now test again
-            exists = yield self.execSQL(
-                "select %(column_RESOURCE_ID)s from %(name)s"
-                " where %(column_OWNER_UID)s = %%s" % CommonStoreTransaction._homeTable[storeType],
-                [uid]
-            )
-            if not exists:
-                resourceid = (yield self.execSQL("""
-                    insert into %(name)s (%(column_OWNER_UID)s) values (%%s)
-                    returning %(column_RESOURCE_ID)s
-                    """ % CommonStoreTransaction._homeTable[storeType],
-                    [uid]
-                ))[0][0]
-                yield self.execSQL(
-                    "insert into %(name)s (%(column_RESOURCE_ID)s) values (%%s)" % CommonStoreTransaction._homeMetaDataTable[storeType],
-                    [resourceid]
-                )
-            home = yield self.homeWithUID(storeType, uid)
-            if not exists:
-                yield home.createdHome()
-            returnValue(home)
-
-    def createHomeWithUIDLocked(self, storeType, uid):
-        # Need to lock to prevent race condition
-        # FIXME: this is an entire table lock - ideally we want a row lock
-        # but the row does not exist yet. However, the "exclusive" mode
-        # does allow concurrent reads so the only thing we block is other
-        # attempts to provision a home, which is not too bad
-
-        if storeType not in (ECALENDARTYPE, EADDRESSBOOKTYPE):
-            raise RuntimeError("Unknown home type.")
-
-        yield self.execSQL(
-            "lock %(name)s in exclusive mode" % CommonStoreTransaction._homeTable[storeType],
-        )
-        # Now test again
-        exists = yield self.execSQL(
-            "select %(column_RESOURCE_ID)s from %(name)s"
-            " where %(column_OWNER_UID)s = %%s" % CommonStoreTransaction._homeTable[storeType],
-            [uid]
-        )
-        if not exists:
-            yield self.execSQL(
-                "insert into %(name)s (%(column_OWNER_UID)s) values (%%s)" % CommonStoreTransaction._homeTable[storeType],
-                [uid]
-            )
+        return self._homeClass[storeType].homeWithUID(self, uid, create)
 
     @memoizedKey("uid", "_notificationHomes")
-    @inlineCallbacks
     def notificationsWithUID(self, uid):
         """
         Implement notificationsWithUID.
         """
-        rows = yield self.execSQL(
-            """
-            select %(column_RESOURCE_ID)s from %(name)s where
-            %(column_OWNER_UID)s = %%s
-            """ % NOTIFICATION_HOME_TABLE, [uid]
-        )
-        if rows:
-            resourceID = rows[0][0]
-            created = False
-        else:
-            resourceID = str((yield self.execSQL(
-                "insert into %(name)s (%(column_OWNER_UID)s) values (%%s) returning %(column_RESOURCE_ID)s" % NOTIFICATION_HOME_TABLE,
-                [uid]
-            ))[0][0])
-            created = True
-        collection = NotificationCollection(self, uid, resourceID)
-        yield collection._loadPropertyStore()
-        if created:
-            yield collection._initSyncToken()
-        returnValue(collection)
+        return NotificationCollection.notificationsWithUID(self, uid)
 
 
     def postCommit(self, operation):
@@ -324,11 +229,13 @@ class CommonStoreTransaction(object):
 
 class CommonHome(LoggingMixIn):
 
+    # All these need to be initialized by derived classes for each store type
     _homeTable = None
     _homeMetaDataTable = None
     _childClass = None
     _childTable = None
     _bindTable = None
+    _notifierPrefix = None
     _revisionsTable = None
     _notificationRevisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
 
@@ -351,7 +258,7 @@ class CommonHome(LoggingMixIn):
     @inlineCallbacks
     def initFromStore(self):
         """
-        Initialise this object from the store. We read in and cache all the extra metadata
+        Initialize this object from the store. We read in and cache all the extra meta-data
         from the DB to avoid having to do DB queries for those individually later.
         """
 
@@ -366,6 +273,53 @@ class CommonHome(LoggingMixIn):
             returnValue(self)
         else:
             returnValue(None)
+
+    @classmethod
+    @inlineCallbacks
+    def homeWithUID(cls, txn, uid, create=False):
+
+        if txn._notifierFactory:
+            notifier = txn._notifierFactory.newNotifier(
+                id=uid, prefix=cls._notifierPrefix
+            )
+        else:
+            notifier = None
+        homeObject = cls(txn, uid, notifier)
+        homeObject = (yield homeObject.initFromStore())
+        if homeObject is not None:
+            returnValue(homeObject)
+        else:
+            if not create:
+                returnValue(None)
+            # Need to lock to prevent race condition
+            # FIXME: this is an entire table lock - ideally we want a row lock
+            # but the row does not exist yet. However, the "exclusive" mode
+            # does allow concurrent reads so the only thing we block is other
+            # attempts to provision a home, which is not too bad
+            yield txn.execSQL(
+                "lock %(name)s in exclusive mode" % cls._homeTable,
+            )
+            # Now test again
+            exists = yield txn.execSQL(
+                "select %(column_RESOURCE_ID)s from %(name)s"
+                " where %(column_OWNER_UID)s = %%s" % cls._homeTable,
+                [uid]
+            )
+            if not exists:
+                resourceid = (yield txn.execSQL("""
+                    insert into %(name)s (%(column_OWNER_UID)s) values (%%s)
+                    returning %(column_RESOURCE_ID)s
+                    """ % cls._homeTable,
+                    [uid]
+                ))[0][0]
+                yield txn.execSQL(
+                    "insert into %(name)s (%(column_RESOURCE_ID)s) values (%%s)" % cls._homeMetaDataTable,
+                    [resourceid]
+                )
+            home = yield cls.homeWithUID(txn, uid)
+            if not exists:
+                yield home.createdHome()
+            returnValue(home)
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
@@ -412,7 +366,7 @@ class CommonHome(LoggingMixIn):
 
         @return: an iterable of C{str}s.
         """
-        return self._listChildren(owned=True)
+        return self._childClass.listObjects(self, owned=True)
 
 
     def listSharedChildren(self):
@@ -421,40 +375,7 @@ class CommonHome(LoggingMixIn):
 
         @return: an iterable of C{str}s.
         """
-        return self._listChildren(owned=False)
-
-
-    @inlineCallbacks
-    def _listChildren(self, owned):
-        """
-        Retrieve the names of the children in this home.
-
-        @return: an iterable of C{str}s.
-        """
-        # FIXME: not specified on the interface or exercised by the tests, but
-        # required by clients of the implementation!
-        if owned:
-            rows = yield self._txn.execSQL("""
-                select %(column_RESOURCE_NAME)s from %(name)s
-                where
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s = %%s
-                """ % self._bindTable,
-                [self._resourceID, _BIND_MODE_OWN]
-            )
-        else:
-            rows = yield self._txn.execSQL("""
-                select %(column_RESOURCE_NAME)s from %(name)s
-                where
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s != %%s and
-                  %(column_RESOURCE_NAME)s is not null
-                """ % self._bindTable,
-                [self._resourceID, _BIND_MODE_OWN]
-            )
-
-        names = [row[0] for row in rows]
-        returnValue(names)
+        return self._childClass.listObjects(self, owned=False)
 
 
     @memoizedKey("name", "_children")
@@ -466,7 +387,7 @@ class CommonHome(LoggingMixIn):
         @param name: a string.
         @return: an L{ICalendar} or C{None} if no such child exists.
         """
-        return self._childWithName(name, owned=True)
+        return self._childClass.objectWithName(self, name, owned=True)
 
 
     @memoizedKey("name", "_sharedChildren")
@@ -485,60 +406,7 @@ class CommonHome(LoggingMixIn):
         @return: an L{ICalendar} or C{None} if no such child
             exists.
         """
-        return self._childWithName(name, owned=False)
-
-
-    @inlineCallbacks
-    def _childWithName(self, name, owned):
-        """
-        Retrieve the child with the given C{name} contained in this
-        home.
-
-        @param name: a string.
-        @return: an L{ICalendar} or C{None} if no such child
-            exists.
-        """
-
-        if owned:
-            data = yield self._txn.execSQL("""
-                select %(column_RESOURCE_ID)s from %(name)s
-                where
-                  %(column_RESOURCE_NAME)s = %%s and
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s = %%s
-                """ % self._bindTable,
-                [
-                    name,
-                    self._resourceID,
-                    _BIND_MODE_OWN
-                ]
-            )
-        else:
-            data = yield self._txn.execSQL("""
-                select %(column_RESOURCE_ID)s from %(name)s
-                where
-                  %(column_RESOURCE_NAME)s = %%s and
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s != %%s
-                """ % self._bindTable,
-                [
-                    name,
-                    self._resourceID,
-                    _BIND_MODE_OWN
-                ]
-            )
-
-        if not data:
-            returnValue(None)
-        resourceID = data[0][0]
-        if self._notifier:
-            childID = "%s/%s" % (self.uid(), name)
-            notifier = self._notifier.clone(label="collection", id=childID)
-        else:
-            notifier = None
-        child = self._childClass(self, name, resourceID, notifier)
-        yield child.initFromStore()
-        returnValue(child)
+        return self._childClass.objectWithName(self, name, owned=False)
 
 
     @inlineCallbacks
@@ -546,42 +414,9 @@ class CommonHome(LoggingMixIn):
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
 
-        rows = yield self._txn.execSQL(
-            "select %(column_RESOURCE_NAME)s from %(name)s where "
-            "%(column_RESOURCE_NAME)s = %%s AND "
-            "%(column_HOME_RESOURCE_ID)s = %%s" % self._bindTable,
-            [name, self._resourceID]
-        )
-        if rows:
-            raise HomeChildNameAlreadyExistsError(name)
-
-        rows = yield self._txn.execSQL("select nextval('RESOURCE_ID_SEQ')")
-        resourceID = rows[0][0]
-        yield self._txn.execSQL(
-            "insert into %(name)s (%(column_RESOURCE_ID)s) values "
-            "(%%s)" % self._childTable,
-            [resourceID])
-
-        yield self._txn.execSQL("""
-            insert into %(name)s (
-                %(column_HOME_RESOURCE_ID)s,
-                %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s,
-                %(column_SEEN_BY_OWNER)s, %(column_SEEN_BY_SHAREE)s, %(column_BIND_STATUS)s) values (
-            %%s, %%s, %%s, %%s, %%s, %%s, %%s)
-            """ % self._bindTable,
-            [self._resourceID, resourceID, name, _BIND_MODE_OWN, True, True,
-             _BIND_STATUS_ACCEPTED]
-        )
-
-        newChild = yield self.childWithName(name)
-        newChild.properties()[
-            PropertyName.fromElement(ResourceType)
-        ] = newChild.resourceType()
-        yield newChild._initSyncToken()
-        self.createdChild(newChild)
-
-        self.notifyChanged()
-
+        yield self._childClass.create(self, name)
+        child = (yield self.childWithName(name))
+        returnValue(child)
 
     def createdChild(self, child):
         pass
@@ -590,20 +425,13 @@ class CommonHome(LoggingMixIn):
     @inlineCallbacks
     def removeChildWithName(self, name):
         child = yield self.childWithName(name)
-        if not child:
+        if child is None:
             raise NoSuchHomeChildError()
-        yield child._deletedSyncToken()
 
         try:
-            yield self._txn.execSQL(
-                "delete from %(name)s where %(column_RESOURCE_ID)s = %%s" % self._childTable,
-                [child._resourceID],
-                raiseOnZeroRowCount=NoSuchHomeChildError
-            )
+            yield child.remove()
         finally:
             self._children.pop(name, None)
-
-        child.notifyChanged()
 
 
     @inlineCallbacks
@@ -822,18 +650,157 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     _revisionsTable = None
     _objectTable = None
 
-    def __init__(self, home, name, resourceID, notifier):
+    def __init__(self, home, name, resourceID):
         self._home = home
         self._name = name
         self._resourceID = resourceID
         self._created = None
         self._modified = None
         self._objects = {}
+
+        if home._notifier:
+            childID = "%s/%s" % (home.uid(), name)
+            notifier = home._notifier.clone(label="collection", id=childID)
+        else:
+            notifier = None
         self._notifier = notifier
 
         self._index = None  # Derived classes need to set this
         self._invites = None # Derived classes need to set this
 
+    @classmethod
+    @inlineCallbacks
+    def listObjects(cls, home, owned):
+        """
+        Retrieve the names of the children that exist in this home.
+
+        @return: an iterable of C{str}s.
+        """
+        # FIXME: not specified on the interface or exercised by the tests, but
+        # required by clients of the implementation!
+        if owned:
+            rows = yield home._txn.execSQL("""
+                select %(column_RESOURCE_NAME)s from %(name)s
+                where
+                  %(column_HOME_RESOURCE_ID)s = %%s and
+                  %(column_BIND_MODE)s = %%s
+                """ % cls._bindTable,
+                [home._resourceID, _BIND_MODE_OWN]
+            )
+        else:
+            rows = yield home._txn.execSQL("""
+                select %(column_RESOURCE_NAME)s from %(name)s
+                where
+                  %(column_HOME_RESOURCE_ID)s = %%s and
+                  %(column_BIND_MODE)s != %%s and
+                  %(column_RESOURCE_NAME)s is not null
+                """ % cls._bindTable,
+                [home._resourceID, _BIND_MODE_OWN]
+            )
+
+        names = [row[0] for row in rows]
+        returnValue(names)
+
+    @classmethod
+    @inlineCallbacks
+    def objectWithName(cls, home, name, owned):
+        """
+        Retrieve the child with the given C{name} contained in this
+        C{home}.
+
+        @param home: a L{CommonHome}.
+        @param name: a string.
+        @param owned: a boolean - whether or not to get a shared child
+        @param mustExist: a boolean - if False return and empty object
+        @return: an L{CommonHomChild} or C{None} if no such child
+            exists.
+        """
+
+        if owned:
+            data = yield home._txn.execSQL("""
+                select %(column_RESOURCE_ID)s from %(name)s
+                where
+                  %(column_RESOURCE_NAME)s = %%s and
+                  %(column_HOME_RESOURCE_ID)s = %%s and
+                  %(column_BIND_MODE)s = %%s
+                """ % cls._bindTable,
+                [
+                    name,
+                    home._resourceID,
+                    _BIND_MODE_OWN
+                ]
+            )
+        else:
+            data = yield home._txn.execSQL("""
+                select %(column_RESOURCE_ID)s from %(name)s
+                where
+                  %(column_RESOURCE_NAME)s = %%s and
+                  %(column_HOME_RESOURCE_ID)s = %%s and
+                  %(column_BIND_MODE)s != %%s
+                """ % cls._bindTable,
+                [
+                    name,
+                    home._resourceID,
+                    _BIND_MODE_OWN
+                ]
+            )
+
+        if not data:
+            returnValue(None)
+        resourceID = data[0][0]
+        child = cls(home, name, resourceID)
+        yield child.initFromStore()
+        returnValue(child)
+
+    @classmethod
+    @inlineCallbacks
+    def create(cls, home, name):
+        
+        child = (yield cls.objectWithName(home, name, owned=True))
+        if child:
+            raise HomeChildNameAlreadyExistsError(name)
+
+        if name.startswith("."):
+            raise HomeChildNameNotAllowedError(name)
+        
+        # Create and initialize (in a similar manner to initFromStore) this object
+        rows = yield home._txn.execSQL("select nextval('RESOURCE_ID_SEQ')")
+        resourceID = rows[0][0]
+        _created, _modified = (yield home._txn.execSQL("""
+            insert into %(name)s (%(column_RESOURCE_ID)s)
+            values (%%s)
+            returning %(column_CREATED)s, %(column_MODIFIED)s
+            """ % cls._homeChildTable,
+            [resourceID]
+        ))[0]
+        
+        # Bind table needs entry
+        yield home._txn.execSQL("""
+            insert into %(name)s (
+                %(column_HOME_RESOURCE_ID)s,
+                %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s,
+                %(column_SEEN_BY_OWNER)s, %(column_SEEN_BY_SHAREE)s, %(column_BIND_STATUS)s) values (
+            %%s, %%s, %%s, %%s, %%s, %%s, %%s)
+            """ % cls._bindTable,
+            [home._resourceID, resourceID, name, _BIND_MODE_OWN, True, True,
+             _BIND_STATUS_ACCEPTED]
+        )
+
+        # Initialize other state
+        child = cls(home, name, resourceID)
+        child._created = _created
+        child._modified = _modified
+        yield child._loadPropertyStore()
+
+        child.properties()[
+            PropertyName.fromElement(ResourceType)
+        ] = child.resourceType()
+        yield child._initSyncToken()
+        home.createdChild(child)
+
+        # Change notification for a create is on the home collection
+        home.notifyChanged()
+        returnValue(child)
 
     @inlineCallbacks
     def initFromStore(self):
@@ -871,6 +838,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
 
+    def exists(self):
+        """
+        An empty resource-id means this object does not yet exist in the DB.
+        """
+        return self._resourceID is not None
+
     def name(self):
         return self._name
 
@@ -892,6 +865,25 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
         self.notifyChanged()
 
+
+    @inlineCallbacks
+    def remove(self):
+
+        yield self._deletedSyncToken()
+
+        yield self._txn.execSQL(
+            "delete from %(name)s where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
+            [self._resourceID],
+            raiseOnZeroRowCount=NoSuchHomeChildError
+        )
+
+        # Set to non-existent state
+        self._resourceID = None
+        self._created = None
+        self._modified = None
+        self._objects = {}
+
+        self.notifyChanged()
 
     def ownerHome(self):
         return self._home
@@ -1288,13 +1280,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
 
     def created(self):
-        utc = datetime.datetime.strptime(self._created, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        return datetimeMktime(datetime.datetime.strptime(self._created, "%Y-%m-%d %H:%M:%S.%f")) if self._created else None
 
 
     def modified(self):
-        utc = datetime.datetime.strptime(self._modified, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        return datetimeMktime(datetime.datetime.strptime(self._modified, "%Y-%m-%d %H:%M:%S.%f")) if self._modified else None
 
 
     def notifierID(self, label="default"):
@@ -1498,6 +1488,32 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         self._resourceID = resourceID
         self._notifications = {}
 
+    @classmethod
+    @inlineCallbacks
+    def notificationsWithUID(cls, txn, uid):
+        """
+        Implement notificationsWithUID.
+        """
+        rows = yield txn.execSQL(
+            """
+            select %(column_RESOURCE_ID)s from %(name)s where
+            %(column_OWNER_UID)s = %%s
+            """ % NOTIFICATION_HOME_TABLE, [uid]
+        )
+        if rows:
+            resourceID = rows[0][0]
+            created = False
+        else:
+            resourceID = str((yield txn.execSQL(
+                "insert into %(name)s (%(column_OWNER_UID)s) values (%%s) returning %(column_RESOURCE_ID)s" % NOTIFICATION_HOME_TABLE,
+                [uid]
+            ))[0][0])
+            created = True
+        collection = cls(txn, uid, resourceID)
+        yield collection._loadPropertyStore()
+        if created:
+            yield collection._initSyncToken()
+        returnValue(collection)
 
     @inlineCallbacks
     def _loadPropertyStore(self):

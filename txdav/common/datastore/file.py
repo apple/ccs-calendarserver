@@ -19,6 +19,7 @@
 Common utility functions for a file based datastore.
 """
 
+from twext.internet.decorate import memoizedKey
 from twext.python.log import LoggingMixIn
 from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType, HRef
 from twext.web2.dav.element.rfc5842 import ResourceID
@@ -171,10 +172,9 @@ class CommonStoreTransaction(DataStoreTransaction):
         from txdav.carddav.datastore.file import AddressBookHome
 
         super(CommonStoreTransaction, self).__init__(dataStore, name)
-        self._homes = {}
-        self._homes[ECALENDARTYPE] = {}
-        self._homes[EADDRESSBOOKTYPE] = {}
-        self._notifications = {}
+        self._calendarHomes = {}
+        self._addressbookHomes = {}
+        self._notificationHomes = {}
         self._notifierFactory = notifierFactory
         self._migrating = migrating
 
@@ -192,23 +192,71 @@ class CommonStoreTransaction(DataStoreTransaction):
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
 
 
+    @memoizedKey('uid', '_calendarHomes')
     def calendarHomeWithUID(self, uid, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, create=create)
 
+    @memoizedKey("uid", "_addressbookHomes")
     def addressbookHomeWithUID(self, uid, create=False):
         return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
     def homeWithUID(self, storeType, uid, create=False):
-        if (uid, self) in self._homes[storeType]:
-            return self._homes[storeType][(uid, self)]
-
         if uid.startswith("."):
             return None
+
+        if storeType not in (ECALENDARTYPE, EADDRESSBOOKTYPE):
+            raise RuntimeError("Unknown home type.")
+
+        return self._homeClass[storeType].homeWithUID(self, uid, create, storeType == ECALENDARTYPE)
+
+    @memoizedKey("uid", "_notificationHomes")
+    def notificationsWithUID(self, uid, home=None):
+
+        if home is None:
+            home = self.homeWithUID(self._notificationHomeType, uid, create=True)
+        return NotificationCollection.notificationsFromHome(self, home)
+
+
+class StubResource(object):
+    """
+    Just enough resource to keep the shared sql DB classes going.
+    """
+    def __init__(self, commonHome):
+        self._commonHome = commonHome
+
+
+    @property
+    def fp(self):
+        return self._commonHome._path
+
+
+
+class CommonHome(FileMetaDataMixin, LoggingMixIn):
+
+    # All these need to be initialized by derived classes for each store type
+    _childClass = None
+    _topPath = None
+    _notifierPrefix = None
+
+    def __init__(self, uid, path, dataStore, transaction, notifier):
+        self._dataStore = dataStore
+        self._uid = uid
+        self._path = path
+        self._transaction = transaction
+        self._notifier = notifier
+        self._shares = SharedCollectionsDatabase(StubResource(self))
+        self._newChildren = {}
+        self._removedChildren = set()
+        self._cachedChildren = {}
+
+
+    @classmethod
+    def homeWithUID(cls, txn, uid, create=False, withNotifications=False):
 
         assert len(uid) >= 4
 
         childPathSegments = []
-        childPathSegments.append(self._dataStore._path.child(TOPPATHS[storeType]))
+        childPathSegments.append(txn._dataStore._path.child(cls._topPath))
         childPathSegments.append(childPathSegments[-1].child(UIDPATH))
         childPathSegments.append(childPathSegments[-1].child(uid[0:2]))
         childPathSegments.append(childPathSegments[-1].child(uid[2:4]))
@@ -241,110 +289,26 @@ class CommonStoreTransaction(DataStoreTransaction):
                     # do this _after_ all other file operations
                     home._path = childPath
                     return lambda : None
-                self.addOperation(do, "create home UID %r" % (uid,))
+                txn.addOperation(do, "create home UID %r" % (uid,))
 
         elif not childPath.isdir():
             return None
         else:
             homePath = childPath
 
-        if self._notifierFactory:
-            notifier = self._notifierFactory.newNotifier(id=uid,
-                prefix=NotifierPrefixes[storeType])
+        if txn._notifierFactory:
+            notifier = txn._notifierFactory.newNotifier(id=uid,
+                prefix=cls._notifierPrefix)
         else:
             notifier = None
 
-        home = self._homeClass[storeType](uid, homePath, self._dataStore, self,
-            notifier)
-        self._homes[storeType][(uid, self)] = home
+        home = cls(uid, homePath, txn._dataStore, txn, notifier)
         if creating:
             home.createdHome()
+            if withNotifications:
+                txn.notificationsWithUID(uid, home)
 
-            # Create notification collection
-            if storeType == ECALENDARTYPE:
-                self.notificationsWithUID(uid)
         return home
-
-    def notificationsWithUID(self, uid):
-
-        if (uid, self) in self._notifications:
-            return self._notifications[(uid, self)]
-
-        home = self.homeWithUID(self._notificationHomeType, uid, create=True)
-        if (uid, self) in self._notifications:
-            return self._notifications[(uid, self)]
-
-        notificationCollectionName = "notification"
-        if not home._path.child(notificationCollectionName).isdir():
-            notifications = self._createNotificationCollection(home, notificationCollectionName)
-        else:
-            notifications = NotificationCollection(notificationCollectionName, home)
-        self._notifications[(uid, self)] = notifications
-        return notifications
-
-
-    def _createNotificationCollection(self, home, collectionName):
-        # FIXME: this is a near-copy of CommonHome.createChildWithName.
-        temporary = hidden(home._path.child(collectionName).temporarySibling())
-        temporary.createDirectory()
-        temporaryName = temporary.basename()
-
-        c = NotificationCollection(temporary.basename(), home)
-
-        def do():
-            childPath = home._path.child(collectionName)
-            temporary = childPath.sibling(temporaryName)
-            try:
-                props = c.properties()
-                temporary.moveTo(childPath)
-                c._name = collectionName
-                # FIXME: _lots_ of duplication of work here.
-                props.flush()
-            except (IOError, OSError), e:
-                if e.errno == EEXIST and childPath.isdir():
-                    raise HomeChildNameAlreadyExistsError(collectionName)
-                raise
-            # FIXME: direct tests, undo for index creation
-            # Return undo
-            return lambda: home._path.child(collectionName).remove()
-
-        self.addOperation(do, "create notification child %r" %
-                          (collectionName,))
-        props = c.properties()
-        props[PropertyName(*ResourceType.qname())] = c.resourceType()
-        return c
-
-
-
-class StubResource(object):
-    """
-    Just enough resource to keep the shared sql DB classes going.
-    """
-    def __init__(self, commonHome):
-        self._commonHome = commonHome
-
-
-    @property
-    def fp(self):
-        return self._commonHome._path
-
-
-
-class CommonHome(FileMetaDataMixin, LoggingMixIn):
-
-    _childClass = None
-
-    def __init__(self, uid, path, dataStore, transaction, notifier):
-        self._dataStore = dataStore
-        self._uid = uid
-        self._path = path
-        self._transaction = transaction
-        self._notifier = notifier
-        self._shares = SharedCollectionsDatabase(StubResource(self))
-        self._newChildren = {}
-        self._removedChildren = set()
-        self._cachedChildren = {}
-
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path)
@@ -400,18 +364,10 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         if name.startswith("."):
             return None
 
-        childPath = self._path.child(name)
-        if childPath.isdir():
-            if self._notifier:
-                childID = "%s/%s" % (self.uid(), name)
-                notifier = self._notifier.clone(label="collection", id=childID)
-            else:
-                notifier = None
-            existingChild = self._childClass(name, self, notifier)
-            self._cachedChildren[name] = existingChild
-            return existingChild
-        else:
-            return None
+        child = self._childClass.objectWithName(self, name)
+        if child is not None:
+            self._cachedChildren[name] = child
+        return child
 
 
     @writeOperation
@@ -432,11 +388,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
         # FIXME: some way to roll this back.
 
-        if self._notifier:
-            notifier = self._notifier.clone(label="collection", id=name)
-        else:
-            notifier = None
-        c = self._newChildren[name] = self._childClass(temporary.basename(), self, notifier, realName=name)
+        c = self._newChildren[name] = self._childClass(temporary.basename(), self, realName=name)
         c.retrieveOldIndex().create()
         def do():
             childPath = self._path.child(name)
@@ -461,7 +413,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         self.createdChild(c)
 
         self.notifyChanged()
-
+        return c
 
     def createdChild(self, child):
         pass
@@ -473,45 +425,13 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             raise NoSuchHomeChildError(name)
 
         child = self.childWithName(name)
-        if not child:
+        if child is None:
             raise NoSuchHomeChildError()
 
-        self._removedChildren.add(name)
-
-        def do(transaction=self._transaction):
-            childPath = self._path.child(name)
-            for i in xrange(1000):
-                trash = childPath.sibling("._del_%s_%d" % (childPath.basename(), i))
-                if not trash.exists():
-                    break
-            else:
-                raise InternalDataStoreError("Unable to create trash target for child at %s" % (childPath,))
-
-            try:
-                childPath.moveTo(trash)
-            except (IOError, OSError), e:
-                if e.errno == ENOENT:
-                    raise NoSuchHomeChildError(name)
-                raise
-
-            def cleanup():
-                try:
-                    trash.remove()
-                except Exception, e:
-                    self.log_error("Unable to delete trashed child at %s: %s" % (trash.fp, e))
-
-            transaction.addOperation(cleanup, "remove child backup %r" % (name,))
-            def undo():
-                trash.moveTo(childPath)
-
-            return undo
-
-        # FIXME: direct tests
-        self._transaction.addOperation(
-            do, "prepare child remove %r" % (name,)
-        )
-
-        child.notifyChanged()
+        try:
+            child.remove()
+        finally:
+            self._removedChildren.add(name)
 
     @inlineCallbacks
     def syncToken(self):
@@ -587,7 +507,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
     _objectResourceClass = None
 
-    def __init__(self, name, home, notifier, realName=None):
+    def __init__(self, name, home, realName=None):
         """
         Initialize an home child pointing at a path on disk.
 
@@ -604,7 +524,6 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         """
         self._name = name
         self._home = home
-        self._notifier = notifier
         self._transaction = home._transaction
         self._newObjectResources = {}
         self._cachedObjectResources = {}
@@ -613,6 +532,17 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         self._invites = None # Derived classes need to set this
         self._renamedName = realName
 
+        if home._notifier:
+            childID = "%s/%s" % (home.uid(), name)
+            notifier = home._notifier.clone(label="collection", id=childID)
+        else:
+            notifier = None
+        self._notifier = notifier
+
+
+    @classmethod
+    def objectWithName(cls, home, name):
+        return cls(name, home) if home._path.child(name).isdir() else None
 
     @property
     def _path(self):
@@ -660,6 +590,44 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
                                        (oldName, name))
 
         self.retrieveOldIndex().bumpRevision()
+
+        self.notifyChanged()
+
+    @writeOperation
+    def remove(self):
+
+        def do(transaction=self._transaction):
+            childPath = self._path
+            for i in xrange(1000):
+                trash = childPath.sibling("._del_%s_%d" % (childPath.basename(), i))
+                if not trash.exists():
+                    break
+            else:
+                raise InternalDataStoreError("Unable to create trash target for child at %s" % (childPath,))
+
+            try:
+                childPath.moveTo(trash)
+            except (IOError, OSError), e:
+                if e.errno == ENOENT:
+                    raise NoSuchHomeChildError(self._name)
+                raise
+
+            def cleanup():
+                try:
+                    trash.remove()
+                except Exception, e:
+                    self.log_error("Unable to delete trashed child at %s: %s" % (trash.fp, e))
+
+            self._transaction.addOperation(cleanup, "remove child backup %r" % (self._name,))
+            def undo():
+                trash.moveTo(childPath)
+
+            return undo
+
+        # FIXME: direct tests
+        self._transaction.addOperation(
+            do, "prepare child remove %r" % (self._name,)
+        )
 
         self.notifyChanged()
 
@@ -953,6 +921,49 @@ class NotificationCollection(CommonHomeChild):
         self._index = NotificationIndex(self)
         self._invites = None
         self._objectResourceClass = NotificationObject
+
+    @classmethod
+    def notificationsFromHome(cls, txn, home):
+
+        notificationCollectionName = "notification"
+        if not home._path.child(notificationCollectionName).isdir():
+            notifications = cls._create(txn, home, notificationCollectionName)
+        else:
+            notifications = cls(notificationCollectionName, home)
+        return notifications
+
+
+    @classmethod
+    def _create(cls, txn, home, collectionName):
+        # FIXME: this is a near-copy of CommonHome.createChildWithName.
+        temporary = hidden(home._path.child(collectionName).temporarySibling())
+        temporary.createDirectory()
+        temporaryName = temporary.basename()
+
+        c = cls(temporary.basename(), home)
+
+        def do():
+            childPath = home._path.child(collectionName)
+            temporary = childPath.sibling(temporaryName)
+            try:
+                props = c.properties()
+                temporary.moveTo(childPath)
+                c._name = collectionName
+                # FIXME: _lots_ of duplication of work here.
+                props.flush()
+            except (IOError, OSError), e:
+                if e.errno == EEXIST and childPath.isdir():
+                    raise HomeChildNameAlreadyExistsError(collectionName)
+                raise
+            # FIXME: direct tests, undo for index creation
+            # Return undo
+            return lambda: home._path.child(collectionName).remove()
+
+        txn.addOperation(do, "create notification child %r" %
+                          (collectionName,))
+        props = c.properties()
+        props[PropertyName(*ResourceType.qname())] = c.resourceType()
+        return c
 
     def resourceType(self):
         return ResourceType.notification #@UndefinedVariable

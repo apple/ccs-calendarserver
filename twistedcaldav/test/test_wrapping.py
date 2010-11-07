@@ -32,8 +32,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.ical import Component as VComponent
 from twistedcaldav.vcard import Component as VCComponent
 
-from twistedcaldav.storebridge import ProtoCalendarCollectionResource, \
-    ProtoAddressBookCollectionResource, DropboxCollection
+from twistedcaldav.storebridge import DropboxCollection,\
+    CalendarCollectionResource, AddressBookCollectionResource
 
 from twistedcaldav.test.util import TestCase
 
@@ -297,8 +297,10 @@ class WrappingTests(TestCase):
         backend will be initialized to match.
         """
         calDavFile = yield self.getResource("calendars/users/wsanchez/frobozz")
-        self.assertIsInstance(calDavFile, ProtoCalendarCollectionResource)
+        self.assertIsInstance(calDavFile, CalendarCollectionResource)
+        self.assertFalse(calDavFile.exists())
         yield calDavFile.createCalendarCollection()
+        self.assertTrue(calDavFile.exists())
         yield self.commit()
 
 
@@ -315,7 +317,7 @@ class WrappingTests(TestCase):
                 "calendars/users/wsanchez/%s" % (specialName,)
             )
             self.assertIdentical(
-                getattr(calDavFile, "_newStoreCalendar", None), None
+                getattr(calDavFile, "_newStoreObject", None), None
             )
         yield self.commit()
 
@@ -420,8 +422,10 @@ class WrappingTests(TestCase):
         initialized to match.
         """
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/frobozz")
-        self.assertIsInstance(calDavFile, ProtoAddressBookCollectionResource)
+        self.assertIsInstance(calDavFile, AddressBookCollectionResource)
+        self.assertFalse(calDavFile.exists())
         yield calDavFile.createAddressBookCollection()
+        self.assertTrue(calDavFile.exists())
         yield self.commit()
         self.assertEquals(calDavFile._principalCollections,
                           frozenset([self.principalsResource]))
