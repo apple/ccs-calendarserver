@@ -136,7 +136,7 @@ class ConnectionPoolTests(TestCase):
         until an existing connection becomes available.
         """
         cf = ConnectionFactory()
-        cp = ConnectionPool(cf.connect)
+        cp = ConnectionPool(cf.connect, maxConnections=2)
         cp.startService()
         self.addCleanup(cp.stopService)
         a = cp.connection()
