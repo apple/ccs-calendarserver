@@ -39,6 +39,7 @@ from twisted.application.service import Service
 from txdav.base.datastore.threadutils import ThreadHolder
 from txdav.idav import AlreadyFinishedError
 from twisted.python import log
+from twisted.internet.defer import maybeDeferred
 from twisted.python.components import proxyForInterface
 
 
@@ -158,6 +159,68 @@ class BaseSqlTxn(object):
 
 
 
+class SpooledTxn(object):
+    """
+    A L{SpooledTxn} is an implementation of L{IAsyncTransaction} which cannot
+    yet actually execute anything, so it spools SQL reqeusts for later
+    execution.  When a L{BaseSqlTxn} becomes available later, it can be
+    unspooled onto that.
+    """
+
+    implements(IAsyncTransaction)
+
+    def __init__(self):
+        self._spool = []
+
+
+    def _enspool(self, cmd, a=(), kw={}):
+        d = Deferred()
+        self._spool.append((d, cmd, a, kw))
+        return d
+
+
+    def _iterDestruct(self):
+        """
+        Iterate the spool list destructively, while popping items from the
+        beginning.  This allows code which executes more SQL in the callback of
+        a Deferred to not interfere with the originally submitted order of
+        commands.
+        """
+        while self._spool:
+            yield self._spool.pop(0)
+
+
+    def _unspool(self, other):
+        """
+        Unspool this transaction onto another transaction.
+
+        @param other: another provider of L{IAsyncTransaction} which will
+            actually execute the SQL statements we have been buffering.
+        """
+        for (d, cmd, a, kw) in self._iterDestruct():
+            self._relayCommand(other, d, cmd, a, kw)
+
+
+    def _relayCommand(self, other, d, cmd, a, kw):
+        """
+        Relay a single command to another transaction.
+        """
+        maybeDeferred(getattr(other, cmd), *a, **kw).chainDeferred(d)
+
+
+    def execSQL(self, *a, **kw):
+        return self._enspool('execSQL', a, kw)
+
+
+    def commit(self):
+        return self._enspool('commit')
+
+
+    def abort(self):
+        return self._enspool('abort')
+
+
+
 class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
                                      originalAttribute='_baseTxn')):
     """
@@ -216,15 +279,26 @@ class ConnectionPool(Service, object):
     """
     This is a central service that has a threadpool and executes SQL statements
     asynchronously, in a pool.
+
+    @ivar connectionFactory: a 0-or-1-argument callable that returns a DB-API
+        connection.  The optional argument can be used as a label for
+        diagnostic purposes.
+
+    @ivar maxConnections: The connection pool will not attempt to make more
+        than this many concurrent connections to the database.
+
+    @type maxConnections: C{int}
     """
 
     reactor = _reactor
 
-    def __init__(self, connectionFactory):
+    def __init__(self, connectionFactory, maxConnections=10):
         super(ConnectionPool, self).__init__()
         self.free = []
         self.busy = []
+        self.waiting = []
         self.connectionFactory = connectionFactory
+        self.maxConnections = maxConnections
 
 
     def startService(self):
@@ -256,27 +330,46 @@ class ConnectionPool(Service, object):
 
         @return: an L{IAsyncTransaction}
         """
+
+        overload = False
         if self.free:
             basetxn = self.free.pop(0)
-        else:
+        elif len(self.busy) < self.maxConnections:
             basetxn = BaseSqlTxn(
                 connectionFactory=self.connectionFactory,
                 reactor=self.reactor
             )
+        else:
+            basetxn = SpooledTxn()
+            overload = True
         txn = PooledSqlTxn(self, basetxn)
-        self.busy.append(txn)
+        if overload:
+            self.waiting.append(txn)
+        else:
+            self.busy.append(txn)
         return txn
 
 
     def reclaim(self, txn):
         """
-        Shuck the L{PooledSqlTxn} wrapper off, and put the BaseSqlTxn into the
-        free list.
+        Shuck the L{PooledSqlTxn} wrapper off, and recycle the underlying
+        BaseSqlTxn into the free list.
         """
         baseTxn = txn._baseTxn
         baseTxn.reset()
-        self.free.append(baseTxn)
         self.busy.remove(txn)
+        if self.waiting:
+            waiting = self.waiting.pop(0)
+            waiting._baseTxn._unspool(baseTxn)
+            # Note: although commit() may already have been called, we don't
+            # have to handle it specially here.  It only unspools after the
+            # deferred returned by commit() has actually been called, and since
+            # that occurs in a callFromThread, that won't happen until the next
+            # iteration of the mainloop, when the _baseTxn is safely correct.
+            waiting._baseTxn = baseTxn
+            self.busy.append(waiting)
+        else:
+            self.free.append(baseTxn)
 
 
 
