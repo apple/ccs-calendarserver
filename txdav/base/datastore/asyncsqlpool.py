@@ -158,6 +158,71 @@ class BaseSqlTxn(object):
 
 
 
+class SpooledTxn(object):
+    """
+    A L{SpooledTxn} is an implementation of L{IAsyncTransaction} which cannot
+    yet actually execute anything, so it spools SQL reqeusts for later
+    execution.  When a L{BaseSqlTxn} becomes available later, it can be
+    unspooled onto that.
+    """
+
+    implements(IAsyncTransaction)
+
+    def __init__(self):
+        self._spool = []
+
+
+    def _enspool(self, cmd, a=(), kw={}):
+        d = Deferred()
+        self._spool.append((d, cmd, a, kw))
+        return d
+
+
+    def _iterDestruct(self):
+        """
+        Iterate the spool list destructively, while popping items from the
+        beginning.  This allows code which executes more SQL in the callback of
+        a Deferred to not interfere with the originally submitted order of
+        commands.
+        """
+        while self._spool:
+            yield self._spool.pop(0)
+
+
+    def _unspool(self, other):
+        """
+        Unspool this transaction onto another transaction.
+
+        @param other: another provider of L{IAsyncTransaction} which will
+            actually execute the SQL statements we have been buffering.
+        """
+        for (d, cmd, a, kw) in self._iterDestruct():
+            self._relayCommand(other, d, cmd, a, kw)
+
+
+    def _relayCommand(self, other, d, cmd, a, kw):
+        """
+        Relay a single command to another transaction.
+        """
+        def cb(nothing):
+            return getattr(other, cmd)(*a, **kw)
+        d.addCallback(cb)
+        d.callback(None)
+
+
+    def execSQL(self, *a, **kw):
+        return self._enspool('execSQL', a, kw)
+
+
+    def commit(self):
+        return self._enspool('commit')
+
+
+    def abort(self):
+        return self._enspool('abort')
+
+
+
 class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
                                      originalAttribute='_baseTxn')):
     """
