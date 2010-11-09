@@ -169,6 +169,19 @@ def directoryFromConfig(config):
     """
 
     #
+    # Setup the Augment Service
+    #
+    augmentClass = namedClass(config.AugmentService.type)
+
+    log.info("Configuring augment service of type: %s" % (augmentClass,))
+
+    try:
+        augment.AugmentService = augmentClass(**config.AugmentService.params)
+    except IOError:
+        log.error("Could not start augment service")
+        raise
+
+    #
     # Setup the Directory
     #
     directories = []
@@ -280,20 +293,6 @@ def getRootResource(config, serviceParent, resources=None):
     webAdminResourceClass        = WebAdminResource
     addressBookResourceClass     = DirectoryAddressBookHomeProvisioningResource
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
-
-    #
-    # Setup the Augment Service
-    #
-    augmentClass = namedClass(config.AugmentService.type)
-
-    log.info("Configuring augment service of type: %s" % (augmentClass,))
-
-    try:
-        augment.AugmentService = augmentClass(**config.AugmentService.params)
-    except IOError:
-        log.error("Could not start augment service")
-        raise
-
 
     directory = directoryFromConfig(config)
 
