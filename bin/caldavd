@@ -111,7 +111,8 @@ while getopts 'hXLu:g:f:T:P:t:p:R:' option; do
         'g') groupname="-g ${OPTARG}"; ;;
         'P') plugin_name="${OPTARG}"; ;;
         't') service_type="-o ProcessType=${OPTARG}"; ;;
-        'p') profile="-o Profiling/Enabled=True -o Profiling/BaseDirectory=${OPTARG}"; ;;
+        'p') twistd_profile="--profiler=cprofile-cpu --profile=${OPTARG}/master.pstats --savestats";
+             profile="-o Profiling/Enabled=True -o Profiling/BaseDirectory=${OPTARG}"; ;;
         'R') twistd_reactor="--reactor=${OPTARG}"; child_reactor="-o Twisted/reactor=${OPTARG}"; ;;
     esac;
 done;
@@ -122,4 +123,4 @@ if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
 export PYTHONPATH
 
-exec "${python}" "${twistdpath}" ${twistd_reactor} ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${errorlogenabled} ${profile} ${child_reactor};
+exec "${python}" "${twistdpath}" ${twistd_profile} ${twistd_reactor} ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${errorlogenabled} ${profile} ${child_reactor};

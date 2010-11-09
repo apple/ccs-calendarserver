@@ -71,6 +71,8 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
 from txdav.base.datastore.subpostgres import PostgresService
 
+import calendarserver.tap.profiling # Imported for side-effect
+
 from calendarserver.tap.util import pgServiceFromConfig
 from txdav.base.datastore.asyncsqlpool import ConnectionPool
 
@@ -1173,7 +1175,7 @@ class TwistdSlaveProcess(object):
                 "--profile=%s/%s.pstats"
                 % (config.Profiling.BaseDirectory, self.getName())
             )
-            args.extend(("--savestats", "--nothotshot"))
+            args.extend(("--savestats", "--profiler", "cprofile-cpu"))
 
         args.extend([
             "--reactor=%s" % (config.Twisted.reactor,),
