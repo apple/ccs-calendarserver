@@ -924,8 +924,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         """
         We create the empty object first then have it initialize itself from the store
         """
-        objectResource = self._objectResourceClass(self, name, uid)
-        objectResource = (yield objectResource.initFromStore())
+        objectResource = (yield self._objectResourceClass.objectWithName(self, name, uid))
         if objectResource:
             self._objects[objectResource.name()] = objectResource
             self._objects[objectResource.uid()] = objectResource
@@ -976,45 +975,24 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             self._objects[name] = None
             returnValue(None)
 
-    def emptyObjectWithName(self, name):
-        """
-        Sometimes we need an "empty" object that we can store meta-data on prior to actually
-        creating it with "real" data.
-        """
-        return self._objectResourceClass(self, name, None)
-
     @inlineCallbacks
-    def createObjectResourceWithName(self, name, component, objectResource=None):
+    def createObjectResourceWithName(self, name, component, metadata=None):
         """
-        As per L{emptyObjectWithName} we may get passed an already created object which we need
-        to use for the one being created in order to preserve any meta-data that might have been
-        set prior to the actual creation of the data.
+        Create a new resource with component data and optional metadata. We create the
+        python object using the metadata then create the actual store object with setComponent. 
         """
-        if name.startswith("."):
-            raise ObjectResourceNameNotAllowedError(name)
-
         if name in self._objects:
             if self._objects[name]:
                 raise ObjectResourceNameAlreadyExistsError()
-        else:
-            rows = yield self._txn.execSQL(
-                "select %(column_RESOURCE_ID)s from %(name)s "
-                "where %(column_RESOURCE_NAME)s = %%s "
-                "and %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
-                [name, self._resourceID]
-            )
-            if rows:
-                raise ObjectResourceNameAlreadyExistsError()
 
-        if objectResource is None:
-            objectResource = self._objectResourceClass(self, name, None)
-        yield objectResource.setComponent(component, inserting=True)
+        objectResource = (yield self._objectResourceClass.create(self, name, component, metadata))
         self._objects[objectResource.name()] = objectResource
         self._objects[objectResource.uid()] = objectResource
 
-        # Note: setComponent triggers a notification, so we don't need to
+        # Note: create triggers a notification when the component is set, so we don't need to
         # call notify( ) here like we do for object removal.
 
+        returnValue(objectResource)
 
     @inlineCallbacks
     def removeObjectResourceWithName(self, name):
@@ -1314,7 +1292,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     _objectTable = None
 
-    def __init__(self, parent, name, uid):
+    def __init__(self, parent, name, uid, metadata=None):
         self._parentCollection = parent
         self._resourceID = None
         self._name = name
@@ -1325,6 +1303,31 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         self._modified = None
         self._objectText = None
 
+
+    @classmethod
+    def objectWithName(cls, parent, name, uid):
+        objectResource = cls(parent, name, uid)
+        return objectResource.initFromStore()
+
+    @classmethod
+    @inlineCallbacks
+    def create(cls, parent, name, component, metadata):
+
+        child = (yield cls.objectWithName(parent, name, None))
+        if child:
+            raise ObjectResourceNameAlreadyExistsError(name)
+
+        if name.startswith("."):
+            raise ObjectResourceNameNotAllowedError(name)
+        
+        objectResource = cls(parent, name, None, metadata)
+        yield objectResource.setComponent(component, inserting=True)
+        yield objectResource._loadPropertyStore()
+
+        # Note: setComponent triggers a notification, so we don't need to
+        # call notify( ) here like we do for object removal.
+        
+        returnValue(objectResource)
 
     @inlineCallbacks
     def initFromStore(self):

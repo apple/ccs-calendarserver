@@ -151,7 +151,7 @@ class AddressBookObject(CommonObjectResource):
     """
     implements(IAddressBookObject)
 
-    def __init__(self, name, addressbook):
+    def __init__(self, name, addressbook, metadata=None):
 
         super(AddressBookObject, self).__init__(name, addressbook)
 

@@ -700,19 +700,11 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
                 return obj
 
 
-    def emptyObjectWithName(self, name):
-        """
-        Sometimes we need an "empty" object that we can store meta-data on prior to actually
-        creating it with "real" data.
-        """
-        return self._objectResourceClass(name, self)
-
     @writeOperation
-    def createObjectResourceWithName(self, name, component, objectResource=None):
+    def createObjectResourceWithName(self, name, component, metadata=None):
         """
-        As per L{emptyObjectWithName} we may get passed an already created object which we need
-        to use for the one being created in order to preserve any meta-data that might have been
-        set prior to the actual creation of the data.
+        Create a new resource with component data and optional metadata. We create the
+        python object using the metadata then create the actual store object with setComponent. 
         """
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
@@ -721,13 +713,14 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         if objectResourcePath.exists():
             raise ObjectResourceNameAlreadyExistsError(name)
 
-        if objectResource is None:
-            objectResource = self._objectResourceClass(name, self)
+        objectResource = self._objectResourceClass(name, self, metadata)
         objectResource.setComponent(component, inserting=True)
         self._cachedObjectResources[name] = objectResource
 
         # Note: setComponent triggers a notification, so we don't need to
         # call notify( ) here like we do for object removal.
+
+        return objectResource
 
 
     @writeOperation
@@ -831,7 +824,7 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
     compareAttributes = '_name _parentCollection'.split()
 
-    def __init__(self, name, parent):
+    def __init__(self, name, parent, metadata=None):
         self._name = name
         self._parentCollection = parent
         self._transaction = parent._transaction

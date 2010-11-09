@@ -1081,14 +1081,7 @@ class CalDAVResource (
         returnValue(False)
 
     @inlineCallbacks
-    def iCalendarForUser(self, request, name=None):
-        if name is not None:
-            # FIXME: this is really the caller's job; why am I looking up sub-
-            # resources?
-            returnValue(
-                (yield (yield request.locateChildResource(self, name)
-                    ).iCalendarForUser(request))
-            )
+    def iCalendarForUser(self, request):
 
         caldata = yield self.iCalendar()
 
@@ -1131,7 +1124,7 @@ class CalDAVResource (
 
 
     @inlineCallbacks
-    def vCard(self, name=None):
+    def vCard(self):
         """
         See L{ICalDAVResource.vCard}.
 
@@ -1143,7 +1136,7 @@ class CalDAVResource (
         methods.
         """
         try:
-            vcard_data = yield self.vCardText(name)
+            vcard_data = yield self.vCardText()
         except InternalDataStoreError:
             returnValue(None)
 

@@ -678,9 +678,9 @@ class CommonTests(CommonCommonTests):
         L{AddressBookObjectNameAlreadyExistsError} if a addressbook object with the
         given name already exists in that addressbook.
         """
-        self.failUnlessFailure(
-            maybeDeferred((yield self.addressbookUnderTest())
-                .createAddressBookObjectWithName,
+        yield self.failUnlessFailure(
+            maybeDeferred(
+                (yield self.addressbookUnderTest()).createAddressBookObjectWithName,
                 "1.vcf", VComponent.fromString(vcard4_text)),
             ObjectResourceNameAlreadyExistsError
         )

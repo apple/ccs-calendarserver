@@ -166,7 +166,7 @@ class AddressBookObject(CommonObjectResource):
 
     implements(IAddressBookObject)
 
-    def __init__(self, addressbook, name, uid):
+    def __init__(self, addressbook, name, uid, metadata=None):
 
         super(AddressBookObject, self).__init__(addressbook, name, uid)
         self._objectTable = ADDRESSBOOK_OBJECT_TABLE

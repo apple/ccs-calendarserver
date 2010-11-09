@@ -533,7 +533,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                     raise NumberOfMatchesWithinLimits(max_number_of_matches)
                 
         else:
-            calendar = (yield calresource.iCalendarForUser(request, name))
+            calendar = (yield child.iCalendarForUser(request))
             
             # The calendar may come back as None if the resource is being changed, or was deleted
             # between our initial index query and getting here. For now we will ignore this error, but in

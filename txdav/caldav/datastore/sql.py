@@ -239,15 +239,17 @@ def _pathToName(path):
 class CalendarObject(CommonObjectResource):
     implements(ICalendarObject)
 
-    def __init__(self, calendar, name, uid):
+    def __init__(self, calendar, name, uid, metadata=None):
 
         super(CalendarObject, self).__init__(calendar, name, uid)
         self._objectTable = CALENDAR_OBJECT_TABLE
         
-        self._access = accessMode_to_type[""]
-        self._schedule_object = False
-        self._schedule_etags = ""
-        self._private_comments = False
+        if metadata is None:
+            metadata = {}
+        self.accessMode = metadata.get("accessMode", "")
+        self.isScheduleObject = metadata.get("isScheduleObject", False)
+        self.scheduleEtags = metadata.get("scheduleEtags", "")
+        self.hasPrivateComment = metadata.get("hasPrivateComment", False)
 
 
     @inlineCallbacks

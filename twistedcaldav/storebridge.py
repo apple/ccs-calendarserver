@@ -28,7 +28,6 @@ from twisted.internet.protocol import Protocol
 from twisted.python.log import err as logDefaultException
 from twisted.python.util import FancyEqMixin
 
-from twext.python import vcomponent
 from twext.python.log import Logger
 
 from twext.web2 import responsecode
@@ -54,6 +53,8 @@ from twistedcaldav.notifications import NotificationCollectionResource, \
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource
 from twistedcaldav.schedule import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
+from twistedcaldav.ical import Component as VCalendar
+from twistedcaldav.ical import Property as VProperty
 from twistedcaldav.vcard import Component as VCard
 
 from txdav.base.propertystore.base import PropertyName
@@ -157,8 +158,11 @@ def requiresPermissions(*permissions, **kw):
 
 class _NewStoreFileMetaDataHelper(object):
 
+    def exists(self):
+        return self._newStoreObject is not None
+
     def name(self):
-        return self._newStoreObject.name() if self._newStoreObject is not None else None
+        return self._newStoreObject.name() if self._newStoreObject is not None else self._name
 
 
     def etag(self):
@@ -192,7 +196,6 @@ class _CommonHomeChildCollectionMixin(object):
     """
 
     _childClass = None
-    _protoChildClass = None
 
     def _initializeWithHomeChild(self, child, home):
         """
@@ -244,23 +247,18 @@ class _CommonHomeChildCollectionMixin(object):
     @inlineCallbacks
     def makeChild(self, name):
         """
-        Create a L{CalendarObjectResource} or L{ProtoCalendarObjectResource}
-        based on a calendar object name.
+        Create a L{CalendarObjectResource} based on a calendar object name.
         """
 
         if self._newStoreObject:
             newStoreObject = yield self._newStoreObject.objectResourceWithName(name)
     
-            if newStoreObject is not None:
-                similar = self._childClass(
-                    newStoreObject,
-                    principalCollections=self._principalCollections
-                )
-            else:
-                similar = self._protoChildClass(
-                    self._newStoreObject, name,
-                    principalCollections=self._principalCollections
-                )
+            similar = self._childClass(
+                newStoreObject,
+                self._newStoreObject,
+                name,
+                principalCollections=self._principalCollections
+            )
     
             self.propagateTransaction(similar)
             returnValue(similar)
@@ -395,6 +393,9 @@ class _CommonHomeChildCollectionMixin(object):
 
         # Actually delete it.
         yield self._newStoreObject.remove()
+        
+        # Re-initialize to get stuff setup again now we have no object
+        self._initializeWithHomeChild(None, self._newStoreParentHome)
 
         # FIXME: handle exceptions, possibly like this:
 
@@ -457,7 +458,6 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         """
 
         self._childClass = CalendarObjectResource
-        self._protoChildClass = ProtoCalendarObjectResource
         super(CalendarCollectionResource, self).__init__(*args, **kw)
         self._initializeWithHomeChild(calendar, home)
         self._name = calendar.name() if calendar else name
@@ -487,8 +487,8 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         # FIXME: uncached: implement cache in the storage layer
 
         # Generate a monolithic calendar
-        calendar = vcomponent.VComponent("VCALENDAR")
-        calendar.addProperty(vcomponent.VProperty("VERSION", "2.0"))
+        calendar = VCalendar("VCALENDAR")
+        calendar.addProperty(VProperty("VERSION", "2.0"))
 
         # Do some optimisation of access control calculation by determining any
         # inherited ACLs outside of the child resource loop and supply those to
@@ -515,7 +515,7 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
                 # Get the access filtered view of the data
                 caldata = yield child.iCalendarTextFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
                 try:
-                    subcalendar = vcomponent.VComponent.fromString(caldata)
+                    subcalendar = VCalendar.fromString(caldata)
                 except ValueError:
                     continue
                 assert subcalendar.name() == "VCALENDAR"
@@ -610,7 +610,6 @@ class StoreScheduleInboxResource(_CommonHomeChildCollectionMixin, ScheduleInboxR
     def __init__(self, *a, **kw):
 
         self._childClass = CalendarObjectResource
-        self._protoChildClass = ProtoCalendarObjectResource
         super(StoreScheduleInboxResource, self).__init__(*a, **kw)
         self.parent.propagateTransaction(self)
 
@@ -778,15 +777,12 @@ class CalendarObjectDropbox(_GetChildHelper):
     @inlineCallbacks
     def getChild(self, name):
         attachment = yield self._newStoreCalendarObject.attachmentWithName(name)
-        if attachment is None:
-            result = ProtoCalendarAttachment(
-                self._newStoreCalendarObject,
-                name,
-                principalCollections=self.principalCollections())
-        else:
-            result = CalendarAttachment(
-                self._newStoreCalendarObject,
-                attachment, principalCollections=self.principalCollections())
+        result = CalendarAttachment(
+            self._newStoreCalendarObject,
+            attachment,
+            name,
+            principalCollections=self.principalCollections()
+        )
         self.propagateTransaction(result)
         returnValue(result)
 
@@ -900,68 +896,13 @@ class CalendarObjectDropbox(_GetChildHelper):
 
 
 
-class ProtoCalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
-
-    def __init__(self, calendarObject, attachmentName, **kw):
-        super(ProtoCalendarAttachment, self).__init__(**kw)
-        self.calendarObject = calendarObject
-        self.attachmentName = attachmentName
-        self._newStoreObject = None
-
-
-    def isCollection(self):
-        return False
-
-
-    def http_DELETE(self, request):
-        return NO_CONTENT
-
-
-    # FIXME: Permissions should dictate a different response, sometimes.
-    def http_GET(self, request):
-        return NOT_FOUND
-
-
-    @requiresPermissions(fromParent=[davxml.Bind()])
-    @inlineCallbacks
-    def http_PUT(self, request):
-        # FIXME: direct test
-        # FIXME: transformation?
-        content_type = request.headers.getHeader("content-type")
-        if content_type is None:
-            content_type = MimeType("application", "octet-stream")
-        t = yield self.calendarObject.createAttachmentWithName(
-            self.attachmentName,
-            content_type,
-        )
-        yield readStream(request.stream, t.write)
-        self._newStoreObject = yield self.calendarObject.attachmentWithName(
-            self.attachmentName
-        )
-        yield t.loseConnection()
-        returnValue(CREATED)
-
-    http_MKCOL = None
-    http_MKCALENDAR = None
-
-
-
 class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
-    def __init__(self, calendarObject, attachment, **kw):
+    def __init__(self, calendarObject, attachment, attachmentName, **kw):
         super(CalendarAttachment, self).__init__(**kw)
         self._newStoreCalendarObject = calendarObject
         self._newStoreAttachment = self._newStoreObject = attachment
-
-
-    def etag(self):
-        # FIXME: test
-        return ETag(self._newStoreAttachment.md5())
-
-
-    def contentType(self):
-        # FIXME: test
-        return self._newStoreAttachment.contentType()
+        self.attachmentName = attachmentName
 
 
     def getChild(self, name):
@@ -969,25 +910,40 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
 
     @requiresPermissions(davxml.WriteContent())
+    @inlineCallbacks
     def http_PUT(self, request):
         # FIXME: direct test
-        # FIXME: refactor with ProtoCalendarAttachment.http_PUT
         # FIXME: CDT test to make sure that permissions are enforced.
 
         content_type = request.headers.getHeader("content-type")
         if content_type is None:
             content_type = MimeType("application", "octet-stream")
 
-        t = self._newStoreAttachment.store(content_type)
-        @inlineCallbacks
-        def done(ignored):
+        if self._newStoreAttachment:
+            t = self._newStoreAttachment.store(content_type)
+            yield readStream(request.stream, t.write)
             yield t.loseConnection()
             returnValue(NO_CONTENT)
-        return readStream(request.stream, t.write).addCallback(done)
+        else:
+            t = yield self._newStoreCalendarObject.createAttachmentWithName(
+                self.attachmentName,
+                content_type,
+            )
+            yield readStream(request.stream, t.write)
+            self._newStoreAttachment = self._newStoreObject = yield self._newStoreCalendarObject.attachmentWithName(
+                self.attachmentName
+            )
+            yield t.loseConnection()
+            returnValue(CREATED)
 
 
     @requiresPermissions(davxml.Read())
     def http_GET(self, request):
+
+        if not self.exists():
+            log.debug("Resource not found: %s" % (self,))
+            raise HTTPError(responsecode.NOT_FOUND)
+
         stream = ProducerStream()
         class StreamProtocol(Protocol):
             def dataReceived(self, data):
@@ -1001,11 +957,14 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
     @requiresPermissions(fromParent=[davxml.Unbind()])
     @inlineCallbacks
     def http_DELETE(self, request):
+        if not self.exists():
+            log.debug("Resource not found: %s" % (self,))
+            raise HTTPError(responsecode.NOT_FOUND)
+
         yield self._newStoreCalendarObject.removeAttachmentWithName(
             self._newStoreAttachment.name()
         )
-        del self._newStoreCalendarObject
-        self.__class__ = ProtoCalendarAttachment
+        self._newStoreAttachment = self._newStoreCalendarObject = None
         returnValue(NO_CONTENT)
 
 
@@ -1031,57 +990,176 @@ class NoParent(CalDAVResource):
     def isCollection(self):
         return False
 
+class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEqMixin):
+
+    _componentFromStream = None
+
+    def __init__(self, storeObject, parentObject, name, *args, **kw):
+        """
+        Construct a L{_CommonObjectResource} from an L{CommonObjectResource}.
+
+        @param storeObject: The storage for the object.
+        @type storeObject: L{txdav.common.CommonObjectResource}
+        """
+        super(_CommonObjectResource, self).__init__(*args, **kw)
+        self._initializeWithObject(storeObject, parentObject)
+        self._name = name
+        self._metadata = {}
+
+
+    def _initializeWithObject(self, storeObject, parentObject):
+        self._newStoreParent = parentObject
+        self._newStoreObject = storeObject
+        self._dead_properties = _NewStorePropertiesWrapper(
+            self._newStoreObject.properties()
+        ) if self._newStoreObject else NonePropertyStore(self)
+
+
+    def isCollection(self):
+        return False
+
+
+    def quotaSize(self, request):
+        return succeed(self._newStoreObject.size())
+
+
+    def text(self):
+        return self._newStoreObject.text()
+
+    def component(self):
+        return self._newStoreObject.component()
+
+    @inlineCallbacks
+    def render(self, request):
+        if not self.exists():
+            log.debug("Resource not found: %s" % (self,))
+            raise HTTPError(responsecode.NOT_FOUND)
+
+        output = yield self.text()
+
+        response = Response(200, {}, output)
+        response.headers.setHeader("content-type", self.contentType())
+        returnValue(response)
+
+
+    @requiresPermissions(fromParent=[davxml.Unbind()])
+    def http_DELETE(self, request):
+        """
+        Override http_DELETE to validate 'depth' header. 
+        """
+        if not self.exists():
+            log.err("Resource not found: %s" % (self,))
+            raise HTTPError(responsecode.NOT_FOUND)
+
+        return self.storeRemove(request, True, request.uri)
+
+
+    @inlineCallbacks
+    def storeStream(self, stream):
+
+        # FIXME: direct tests
+        component = self._componentFromStream(
+            (yield allDataFromStream(stream))
+        )
+        if self._newStoreObject:
+            yield self._newStoreObject.setComponent(component)
+            returnValue(NO_CONTENT)
+        else:
+            self._newStoreObject = (yield self._newStoreParent.createObjectResourceWithName(
+                self.name(), component, self._metadata
+            ))
+
+            # Re-initialize to get stuff setup again now we have no object
+            self._initializeWithObject(self._newStoreObject, self._newStoreParent)
+
+            returnValue(CREATED)
+
+
+    @inlineCallbacks
+    def storeRemove(self, request, implicitly, where):
+        """
+        Delete this object.
+
+        @param request: Unused by this implementation; present for signature
+            compatibility with L{CalendarCollectionResource.storeRemove}.
+
+        @type request: L{twext.web2.iweb.IRequest}
+
+        @return: an HTTP response suitable for sending to a client (or
+            including in a multi-status).
+
+         @rtype: something adaptable to L{twext.web2.iweb.IResponse}
+        """
+
+        # Do delete
+
+        yield self._newStoreParent.removeObjectResourceWithName(
+            self._newStoreObject.name()
+        )
+
+        # Re-initialize to get stuff setup again now we have no object
+        self._initializeWithObject(None, self._newStoreParent)
+
+        returnValue(NO_CONTENT)
+
+
 class _CalendarObjectMetaDataMixin(object):
+    """
+    Dynamically create the required meta-data for an object resource 
+    """
 
     def _get_accessMode(self):
-        return self._newStoreObject.accessMode
+        return self._newStoreObject.accessMode if self._newStoreObject else self._metadata.get("accessMode", None)
 
     def _set_accessMode(self, value):
-        self._newStoreObject.accessMode = value
+        if self._newStoreObject:
+            self._newStoreObject.accessMode = value
+        else:
+            self._metadata["accessMode"] = value
 
     accessMode = property(_get_accessMode, _set_accessMode)
 
     def _get_isScheduleObject(self):
-        return self._newStoreObject.isScheduleObject
+        return self._newStoreObject.isScheduleObject if self._newStoreObject else self._metadata.get("isScheduleObject", None)
 
     def _set_isScheduleObject(self, value):
-        self._newStoreObject.isScheduleObject = value
+        if self._newStoreObject:
+            self._newStoreObject.isScheduleObject = value
+        else:
+            self._metadata["isScheduleObject"] = value
 
     isScheduleObject = property(_get_isScheduleObject, _set_isScheduleObject)
 
     def _get_scheduleEtags(self):
-        return self._newStoreObject.scheduleEtags
+        return self._newStoreObject.scheduleEtags if self._newStoreObject else self._metadata.get("scheduleEtags", None)
 
     def _set_scheduleEtags(self, value):
-        self._newStoreObject.scheduleEtags = value
+        if self._newStoreObject:
+            self._newStoreObject.scheduleEtags = value
+        else:
+            self._metadata["scheduleEtags"] = value
 
     scheduleEtags = property(_get_scheduleEtags, _set_scheduleEtags)
 
     def _get_hasPrivateComment(self):
-        return self._newStoreObject.hasPrivateComment
+        return self._newStoreObject.hasPrivateComment if self._newStoreObject else self._metadata.get("hasPrivateComment", None)
 
     def _set_hasPrivateComment(self, value):
-        self._newStoreObject.hasPrivateComment = value
+        if self._newStoreObject:
+            self._newStoreObject.hasPrivateComment = value
+        else:
+            self._metadata["hasPrivateComment"] = value
 
     hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
 
-class CalendarObjectResource(_NewStoreFileMetaDataHelper, _CalendarObjectMetaDataMixin, CalDAVResource, FancyEqMixin):
+class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource):
     """
     A resource wrapping a calendar object.
     """
 
     compareAttributes = '_newStoreObject'.split()
 
-    def __init__(self, calendarObject, *args, **kw):
-        """
-        Construct a L{CalendarObjectResource} from an L{ICalendarObject}.
-
-        @param calendarObject: The storage for the calendar object.
-        @type calendarObject: L{txdav.caldav.icalendarstore.ICalendarObject}
-        """
-        super(CalendarObjectResource, self).__init__(*args, **kw)
-        self._initializeWithObject(calendarObject)
-
+    _componentFromStream = VCalendar.fromString
 
     @inlineCallbacks
     def inNewTransaction(self, request):
@@ -1101,58 +1179,18 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, _CalendarObjectMetaDat
         homeUID = ownerHome.uid()
         txn = ownerHome.transaction().store().newTransaction(
             "new transaction for " + self._newStoreObject.name())
-        newObject = ((yield (yield (yield txn.calendarHomeWithUID(homeUID))
+        newParent = (yield (yield txn.calendarHomeWithUID(homeUID))
                              .calendarWithName(calendarName))
-                             .calendarObjectWithName(objectName)))
+        newObject = (yield newParent.calendarObjectWithName(objectName))
         request._newStoreTransaction = txn
         request._resourcesByURL.clear()
         request._urlsByResource.clear()
-        self._initializeWithObject(newObject)
+        self._initializeWithObject(newObject, newParent)
         returnValue(txn)
 
 
-    def isCollection(self):
-        return False
-
-
-    def exists(self):
-        # FIXME: Tests
-        return True
-
-
-    def quotaSize(self, request):
-        return succeed(self._newStoreObject.size())
-
-
-    def iCalendarText(self):
-        return self._newStoreObject.iCalendarText()
-
-
-    def iCalendar(self):
-        return self._newStoreObject.component()
-
-
-    def text(self):
-        return self.iCalendarText()
-
-
-    @requiresPermissions(fromParent=[davxml.Unbind()])
-    def http_DELETE(self, request):
-        """
-        Override http_DELETE to validate 'depth' header. 
-        """
-        return self.storeRemove(request, True, request.uri)
-
-
-    @inlineCallbacks
-    def storeStream(self, stream):
-
-        # FIXME: direct tests
-        component = vcomponent.VComponent.fromString(
-            (yield allDataFromStream(stream))
-        )
-        yield self._newStoreObject.setComponent(component)
-        returnValue(NO_CONTENT)
+    iCalendarText = _CommonObjectResource.text
+    iCalendar = _CommonObjectResource.component
 
 
     def validIfScheduleMatch(self, request):
@@ -1234,19 +1272,7 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, _CalendarObjectMetaDat
             if lock:
                 yield lock.acquire()
 
-            storeCalendar = self._newStoreObject._calendar
-            # Do delete
-
-            # FIXME: public attribute please.  Should ICalendar maybe just have
-            # a delete() method?
-            yield storeCalendar.removeCalendarObjectWithName(
-                self._newStoreObject.name()
-            )
-
-            # FIXME: clean this up with a 'transform' method
-            self._newStoreParentCalendar = storeCalendar
-            del self._newStoreObject
-            self.__class__ = ProtoCalendarObjectResource
+            yield super(CalendarObjectResource, self).storeRemove(request, implicitly, where)
 
             # Do scheduling
             if not isinbox and implicitly:
@@ -1265,74 +1291,6 @@ class CalendarObjectResource(_NewStoreFileMetaDataHelper, _CalendarObjectMetaDat
         returnValue(NO_CONTENT)
 
 
-    def _initializeWithObject(self, calendarObject):
-        self._newStoreObject = calendarObject
-        self._dead_properties = _NewStorePropertiesWrapper(
-            self._newStoreObject.properties()
-        )
-
-
-    @classmethod
-    def transform(cls, self, calendarObject):
-        self.__class__ = cls
-        self._initializeWithObject(calendarObject)
-
-
-
-class ProtoCalendarObjectResource(_CalendarObjectMetaDataMixin, CalDAVResource, FancyEqMixin):
-
-    compareAttributes = '_newStoreParentCalendar'.split()
-
-    def __init__(self, parentCalendar, name, *a, **kw):
-        """
-        We need to create an "empty" resource object here because resource meta-data does get
-        changed before the actual calendar data is written. So we need some kind of "container" for
-        that to ensure those meta-data values actually get pushed to the store when the resource is
-        created.
-        """
-        super(ProtoCalendarObjectResource, self).__init__(*a, **kw)
-        self._newStoreParentCalendar = parentCalendar
-        self._newStoreObject = self._newStoreParentCalendar.emptyObjectWithName(name)
-        self._name = name
-
-
-    @inlineCallbacks
-    def storeStream(self, stream):
-        # FIXME: direct tests 
-        component = vcomponent.VComponent.fromString(
-            (yield allDataFromStream(stream))
-        )
-        yield self._newStoreParentCalendar.createCalendarObjectWithName(
-            self.name(), component, objectResource=self._newStoreObject
-        )
-        CalendarObjectResource.transform(
-            self,
-            (yield self._newStoreParentCalendar.calendarObjectWithName(
-                self.name()
-            ))
-        )
-        returnValue(CREATED)
-
-
-    def createSimilarFile(self, name):
-        return None
-
-
-    def isCollection(self):
-        return False
-
-    def exists(self):
-        # FIXME: tests
-        return False
-
-
-    def name(self):
-        return self._name
-
-    def quotaSize(self, request):
-        return succeed(0)
-
-
 class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource):
     """
     Wrapper around a L{txdav.carddav.iaddressbook.IAddressBook}.
@@ -1345,7 +1303,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         """
 
         self._childClass = AddressBookObjectResource
-        self._protoChildClass = ProtoAddressBookObjectResource
         super(AddressBookCollectionResource, self).__init__(*args, **kw)
         self._initializeWithHomeChild(addressbook, home)
         self._name = addressbook.name() if addressbook else name
@@ -1379,163 +1336,16 @@ class GlobalAddressBookCollectionResource(GlobalAddressBookResource, AddressBook
     """
     pass
 
-class AddressBookObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEqMixin):
+class AddressBookObjectResource(_CommonObjectResource):
     """
     A resource wrapping a addressbook object.
     """
 
     compareAttributes = '_newStoreObject'.split()
 
-    def __init__(self, Object, *args, **kw):
-        """
-        Construct a L{AddressBookObjectResource} from an L{IAddressBookObject}.
+    _componentFromStream = VCard.fromString
 
-        @param Object: The storage for the addressbook object.
-        @type Object: L{txdav.carddav.iaddressbookstore.IAddressBookObject}
-        """
-        super(AddressBookObjectResource, self).__init__(*args, **kw)
-        self._initializeWithObject(Object)
-
-
-    def isCollection(self):
-        return False
-
-
-    def exists(self):
-        # FIXME: Tests
-        return True
-
-
-    def quotaSize(self, request):
-        return succeed(self._newStoreObject.size())
-
-
-    def vCardText(self, ignored=None):
-        assert ignored is None, "This is a addressbook object, not a addressbook"
-        return self._newStoreObject.vCardText()
-
-
-    def text(self):
-        return self.vCardText()
-
-
-    @inlineCallbacks
-    def render(self, request):
-        output = yield self.vCardText()
-
-        response = Response(200, {}, output)
-        response.headers.setHeader("content-type", self.contentType())
-        returnValue(response)
-
-
-    @requiresPermissions(fromParent=[davxml.Unbind()])
-    def http_DELETE(self, request):
-        """
-        Override http_DELETE to validate 'depth' header. 
-        """
-        return self.storeRemove(request, True, request.uri)
-
-
-    @inlineCallbacks
-    def storeStream(self, stream):
-
-        # FIXME: direct tests
-        component = VCard.fromString(
-            (yield allDataFromStream(stream))
-        )
-        yield self._newStoreObject.setComponent(component)
-        returnValue(NO_CONTENT)
-
-
-    @inlineCallbacks
-    def storeRemove(self, request, viaRequest, where):
-        """
-        Remove this addressbook object.
-        """
-
-        try:
-
-            storeAddressBook = self._newStoreObject._addressbook
-
-            # Do delete
-
-            # FIXME: public attribute please
-            yield storeAddressBook.removeAddressBookObjectWithName(
-                self._newStoreObject.name()
-            )
-
-            # FIXME: clean this up with a 'transform' method
-            self._newStoreParentAddressBook = storeAddressBook
-            del self._newStoreObject
-            self.__class__ = ProtoAddressBookObjectResource
-
-        except MemcacheLockTimeoutError:
-            raise HTTPError(StatusResponse(CONFLICT, "Resource: %s currently in use on the server." % (where,)))
-
-        returnValue(NO_CONTENT)
-
-
-    def _initializeWithObject(self, Object):
-        self._newStoreObject = Object
-        self._dead_properties = _NewStorePropertiesWrapper(
-            self._newStoreObject.properties()
-        )
-
-
-    @classmethod
-    def transform(cls, self, Object):
-        self.__class__ = cls
-        self._initializeWithObject(Object)
-
-
-
-class ProtoAddressBookObjectResource(CalDAVResource, FancyEqMixin):
-
-    compareAttributes = '_newStoreParentAddressBook'.split()
-
-    def __init__(self, parentAddressBook, name, *a, **kw):
-        super(ProtoAddressBookObjectResource, self).__init__(*a, **kw)
-        self._newStoreParentAddressBook = parentAddressBook
-        self._name = name
-
-
-    @inlineCallbacks
-    def storeStream(self, stream):
-        # FIXME: direct tests 
-        component = VCard.fromString(
-            (yield allDataFromStream(stream))
-        )
-        yield self._newStoreParentAddressBook.createAddressBookObjectWithName(
-            self.name(), component
-        )
-        AddressBookObjectResource.transform(
-            self,
-            (yield self._newStoreParentAddressBook.addressbookObjectWithName(
-                self.name())
-            )
-        )
-        returnValue(CREATED)
-
-
-    def createSimilarFile(self, name):
-        return None
-
-
-    def isCollection(self):
-        return False
-
-
-    def exists(self):
-        # FIXME: tests
-        return False
-
-
-    def name(self):
-        return self._name
-
-    def quotaSize(self, request):
-        # FIXME: tests, workingness
-        return succeed(0)
+    vCardText = _CommonObjectResource.text
 
 
 class _NotificationChildHelper(object):
@@ -1599,13 +1409,7 @@ class _NotificationChildHelper(object):
             yield self._newStoreNotifications.notificationObjectWithName(name)
         )
 
-        if newStoreObject is not None:
-            similar = StoreNotificationObjectFile(newStoreObject, self)
-        else:
-            # FIXME: creation in http_PUT should talk to a specific resource
-            # type; this is the domain of StoreCalendarObjectResource.
-            # similar = ProtoCalendarObjectFile(self._newStoreCalendar, path)
-            similar = ProtoStoreNotificationObjectFile(self._newStoreNotifications, self)
+        similar = StoreNotificationObjectFile(newStoreObject, self)
 
         # FIXME: tests should be failing without this line.
         # Specifically, http_PUT won't be committing its transaction properly.
@@ -1748,7 +1552,7 @@ class StoreProtoNotificationCollectionResource(NotificationCollectionResource):
 
 
 
-class StoreNotificationObjectFile(NotificationResource):
+class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResource):
     """
     A resource wrapping a calendar object.
     """
@@ -1764,33 +1568,15 @@ class StoreNotificationObjectFile(NotificationResource):
         self._initializeWithObject(notificationObject)
 
 
+    def _initializeWithObject(self, notificationObject):
+        self._newStoreObject = notificationObject
+        self._dead_properties = _NewStorePropertiesWrapper(
+            self._newStoreObject.properties()
+        ) if self._newStoreObject else NonePropertyStore(self)
+
+
     def isCollection(self):
         return False
-
-
-    def exists(self):
-        # FIXME: Tests
-        return True
-
-
-    def etag(self):
-        return ETag(self._newStoreObject.md5())
-
-    def contentType(self):
-        return self._newStoreObject.contentType()
-
-    def contentLength(self):
-        return self._newStoreObject.size()
-
-    def lastModified(self):
-        return self._newStoreObject.modified()
-
-    def creationDate(self):
-        return self._newStoreObject.created()
-
-
-    def newStoreProperties(self):
-        return self._newStoreObject.properties()
 
 
     def quotaSize(self, request):
@@ -1805,6 +1591,10 @@ class StoreNotificationObjectFile(NotificationResource):
     @requiresPermissions(davxml.Read())
     @inlineCallbacks
     def http_GET(self, request):
+        if not self.exists():
+            log.err("Resource not found: %s" % (self,))
+            raise HTTPError(responsecode.NOT_FOUND)
+
         returnValue(
             Response(OK, {"content-type":self.contentType()},
                      MemoryStream((yield self.text())))
@@ -1816,6 +1606,10 @@ class StoreNotificationObjectFile(NotificationResource):
         """
         Override http_DELETE to validate 'depth' header. 
         """
+        if not self.exists():
+            log.err("Resource not found: %s" % (self,))
+            raise HTTPError(responsecode.NOT_FOUND)
+
         return self.storeRemove(request, request.uri)
 
 
@@ -1835,50 +1629,9 @@ class StoreNotificationObjectFile(NotificationResource):
                 self._newStoreObject.name()
             )
 
-            # FIXME: clean this up with a 'transform' method
-            self._newStoreParentNotifications = storeNotifications
-            del self._newStoreObject
-            self.__class__ = ProtoStoreNotificationObjectFile
+            self._initializeWithObject(None)
 
         except MemcacheLockTimeoutError:
             raise HTTPError(StatusResponse(CONFLICT, "Resource: %s currently in use on the server." % (where,)))
 
         returnValue(NO_CONTENT)
-
-
-    def _initializeWithObject(self, notificationObject):
-        self._newStoreObject = notificationObject
-        self._dead_properties = _NewStorePropertiesWrapper(
-            self._newStoreObject.properties()
-        )
-
-
-    @classmethod
-    def transform(cls, self, notificationObject):
-        self.__class__ = cls
-        self._initializeWithObject(notificationObject)
-
-
-
-class ProtoStoreNotificationObjectFile(NotificationResource):
-
-    def __init__(self, parentNotifications, *a, **kw):
-        super(ProtoStoreNotificationObjectFile, self).__init__(*a, **kw)
-        self._newStoreParentNotifications = parentNotifications
-
-
-    def isCollection(self):
-        return False
-
-
-    def exists(self):
-        # FIXME: tests
-        return False
-
-
-    def quotaSize(self, request):
-        # FIXME: tests, workingness
-        return succeed(0)
-
-
-

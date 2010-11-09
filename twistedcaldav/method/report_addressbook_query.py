@@ -231,10 +231,9 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                         )
                         for child, child_uri in ok_resources:
                             child_uri_name = child_uri[child_uri.rfind("/") + 1:]
-                            child_path_name = urllib.unquote(child_uri_name)
                             
                             if generate_address_data or not index_query_ok:
-                                vcard = yield addrresource.vCard(child_path_name)
+                                vcard = yield child.vCard()
                                 assert vcard is not None, "vCard %s is missing from address book collection %r" % (child_uri_name, self)
                             else:
                                 vcard = None

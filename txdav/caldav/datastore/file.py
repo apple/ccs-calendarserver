@@ -229,9 +229,16 @@ class CalendarObject(CommonObjectResource):
     """
     implements(ICalendarObject)
 
-    def __init__(self, name, calendar):
+    def __init__(self, name, calendar, metadata=None):
         super(CalendarObject, self).__init__(name, calendar)
         self._attachments = {}
+        
+        if metadata is None:
+            metadata = {}
+        self.accessMode = metadata.get("accessMode", "")
+        self.isScheduleObject = metadata.get("isScheduleObject", False)
+        self.scheduleEtags = metadata.get("scheduleEtags", "")
+        self.hasPrivateComment = metadata.get("hasPrivateComment", False)
 
 
     @property
@@ -366,7 +373,11 @@ class CalendarObject(CommonObjectResource):
         return str(self.properties().get(PropertyName.fromElement(TwistedCalendarAccessProperty), ""))
 
     def _set_accessMode(self, value):
-        self.properties()[PropertyName.fromElement(TwistedCalendarAccessProperty)] = TwistedCalendarAccessProperty(value)
+        pname = PropertyName.fromElement(TwistedCalendarAccessProperty)
+        if value:
+            self.properties()[pname] = TwistedCalendarAccessProperty(value)
+        elif pname in self.properties():
+            del self.properties()[pname]
 
     accessMode = property(_get_accessMode, _set_accessMode)
 
@@ -374,7 +385,11 @@ class CalendarObject(CommonObjectResource):
         return str(self.properties().get(PropertyName.fromElement(TwistedSchedulingObjectResource), "false")) == "true"
 
     def _set_isScheduleObject(self, value):
-        self.properties()[PropertyName.fromElement(TwistedSchedulingObjectResource)] = TwistedSchedulingObjectResource.fromString("true" if value else "false")
+        pname = PropertyName.fromElement(TwistedSchedulingObjectResource)
+        if value:
+            self.properties()[pname] = TwistedSchedulingObjectResource.fromString("true" if value else "false")
+        elif pname in self.properties():
+            del self.properties()[pname]
 
     isScheduleObject = property(_get_isScheduleObject, _set_isScheduleObject)
 

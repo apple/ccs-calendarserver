@@ -20,8 +20,6 @@ CalDAV calendar-query report
 
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_query"]
 
-import urllib
-
 from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse
 
@@ -195,10 +193,9 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 
                 for child, child_uri in ok_resources:
                     child_uri_name = child_uri[child_uri.rfind("/") + 1:]
-                    child_path_name = urllib.unquote(child_uri_name)
                     
                     if generate_calendar_data or not index_query_ok:
-                        calendar = (yield calresource.iCalendarForUser(request, child_path_name))
+                        calendar = (yield child.iCalendarForUser(request))
                         assert calendar is not None, "Calendar %s is missing from calendar collection %r" % (child_uri_name, self)
                     else:
                         calendar = None
