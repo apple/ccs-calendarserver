@@ -198,6 +198,8 @@ class CachingDirectoryService(DirectoryService):
             self.log_error("Could not read from memcache, retrying")
             try:
                 record = self._getMemcacheClient(refresh=True).get(key)
+                if record is not None and isinstance(record, DirectoryRecord):
+                    record.service = self
             except MemcacheError:
                 self.log_error("Could not read from memcache again, giving up")
                 del self.memcacheClient
