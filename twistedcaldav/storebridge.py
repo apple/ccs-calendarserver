@@ -46,7 +46,7 @@ from twext.web2.responsecode import (
 )
 from twext.web2.stream import ProducerStream, readStream, MemoryStream
 
-from twistedcaldav.caldavxml import ScheduleTag, caldav_namespace
+from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.notifications import NotificationCollectionResource, \
     NotificationResource
@@ -1130,6 +1130,17 @@ class _CalendarObjectMetaDataMixin(object):
 
     isScheduleObject = property(_get_isScheduleObject, _set_isScheduleObject)
 
+    def _get_scheduleTag(self):
+        return self._newStoreObject.scheduleTag if self._newStoreObject else self._metadata.get("scheduleTag", None)
+
+    def _set_scheduleTag(self, value):
+        if self._newStoreObject:
+            self._newStoreObject.scheduleTag = value
+        else:
+            self._metadata["scheduleTag"] = value
+
+    scheduleTag = property(_get_scheduleTag, _set_scheduleTag)
+
     def _get_scheduleEtags(self):
         return self._newStoreObject.scheduleEtags if self._newStoreObject else self._metadata.get("scheduleEtags", None)
 
@@ -1206,14 +1217,10 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         header = request.headers.getHeader("If-Schedule-Tag-Match")
         if header:
             # Do "precondition" test
-            matched = False
-            if self.hasDeadProperty(ScheduleTag):
-                scheduletag = self.readDeadProperty(ScheduleTag)
-                matched = (scheduletag == header)
-            if not matched:
+            if (self.scheduleTag != header):
                 log.debug(
                     "If-Schedule-Tag-Match: header value '%s' does not match resource value '%s'" %
-                    (header, scheduletag,))
+                    (header, self.scheduleTag,))
                 raise HTTPError(PRECONDITION_FAILED)
 
 

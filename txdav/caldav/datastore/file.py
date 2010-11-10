@@ -46,9 +46,6 @@ from twext.web2.http_headers import generateContentType
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
-from twistedcaldav.customxml import TwistedCalendarAccessProperty,\
-    TwistedCalendarHasPrivateCommentsProperty, TwistedSchedulingObjectResource,\
-    TwistedScheduleMatchETags
 from twistedcaldav.sharing import InvitesDatabase
 
 from txdav.caldav.icalendarstore import IAttachment
@@ -237,6 +234,7 @@ class CalendarObject(CommonObjectResource):
             metadata = {}
         self.accessMode = metadata.get("accessMode", "")
         self.isScheduleObject = metadata.get("isScheduleObject", False)
+        self.scheduleTag = metadata.get("scheduleTag", "")
         self.scheduleEtags = metadata.get("scheduleEtags", "")
         self.hasPrivateComment = metadata.get("hasPrivateComment", False)
 
@@ -370,51 +368,63 @@ class CalendarObject(CommonObjectResource):
         return self.component().getOrganizer()
 
     def _get_accessMode(self):
-        return str(self.properties().get(PropertyName.fromElement(TwistedCalendarAccessProperty), ""))
+        return str(self.properties().get(PropertyName.fromElement(customxml.TwistedCalendarAccessProperty), ""))
 
     def _set_accessMode(self, value):
-        pname = PropertyName.fromElement(TwistedCalendarAccessProperty)
+        pname = PropertyName.fromElement(customxml.TwistedCalendarAccessProperty)
         if value:
-            self.properties()[pname] = TwistedCalendarAccessProperty(value)
+            self.properties()[pname] = customxml.TwistedCalendarAccessProperty(value)
         elif pname in self.properties():
             del self.properties()[pname]
 
     accessMode = property(_get_accessMode, _set_accessMode)
 
     def _get_isScheduleObject(self):
-        return str(self.properties().get(PropertyName.fromElement(TwistedSchedulingObjectResource), "false")) == "true"
+        return str(self.properties().get(PropertyName.fromElement(customxml.TwistedSchedulingObjectResource), "false")) == "true"
 
     def _set_isScheduleObject(self, value):
-        pname = PropertyName.fromElement(TwistedSchedulingObjectResource)
+        pname = PropertyName.fromElement(customxml.TwistedSchedulingObjectResource)
         if value:
-            self.properties()[pname] = TwistedSchedulingObjectResource.fromString("true" if value else "false")
+            self.properties()[pname] = customxml.TwistedSchedulingObjectResource.fromString("true" if value else "false")
         elif pname in self.properties():
             del self.properties()[pname]
 
     isScheduleObject = property(_get_isScheduleObject, _set_isScheduleObject)
 
+    def _get_scheduleTag(self):
+        return str(self.properties().get(PropertyName.fromElement(caldavxml.ScheduleTag), ""))
+
+    def _set_scheduleTag(self, value):
+        pname = PropertyName.fromElement(caldavxml.ScheduleTag)
+        if value:
+            self.properties()[pname] = caldavxml.ScheduleTag.fromString(value)
+        elif pname in self.properties():
+            del self.properties()[pname]
+
+    scheduleTag = property(_get_scheduleTag, _set_scheduleTag)
+
     def _get_scheduleEtags(self):
-        return tuple([str(etag) for etag in self.properties().get(PropertyName.fromElement(TwistedScheduleMatchETags), TwistedScheduleMatchETags()).children])
+        return tuple([str(etag) for etag in self.properties().get(PropertyName.fromElement(customxml.TwistedScheduleMatchETags), customxml.TwistedScheduleMatchETags()).children])
 
     def _set_scheduleEtags(self, value):
         if value:
             etags = [davxml.GETETag.fromString(etag) for etag in value]
-            self.properties()[PropertyName.fromElement(TwistedScheduleMatchETags)] = TwistedScheduleMatchETags(*etags)
+            self.properties()[PropertyName.fromElement(customxml.TwistedScheduleMatchETags)] = customxml.TwistedScheduleMatchETags(*etags)
         else:
             try:
-                del self.properties()[PropertyName.fromElement(TwistedScheduleMatchETags)]
+                del self.properties()[PropertyName.fromElement(customxml.TwistedScheduleMatchETags)]
             except KeyError:
                 pass
 
     scheduleEtags = property(_get_scheduleEtags, _set_scheduleEtags)
 
     def _get_hasPrivateComment(self):
-        return PropertyName.fromElement(TwistedCalendarHasPrivateCommentsProperty) in self.properties()
+        return PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty) in self.properties()
 
     def _set_hasPrivateComment(self, value):
-        pname = PropertyName.fromElement(TwistedCalendarHasPrivateCommentsProperty)
+        pname = PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty)
         if value:
-            self.properties()[pname] = TwistedCalendarHasPrivateCommentsProperty()
+            self.properties()[pname] = customxml.TwistedCalendarHasPrivateCommentsProperty()
         elif pname in self.properties():
             del self.properties()[pname]
 

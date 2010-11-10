@@ -65,7 +65,7 @@ create table NOTIFICATION (
   NOTIFICATION_UID              varchar(255) not null,
   XML_TYPE                      varchar      not null,
   XML_DATA                      varchar      not null,
-  MD5                           char(32)      not null,
+  MD5                           char(32)     not null,
   CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP),
 
@@ -139,6 +139,7 @@ create table CALENDAR_OBJECT (
   RECURRANCE_MAX       date,        -- maximum date that recurrences have been expanded to.
   ACCESS               integer      default 0 not null,
   SCHEDULE_OBJECT      boolean      default false not null,
+  SCHEDULE_TAG         varchar(36)  default null,
   SCHEDULE_ETAGS       text         default null,
   PRIVATE_COMMENTS     boolean      default false not null,
   MD5                  char(32)     not null,

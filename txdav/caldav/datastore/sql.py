@@ -248,6 +248,7 @@ class CalendarObject(CommonObjectResource):
             metadata = {}
         self.accessMode = metadata.get("accessMode", "")
         self.isScheduleObject = metadata.get("isScheduleObject", False)
+        self.scheduleTag = metadata.get("scheduleTag", "")
         self.scheduleEtags = metadata.get("scheduleEtags", "")
         self.hasPrivateComment = metadata.get("hasPrivateComment", False)
 
@@ -272,6 +273,7 @@ class CalendarObject(CommonObjectResource):
                   character_length(%(column_TEXT)s),
                   %(column_ACCESS)s,
                   %(column_SCHEDULE_OBJECT)s,
+                  %(column_SCHEDULE_TAG)s,
                   %(column_SCHEDULE_ETAGS)s,
                   %(column_PRIVATE_COMMENTS)s,
                   %(column_CREATED)s,
@@ -291,6 +293,7 @@ class CalendarObject(CommonObjectResource):
                   character_length(%(column_TEXT)s),
                   %(column_ACCESS)s,
                   %(column_SCHEDULE_OBJECT)s,
+                  %(column_SCHEDULE_TAG)s,
                   %(column_SCHEDULE_ETAGS)s,
                   %(column_PRIVATE_COMMENTS)s,
                   %(column_CREATED)s,
@@ -308,6 +311,7 @@ class CalendarObject(CommonObjectResource):
              self._size,
              self._access,
              self._schedule_object,
+             self._schedule_tag,
              self._schedule_etags,
              self._private_comments,
              self._created,
@@ -396,10 +400,10 @@ class CalendarObject(CommonObjectResource):
                 """
                 insert into CALENDAR_OBJECT
                 (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE,
-                 ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_ETAGS,
-                 PRIVATE_COMMENTS, MD5)
+                 ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_TAG,
+                 SCHEDULE_ETAGS, PRIVATE_COMMENTS, MD5)
                  values
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 returning
                  RESOURCE_ID,
                  CREATED,
@@ -418,6 +422,7 @@ class CalendarObject(CommonObjectResource):
                     normalizeForIndex(instances.limit) if instances.limit else None,
                     self._access,
                     self._schedule_object,
+                    self._schedule_tag,
                     self._schedule_etags,
                     self._private_comments,
                     self._md5,
@@ -428,10 +433,10 @@ class CalendarObject(CommonObjectResource):
                 """
                 update CALENDAR_OBJECT set
                 (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE,
-                 ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_ETAGS,
-                 PRIVATE_COMMENTS, MD5, MODIFIED)
+                 ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_TAG,
+                 SCHEDULE_ETAGS, PRIVATE_COMMENTS, MD5, MODIFIED)
                  =
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
                 where RESOURCE_ID = %s
                 returning MODIFIED
                 """,
@@ -447,6 +452,7 @@ class CalendarObject(CommonObjectResource):
                     normalizeForIndex(instances.limit) if instances.limit else None,
                     self._access,
                     self._schedule_object,
+                    self._schedule_tag,
                     self._schedule_etags,
                     self._private_comments,
                     self._md5,
@@ -579,6 +585,14 @@ class CalendarObject(CommonObjectResource):
 
     isScheduleObject = property(_get_isScheduleObject, _set_isScheduleObject)
 
+    def _get_scheduleTag(self):
+        return self._schedule_tag
+
+    def _set_scheduleTag(self, value):
+        self._schedule_tag = value
+
+    scheduleTag = property(_get_scheduleTag, _set_scheduleTag)
+
     def _get_scheduleEtags(self):
         return tuple(self._schedule_etags.split(",")) if self._schedule_etags else ()
 
@@ -675,8 +689,6 @@ class CalendarObject(CommonObjectResource):
             (
             ),
             (
-                PropertyName.fromElement(caldavxml.ScheduleTag),
-                PropertyName.fromElement(customxml.TwistedScheduleMatchETags),
                 PropertyName.fromElement(caldavxml.Originator),
                 PropertyName.fromElement(caldavxml.Recipient),
                 PropertyName.fromElement(customxml.ScheduleChanges),

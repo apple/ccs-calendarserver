@@ -127,6 +127,7 @@ CALENDAR_OBJECT_TABLE = {
     "column_UID"                : "ICALENDAR_UID",
     "column_ACCESS"             : "ACCESS",
     "column_SCHEDULE_OBJECT"    : "SCHEDULE_OBJECT",
+    "column_SCHEDULE_TAG"       : "SCHEDULE_TAG",
     "column_SCHEDULE_ETAGS"     : "SCHEDULE_ETAGS",
     "column_PRIVATE_COMMENTS"   : "PRIVATE_COMMENTS",
     "column_MD5"                : "MD5",

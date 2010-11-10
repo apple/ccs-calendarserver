@@ -48,7 +48,7 @@ from twext.web2.dav.http import ErrorResponse
 from txdav.common.icommondatastore import ReservationError
 
 from twistedcaldav.config import config
-from twistedcaldav.caldavxml import ScheduleTag, NoUIDConflict
+from twistedcaldav.caldavxml import NoUIDConflict
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance
 from twistedcaldav.customxml import calendarserver_namespace
@@ -585,14 +585,6 @@ class StoreCalendarObjectResource(object):
     @inlineCallbacks
     def doImplicitScheduling(self):
 
-        # Get any existing schedule-tag property on the resource
-        if self.destination.exists() and self.destination.hasDeadProperty(ScheduleTag):
-            self.scheduletag = self.destination.readDeadProperty(ScheduleTag)
-            if self.scheduletag:
-                self.scheduletag = str(self.scheduletag)
-        else:
-            self.scheduletag = None
-
         data_changed = False
         did_implicit_action = False
 
@@ -763,8 +755,8 @@ class StoreCalendarObjectResource(object):
                     # to another Attendee's REPLY should leave the tag unchanged
                     change_scheduletag = not hasattr(self.request, "doing_attendee_refresh")
 
-            if change_scheduletag or self.scheduletag is None:
-                self.scheduletag = str(uuid.uuid4())
+            if change_scheduletag or not self.destination.scheduleTag:
+                self.destination.scheduleTag = str(uuid.uuid4())
 
 
             # Handle weak etag compatibility
@@ -781,6 +773,7 @@ class StoreCalendarObjectResource(object):
             else:
                 self.destination.scheduleEtags = ()                
         else:
+            self.destination.scheduleTag = ""
             self.destination.scheduleEtags = ()                
 
 
@@ -790,11 +783,7 @@ class StoreCalendarObjectResource(object):
 
         if self.isScheduleResource:
             # Add a response header
-            response.headers.setHeader("Schedule-Tag", self.scheduletag)                
-
-            self.destination.writeDeadProperty(ScheduleTag.fromString(self.scheduletag))
-        else:
-            self.destination.removeDeadProperty(ScheduleTag)                
+            response.headers.setHeader("Schedule-Tag", self.destination.scheduleTag)                
 
         returnValue(response)
 

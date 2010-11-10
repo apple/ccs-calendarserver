@@ -358,6 +358,14 @@ class CalDAVResource (
                 caldavxml.SupportedCalendarData.qname(),
                 customxml.GETCTag.qname(),
             )
+            if config.MaximumAttachmentSize:
+                baseProperties += (
+                    caldavxml.MaxResourceSize.qname(),
+                )
+            if config.MaxAttendeesPerInstance:
+                baseProperties += (
+                    caldavxml.MaxAttendeesPerInstance.qname(),
+                )
 
         if self.isCalendarCollection():
             baseProperties += (
@@ -372,7 +380,16 @@ class CalDAVResource (
                 customxml.GETCTag.qname(),
                 customxml.PubSubXMPPPushKeyProperty.qname(),
             )
+            if config.MaximumAttachmentSize:
+                baseProperties += (
+                    carddavxml.MaxResourceSize.qname(),
+                )
 
+        if hasattr(self, "scheduleTag") and self.scheduleTag:
+            baseProperties += (
+                caldavxml.ScheduleTag.qname(),
+            )
+            
         if config.EnableSyncReport and (davxml.Report(SyncCollection(),) in self.supportedReports()):
             baseProperties += (davxml.SyncToken.qname(),)
             
@@ -422,12 +439,6 @@ class CalDAVResource (
                 return False
             else:
                 return True
-        elif qname in (
-            customxml.GETCTag.qname(),
-            caldavxml.MaxResourceSize.qname(),
-            caldavxml.MaxAttendeesPerInstance.qname(),
-        ):
-            return True
         else:
             return False
 
@@ -580,6 +591,13 @@ class CalDAVResource (
                     str(config.MaxAttendeesPerInstance)
                 ))
 
+        elif qname == caldavxml.ScheduleTag.qname():
+            # CalDAV-scheduling
+            if hasattr(self, "scheduleTag") and self.scheduleTag:
+                returnValue(caldavxml.ScheduleTag.fromString(
+                    self.scheduleTag
+                ))
+
         elif qname == caldavxml.ScheduleCalendarTransp.qname():
             # For backwards compatibility, if the property does not exist we need to create
             # it and default to the old free-busy-set value.
@@ -599,6 +617,13 @@ class CalDAVResource (
                     "version"     : "3.0",
                 }),
             ))
+
+        elif qname == carddavxml.MaxResourceSize.qname():
+            # CardDAV, section 6.2.3
+            if config.MaximumAttachmentSize:
+                returnValue(carddavxml.MaxResourceSize.fromString(
+                    str(config.MaximumAttachmentSize)
+                ))
 
         elif qname == customxml.Invite.qname():
             if config.Sharing.Enabled and (

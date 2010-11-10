@@ -14,14 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.base.propertystore.base import PropertyName
+
+from twext.web2.dav.element.parser import WebDAVDocument
+from twext.web2.dav.resource import TwistedQuotaUsedProperty
+from twistedcaldav.caldavxml import ScheduleTag
 from twistedcaldav.customxml import TwistedCalendarHasPrivateCommentsProperty,\
     TwistedCalendarAccessProperty, TwistedSchedulingObjectResource,\
     TwistedScheduleMatchETags
-import sys
-from twext.web2.dav.element.parser import WebDAVDocument
 from twistedcaldav.ical import Component
-from twext.web2.dav.resource import TwistedQuotaUsedProperty
+from txdav.base.propertystore.base import PropertyName
+import sys
 
 """
 Tool to manage schema upgrade of SQL database during internal development phase as we don't have
@@ -70,6 +72,8 @@ if __name__ == "__main__":
               ACCESS           integer default 0 not null,
             add column
               SCHEDULE_OBJECT  boolean default false not null,
+            add column
+              SCHEDULE_TAG     varchar(36)  default null,
             add column
               SCHEDULE_ETAGS   text    default null,
             add column
@@ -132,6 +136,20 @@ if __name__ == "__main__":
     removeProperty(TwistedSchedulingObjectResource)
     db.commit()
     
+    # ScheduleTag - copy string value into column.
+    print "Move ScheduleTag"
+    for row in rowsForProperty(ScheduleTag):
+        resource_id, value = row
+        prop = WebDAVDocument.fromString(value).root_element
+        query(db, """
+            update CALENDAR_OBJECT
+            set SCHEDULE_TAG = %s
+            where RESOURCE_ID = %s
+        """, (str(prop), resource_id,)
+        )
+    removeProperty(ScheduleTag)
+    db.commit()
+
     # TwistedScheduleMatchETags - copy string-list value into column.
     print "Move TwistedScheduleMatchETags"
     for row in rowsForProperty(TwistedScheduleMatchETags):

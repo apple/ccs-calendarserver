@@ -30,7 +30,6 @@ from twext.web2.http import Response
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
-from twistedcaldav.caldavxml import ScheduleTag
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.resource import isPseudoCalendarCollectionResource,\
@@ -84,10 +83,8 @@ def http_GET(self, request):
                 response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
         
                 # Add Schedule-Tag header if property is present
-                if self.hasDeadProperty(ScheduleTag):
-                    scheduletag = self.readDeadProperty(ScheduleTag)
-                    if scheduletag:
-                        response.headers.setHeader("Schedule-Tag", str(scheduletag))
+                if self.scheduleTag:
+                    response.headers.setHeader("Schedule-Tag", self.scheduleTag)
             
                 returnValue(response)
 
