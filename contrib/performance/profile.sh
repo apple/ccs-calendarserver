@@ -17,10 +17,11 @@ for backend in $BACKENDS; do
   setbackend $backend
   for benchmark in $BENCHMARKS; do
       pushd $SOURCE
-      mkdir -p profiling/$benchmark
-      start 0 -t Single -S profiling/$benchmark
+      mkdir -p profiling/$backend/$benchmark
+      start 0 -t Single -S profiling/$backend/$benchmark
       popd
-      sudo ./run.sh ./benchmark --label r$REV-$backend $benchmark
+      # Chances are sudo will throw out PYTHONPATH unless we tell it not to.
+      sudo PYTHONPATH=$PYTHONPATH ./benchmark --label r$REV-$backend $benchmark
       pushd $SOURCE
       stop
       popd

@@ -10,6 +10,8 @@ BACKENDS="filesystem postgresql"
 # backend, and PID files will be discovered beneath it.
 SOURCE=~/Projects/CalendarServer/trunk
 
+PIDFILE=$SOURCE/data/Logs/caldavd.pid
+
 # Names of benchmarks we can run.
 BENCHMARKS="event_move event_delete_attendee event_add_attendee event_change_date event_change_summary event_delete vfreebusy event"
 
@@ -42,11 +44,9 @@ function start() {
   NUM_INSTANCES=$1
   shift
   ./run -d -n $*
-  while :; do
+  while sleep 2; do
     instances=($SOURCE/data/Logs/*instance*)
-    if [ "${#instances[*]}" -ne "$NUM_INSTANCES" ]; then
-      sleep 2
-    else
+    if [ "${#instances[*]}" -eq "$NUM_INSTANCES" ]; then
       break
     fi
   done
@@ -56,7 +56,14 @@ function start() {
 # it has exited.
 function stop() {
   ./run -k || true
-  while [ -e ./data/Logs/caldavd.pid ]; do
+  while :; do
+      if [ ! -e $PIDFILE ]; then
+	  break
+      fi
+      pid=$(cat $PIDFILE)
+      if $(kill -0 $pid); then
+	  break
+      fi
     echo "Waiting for server to exit..."
     sleep 1
   done
