@@ -346,11 +346,18 @@ class Component (object):
         if self.name() != "VCARD": raise InvalidVCardDataError("Not a vcard")
 
         version = self.propertyValue("VERSION")
-        if version != "3.0": raise InvalidVCardDataError("Not a version 2.0 vCard (version=%s)" % (version,))
+        if version != "3.0":
+            raise InvalidVCardDataError("Not a version 2.0 vCard (version=%s)" % (version,))
 
         uid = self.propertyValue("UID")
         if uid is None:
             raise InvalidVCardDataError("All vCards must have UIDs")
+        
+        # Control character check - only HTAB, CR, LF allowed for characters in the range 0x00-0x1F
+        s = str(self)
+        if len(s.translate(None, "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0B\x0C\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F")) != len(s):
+            raise InvalidVCardDataError("vCard contains illegal control character")
+        
 
     def transformAllFromNative(self):
         self._vobject = self._vobject.transformFromNative()
