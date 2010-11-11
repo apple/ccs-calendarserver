@@ -312,7 +312,7 @@ class BaseServiceMakerTests(TestCase):
 
         self.config.ServerRoot     = self.mktemp()
         self.config.ConfigRoot     = "config"
-        self.config.ProcessType    = "Slave"
+        self.config.ProcessType    = "Single"
         self.config.SSLPrivateKey  = pemFile
         self.config.SSLCertificate = pemFile
         self.config.EnableSSL      = True
@@ -360,7 +360,7 @@ class BaseServiceMakerTests(TestCase):
         service = self.makeService()
 
         # FIXME: should at least use service name, not index
-        return service.services[2].args[1].protocolArgs["requestFactory"]
+        return service.getServiceNamed("HTTP").protocolArgs["requestFactory"]
 
 
 
