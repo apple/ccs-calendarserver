@@ -842,18 +842,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                 monitor.addProcess('memcached-%s' % (name,), memcachedArgv,
                                    env=PARENT_ENVIRONMENT)
 
-        ssvc = self.storageService(monitor, uid, gid)
-        ssvc.setServiceParent(s)
-
-        if isinstance(ssvc, PostgresService):
-            # TODO: better way of doing this conditional.  Look at the config
-            # again, possibly?
-            pool = ConnectionPool(ssvc.produceConnection)
-            pool.setServiceParent(s)
-            dispenser = ConnectionDispenser(pool)
-        else:
-            dispenser = None
-
         #
         # Calculate the number of processes to spawn
         #
@@ -908,12 +896,8 @@ class CalDAVServiceMaker (LoggingMixIn):
                         sock = _openSocket(bindAddress, int(portNum))
                         inheritSSLFDs.append(sock.fileno())
 
-        self.addSlaveProcesses(
-            monitor, dispenser, cl.dispatcher, options["config"],
-            inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs
-        )
-
-
+        # Start listening on the stats socket, for administrators to inspect
+        # the current stats on the server.
         stats = CalDAVStatisticsServer(logger)
         statsService = GroupOwnedUNIXServer(
             gid, config.GlobalStatsSocket, stats, mode=0440
@@ -921,6 +905,30 @@ class CalDAVServiceMaker (LoggingMixIn):
         statsService.setName("stats")
         statsService.setServiceParent(s)
 
+        # Finally, let's get the real show on the road.  Create a service that
+        # will spawn all of our worker processes when started, and wrap that
+        # service in zero to two necessary layers before it's started: first,
+        # the service which spawns a subsidiary database (if that's necessary,
+        # and we don't have an external, already-running database to connect
+        # to), and second, the service which does an upgrade from the
+        # filesystem to the database (if that's necessary, and there is
+        # filesystem data in need of upgrading).
+        ssvc = self.storageService(monitor, uid, gid)
+        ssvc.setServiceParent(s)
+
+        if isinstance(ssvc, PostgresService):
+            # TODO: better way of doing this conditional.  Look at the config
+            # again, possibly?
+            pool = ConnectionPool(ssvc.produceConnection)
+            pool.setServiceParent(s)
+            dispenser = ConnectionDispenser(pool)
+        else:
+            dispenser = None
+
+        self.addSlaveProcesses(
+            monitor, dispenser, cl.dispatcher, options["config"],
+            inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs
+        )
         return s
 
 
