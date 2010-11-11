@@ -36,7 +36,8 @@ pgdb = namedAny("pgdb")
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
-from txdav.base.datastore.asyncsqlpool import BaseSqlTxn
+from txdav.base.datastore.dbapiclient import DBAPIConnector
+from txdav.base.datastore.dbapiclient import postgresPreflight
 
 from twisted.application.service import MultiService
 
@@ -45,84 +46,6 @@ log = Logger()
 # This appears in the postgres log to indicate that it is accepting
 # connections.
 _MAGIC_READY_COOKIE = "database system is ready to accept connections"
-
-
-class DiagnosticCursorWrapper(object):
-    """
-    Diagnostic wrapper around a DB-API 2.0 cursor for debugging connection
-    status.
-    """
-
-    def __init__(self, realCursor, connectionWrapper):
-        self.realCursor = realCursor
-        self.connectionWrapper = connectionWrapper
-
-
-    @property
-    def rowcount(self):
-        return self.realCursor.rowcount
-
-
-    @property
-    def description(self):
-        return self.realCursor.description
-
-
-    def execute(self, sql, args=()):
-        self.connectionWrapper.state = 'executing %r' % (sql,)
-# Use log.debug
-#        sys.stdout.write(
-#            "Really executing SQL %r in thread %r\n" %
-#            ((sql % tuple(args)), thread.get_ident())
-#        )
-        self.realCursor.execute(sql, args)
-
-
-    def close(self):
-        self.realCursor.close()
-
-
-    def fetchall(self):
-        results = self.realCursor.fetchall()
-# Use log.debug
-#        sys.stdout.write(
-#            "Really fetching results %r thread %r\n" %
-#            (results, thread.get_ident())
-#        )
-        return results
-
-
-
-class DiagnosticConnectionWrapper(object):
-    """
-    Diagnostic wrapper around a DB-API 2.0 connection for debugging connection
-    status.
-    """
-
-    def __init__(self, realConnection, label):
-        self.realConnection = realConnection
-        self.label = label
-        self.state = 'idle (start)'
-
-
-    def cursor(self):
-        return DiagnosticCursorWrapper(self.realConnection.cursor(), self)
-
-
-    def close(self):
-        self.realConnection.close()
-        self.state = 'closed'
-
-
-    def commit(self):
-        self.realConnection.commit()
-        self.state = 'idle (after commit)'
-
-
-    def rollback(self):
-        self.realConnection.rollback()
-        self.state = 'idle (after rollback)'
-
 
 
 class _PostgresMonitor(ProcessProtocol):
@@ -231,23 +154,6 @@ class CapturingProcessProtocol(ProcessProtocol):
 
 
 
-class UnpooledSqlTxn(BaseSqlTxn):
-    """
-    Unpooled variant (releases thread immediately on commit or abort),
-    currently exclusively for testing.
-    """
-    def commit(self):
-        result = super(UnpooledSqlTxn, self).commit()
-        self.stop()
-        return result
-
-    def abort(self):
-        result = super(UnpooledSqlTxn, self).abort()
-        self.stop()
-        return result
-
-
-
 class PostgresService(MultiService):
 
     def __init__(self, dataStoreDirectory, subServiceFactory,
@@ -335,10 +241,7 @@ class PostgresService(MultiService):
             self.shutdownDeferred.callback(None)
 
 
-    def produceConnection(self, label="<unlabeled>", databaseName=None):
-        """
-        Produce a DB-API 2.0 connection pointed at this database.
-        """
+    def _connectorFor(self, databaseName=None):
         if databaseName is None:
             databaseName = self.databaseName
 
@@ -347,41 +250,14 @@ class PostgresService(MultiService):
                 pwd.getpwuid(self.uid).pw_name)
         else:
             dsn = "%s:dbname=%s" % (self.host, databaseName)
-        connection = pgdb.connect(dsn)
-
-        w = DiagnosticConnectionWrapper(connection, label)
-        c = w.cursor()
-
-        # Turn on standard conforming strings.  This option is _required_ if
-        # you want to get correct behavior out of parameter-passing with the
-        # pgdb module.  If it is not set then the server is potentially
-        # vulnerable to certain types of SQL injection.
-        c.execute("set standard_conforming_strings=on")
-
-        # Abort any second that takes more than 30 seconds (30000ms) to
-        # execute. This is necessary as a temporary workaround since it's
-        # hypothetically possible that different database operations could
-        # block each other, while executing SQL in the same process (in the
-        # same thread, since SQL executes in the main thread now).  It's
-        # preferable to see some exceptions while we're in this state than to
-        # have the entire worker process hang.
-        c.execute("set statement_timeout=30000")
-
-        # pgdb (as per DB-API 2.0) automatically puts the connection into a
-        # 'executing a transaction' state when _any_ statement is executed on
-        # it (even these not-touching-any-data statements); make sure to commit
-        # first so that the application sees a fresh transaction, and the
-        # connection can safely be pooled without executing anything on it.
-        w.commit()
-        c.close()
-        return w
+        return DBAPIConnector(pgdb, postgresPreflight, dsn)
 
 
-    def produceLocalTransaction(self, label="<unlabeled>"):
+    def produceConnection(self, label="<unlabeled>", databaseName=None):
         """
-        Create a L{IAsyncTransaction} based on a thread in the current process.
+        Produce a DB-API 2.0 connection pointed at this database.
         """
-        return UnpooledSqlTxn(lambda : self.produceConnection(label))
+        return self._connectorFor(databaseName).connect(label)
 
 
     def ready(self):

@@ -34,7 +34,7 @@ from twisted.internet.protocol import ServerFactory
 from twisted.internet.defer import Deferred
 from twisted.internet.task import Clock
 
-from twisted.application.service import IService
+from twisted.application.service import IService, IServiceCollection
 from twisted.application import internet
 
 from twext.web2.dav import auth
@@ -114,8 +114,10 @@ class InMemoryProcessSpawner(Clock):
         if self.processTransports:
             return self.processTransports.pop(0)
         else:
-            print 'wth', self.calls
-            raise AssertionError("There were no process transports available.")
+            raise AssertionError(
+                "There were no process transports available.  Calls: " +
+                repr(self.calls)
+            )
 
 
     def spawnProcess(self, processProtocol, executable, args=(), env={},
@@ -310,9 +312,10 @@ class BaseServiceMakerTests(TestCase):
             "type": "twistedcaldav.directory.augment.AugmentXMLDB"
         }
 
+        self.config.UseDatabase    = False
         self.config.ServerRoot     = self.mktemp()
         self.config.ConfigRoot     = "config"
-        self.config.ProcessType    = "Slave"
+        self.config.ProcessType    = "Single"
         self.config.SSLPrivateKey  = pemFile
         self.config.SSLCertificate = pemFile
         self.config.EnableSSL      = True
@@ -334,15 +337,18 @@ class BaseServiceMakerTests(TestCase):
 
         self.writeConfig()
 
+
     def tearDown(self):
         config.setDefaults(DEFAULT_CONFIG)
         config.reset()
+
 
     def writeConfig(self):
         """
         Flush self.config out to self.configFile
         """
         writePlist(self.config, self.configFile)
+
 
     def makeService(self):
         """
@@ -353,14 +359,36 @@ class BaseServiceMakerTests(TestCase):
 
         return CalDAVServiceMaker().makeService(self.options)
 
+
     def getSite(self):
         """
-        Get the server.Site from the service by finding the HTTPFactory
+        Get the server.Site from the service by finding the HTTPFactory.
         """
         service = self.makeService()
+        for listeningService in inServiceHierarchy(
+                service,
+                # FIXME: need a better predicate for 'is this really an HTTP
+                # factory' but this works for now.
+                # NOTE: in a database 'single' configuration, PostgresService
+                # will prevent the HTTP services from actually getting added to
+                # the hierarchy until the hierarchy has started.
+                lambda x: hasattr(x, 'args')
+            ):
+            return listeningService.args[1].protocolArgs['requestFactory']
+        raise RuntimeError("No site found.")
 
-        # FIXME: should at least use service name, not index
-        return service.services[2].args[1].protocolArgs["requestFactory"]
+
+
+def inServiceHierarchy(svc, predicate):
+    """
+    Find services in the service collection which satisfy the given predicate.
+    """
+    for subsvc in svc.services:
+        if IServiceCollection.providedBy(subsvc):
+            for value in inServiceHierarchy(subsvc, predicate):
+                yield value
+        if predicate(subsvc):
+            yield subsvc
 
 
 
@@ -449,6 +477,24 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
                 "Wrong mode on %s: %s" % (serviceName, oct(m))
             )
             self.assertEquals(socketService.gid, alternateGroup)
+
+
+    def test_processMonitor(self):
+        """
+        In the master, there should be exactly one
+        L{DelayedStartupProcessMonitor} in the service hierarchy so that it
+        will be started by startup.
+        """
+        self.config["ProcessType"] = "Combined"
+        self.writeConfig()
+        self.assertEquals(
+            1,
+            len(
+                list(inServiceHierarchy(
+                    self.makeService(),
+                    lambda x: isinstance(x, DelayedStartupProcessMonitor)))
+            )
+        )
 
 
 

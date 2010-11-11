@@ -158,11 +158,16 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
         Py_DECREF(iterator);
         iterator = NULL;
 
-        /* Allocate the buffer for all of the ancillary elements. */
-        message_header.msg_control = malloc(all_data_len);
-        if (!message_header.msg_control) {
-            PyErr_NoMemory();
-            return NULL;
+        /* Allocate the buffer for all of the ancillary elements, if we have
+         * any.  */
+        if (all_data_len) {
+            message_header.msg_control = malloc(all_data_len);
+            if (!message_header.msg_control) {
+                PyErr_NoMemory();
+                return NULL;
+            }
+        } else {
+            message_header.msg_control = NULL;
         }
         message_header.msg_controllen = all_data_len;
 

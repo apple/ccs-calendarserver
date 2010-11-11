@@ -69,14 +69,13 @@ from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
-from txdav.base.datastore.subpostgres import PostgresService
-
-import calendarserver.tap.profiling # Imported for side-effect
 
 from calendarserver.tap.util import pgServiceFromConfig
 from txdav.base.datastore.asyncsqlpool import ConnectionPool
 
 from txdav.base.datastore.asyncsqlpool import ConnectionPoolConnection
+from txdav.base.datastore.dbapiclient import DBAPIConnector
+from txdav.base.datastore.dbapiclient import postgresPreflight
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -89,6 +88,8 @@ from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource, computeProcessCount
 from calendarserver.tap.util import ConnectionWithPeer
+from calendarserver.tap.util import storeFromConfig
+from calendarserver.tap.util import transactionFactoryFromFD
 from calendarserver.tools.util import checkDirectory
 
 try:
@@ -112,6 +113,17 @@ def getid(uid, gid):
     if gid is not None:
         gid = gidFromString(gid)
     return (uid, gid)
+
+
+PARENT_ENVIRONMENT = {
+    "PATH": os.environ.get("PATH", ""),
+    "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+    "LD_LIBRARY_PATH": os.environ.get("LD_LIBRARY_PATH", ""),
+    "DYLD_LIBRARY_PATH": os.environ.get("DYLD_LIBRARY_PATH", ""),
+}
+
+if "KRB5_KTNAME" in os.environ:
+    PARENT_ENVIRONMENT["KRB5_KTNAME"] = os.environ["KRB5_KTNAME"]
 
 class CalDAVStatisticsProtocol (Protocol):
 
@@ -380,6 +392,110 @@ class GroupOwnedUNIXServer(UNIXServer, object):
 
 
 
+class SlaveSpawnerService(Service):
+    """
+    Service to add all Python subprocesses that need to do work to a
+    L{DelayedStartupProcessMonitor}:
+
+        - regular slave processes (CalDAV workers)
+        - task sidecar
+        - notifier
+        - mail gateway
+    """
+
+    def __init__(self, maker, monitor, dispenser, dispatcher, configPath,
+                 inheritFDs=None, inheritSSLFDs=None):
+        self.maker = maker
+        self.monitor = monitor
+        self.dispenser = dispenser
+        self.dispatcher = dispatcher
+        self.configPath = configPath
+        self.inheritFDs = inheritFDs
+        self.inheritSSLFDs = inheritSSLFDs
+
+
+    def startService(self):
+        for slaveNumber in xrange(0, config.MultiProcess.ProcessCount):
+            if config.UseMetaFD:
+                extraArgs = dict(metaSocket=self.dispatcher.addSocket())
+            else:
+                extraArgs = dict(inheritFDs=self.inheritFDs,
+                                 inheritSSLFDs=self.inheritSSLFDs)
+            if self.dispenser is not None:
+                extraArgs.update(ampSQLDispenser=self.dispenser)
+            process = TwistdSlaveProcess(
+                sys.argv[0], self.maker.tapname, self.configPath, slaveNumber,
+                config.BindAddresses, **extraArgs
+            )
+            self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
+
+
+        if (
+            config.Notifications.Enabled and
+            config.Notifications.InternalNotificationHost == "localhost"
+        ):
+            self.maker.log_info("Adding notification service")
+
+            notificationsArgv = [
+                sys.executable,
+                sys.argv[0],
+            ]
+            if config.UserName:
+                notificationsArgv.extend(("-u", config.UserName))
+            if config.GroupName:
+                notificationsArgv.extend(("-g", config.GroupName))
+            notificationsArgv.extend((
+                "--reactor=%s" % (config.Twisted.reactor,),
+                "-n", self.maker.notifierTapName,
+                "-f", self.configPath,
+            ))
+            self.monitor.addProcess("notifications", notificationsArgv,
+                env=PARENT_ENVIRONMENT)
+
+        if (
+            config.Scheduling.iMIP.Enabled and
+            config.Scheduling.iMIP.MailGatewayServer == "localhost"
+        ):
+            self.maker.log_info("Adding mail gateway service")
+
+            mailGatewayArgv = [
+                sys.executable,
+                sys.argv[0],
+            ]
+            if config.UserName:
+                mailGatewayArgv.extend(("-u", config.UserName))
+            if config.GroupName:
+                mailGatewayArgv.extend(("-g", config.GroupName))
+            mailGatewayArgv.extend((
+                "--reactor=%s" % (config.Twisted.reactor,),
+                "-n", self.maker.mailGatewayTapName,
+                "-f", self.configPath,
+            ))
+
+            self.monitor.addProcess("mailgateway", mailGatewayArgv,
+                               env=PARENT_ENVIRONMENT)
+
+        self.maker.log_info("Adding task service")
+        taskArgv = [
+            sys.executable,
+            sys.argv[0],
+        ]
+        if config.UserName:
+            taskArgv.extend(("-u", config.UserName))
+        if config.GroupName:
+            taskArgv.extend(("-g", config.GroupName))
+        taskArgv.extend((
+            "--reactor=%s" % (config.Twisted.reactor,),
+            "-n", "caldav_task",
+            "-f", self.configPath,
+        ))
+
+        self.monitor.addProcess(
+            "caldav_task", taskArgv, env=PARENT_ENVIRONMENT
+        )
+
+
+
 class CalDAVServiceMaker (LoggingMixIn):
     implements(IPlugin, IServiceMaker)
 
@@ -502,6 +618,26 @@ class CalDAVServiceMaker (LoggingMixIn):
         L{makeService_Combined}, which does the work of actually handling
         CalDAV and CardDAV requests.
         """
+        if config.DBAMPFD:
+            txnFactory = transactionFactoryFromFD(int(config.DBAMPFD))
+        elif not config.UseDatabase:
+            txnFactory = None
+        else:
+            raise UsageError(
+                "trying to use DB in slave, but no connection info from parent"
+            )
+        store = storeFromConfig(config, txnFactory)
+        return self.requestProcessingService(options, store)
+
+
+    def requestProcessingService(self, options, store):
+        """
+        Make a service that will actually process HTTP requests.
+
+        This may be a 'Slave' service, which runs as a worker subprocess of the
+        'Combined' configuration, or a 'Single' service, which is a stand-alone
+        process that answers CalDAV/CardDAV requests by itself.
+        """
         #
         # Change default log level to "info" as its useful to have
         # that during startup
@@ -524,7 +660,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 id = config.ControlSocket
                 self.log_info("Logging via AF_UNIX: %s" % (id,))
             else:
-                mode = "IF_INET"
+                mode = "AF_INET"
                 id = int(config.ControlPort)
                 self.log_info("Logging via AF_INET: %d" % (id,))
 
@@ -542,12 +678,13 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         service = CalDAVService(logObserver)
 
-        rootResource = getRootResource(config, service, additional)
+        rootResource = getRootResource(config, store, additional)
 
         underlyingSite = Site(rootResource)
         requestFactory = underlyingSite
 
         if config.RedirectHTTPToHTTPS:
+            self.log_info("Redirecting to HTTPS port %s" % (config.SSLPort,))
             def requestFactory(*args, **kw):
                 return SSLRedirectRequest(site=underlyingSite, *args, **kw)
 
@@ -569,29 +706,21 @@ class CalDAVServiceMaker (LoggingMixIn):
             # Inherit sockets to call accept() on them individually.
 
             if config.EnableSSL:
-                for fd in config.InheritSSLFDs:
-                    fd = int(fd)
-
+                for fdAsStr in config.InheritSSLFDs:
                     try:
                         contextFactory = self.createContextFactory()
                     except SSLError, e:
                         log.error("Unable to set up SSL context factory: %s" % (e,))
                     else:
                         MaxAcceptSSLServer(
-                            fd, httpFactory,
+                            int(fdAsStr), httpFactory,
                             contextFactory,
                             backlog=config.ListenBacklog,
                             inherit=True
                         ).setServiceParent(service)
-
-            for fd in config.InheritFDs:
-                fd = int(fd)
-
-                if config.RedirectHTTPToHTTPS:
-                    self.log_info("Redirecting to HTTPS port %s" % (config.SSLPort,))
-
+            for fdAsStr in config.InheritFDs:
                 MaxAcceptTCPServer(
-                    fd, httpFactory,
+                    int(fdAsStr), httpFactory,
                     backlog=config.ListenBacklog,
                     inherit=True
                 ).setServiceParent(service)
@@ -599,8 +728,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         elif config.MetaFD:
             # Inherit a single socket to receive accept()ed connections via
             # recvmsg() and SCM_RIGHTS.
-
-            fd = int(config.MetaFD)
 
             try:
                 contextFactory = self.createContextFactory()
@@ -612,31 +739,12 @@ class CalDAVServiceMaker (LoggingMixIn):
                 contextFactory = None
 
             ReportingHTTPService(
-                requestFactory, fd, contextFactory
+                requestFactory, int(config.MetaFD), contextFactory
             ).setServiceParent(service)
 
         else: # Not inheriting, therefore we open our own:
-
-            if not config.BindAddresses:
-                config.BindAddresses = [""]
-
-            for bindAddress in config.BindAddresses:
-                if config.BindHTTPPorts:
-                    if config.HTTPPort == 0:
-                        raise UsageError(
-                            "HTTPPort required if BindHTTPPorts is not empty"
-                        )
-                elif config.HTTPPort != 0:
-                        config.BindHTTPPorts = [config.HTTPPort]
-
-                if config.BindSSLPorts:
-                    if config.SSLPort == 0:
-                        raise UsageError(
-                            "SSLPort required if BindSSLPorts is not empty"
-                        )
-                elif config.SSLPort != 0:
-                    config.BindSSLPorts = [config.SSLPort]
-
+            for bindAddress in self._allBindAddresses():
+                self._validatePortConfig()
                 if config.EnableSSL:
                     for port in config.BindSSLPorts:
                         self.log_info("Adding SSL server at %s:%s"
@@ -658,20 +766,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                             httpsService.setServiceParent(service)
 
                 for port in config.BindHTTPPorts:
-
-                    if config.RedirectHTTPToHTTPS:
-                        #
-                        # Redirect non-SSL ports to the configured SSL port.
-                        #
-                        self.log_info("Redirecting HTTP port %s to HTTPS port %s"
-                            % (port, config.SSLPort)
-                        )
-                    else:
-                        self.log_info(
-                            "Adding server at %s:%s"
-                            % (bindAddress, port)
-                        )
-
                     MaxAcceptTCPServer(
                         int(port), httpFactory,
                         interface=bindAddress,
@@ -682,8 +776,44 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         # Change log level back to what it was before
         setLogLevelForNamespace(None, oldLogLevel)
-
         return service
+
+
+    def _validatePortConfig(self):
+        """
+        If BindHTTPPorts is specified, HTTPPort must also be specified to
+        indicate which is the preferred port (the one to be used in URL
+        generation, etc).  If only HTTPPort is specified, BindHTTPPorts should
+        be set to a list containing only that port number.  Similarly for
+        BindSSLPorts/SSLPort.
+
+        @raise UsageError: if configuration is not valid.
+        """
+        if config.BindHTTPPorts:
+            if config.HTTPPort == 0:
+                raise UsageError(
+                    "HTTPPort required if BindHTTPPorts is not empty"
+                )
+        elif config.HTTPPort != 0:
+            config.BindHTTPPorts = [config.HTTPPort]
+        if config.BindSSLPorts:
+            if config.SSLPort == 0:
+                raise UsageError(
+                    "SSLPort required if BindSSLPorts is not empty"
+                )
+        elif config.SSLPort != 0:
+            config.BindSSLPorts = [config.SSLPort]
+
+
+    def _allBindAddresses(self):
+        """
+        An empty array for the config value of BindAddresses should be
+        equivalent a BindAddresses with a single empty string, meaning "bind
+        everything".
+        """
+        if not config.BindAddresses:
+            config.BindAddresses = [""]
+        return config.BindAddresses
 
 
     def scheduleOnDiskUpgrade(self):
@@ -703,10 +833,12 @@ class CalDAVServiceMaker (LoggingMixIn):
         """
         self.scheduleOnDiskUpgrade()
 
-        return self.storageService(self.makeService_Slave(options))
+        def slaveSvcCreator(pool, store):
+            return self.requestProcessingService(options, store)
+        return self.storageService(slaveSvcCreator)
 
 
-    def storageService(self, mainService, uid=None, gid=None):
+    def storageService(self, createMainService, uid=None, gid=None):
         """
         If necessary, create a service to be started used for storage; for
         example, starting a database backend.  This service will then start the
@@ -716,12 +848,13 @@ class CalDAVServiceMaker (LoggingMixIn):
         standalone port-binding until the backing for the selected data store
         implementation is ready to process requests.
 
-        @param mainService: This is the service that will be doing the main
+        @param createMainService: This is the service that will be doing the main
             work of the current process.  If the configured storage mode does
             not require any particular setup, then this may return the
             C{mainService} argument.
 
-        @type mainService: L{IService}
+        @type mainService: C{callable} that takes C{(connectionPool, store)}
+            and returns L{IService}
 
         @param uid: the user ID to run the backend as, if this process is
             running as root.
@@ -736,34 +869,42 @@ class CalDAVServiceMaker (LoggingMixIn):
         @rtype: L{IService}
         """
         if config.UseDatabase:
-            dbRoot = CachingFilePath(config.DatabaseRoot)
             def subServiceFactory(connectionFactory):
-                # The database server is running at this point, so do the
-                # filesystem->database upgrade.
-                attachmentsRoot = dbRoot.child("attachments")
-                return UpgradeToDatabaseService.wrapService(
+                ms = ErrorLoggingMultiService()
+                cp = ConnectionPool(connectionFactory)
+                cp.setServiceParent(ms)
+                store = storeFromConfig(config, cp.connection)
+                mainService = createMainService(cp, store)
+                maybeUpgradeSvc = UpgradeToDatabaseService.wrapService(
                     CachingFilePath(config.DocumentRoot), mainService,
-                    # FIXME: somehow, this should be a connection pool too, not
-                    # unpooled connections; this only runs in the master
-                    # process, so this would be a good point to bootstrap that
-                    # whole process.  However, it's somewhat tricky to do that
-                    # right.  The upgrade needs to run in the master, before
-                    # any other things have run.
-                    pgserv.produceLocalTransaction, attachmentsRoot,
-                    uid=postgresUID, gid=postgresGID
+                    store, uid=postgresUID, gid=postgresGID
                 )
-            if os.getuid() == 0: # Only override if root
-                postgresUID = uid
-                postgresGID = gid
+                maybeUpgradeSvc.setServiceParent(ms)
+                return ms
+            if config.DBType == '':
+                # Spawn our own database as an inferior process, then connect
+                # to it.
+                if os.getuid() == 0: # Only override if root
+                    postgresUID = uid
+                    postgresGID = gid
+                else:
+                    postgresUID = None
+                    postgresGID = None
+                pgserv = pgServiceFromConfig(
+                    config, subServiceFactory, postgresUID, postgresGID
+                )
+                return pgserv
+            elif config.DBType == 'postgres':
+                # Connect to a postgres database that is already running.
+                import pgdb
+                return subServiceFactory(
+                    DBAPIConnector(
+                        pgdb, postgresPreflight, config.DSN).connect)
             else:
-                postgresUID = None
-                postgresGID = None
-            pgserv = pgServiceFromConfig(
-                config, subServiceFactory, postgresUID, postgresGID
-            )
-            return pgserv
+                raise UsageError("Unknown database type %r" (config.DBType,))
         else:
-            return mainService
+            store = storeFromConfig(config, None)
+            return createMainService(None, store)
 
 
     def makeService_Combined(self, options):
@@ -814,27 +955,28 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         monitor = DelayedStartupProcessMonitor()
         s.processMonitor = monitor
+        monitor.setServiceParent(s)
 
-        ssvc = self.storageService(monitor, uid, gid)
-        ssvc.setServiceParent(s)
-
-        if isinstance(ssvc, PostgresService):
-            # TODO: better way of doing this conditional.  Look at the config
-            # again, possibly?
-            pool = ConnectionPool(ssvc.produceConnection)
-            pool.setServiceParent(s)
-            dispenser = ConnectionDispenser(pool)
-        else:
-            dispenser = None
-
-        parentEnv = {
-            "PATH": os.environ.get("PATH", ""),
-            "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
-            "LD_LIBRARY_PATH": os.environ.get("LD_LIBRARY_PATH", ""),
-            "DYLD_LIBRARY_PATH": os.environ.get("DYLD_LIBRARY_PATH", ""),
-        }
-        if "KRB5_KTNAME" in os.environ:
-            parentEnv["KRB5_KTNAME"] = os.environ["KRB5_KTNAME"]
+        for name, pool in config.Memcached.Pools.items():
+            if pool.ServerEnabled:
+                self.log_info(
+                    "Adding memcached service for pool: %s" % (name,)
+                )
+                memcachedArgv = [
+                    config.Memcached.memcached,
+                    "-p", str(pool.Port),
+                    "-l", pool.BindAddress,
+                    "-U", "0",
+                ]
+                if config.Memcached.MaxMemory is not 0:
+                    memcachedArgv.extend(
+                        ["-m", str(config.Memcached.MaxMemory)]
+                    )
+                if config.UserName:
+                    memcachedArgv.extend(["-u", config.UserName])
+                memcachedArgv.extend(config.Memcached.Options)
+                monitor.addProcess('memcached-%s' % (name,), memcachedArgv,
+                                   env=PARENT_ENVIRONMENT)
 
         #
         # Calculate the number of processes to spawn
@@ -850,10 +992,6 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
         # Open the socket(s) to be inherited by the slaves
-
-        if not config.BindAddresses:
-            config.BindAddresses = [""]
-
         inheritFDs = []
         inheritSSLFDs = []
 
@@ -865,23 +1003,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         else:
             s._inheritedSockets = [] # keep a reference to these so they don't close
 
-        for bindAddress in config.BindAddresses:
-            if config.BindHTTPPorts:
-                if config.HTTPPort == 0:
-                    raise UsageError(
-                        "HTTPPort required if BindHTTPPorts is not empty"
-                    )
-            elif config.HTTPPort != 0:
-                config.BindHTTPPorts = [config.HTTPPort]
-
-            if config.BindSSLPorts:
-                if config.SSLPort == 0:
-                    raise UsageError(
-                        "SSLPort required if BindSSLPorts is not empty"
-                    )
-            elif config.SSLPort != 0:
-                config.BindSSLPorts = [config.SSLPort]
-
+        for bindAddress in self._allBindAddresses():
+            self._validatePortConfig()
             if config.UseMetaFD:
                 portsList = [(config.BindHTTPPorts, "TCP")]
                 if config.EnableSSL:
@@ -909,106 +1032,8 @@ class CalDAVServiceMaker (LoggingMixIn):
                         sock = _openSocket(bindAddress, int(portNum))
                         inheritSSLFDs.append(sock.fileno())
 
-        for p in xrange(0, config.MultiProcess.ProcessCount):
-            if config.UseMetaFD:
-                extraArgs = dict(metaSocket=cl.dispatcher.addSocket())
-            else:
-                extraArgs = dict(inheritFDs=inheritFDs,
-                                 inheritSSLFDs=inheritSSLFDs)
-            if dispenser is not None:
-                extraArgs.update(ampSQLDispenser=dispenser)
-            process = TwistdSlaveProcess(
-                sys.argv[0],
-                self.tapname,
-                options["config"],
-                p,
-                config.BindAddresses,
-                **extraArgs
-            )
-            monitor.addProcessObject(process, parentEnv)
-
-        for name, pool in config.Memcached.Pools.items():
-            if pool.ServerEnabled:
-                self.log_info("Adding memcached service for pool: %s" % (name,))
-
-                memcachedArgv = [
-                    config.Memcached.memcached,
-                    "-p", str(pool.Port),
-                    "-l", pool.BindAddress,
-                    "-U", "0",
-                ]
-
-                if config.Memcached.MaxMemory is not 0:
-                    memcachedArgv.extend(["-m", str(config.Memcached.MaxMemory)])
-                if config.UserName:
-                    memcachedArgv.extend(["-u", config.UserName])
-
-                memcachedArgv.extend(config.Memcached.Options)
-
-                monitor.addProcess('memcached-%s' % (name,), memcachedArgv, env=parentEnv)
-
-        if (
-            config.Notifications.Enabled and
-            config.Notifications.InternalNotificationHost == "localhost"
-        ):
-            self.log_info("Adding notification service")
-
-            notificationsArgv = [
-                sys.executable,
-                sys.argv[0],
-            ]
-            if config.UserName:
-                notificationsArgv.extend(("-u", config.UserName))
-            if config.GroupName:
-                notificationsArgv.extend(("-g", config.GroupName))
-            notificationsArgv.extend((
-                "--reactor=%s" % (config.Twisted.reactor,),
-                "-n", self.notifierTapName,
-                "-f", options["config"],
-            ))
-            monitor.addProcess("notifications", notificationsArgv,
-                env=parentEnv)
-
-        if (
-            config.Scheduling.iMIP.Enabled and
-            config.Scheduling.iMIP.MailGatewayServer == "localhost"
-        ):
-            self.log_info("Adding mail gateway service")
-
-            mailGatewayArgv = [
-                sys.executable,
-                sys.argv[0],
-            ]
-            if config.UserName:
-                mailGatewayArgv.extend(("-u", config.UserName))
-            if config.GroupName:
-                mailGatewayArgv.extend(("-g", config.GroupName))
-            mailGatewayArgv.extend((
-                "--reactor=%s" % (config.Twisted.reactor,),
-                "-n", self.mailGatewayTapName,
-                "-f", options["config"],
-            ))
-
-            monitor.addProcess("mailgateway", mailGatewayArgv, env=parentEnv)
-
-        self.log_info("Adding task service")
-        taskArgv = [
-            sys.executable,
-            sys.argv[0],
-        ]
-        if config.UserName:
-            taskArgv.extend(("-u", config.UserName))
-        if config.GroupName:
-            taskArgv.extend(("-g", config.GroupName))
-        taskArgv.extend((
-            "--reactor=%s" % (config.Twisted.reactor,),
-            "-n", "caldav_task",
-            "-f", options["config"],
-        ))
-
-        monitor.addProcess("caldav_task", taskArgv, env=parentEnv)
-
-
+        # Start listening on the stats socket, for administrators to inspect
+        # the current stats on the server.
         stats = CalDAVStatisticsServer(logger)
         statsService = GroupOwnedUNIXServer(
             gid, config.GlobalStatsSocket, stats, mode=0440
@@ -1016,6 +1041,25 @@ class CalDAVServiceMaker (LoggingMixIn):
         statsService.setName("stats")
         statsService.setServiceParent(s)
 
+        # Finally, let's get the real show on the road.  Create a service that
+        # will spawn all of our worker processes when started, and wrap that
+        # service in zero to two necessary layers before it's started: first,
+        # the service which spawns a subsidiary database (if that's necessary,
+        # and we don't have an external, already-running database to connect
+        # to), and second, the service which does an upgrade from the
+        # filesystem to the database (if that's necessary, and there is
+        # filesystem data in need of upgrading).
+        def spawnerSvcCreator(pool, store):
+            if pool is not None:
+                dispenser = ConnectionDispenser(pool)
+            else:
+                dispenser = None
+            return SlaveSpawnerService(
+                self, monitor, dispenser, cl.dispatcher, options["config"],
+                inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs
+            )
+        ssvc = self.storageService(spawnerSvcCreator, uid, gid)
+        ssvc.setServiceParent(s)
         return s
 
 

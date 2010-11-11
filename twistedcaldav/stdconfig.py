@@ -153,7 +153,17 @@ DEFAULT_CONFIG = {
     "UseMetaFD"    : True, # Use a 'meta' FD, i.e. an FD to transmit other FDs
                            # to slave processes.
 
-    "UseDatabase"  : True, # True: postgres; False: files
+    "UseDatabase"  : True, # True: database; False: files
+
+    "DBType"       : "",   # 2 possible values: empty, meaning 'spawn postgres
+                           # yourself', or 'postgres', meaning 'connect to a
+                           # postgres database as specified by the 'DSN'
+                           # configuration key.  Will support more values in
+                           # the future.
+
+    "DSN"          : "",   # Data Source Name.  Used to connect to an external
+                           # database if DBType is non-empty.  Format varies
+                           # depending on database type.
 
     "DBAMPFD"      : 0,    # Internally used by database to tell slave
                            # processes to inherit a file descriptor and use it
@@ -172,6 +182,7 @@ DEFAULT_CONFIG = {
     "ServerRoot"              : "/var/db/caldavd",
     "DataRoot"                : "Data",
     "DatabaseRoot"            : "Database",
+    "AttachmentsRoot"         : "Attachments",
     "DocumentRoot"            : "Documents",
     "ConfigRoot"              : "/etc/caldavd",
     "LogRoot"                 : "/var/log/caldavd",
@@ -666,6 +677,7 @@ RELATIVE_PATHS = [
     ("ServerRoot", "LogRoot"),
     ("ServerRoot", "RunRoot"),
     ("DataRoot", "DatabaseRoot"),
+    ("DataRoot", "AttachmentsRoot"),
     ("ConfigRoot", "SudoersFile"),
     ("LogRoot", "AccessLogFile"),
     ("LogRoot", "ErrorLogFile"),
