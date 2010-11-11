@@ -846,17 +846,15 @@ class CalDAVServiceMaker (LoggingMixIn):
         @rtype: L{IService}
         """
         if config.UseDatabase:
-            dbRoot = CachingFilePath(config.DatabaseRoot)
             def subServiceFactory(connectionFactory):
                 # The database server is running at this point, so do the
                 # filesystem->database upgrade.
                 ms = ErrorLoggingMultiService()
                 cp = ConnectionPool(connectionFactory)
                 cp.setServiceParent(ms)
-                attachmentsRoot = dbRoot.child("attachments")
                 maybeUpgradeSvc = UpgradeToDatabaseService.wrapService(
                     CachingFilePath(config.DocumentRoot), mainService,
-                    cp.connection, attachmentsRoot,
+                    cp.connection, CachingFilePath(config.AttachmentsRoot),
                     uid=postgresUID, gid=postgresGID
                 )
                 maybeUpgradeSvc.setServiceParent(ms)
