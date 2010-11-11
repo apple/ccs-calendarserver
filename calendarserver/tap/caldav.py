@@ -621,22 +621,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 config.BindAddresses = [""]
 
             for bindAddress in config.BindAddresses:
-                if config.BindHTTPPorts:
-                    if config.HTTPPort == 0:
-                        raise UsageError(
-                            "HTTPPort required if BindHTTPPorts is not empty"
-                        )
-                elif config.HTTPPort != 0:
-                        config.BindHTTPPorts = [config.HTTPPort]
-
-                if config.BindSSLPorts:
-                    if config.SSLPort == 0:
-                        raise UsageError(
-                            "SSLPort required if BindSSLPorts is not empty"
-                        )
-                elif config.SSLPort != 0:
-                    config.BindSSLPorts = [config.SSLPort]
-
+                self._validatePortConfig()
                 if config.EnableSSL:
                     for port in config.BindSSLPorts:
                         self.log_info("Adding SSL server at %s:%s"
@@ -684,6 +669,32 @@ class CalDAVServiceMaker (LoggingMixIn):
         setLogLevelForNamespace(None, oldLogLevel)
 
         return service
+
+
+    def _validatePortConfig(self):
+        """
+        If BindHTTPPorts is specified, HTTPPort must also be specified to
+        indicate which is the preferred port (the one to be used in URL
+        generation, etc).  If only HTTPPort is specified, BindHTTPPorts should
+        be set to a list containing only that port number.  Similarly for
+        BindSSLPorts/SSLPort.
+
+        @raise UsageError: if configuration is not valid.
+        """
+        if config.BindHTTPPorts:
+            if config.HTTPPort == 0:
+                raise UsageError(
+                    "HTTPPort required if BindHTTPPorts is not empty"
+                )
+        elif config.HTTPPort != 0:
+            config.BindHTTPPorts = [config.HTTPPort]
+        if config.BindSSLPorts:
+            if config.SSLPort == 0:
+                raise UsageError(
+                    "SSLPort required if BindSSLPorts is not empty"
+                )
+        elif config.SSLPort != 0:
+            config.BindSSLPorts = [config.SSLPort]
 
 
     def scheduleOnDiskUpgrade(self):
@@ -866,22 +877,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             s._inheritedSockets = [] # keep a reference to these so they don't close
 
         for bindAddress in config.BindAddresses:
-            if config.BindHTTPPorts:
-                if config.HTTPPort == 0:
-                    raise UsageError(
-                        "HTTPPort required if BindHTTPPorts is not empty"
-                    )
-            elif config.HTTPPort != 0:
-                config.BindHTTPPorts = [config.HTTPPort]
-
-            if config.BindSSLPorts:
-                if config.SSLPort == 0:
-                    raise UsageError(
-                        "SSLPort required if BindSSLPorts is not empty"
-                    )
-            elif config.SSLPort != 0:
-                config.BindSSLPorts = [config.SSLPort]
-
+            self._validatePortConfig()
             if config.UseMetaFD:
                 portsList = [(config.BindHTTPPorts, "TCP")]
                 if config.EnableSSL:
