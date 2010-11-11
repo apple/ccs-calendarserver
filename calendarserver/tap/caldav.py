@@ -548,6 +548,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         requestFactory = underlyingSite
 
         if config.RedirectHTTPToHTTPS:
+            self.log_info("Redirecting to HTTPS port %s" % (config.SSLPort,))
             def requestFactory(*args, **kw):
                 return SSLRedirectRequest(site=underlyingSite, *args, **kw)
 
@@ -569,29 +570,21 @@ class CalDAVServiceMaker (LoggingMixIn):
             # Inherit sockets to call accept() on them individually.
 
             if config.EnableSSL:
-                for fd in config.InheritSSLFDs:
-                    fd = int(fd)
-
+                for fdAsStr in config.InheritSSLFDs:
                     try:
                         contextFactory = self.createContextFactory()
                     except SSLError, e:
                         log.error("Unable to set up SSL context factory: %s" % (e,))
                     else:
                         MaxAcceptSSLServer(
-                            fd, httpFactory,
+                            int(fdAsStr), httpFactory,
                             contextFactory,
                             backlog=config.ListenBacklog,
                             inherit=True
                         ).setServiceParent(service)
-
-            for fd in config.InheritFDs:
-                fd = int(fd)
-
-                if config.RedirectHTTPToHTTPS:
-                    self.log_info("Redirecting to HTTPS port %s" % (config.SSLPort,))
-
+            for fdAsStr in config.InheritFDs:
                 MaxAcceptTCPServer(
-                    fd, httpFactory,
+                    int(fdAsStr), httpFactory,
                     backlog=config.ListenBacklog,
                     inherit=True
                 ).setServiceParent(service)
@@ -599,8 +592,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         elif config.MetaFD:
             # Inherit a single socket to receive accept()ed connections via
             # recvmsg() and SCM_RIGHTS.
-
-            fd = int(config.MetaFD)
 
             try:
                 contextFactory = self.createContextFactory()
@@ -612,15 +603,11 @@ class CalDAVServiceMaker (LoggingMixIn):
                 contextFactory = None
 
             ReportingHTTPService(
-                requestFactory, fd, contextFactory
+                requestFactory, int(config.MetaFD), contextFactory
             ).setServiceParent(service)
 
         else: # Not inheriting, therefore we open our own:
-
-            if not config.BindAddresses:
-                config.BindAddresses = [""]
-
-            for bindAddress in config.BindAddresses:
+            for bindAddress in self._allBindAddresses():
                 self._validatePortConfig()
                 if config.EnableSSL:
                     for port in config.BindSSLPorts:
@@ -643,20 +630,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                             httpsService.setServiceParent(service)
 
                 for port in config.BindHTTPPorts:
-
-                    if config.RedirectHTTPToHTTPS:
-                        #
-                        # Redirect non-SSL ports to the configured SSL port.
-                        #
-                        self.log_info("Redirecting HTTP port %s to HTTPS port %s"
-                            % (port, config.SSLPort)
-                        )
-                    else:
-                        self.log_info(
-                            "Adding server at %s:%s"
-                            % (bindAddress, port)
-                        )
-
                     MaxAcceptTCPServer(
                         int(port), httpFactory,
                         interface=bindAddress,
@@ -695,6 +668,17 @@ class CalDAVServiceMaker (LoggingMixIn):
                 )
         elif config.SSLPort != 0:
             config.BindSSLPorts = [config.SSLPort]
+
+
+    def _allBindAddresses(self):
+        """
+        An empty array for the config value of BindAddresses should be
+        equivalent a BindAddresses with a single empty string, meaning "bind
+        everything".
+        """
+        if not config.BindAddresses:
+            config.BindAddresses = [""]
+        return config.BindAddresses
 
 
     def scheduleOnDiskUpgrade(self):
@@ -862,9 +846,6 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         # Open the socket(s) to be inherited by the slaves
 
-        if not config.BindAddresses:
-            config.BindAddresses = [""]
-
         inheritFDs = []
         inheritSSLFDs = []
 
@@ -876,7 +857,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         else:
             s._inheritedSockets = [] # keep a reference to these so they don't close
 
-        for bindAddress in config.BindAddresses:
+        for bindAddress in self._allBindAddresses():
             self._validatePortConfig()
             if config.UseMetaFD:
                 portsList = [(config.BindHTTPPorts, "TCP")]
