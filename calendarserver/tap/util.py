@@ -135,9 +135,10 @@ def storeFromConfig(config, serviceParent, notifierFactory=None):
     Produce an L{IDataStore} from the given configuration and notifier factory.
     """
     if config.UseDatabase:
-        postgresService = pgServiceFromConfig(config, None)
         if config.DBAMPFD == 0:
-            cp = ConnectionPool(postgresService.produceConnection)
+            cp = ConnectionPool(
+                pgServiceFromConfig(config, None).produceConnection
+            )
             cp.setServiceParent(serviceParent)
             txnFactory = cp.connection
         else:
@@ -152,7 +153,7 @@ def storeFromConfig(config, serviceParent, notifierFactory=None):
             txnFactory = protocol.newTransaction
         dataStore = CommonSQLDataStore(
             txnFactory, notifierFactory,
-            postgresService.dataStoreDirectory.child("attachments"),
+            FilePath(config.AttachmentsRoot),
             config.EnableCalDAV, config.EnableCardDAV
         )
         dataStore.setServiceParent(serviceParent)
@@ -269,7 +270,7 @@ def directoryFromConfig(config):
     return directory
 
 
-def getRootResource(config, serviceParent, resources=None):
+def getRootResource(config, serviceParent, resources=None, store=None):
     """
     Set up directory service and resource hierarchy based on config.
     Return root resource.
@@ -277,6 +278,9 @@ def getRootResource(config, serviceParent, resources=None):
     Additional resources can be added to the hierarchy by passing a list of
     tuples containing: path, resource class, __init__ args list, and optional
     authentication scheme ("basic" or "digest").
+
+    If the store is specified, then it has already been constructed, so use it.
+    Otherwise build one with L{storeFromConfig}.
     """
 
     # FIXME: this is only here to workaround circular imports
@@ -397,7 +401,10 @@ def getRootResource(config, serviceParent, resources=None):
     else:
         notifierFactory = None
 
-    newStore = storeFromConfig(config, serviceParent, notifierFactory)
+    if store is not None:
+        newStore = store
+    else:
+        newStore = storeFromConfig(config, serviceParent, notifierFactory)
 
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: %r" % (calendarResourceClass,))
