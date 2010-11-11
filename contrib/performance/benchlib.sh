@@ -61,7 +61,7 @@ function stop() {
 	  break
       fi
       pid=$(cat $PIDFILE)
-      if $(kill -0 $pid); then
+      if ! $(kill -0 $pid); then
 	  break
       fi
     echo "Waiting for server to exit..."
