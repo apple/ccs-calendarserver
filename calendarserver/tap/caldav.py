@@ -850,18 +850,17 @@ class CalDAVServiceMaker (LoggingMixIn):
             def subServiceFactory(connectionFactory):
                 # The database server is running at this point, so do the
                 # filesystem->database upgrade.
+                ms = ErrorLoggingMultiService()
+                cp = ConnectionPool(connectionFactory)
+                cp.setServiceParent(ms)
                 attachmentsRoot = dbRoot.child("attachments")
-                return UpgradeToDatabaseService.wrapService(
+                maybeUpgradeSvc = UpgradeToDatabaseService.wrapService(
                     CachingFilePath(config.DocumentRoot), mainService,
-                    # FIXME: somehow, this should be a connection pool too, not
-                    # unpooled connections; this only runs in the master
-                    # process, so this would be a good point to bootstrap that
-                    # whole process.  However, it's somewhat tricky to do that
-                    # right.  The upgrade needs to run in the master, before
-                    # any other things have run.
-                    pgserv.produceLocalTransaction, attachmentsRoot,
+                    cp.connection, attachmentsRoot,
                     uid=postgresUID, gid=postgresGID
                 )
+                maybeUpgradeSvc.setServiceParent(cp)
+                return maybeUpgradeSvc
             if os.getuid() == 0: # Only override if root
                 postgresUID = uid
                 postgresGID = gid

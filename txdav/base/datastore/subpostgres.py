@@ -278,13 +278,6 @@ class PostgresService(MultiService):
         return self._connectorFor(databaseName).connect(label)
 
 
-    def produceLocalTransaction(self, label="<unlabeled>"):
-        """
-        Create a L{IAsyncTransaction} based on a thread in the current process.
-        """
-        return UnpooledSqlTxn(lambda : self.produceConnection(label))
-
-
     def ready(self):
         """
         Subprocess is ready.  Time to initialize the subservice.
