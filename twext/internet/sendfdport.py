@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.internet.test.test_sendfdport -*-
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -162,6 +162,7 @@ class InheritedSocketDispatcher(object):
         self.statusWatcher = statusWatcher
         from twisted.internet import reactor
         self.reactor = reactor
+        self._isDispatching = False
 
 
     @property
@@ -202,6 +203,7 @@ class InheritedSocketDispatcher(object):
         """
         Start listening on all subprocess sockets.
         """
+        self._isDispatching = True
         for subSocket in self._subprocessSockets:
             subSocket.startReading()
 
@@ -218,6 +220,8 @@ class InheritedSocketDispatcher(object):
         i, o = socketpair(AF_UNIX, SOCK_DGRAM)
         a = _SubprocessSocket(self, o)
         self._subprocessSockets.append(a)
+        if self._isDispatching:
+            a.startReading()
         return i
 
 

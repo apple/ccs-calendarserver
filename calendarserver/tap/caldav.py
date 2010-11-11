@@ -70,8 +70,6 @@ from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
 
-import calendarserver.tap.profiling # Imported for side-effect
-
 from calendarserver.tap.util import pgServiceFromConfig
 from txdav.base.datastore.asyncsqlpool import ConnectionPool
 
@@ -957,6 +955,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         monitor = DelayedStartupProcessMonitor()
         s.processMonitor = monitor
+        monitor.setServiceParent(s)
 
         for name, pool in config.Memcached.Pools.items():
             if pool.ServerEnabled:

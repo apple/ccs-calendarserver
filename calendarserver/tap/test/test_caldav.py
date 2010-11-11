@@ -479,6 +479,24 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
             self.assertEquals(socketService.gid, alternateGroup)
 
 
+    def test_processMonitor(self):
+        """
+        In the master, there should be exactly one
+        L{DelayedStartupProcessMonitor} in the service hierarchy so that it
+        will be started by startup.
+        """
+        self.config["ProcessType"] = "Combined"
+        self.writeConfig()
+        self.assertEquals(
+            1,
+            len(
+                list(inServiceHierarchy(
+                    self.makeService(),
+                    lambda x: isinstance(x, DelayedStartupProcessMonitor)))
+            )
+        )
+
+
 
 
 class SlaveServiceTest(BaseServiceMakerTests):

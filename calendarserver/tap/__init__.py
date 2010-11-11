@@ -17,3 +17,13 @@
 """
 CalendarServer TAP plugin support.
 """
+
+from calendarserver.tap import profiling # Pre-imported for side-effect
+
+__all__ = [
+    "caldav",
+    "carddav",
+    "profiling",
+    "util"
+]
+
