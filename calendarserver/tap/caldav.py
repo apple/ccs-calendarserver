@@ -914,68 +914,6 @@ class CalDAVServiceMaker (LoggingMixIn):
             inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs
         )
 
-        if (
-            config.Notifications.Enabled and
-            config.Notifications.InternalNotificationHost == "localhost"
-        ):
-            self.log_info("Adding notification service")
-
-            notificationsArgv = [
-                sys.executable,
-                sys.argv[0],
-            ]
-            if config.UserName:
-                notificationsArgv.extend(("-u", config.UserName))
-            if config.GroupName:
-                notificationsArgv.extend(("-g", config.GroupName))
-            notificationsArgv.extend((
-                "--reactor=%s" % (config.Twisted.reactor,),
-                "-n", self.notifierTapName,
-                "-f", options["config"],
-            ))
-            monitor.addProcess("notifications", notificationsArgv,
-                env=PARENT_ENVIRONMENT)
-
-        if (
-            config.Scheduling.iMIP.Enabled and
-            config.Scheduling.iMIP.MailGatewayServer == "localhost"
-        ):
-            self.log_info("Adding mail gateway service")
-
-            mailGatewayArgv = [
-                sys.executable,
-                sys.argv[0],
-            ]
-            if config.UserName:
-                mailGatewayArgv.extend(("-u", config.UserName))
-            if config.GroupName:
-                mailGatewayArgv.extend(("-g", config.GroupName))
-            mailGatewayArgv.extend((
-                "--reactor=%s" % (config.Twisted.reactor,),
-                "-n", self.mailGatewayTapName,
-                "-f", options["config"],
-            ))
-
-            monitor.addProcess("mailgateway", mailGatewayArgv,
-                               env=PARENT_ENVIRONMENT)
-
-        self.log_info("Adding task service")
-        taskArgv = [
-            sys.executable,
-            sys.argv[0],
-        ]
-        if config.UserName:
-            taskArgv.extend(("-u", config.UserName))
-        if config.GroupName:
-            taskArgv.extend(("-g", config.GroupName))
-        taskArgv.extend((
-            "--reactor=%s" % (config.Twisted.reactor,),
-            "-n", "caldav_task",
-            "-f", options["config"],
-        ))
-
-        monitor.addProcess("caldav_task", taskArgv, env=PARENT_ENVIRONMENT)
-
 
         stats = CalDAVStatisticsServer(logger)
         statsService = GroupOwnedUNIXServer(
@@ -1002,6 +940,70 @@ class CalDAVServiceMaker (LoggingMixIn):
                 config.BindAddresses, **extraArgs
             )
             monitor.addProcessObject(process, PARENT_ENVIRONMENT)
+
+
+        if (
+            config.Notifications.Enabled and
+            config.Notifications.InternalNotificationHost == "localhost"
+        ):
+            self.log_info("Adding notification service")
+
+            notificationsArgv = [
+                sys.executable,
+                sys.argv[0],
+            ]
+            if config.UserName:
+                notificationsArgv.extend(("-u", config.UserName))
+            if config.GroupName:
+                notificationsArgv.extend(("-g", config.GroupName))
+            notificationsArgv.extend((
+                "--reactor=%s" % (config.Twisted.reactor,),
+                "-n", self.notifierTapName,
+                "-f", configPath,
+            ))
+            monitor.addProcess("notifications", notificationsArgv,
+                env=PARENT_ENVIRONMENT)
+
+        if (
+            config.Scheduling.iMIP.Enabled and
+            config.Scheduling.iMIP.MailGatewayServer == "localhost"
+        ):
+            self.log_info("Adding mail gateway service")
+
+            mailGatewayArgv = [
+                sys.executable,
+                sys.argv[0],
+            ]
+            if config.UserName:
+                mailGatewayArgv.extend(("-u", config.UserName))
+            if config.GroupName:
+                mailGatewayArgv.extend(("-g", config.GroupName))
+            mailGatewayArgv.extend((
+                "--reactor=%s" % (config.Twisted.reactor,),
+                "-n", self.mailGatewayTapName,
+                "-f", configPath,
+            ))
+
+            monitor.addProcess("mailgateway", mailGatewayArgv,
+                               env=PARENT_ENVIRONMENT)
+
+        self.log_info("Adding task service")
+        taskArgv = [
+            sys.executable,
+            sys.argv[0],
+        ]
+        if config.UserName:
+            taskArgv.extend(("-u", config.UserName))
+        if config.GroupName:
+            taskArgv.extend(("-g", config.GroupName))
+        taskArgv.extend((
+            "--reactor=%s" % (config.Twisted.reactor,),
+            "-n", "caldav_task",
+            "-f", configPath,
+        ))
+
+        monitor.addProcess("caldav_task", taskArgv, env=PARENT_ENVIRONMENT)
+
 
 
     def deleteStaleSocketFiles(self):
