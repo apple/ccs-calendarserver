@@ -900,7 +900,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     def subServiceFactoryFactory(self, createMainService,
                                  postgresUID=None, postgresGID=None):
         def subServiceFactory(connectionFactory):
-            ms = ErrorLoggingMultiService()
+            ms = MultiService()
             cp = ConnectionPool(connectionFactory)
             cp.setServiceParent(ms)
             store = storeFromConfig(config, cp.connection)
