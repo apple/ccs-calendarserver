@@ -113,6 +113,17 @@ def getid(uid, gid):
         gid = gidFromString(gid)
     return (uid, gid)
 
+
+PARENT_ENVIRONMENT = {
+    "PATH": os.environ.get("PATH", ""),
+    "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+    "LD_LIBRARY_PATH": os.environ.get("LD_LIBRARY_PATH", ""),
+    "DYLD_LIBRARY_PATH": os.environ.get("DYLD_LIBRARY_PATH", ""),
+}
+
+if "KRB5_KTNAME" in os.environ:
+    PARENT_ENVIRONMENT["KRB5_KTNAME"] = os.environ["KRB5_KTNAME"]
+
 class CalDAVStatisticsProtocol (Protocol):
 
     def connectionMade(self):
@@ -822,15 +833,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         else:
             dispenser = None
 
-        parentEnv = {
-            "PATH": os.environ.get("PATH", ""),
-            "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
-            "LD_LIBRARY_PATH": os.environ.get("LD_LIBRARY_PATH", ""),
-            "DYLD_LIBRARY_PATH": os.environ.get("DYLD_LIBRARY_PATH", ""),
-        }
-        if "KRB5_KTNAME" in os.environ:
-            parentEnv["KRB5_KTNAME"] = os.environ["KRB5_KTNAME"]
-
         #
         # Calculate the number of processes to spawn
         #
@@ -886,24 +888,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                         sock = _openSocket(bindAddress, int(portNum))
                         inheritSSLFDs.append(sock.fileno())
 
-        for p in xrange(0, config.MultiProcess.ProcessCount):
-            if config.UseMetaFD:
-                extraArgs = dict(metaSocket=cl.dispatcher.addSocket())
-            else:
-                extraArgs = dict(inheritFDs=inheritFDs,
-                                 inheritSSLFDs=inheritSSLFDs)
-            if dispenser is not None:
-                extraArgs.update(ampSQLDispenser=dispenser)
-            process = TwistdSlaveProcess(
-                sys.argv[0],
-                self.tapname,
-                options["config"],
-                p,
-                config.BindAddresses,
-                **extraArgs
-            )
-            monitor.addProcessObject(process, parentEnv)
-
         for name, pool in config.Memcached.Pools.items():
             if pool.ServerEnabled:
                 self.log_info("Adding memcached service for pool: %s" % (name,))
@@ -922,7 +906,13 @@ class CalDAVServiceMaker (LoggingMixIn):
 
                 memcachedArgv.extend(config.Memcached.Options)
 
-                monitor.addProcess('memcached-%s' % (name,), memcachedArgv, env=parentEnv)
+                monitor.addProcess('memcached-%s' % (name,), memcachedArgv,
+                                   env=PARENT_ENVIRONMENT)
+
+        self.addSlaveProcesses(
+            monitor, dispenser, cl.dispatcher, options["config"],
+            inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs
+        )
 
         if (
             config.Notifications.Enabled and
@@ -944,7 +934,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 "-f", options["config"],
             ))
             monitor.addProcess("notifications", notificationsArgv,
-                env=parentEnv)
+                env=PARENT_ENVIRONMENT)
 
         if (
             config.Scheduling.iMIP.Enabled and
@@ -966,7 +956,8 @@ class CalDAVServiceMaker (LoggingMixIn):
                 "-f", options["config"],
             ))
 
-            monitor.addProcess("mailgateway", mailGatewayArgv, env=parentEnv)
+            monitor.addProcess("mailgateway", mailGatewayArgv,
+                               env=PARENT_ENVIRONMENT)
 
         self.log_info("Adding task service")
         taskArgv = [
@@ -983,7 +974,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             "-f", options["config"],
         ))
 
-        monitor.addProcess("caldav_task", taskArgv, env=parentEnv)
+        monitor.addProcess("caldav_task", taskArgv, env=PARENT_ENVIRONMENT)
 
 
         stats = CalDAVStatisticsServer(logger)
@@ -994,6 +985,23 @@ class CalDAVServiceMaker (LoggingMixIn):
         statsService.setServiceParent(s)
 
         return s
+
+
+    def addSlaveProcesses(self, monitor, dispenser, dispatcher, configPath,
+                          inheritFDs=None, inheritSSLFDs=None):
+        for slaveNumber in xrange(0, config.MultiProcess.ProcessCount):
+            if config.UseMetaFD:
+                extraArgs = dict(metaSocket=dispatcher.addSocket())
+            else:
+                extraArgs = dict(inheritFDs=inheritFDs,
+                                 inheritSSLFDs=inheritSSLFDs)
+            if dispenser is not None:
+                extraArgs.update(ampSQLDispenser=dispenser)
+            process = TwistdSlaveProcess(
+                sys.argv[0], self.tapname, configPath, slaveNumber,
+                config.BindAddresses, **extraArgs
+            )
+            monitor.addProcessObject(process, PARENT_ENVIRONMENT)
 
 
     def deleteStaleSocketFiles(self):
