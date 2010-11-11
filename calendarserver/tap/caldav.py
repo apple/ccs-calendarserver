@@ -680,7 +680,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         service = CalDAVService(logObserver)
 
-        rootResource = getRootResource(config, service, additional, store)
+        rootResource = getRootResource(config, store, additional)
 
         underlyingSite = Site(rootResource)
         requestFactory = underlyingSite
@@ -704,14 +704,6 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         config.addPostUpdateHooks((updateFactory,))
 
-        anyNamed = []
-        def httpsvc(svc):
-            # Try to name one of the services so the tests can find it.
-            if not anyNamed:
-                svc.setServiceName('HTTP')
-                anyNamed.append(True)
-            return svc
-
         if config.InheritFDs or config.InheritSSLFDs:
             # Inherit sockets to call accept() on them individually.
 
@@ -722,18 +714,18 @@ class CalDAVServiceMaker (LoggingMixIn):
                     except SSLError, e:
                         log.error("Unable to set up SSL context factory: %s" % (e,))
                     else:
-                        httpsvc(MaxAcceptSSLServer(
+                        MaxAcceptSSLServer(
                             int(fdAsStr), httpFactory,
                             contextFactory,
                             backlog=config.ListenBacklog,
                             inherit=True
-                        )).setServiceParent(service)
+                        ).setServiceParent(service)
             for fdAsStr in config.InheritFDs:
-                httpsvc(MaxAcceptTCPServer(
+                MaxAcceptTCPServer(
                     int(fdAsStr), httpFactory,
                     backlog=config.ListenBacklog,
                     inherit=True
-                )).setServiceParent(service)
+                ).setServiceParent(service)
 
         elif config.MetaFD:
             # Inherit a single socket to receive accept()ed connections via
@@ -748,9 +740,9 @@ class CalDAVServiceMaker (LoggingMixIn):
                 # 'SSL' tag on it, since that's the only time it's used.
                 contextFactory = None
 
-            httpsvc(ReportingHTTPService(
+            ReportingHTTPService(
                 requestFactory, int(config.MetaFD), contextFactory
-            )).setServiceParent(service)
+            ).setServiceParent(service)
 
         else: # Not inheriting, therefore we open our own:
             for bindAddress in self._allBindAddresses():
@@ -767,26 +759,25 @@ class CalDAVServiceMaker (LoggingMixIn):
                                            % (e,))
                             self.log_error("Disabling SSL port: %s" % (port,))
                         else:
-                            httpsService = httpsvc(MaxAcceptSSLServer(
+                            httpsService = MaxAcceptSSLServer(
                                 int(port), httpFactory,
                                 contextFactory, interface=bindAddress,
                                 backlog=config.ListenBacklog,
                                 inherit=False
-                            ))
+                            )
                             httpsService.setServiceParent(service)
 
                 for port in config.BindHTTPPorts:
-                    httpsvc(MaxAcceptTCPServer(
+                    MaxAcceptTCPServer(
                         int(port), httpFactory,
                         interface=bindAddress,
                         backlog=config.ListenBacklog,
                         inherit=False
-                    )).setServiceParent(service)
+                    ).setServiceParent(service)
 
 
         # Change log level back to what it was before
         setLogLevelForNamespace(None, oldLogLevel)
-
         return service
 
 
