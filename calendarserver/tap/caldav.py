@@ -869,18 +869,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         @rtype: L{IService}
         """
         if config.UseDatabase:
-            def subServiceFactory(connectionFactory):
-                ms = ErrorLoggingMultiService()
-                cp = ConnectionPool(connectionFactory)
-                cp.setServiceParent(ms)
-                store = storeFromConfig(config, cp.connection)
-                mainService = createMainService(cp, store)
-                maybeUpgradeSvc = UpgradeToDatabaseService.wrapService(
-                    CachingFilePath(config.DocumentRoot), mainService,
-                    store, uid=postgresUID, gid=postgresGID
-                )
-                maybeUpgradeSvc.setServiceParent(ms)
-                return ms
             if config.DBType == '':
                 # Spawn our own database as an inferior process, then connect
                 # to it.
@@ -891,13 +879,15 @@ class CalDAVServiceMaker (LoggingMixIn):
                     postgresUID = None
                     postgresGID = None
                 pgserv = pgServiceFromConfig(
-                    config, subServiceFactory, postgresUID, postgresGID
+                    config,
+                    self.subServiceFactoryFactory(postgresUID, postgresGID),
+                    postgresUID, postgresGID
                 )
                 return pgserv
             elif config.DBType == 'postgres':
                 # Connect to a postgres database that is already running.
                 import pgdb
-                return subServiceFactory(
+                return self.subServiceFactoryFactory(createMainService)(
                     DBAPIConnector(
                         pgdb, postgresPreflight, config.DSN).connect)
             else:
@@ -905,6 +895,23 @@ class CalDAVServiceMaker (LoggingMixIn):
         else:
             store = storeFromConfig(config, None)
             return createMainService(None, store)
+
+
+    def subServiceFactoryFactory(self, createMainService,
+                                 postgresUID=None, postgresGID=None):
+        def subServiceFactory(connectionFactory):
+            ms = ErrorLoggingMultiService()
+            cp = ConnectionPool(connectionFactory)
+            cp.setServiceParent(ms)
+            store = storeFromConfig(config, cp.connection)
+            mainService = createMainService(cp, store)
+            maybeUpgradeSvc = UpgradeToDatabaseService.wrapService(
+                CachingFilePath(config.DocumentRoot), mainService,
+                store, uid=postgresUID, gid=postgresGID
+            )
+            maybeUpgradeSvc.setServiceParent(ms)
+            return ms
+        return subServiceFactory
 
 
     def makeService_Combined(self, options):
