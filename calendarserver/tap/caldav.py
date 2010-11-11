@@ -69,7 +69,6 @@ from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
-from txdav.base.datastore.subpostgres import PostgresService
 
 import calendarserver.tap.profiling # Imported for side-effect
 
@@ -77,6 +76,8 @@ from calendarserver.tap.util import pgServiceFromConfig
 from txdav.base.datastore.asyncsqlpool import ConnectionPool
 
 from txdav.base.datastore.asyncsqlpool import ConnectionPoolConnection
+from txdav.base.datastore.dbapiclient import DBAPIConnector
+from txdav.base.datastore.dbapiclient import postgresPreflight
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -89,6 +90,8 @@ from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource, computeProcessCount
 from calendarserver.tap.util import ConnectionWithPeer
+from calendarserver.tap.util import storeFromConfig
+from calendarserver.tap.util import transactionFactoryFromFD
 from calendarserver.tools.util import checkDirectory
 
 try:
@@ -617,6 +620,26 @@ class CalDAVServiceMaker (LoggingMixIn):
         L{makeService_Combined}, which does the work of actually handling
         CalDAV and CardDAV requests.
         """
+        if config.DBAMPFD:
+            txnFactory = transactionFactoryFromFD(int(config.DBAMPFD))
+        elif not config.UseDatabase:
+            txnFactory = None
+        else:
+            raise UsageError(
+                "trying to use DB in slave, but no connection info from parent"
+            )
+        store = storeFromConfig(config, txnFactory)
+        return self.requestProcessingService(options, store)
+
+
+    def requestProcessingService(self, options, store):
+        """
+        Make a service that will actually process HTTP requests.
+
+        This may be a 'Slave' service, which runs as a worker subprocess of the
+        'Combined' configuration, or a 'Single' service, which is a stand-alone
+        process that answers CalDAV/CardDAV requests by itself.
+        """
         #
         # Change default log level to "info" as its useful to have
         # that during startup
@@ -657,7 +680,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         service = CalDAVService(logObserver)
 
-        rootResource = getRootResource(config, service, additional)
+        rootResource = getRootResource(config, service, additional, store)
 
         underlyingSite = Site(rootResource)
         requestFactory = underlyingSite
@@ -813,10 +836,12 @@ class CalDAVServiceMaker (LoggingMixIn):
         """
         self.scheduleOnDiskUpgrade()
 
-        return self.storageService(self.makeService_Slave(options))
+        def slaveSvcCreator(pool, store):
+            return self.requestProcessingService(options, store)
+        return self.storageService(slaveSvcCreator)
 
 
-    def storageService(self, mainService, uid=None, gid=None):
+    def storageService(self, createMainService, uid=None, gid=None):
         """
         If necessary, create a service to be started used for storage; for
         example, starting a database backend.  This service will then start the
@@ -826,12 +851,13 @@ class CalDAVServiceMaker (LoggingMixIn):
         standalone port-binding until the backing for the selected data store
         implementation is ready to process requests.
 
-        @param mainService: This is the service that will be doing the main
+        @param createMainService: This is the service that will be doing the main
             work of the current process.  If the configured storage mode does
             not require any particular setup, then this may return the
             C{mainService} argument.
 
-        @type mainService: L{IService}
+        @type mainService: C{callable} that takes C{(connectionPool, store)}
+            and returns L{IService}
 
         @param uid: the user ID to run the backend as, if this process is
             running as root.
@@ -847,30 +873,41 @@ class CalDAVServiceMaker (LoggingMixIn):
         """
         if config.UseDatabase:
             def subServiceFactory(connectionFactory):
-                # The database server is running at this point, so do the
-                # filesystem->database upgrade.
                 ms = ErrorLoggingMultiService()
                 cp = ConnectionPool(connectionFactory)
                 cp.setServiceParent(ms)
+                store = storeFromConfig(config, cp.connection)
+                mainService = createMainService(cp, store)
                 maybeUpgradeSvc = UpgradeToDatabaseService.wrapService(
                     CachingFilePath(config.DocumentRoot), mainService,
-                    cp.connection, CachingFilePath(config.AttachmentsRoot),
-                    uid=postgresUID, gid=postgresGID
+                    store, uid=postgresUID, gid=postgresGID
                 )
                 maybeUpgradeSvc.setServiceParent(ms)
                 return ms
-            if os.getuid() == 0: # Only override if root
-                postgresUID = uid
-                postgresGID = gid
+            if config.DBType == '':
+                # Spawn our own database as an inferior process, then connect
+                # to it.
+                if os.getuid() == 0: # Only override if root
+                    postgresUID = uid
+                    postgresGID = gid
+                else:
+                    postgresUID = None
+                    postgresGID = None
+                pgserv = pgServiceFromConfig(
+                    config, subServiceFactory, postgresUID, postgresGID
+                )
+                return pgserv
+            elif config.DBType == 'postgres':
+                # Connect to a postgres database that is already running.
+                import pgdb
+                return subServiceFactory(
+                    DBAPIConnector(
+                        pgdb, postgresPreflight, config.DSN).connect)
             else:
-                postgresUID = None
-                postgresGID = None
-            pgserv = pgServiceFromConfig(
-                config, subServiceFactory, postgresUID, postgresGID
-            )
-            return pgserv
+                raise UsageError("Unknown database type %r" (config.DBType,))
         else:
-            return mainService
+            store = storeFromConfig(config, None)
+            return createMainService(None, store)
 
 
     def makeService_Combined(self, options):
@@ -1014,22 +1051,17 @@ class CalDAVServiceMaker (LoggingMixIn):
         # to), and second, the service which does an upgrade from the
         # filesystem to the database (if that's necessary, and there is
         # filesystem data in need of upgrading).
-        ssvc = self.storageService(monitor, uid, gid)
+        def spawnerSvcCreator(pool, store):
+            if pool is not None:
+                dispenser = ConnectionDispenser(pool)
+            else:
+                dispenser = None
+            return SlaveSpawnerService(
+                self, monitor, dispenser, cl.dispatcher, options["config"],
+                inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs
+            )
+        ssvc = self.storageService(spawnerSvcCreator, uid, gid)
         ssvc.setServiceParent(s)
-
-        if isinstance(ssvc, PostgresService):
-            # TODO: better way of doing this conditional.  Look at the config
-            # again, possibly?
-            pool = ConnectionPool(ssvc.produceConnection)
-            pool.setServiceParent(s)
-            dispenser = ConnectionDispenser(pool)
-        else:
-            dispenser = None
-
-        SlaveSpawnerService(
-            self, monitor, dispenser, cl.dispatcher, options["config"],
-            inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs
-        ).setServiceParent(s)
         return s
 
 

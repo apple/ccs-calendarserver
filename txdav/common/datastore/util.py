@@ -19,7 +19,6 @@ import os
 from twext.python.log import LoggingMixIn
 from twisted.application.service import Service
 from txdav.common.datastore.file import CommonDataStore as FileStore, TOPPATHS
-from txdav.common.datastore.sql import CommonDataStore as SqlStore
 from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
 from txdav.carddav.datastore.util import migrateHome as migrateAddressbookHome
 from twisted.internet.defer import inlineCallbacks
@@ -31,19 +30,11 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
     Upgrade resources from a filesystem store to a database store.
     """
 
-
     @classmethod
-    def wrapService(cls, path, service, connectionFactory, sqlAttachmentsPath,
-        uid=None, gid=None):
+    def wrapService(cls, path, service, store, uid=None, gid=None):
         """
         Create an L{UpgradeToDatabaseService} if there are still file-based
         calendar or addressbook homes remaining in the given path.
-
-        Maintenance note: we may want to pass a SQL store in directly rather
-        than the combination of connection factory and attachments path, since
-        there always must be a SQL store, but the path should remain a path
-        because there may not I{be} a file-backed store present and we should
-        not create it as a result of checking for it.
 
         @param path: a path pointing at the document root.
         @type path: L{CachingFilePath}
@@ -55,35 +46,32 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             service parent of the resulting service will be set to a
             L{MultiService} or similar.)
 
+        @param store: the SQL storage service.
+
         @type service: L{IService}
 
         @return: a service
         @rtype: L{IService}
         """
+        # TODO: TOPPATHS should be computed based on enabled flags in 'store',
+        # not hard coded.
         for homeType in TOPPATHS:
             if path.child(homeType).exists():
                 self = cls(
                     FileStore(path, None, True, True),
-                    SqlStore(connectionFactory, None, sqlAttachmentsPath,
-                             True, True),
-                    service,
-                    sqlAttachmentsPath=sqlAttachmentsPath,
-                    uid=uid,
-                    gid=gid,
+                    store, service, uid=uid, gid=gid,
                 )
                 return self
         return service
 
 
-    def __init__(self, fileStore, sqlStore, service, sqlAttachmentsPath=None,
-        uid=None, gid=None):
+    def __init__(self, fileStore, sqlStore, service, uid=None, gid=None):
         """
         Initialize the service.
         """
         self.wrappedService = service
         self.fileStore = fileStore
         self.sqlStore = sqlStore
-        self.sqlAttachmentsPath = sqlAttachmentsPath
         self.uid = uid
         self.gid = gid
 
@@ -144,9 +132,11 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             if homesPath.isdir():
                 homesPath.remove()
 
-        # Set attachment directory ownership
-        if (self.sqlAttachmentsPath and
-            self.sqlAttachmentsPath.exists() and
+        # Set attachment directory ownership.  FIXME: is this still necessary
+        # since attachments started living outside the database directory
+        # created by initdb?  default permissions might be correct now.
+        sqlAttachmentsPath = self.sqlStore.attachmentsPath
+        if (sqlAttachmentsPath and sqlAttachmentsPath.exists() and
             (self.uid or self.gid)):
             uid = self.uid or -1
             gid = self.gid or -1

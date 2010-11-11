@@ -68,7 +68,6 @@ try:
     NegotiateCredentialFactory  # pacify pyflakes
 except ImportError:
     NegotiateCredentialFactory = None
-from txdav.base.datastore.asyncsqlpool import ConnectionPool
 from txdav.base.datastore.asyncsqlpool import ConnectionPoolClient
 
 from calendarserver.accesslog import DirectoryLogWrapperResource
@@ -130,34 +129,45 @@ class ConnectionWithPeer(Connection):
     def getHost(self):
         return "<host: %r %r>" % (self.socket.fileno(), id(self))
 
-def storeFromConfig(config, serviceParent, notifierFactory=None):
+
+def transactionFactoryFromFD(dbampfd):
     """
-    Produce an L{IDataStore} from the given configuration and notifier factory.
+    Create a transaction factory from an inherited file descriptor.
     """
-    if config.UseDatabase:
-        if config.DBAMPFD == 0:
-            cp = ConnectionPool(
-                pgServiceFromConfig(config, None).produceConnection
-            )
-            cp.setServiceParent(serviceParent)
-            txnFactory = cp.connection
-        else:
-            # TODO: something to do with loseConnection here, maybe?  I don't
-            # think it actually needs to be shut down, though.
-            skt = fromfd(int(config.DBAMPFD), AF_UNIX, SOCK_STREAM)
-            os.close(config.DBAMPFD)
-            protocol = ConnectionPoolClient()
-            transport = ConnectionWithPeer(skt, protocol)
-            protocol.makeConnection(transport)
-            transport.startReading()
-            txnFactory = protocol.newTransaction
-        dataStore = CommonSQLDataStore(
-            txnFactory, notifierFactory,
-            FilePath(config.AttachmentsRoot),
+    skt = fromfd(dbampfd, AF_UNIX, SOCK_STREAM)
+    os.close(dbampfd)
+    protocol = ConnectionPoolClient()
+    transport = ConnectionWithPeer(skt, protocol)
+    protocol.makeConnection(transport)
+    transport.startReading()
+    return protocol.newTransaction
+
+
+# txnFacSub(int(config.DBAMPFD))
+
+def storeFromConfig(config, txnFactory):
+    """
+    Produce an L{IDataStore} from the given configuration, transaction factory,
+    and notifier factory.
+
+    If the transaction factory is C{None}, we will create a filesystem
+    store.  Otherwise, a SQL store, using that connection information.
+    """
+    #
+    # Configure NotifierFactory
+    #
+    if config.Notifications.Enabled:
+        notifierFactory = NotifierFactory(
+            config.Notifications.InternalNotificationHost,
+            config.Notifications.InternalNotificationPort,
+        )
+    else:
+        notifierFactory = None
+    if txnFactory is not None:
+        return CommonSQLDataStore(
+            txnFactory, notifierFactory, FilePath(config.AttachmentsRoot),
             config.EnableCalDAV, config.EnableCardDAV
         )
-        dataStore.setServiceParent(serviceParent)
-        return dataStore
     else:
         return CommonFileDataStore(FilePath(config.DocumentRoot),
             notifierFactory, config.EnableCalDAV, config.EnableCardDAV) 
@@ -254,7 +264,6 @@ def directoryFromConfig(config):
         directory.userRecordTypes.insert(0,
             SudoDirectoryService.recordType_sudoers)
 
-
     #
     # Use system-wide realm on OSX
     #
@@ -270,7 +279,7 @@ def directoryFromConfig(config):
     return directory
 
 
-def getRootResource(config, serviceParent, resources=None, store=None):
+def getRootResource(config, newStore, resources=None):
     """
     Set up directory service and resource hierarchy based on config.
     Return root resource.
@@ -282,6 +291,9 @@ def getRootResource(config, serviceParent, resources=None, store=None):
     If the store is specified, then it has already been constructed, so use it.
     Otherwise build one with L{storeFromConfig}.
     """
+
+    if newStore is None:
+        raise RuntimeError("Internal error, 'newStore' must be specified.")
 
     # FIXME: this is only here to workaround circular imports
     doBind()
@@ -389,22 +401,6 @@ def getRootResource(config, serviceParent, resources=None, store=None):
                   % (config.DocumentRoot,))
 
     principalCollection = directory.principalCollection
-
-    #
-    # Configure NotifierFactory
-    #
-    if config.Notifications.Enabled:
-        notifierFactory = NotifierFactory(
-            config.Notifications.InternalNotificationHost,
-            config.Notifications.InternalNotificationPort,
-        )
-    else:
-        notifierFactory = None
-
-    if store is not None:
-        newStore = store
-    else:
-        newStore = storeFromConfig(config, serviceParent, notifierFactory)
 
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: %r" % (calendarResourceClass,))
