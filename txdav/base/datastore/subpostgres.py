@@ -38,7 +38,6 @@ from twisted.internet import reactor
 from twisted.internet.defer import Deferred
 from txdav.base.datastore.dbapiclient import DBAPIConnector
 from txdav.base.datastore.dbapiclient import postgresPreflight
-from txdav.base.datastore.asyncsqlpool import BaseSqlTxn
 
 from twisted.application.service import MultiService
 
@@ -152,23 +151,6 @@ class CapturingProcessProtocol(ProcessProtocol):
         The process is over, fire the Deferred with the output.
         """
         self.deferred.callback(''.join(self.output))
-
-
-
-class UnpooledSqlTxn(BaseSqlTxn):
-    """
-    Unpooled variant (releases thread immediately on commit or abort),
-    currently exclusively for testing.
-    """
-    def commit(self):
-        result = super(UnpooledSqlTxn, self).commit()
-        self.stop()
-        return result
-
-    def abort(self):
-        result = super(UnpooledSqlTxn, self).abort()
-        self.stop()
-        return result
 
 
 
