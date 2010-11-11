@@ -639,7 +639,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 id = config.ControlSocket
                 self.log_info("Logging via AF_UNIX: %s" % (id,))
             else:
-                mode = "IF_INET"
+                mode = "AF_INET"
                 id = int(config.ControlPort)
                 self.log_info("Logging via AF_INET: %d" % (id,))
 
