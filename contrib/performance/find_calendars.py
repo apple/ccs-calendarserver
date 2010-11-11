@@ -48,10 +48,9 @@ PROPFIND = """\
 @inlineCallbacks
 def measure(host, port, dtrace, numCalendars, samples):
     # There's already the "calendar" calendar
-    # XXX Make sure there's nothing else to confuse things
     numCalendars -= 1
 
-    user = password = "user01"
+    user = password = "user10"
     root = "/"
     principal = "/"
 
