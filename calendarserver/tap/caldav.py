@@ -821,6 +821,27 @@ class CalDAVServiceMaker (LoggingMixIn):
         monitor = DelayedStartupProcessMonitor()
         s.processMonitor = monitor
 
+        for name, pool in config.Memcached.Pools.items():
+            if pool.ServerEnabled:
+                self.log_info(
+                    "Adding memcached service for pool: %s" % (name,)
+                )
+                memcachedArgv = [
+                    config.Memcached.memcached,
+                    "-p", str(pool.Port),
+                    "-l", pool.BindAddress,
+                    "-U", "0",
+                ]
+                if config.Memcached.MaxMemory is not 0:
+                    memcachedArgv.extend(
+                        ["-m", str(config.Memcached.MaxMemory)]
+                    )
+                if config.UserName:
+                    memcachedArgv.extend(["-u", config.UserName])
+                memcachedArgv.extend(config.Memcached.Options)
+                monitor.addProcess('memcached-%s' % (name,), memcachedArgv,
+                                   env=PARENT_ENVIRONMENT)
+
         ssvc = self.storageService(monitor, uid, gid)
         ssvc.setServiceParent(s)
 
@@ -847,7 +868,6 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
         # Open the socket(s) to be inherited by the slaves
-
         inheritFDs = []
         inheritSSLFDs = []
 
@@ -887,27 +907,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                     for portNum in config.BindSSLPorts:
                         sock = _openSocket(bindAddress, int(portNum))
                         inheritSSLFDs.append(sock.fileno())
-
-        for name, pool in config.Memcached.Pools.items():
-            if pool.ServerEnabled:
-                self.log_info("Adding memcached service for pool: %s" % (name,))
-
-                memcachedArgv = [
-                    config.Memcached.memcached,
-                    "-p", str(pool.Port),
-                    "-l", pool.BindAddress,
-                    "-U", "0",
-                ]
-
-                if config.Memcached.MaxMemory is not 0:
-                    memcachedArgv.extend(["-m", str(config.Memcached.MaxMemory)])
-                if config.UserName:
-                    memcachedArgv.extend(["-u", config.UserName])
-
-                memcachedArgv.extend(config.Memcached.Options)
-
-                monitor.addProcess('memcached-%s' % (name,), memcachedArgv,
-                                   env=PARENT_ENVIRONMENT)
 
         self.addSlaveProcesses(
             monitor, dispenser, cl.dispatcher, options["config"],
