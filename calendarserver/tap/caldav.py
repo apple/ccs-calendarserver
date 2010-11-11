@@ -859,8 +859,8 @@ class CalDAVServiceMaker (LoggingMixIn):
                     cp.connection, attachmentsRoot,
                     uid=postgresUID, gid=postgresGID
                 )
-                maybeUpgradeSvc.setServiceParent(cp)
-                return maybeUpgradeSvc
+                maybeUpgradeSvc.setServiceParent(ms)
+                return ms
             if os.getuid() == 0: # Only override if root
                 postgresUID = uid
                 postgresGID = gid
