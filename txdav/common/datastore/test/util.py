@@ -34,8 +34,8 @@ from twisted.python import log
 from twisted.application.service import Service
 
 from txdav.common.datastore.sql import CommonDataStore, v1_schema
-from txdav.base.datastore.subpostgres import PostgresService,\
-    DiagnosticConnectionWrapper
+from txdav.base.datastore.subpostgres import PostgresService
+from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.base.datastore.asyncsqlpool import ConnectionPool
 from twisted.internet.defer import returnValue
