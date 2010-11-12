@@ -14,6 +14,7 @@ from twisted.protocols.basic import LineReceiver
 from twisted.internet.defer import (
     Deferred, inlineCallbacks, gatherResults)
 from twisted.internet import reactor
+from twisted.python.log import msg
 
 from stats import SQLDuration, Bytes
 
@@ -119,7 +120,7 @@ class _DTraceParser(LineReceiver):
         try:
             which, when = rest.split(None, 1)
         except ValueError:
-            print 'Bad EXECUTE line: %r' % (rest,)
+            msg('Bad EXECUTE line: %r' % (rest,))
             return
 
         if which == 'SQL':
@@ -129,17 +130,17 @@ class _DTraceParser(LineReceiver):
         when = int(when)
         if which == 'ENTRY':
             if self.start is not None:
-                print 'entry without return at', when, 'in', cmd
+                msg('entry without return at %s in %s' % (when, cmd))
             self.start = when
         elif which == 'RETURN':
             if self.start is None:
-                print 'return without entry at', when, 'in', cmd
+                msg('return without entry at %s in %s' % (when, cmd))
             elif self.sql is None:
-                print 'return without SQL at', when, 'in', cmd
+                msg('return without SQL at %s in %s' % (when, cmd))
             else:
                 diff = when - self.start
                 if diff < 0:
-                    print 'Completely bogus EXECUTE', self.start, when
+                    msg('Completely bogus EXECUTE %s %s' % (self.start, when))
                 else:
                     if cmd == 'EXECUTE':
                         accum = self.collector._execute
@@ -201,14 +202,40 @@ class DTraceCollector(object):
         ready = []
         self.finished = []
         self.dtraces = {}
+
+        # Trace each child process specifically.  Necessary because of
+        # the way SQL execution is measured, which requires the
+        # $target dtrace variable (which can only take on a single
+        # value).
         for p in self.pids:
-            started, stopped = self._startDTrace(p)
+            started, stopped = self._startDTrace(self._dScript, p)
             ready.append(started)
             self.finished.append(stopped)
+
+        # Also trace postgres i/o operations.  This involves no
+        # target, because the dtrace code just looks for processes
+        # named "postgres".
+        started, stopped = self._startDTrace("pgsql.d", None)
+        ready.append(started)
+        self.finished.append(stopped)
+
         return gatherResults(ready)
 
 
-    def _startDTrace(self, pid):
+    def _startDTrace(self, script, pid):
+        """
+        Launch a dtrace process.
+
+        @param script: A C{str} giving the path to the dtrace program
+            to run.
+
+        @param pid: A C{int} to target dtrace at a particular process,
+            or C{None} not to.
+
+        @return: A two-tuple of L{Deferred}s.  The first will fire
+            when the dtrace process is ready to go, the second will
+            fire when it exits.
+        """
         started = Deferred()
         stopped = Deferred()
         proto = IOMeasureConsumer(started, stopped, _DTraceParser(self))
@@ -220,20 +247,23 @@ class DTraceCollector(object):
             "-I", dirname(__file__),
             # suppress most implicitly generated output (which would mess up our parser)
             "-q",
-            # make this pid the target
-            "-p", str(pid),
             # load this script
-            "-s", self._dScript]
+            "-s", script]
+        if pid is not None:
+            # make this pid the target
+            command.extend(["-p", str(pid)])
+
         process = reactor.spawnProcess(proto, command[0], command)
         def eintr(reason):
             reason.trap(DTraceBug)
-            print 'Dtrace startup failed (', reason.getErrorMessage().strip(), '), retrying.'
-            return self._startDTrace(pid)
+            msg('Dtrace startup failed (%s), retrying.' % (reason.getErrorMessage().strip(),))
+            return self._startDTrace(script, pid)
         def ready(passthrough):
             # Once the dtrace process is ready, save the state and
             # have the stopped Deferred deal with the results.  We
             # don't want to do either of these for failed dtrace
             # processes.
+            msg("dtrace tracking pid=%s" % (pid,))
             self.dtraces[pid] = (process, proto)
             stopped.addCallback(self._cleanup, pid)
             return passthrough
@@ -286,7 +316,7 @@ def benchmark(host, port, directory, label, benchmarks):
     for (name, measure) in benchmarks:
         statistics[name] = {}
         for p in parameters:
-            print 'Parameter at', p
+            print '%s, parameter=%s' % (name, p)
             dtrace = DTraceCollector("io_measure.d", pids)
             data = yield measure(host, port, dtrace, p, samples)
             statistics[name][p] = data
@@ -329,7 +359,7 @@ class BenchmarkOptions(Options):
 
 
 def main():
-    from twisted.python.log import err
+    from twisted.python.log import startLogging, err
 
     options = BenchmarkOptions()
     try:
@@ -341,6 +371,8 @@ def main():
     if options['debug']:
         from twisted.python.failure import startDebugMode
         startDebugMode()
+
+    startLogging(file('benchmark.log', 'a'), False)
 
     d = benchmark(
         options['host'], options['port'],

@@ -2,7 +2,10 @@ import pickle
 from time import time
 
 from twisted.internet.defer import DeferredSemaphore, inlineCallbacks, returnValue, gatherResults
+from twisted.internet.task import deferLater
 from twisted.web.http_headers import Headers
+from twisted.internet import reactor
+from twisted.python.log import msg
 
 from stats import Duration
 from httpclient import StringProducer, readBody
@@ -68,14 +71,32 @@ def sample(dtrace, samples, agent, paramgen, concurrency=1):
     data = {urlopen: []}
 
     def once():
+        msg('emitting request')
         before = time()
         d = agent.request(*paramgen())
         def cbResponse(response):
             d = readBody(response)
             def cbBody(ignored):
                 after = time()
+                msg('response received')
+
+                # Give things a moment to settle down.  This is a hack
+                # to try to collect the last of the dtrace output
+                # which may still be sitting in the write buffer of
+                # the dtrace process.  It would be nice if there were
+                # a more reliable way to know when we had it all, but
+                # no luck on that front so far.  The implementation of
+                # mark is supposed to take care of that, but the
+                # assumption it makes about ordering of events appears
+                # to be invalid.
+
+                # XXX Disabled until I get a chance to seriously
+                # measure what affect, if any, it has.
+                # d = deferLater(reactor, 0.5, dtrace.mark)
                 d = dtrace.mark()
+
                 def cbStats(stats):
+                    msg('stats collected')
                     for k, v in stats.iteritems():
                         data.setdefault(k, []).append(v)
                     data[urlopen].append(after - before)
@@ -86,13 +107,17 @@ def sample(dtrace, samples, agent, paramgen, concurrency=1):
         d.addCallback(cbResponse)
         return d
 
+    msg('starting dtrace')
     yield dtrace.start()
+    msg('dtrace started')
     l = []
     for i in range(samples):
         l.append(sem.run(once))
     yield gatherResults(l)
 
+    msg('stopping dtrace')
     leftOver = yield dtrace.stop()
+    msg('dtrace stopped')
     for (k, v) in leftOver.items():
         if v:
             print 'Extra', k, ':', v
