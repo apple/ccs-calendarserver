@@ -593,12 +593,17 @@ class IScheduleService(service.MultiService, LoggingMixIn):
     """
 
     def __init__(self, settings, mailer):
+        service.MultiService.__init__(self)
         self.settings = settings
         self.mailer = mailer
 
+        # Disable since we're only interested in /principals (for auth)
+        config.EnableCalDAV = False
+        config.EnableCardDAV = False
+
         rootResource = getRootResource(
             config,
-            self,
+            "IGNORED", # no need for a store - no /calendars nor /addressbooks
             (
                 ("inbox", IMIPInvitationInboxResource, (mailer,), "digest"),
             )
