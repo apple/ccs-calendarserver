@@ -78,8 +78,8 @@ TRANSP:OPAQUE
 END:VEVENT
 """
     base = datetime(2010, 7, 30, 11, 15, 00)
-    interval = timedelta(0, 5)
-    duration = timedelta(0, 3)
+    interval = timedelta(hours=2)
+    duration = timedelta(hours=1)
     return event % {
         'VEVENTS': s % {
             'UID': uuid4(),
