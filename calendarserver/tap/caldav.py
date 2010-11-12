@@ -67,6 +67,7 @@ from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
+from twistedcaldav import memcachepool
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
 
@@ -526,6 +527,14 @@ class CalDAVServiceMaker (LoggingMixIn):
             )
         else:
 
+            #
+            # Configure Memcached Client Pool
+            #
+            memcachepool.installPools(
+                config.Memcached.Pools,
+                config.Memcached.MaxClients,
+            )
+
             if config.ProcessType in ('Combined', 'Single'):
 
                 # Memcached is not needed for the "master" process
@@ -880,7 +889,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                     postgresGID = None
                 pgserv = pgServiceFromConfig(
                     config,
-                    self.subServiceFactoryFactory(postgresUID, postgresGID),
+                    self.subServiceFactoryFactory(createMainService, postgresUID, postgresGID),
                     postgresUID, postgresGID
                 )
                 return pgserv

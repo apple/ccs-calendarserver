@@ -326,14 +326,6 @@ def getRootResource(config, newStore, resources=None):
         raise
 
     #
-    # Configure Memcached Client Pool
-    #
-    memcachepool.installPools(
-        config.Memcached.Pools,
-        config.Memcached.MaxClients,
-    )
-
-    #
     # Configure the Site and Wrappers
     #
     credentialFactories = []

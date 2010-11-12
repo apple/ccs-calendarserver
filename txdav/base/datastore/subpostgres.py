@@ -402,6 +402,9 @@ class PostgresService(MultiService):
                 uid=self.uid, gid=self.gid,
             )
             def doCreate(result):
+                if result.find("FATAL:") != -1:
+                    log.error(result)
+                    raise RuntimeError("Unable to initialize postgres database: %s" % (result,))
                 self.startDatabase()
             dbInited.addCallback(doCreate)
 
