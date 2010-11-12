@@ -79,6 +79,13 @@ class IAddressBookHome(INotifier, IDataStoreResource):
         @return: an iterable of L{IAddressBook}s.
         """
 
+    def loadAddressbooks():
+        """
+        Pre-load all addressbooks Depth:1.
+
+        @return: an iterable of L{IAddressBook}s.
+        """
+
     def addressbookWithName(name):
         """
         Retrieve the addressbook with the given C{name} contained in this

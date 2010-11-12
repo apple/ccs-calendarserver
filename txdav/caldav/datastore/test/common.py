@@ -774,6 +774,31 @@ class CommonTests(CommonCommonTests):
             set(home1_calendarNames)
         )
 
+    @inlineCallbacks
+    def test_loadAllCalendars(self):
+        """
+        L{ICalendarHome.loadCalendars} returns an iterable of L{ICalendar}
+        providers, which are consistent with the results from
+        L{ICalendar.calendarWithName}.
+        """
+        # Add a dot directory to make sure we don't find it
+        # self.home1._path.child(".foo").createDirectory()
+        home = yield self.homeUnderTest()
+        calendars = (yield home.loadCalendars())
+
+        for calendar in calendars:
+            self.assertProvides(ICalendar, calendar)
+            self.assertEquals(calendar,
+                              (yield home.calendarWithName(calendar.name())))
+
+        self.assertEquals(
+            set(c.name() for c in calendars),
+            set(home1_calendarNames)
+        )
+        
+        for c in calendars:
+            self.assertTrue(c.properties() is not None)
+
 
     @inlineCallbacks
     def test_calendarsAfterAddCalendar(self):

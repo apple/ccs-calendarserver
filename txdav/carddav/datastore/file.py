@@ -74,6 +74,7 @@ class AddressBookHome(CommonHome):
 
     addressbooks = CommonHome.children
     listAddressbooks = CommonHome.listChildren
+    loadAddressbooks = CommonHome.loadChildren
     addressbookWithName = CommonHome.childWithName
     createAddressBookWithName = CommonHome.createChildWithName
     removeAddressBookWithName = CommonHome.removeChildWithName

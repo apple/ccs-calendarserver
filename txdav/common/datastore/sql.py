@@ -37,7 +37,7 @@ from twisted.python import hashlib
 from twisted.python.modules import getModule
 from twisted.python.util import FancyEqMixin
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twisted.application.service import Service
 
@@ -244,9 +244,11 @@ class CommonHome(LoggingMixIn):
         self._ownerUID = ownerUID
         self._resourceID = None
         self._shares = None
+        self._childrenLoaded = False
         self._children = {}
         self._sharedChildren = {}
         self._notifier = notifier
+        self._quotaUsedBytes = None
 
         # Needed for REVISION/BIND table join
         self._revisionBindJoinTable = {}
@@ -360,13 +362,32 @@ class CommonHome(LoggingMixIn):
         returnValue(x)
 
 
+    @inlineCallbacks
+    def loadChildren(self):
+        """
+        Load and cache all children - Depth:1 optimization
+        """
+        results1 = (yield self._childClass.loadAllChildren(self, owned=True))
+        for result in results1:
+            self._children[result.name()] = result
+        results2 = (yield self._childClass.loadAllChildren(self, owned=False))
+        for result in results2:
+            self._sharedChildren[result.name()] = result
+        self._childrenLoaded = True
+        returnValue(results1 + results2)
+
+
     def listChildren(self):
         """
         Retrieve the names of the children in this home.
 
         @return: an iterable of C{str}s.
         """
-        return self._childClass.listObjects(self, owned=True)
+        
+        if self._childrenLoaded:
+            return succeed(self._children.keys())
+        else:
+            return self._childClass.listObjects(self, owned=True)
 
 
     def listSharedChildren(self):
@@ -375,7 +396,10 @@ class CommonHome(LoggingMixIn):
 
         @return: an iterable of C{str}s.
         """
-        return self._childClass.listObjects(self, owned=False)
+        if self._childrenLoaded:
+            return succeed(self._sharedChildren.keys())
+        else:
+            return self._childClass.listObjects(self, owned=False)
 
 
     @memoizedKey("name", "_children")
@@ -581,11 +605,15 @@ class CommonHome(LoggingMixIn):
 
     @inlineCallbacks
     def quotaUsedBytes(self):
-        returnValue((yield self._txn.execSQL(
-            "select %(column_QUOTA_USED_BYTES)s from %(name)s"
-            " where %(column_RESOURCE_ID)s = %%s" % self._homeMetaDataTable,
-            [self._resourceID]
-        ))[0][0])
+        
+        if self._quotaUsedBytes is None:
+            self._quotaUsedBytes = (yield self._txn.execSQL(
+                "select %(column_QUOTA_USED_BYTES)s from %(name)s"
+                " where %(column_RESOURCE_ID)s = %%s" % self._homeMetaDataTable,
+                [self._resourceID]
+            ))[0][0]
+        
+        returnValue(self._quotaUsedBytes)
 
 
     @inlineCallbacks
@@ -603,7 +631,7 @@ class CommonHome(LoggingMixIn):
             [self._resourceID]
         )
 
-        quotaUsedBytes = (yield self._txn.execSQL("""
+        self._quotaUsedBytes = (yield self._txn.execSQL("""
             update %(name)s
             set %(column_QUOTA_USED_BYTES)s = %(column_QUOTA_USED_BYTES)s + %%s
             where %(column_RESOURCE_ID)s = %%s
@@ -611,9 +639,10 @@ class CommonHome(LoggingMixIn):
             """ % self._homeMetaDataTable,
             [delta, self._resourceID]
         ))[0][0]
+
         # Double check integrity
-        if quotaUsedBytes < 0:
-            log.error("Fixing quota adjusted below zero to %s by change amount %s" % (quotaUsedBytes, delta,))
+        if self._quotaUsedBytes < 0:
+            log.error("Fixing quota adjusted below zero to %s by change amount %s" % (self._quotaUsedBytes, delta,))
             yield self._txn.execSQL("""
                 update %(name)s
                 set %(column_QUOTA_USED_BYTES)s = 0
@@ -621,6 +650,7 @@ class CommonHome(LoggingMixIn):
                 """ % self._homeMetaDataTable,
                 [self._resourceID]
             )
+            self._quotaUsedBytes = 0
 
 
     def notifierID(self, label="default"):
@@ -647,7 +677,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     _objectResourceClass = None
     _bindTable = None
     _homeChildTable = None
+    _homeChildBindTable = None
     _revisionsTable = None
+    _revisionsBindTable = None
     _objectTable = None
 
     def __init__(self, home, name, resourceID):
@@ -657,6 +689,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._created = None
         self._modified = None
         self._objects = {}
+        self._syncTokenRevision = None
 
         if home._notifier:
             childID = "%s/%s" % (home.uid(), name)
@@ -700,6 +733,70 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
         names = [row[0] for row in rows]
         returnValue(names)
+
+    @classmethod
+    @inlineCallbacks
+    def loadAllChildren(cls, home, owned):
+        """
+        Load all child objects and return a list of them. This must create the child classes
+        and initialize them using "batched" SQL operations to keep this contacts wrt the number of
+        children. This is an optimization for Depth:1 operations on the home.
+        """
+        
+        results = []
+
+        # Load from the main table first
+        dataRows = (yield home._txn.execSQL(("""
+            select %(CHILD:column_RESOURCE_ID)s, %(BIND:column_RESOURCE_NAME)s, %(CHILD:column_CREATED)s, %(CHILD:column_MODIFIED)s
+            from %(CHILD:name)s
+            left outer join %(BIND:name)s on (%(CHILD:column_RESOURCE_ID)s = %(BIND:column_RESOURCE_ID)s)
+            where
+              %(BIND:column_HOME_RESOURCE_ID)s = %%s and
+              %(BIND:column_BIND_MODE)s """ + ("=" if owned else "!=") + """ %%s
+            """) % cls._homeChildBindTable,
+            [
+                home._resourceID,
+                _BIND_MODE_OWN,
+            ]
+        ))
+        
+        if dataRows:
+            # Get property stores for all these child resources (if any found)
+            propertyStores =(yield PropertyStore.loadAll(
+                home.uid(),
+                home._txn,
+                cls._bindTable["name"],
+                cls._bindTable["column_RESOURCE_ID"],
+                cls._bindTable["column_HOME_RESOURCE_ID"],
+                home._resourceID,
+            ))
+
+            revisions = (yield home._txn.execSQL(("""
+                select %(REV:name)s.%(REV:column_RESOURCE_ID)s, max(%(REV:column_REVISION)s) from %(REV:name)s
+                left join %(BIND:name)s on (%(REV:name)s.%(REV:column_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s)
+                where
+                  %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s and
+                  %(BIND:column_BIND_MODE)s """ + ("=" if owned else "!=") + """ %%s and
+                  %(REV:column_DELETED)s = FALSE
+                group by %(REV:name)s.%(REV:column_RESOURCE_ID)s
+                """) % cls._revisionsBindTable,
+                [
+                    home._resourceID,
+                    _BIND_MODE_OWN,
+                ]
+            ))
+            revisions = dict(revisions)
+        
+        # Create the actual objects merging in properties
+        for resource_id, resource_name, created, modified in dataRows:
+            child = cls(home, resource_name, resource_id)
+            child._created = created
+            child._modified = modified
+            child._syncTokenRevision = revisions[resource_id]
+            child._loadPropertyStore(propertyStores.get(resource_id, None))
+            results.append(child)
+        
+        returnValue(results)
 
     @classmethod
     @inlineCallbacks
@@ -1036,22 +1133,15 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     @inlineCallbacks
     def syncToken(self):
-        revision = (yield self._txn.execSQL(
-            """
-            select max(%(column_REVISION)s) from %(name)s
-            where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is not null
-            """ % self._revisionsTable,
-            [self._resourceID,]
-        ))[0][0]
-        if revision is None:
-            revision = (yield self._txn.execSQL(
+        if self._syncTokenRevision is None:
+            self._syncTokenRevision = (yield self._txn.execSQL(
                 """
-                select %(column_REVISION)s from %(name)s
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+                select max(%(column_REVISION)s) from %(name)s
+                where %(column_RESOURCE_ID)s = %%s
                 """ % self._revisionsTable,
                 [self._resourceID,]
             ))[0][0]
-        returnValue(("%s#%s" % (self._resourceID, revision,)))
+        returnValue(("%s#%s" % (self._resourceID, self._syncTokenRevision,)))
 
 
     def objectResourcesSinceToken(self, token):
@@ -1097,37 +1187,40 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         )
 
         # Insert new entry
-        yield self._txn.execSQL("""
+        self._syncTokenRevision = (yield self._txn.execSQL("""
             insert into %(name)s
             (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_ID)s, %(column_COLLECTION_NAME)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
             values (%%s, %%s, %%s, null, nextval('%(sequence)s'), FALSE)
+            returning %(column_REVISION)s
             """ % self._revisionsTable,
             [self._home._resourceID, self._resourceID, self._name]
-        )
+        ))[0][0]
 
 
     @inlineCallbacks
     def _updateSyncToken(self):
 
-        yield self._txn.execSQL("""
+        self._syncTokenRevision = (yield self._txn.execSQL("""
             update %(name)s
             set (%(column_REVISION)s) = (nextval('%(sequence)s'))
             where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+            returning %(column_REVISION)s
             """ % self._revisionsTable,
             [self._resourceID,]
-        )
+        ))[0][0]
 
 
     @inlineCallbacks
     def _renameSyncToken(self):
 
-        yield self._txn.execSQL("""
+        self._syncTokenRevision = (yield self._txn.execSQL("""
             update %(name)s
             set (%(column_REVISION)s, %(column_COLLECTION_NAME)s) = (nextval('%(sequence)s'), %%s)
             where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+            returning %(column_REVISION)s
             """ % self._revisionsTable,
             [self._name, self._resourceID,]
-        )
+        ))[0][0]
 
 
     @inlineCallbacks
@@ -1142,15 +1235,17 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         )
 
         # Then adjust collection entry to deleted state (do this for all entries with this collection's
-        # resource-id so that we deal with direct shares which are not normally removed thorugh an unshare
+        # resource-id so that we deal with direct shares which are not normally removed through an unshare
         yield self._txn.execSQL("""
             update %(name)s
             set (%(column_RESOURCE_ID)s, %(column_REVISION)s, %(column_DELETED)s)
              = (null, nextval('%(sequence)s'), TRUE)
             where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+            returning %(column_REVISION)s
             """ % self._revisionsTable,
             [self._resourceID,]
         )
+        self._syncTokenRevision = None
 
 
     def _insertRevision(self, name):
@@ -1214,15 +1309,18 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                     """ % self._revisionsTable,
                     [self._home._resourceID, self._resourceID, name, nextrevision]
                 )
+        
+        self._syncTokenRevision = nextrevision
 
 
     @inlineCallbacks
-    def _loadPropertyStore(self):
-        props = yield PropertyStore.load(
-            self.ownerHome().uid(),
-            self._txn,
-            self._resourceID
-        )
+    def _loadPropertyStore(self, props=None):
+        if props is None:
+            props = yield PropertyStore.load(
+                self.ownerHome().uid(),
+                self._txn,
+                self._resourceID
+            )
         self.initPropertyStore(props)
         self._properties = props
 

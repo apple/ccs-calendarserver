@@ -338,6 +338,10 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             if not name.startswith(".")
         )
 
+    # For file store there is no efficient "bulk" load of all children so just
+    # use the "iterate over each child" method.
+    loadChildren = children
+
 
     def listChildren(self):
         """
@@ -350,6 +354,20 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             for name in self._path.listdir()
             if not name.startswith(".") and self._path.child(name).isdir()
         ))
+
+
+    def listSharedChildren(self):
+        """
+        Retrieve the names of the children in this home.
+
+        @return: an iterable of C{str}s.
+        """
+        return [share.localname for share in self._shares.allRecords()]
+
+        if self._childrenLoaded:
+            return succeed(self._sharedChildren.keys())
+        else:
+            return self._childClass.listObjects(self, owned=False)
 
 
     def childWithName(self, name):

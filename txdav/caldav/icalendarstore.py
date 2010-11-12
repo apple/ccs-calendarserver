@@ -105,6 +105,13 @@ class ICalendarHome(INotifier, IDataStoreResource):
         @return: an iterable of L{ICalendar}s.
         """
 
+    def loadCalendars():
+        """
+        Pre-load all calendars Depth:1.
+
+        @return: an iterable of L{ICalendar}s.
+        """
+
     def calendarWithName(name):
         """
         Retrieve the calendar with the given C{name} contained in this

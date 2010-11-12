@@ -630,6 +630,32 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_loadAllAddressBooks(self):
+        """
+        L{IAddressBookHome.loadAddressBooks} returns an iterable of L{IAddressBook}
+        providers, which are consistent with the results from
+        L{IAddressBook.addressbookWithName}.
+        """
+        # Add a dot directory to make sure we don't find it
+        # self.home1._path.child(".foo").createDirectory()
+        home = yield self.homeUnderTest()
+        addressbooks = (yield home.loadAddressbooks())
+
+        for addressbook in addressbooks:
+            self.assertProvides(IAddressBook, addressbook)
+            self.assertEquals(addressbook,
+                              (yield home.addressbookWithName(addressbook.name())))
+
+        self.assertEquals(
+            set(c.name() for c in addressbooks),
+            set(home1_addressbookNames)
+        )
+        
+        for c in addressbooks:
+            self.assertTrue(c.properties() is not None)
+
+
+    @inlineCallbacks
     def test_addressbooksAfterAddAddressBook(self):
         """
         L{IAddressBookHome.addressbooks} includes addressbooks recently added with

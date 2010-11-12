@@ -82,6 +82,15 @@ class ImplicitCalendarHome(
         returnValue(wrapped)
 
 
+    @inlineCallbacks
+    def loadCalendars(self):
+        superCalendars = (yield super(ImplicitCalendarHome, self).loadCalendars())
+        wrapped = []
+        for calendar in superCalendars:
+            wrapped.append(ImplicitCalendar(self, calendar))
+        returnValue(wrapped)
+
+
     def createCalendarWithName(self, name):
         self._calendarHome.createCalendarWithName(name)
 

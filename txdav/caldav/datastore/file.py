@@ -124,6 +124,7 @@ class CalendarHome(CommonHome):
             yield name
 
     listCalendars = listChildren
+    loadCalendars = CommonHome.loadChildren
 
 
     @inlineCallbacks

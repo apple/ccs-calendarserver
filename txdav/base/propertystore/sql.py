@@ -56,6 +56,34 @@ class PropertyStore(AbstractPropertyStore):
             self._cached[(name, uid)] = value
         returnValue(self)
 
+    @classmethod
+    @inlineCallbacks
+    def loadAll(cls, defaultuser, txn, joinTable, joinColumn, parentIDColumn, parentID):
+        """
+        Return a list of property stores for all objects in a parent collection
+        """
+        rows = yield txn.execSQL(
+            """
+            select RESOURCE_ID, NAME, VIEWER_UID, VALUE from RESOURCE_PROPERTY
+            left join %s on (RESOURCE_ID = %s) 
+            where %s = %%s
+            """ % (joinTable, joinColumn, parentIDColumn),
+            [parentID]
+        )
+        
+        createdStores = {}
+        for resource_id, name, view_uid, value in rows:
+            if resource_id not in createdStores:
+                store = cls.__new__(cls)
+                super(PropertyStore, store).__init__(defaultuser)
+                store._txn = txn
+                store._resourceID = resource_id
+                store._cached = {}
+                createdStores[resource_id] = store
+            createdStores[resource_id]._cached[(name, view_uid)] = value
+
+        returnValue(createdStores)
+
 
     def _getitem_uid(self, key, uid):
         validKey(key)

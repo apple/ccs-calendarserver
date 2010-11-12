@@ -2063,6 +2063,24 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
 
 
     @inlineCallbacks
+    def findChildrenFaster(
+        self, depth, request, okcallback, badcallback,
+        names, privileges, inherited_aces
+    ):
+        """
+        Override to pre-load children in certain collection types for better performance.
+        """
+        
+        if depth == "1":
+            yield self._newStoreHome.loadChildren()
+        
+        result = (yield super(CommonHomeResource, self).findChildrenFaster(
+            depth, request, okcallback, badcallback, names, privileges, inherited_aces
+        ))
+        
+        returnValue(result)
+    
+    @inlineCallbacks
     def makeChild(self, name):
         # Try built-in children first
         if name in self._provisionedChildren:
@@ -2117,8 +2135,8 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
         """
         children = set(self._provisionedChildren.keys())
         children.update(self._provisionedLinks.keys())
-        children.update((yield self.allShareNames()))
         children.update((yield self._newStoreHome.listChildren()))
+        children.update((yield self._newStoreHome.listSharedChildren()))
         returnValue(children)
 
 
