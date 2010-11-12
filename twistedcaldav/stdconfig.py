@@ -186,7 +186,7 @@ DEFAULT_CONFIG = {
     "DocumentRoot"            : "Documents",
     "ConfigRoot"              : "/etc/caldavd",
     "LogRoot"                 : "/var/log/caldavd",
-    "RunRoot"                 : "/var/run",
+    "RunRoot"                 : "/var/run/caldavd",
     "UserQuota"               : 104857600, # User quota (in bytes)
     "MaximumAttachmentSize"   :   1048576, # Attachment size limit (in bytes)
     "MaxAttendeesPerInstance" :       100, # Maximum number of unique attendees

@@ -345,13 +345,13 @@ class CalDAVOptions (Options, LoggingMixIn):
                 create=(0750, config.UserName, config.GroupName),
             )
 
-        if config.RunRoot.startswith(config.ServerRoot + os.sep):
-            self.checkDirectory(
-                config.RunRoot,
-                "Run root",
-                access=os.W_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
+        # Always create RunRoot (for pid files, socket files) if it does not exist
+        self.checkDirectory(
+            config.RunRoot,
+            "Run root",
+            access=os.W_OK,
+            create=(0770, config.UserName, config.GroupName),
+        )
 
         #
         # Nuke the file log observer's time format.

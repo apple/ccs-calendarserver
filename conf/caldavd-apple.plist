@@ -114,7 +114,7 @@
 
     <!-- Run root -->
     <key>RunRoot</key>
-    <string>/var/run</string>
+    <string>/var/run/caldavd</string>
 
     <!-- Child aliases -->
     <key>Aliases</key>
