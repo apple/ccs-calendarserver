@@ -112,7 +112,7 @@
 
     <!-- Run root -->
     <key>RunRoot</key>
-    <string>Logs</string>
+    <string>Logs/state</string>
 
     <!-- Child aliases -->
     <key>Aliases</key>
