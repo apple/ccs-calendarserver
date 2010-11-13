@@ -25,23 +25,35 @@ Quick Start
 ===========
 
 **WARNING:** these instructions are for running a server from the
-source tree, which is useful for development and you edit the source
-code. These are not the correct steps for running the server in
+source tree, which is useful for development. 
+These are not the correct steps for running the server in
 deployment or as part of an OS install. You should **not** be using
 the ``run`` script in system startup files (eg. ``/etc/init.d``); it
 does things (like download software) that you don't want to happen in
 that context.
 
-Create an empty development directory, such as
-``~/Developer/CalendarServer/``.  Then check out or copy this source
-project into this directory.  The server requires a number of
-libraries in order to operate, which will need to be places as peers
+Begin by creating a directory to contain Calendar Server and all its dependencies:
+
+  ::
+
+    mkdir ~/CalendarServer
+    cd CalendarServer
+
+Next, check out the source code from the SVN repository. To check out the latest trunk code:
+
+  ::
+
+    svn co http://svn.macosforge.org/repository/calendarserver/CalendarServer/trunk/ CalendarServer
+
+The server requires a number of
+libraries in order to operate, which will need to be placed as peers
 of the source directory.  The ``run`` script in the sources will
 automatically download or check out the appropriate libraries and
 build them for you:
 
   ::
 
+    cd CalendarServer
     ./run -s
 
 The result will be a set of directories, including the CalendarServer
@@ -49,9 +61,10 @@ source directory in your original empty directory:
 
   ::
 
-    % ls -1 ~/Developer/CalendarServer
+    % ls -1 ~/CalendarServer
+    CalDAVTester
     CalendarServer
-    Twisted
+    PyGreSQL-4.0
     ...
 
 Before you can run the server, you need to set up a configuration file
