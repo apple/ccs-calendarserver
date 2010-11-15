@@ -1,5 +1,5 @@
 
-import sys, pickle
+import sys
 
 from matplotlib import pyplot
 import numpy
@@ -22,4 +22,4 @@ def main():
     ax.set_xlabel('sample #')
     ax.set_ylabel('seconds')
     ax.legend(bars, sys.argv[1:])
-    pyplot.show()    
+    pyplot.show()

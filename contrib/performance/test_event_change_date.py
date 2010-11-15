@@ -57,8 +57,6 @@ class TimestampReplaceTests(TestCase):
         values by one hour times the counter parameter.
         """
         oldCalendar = calendarHead + calendarDates + calendarTail
-        start = datetime.datetime(2010, 7, 30, 11, 15, 5) + datetime.timedelta(hours=1)
-        end = datetime.datetime(2010, 7, 30, 11, 15, 8) + datetime.timedelta(hours=1)
         newCalendar = replaceTimestamp(oldCalendar, 3)
         self.assertEquals(
             calendarHead +

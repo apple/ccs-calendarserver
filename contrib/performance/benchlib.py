@@ -1,10 +1,11 @@
 import pickle
 from time import time
 
-from twisted.internet.defer import DeferredSemaphore, inlineCallbacks, returnValue, gatherResults
-from twisted.internet.task import deferLater
+from twisted.internet.defer import (
+    DeferredSemaphore, inlineCallbacks, returnValue, gatherResults)
+# from twisted.internet.task import deferLater
 from twisted.web.http_headers import Headers
-from twisted.internet import reactor
+# from twisted.internet import reactor
 from twisted.python.log import msg
 
 from stats import Duration
@@ -26,7 +27,8 @@ class CalDAVAccount(object):
 
 
     def makeCalendar(self, url):
-        return self.agent.request('MKCALENDAR', 'http://%s%s' % (self.netloc, url))
+        return self.agent.request(
+            'MKCALENDAR', 'http://%s%s' % (self.netloc, url))
 
 
     def writeData(self, url, data, contentType):

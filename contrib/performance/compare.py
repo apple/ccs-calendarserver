@@ -1,4 +1,4 @@
-import sys, pickle
+import sys
 
 import stats
 
