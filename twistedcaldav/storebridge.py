@@ -294,6 +294,24 @@ class _CommonHomeChildCollectionMixin(object):
         return self._newStoreObject.syncToken() if self._newStoreObject else None
 
     @inlineCallbacks
+    def findChildrenFaster(
+        self, depth, request, okcallback, badcallback,
+        names, privileges, inherited_aces
+    ):
+        """
+        Override to pre-load children in certain collection types for better performance.
+        """
+        
+        if depth == "1":
+            yield self._newStoreObject.objectResources()
+        
+        result = (yield super(_CommonHomeChildCollectionMixin, self).findChildrenFaster(
+            depth, request, okcallback, badcallback, names, privileges, inherited_aces
+        ))
+        
+        returnValue(result)
+    
+    @inlineCallbacks
     def createCollection(self):
         """
         Override C{createCollection} to actually do the work.

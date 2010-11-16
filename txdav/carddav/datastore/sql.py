@@ -170,10 +170,11 @@ class AddressBookObject(CommonObjectResource):
 
     implements(IAddressBookObject)
 
+    _objectTable = ADDRESSBOOK_OBJECT_TABLE
+
     def __init__(self, addressbook, name, uid, metadata=None):
 
         super(AddressBookObject, self).__init__(addressbook, name, uid)
-        self._objectTable = ADDRESSBOOK_OBJECT_TABLE
 
 
     @property

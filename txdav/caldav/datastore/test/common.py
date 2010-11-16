@@ -531,7 +531,7 @@ class CommonTests(CommonCommonTests):
         transaction, even if it has not yet been committed.
         """
         calendar1 = yield self.calendarUnderTest()
-        calendar1.removeCalendarObjectWithName("2.ics")
+        yield calendar1.removeCalendarObjectWithName("2.ics")
         calendarObjects = list((yield calendar1.calendarObjects()))
         self.assertEquals(set(o.name() for o in calendarObjects),
                           set(calendar1_objectNames) - set(["2.ics"]))

@@ -367,10 +367,10 @@ class CommonHome(LoggingMixIn):
         """
         Load and cache all children - Depth:1 optimization
         """
-        results1 = (yield self._childClass.loadAllChildren(self, owned=True))
+        results1 = (yield self._childClass.loadAllObjects(self, owned=True))
         for result in results1:
             self._children[result.name()] = result
-        results2 = (yield self._childClass.loadAllChildren(self, owned=False))
+        results2 = (yield self._childClass.loadAllObjects(self, owned=False))
         for result in results2:
             self._sharedChildren[result.name()] = result
         self._childrenLoaded = True
@@ -689,6 +689,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._created = None
         self._modified = None
         self._objects = {}
+        self._objectNames = None
         self._syncTokenRevision = None
 
         if home._notifier:
@@ -736,10 +737,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     @classmethod
     @inlineCallbacks
-    def loadAllChildren(cls, home, owned):
+    def loadAllObjects(cls, home, owned):
         """
         Load all child objects and return a list of them. This must create the child classes
-        and initialize them using "batched" SQL operations to keep this contacts wrt the number of
+        and initialize them using "batched" SQL operations to keep this constant wrt the number of
         children. This is an optimization for Depth:1 operations on the home.
         """
         
@@ -992,28 +993,41 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     @inlineCallbacks
     def objectResources(self):
-        x = []
-        r = x.append
-        for name in (yield self.listObjectResources()):
-            r((yield self.objectResourceWithName(name)))
-        returnValue(x)
+        """
+        Load and cache all children - Depth:1 optimization
+        """
+        results = (yield self._objectResourceClass.loadAllObjects(self))
+        for result in results:
+            self._objects[result.name()] = result
+            self._objects[result.uid()] = result
+        self._objectNames = sorted([result.name() for result in results])
+        returnValue(results)
 
 
     @inlineCallbacks
     def listObjectResources(self):
-        rows = yield self._txn.execSQL(
-            "select %(column_RESOURCE_NAME)s from %(name)s "
-            "where %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
-            [self._resourceID])
-        returnValue(sorted([row[0] for row in rows]))
+        if self._objectNames is None:
+            rows = yield self._txn.execSQL(
+                "select %(column_RESOURCE_NAME)s from %(name)s "
+                "where %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
+                [self._resourceID])
+            self._objectNames = sorted([row[0] for row in rows])
+
+        returnValue(self._objectNames)
 
 
     def objectResourceWithName(self, name):
-        return self._makeObjectResource(name, None)
+        if name in self._objects:
+            return succeed(self._objects[name])
+        else:
+            return self._makeObjectResource(name, None)
 
 
     def objectResourceWithUID(self, uid):
-        return self._makeObjectResource(None, uid)
+        if uid in self._objects:
+            return succeed(self._objects[uid])
+        else:
+            return self._makeObjectResource(None, uid)
 
 
     @inlineCallbacks
@@ -1403,6 +1417,45 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @classmethod
+    @inlineCallbacks
+    def loadAllObjects(cls, parent):
+        """
+        Load all child objects and return a list of them. This must create the child classes
+        and initialize them using "batched" SQL operations to keep this constant wrt the number of
+        children. This is an optimization for Depth:1 operations on the collection.
+        """
+        
+        results = []
+
+        # Load from the main table first
+        dataRows = yield parent._txn.execSQL(cls._selectAllColumns() + """
+            from %(name)s
+            where %(column_PARENT_RESOURCE_ID)s = %%s
+            """ % cls._objectTable,
+            [parent._resourceID,]
+        )
+        
+        if dataRows:
+            # Get property stores for all these child resources (if any found)
+            propertyStores =(yield PropertyStore.loadAll(
+                parent._home.uid(),
+                parent._txn,
+                cls._objectTable["name"],
+                "%s.%s" % (cls._objectTable["name"], cls._objectTable["column_RESOURCE_ID"],),
+                "%s.%s" % (cls._objectTable["name"], cls._objectTable["column_PARENT_RESOURCE_ID"]),
+                parent._resourceID,
+            ))
+        
+        # Create the actual objects merging in properties
+        for row in dataRows:
+            child = cls(parent, "", None)
+            child._initFromRow(tuple(row))
+            child._loadPropertyStore(propertyStores.get(child._resourceID, None))
+            results.append(child)
+        
+        returnValue(results)
+
+    @classmethod
     def objectWithName(cls, parent, name, uid):
         objectResource = cls(parent, name, uid)
         return objectResource.initFromStore()
@@ -1438,60 +1491,68 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         """
 
         if self._name:
-            rows = yield self._txn.execSQL("""
-                select
-                  %(column_RESOURCE_ID)s,
-                  %(column_RESOURCE_NAME)s,
-                  %(column_UID)s,
-                  %(column_MD5)s,
-                  character_length(%(column_TEXT)s),
-                  %(column_CREATED)s,
-                  %(column_MODIFIED)s
+            rows = yield self._txn.execSQL(self._selectAllColumns() + """
                 from %(name)s
                 where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
                 """ % self._objectTable,
                 [self._name, self._parentCollection._resourceID]
             )
         else:
-            rows = yield self._txn.execSQL("""
-                select
-                  %(column_RESOURCE_ID)s,
-                  %(column_RESOURCE_NAME)s,
-                  %(column_UID)s,
-                  %(column_MD5)s,
-                  character_length(%(column_TEXT)s),
-                  %(column_CREATED)s,
-                  %(column_MODIFIED)s
+            rows = yield self._txn.execSQL(self._selectAllColumns() + """
                 from %(name)s
                 where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
                 """ % self._objectTable,
                 [self._uid, self._parentCollection._resourceID]
             )
         if rows:
-            (self._resourceID,
-             self._name,
-             self._uid,
-             self._md5,
-             self._size,
-             self._created,
-             self._modified,) = tuple(rows[0])
+            self._initFromRow(tuple(rows[0]))
             yield self._loadPropertyStore()
             returnValue(self)
         else:
             returnValue(None)
 
+    @classmethod
+    def _selectAllColumns(cls):
+        """
+        Full set of columns in the object table that need to be loaded to
+        initialize the object resource state.
+        """
+        return """
+            select
+              %(column_RESOURCE_ID)s,
+              %(column_RESOURCE_NAME)s,
+              %(column_UID)s,
+              %(column_MD5)s,
+              character_length(%(column_TEXT)s),
+              %(column_CREATED)s,
+              %(column_MODIFIED)s
+        """ % cls._objectTable
+
+    def _initFromRow(self, row):
+        """
+        Given a select result using the columns from L{_selectAllColumns}, initialize
+        the object resource state.
+        """
+        (self._resourceID,
+         self._name,
+         self._uid,
+         self._md5,
+         self._size,
+         self._created,
+         self._modified,) = tuple(row)
 
     @inlineCallbacks
-    def _loadPropertyStore(self):
-        props = yield PropertyStore.load(
-            self._parentCollection.ownerHome().uid(),
-            self._txn,
-            self._resourceID
-        )
+    def _loadPropertyStore(self, props=None):
+        if props is None:
+            props = yield PropertyStore.load(
+                self._parentCollection.ownerHome().uid(),
+                self._txn,
+                self._resourceID
+            )
         self.initPropertyStore(props)
         self._propertyStore = props
 
-
+    
     def properties(self):
         return self._propertyStore
 

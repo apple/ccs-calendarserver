@@ -243,10 +243,11 @@ def _pathToName(path):
 class CalendarObject(CommonObjectResource):
     implements(ICalendarObject)
 
+    _objectTable = CALENDAR_OBJECT_TABLE
+
     def __init__(self, calendar, name, uid, metadata=None):
 
         super(CalendarObject, self).__init__(calendar, name, uid)
-        self._objectTable = CALENDAR_OBJECT_TABLE
         
         if metadata is None:
             metadata = {}
@@ -257,73 +258,45 @@ class CalendarObject(CommonObjectResource):
         self.hasPrivateComment = metadata.get("hasPrivateComment", False)
 
 
-    @inlineCallbacks
-    def initFromStore(self):
+    @classmethod
+    def _selectAllColumns(cls):
         """
-        Initialise this object from the store. We read in and cache all the extra metadata
-        from the DB to avoid having to do DB queries for those individually later. Either the
-        name or uid is present, so we have to tweak the query accordingly.
-        
-        @return: L{self} if object exists in the DB, else C{None}
+        Full set of columns in the object table that need to be loaded to
+        initialize the object resource state.
         """
-        
-        if self._name:
-            rows = yield self._txn.execSQL("""
-                select 
-                  %(column_RESOURCE_ID)s,
-                  %(column_RESOURCE_NAME)s,
-                  %(column_UID)s,
-                  %(column_MD5)s,
-                  character_length(%(column_TEXT)s),
-                  %(column_ACCESS)s,
-                  %(column_SCHEDULE_OBJECT)s,
-                  %(column_SCHEDULE_TAG)s,
-                  %(column_SCHEDULE_ETAGS)s,
-                  %(column_PRIVATE_COMMENTS)s,
-                  %(column_CREATED)s,
-                  %(column_MODIFIED)s
-                from %(name)s
-                where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-                """ % self._objectTable,
-                [self._name, self._parentCollection._resourceID]
-            )
-        else:
-            rows = yield self._txn.execSQL("""
-                select 
-                  %(column_RESOURCE_ID)s,
-                  %(column_RESOURCE_NAME)s,
-                  %(column_UID)s,
-                  %(column_MD5)s,
-                  character_length(%(column_TEXT)s),
-                  %(column_ACCESS)s,
-                  %(column_SCHEDULE_OBJECT)s,
-                  %(column_SCHEDULE_TAG)s,
-                  %(column_SCHEDULE_ETAGS)s,
-                  %(column_PRIVATE_COMMENTS)s,
-                  %(column_CREATED)s,
-                  %(column_MODIFIED)s
-                from %(name)s
-                where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-                """ % self._objectTable,
-                [self._uid, self._parentCollection._resourceID]
-            )
-        if rows:
-            (self._resourceID,
-             self._name,
-             self._uid,
-             self._md5,
-             self._size,
-             self._access,
-             self._schedule_object,
-             self._schedule_tag,
-             self._schedule_etags,
-             self._private_comments,
-             self._created,
-             self._modified,) = tuple(rows[0])
-            yield self._loadPropertyStore()
-            returnValue(self)
-        else:
-            returnValue(None)
+        return """
+            select 
+              %(column_RESOURCE_ID)s,
+              %(column_RESOURCE_NAME)s,
+              %(column_UID)s,
+              %(column_MD5)s,
+              character_length(%(column_TEXT)s),
+              %(column_ACCESS)s,
+              %(column_SCHEDULE_OBJECT)s,
+              %(column_SCHEDULE_TAG)s,
+              %(column_SCHEDULE_ETAGS)s,
+              %(column_PRIVATE_COMMENTS)s,
+              %(column_CREATED)s,
+              %(column_MODIFIED)s
+        """ % cls._objectTable
+
+    def _initFromRow(self, row):
+        """
+        Given a select result using the columns from L{_selectAllColumns}, initialize
+        the object resource state.
+        """
+        (self._resourceID,
+         self._name,
+         self._uid,
+         self._md5,
+         self._size,
+         self._access,
+         self._schedule_object,
+         self._schedule_tag,
+         self._schedule_etags,
+         self._private_comments,
+         self._created,
+         self._modified,) = tuple(row)
 
     @property
     def _calendar(self):

@@ -64,8 +64,13 @@ class PropertyStore(AbstractPropertyStore):
         """
         rows = yield txn.execSQL(
             """
-            select RESOURCE_ID, NAME, VIEWER_UID, VALUE from RESOURCE_PROPERTY
-            left join %s on (RESOURCE_ID = %s) 
+            select
+              RESOURCE_PROPERTY.RESOURCE_ID,
+              RESOURCE_PROPERTY.NAME,
+              RESOURCE_PROPERTY.VIEWER_UID,
+              RESOURCE_PROPERTY.VALUE
+            from RESOURCE_PROPERTY
+            left join %s on (RESOURCE_PROPERTY.RESOURCE_ID = %s) 
             where %s = %%s
             """ % (joinTable, joinColumn, parentIDColumn),
             [parentID]
