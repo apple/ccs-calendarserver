@@ -16,7 +16,7 @@ CONF=$SOURCE/conf/caldavd-dev.plist
 PIDFILE=$SOURCE/data/Logs/caldavd.pid
 
 # Names of benchmarks we can run.
-BENCHMARKS="event_move event_delete_attendee event_add_attendee event_change_date event_change_summary event_delete vfreebusy event"
+BENCHMARKS="find_calendars event_move event_delete_attendee event_add_attendee event_change_date event_change_summary event_delete vfreebusy event"
 
 # Names of metrics we can collect.
 STATISTICS=(HTTP SQL read write pagein pageout)
@@ -63,10 +63,10 @@ function start() {
 function stop() {
   ./run -k || true
   while :; do
+      pid=$(cat $PIDFILE 2>/dev/null || true)
       if [ ! -e $PIDFILE ]; then
 	  break
       fi
-      pid=$(cat $PIDFILE)
       if ! $(kill -0 $pid); then
 	  break
       fi
