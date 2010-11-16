@@ -10,6 +10,9 @@ BACKENDS="filesystem postgresql"
 # backend, and PID files will be discovered beneath it.
 SOURCE=~/Projects/CalendarServer/trunk
 
+# The plist the server will respect.
+CONF=$SOURCE/conf/caldavd-dev.plist
+
 PIDFILE=$SOURCE/data/Logs/caldavd.pid
 
 # Names of benchmarks we can run.
@@ -23,7 +26,7 @@ ADDURL=http://localhost:8000/result/add/
 
 # Change the config beneath $SOURCE to use a particular database backend.
 function setbackend() {
-  ./setbackend $SOURCE/conf/caldavd-test.plist $1 > $SOURCE/conf/caldavd-dev.plist
+  ./setbackend $SOURCE/conf/caldavd-test.plist $1 > $CONF
 }
 
 # Clean up $SOURCE, update to the specified revision, and build the
@@ -42,11 +45,14 @@ function update_and_build() {
 # (which is only a weak metric for "the server is ready to use").
 function start() {
   NUM_INSTANCES=$1
+  PIDDIR=$SOURCE/$(extractconf $CONF RunRoot)
+  
   shift
   ./run -d -n $*
   while sleep 2; do
-    instances=($SOURCE/data/Logs/*instance*)
+    instances=($PIDDIR/*instance*)
     if [ "${#instances[*]}" -eq "$NUM_INSTANCES" ]; then
+      echo "instance pid files: ${instances[*]}"
       break
     fi
   done

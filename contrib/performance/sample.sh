@@ -17,7 +17,6 @@ for backend in $BACKENDS; do
   stop
   rm -rf data/
   start 2
-  echo "instance pid files: ${instances[*]}"
   popd
   sudo ./run.sh ./benchmark --label r$REV-$backend --log-directory $LOGS $BENCHMARKS
   data=`echo -n r$REV-$backend*`

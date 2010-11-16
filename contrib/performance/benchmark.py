@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, plistlib
 from os.path import dirname
 
 from signal import SIGINT
@@ -301,13 +301,7 @@ class DTraceCollector(object):
 
 
 @inlineCallbacks
-def benchmark(host, port, directory, label, benchmarks):
-    # Figure out which pids we are benchmarking.
-    if directory:
-        pids = [masterPID(directory)] + instancePIDs(directory)
-    else:
-        pids = []
-
+def benchmark(host, port, pids, label, benchmarks):
     parameters = [1, 9, 81]
     samples = 200
 
@@ -340,9 +334,10 @@ class BenchmarkOptions(Options):
          'Hostname or IPv4 address on which a CalendarServer is listening'),
         ('port', 'p', 8008,
          'Port number on which a CalendarServer is listening', portCoerce),
-        ('log-directory', 'd', None,
-         'Logs directory of the CalendarServer being benchmarked (if and only '
-         'if the CalendarServer is on the same host as this benchmark process)',
+        ('source-directory', 'd', None,
+         'The base of the CalendarServer source checkout being benchmarked '
+         '(if and only if the CalendarServer is on the same host as this '
+         'benchmark process and dtrace-based metrics are desired)',
          logsCoerce),
         ('label', 'l', 'data', 'A descriptive string to attach to the output filename.'),
         ]
@@ -356,6 +351,14 @@ class BenchmarkOptions(Options):
         if not self['benchmarks']:
             raise UsageError("Specify at least one benchmark")
 
+
+def whichPIDs(source, conf):
+    """
+    Return a list of PIDs to dtrace.
+    """
+    run = source.preauthChild(conf['RunRoot'])
+    return [run.child(conf['PIDFile'])] + [
+        pid.getContent() for pid in run.globChildren('*instance*')]
 
 
 def main():
@@ -372,11 +375,17 @@ def main():
         from twisted.python.failure import startDebugMode
         startDebugMode()
 
+    if options['source-directory']:
+        source = options['source-directory']
+        conf = source.child('conf').child('caldavd-dev.plist')
+        pids = whichPIDs(source, plistlib.PlistParser().parse(conf.open()))
+    else:
+        pids = []
+
     startLogging(file('benchmark.log', 'a'), False)
 
     d = benchmark(
-        options['host'], options['port'],
-        options['log-directory'], options['label'],
+        options['host'], options['port'], pids, options['label'],
         [(arg, namedAny(arg).measure) for arg in options['benchmarks']])
     d.addErrback(err)
     reactor.callWhenRunning(d.addCallback, lambda ign: reactor.stop())
