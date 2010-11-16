@@ -5,7 +5,7 @@
 sudo -v # Force up to date sudo token before the user walks away
 
 REV=$1
-LOGS=$2
+SOURCE_DIR=$2
 RESULTS=$3
 
 update_and_build $REV
@@ -18,7 +18,7 @@ for backend in $BACKENDS; do
   rm -rf data/
   start 2
   popd
-  sudo ./run.sh ./benchmark --label r$REV-$backend --log-directory $LOGS $BENCHMARKS
+  sudo ./run.sh ./benchmark --label r$REV-$backend --source-directory $SOURCE_DIR $BENCHMARKS
   data=`echo -n r$REV-$backend*`
   ./run.sh ./massupload \
       --url $ADDURL --revision $REV \

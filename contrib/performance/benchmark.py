@@ -356,8 +356,8 @@ def whichPIDs(source, conf):
     """
     Return a list of PIDs to dtrace.
     """
-    run = source.preauthChild(conf['RunRoot'])
-    return [run.child(conf['PIDFile'])] + [
+    run = source.preauthChild(conf['ServerRoot']).preauthChild(conf['RunRoot'])
+    return [run.child(conf['PIDFile']).getContent()] + [
         pid.getContent() for pid in run.globChildren('*instance*')]
 
 

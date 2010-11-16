@@ -13,8 +13,6 @@ SOURCE=~/Projects/CalendarServer/trunk
 # The plist the server will respect.
 CONF=$SOURCE/conf/caldavd-dev.plist
 
-PIDFILE=$SOURCE/data/Logs/caldavd.pid
-
 # Names of benchmarks we can run.
 BENCHMARKS="find_calendars event_move event_delete_attendee event_add_attendee event_change_date event_change_summary event_delete vfreebusy event"
 
@@ -23,6 +21,8 @@ STATISTICS=(HTTP SQL read write pagein pageout)
 
 # Codespeed add-result location.
 ADDURL=http://localhost:8000/result/add/
+
+EXTRACT=$(PWD)/extractconf
 
 # Change the config beneath $SOURCE to use a particular database backend.
 function setbackend() {
@@ -45,8 +45,8 @@ function update_and_build() {
 # (which is only a weak metric for "the server is ready to use").
 function start() {
   NUM_INSTANCES=$1
-  PIDDIR=$SOURCE/$(extractconf $CONF RunRoot)
-  
+  PIDDIR=$SOURCE/$($EXTRACT $CONF ServerRoot)/$($EXTRACT $CONF RunRoot)
+
   shift
   ./run -d -n $*
   while sleep 2; do
@@ -61,6 +61,7 @@ function start() {
 # Stop the CalendarServer in the current directory.  Only return after
 # it has exited.
 function stop() {
+  PIDFILE=$SOURCE/$($EXTRACT $CONF ServerRoot)/$($EXTRACT $CONF RunRoot)/$($EXTRACT $CONF PIDFile)
   ./run -k || true
   while :; do
       pid=$(cat $PIDFILE 2>/dev/null || true)
