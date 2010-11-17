@@ -39,21 +39,23 @@ class PropertyStore(AbstractPropertyStore):
 
     @classmethod
     @inlineCallbacks
-    def load(cls, defaultuser, txn, resourceID):
+    def load(cls, defaultuser, txn, resourceID, created=False):
         self = cls.__new__(cls)
         super(PropertyStore, self).__init__(defaultuser)
         self._txn = txn
         self._resourceID = resourceID
         self._cached = {}
-        rows = yield self._txn.execSQL(
-            """
-            select NAME, VIEWER_UID, VALUE from RESOURCE_PROPERTY
-            where RESOURCE_ID = %s
-            """,
-            [self._resourceID]
-        )
-        for name, uid, value in rows:
-            self._cached[(name, uid)] = value
+        if not created:
+            # Cache existing properties
+            rows = yield self._txn.execSQL(
+                """
+                select NAME, VIEWER_UID, VALUE from RESOURCE_PROPERTY
+                where RESOURCE_ID = %s
+                """,
+                [self._resourceID]
+            )
+            for name, uid, value in rows:
+                self._cached[(name, uid)] = value
         returnValue(self)
 
     @classmethod

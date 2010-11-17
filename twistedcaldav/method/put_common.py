@@ -888,16 +888,6 @@ class StoreCalendarObjectResource(object):
 
                 self.request.addResponseFilter(_removeEtag, atEnd=True)
 
-            # Remember the resource's content-type.
-            if self.destinationcal:
-                content_type = self.request.headers.getHeader("content-type")
-                if self.internal_request or content_type is None:
-                    content_type = MimeType("text", "calendar",
-                                            params={"charset":"utf-8"})
-                self.destination.writeDeadProperty(
-                    davxml.GETContentType.fromString(generateContentType(content_type))
-                )
-
             # Do quota check on destination
             yield self.doDestinationQuotaCheck()
     

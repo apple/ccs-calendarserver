@@ -794,7 +794,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             child._created = created
             child._modified = modified
             child._syncTokenRevision = revisions[resource_id]
-            child._loadPropertyStore(propertyStores.get(resource_id, None))
+            yield child._loadPropertyStore(propertyStores.get(resource_id, None))
             results.append(child)
         
         returnValue(results)
@@ -1275,27 +1275,24 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def _changeRevision(self, action, name):
 
-        nextrevision = yield self._txn.execSQL("""
-            select nextval('%(sequence)s')
-            """ % self._revisionsTable
-        )
-
         if action == "delete":
-            yield self._txn.execSQL("""
+            self._syncTokenRevision = (yield self._txn.execSQL("""
                 update %(name)s
-                set (%(column_REVISION)s, %(column_DELETED)s) = (%%s, TRUE)
+                set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), TRUE)
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+                returning %(column_REVISION)s
                 """ % self._revisionsTable,
-                [nextrevision, self._resourceID, name]
-            )
+                [self._resourceID, name]
+            ))[0][0]
         elif action == "update":
-            yield self._txn.execSQL("""
+            self._syncTokenRevision = (yield self._txn.execSQL("""
                 update %(name)s
-                set (%(column_REVISION)s) = (%%s)
+                set (%(column_REVISION)s) = (nextval('%(sequence)s'))
                 where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+                returning %(column_REVISION)s
                 """ % self._revisionsTable,
-                [nextrevision, self._resourceID, name]
-            )
+                [self._resourceID, name]
+            ))[0][0]
         elif action == "insert":
             # Note that an "insert" may happen for a resource that previously existed and then
             # was deleted. In that case an entry in the REVISIONS table still exists so we have to
@@ -1308,24 +1305,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 [self._resourceID, name, ]
             )) )
             if found:
-                yield self._txn.execSQL("""
+                self._syncTokenRevision = (yield self._txn.execSQL("""
                     update %(name)s
-                    set (%(column_REVISION)s, %(column_DELETED)s) = (%%s, FALSE)
+                    set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), FALSE)
                     where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+                    returning %(column_REVISION)s
                     """ % self._revisionsTable,
-                    [nextrevision, self._resourceID, name]
-                )
+                    [self._resourceID, name]
+                ))[0][0]
             else:
-                yield self._txn.execSQL("""
+                self._syncTokenRevision = (yield self._txn.execSQL("""
                     insert into %(name)s
                     (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
-                    values (%%s, %%s, %%s, %%s, FALSE)
+                    values (%%s, %%s, %%s, nextval('%(sequence)s'), FALSE)
+                    returning %(column_REVISION)s
                     """ % self._revisionsTable,
-                    [self._home._resourceID, self._resourceID, name, nextrevision]
-                )
-        
-        self._syncTokenRevision = nextrevision
-
+                    [self._home._resourceID, self._resourceID, name]
+                ))[0][0]
 
     @inlineCallbacks
     def _loadPropertyStore(self, props=None):
@@ -1450,7 +1446,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         for row in dataRows:
             child = cls(parent, "", None)
             child._initFromRow(tuple(row))
-            child._loadPropertyStore(propertyStores.get(child._resourceID, None))
+            yield child._loadPropertyStore(props=propertyStores.get(child._resourceID, None))
             results.append(child)
         
         returnValue(results)
@@ -1473,7 +1469,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         
         objectResource = cls(parent, name, None, metadata)
         yield objectResource.setComponent(component, inserting=True)
-        yield objectResource._loadPropertyStore()
+        yield objectResource._loadPropertyStore(created=True)
 
         # Note: setComponent triggers a notification, so we don't need to
         # call notify( ) here like we do for object removal.
@@ -1542,12 +1538,13 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
          self._modified,) = tuple(row)
 
     @inlineCallbacks
-    def _loadPropertyStore(self, props=None):
+    def _loadPropertyStore(self, props=None, created=False):
         if props is None:
             props = yield PropertyStore.load(
                 self._parentCollection.ownerHome().uid(),
                 self._txn,
-                self._resourceID
+                self._resourceID,
+                created=created
             )
         self.initPropertyStore(props)
         self._propertyStore = props
