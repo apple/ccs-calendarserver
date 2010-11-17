@@ -46,12 +46,20 @@ END:VCALENDAR
 
 attendee = """\
 ATTENDEE;CN=User %(SEQUENCE)02d;CUTYPE=INDIVIDUAL;EMAIL=user%(SEQUENCE)02d@example.com;PARTSTAT=NE
- EDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:use
- r%(SEQUENCE)02d
+ EDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE;:urn:uuid:user%(SEQUENCE)02d
 """
 
+organizer = """\
+ORGANIZER;CN=User %(SEQUENCE)02d;EMAIL=user%(SEQUENCE)02d@example.com:urn:uuid:user%(SEQUENCE)02d
+ATTENDEE;CN=User %(SEQUENCE)02d;EMAIL=user%(SEQUENCE)02d@example.com;PARTSTAT=ACCEPTE
+ D:urn:uuid:user%(SEQUENCE)02d
+"""
+
+def makeOrganizer(sequence):
+    return organizer % {'SEQUENCE': sequence}
+
 def makeAttendees(count):
-    return '\n'.join([
+    return ''.join([
             attendee % {'SEQUENCE': n} for n in range(2, count + 2)])
 
 
@@ -61,17 +69,17 @@ def formatDate(d):
 
 SUMMARY = "STUFF IS THINGS"
 
-def makeEvent(i, attendeeCount):
+def makeEvent(i, organizerSequence, attendeeCount):
     s = """\
 BEGIN:VEVENT
 UID:%(UID)s
 DTSTART;TZID=America/Los_Angeles:%(START)s
 DTEND;TZID=America/Los_Angeles:%(END)s
-%(ATTENDEES)s\
 CREATED:20100729T193912Z
 DTSTAMP:20100729T195557Z
-ORGANIZER;CN=User 03;EMAIL=user03@example.com:urn:uuid:user03
-SEQUENCE:%(SEQUENCE)s
+%(ORGANIZER)s\
+%(ATTENDEES)s\
+SEQUENCE:0
 SUMMARY:%(summary)s
 TRANSP:OPAQUE
 END:VEVENT
@@ -84,7 +92,7 @@ END:VEVENT
             'UID': uuid4(),
             'START': formatDate(base + i * interval),
             'END': formatDate(base + i * interval + duration),
-            'SEQUENCE': i,
+            'ORGANIZER': makeOrganizer(organizerSequence),
             'ATTENDEES': makeAttendees(attendeeCount),
             'summary': SUMMARY,
             },
@@ -93,7 +101,8 @@ END:VEVENT
 
 @inlineCallbacks
 def measure(host, port, dtrace, attendeeCount, samples):
-    user = password = "user01"
+    organizerSequence = 1
+    user = password = "user%02d" % (organizerSequence,)
     root = "/"
     principal = "/"
     calendar = "event-creation-benchmark"
@@ -115,7 +124,7 @@ def measure(host, port, dtrace, attendeeCount, samples):
     headers = Headers({"content-type": ["text/calendar"]})
 
     # An infinite stream of VEVENTs to PUT to the server.
-    events = ((i, makeEvent(i, attendeeCount)) for i in count(2))
+    events = ((i, makeEvent(i, organizerSequence, attendeeCount)) for i in count(2))
 
     # Sample it a bunch of times
     samples = yield sample(
