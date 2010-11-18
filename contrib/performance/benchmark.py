@@ -228,12 +228,16 @@ class DTraceCollector(object):
             ready.append(started)
             self.finished.append(stopped)
 
-        # Also trace postgres i/o operations.  This involves no
-        # target, because the dtrace code just looks for processes
-        # named "postgres".
-        started, stopped = self._startDTrace("pgsql.d", None)
-        ready.append(started)
-        self.finished.append(stopped)
+        if self.pids:
+            # If any tracing is to be done, then also trace postgres
+            # i/o operations.  This involves no target, because the
+            # dtrace code just looks for processes named "postgres".
+            # We skip it if we don't have any pids because that's
+            # heuristically the "don't do any dtracing" setting (it
+            # might be nice to make this explicit).
+            started, stopped = self._startDTrace("pgsql.d", None)
+            ready.append(started)
+            self.finished.append(stopped)
 
         return gatherResults(ready)
 
@@ -397,6 +401,7 @@ def main():
         pids = whichPIDs(source, plistlib.PlistParser().parse(conf.open()))
     else:
         pids = []
+    msg("Using dtrace to monitor pids %r" % (pids,))
 
     startLogging(file('benchmark.log', 'a'), False)
 
