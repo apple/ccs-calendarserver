@@ -42,11 +42,12 @@ from twext.web2.http import HTTPError, StatusResponse, Response
 from twext.web2.http_headers import ETag, MimeType
 from twext.web2.responsecode import (
     FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED,
-    BAD_REQUEST, OK, NOT_IMPLEMENTED, NOT_ALLOWED
+    BAD_REQUEST, OK,
 )
 from twext.web2.stream import ProducerStream, readStream, MemoryStream
 
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.config import config
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.notifications import NotificationCollectionResource, \
     NotificationResource
@@ -761,15 +762,16 @@ class NoDropboxHere(_GetChildHelper):
 
 
     def http_GET(self, request):
-        return NOT_FOUND
+        return FORBIDDEN
 
 
     def http_MKCALENDAR(self, request):
-        return NOT_ALLOWED
+        return FORBIDDEN
 
 
+    @requiresPermissions(fromParent=[davxml.Bind()])
     def http_MKCOL(self, request):
-        return NOT_IMPLEMENTED
+        return CREATED
 
 
 
@@ -805,6 +807,7 @@ class CalendarObjectDropbox(_GetChildHelper):
         returnValue(result)
 
 
+    @requiresPermissions(davxml.WriteACL())
     @inlineCallbacks
     def http_ACL(self, request):
         """
@@ -812,6 +815,7 @@ class CalendarObjectDropbox(_GetChildHelper):
         that refer to permissions not referenced by attendees in the iCalendar
         data.
         """
+
         attendees = (yield self._newStoreCalendarObject.component()).getAttendees()
         attendees = [attendee.split("urn:uuid:")[-1] for attendee in attendees]
         document = yield davXMLFromStream(request.stream)
@@ -839,10 +843,12 @@ class CalendarObjectDropbox(_GetChildHelper):
         returnValue(OK)
 
 
+    @requiresPermissions(fromParent=[davxml.Bind()])
     def http_MKCOL(self, request):
         return CREATED
 
 
+    @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
         return NO_CONTENT
 
@@ -856,18 +862,34 @@ class CalendarObjectDropbox(_GetChildHelper):
 
 
     @inlineCallbacks
-    def accessControlList(self, *a, **kw):
+    def accessControlList(self, request, *a, **kw):
         """
         All principals identified as ATTENDEEs on the event for this dropbox
         may read all its children. Also include proxies of ATTENDEEs. Ignore
         unknown attendees.
         """
         originalACL = yield super(
-            CalendarObjectDropbox, self).accessControlList(*a, **kw)
+            CalendarObjectDropbox, self).accessControlList(request, *a, **kw)
+        originalACEs = list(originalACL.children)
+
+        if config.EnableProxyPrincipals:
+            owner = (yield self.ownerPrincipal(request))
+
+            originalACEs += (
+                # DAV:write-acl access for this principal's calendar-proxy-write users.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(owner.principalURL(), "calendar-proxy-write/"))),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.WriteACL()),
+                    ),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ),
+            )
+
         othersCanWrite = (
             yield self._newStoreCalendarObject.attendeesCanManageAttachments()
         )
-        originalACEs = list(originalACL.children)
         cuas = (yield self._newStoreCalendarObject.component()).getAttendees()
         newACEs = []
         for calendarUserAddress in cuas:
@@ -910,7 +932,7 @@ class CalendarObjectDropbox(_GetChildHelper):
                 TwistedACLInheritable(),
             ))
 
-        returnValue(davxml.ACL(*tuple(newACEs + originalACEs)))
+        returnValue(davxml.ACL(*tuple(originalACEs + newACEs)))
 
 
 
