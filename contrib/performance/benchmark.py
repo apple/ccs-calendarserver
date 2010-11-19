@@ -360,16 +360,42 @@ class BenchmarkOptions(Options):
          'benchmark process and dtrace-based metrics are desired)',
          logsCoerce),
         ('label', 'l', 'data', 'A descriptive string to attach to the output filename.'),
+        ('hosts-count', None, None, 'For distributed benchmark collection, the number of hosts participating in collection.', int),
+        ('host-index', None, None, 'For distributed benchmark collection, the (zero-based) index of this host in the collection.', int),
         ]
 
     optFlags = [
         ('debug', None, 'Enable various debugging helpers'),
         ]
 
+    def _selectBenchmarks(self, benchmarks):
+        """
+        Select the benchmarks to run, based on those named and on the
+        values passed for I{--hosts-count} and I{--host-index}.
+        """
+        count = self['hosts-count']
+        index = self['host-index']
+        if (count is None) != (index is None):
+            raise UsageError("Specify neither or both of hosts-count and host-index")
+        if count is not None:
+            if count < 0:
+                raise UsageError("Specify a positive integer for hosts-count")
+            if index < 0:
+                raise UsageError("Specify a positive integer for host-index")
+            if index >= count:
+                raise UsageError("host-index must be less than hosts-count")
+            benchmarks = [
+                benchmark 
+                for (i, benchmark) 
+                in enumerate(benchmarks) 
+                if i % self['hosts-count'] == self['host-index']]
+        return benchmarks
+
+
     def parseArgs(self, *benchmarks):
-        self['benchmarks'] = benchmarks
-        if not self['benchmarks']:
+        if not benchmarks:
             raise UsageError("Specify at least one benchmark")
+        self['benchmarks'] = self._selectBenchmarks(list(benchmarks))
 
 
 def whichPIDs(source, conf):
