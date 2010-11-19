@@ -132,6 +132,9 @@ class Notifier(LoggingMixIn):
         newNotifier._prefix = self._prefix
         return newNotifier
 
+    def addID(self, label="default", id=None):
+        self._ids[label] = self.normalizeID(id)
+
     def getID(self, label="default"):
         id = self._ids.get(label, None)
         if self._prefix is None:

@@ -999,6 +999,8 @@ class NotificationCollection(CommonHomeChild):
 
         # Update database
         self.retrieveOldIndex().addOrUpdateRecord(NotificationRecord(uid, name, xmltype.name))
+        
+        self.notifyChanged()
 
     @writeOperation
     def removeNotificationObjectWithName(self, name):
@@ -1016,8 +1018,15 @@ class NotificationCollection(CommonHomeChild):
                 return lambda: None
             self._transaction.addOperation(do, "remove object resource object %r" %
                                            (name,))
+        
+            self.notifyChanged()
         else:
             raise NoSuchObjectResourceError(name)
+
+    @writeOperation
+    def removeNotificationObjectWithUID(self, uid):
+        name = uid + ".xml"
+        self.removeNotificationObjectWithName(name)
 
     def _doValidate(self, component):
         # Nothing to do - notifications are always generated internally by the server
@@ -1032,7 +1041,7 @@ class NotificationObject(CommonObjectResource):
 
     def __init__(self, name, notifications):
         super(NotificationObject, self).__init__(name, notifications)
-
+        self._uid = name[:-4]
 
     def notificationCollection(self):
         return self._parentCollection
@@ -1124,8 +1133,6 @@ class NotificationObject(CommonObjectResource):
 
 
     def uid(self):
-        if not hasattr(self, "_uid"):
-            self._uid = self.xmldata
         return self._uid
 
     def initPropertyStore(self, props):

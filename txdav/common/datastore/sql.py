@@ -144,6 +144,7 @@ class CommonStoreTransaction(object):
         self._notifierFactory = notifierFactory
         self._label = label
         self._migrating = migrating
+        self._primaryHomeType = None
 
         CommonStoreTransaction.id += 1
         self._txid = CommonStoreTransaction.id
@@ -151,8 +152,11 @@ class CommonStoreTransaction(object):
         extraInterfaces = []
         if enableCalendars:
             extraInterfaces.append(ICalendarTransaction)
+            self._primaryHomeType = ECALENDARTYPE
         if enableAddressBooks:
             extraInterfaces.append(IAddressBookTransaction)
+            if self._primaryHomeType is None:
+                self._primaryHomeType = EADDRESSBOOKTYPE
         directlyProvides(self, *extraInterfaces)
 
         from txdav.caldav.datastore.sql import CalendarHome
@@ -747,14 +751,17 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         results = []
 
         # Load from the main table first
+        if owned:
+            ownedPiece = "%(BIND:column_BIND_MODE)s = %%s"
+        else:
+            ownedPiece = "%(BIND:column_BIND_MODE)s != %%s and %(BIND:column_RESOURCE_NAME)s is not null"
         dataRows = (yield home._txn.execSQL(("""
             select %(CHILD:column_RESOURCE_ID)s, %(BIND:column_RESOURCE_NAME)s, %(CHILD:column_CREATED)s, %(CHILD:column_MODIFIED)s
             from %(CHILD:name)s
             left outer join %(BIND:name)s on (%(CHILD:column_RESOURCE_ID)s = %(BIND:column_RESOURCE_ID)s)
             where
-              %(BIND:column_HOME_RESOURCE_ID)s = %%s and
-              %(BIND:column_BIND_MODE)s """ + ("=" if owned else "!=") + """ %%s
-            """) % cls._homeChildBindTable,
+              %(BIND:column_HOME_RESOURCE_ID)s = %%s and """ + ownedPiece
+            ) % cls._homeChildBindTable,
             [
                 home._resourceID,
                 _BIND_MODE_OWN,
@@ -1637,7 +1644,6 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
     compareAttributes = "_uid _resourceID".split()
 
-    _objectResourceClass = None
     _revisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
 
     def __init__(self, txn, uid, resourceID):
@@ -1646,6 +1652,22 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         self._uid = uid
         self._resourceID = resourceID
         self._notifications = {}
+        self._notificationNames = None
+        self._syncTokenRevision = None
+
+        # Make sure we have push notifications setup to push on this collection
+        # as well as the home it is in
+        if txn._notifierFactory:
+            childID = "%s/%s" % (uid, "notification")
+            notifier = txn._notifierFactory.newNotifier(
+                label="collection",
+                id=childID,
+                prefix=txn._homeClass[txn._primaryHomeType]._notifierPrefix
+            )
+            notifier.addID(id=uid)
+        else:
+            notifier = None
+        self._notifier = notifier
 
     @classmethod
     @inlineCallbacks
@@ -1701,19 +1723,22 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
     @inlineCallbacks
     def notificationObjects(self):
-        L = []
-        for name in (yield self.listNotificationObjects()):
-            L.append((yield self.notificationObjectWithName(name)))
-        returnValue(L)
+        results = (yield NotificationObject.loadAllObjects(self))
+        for result in results:
+            self._notifications[result.uid()] = result
+        self._notificationNames = sorted([result.name() for result in results])
+        returnValue(results)
 
 
     @inlineCallbacks
     def listNotificationObjects(self):
-        rows = yield self._txn.execSQL(
-            "select (NOTIFICATION_UID) from NOTIFICATION "
-            "where NOTIFICATION_HOME_RESOURCE_ID = %s",
-            [self._resourceID])
-        returnValue(sorted(["%s.xml" % row[0] for row in rows]))
+        if self._notificationNames is None:
+            rows = yield self._txn.execSQL(
+                "select (NOTIFICATION_UID) from NOTIFICATION "
+                "where NOTIFICATION_HOME_RESOURCE_ID = %s",
+                [self._resourceID])
+            self._notificationNames = sorted([row[0] for row in rows])
+        returnValue(self._notificationNames)
 
 
     def _nameToUID(self, name):
@@ -1770,35 +1795,29 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         yield self._deleteRevision("%s.xml" % (uid,))
 
 
+    @inlineCallbacks
     def _initSyncToken(self):
-        return self._txn.execSQL("""
+        self._syncTokenRevision = (yield self._txn.execSQL("""
             insert into %(name)s
             (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
             values (%%s, null, nextval('%(sequence)s'), FALSE)
-            """ % self._revisionsTable,
-            [self._resourceID,]
-        )
-
-
-    @inlineCallbacks
-    def syncToken(self):
-        revision = (yield self._txn.execSQL(
-            """
-            select max(%(column_REVISION)s) from %(name)s
-            where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is not null
+            returning %(column_REVISION)s
             """ % self._revisionsTable,
             [self._resourceID,]
         ))[0][0]
 
-        if revision is None:
-            revision = (yield self._txn.execSQL(
+
+    @inlineCallbacks
+    def syncToken(self):
+        if self._syncTokenRevision is None:
+            self._syncTokenRevision = (yield self._txn.execSQL(
                 """
-                select %(column_REVISION)s from %(name)s
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+                select max(%(column_REVISION)s) from %(name)s
+                where %(column_HOME_RESOURCE_ID)s = %%s
                 """ % self._revisionsTable,
                 [self._resourceID,]
             ))[0][0]
-        returnValue("%s#%s" % (self._resourceID, revision,))
+        returnValue("%s#%s" % (self._resourceID, self._syncTokenRevision,))
 
 
     def objectResourcesSinceToken(self, token):
@@ -1833,13 +1852,14 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
 
     def _updateSyncToken(self):
-        return self._txn.execSQL("""
+        self._syncTokenRevision =  self._txn.execSQL("""
             update %(name)s
             set (%(column_REVISION)s) = (nextval('%(sequence)s'))
             where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+            returning %(column_REVISION)s
             """ % self._revisionsTable,
             [self._resourceID,]
-        )
+        )[0][0]
 
 
     def _insertRevision(self, name):
@@ -1857,27 +1877,24 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def _changeRevision(self, action, name):
 
-        nextrevision = yield self._txn.execSQL("""
-            select nextval('%(sequence)s')
-            """ % self._revisionsTable
-        )
-
         if action == "delete":
-            yield self._txn.execSQL("""
+            self._syncTokenRevision = (yield self._txn.execSQL("""
                 update %(name)s
-                set (%(column_REVISION)s, %(column_DELETED)s) = (%%s, TRUE)
+                set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), TRUE)
                 where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+                returning %(column_REVISION)s
                 """ % self._revisionsTable,
-                [nextrevision, self._resourceID, name]
-            )
+                [self._resourceID, name]
+            ))[0][0]
         elif action == "update":
-            yield self._txn.execSQL("""
+            self._syncTokenRevision = (yield self._txn.execSQL("""
                 update %(name)s
-                set (%(column_REVISION)s) = (%%s)
+                set (%(column_REVISION)s) = (nextval('%(sequence)s'))
                 where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+                returning %(column_REVISION)s
                 """ % self._revisionsTable,
-                [nextrevision, self._resourceID, name]
-            )
+                [self._resourceID, name]
+            ))[0][0]
         elif action == "insert":
             # Note that an "insert" may happen for a resource that previously existed and then
             # was deleted. In that case an entry in the REVISIONS table still exists so we have to
@@ -1890,26 +1907,44 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                 [self._resourceID, name, ]
             )))
             if found:
-                yield self._txn.execSQL("""
+                self._syncTokenRevision = (yield self._txn.execSQL("""
                     update %(name)s
-                    set (%(column_REVISION)s, %(column_DELETED)s) = (%%s, FALSE)
+                    set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), FALSE)
                     where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
+                    returning %(column_REVISION)s
                     """ % self._revisionsTable,
-                    [nextrevision, self._resourceID, name]
-                )
+                    [self._resourceID, name]
+                ))[0][0]
             else:
-                yield self._txn.execSQL("""
+                self._syncTokenRevision = (yield self._txn.execSQL("""
                     insert into %(name)s
                     (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
-                    values (%%s, %%s, %%s, FALSE)
+                    values (%%s, %%s, nextval('%(sequence)s'), FALSE)
+                    returning %(column_REVISION)s
                     """ % self._revisionsTable,
-                    [self._resourceID, name, nextrevision]
-                )
+                    [self._resourceID, name,]
+                ))[0][0]
+
+        self.notifyChanged()
 
 
     def properties(self):
         return self._propertyStore
 
+
+    def notifierID(self, label="default"):
+        if self._notifier:
+            return self._notifier.getID(label)
+        else:
+            return None
+
+
+    def notifyChanged(self):
+        """
+        Trigger a notification of a change
+        """
+        if self._notifier:
+            self._txn.postCommit(self._notifier.notify)
 
 
 class NotificationObject(LoggingMixIn, FancyEqMixin):
@@ -1920,15 +1955,67 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
     def __init__(self, home, uid):
         self._home = home
-        self._uid = uid
         self._resourceID = None
+        self._uid = uid
         self._md5 = None
         self._size = None
         self._created = None
         self._modified = None
+        self._objectText = None
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
+
+    @classmethod
+    @inlineCallbacks
+    def loadAllObjects(cls, parent):
+        """
+        Load all child objects and return a list of them. This must create the child classes
+        and initialize them using "batched" SQL operations to keep this constant wrt the number of
+        children. This is an optimization for Depth:1 operations on the collection.
+        """
+        
+        results = []
+
+        # Load from the main table first
+        dataRows = (yield parent._txn.execSQL("""
+            select
+                RESOURCE_ID,
+                NOTIFICATION_UID,
+                MD5,
+                character_length(XML_DATA),
+                CREATED,
+                MODIFIED
+            from NOTIFICATION
+            where NOTIFICATION_HOME_RESOURCE_ID = %s
+            """,
+            [parent._resourceID]
+        ))
+        
+        if dataRows:
+            # Get property stores for all these child resources (if any found)
+            propertyStores =(yield PropertyStore.loadAll(
+                parent.uid(),
+                parent._txn,
+                "NOTIFICATION",
+                "NOTIFICATION.RESOURCE_ID",
+                "NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID",
+                parent._resourceID,
+            ))
+        
+        # Create the actual objects merging in properties
+        for row in dataRows:
+            child = cls(parent, None)
+            (child._resourceID,
+             child._uid,
+             child._md5,
+             child._size,
+             child._created,
+             child._modified,) = tuple(row)
+            yield child._loadPropertyStore(props=propertyStores.get(child._resourceID, None))
+            results.append(child)
+        
+        returnValue(results)
 
     @inlineCallbacks
     def initFromStore(self):
@@ -1959,6 +2046,34 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
             returnValue(self)
         else:
             returnValue(None)
+
+    @inlineCallbacks
+    def _loadPropertyStore(self, props=None, created=False):
+        if props is None:
+            props = yield PropertyStore.load(
+                self._home.uid(),
+                self._txn,
+                self._resourceID,
+                created=created
+            )
+        self.initPropertyStore(props)
+        self._propertyStore = props
+
+
+    def properties(self):
+        return self._propertyStore
+
+
+    def initPropertyStore(self, props):
+        # Setup peruser special properties
+        props.setSpecialProperties(
+            (
+            ),
+            (
+                PropertyName.fromElement(NotificationType),
+            ),
+        )
+
 
     @property
     def _txn(self):
@@ -2012,6 +2127,8 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
             self._modified = rows[0][0]
 
         self.properties()[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
+        
+        self._objectText = xmldata
 
 
     @inlineCallbacks
@@ -2024,33 +2141,12 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         returnValue(data[0][0])
 
 
-    def xmldata(self):
-        return self._fieldQuery("XML_DATA")
-
-
-    def properties(self):
-        return self._propertyStore
-
-
     @inlineCallbacks
-    def _loadPropertyStore(self):
-        self._propertyStore = yield PropertyStore.load(
-            self._home.uid(),
-            self._txn,
-            self._resourceID
-        )
-        self.initPropertyStore(self._propertyStore)
-
-
-    def initPropertyStore(self, props):
-        # Setup peruser special properties
-        props.setSpecialProperties(
-            (
-            ),
-            (
-                PropertyName.fromElement(NotificationType),
-            ),
-        )
+    def xmldata(self):
+        
+        if self._objectText is None:
+            self._objectText = (yield self._fieldQuery("XML_DATA"))
+        returnValue(self._objectText)
 
 
     def contentType(self):

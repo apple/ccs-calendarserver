@@ -1437,15 +1437,6 @@ class _NotificationChildHelper(object):
         return True
 
 
-    @classmethod
-    def transform(cls, self, notifications, home):
-        """
-        Transform C{self} into a L{NotificationCollectionResource}.
-        """
-        self.__class__ = cls
-        self._initializeWithNotifications(notifications, home)
-
-
     @inlineCallbacks
     def makeChild(self, name):
         """
@@ -1529,74 +1520,6 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
             self._newStoreNotifications.removeNotificationObjectWithName,
             record.name
         )
-
-
-class StoreProtoNotificationCollectionResource(NotificationCollectionResource):
-    """
-    A resource representing a notification collection which hasn't yet been created.
-    """
-
-    def __init__(self, home, *args, **kw):
-        """
-        A placeholder resource for a notification collection which does not yet
-        exist, but will become a L{StoreNotificationCollectionResource}.
-
-        @param home: The calendar home which will be this resource's parent,
-            when it exists.
-
-        @type home: L{txdav.caldav.icalendarstore.ICalendarHome}
-        """
-        self._newStoreParentHome = home
-        super(StoreProtoNotificationCollectionResource, self).__init__(*args, **kw)
-
-
-    def isCollection(self):
-        return True
-
-    def makeChild(self, name):
-        # FIXME: this is necessary for 
-        # twistedcaldav.test.test_mkcalendar.
-        #     MKCALENDAR.test_make_calendar_no_parent - there should be a more
-        # structured way to refuse creation with a non-existent parent.
-        return NoParent()
-
-
-    def provisionFile(self):
-        """
-        Create a calendar collection.
-        """
-        # FIXME: there should be no need for this.
-        return self.createNotificationCollection()
-
-
-    def createNotificationCollection(self):
-        """
-        Override C{createCalendarCollection} to actually do the work.
-        """
-        d = succeed(CREATED)
-
-        notificationName = self.name()
-        self._newStoreParentHome.createChildWithName(notificationName)
-        newStoreNotification = self._newStoreParentHome.childWithName(
-            notificationName
-        )
-        StoreNotificationCollectionResource.transform(
-            self, newStoreNotification, self._newStoreParentHome
-        )
-        return d
-
-
-    def exists(self):
-        # FIXME: tests
-        return False
-
-
-    def provision(self):
-        """
-        This resource should do nothing if it's provisioned.
-        """
-        # FIXME: should be deleted, or raise an exception
-
 
 
 class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResource):
