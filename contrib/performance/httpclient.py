@@ -14,23 +14,26 @@
 # limitations under the License.
 ##
 
+from StringIO import StringIO
+
 from zope.interface import implements
 
 from twisted.internet.protocol import Protocol
 from twisted.internet.defer import Deferred, succeed
 from twisted.web.iweb import IBodyProducer
 
-class _DiscardReader(Protocol):
+class _BufferReader(Protocol):
     def __init__(self, finished):
         self.finished = finished
+        self.received = StringIO()
 
 
     def dataReceived(self, bytes):
-        pass
+        self.received.write(bytes)
 
 
     def connectionLost(self, reason):
-        self.finished.callback(None)
+        self.finished.callback(self.received.getvalue())
 
 
 
@@ -38,7 +41,7 @@ def readBody(response):
     if response.length == 0:
         return succeed(None)
     finished = Deferred()
-    response.deliverBody(_DiscardReader(finished))
+    response.deliverBody(_BufferReader(finished))
     return finished
 
 
@@ -54,5 +57,3 @@ class StringProducer(object):
     def startProducing(self, consumer):
         consumer.write(self._body)
         return succeed(None)
-
-
