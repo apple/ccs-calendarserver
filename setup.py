@@ -129,10 +129,11 @@ if __name__ == "__main__":
     )
 
     if "install" in dist.commands:
-        install_scripts = dist.command_obj["install"].install_scripts
-        install_lib = dist.command_obj["install"].install_lib
-        root = dist.command_obj["install"].root
-        base = dist.command_obj["install"].install_base
+        install_obj = dist.command_obj["install"]
+        install_scripts = os.path.normpath(install_obj.install_scripts)
+        install_lib = os.path.normpath(install_obj.install_lib)
+        root = os.path.normpath(install_obj.root)
+        base = os.path.normpath(install_obj.install_base)
 
         if root:
             install_lib = install_lib[len(root):]
