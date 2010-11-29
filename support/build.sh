@@ -532,7 +532,7 @@ dependencies () {
   fi;
 
   #if [ "$(uname -s)" == "Darwin" ]; then
-    py_dependency -r 4827 \
+    py_dependency -r 6656 \
       "PyOpenDirectory" "opendirectory" "PyOpenDirectory" \
       "${svn_uri_base}/PyOpenDirectory/trunk";
   #fi;
