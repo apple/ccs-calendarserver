@@ -59,7 +59,7 @@ from twistedcaldav.vcard import Component, Property
 from xmlrpclib import datetime
 from vobject.vcard import Name, Address
 
-from calendarserver.od import dsattributes, dsquery
+from calendarserver.platform.darwin.od import dsattributes, dsquery
 from twisted.python.reflect import namedModule
 
 class OpenDirectoryBackingService(DirectoryService):

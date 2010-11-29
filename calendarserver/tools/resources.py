@@ -33,7 +33,7 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 import os
 import sys
 
-from calendarserver.od import dsattributes
+from calendarserver.platform.darwin.od import dsattributes
 
 __all__ = [ "migrateResources", ]
 

@@ -22,7 +22,7 @@ import sys
 runTests = False
 
 try:
-    from calendarserver.od import opendirectory, dsattributes, dsquery, setup_directory
+    from calendarserver.platform.darwin.od import opendirectory, dsattributes, dsquery, setup_directory
 
     directory = opendirectory.odInit("/Search")
 
@@ -455,7 +455,7 @@ if runTests:
             results = list(opendirectory.queryRecordsWithAttribute_list(
                 directory,
                 dsattributes.kDS1AttrGeneratedUID,
-                "9dc04a70-e6dd-11df-9492-0800200c9a66",
+                "9DC04A70-E6DD-11DF-9492-0800200C9A66",
                 dsattributes.eDSExact,
                 False,
                 dsattributes.kDSStdRecordTypeUsers,
@@ -473,7 +473,7 @@ if runTests:
             results = list(opendirectory.queryRecordsWithAttribute_list(
                 directory,
                 dsattributes.kDS1AttrGeneratedUID,
-                "9dc04a70-e6dd-11df-9492-0800200c9a66",
+                "9DC04A70-E6DD-11DF-9492-0800200C9A66",
                 dsattributes.eDSExact,
                 False,
                 [
@@ -497,7 +497,7 @@ if runTests:
             results = list(opendirectory.queryRecordsWithAttribute_list(
                 directory,
                 dsattributes.kDS1AttrGeneratedUID,
-                "9dc04a74-e6dd-11df-9492-0800200c9a66",
+                "9DC04A74-E6DD-11DF-9492-0800200C9A66",
                 dsattributes.eDSExact,
                 False,
                 dsattributes.kDSStdRecordTypeUsers,
@@ -516,7 +516,7 @@ if runTests:
             results = list(opendirectory.queryRecordsWithAttribute_list(
                 directory,
                 dsattributes.kDS1AttrGeneratedUID,
-                "9dc04a74-e6dd-11df-9492-0800200c9a66",
+                "9DC04A74-E6DD-11DF-9492-0800200C9A66",
                 dsattributes.eDSExact,
                 False,
                 [
@@ -592,7 +592,7 @@ if runTests:
             results = list(opendirectory.queryRecordsWithAttribute_list(
                 directory,
                 dsattributes.kDS1AttrGeneratedUID,
-                "6c6cd280-e6e3-11df-9492-0800200c9a66",
+                "6C6CD280-E6E3-11DF-9492-0800200C9A66",
                 dsattributes.eDSExact,
                 False,
                 dsattributes.kDSStdRecordTypeGroups,
@@ -617,7 +617,7 @@ if runTests:
             results = list(opendirectory.queryRecordsWithAttribute_list(
                 directory,
                 dsattributes.kDS1AttrGeneratedUID,
-                "6c6cd281-e6e3-11df-9492-0800200c9a66",
+                "6C6CD281-E6E3-11DF-9492-0800200C9A66",
                 dsattributes.eDSExact,
                 False,
                 dsattributes.kDSStdRecordTypeGroups,
@@ -643,7 +643,7 @@ if runTests:
             results = list(opendirectory.queryRecordsWithAttribute_list(
                 directory,
                 dsattributes.kDSNAttrGroupMembers,
-                "9dc04a70-e6dd-11df-9492-0800200c9a66",
+                "9DC04A70-E6DD-11DF-9492-0800200C9A66",
                 dsattributes.eDSExact,
                 False,
                 dsattributes.kDSStdRecordTypeGroups,
@@ -659,7 +659,7 @@ if runTests:
             results = list(opendirectory.queryRecordsWithAttribute_list(
                 directory,
                 dsattributes.kDSNAttrNestedGroups,
-                "9dc04a70-e6dd-11df-9492-0800200c9a66",
+                "9DC04A70-E6DD-11DF-9492-0800200C9A66",
                 dsattributes.eDSExact,
                 False,
                 dsattributes.kDSStdRecordTypeGroups,

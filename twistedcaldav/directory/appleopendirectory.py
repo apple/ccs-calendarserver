@@ -39,7 +39,7 @@ from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
 from twistedcaldav.directory.principal import cuAddressConverter
 
-from calendarserver.od import dsattributes, dsquery
+from calendarserver.platform.darwin.od import dsattributes, dsquery
 from twisted.python.reflect import namedModule
 
 
