@@ -75,7 +75,9 @@ def _selfish_sample(dtrace, replacer, agent, host, port, user, calendar, fieldNa
     headers = Headers({"content-type": ["text/calendar"]})
 
     events = [
-        (makeEvent(i, attendeeCount), url % (i,))
+        # The organizerSequence here (1) may need to be a parameter.
+        # See also the makeEvent call below.
+        (makeEvent(i, 1, attendeeCount), url % (i,))
         for i in range(samples)]
 
     for (event, url) in events:
@@ -99,7 +101,8 @@ def _generous_sample(dtrace, replacer, agent, host, port, user, calendar, fieldN
 
     headers = Headers({"content-type": ["text/calendar"]})
 
-    event = makeEvent(0, attendeeCount)
+    # See the makeEvent call above.
+    event = makeEvent(0, 1, attendeeCount)
 
     yield agent.request('PUT', url, headers, StringProducer(event))
 

@@ -30,7 +30,8 @@ from event import makeEvent
 
 @inlineCallbacks
 def measure(host, port, dtrace, attendeeCount, samples):
-    user = password = "user01"
+    organizerSequence = 1
+    user = password = "user%02d" % (organizerSequence,)
     root = "/"
     principal = "/"
 
@@ -59,7 +60,8 @@ def measure(host, port, dtrace, attendeeCount, samples):
     # Create the event that will move around
     headers = Headers({"content-type": ["text/calendar"]})
     yield agent.request(
-        'PUT', fooURI, headers, StringProducer(makeEvent(attendeeCount, 1)))
+        'PUT', fooURI, headers,
+        StringProducer(makeEvent(1, organizerSequence, attendeeCount)))
 
     # Move it around sooo much
     source = cycle([fooURI, barURI])

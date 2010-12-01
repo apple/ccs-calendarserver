@@ -34,7 +34,8 @@ from event import makeEvent
 
 @inlineCallbacks
 def measure(host, port, dtrace, attendeeCount, samples):
-    user = password = "user01"
+    organizerSequence = 1
+    user = password = "user%02d" % (organizerSequence,)
     root = "/"
     principal = "/"
     calendar = "event-deletion-benchmark"
@@ -51,7 +52,8 @@ def measure(host, port, dtrace, attendeeCount, samples):
     yield initialize(agent, host, port, user, password, root, principal, calendar)
 
     # An infinite stream of VEVENTs to PUT to the server.
-    events = ((i, makeEvent(i, attendeeCount)) for i in count(2))
+    events = ((i, makeEvent(i, organizerSequence, attendeeCount))
+              for i in count(2))
 
     # Create enough events to delete
     uri = 'http://%s:%d/calendars/__uids__/%s/%s/foo-%%d.ics' % (
