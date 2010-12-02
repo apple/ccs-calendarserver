@@ -22,6 +22,8 @@ from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryError
+from twistedcaldav.directory import calendaruserproxy
+
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 
 from calendarserver.tap.util import directoryFromConfig
@@ -32,6 +34,9 @@ class ManagePrincipalsTestCase(TestCase):
 
     def setUp(self):
         super(ManagePrincipalsTestCase, self).setUp()
+
+        # Since this test operates on proxy db, we need to assign the service:
+        calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB(os.path.abspath(self.mktemp()))
 
         config.GlobalAddressBook.Enabled = False
 
