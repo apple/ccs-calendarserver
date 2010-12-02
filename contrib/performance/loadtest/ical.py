@@ -27,6 +27,21 @@ from httpauth import AuthHandlerAgent
 def loadRequestBody(label):
     return FilePath(__file__).sibling(label + '.request').getContent()
 
+
+class Principal(object):
+    @classmethod
+    def fromPROPFINDResponse(cls, response):
+        """
+        Construct a principal from the body a response to a
+        I{PROPFIND} request for the principal URL.
+
+        @type response: C{str}
+        @rtype: C{cls}
+        """
+        return cls()
+
+
+
 class SnowLeopard(object):
     """
     Implementation of the SnowLeopard iCal network behavior.

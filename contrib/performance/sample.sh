@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash   
 
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
@@ -26,6 +26,12 @@ RESULTS=$3
 
 update_and_build $REV
 
+if [ "$HOSTS_COUNT" != "" ]; then
+    CONCURRENT="--hosts-count $HOSTS_COUNT --host-index $HOST_INDEX"
+else
+    CONCURRENT=""
+fi
+
 DATE="`./svn-committime $SOURCE $REV`"
 for backend in $BACKENDS; do
   setbackend $backend
@@ -34,7 +40,7 @@ for backend in $BACKENDS; do
   rm -rf data/
   start 2
   popd
-  sudo ./run.sh ./benchmark --label r$REV-$backend --source-directory $SOURCE_DIR $BENCHMARKS
+  sudo ./run.sh ./benchmark $CONCURRENT --label r$REV-$backend --source-directory $SOURCE_DIR $BENCHMARKS
   data=`echo -n r$REV-$backend*`
   ./run.sh ./massupload \
       --url $ADDURL --revision $REV \
