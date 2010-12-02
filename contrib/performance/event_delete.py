@@ -25,6 +25,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
+from twisted.web.http import NO_CONTENT
 
 from httpauth import AuthHandlerAgent
 from httpclient import StringProducer
@@ -70,6 +71,7 @@ def measure(host, port, dtrace, attendeeCount, samples):
     # Now delete them all
     samples = yield sample(
         dtrace, samples,
-        agent, (('DELETE', url) for url in urls).next)
+        agent, (('DELETE', url) for url in urls).next,
+        NO_CONTENT)
     returnValue(samples)
 

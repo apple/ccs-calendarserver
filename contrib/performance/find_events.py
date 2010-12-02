@@ -21,6 +21,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
+from twisted.web.http import MULTI_STATUS
 
 from httpauth import AuthHandlerAgent
 from httpclient import StringProducer
@@ -75,11 +76,11 @@ def measure(host, port, dtrace, numEvents, samples):
     body = StringProducer(PROPFIND)
     params = (
         ('PROPFIND',
-         '%s/calendars/__uids__/%s/find-events/' % (uri, user),
+         '%scalendars/__uids__/%s/find-events/' % (uri, user),
          Headers({"depth": ["1"], "content-type": ["text/xml"]}), body)
         for i in count(1))
 
-    samples = yield sample(dtrace, samples, agent, params.next)
+    samples = yield sample(dtrace, samples, agent, params.next, MULTI_STATUS)
 
     # Delete the calendar we created to leave the server in roughly
     # the same state as we found it.

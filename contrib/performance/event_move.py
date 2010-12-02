@@ -21,6 +21,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
+from twisted.web.http import CREATED
 
 from httpauth import AuthHandlerAgent
 from httpclient import StringProducer
@@ -72,5 +73,5 @@ def measure(host, port, dtrace, attendeeCount, samples):
          Headers({"destination": [dest.next()], "overwrite": ["F"]}))
         for i in count(1))
 
-    samples = yield sample(dtrace, samples, agent, params.next)
+    samples = yield sample(dtrace, samples, agent, params.next, CREATED)
     returnValue(samples)

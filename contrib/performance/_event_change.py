@@ -26,6 +26,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
+from twisted.web.http import NO_CONTENT
 
 from httpauth import AuthHandlerAgent
 from httpclient import StringProducer
@@ -89,7 +90,8 @@ def _selfish_sample(dtrace, replacer, agent, host, port, user, calendar, fieldNa
         dtrace, samples,
         agent, (('PUT', url, headers, StringProducer(replacer(event, i)))
                 for i, (event, url)
-                in enumerate(events)).next)
+                in enumerate(events)).next,
+        NO_CONTENT)
     returnValue(samples)
 
 
@@ -110,5 +112,6 @@ def _generous_sample(dtrace, replacer, agent, host, port, user, calendar, fieldN
     samples = yield sample(
         dtrace, samples,
         agent, (('PUT', url, headers, StringProducer(replacer(event, i)))
-                for i in count(1)).next)
+                for i in count(1)).next,
+        NO_CONTENT)
     returnValue(samples)

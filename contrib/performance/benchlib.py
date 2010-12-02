@@ -82,7 +82,7 @@ def initialize(agent, host, port, user, password, root, principal, calendar):
 
 
 @inlineCallbacks
-def sample(dtrace, samples, agent, paramgen, concurrency=1):
+def sample(dtrace, samples, agent, paramgen, responseCode, concurrency=1):
     sem = DeferredSemaphore(concurrency)
 
     urlopen = Duration('HTTP')
@@ -93,6 +93,10 @@ def sample(dtrace, samples, agent, paramgen, concurrency=1):
         before = time()
         d = agent.request(*paramgen())
         def cbResponse(response):
+            if response.code != responseCode:
+                raise Exception(
+                    "Unexpected response code received: %d" % (response.code,))
+
             d = readBody(response)
             def cbBody(ignored):
                 after = time()
