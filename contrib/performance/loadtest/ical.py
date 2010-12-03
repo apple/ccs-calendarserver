@@ -15,6 +15,8 @@
 #
 ##
 
+from xml.etree import ElementTree, ElementPath
+
 from twisted.python.log import err
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks
@@ -29,6 +31,37 @@ def loadRequestBody(label):
 
 
 class Principal(object):
+
+    PRINCIPAL_COLLECTION_SET = '{DAV:}principal-collection-set'
+    CALENDAR_HOME_SET = '{urn:ietf:params:xml:ns:caldav}calendar-home-set'
+    SCHEDULE_INBOX_URL = '{urn:ietf:params:xml:ns:caldav}schedule-inbox-URL'
+    SCHEDULE_OUTBOX_URL = '{urn:ietf:params:xml:ns:caldav}schedule-outbox-URL'
+    DROPBOX_HOME_URL = '{http://calendarserver.org/ns/}dropbox-home-URL'
+    NOTIFICATION_URL = '{http://calendarserver.org/ns/}notification-URL'
+    DISPLAY_NAME = '{DAV:}displayname'
+    PRINCIPAL_URL = '{DAV:}principal-URL'
+    
+    _singlePropertyNames = [
+        PRINCIPAL_COLLECTION_SET,
+        CALENDAR_HOME_SET,
+        SCHEDULE_INBOX_URL,
+        SCHEDULE_OUTBOX_URL,
+        DROPBOX_HOME_URL,
+        NOTIFICATION_URL,
+        PRINCIPAL_URL,
+        ]
+
+    CALENDAR_USER_ADDRESS_SET = '{urn:ietf:params:xml:ns:caldav}calendar-user-address-set'
+    SUPPORTED_REPORT_SET = '{DAV:}supported-report-set'
+
+    _multiPropertyNames = [
+        CALENDAR_USER_ADDRESS_SET, SUPPORTED_REPORT_SET]
+
+
+    def __init__(self):
+        self.properties = {}
+
+
     @classmethod
     def fromPROPFINDResponse(cls, response):
         """
@@ -38,7 +71,33 @@ class Principal(object):
         @type response: C{str}
         @rtype: C{cls}
         """
-        return cls()
+        principal = cls()
+
+        document = ElementTree.fromstring(response)
+        pattern = '{DAV:}response/{DAV:}propstat/{DAV:}prop/'
+
+        name = ElementPath.find(document, pattern + cls.DISPLAY_NAME)
+        if name is not None:
+            principal.properties[cls.DISPLAY_NAME] = name.text
+
+        for prop in cls._singlePropertyNames:
+            href = ElementPath.find(document, pattern + prop + '/{DAV:}href')
+            principal.properties[prop] = href.text
+
+        for prop in cls._multiPropertyNames:
+            hrefs = ElementPath.findall(document, pattern + prop + '/{DAV:}href')
+            principal.properties[prop] = set(href.text for href in hrefs)
+
+        reports = ElementPath.findall(
+            document,
+            pattern + cls.SUPPORTED_REPORT_SET +
+            '/{DAV:}supported-report/{DAV:}report')
+        supported = principal.properties[cls.SUPPORTED_REPORT_SET] = set()
+        for report in reports:
+            for which in report:
+                supported.add(which.tag)
+
+        return principal
 
 
 
@@ -74,13 +133,14 @@ class SnowLeopard(object):
                     'depth': ['0']}),
             StringProducer(self._STARTUP_PRINCIPAL_PROPFIND))
         d.addCallback(readBody)
+        d.addCallback(Principal.fromPROPFINDResponse)
         return d
 
 
-    def _principalsReport(self):
+    def _principalsReport(self, principalCollectionSet):
         d = self._request(
             'REPORT',
-            self.root + 'principals/',
+            self.root + principalCollectionSet,
             Headers({
                     'content-type': ['text/xml'],
                     'depth': ['0']}),
@@ -89,10 +149,10 @@ class SnowLeopard(object):
         return d
 
 
-    def _calendarHomePropfind(self, user):
+    def _calendarHomePropfind(self, calendarHomeSet):
         d = self._request(
             'PROPFIND',
-            self.root + 'calendars/__uids__/' + user + '/',
+            self.root + calendarHomeSet,
             Headers({
                     'content-type': ['text/xml'],
                     'depth': ['1']}),
@@ -101,10 +161,10 @@ class SnowLeopard(object):
         return d
 
 
-    def _notificationPropfind(self, user):
+    def _notificationPropfind(self, notificationURL):
         d = self._request(
             'PROPFIND',
-            self.root + 'calendars/__uids__/' + user + '/notification/',
+            self.root + notificationURL,
             Headers({
                     'content-type': ['text/xml'],
                     'depth': ['1']}),
@@ -113,10 +173,10 @@ class SnowLeopard(object):
         return d
 
     
-    def _principalReport(self, user):
+    def _principalReport(self, principalURL):
         d = self._request(
             'REPORT',
-            self.root + 'principals/__uids__/' + user + '/',
+            self.root + principalURL,
             Headers({
                     'content-type': ['text/xml'],
                     'depth': ['0']}),
@@ -131,19 +191,27 @@ class SnowLeopard(object):
         Emulate a CalDAV client.
         """
         # Orient ourselves, or something
-        print (yield self._principalPropfind(self.user))
+        principal = yield self._principalPropfind(self.user)
 
         # Do another kind of thing I guess
-        print (yield self._principalsReport())
+        principalCollectionSet = principal.properties[
+            principal.PRINCIPAL_COLLECTION_SET]
+        print (yield self._principalsReport(principalCollectionSet))
 
         # Whatever
-        print (yield self._calendarHomePropfind(self.user))
+        calendarHome = principal.properties[
+            principal.CALENDAR_HOME_SET]
+        print (yield self._calendarHomePropfind(calendarHome))
 
         # Learn stuff I guess
-        print (yield self._notificationPropfind(self.user))
+        notificationURL = principal.properties[
+            principal.NOTIFICATION_URL]
+        print (yield self._notificationPropfind(notificationURL))
 
         # More too
-        print (yield self._principalReport(self.user))
+        principalURL = principal.properties[
+            principal.PRINCIPAL_URL]
+        print (yield self._principalReport(principalURL))
 
 
 def main():
