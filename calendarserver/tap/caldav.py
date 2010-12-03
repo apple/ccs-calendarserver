@@ -847,6 +847,19 @@ class CalDAVServiceMaker (LoggingMixIn):
         return self.storageService(slaveSvcCreator)
 
 
+    def makeService_Utility(self, options):
+        """
+        Create a service to be used in a command-line utility
+
+        Specify the actual utility service class in config.UtilityServiceClass.
+        When created, that service will have access to the storage facilities.
+        """
+
+        def toolServiceCreator(pool, store):
+            return config.UtilityServiceClass(store)
+
+        return self.storageService(toolServiceCreator)
+
     def storageService(self, createMainService, uid=None, gid=None):
         """
         If necessary, create a service to be started used for storage; for

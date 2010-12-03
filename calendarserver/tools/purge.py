@@ -16,25 +16,27 @@
 # limitations under the License.
 ##
 
+from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
+from twisted.application.service import Service
 from calendarserver.tap.util import FakeRequest
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.principals import removeProxy
-from calendarserver.tools.util import loadConfig, setupMemcached
+from calendarserver.tools.util import loadConfig
 from datetime import date, timedelta, datetime
 from getopt import getopt, GetoptError
-from grp import getgrnam
-from pwd import getpwnam
 from twext.python.log import Logger
 from twext.web2.dav import davxml
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python.util import switchUID
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.directory.directory import DirectoryError, DirectoryRecord
+from twistedcaldav.directory.directory import DirectoryRecord
 from twistedcaldav.method.delete_common import DeleteResource
+from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.query import calendarqueryfilter
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
+from vobject.icalendar import utc
 import os
 import sys
 
@@ -82,38 +84,66 @@ def usage_purge_principal(e=None):
         sys.exit(0)
 
 
+class PurgeOldEventsService(Service):
 
-def shared_main(configFileName, method, *args, **kwds):
+    def __init__(self, store):
+        self._store = store
+
+    def startService(self):
+        try:
+            rootResource = getRootResource(config, self._store)
+            directory = rootResource.getDirectory()
+        finally:
+            reactor.stop()
+
+
+class PurgePrincipalService(Service):
+
+    guids = None
+    dryrun = False
+    verbose = False
+
+    def __init__(self, store):
+        self._store = store
+
+    @inlineCallbacks
+    def startService(self):
+        try:
+            rootResource = getRootResource(config, self._store)
+            directory = rootResource.getDirectory()
+            total = (yield purgeGUIDs(directory, rootResource, self.guids,
+                verbose=self.verbose, dryrun=self.dryrun))
+            if self.verbose:
+                amount = "%d event%s" % (total, "s" if total > 1 else "")
+                if self.dryrun:
+                    print "Would have modified or deleted %s" % (amount,)
+                else:
+                    print "Modified or deleted %s" % (amount,)
+        except Exception, e:
+            print "Error:", e
+            raise
+        finally:
+            reactor.stop()
+
+
+def shared_main(configFileName, serviceClass):
 
     try:
         loadConfig(configFileName)
 
-        # Shed privileges
-        if config.UserName and config.GroupName and os.getuid() == 0:
-            uid = getpwnam(config.UserName).pw_uid
-            gid = getgrnam(config.GroupName).gr_gid
-            switchUID(uid, uid, gid)
+        config.ProcessType = "Utility"
+        config.UtilityServiceClass = serviceClass
 
-        os.umask(config.umask)
+        maker = CalDAVServiceMaker()
+        options = CalDAVOptions
+        service = maker.makeService(options)
 
-        try:
-            # TODO: getRootResource needs a parent service now.
-            rootResource = getRootResource(config)
-            directory = rootResource.getDirectory()
-        except DirectoryError, e:
-            print "Error: %s" % (e,)
-            return
-        setupMemcached(config)
+        reactor.addSystemEventTrigger("during", "startup", service.startService)
+        reactor.addSystemEventTrigger("before", "shutdown", service.stopService)
+
     except ConfigurationError, e:
         print "Error: %s" % (e,)
         return
-
-
-    #
-    # Start the reactor
-    #
-    reactor.callLater(0.1, callThenStop, method, directory,
-        rootResource, *args, **kwds)
 
     reactor.run()
 
@@ -170,7 +200,7 @@ def main_purge_events():
 
     shared_main(
         configFileName,
-        purgeOldEvents,
+        PurgeOldEventsService,
         cutoff,
         verbose=verbose,
         dryrun=dryrun,
@@ -215,13 +245,14 @@ def main_purge_principals():
             raise NotImplementedError(opt)
 
     # args is a list of guids
+    PurgePrincipalService.guids = args
+    PurgePrincipalService.dryrun = dryrun
+    PurgePrincipalService.verbose = verbose
+
 
     shared_main(
         configFileName,
-        purgeGUIDs,
-        args,
-        verbose=verbose,
-        dryrun=dryrun,
+        PurgePrincipalService
     )
 
 
@@ -341,6 +372,7 @@ def deleteResource(root, collection, resource, uri, guid, implicit=False):
     # TODO: this seems hacky, even for a stub request:
     request._rememberResource(resource, uri)
 
+    # Cyrus says to use resource.storeRemove( ) -- see twistedcaldav/method/delete_common.py
     deleter = DeleteResource(request, resource, uri,
         collection, "infinity", allowImplicitSchedule=implicit)
     return deleter.run()
@@ -357,7 +389,6 @@ def purgeGUIDs(directory, root, guids, verbose=False, dryrun=False):
             verbose=verbose, dryrun=dryrun))
         total += count
 
-
     # TODO: figure out what to do with the purged proxy assignments...
     # ...print to stdout?
     # ...save in a file?
@@ -365,8 +396,128 @@ def purgeGUIDs(directory, root, guids, verbose=False, dryrun=False):
     returnValue(total)
 
 
+CANCELEVENT_SKIPPED = 1
+CANCELEVENT_MODIFIED = 2
+CANCELEVENT_NOT_MODIFIED = 3
+CANCELEVENT_SHOULD_DELETE = 4
+
+def cancelEvent(event, when, cua):
+    """
+    Modify a VEVENT such that all future occurrences are removed
+
+    @param event: the event to modify
+    @type event: L{twistedcaldav.ical.Component}
+
+    @param when: the cutoff date (anything after which is removed)
+    @type when: datetime with tzinfo
+
+    @param cua: Calendar User Address of principal being purged, to compare
+        to see if it's the organizer of the event or just an attendee
+    @type cua: string
+
+    Assumes that event does not occur entirely in the past.
+
+    @return: one of the 4 constants above to indicate what action to take
+    """
+
+    whenDate = when.date()
+
+    master = event.masterComponent()
+
+    # Only process VEVENT
+    if master.name() != "VEVENT":
+        return CANCELEVENT_SKIPPED
+
+    # Anything completely in the future is deleted
+    dtstart = master.getStartDateUTC()
+    if isinstance(dtstart, datetime):
+        isDateTime = True
+        if dtstart > when:
+            return CANCELEVENT_SHOULD_DELETE
+    else:
+        isDateTime = False
+        if dtstart > whenDate:
+            return CANCELEVENT_SHOULD_DELETE
+
+    organizer = master.getOrganizer()
+
+    # Non-meetings are deleted
+    if organizer is None:
+        return CANCELEVENT_SHOULD_DELETE
+
+    # Meetings which cua is merely an attendee are deleted (thus implicitly
+    # declined)
+    # FIXME: I think we want to decline anything after the cut-off, not delete
+    # the whole event.
+    if organizer != cua:
+        return CANCELEVENT_SHOULD_DELETE
+
+    dirty = False
+
+    # Set the UNTIL on RRULE to cease at the cutoff
+    if master.hasProperty("RRULE"):
+        for rrule in master.properties("RRULE"):
+            tokens = {}
+            tokens.update([valuePart.split("=") for valuePart in rrule.value().split(";")])
+            if tokens.has_key("COUNT"):
+                dirty = True
+                del tokens["COUNT"]
+
+            if isDateTime:
+                tokens["UNTIL"] = when.strftime("%Y%m%dT%H%M%SZ")
+            else:
+                tokens["UNTIL"] = when.strftime("%Y%m%d")
+
+            newValue = ";".join(["%s=%s" % (key, value,) for key, value in tokens.iteritems()])
+            rrule.setValue(newValue)
+            dirty = True
+
+    # Remove any EXDATEs and RDATEs beyond the cutoff
+    for dateType in ("EXDATE", "RDATE"):
+        if master.hasProperty(dateType):
+            for exdate_rdate in master.properties(dateType):
+                newValues = []
+                for value in exdate_rdate.value():
+                    if isinstance(value, datetime):
+                        if value < when:
+                            newValues.append(value)
+                    else:
+                        if value < whenDate:
+                            newValues.append(value)
+                if not newValues:
+                    master.removeProperty(exdate_rdate)
+                    dirty = True
+                else:
+                    exdate_rdate.setValue(newValues)
+                    dirty = True
+
+
+    # Remove any overridden components beyond the cutoff
+    for component in tuple(event.subcomponents()):
+        if component.name() == "VEVENT":
+            dtstart = component.getStartDateUTC()
+            remove = False
+            if isinstance(dtstart, datetime):
+                if dtstart > when:
+                    remove = True
+            else:
+                if dtstart > whenDate:
+                    remove = True
+            if remove:
+                event.removeComponent(component)
+                dirty = True
+
+    if dirty:
+        return CANCELEVENT_MODIFIED
+    else:
+        return CANCELEVENT_NOT_MODIFIED
+
+
 @inlineCallbacks
 def purgeGUID(guid, directory, root, verbose=False, dryrun=False):
+
+    when = datetime.now(tz=utc)
+    # when = datetime(2010, 12, 6, 12, 0, 0, 0, utc)
 
     # Does the record exist?
     record = directory.recordWithGUID(guid)
@@ -382,17 +533,26 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False):
         directory._tmpRecords["shortNames"][guid] = record
         directory._tmpRecords["guids"][guid] = record
 
+    cua = "urn:uuid:%s" % (guid,)
+
     principalCollection = directory.principalCollection
     principal = principalCollection.principalForRecord(record)
-    calendarHome = yield principal.calendarHome()
+
+    request = FakeRequest(root, None, None)
+    request.checkedSACL = True
+    request.authnUser = request.authzUser = davxml.Principal(
+        davxml.HRef.fromString("/principals/__uids__/%s/" % (guid,))
+    )
+
+    calendarHome = yield principal.calendarHome(request)
 
     # Anything in the past is left alone
-    now = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    whenString = when.strftime("%Y%m%dT%H%M%SZ")
     filter =  caldavxml.Filter(
           caldavxml.ComponentFilter(
               caldavxml.ComponentFilter(
-                  TimeRange(start=now,),
-                  name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                  TimeRange(start=whenString,),
+                  name=("VEVENT",),
               ),
               name="VCALENDAR",
            )
@@ -400,26 +560,61 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False):
     filter = calendarqueryfilter.Filter(filter)
 
     count = 0
+    assignments = []
 
-    for collName in calendarHome.listChildren():
-        collection = calendarHome.getChild(collName)
+    perUserFilter = PerUserDataFilter(guid)
+
+    for collName in (yield calendarHome.listChildren()):
+        collection = (yield calendarHome.getChild(collName))
         if collection.isCalendarCollection():
 
-            for name, uid, type in collection.index().indexedSearch(filter):
-                if isinstance(name, unicode):
-                    name = name.encode("utf-8")
-                resource = collection.getChild(name)
-                uri = "/calendars/__uids__/%s/%s/%s" % (
-                    record.uid,
-                    collName,
-                    name
-                )
-                if not dryrun:
-                    (yield deleteResource(root, collection, resource,
-                        uri, guid, implicit=True))
-                count += 1
+            for childName, childUid, childType in (yield collection.index().indexedSearch(filter)):
+                childResource = (yield collection.getChild(childName))
+                event = (yield childResource.iCalendar())
+                event = perUserFilter.filter(event)
+                # print "BEFORE CANCEL", event
+                action = cancelEvent(event, when, cua)
+                # print "AFTER CANCEL", action, event
+
+                uri = "/calendars/__uids__/%s/%s/%s" % (guid, collName, childName)
+                request.path = uri
+                if action == CANCELEVENT_MODIFIED:
+                    count += 1
+                    request._rememberResource(childResource, uri)
+                    storer = StoreCalendarObjectResource(
+                        request=request,
+                        destination=childResource,
+                        destination_uri=uri,
+                        destinationcal=True,
+                        destinationparent=collection,
+                        calendar=str(event),
+                    )
+                    if verbose:
+                        if dryrun:
+                            print "Would modify: %s" % (uri,)
+                        else:
+                            print "Modifying: %s" % (uri,)
+                    if not dryrun:
+                        result = (yield storer.run())
+
+                elif action == CANCELEVENT_SHOULD_DELETE:
+                    count += 1
+                    request._rememberResource(childResource, uri)
+                    if verbose:
+                        if dryrun:
+                            print "Would delete: %s" % (uri,)
+                        else:
+                            print "Deleting: %s" % (uri,)
+                    if not dryrun:
+                        result = (yield childResource.storeRemove(request, True, uri))
+
+    # Commit
+    txn = request._newStoreTransaction
+    (yield txn.commit())
 
     if not dryrun:
+        if verbose:
+            print "Deleting any proxy assignments"
         assignments = (yield purgeProxyAssignments(principal))
 
     returnValue((count, assignments))

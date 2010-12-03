@@ -617,6 +617,10 @@ DEFAULT_CONFIG = {
     # OpenDirectory.framework
     "OpenDirectoryModule": "calendarserver.platform.darwin.od.opendirectory",
 
+    # Used in the command line utilities to specify which service class to
+    # use to carry out work.
+    "UtilityServiceClass": "",
+
     "Includes": [],     # Other plists to parse after this one
 }
 

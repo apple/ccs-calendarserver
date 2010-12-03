@@ -43,7 +43,6 @@ from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.tcp import Connection
 from twisted.python.reflect import namedClass
 
-from twistedcaldav import memcachepool
 from twistedcaldav.bind import doBind
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
@@ -80,6 +79,7 @@ from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
 from txdav.common.datastore.sql import v1_schema
 from txdav.base.datastore.subpostgres import PostgresService
 from twext.python.filepath import CachingFilePath
+from urllib import quote
 
 
 log = Logger()
@@ -625,10 +625,30 @@ class FakeRequest(object):
             self._rememberResource(resource, url)
         returnValue(resource)
 
+    @inlineCallbacks
+    def locateChildResource(self, parent, childName):
+        if parent is None or childName is None:
+            returnValue(None)
+        parentURL = self.urlForResource(parent)
+        if not parentURL.endswith("/"):
+            parentURL += "/"
+        url = parentURL + quote(childName)
+        segment = childName
+        resource = (yield self._getChild(parent, [segment]))
+        if resource:
+            self._rememberResource(resource, url)
+        returnValue(resource)
+
     def _rememberResource(self, resource, url):
         self._resourcesByURL[url] = resource
         self._urlsByResource[resource] = url
         return resource
+
+    def _forgetResource(self, resource, url):
+        if self._resourcesByURL.has_key(url):
+            del self._resourcesByURL[url]
+        if self._urlsByResource.has_key(resource):
+            del self._urlsByResource[resource]
 
     def urlForResource(self, resource):
         url = self._urlsByResource.get(resource, None)
