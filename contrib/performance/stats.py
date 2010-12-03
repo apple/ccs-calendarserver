@@ -97,7 +97,7 @@ class Duration(_Statistic):
 
 
 class SQLDuration(_Statistic):
-    commands = ['summarize', 'statements']
+    commands = ['summarize', 'statements', 'transcript']
 
     def _is_literal(self, token):
         if sqlparse.tokens.is_token_subtype(token.ttype, sqlparse.tokens.Literal):
@@ -184,6 +184,14 @@ class SQLDuration(_Statistic):
                 time = time / NANO * 1000
                 print row % (time, time / count, count, statement)
 
+
+    def transcript(self, samples):
+        statements = []
+        data = samples[len(samples) / 2]
+        for (sql, interval) in data:
+            statements.append(self.normalize(sql))
+        return '\n'.join(statements) + '\n'
+            
 
 class Bytes(_Statistic):
     def squash(self, samples):
