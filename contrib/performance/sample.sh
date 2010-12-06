@@ -46,7 +46,6 @@ for backend in $BACKENDS; do
       --url $ADDURL --revision $REV \
       --revision-date "$DATE" --environment nmosbuilder \
       --backend $backend \
-      --benchmarks "$BENCHMARKS" \
       --parameters "1 9 81" \
       --statistics "${STATISTICS[*]}" \
       $data

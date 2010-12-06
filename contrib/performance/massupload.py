@@ -48,8 +48,13 @@ def main():
     fname = options['filename']
     raw = pickle.load(file(fname))
 
+    if not options['benchmarks']:
+        benchmarks = raw.keys()
+    else:
+        benchmarks = options['benchmarks'].split()
+
     def go():
-        for benchmark in options['benchmarks'].split():
+        for benchmark in benchmarks:
             for param in options['parameters'].split():
                 for statistic in options['statistics'].split():
                     stat, samples = select(
