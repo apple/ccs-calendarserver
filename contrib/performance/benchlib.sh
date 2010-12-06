@@ -29,7 +29,7 @@ SOURCE=~/Projects/CalendarServer/trunk
 CONF=$SOURCE/conf/caldavd-dev.plist
 
 # Names of benchmarks we can run.
-BENCHMARKS="find_calendars event_move event_delete_attendee event_add_attendee event_change_date event_change_summary event_delete vfreebusy event"
+BENCHMARKS="find_calendars find_events event_move event_delete_attendee event_add_attendee event_change_date event_change_summary event_delete vfreebusy event"
 
 # Names of metrics we can collect.
 STATISTICS=(HTTP SQL read write pagein pageout)
