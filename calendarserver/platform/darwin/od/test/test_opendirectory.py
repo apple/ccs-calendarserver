@@ -786,14 +786,33 @@ if runTests:
                 user, challenge, response, method)
             self.assertTrue(result)
 
-        def test_unicode_results(self):
+        def test_result_types(self):
             directory = opendirectory.odInit("/Search")
             record = opendirectory.getUserRecord(directory, "odtestbill")
             name, data = opendirectory.recordToResult(record)
             for value in data.values():
                 if isinstance(value, list):
                     for item in value:
-                        self.assertTrue(type(item) is unicode)
+                        self.assertTrue(type(item) is str)
                 else:
-                    self.assertTrue(type(value) is unicode)
+                    self.assertTrue(type(value) is str)
 
+        def test_nonascii_record(self):
+
+            directory = opendirectory.odInit("/Search")
+
+            results = list(opendirectory.queryRecordsWithAttribute_list(
+                directory,
+                dsattributes.kDS1AttrGeneratedUID,
+                "CA795296-D77A-4E09-A72F-869920A3D284",
+                dsattributes.eDSExact,
+                False,
+                dsattributes.kDSStdRecordTypeUsers,
+                USER_ATTRIBUTES,
+                count=0
+            ))
+            result = results[0][1]
+            self.assertEquals(
+                result[dsattributes.kDS1AttrDistinguishedName],
+                "Unicode Test \xc3\x90"
+            )

@@ -472,6 +472,8 @@ def recordToDict(record):
                 value = record.extras[info['attr']]
             else:
                 value = getattr(record, info['attr'])
+            if isinstance(value, str):
+                value = value.decode("utf-8")
             recordDict[key] = value
         except KeyError:
             pass

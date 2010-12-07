@@ -789,6 +789,13 @@ def updateRecord(create, directory, recordType, **kwargs):
     else:
         autoSchedule = recordType in ("locations", "resources")
 
+    for key, value in kwargs.items():
+        if isinstance(value, unicode):
+            kwargs[key] = value.encode("utf-8")
+        elif isinstance(value, list):
+            newValue = [v.encode("utf-8") for v in value]
+            kwargs[key] = newValue
+
     if create:
         record = directory.createRecord(recordType, **kwargs)
         kwargs['guid'] = record.guid

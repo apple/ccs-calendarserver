@@ -358,9 +358,12 @@ class XMLDirectoryService(DirectoryService):
         for value in principal.shortNames:
             addSubElement(element, "uid", text=value)
         addSubElement(element, "guid", text=principal.guid)
-        addSubElement(element, "name", text=principal.fullName)
-        addSubElement(element, "first-name", text=principal.firstName)
-        addSubElement(element, "last-name", text=principal.lastName)
+        if principal.fullName is not None:
+            addSubElement(element, "name", text=principal.fullName.decode("utf-8"))
+        if principal.firstName is not None:
+            addSubElement(element, "first-name", text=principal.firstName.decode("utf-8"))
+        if principal.lastName is not None:
+            addSubElement(element, "last-name", text=principal.lastName.decode("utf-8"))
         for value in principal.emailAddresses:
             addSubElement(element, "email-address", text=value)
         if principal.extras:

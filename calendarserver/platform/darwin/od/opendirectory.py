@@ -69,8 +69,8 @@ def adjustMatchType(matchType, caseInsensitive):
 def recordToResult(record):
     """
     Takes an ODRecord and turns it into a (recordName, attributesDictionary)
-    tuple.  Only unicode values are returned. (Not sure what to do with
-    non-unicode values)
+    tuple.  Unicode values are converted to utf-8 encoded strings. (Not sure
+    what to do with non-unicode values)
     """
     details, error = record.recordDetailsForAttributes_error_(None, None)
     if error:
@@ -83,9 +83,9 @@ def recordToResult(record):
                 result[key] = None
             else:
                 if isinstance(value[0], objc.pyobjc_unicode):
-                    result[key] = unicode(value[0]) # convert from pyobjc
+                    result[key] = unicode(value[0]).encode("utf-8") # convert from pyobjc
         else:
-            result[key] = [unicode(v) for v in value if isinstance(v, objc.pyobjc_unicode)]
+            result[key] = [unicode(v).encode("utf-8") for v in value if isinstance(v, objc.pyobjc_unicode)]
 
     return (details.get(dsattributes.kDSNAttrRecordName, [None])[0], result)
 

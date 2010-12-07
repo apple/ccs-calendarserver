@@ -76,6 +76,10 @@ class GatewayTestCase(TestCase):
         Run the given command by feeding it as standard input to
         calendarserver_command_gateway in a subprocess.
         """
+
+        if isinstance(command, unicode):
+            command = command.encode("utf-8")
+
         sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         python = os.path.join(sourceRoot, "python")
         gateway = os.path.join(sourceRoot, "bin", "calendarserver_command_gateway")
@@ -115,7 +119,7 @@ class GatewayTestCase(TestCase):
         self.assertEquals(results["result"]["RecordName"], ["createdlocation01"])
         self.assertEquals(results["result"]["State"], "CA")
         self.assertEquals(results["result"]["Street"], "1 Infinite Loop")
-        self.assertEquals(results["result"]["RealName"], "Created Location 01")
+        self.assertEquals(results["result"]["RealName"], "Created Location 01 %s" % unichr(208))
         self.assertEquals(results["result"]["Comment"], "Test Comment")
         self.assertEquals(results["result"]["AutoSchedule"], True)
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
@@ -151,6 +155,7 @@ class GatewayTestCase(TestCase):
         augment.AugmentService.refresh()
 
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
+        self.assertEquals(record.fullName.decode("utf-8"), "Created Location 01 %s" % unichr(208))
 
         self.assertNotEquals(record, None)
         self.assertEquals(record.autoSchedule, True)
@@ -309,7 +314,7 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         <key>GeneratedUID</key>
         <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
         <key>RealName</key>
-        <string>Created Location 01</string>
+        <string>Created Location 01 %s</string>
         <key>RecordName</key>
         <array>
                 <string>createdlocation01</string>
@@ -348,7 +353,7 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         </array>
 </dict>
 </plist>
-"""
+""" % unichr(208)
 
 
 command_createResource = """<?xml version="1.0" encoding="UTF-8"?>

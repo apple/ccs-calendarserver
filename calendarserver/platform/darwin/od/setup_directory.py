@@ -75,6 +75,18 @@ masterUsers = [
             dsattributes.kDS1AttrPrimaryGroupID : ["20"],
         },
     ),
+    (
+        "odtestunicode",
+        {
+            dsattributes.kDS1AttrFirstName : ["Unicode"],
+            dsattributes.kDS1AttrLastName  : ["Test " + unichr(208)],
+            dsattributes.kDS1AttrDistinguishedName : ["Unicode Test " + unichr(208)],
+            dsattributes.kDSNAttrEMailAddress : ["unicodetest@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["CA795296-D77A-4E09-A72F-869920A3D284"],
+            dsattributes.kDS1AttrUniqueID : ["33304"],
+            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+        },
+    ),
 ]
 
 masterGroups = [
