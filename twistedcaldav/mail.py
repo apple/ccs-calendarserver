@@ -842,6 +842,8 @@ class MailHandler(LoggingMixIn):
         icaluid = component.propertyValue("UID")
         method = calendar.propertyValue("METHOD")
 
+        # Clean up the attendee list which is purely used within the human
+        # readable email message (not modifying the calendar body)
         attendees = []
         for attendeeProp in calendar.getAllAttendeeProperties():
             params = attendeeProp.params()
@@ -854,10 +856,15 @@ class MailHandler(LoggingMixIn):
                     if not cn:
                         cn = mailto
                 else:
-                    mailto = None
+                    emailAddress = params.get("EMAIL", (None,))[0]
+                    if emailAddress:
+                        mailto = emailAddress
+                    else:
+                        mailto = None
 
                 if cn or mailto:
                     attendees.append( (cn, mailto) )
+
 
         toAddr = recipient
         if not recipient.startswith("mailto:"):
@@ -926,6 +933,20 @@ class MailHandler(LoggingMixIn):
 
             orgCN = calendar.getOrganizerProperty().params().get('CN', (None,))[0]
             addressWithToken = formattedFrom
+
+
+        # Now prevent any "internal" CUAs from being exposed by converting
+        # to mailto: if we have one
+        for attendeeProp in calendar.getAllAttendeeProperties():
+            params = attendeeProp.params()
+            cutype = params.get('CUTYPE', (None,))[0]
+            if cutype == "INDIVIDUAL":
+                cuaddr = normalizeCUAddr(attendeeProp.value())
+                if not cuaddr.startswith("mailto:"):
+                    emailAddress = params.get("EMAIL", (None,))[0]
+                    if emailAddress:
+                        attendeeProp.setValue("mailto:%s" % (emailAddress,))
+
 
         msgId, message = self.generateEmail(inviteState, calendar, orgEmail,
             orgCN, attendees, formattedFrom, addressWithToken, recipient,

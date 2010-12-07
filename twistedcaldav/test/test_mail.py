@@ -166,7 +166,7 @@ END:VCALENDAR
                 "The Organizer",
                 [
                     (u'The Attendee', u'attendee@example.com'),
-                    (u'The Organizer', None)
+                    (u'The Organizer', u'organizer@example.com')
                 ],
                 "The Organizer <organizer@example.com>",
                 "attendee@example.com",
@@ -196,7 +196,7 @@ END:VCALENDAR
                 "The Organizer",
                 [
                     (u'The Attendee', u'attendee@example.com'),
-                    (u'The Organizer', None)
+                    (u'The Organizer', u'organizer@example.com')
                 ],
                 "The Organizer <organizer@example.com>",
                 "attendee@example.com",
@@ -211,7 +211,7 @@ BEGIN:VEVENT
 UID:DFDD5E46-4F74-478A-9311-B3FF905449C4
 DTSTART:20100325T154500Z
 DTEND:20100325T164500Z
-ATTENDEE;CN=The Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:attendee@example.com
+ATTENDEE;CN=The Attendee;CUTYPE=INDIVIDUAL;EMAIL=attendee@example.com;PARTSTAT=ACCEPTED:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
 ORGANIZER;CN=The Organizer;EMAIL=organizer@example.com:mailto:organizer@example.com
 SUMMARY:testing outbound( ) *reply*
 END:VEVENT
