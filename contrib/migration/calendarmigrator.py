@@ -30,7 +30,8 @@ import sys
 
 from plistlib import readPlist, writePlist
 
-LAUNCHD_KEY = "org.calendarserver.calendarserver"
+CALDAV_LAUNCHD_KEY = "org.calendarserver.calendarserver"
+CARDDAV_LAUNCHD_KEY = "org.addressbookserver.addressbookserver"
 LOG = "/Library/Logs/Migration/calendarmigrator.log"
 SERVICE_NAME = "calendar"
 LAUNCHD_OVERRIDES = "var/db/launchd.db/com.apple.launchd/overrides.plist"
@@ -201,8 +202,10 @@ def main():
 
         if os.path.exists(options.sourceRoot):
             newServerRootValue = migrateData(options)
-            migrateConfiguration(options, newServerRootValue)
-            migrateRunState(options)
+            enableCalDAV, enableCardDAV = examineRunState(options)
+            migrateConfiguration(options, newServerRootValue, enableCalDAV,
+                enableCardDAV)
+            setRunState(options, enableCalDAV, enableCardDAV)
             triggerResourceMigration(newServerRootValue)
 
     else:
@@ -210,22 +213,50 @@ def main():
         sys.exit(1)
 
 
-def migrateRunState(options):
+def examineRunState(options):
     """
-    Try to determine whether server was running in previous system, then
-    modify the launchd settings in the new system.
+    Try to determine whether the CalDAV and CardDAV services were running in
+    previous system.
+
+    @return: a tuple of booleans: whether CalDAV was enabled, and whether
+    CardDAV was enabled
     """
+
+    enableCalDAV = False
+    enableCardDAV = False
 
     try:
-        disabled = isServiceDisabled(options.sourceRoot, LAUNCHD_KEY)
-        log("Service '%s' was previously %s" %
-            (LAUNCHD_KEY, "disabled" if disabled else "enabled"))
+        disabled = isServiceDisabled(options.sourceRoot, CALDAV_LAUNCHD_KEY)
+        enableCalDAV = not disabled
+        log("Calendar service '%s' was previously %s" %
+            (CALDAV_LAUNCHD_KEY, "disabled" if disabled else "enabled"))
     except ServiceStateError, e:
-        log("Couldn't determine previous state of service '%s': %s" %
-            (LAUNCHD_KEY, e))
-        return
+        log("Couldn't determine previous state of calendar service '%s': %s" %
+            (CALDAV_LAUNCHD_KEY, e))
 
-    setServiceStateDisabled(options.targetRoot, LAUNCHD_KEY, disabled)
+    try:
+        disabled = isServiceDisabled(options.sourceRoot, CARDDAV_LAUNCHD_KEY)
+        enableCardDAV = not disabled
+        log("Addressbook service '%s' was previously %s" %
+            (CARDDAV_LAUNCHD_KEY, "disabled" if disabled else "enabled"))
+    except ServiceStateError, e:
+        log("Couldn't determine previous state of addressbook service '%s': %s" %
+            (CARDDAV_LAUNCHD_KEY, e))
+
+    return (enableCalDAV, enableCardDAV)
+
+
+def setRunState(options, enableCalDAV, enableCardDAV):
+    """
+    Modify the launchd settings in the new system.
+    """
+
+    # Lion has no separate addressbook service, so just worry about caldav:
+    if enableCalDAV or enableCardDAV:
+        setServiceStateDisabled(options.targetRoot, CALDAV_LAUNCHD_KEY, False)
+    else:
+        setServiceStateDisabled(options.targetRoot, CALDAV_LAUNCHD_KEY, True)
+
 
 def triggerResourceMigration(newServerRootValue):
     """
@@ -243,7 +274,7 @@ def triggerResourceMigration(newServerRootValue):
         open(triggerPath, "w").close()
 
 
-def migrateConfiguration(options, newServerRootValue):
+def migrateConfiguration(options, newServerRootValue, enableCalDAV, enableCardDAV):
     """
     Copy files/directories/symlinks from previous system's /etc/caldavd
     and /etc/carddavd
@@ -322,6 +353,9 @@ def migrateConfiguration(options, newServerRootValue):
     newCalDAVDPlist["ServerRoot"] = newServerRootValue
     newCalDAVDPlist["DocumentRoot"] = "Documents"
     newCalDAVDPlist["DataRoot"] = "Data"
+
+    newCalDAVDPlist["EnableCalDAV"] = enableCalDAV
+    newCalDAVDPlist["EnableCardDAV"] = enableCardDAV
 
     log("Writing %s" % (newCalDAVDPlistPath,))
     writePlist(newCalDAVDPlist, newCalDAVDPlistPath)
