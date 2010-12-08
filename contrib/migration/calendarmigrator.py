@@ -442,7 +442,9 @@ def log(msg):
     try:
         with open(LOG, 'a') as output:
             timestamp = datetime.datetime.now().strftime("%b %d %H:%M:%S")
-            output.write("%s %s\n" % (timestamp, msg))
+            msg = "calendarmigrator: %s %s" % (timestamp, msg)
+            output.write("%s\n" % (msg,)) # so it appears in our log
+            print msg # so it appears in Setup.log
     except IOError:
         # Could not write to log
         pass
@@ -611,6 +613,8 @@ def relocateData(oldCalDocuments, oldCalData, oldABDocuments, uid, gid,
 
         # Relocate calendar DataRoot, copying all files
         if os.path.exists(oldCalData):
+            if not os.path.exists(newCalData):
+                os.mkdir(newCalData)
             for item in list(os.listdir(oldCalData)):
                 source = os.path.join(oldCalData, item)
                 if not os.path.isfile(source):
