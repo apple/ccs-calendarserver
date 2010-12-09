@@ -879,11 +879,11 @@ class CalDAVServiceMaker (LoggingMixIn):
             and returns L{IService}
 
         @param uid: the user ID to run the backend as, if this process is
-            running as root.
+            running as root (also the uid to chown Attachments to).
         @type uid: C{int}
 
         @param gid: the user ID to run the backend as, if this process is
-            running as root.
+            running as root (also the gid to chown Attachments to).
         @type gid: C{int}
 
         @return: the appropriate a service to start.
@@ -891,25 +891,29 @@ class CalDAVServiceMaker (LoggingMixIn):
         @rtype: L{IService}
         """
         if config.UseDatabase:
+
+            if os.getuid() == 0: # Only override if root
+                overrideUID = uid
+                overrideGID = gid
+            else:
+                overrideUID = None
+                overrideGID = None
+
             if config.DBType == '':
                 # Spawn our own database as an inferior process, then connect
                 # to it.
-                if os.getuid() == 0: # Only override if root
-                    postgresUID = uid
-                    postgresGID = gid
-                else:
-                    postgresUID = None
-                    postgresGID = None
                 pgserv = pgServiceFromConfig(
                     config,
-                    self.subServiceFactoryFactory(createMainService, postgresUID, postgresGID),
-                    postgresUID, postgresGID
+                    self.subServiceFactoryFactory(createMainService,
+                        uid=overrideUID, gid=overrideGID),
+                    uid=overrideUID, gid=overrideGID
                 )
                 return pgserv
             elif config.DBType == 'postgres':
                 # Connect to a postgres database that is already running.
                 import pgdb
-                return self.subServiceFactoryFactory(createMainService)(
+                return self.subServiceFactoryFactory(createMainService,
+                    uid=overrideUID, gid=overrideGID)(
                     DBAPIConnector(
                         pgdb, postgresPreflight, config.DSN).connect)
             else:
@@ -920,7 +924,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
     def subServiceFactoryFactory(self, createMainService,
-                                 postgresUID=None, postgresGID=None):
+                                 uid=None, gid=None):
         def subServiceFactory(connectionFactory):
             ms = MultiService()
             cp = ConnectionPool(connectionFactory)
@@ -929,7 +933,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             mainService = createMainService(cp, store)
             maybeUpgradeSvc = UpgradeToDatabaseService.wrapService(
                 CachingFilePath(config.DocumentRoot), mainService,
-                store, uid=postgresUID, gid=postgresGID
+                store, uid=uid, gid=gid
             )
             maybeUpgradeSvc.setServiceParent(ms)
             return ms

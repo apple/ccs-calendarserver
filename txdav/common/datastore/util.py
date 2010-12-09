@@ -140,7 +140,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             (self.uid or self.gid)):
             uid = self.uid or -1
             gid = self.gid or -1
-            for fp in self.sqlAttachmentsPath.walk():
+            for fp in sqlAttachmentsPath.walk():
                 os.chown(fp.path, uid, gid)
 
         self.log_warn(
