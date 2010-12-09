@@ -78,8 +78,8 @@ masterUsers = [
     (
         "odtestunicode",
         {
-            dsattributes.kDS1AttrFirstName : ["Unicode"],
-            dsattributes.kDS1AttrLastName  : ["Test " + unichr(208)],
+            dsattributes.kDS1AttrFirstName : ["Unicode " + unichr(208)],
+            dsattributes.kDS1AttrLastName  : ["Test"],
             dsattributes.kDS1AttrDistinguishedName : ["Unicode Test " + unichr(208)],
             dsattributes.kDSNAttrEMailAddress : ["unicodetest@example.com"],
             dsattributes.kDS1AttrGeneratedUID : ["CA795296-D77A-4E09-A72F-869920A3D284"],
