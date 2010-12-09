@@ -579,17 +579,18 @@ def relocateData(oldCalDocuments, oldCalData, oldABDocuments, uid, gid,
         if calendarDataInDefaultLocation:
             # We're in the default location, relocate to new location
             newCalDocuments = os.path.join(newServerRoot, "Documents")
+            if not os.path.exists(newCalDocuments):
+                os.mkdir(newCalDocuments)
             newCalData = os.path.join(newServerRoot, "Data")
+            if not os.path.exists(newCalData):
+                os.mkdir(newCalData)
             if os.path.exists(oldCalDocuments):
-                if os.path.exists(newCalDocuments):
-                    # Move evertying from oldCalDocuments
-                    for item in list(os.listdir(oldCalDocuments)):
-                        source = os.path.join(oldCalDocuments, item)
-                        dest = os.path.join(newCalDocuments, item)
-                        log("Relocating %s to %s" % (source, dest))
-                        os.rename(source, dest)
-                else:
-                    log("Error: %s does not exist" % (newCalDocuments,))
+                # Move evertying from oldCalDocuments
+                for item in list(os.listdir(oldCalDocuments)):
+                    source = os.path.join(oldCalDocuments, item)
+                    dest = os.path.join(newCalDocuments, item)
+                    log("Relocating %s to %s" % (source, dest))
+                    os.rename(source, dest)
             else:
                 log("Warning: %s does not exist; nothing to migrate" % (oldCalDocuments,))
         else:
