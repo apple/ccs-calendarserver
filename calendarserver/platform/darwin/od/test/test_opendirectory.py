@@ -420,7 +420,6 @@ if runTests:
             recordNames = [x[0] for x in results]
             self.assertTrue("odtestamanda" in recordNames)
 
-        test_queryRecordsWithAttribute_list_email_begins_insensitive_match.todo = "This test won't pass until this is fixed: <rdar://problem/8608148>"
 
         def test_queryRecordsWithAttribute_list_email_begins_insensitive_match_multitype(self):
             # This test won't pass until this is fixed: <rdar://problem/8608148>
@@ -445,7 +444,6 @@ if runTests:
             recordNames = [x[0] for x in results]
             self.assertTrue("odtestamanda" in recordNames)
 
-        test_queryRecordsWithAttribute_list_email_begins_insensitive_match_multitype.todo = "This test won't pass until this is fixed: <rdar://problem/8608148>"
 
 
         def test_queryRecordsWithAttribute_list_guid_exact_sensitive_match_master(self):
