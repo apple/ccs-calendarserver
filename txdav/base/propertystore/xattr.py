@@ -69,7 +69,7 @@ class PropertyStore(AbstractPropertyStore):
 
     # Linux seems to require that attribute names use a "user." prefix.
     if sys.platform == "linux2":
-        deadPropertyXattrPrefix = "user."
+        deadPropertyXattrPrefix = "user." + deadPropertyXattrPrefix
 
     # There is a 127 character limit for xattr keys so we need to compress/expand
     # overly long namespaces to help stay under that limit now that GUIDs are also
@@ -249,6 +249,8 @@ class PropertyStore(AbstractPropertyStore):
             iterattr = iter(())
 
         for key in iterattr:
+            if not key.startswith(self.deadPropertyXattrPrefix):
+                continue
             effectivekey = self._decodeKey(key)
             if effectivekey[1] == uid and effectivekey not in self.removed:
                 seen.add(effectivekey)
