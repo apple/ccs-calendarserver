@@ -195,7 +195,7 @@ class SnowLeopard(object):
         hrefs = principal.getHrefProperties()
 
         # Do another kind of thing I guess
-        principalCollection = hrefs[caldavxml.principal_collection_set].toString()
+        principalCollection = hrefs[davxml.principal_collection_set].toString()
         print (yield self._principalsReport(principalCollection))
 
         # Whatever
@@ -203,7 +203,7 @@ class SnowLeopard(object):
         print (yield self._calendarHomePropfind(calendarHome))
 
         # Learn stuff I guess
-        notificationURL = hrefs[caldavxml.notification_URL].toString()
+        notificationURL = hrefs[csxml.notification_URL].toString()
         print (yield self._notificationPropfind(notificationURL))
 
         # More too
