@@ -17,9 +17,15 @@
 
 from twisted.trial.unittest import TestCase
 
-from ical import Principal
+from protocol.url import URL
+from protocol.webdav.definitions import davxml
+from protocol.caldav.definitions import caldavxml
+from protocol.caldav.definitions import csxml
 
-PROPFIND_RESPONSE = """\
+from ical import SnowLeopard
+
+
+PRINCIPAL_PROPFIND_RESPONSE = """\
 <?xml version='1.0' encoding='UTF-8'?>
 <multistatus xmlns='DAV:'>
   <response>
@@ -88,52 +94,691 @@ PROPFIND_RESPONSE = """\
 """
 
 
-class PrincipalTests(TestCase):
-    """
-    Tests for L{Principal}, a class for representing "a distinct human
-    or computational actor that initiates access to network
-    resources." (U{http://tools.ietf.org/html/rfc4918})
-    """
-    def test_fromPROPFINDResponse(self):
-        """
-        L{Principal.fromPROPFINDResponse} accepts an XML document like
-        the one returned from a I{PROPFIND /principals/__uids__/<uid>}
-        and extracts all of the properties from it.
-        """
-        principal = Principal.fromPROPFINDResponse(PROPFIND_RESPONSE)
-        self.assertEquals(
-            principal.properties,
-            {Principal.PRINCIPAL_COLLECTION_SET: '/principals/',
-             Principal.CALENDAR_HOME_SET: '/calendars/__uids__/user01',
-             Principal.CALENDAR_USER_ADDRESS_SET: set([
-                    '/principals/__uids__/user01/',
-                    '/principals/users/user01/',
-                    ]),
-             Principal.SCHEDULE_INBOX_URL: '/calendars/__uids__/user01/inbox/',
-             Principal.SCHEDULE_OUTBOX_URL: '/calendars/__uids__/user01/outbox/',
-             Principal.DROPBOX_HOME_URL: '/calendars/__uids__/user01/dropbox/',
-             Principal.NOTIFICATION_URL: '/calendars/__uids__/user01/notification/',
-             Principal.DISPLAY_NAME: 'User 01',
-             Principal.PRINCIPAL_URL: '/principals/__uids__/user01/',
-             Principal.SUPPORTED_REPORT_SET: set([
-                        '{DAV:}acl-principal-prop-set',
-                        '{DAV:}principal-match',
-                        '{DAV:}principal-property-search',
-                        '{DAV:}expand-property',
-                        ]),
-             })
+CALENDAR_HOME_PROPFIND_RESPONSE = """\
+<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
+  <response>
+    <href>/calendars/__uids__/user01/</href>
+    <propstat>
+      <prop>
+        <xmpp-server xmlns='http://calendarserver.org/ns/'/>
+        <xmpp-uri xmlns='http://calendarserver.org/ns/'/>
+        <displayname>User 01</displayname>
+        <resourcetype>
+          <collection/>
+        </resourcetype>
+        <owner>
+          <href>/principals/__uids__/user01/</href>
+        </owner>
+        <quota-available-bytes>104855434</quota-available-bytes>
+        <quota-used-bytes>2166</quota-used-bytes>
+        <current-user-privilege-set>
+          <privilege>
+            <all/>
+          </privilege>
+          <privilege>
+            <read/>
+          </privilege>
+          <privilege>
+            <read-free-busy xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+          <privilege>
+            <write/>
+          </privilege>
+          <privilege>
+            <write-properties/>
+          </privilege>
+          <privilege>
+            <write-content/>
+          </privilege>
+          <privilege>
+            <bind/>
+          </privilege>
+          <privilege>
+            <unbind/>
+          </privilege>
+          <privilege>
+            <unlock/>
+          </privilege>
+          <privilege>
+            <read-acl/>
+          </privilege>
+          <privilege>
+            <write-acl/>
+          </privilege>
+          <privilege>
+            <read-current-user-privilege-set/>
+          </privilege>
+        </current-user-privilege-set>
+        <push-transports xmlns='http://calendarserver.org/ns/'/>
+        <pushkey xmlns='http://calendarserver.org/ns/'/>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+    <propstat>
+      <prop>
+        <getctag xmlns='http://calendarserver.org/ns/'/>
+        <calendar-description xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-color xmlns='http://apple.com/ns/ical/'/>
+        <calendar-order xmlns='http://apple.com/ns/ical/'/>
+        <supported-calendar-component-set xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <schedule-calendar-transp xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <schedule-default-calendar-URL xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-timezone xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <source xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-alarms xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-attachments xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-todos xmlns='http://calendarserver.org/ns/'/>
+        <refreshrate xmlns='http://apple.com/ns/ical/'/>
+        <publish-url xmlns='http://calendarserver.org/ns/'/>
+      </prop>
+      <status>HTTP/1.1 404 Not Found</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/calendars/__uids__/user01/notification/</href>
+    <propstat>
+      <prop>
+        <displayname>notification</displayname>
+        <resourcetype>
+          <collection/>
+          <notification xmlns='http://calendarserver.org/ns/'/>
+        </resourcetype>
+        <owner>
+          <href>/principals/__uids__/user01/</href>
+        </owner>
+        <quota-available-bytes>104855434</quota-available-bytes>
+        <quota-used-bytes>2166</quota-used-bytes>
+        <current-user-privilege-set>
+          <privilege>
+            <all/>
+          </privilege>
+          <privilege>
+            <read/>
+          </privilege>
+          <privilege>
+            <read-free-busy xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+          <privilege>
+            <write/>
+          </privilege>
+          <privilege>
+            <write-properties/>
+          </privilege>
+          <privilege>
+            <write-content/>
+          </privilege>
+          <privilege>
+            <bind/>
+          </privilege>
+          <privilege>
+            <unbind/>
+          </privilege>
+          <privilege>
+            <unlock/>
+          </privilege>
+          <privilege>
+            <read-acl/>
+          </privilege>
+          <privilege>
+            <write-acl/>
+          </privilege>
+          <privilege>
+            <read-current-user-privilege-set/>
+          </privilege>
+        </current-user-privilege-set>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+    <propstat>
+      <prop>
+        <xmpp-server xmlns='http://calendarserver.org/ns/'/>
+        <xmpp-uri xmlns='http://calendarserver.org/ns/'/>
+        <getctag xmlns='http://calendarserver.org/ns/'/>
+        <calendar-description xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-color xmlns='http://apple.com/ns/ical/'/>
+        <calendar-order xmlns='http://apple.com/ns/ical/'/>
+        <supported-calendar-component-set xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <schedule-calendar-transp xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <schedule-default-calendar-URL xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-timezone xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <source xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-alarms xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-attachments xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-todos xmlns='http://calendarserver.org/ns/'/>
+        <refreshrate xmlns='http://apple.com/ns/ical/'/>
+        <push-transports xmlns='http://calendarserver.org/ns/'/>
+        <pushkey xmlns='http://calendarserver.org/ns/'/>
+        <publish-url xmlns='http://calendarserver.org/ns/'/>
+      </prop>
+      <status>HTTP/1.1 404 Not Found</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/calendars/__uids__/user01/dropbox/</href>
+    <propstat>
+      <prop>
+        <resourcetype>
+          <collection/>
+          <dropbox-home xmlns='http://calendarserver.org/ns/'/>
+        </resourcetype>
+        <owner>
+          <href>/principals/__uids__/user01/</href>
+        </owner>
+        <quota-available-bytes>104855434</quota-available-bytes>
+        <quota-used-bytes>2166</quota-used-bytes>
+        <current-user-privilege-set>
+          <privilege>
+            <all/>
+          </privilege>
+          <privilege>
+            <read/>
+          </privilege>
+          <privilege>
+            <read-free-busy xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+          <privilege>
+            <write/>
+          </privilege>
+          <privilege>
+            <write-properties/>
+          </privilege>
+          <privilege>
+            <write-content/>
+          </privilege>
+          <privilege>
+            <bind/>
+          </privilege>
+          <privilege>
+            <unbind/>
+          </privilege>
+          <privilege>
+            <unlock/>
+          </privilege>
+          <privilege>
+            <read-acl/>
+          </privilege>
+          <privilege>
+            <write-acl/>
+          </privilege>
+          <privilege>
+            <read-current-user-privilege-set/>
+          </privilege>
+        </current-user-privilege-set>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+    <propstat>
+      <prop>
+        <xmpp-server xmlns='http://calendarserver.org/ns/'/>
+        <xmpp-uri xmlns='http://calendarserver.org/ns/'/>
+        <getctag xmlns='http://calendarserver.org/ns/'/>
+        <displayname/>
+        <calendar-description xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-color xmlns='http://apple.com/ns/ical/'/>
+        <calendar-order xmlns='http://apple.com/ns/ical/'/>
+        <supported-calendar-component-set xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <schedule-calendar-transp xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <schedule-default-calendar-URL xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-timezone xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <source xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-alarms xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-attachments xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-todos xmlns='http://calendarserver.org/ns/'/>
+        <refreshrate xmlns='http://apple.com/ns/ical/'/>
+        <push-transports xmlns='http://calendarserver.org/ns/'/>
+        <pushkey xmlns='http://calendarserver.org/ns/'/>
+        <publish-url xmlns='http://calendarserver.org/ns/'/>
+      </prop>
+      <status>HTTP/1.1 404 Not Found</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/calendars/__uids__/user01/calendar/</href>
+    <propstat>
+      <prop>
+        <getctag xmlns='http://calendarserver.org/ns/'>c2696540-4c4c-4a31-adaf-c99630776828#3</getctag>
+        <displayname>calendar</displayname>
+        <calendar-color xmlns='http://apple.com/ns/ical/'>#0252D4FF</calendar-color>
+        <calendar-order xmlns='http://apple.com/ns/ical/'>1</calendar-order>
+        <supported-calendar-component-set xmlns='urn:ietf:params:xml:ns:caldav'>
+          <comp name='VEVENT'/>
+          <comp name='VTODO'/>
+          <comp name='VTIMEZONE'/>
+          <comp name='VFREEBUSY'/>
+        </supported-calendar-component-set>
+        <resourcetype>
+          <collection/>
+          <calendar xmlns='urn:ietf:params:xml:ns:caldav'/>
+        </resourcetype>
+        <owner>
+          <href>/principals/__uids__/user01/</href>
+        </owner>
+        <schedule-calendar-transp xmlns='urn:ietf:params:xml:ns:caldav'>
+          <opaque/>
+        </schedule-calendar-transp>
+        <quota-available-bytes>104855434</quota-available-bytes>
+        <quota-used-bytes>2166</quota-used-bytes>
+        <calendar-timezone xmlns='urn:ietf:params:xml:ns:caldav'><![CDATA[BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:America/New_York
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0500
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:EDT
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0400
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:EST
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+END:VCALENDAR
+]]></calendar-timezone>
+        <current-user-privilege-set>
+          <privilege>
+            <all/>
+          </privilege>
+          <privilege>
+            <read/>
+          </privilege>
+          <privilege>
+            <read-free-busy xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+          <privilege>
+            <write/>
+          </privilege>
+          <privilege>
+            <write-properties/>
+          </privilege>
+          <privilege>
+            <write-content/>
+          </privilege>
+          <privilege>
+            <bind/>
+          </privilege>
+          <privilege>
+            <unbind/>
+          </privilege>
+          <privilege>
+            <unlock/>
+          </privilege>
+          <privilege>
+            <read-acl/>
+          </privilege>
+          <privilege>
+            <write-acl/>
+          </privilege>
+          <privilege>
+            <read-current-user-privilege-set/>
+          </privilege>
+        </current-user-privilege-set>
+        <pushkey xmlns='http://calendarserver.org/ns/'/>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+    <propstat>
+      <prop>
+        <xmpp-server xmlns='http://calendarserver.org/ns/'/>
+        <xmpp-uri xmlns='http://calendarserver.org/ns/'/>
+        <calendar-description xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <schedule-default-calendar-URL xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <source xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-alarms xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-attachments xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-todos xmlns='http://calendarserver.org/ns/'/>
+        <refreshrate xmlns='http://apple.com/ns/ical/'/>
+        <push-transports xmlns='http://calendarserver.org/ns/'/>
+        <publish-url xmlns='http://calendarserver.org/ns/'/>
+      </prop>
+      <status>HTTP/1.1 404 Not Found</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/calendars/__uids__/user01/outbox/</href>
+    <propstat>
+      <prop>
+        <supported-calendar-component-set xmlns='urn:ietf:params:xml:ns:caldav'>
+          <comp name='VEVENT'/>
+          <comp name='VTODO'/>
+          <comp name='VTIMEZONE'/>
+          <comp name='VFREEBUSY'/>
+        </supported-calendar-component-set>
+        <resourcetype>
+          <collection/>
+          <schedule-outbox xmlns='urn:ietf:params:xml:ns:caldav'/>
+        </resourcetype>
+        <owner>
+          <href>/principals/__uids__/user01/</href>
+        </owner>
+        <quota-available-bytes>104855434</quota-available-bytes>
+        <quota-used-bytes>2166</quota-used-bytes>
+        <current-user-privilege-set>
+          <privilege>
+            <all/>
+          </privilege>
+          <privilege>
+            <read/>
+          </privilege>
+          <privilege>
+            <write/>
+          </privilege>
+          <privilege>
+            <write-properties/>
+          </privilege>
+          <privilege>
+            <write-content/>
+          </privilege>
+          <privilege>
+            <bind/>
+          </privilege>
+          <privilege>
+            <unbind/>
+          </privilege>
+          <privilege>
+            <unlock/>
+          </privilege>
+          <privilege>
+            <read-acl/>
+          </privilege>
+          <privilege>
+            <write-acl/>
+          </privilege>
+          <privilege>
+            <read-current-user-privilege-set/>
+          </privilege>
+          <privilege>
+            <schedule-send xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+          <privilege>
+            <schedule xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+          <privilege>
+            <read-free-busy xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+        </current-user-privilege-set>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+    <propstat>
+      <prop>
+        <xmpp-server xmlns='http://calendarserver.org/ns/'/>
+        <xmpp-uri xmlns='http://calendarserver.org/ns/'/>
+        <getctag xmlns='http://calendarserver.org/ns/'/>
+        <displayname/>
+        <calendar-description xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-color xmlns='http://apple.com/ns/ical/'/>
+        <calendar-order xmlns='http://apple.com/ns/ical/'/>
+        <calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <schedule-calendar-transp xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <schedule-default-calendar-URL xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-timezone xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <source xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-alarms xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-attachments xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-todos xmlns='http://calendarserver.org/ns/'/>
+        <refreshrate xmlns='http://apple.com/ns/ical/'/>
+        <push-transports xmlns='http://calendarserver.org/ns/'/>
+        <pushkey xmlns='http://calendarserver.org/ns/'/>
+        <publish-url xmlns='http://calendarserver.org/ns/'/>
+      </prop>
+      <status>HTTP/1.1 404 Not Found</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/calendars/__uids__/user01/freebusy</href>
+    <propstat>
+      <prop>
+        <resourcetype>
+          <free-busy-url xmlns='http://calendarserver.org/ns/'/>
+        </resourcetype>
+        <owner>
+          <href>/principals/__uids__/user01/</href>
+        </owner>
+        <quota-available-bytes>104855434</quota-available-bytes>
+        <quota-used-bytes>2166</quota-used-bytes>
+        <current-user-privilege-set>
+          <privilege>
+            <read/>
+          </privilege>
+          <privilege>
+            <schedule-deliver xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+          <privilege>
+            <schedule xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+          <privilege>
+            <all/>
+          </privilege>
+          <privilege>
+            <write/>
+          </privilege>
+          <privilege>
+            <write-properties/>
+          </privilege>
+          <privilege>
+            <write-content/>
+          </privilege>
+          <privilege>
+            <bind/>
+          </privilege>
+          <privilege>
+            <unbind/>
+          </privilege>
+          <privilege>
+            <unlock/>
+          </privilege>
+          <privilege>
+            <read-acl/>
+          </privilege>
+          <privilege>
+            <write-acl/>
+          </privilege>
+          <privilege>
+            <read-current-user-privilege-set/>
+          </privilege>
+          <privilege>
+            <read-free-busy xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+        </current-user-privilege-set>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+    <propstat>
+      <prop>
+        <xmpp-server xmlns='http://calendarserver.org/ns/'/>
+        <xmpp-uri xmlns='http://calendarserver.org/ns/'/>
+        <getctag xmlns='http://calendarserver.org/ns/'/>
+        <displayname/>
+        <calendar-description xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-color xmlns='http://apple.com/ns/ical/'/>
+        <calendar-order xmlns='http://apple.com/ns/ical/'/>
+        <supported-calendar-component-set xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <schedule-calendar-transp xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <schedule-default-calendar-URL xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-timezone xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <source xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-alarms xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-attachments xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-todos xmlns='http://calendarserver.org/ns/'/>
+        <refreshrate xmlns='http://apple.com/ns/ical/'/>
+        <push-transports xmlns='http://calendarserver.org/ns/'/>
+        <pushkey xmlns='http://calendarserver.org/ns/'/>
+        <publish-url xmlns='http://calendarserver.org/ns/'/>
+      </prop>
+      <status>HTTP/1.1 404 Not Found</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/calendars/__uids__/user01/inbox/</href>
+    <propstat>
+      <prop>
+        <getctag xmlns='http://calendarserver.org/ns/'>a483dab3-1391-445b-b1c3-5ae9dfc81c2f#0</getctag>
+        <displayname>inbox</displayname>
+        <supported-calendar-component-set xmlns='urn:ietf:params:xml:ns:caldav'>
+          <comp name='VEVENT'/>
+          <comp name='VTODO'/>
+          <comp name='VTIMEZONE'/>
+          <comp name='VFREEBUSY'/>
+        </supported-calendar-component-set>
+        <resourcetype>
+          <collection/>
+          <schedule-inbox xmlns='urn:ietf:params:xml:ns:caldav'/>
+        </resourcetype>
+        <owner>
+          <href>/principals/__uids__/user01/</href>
+        </owner>
+        <calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>
+          <href xmlns='DAV:'>/calendars/__uids__/user01/calendar</href>
+        </calendar-free-busy-set>
+        <schedule-default-calendar-URL xmlns='urn:ietf:params:xml:ns:caldav'>
+          <href xmlns='DAV:'>/calendars/__uids__/user01/calendar</href>
+        </schedule-default-calendar-URL>
+        <quota-available-bytes>104855434</quota-available-bytes>
+        <quota-used-bytes>2166</quota-used-bytes>
+        <current-user-privilege-set>
+          <privilege>
+            <schedule-deliver xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+          <privilege>
+            <schedule xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+          <privilege>
+            <all/>
+          </privilege>
+          <privilege>
+            <read/>
+          </privilege>
+          <privilege>
+            <write/>
+          </privilege>
+          <privilege>
+            <write-properties/>
+          </privilege>
+          <privilege>
+            <write-content/>
+          </privilege>
+          <privilege>
+            <bind/>
+          </privilege>
+          <privilege>
+            <unbind/>
+          </privilege>
+          <privilege>
+            <unlock/>
+          </privilege>
+          <privilege>
+            <read-acl/>
+          </privilege>
+          <privilege>
+            <write-acl/>
+          </privilege>
+          <privilege>
+            <read-current-user-privilege-set/>
+          </privilege>
+          <privilege>
+            <read-free-busy xmlns='urn:ietf:params:xml:ns:caldav'/>
+          </privilege>
+        </current-user-privilege-set>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+    <propstat>
+      <prop>
+        <xmpp-server xmlns='http://calendarserver.org/ns/'/>
+        <xmpp-uri xmlns='http://calendarserver.org/ns/'/>
+        <calendar-description xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-color xmlns='http://apple.com/ns/ical/'/>
+        <calendar-order xmlns='http://apple.com/ns/ical/'/>
+        <schedule-calendar-transp xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <calendar-timezone xmlns='urn:ietf:params:xml:ns:caldav'/>
+        <source xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-alarms xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-attachments xmlns='http://calendarserver.org/ns/'/>
+        <subscribed-strip-todos xmlns='http://calendarserver.org/ns/'/>
+        <refreshrate xmlns='http://apple.com/ns/ical/'/>
+        <push-transports xmlns='http://calendarserver.org/ns/'/>
+        <pushkey xmlns='http://calendarserver.org/ns/'/>
+        <publish-url xmlns='http://calendarserver.org/ns/'/>
+      </prop>
+      <status>HTTP/1.1 404 Not Found</status>
+    </propstat>
+  </response>
+</multistatus>
+"""
+
+
 
 
 class SnowLeopardTests(TestCase):
     """
     Tests for L{SnowLeopard}.
     """
-    def test_findCalendars(self):
-        """
-        L{SnowLeopard._findCalendars} accepts a calendar home PROPFIND
-        response body and returns a list of calendar identifiers
-        extracted from it.
-        """
-        client = SnowLeopard(None, None, None, None)
-        client._findCalendars()
+    def setUp(self):
+        self.client = SnowLeopard(None, "127.0.0.1", 80, None, None)
 
+
+    def test_parsePrincipalPROPFINDResponse(self):
+        """
+        L{Principal._parsePROPFINDResponse} accepts an XML document
+        like the one in the response to a I{PROPFIND} request for
+        I{/principals/__uids__/<uid>/} and returns a C{PropFindResult}
+        representing the data from it.
+        """
+        principals = self.client._parsePROPFINDResponse(PRINCIPAL_PROPFIND_RESPONSE)
+        principal = principals['/principals/__uids__/user01/']
+        self.assertEquals(
+            principal.getHrefProperties(),
+            {davxml.principal_collection_set: URL(path='/principals/'),
+             caldavxml.calendar_home_set: URL(path='/calendars/__uids__/user01'),
+             caldavxml.calendar_user_address_set: (
+                    URL(path='/principals/__uids__/user01/'),
+                    URL(path='/principals/users/user01/'),
+                    ),
+             caldavxml.schedule_inbox_URL: URL(path='/calendars/__uids__/user01/inbox/'),
+             caldavxml.schedule_outbox_URL: URL(path='/calendars/__uids__/user01/outbox/'),
+             csxml.dropbox_home_URL: URL(path='/calendars/__uids__/user01/dropbox/'),
+             csxml.notification_URL: URL(path='/calendars/__uids__/user01/notification/'),
+             davxml.principal_URL: URL(path='/principals/__uids__/user01/'),
+             })
+        self.assertEquals(
+            principal.getTextProperties(),
+            {davxml.displayname: 'User 01'})
+
+#         self.assertEquals(
+#             principal.getSomething(),
+#             {SUPPORTED_REPORT_SET: (
+#                     '{DAV:}acl-principal-prop-set',
+#                     '{DAV:}principal-match',
+#                     '{DAV:}principal-property-search',
+#                     '{DAV:}expand-property',
+#                     )})
+
+
+    def test_extractCalendars(self):
+        """
+        L{SnowLeopard._extractCalendars} accepts a calendar home
+        PROPFIND response body and returns a list of calendar objects
+        constructed from the data extracted from the response.
+        """
+        calendars = self.client._extractCalendars(CALENDAR_HOME_PROPFIND_RESPONSE)
+        resourceTypes = [resourceType for (resourceType, element) in calendars]
+        self.assertEquals(
+            resourceTypes,
+            sorted([csxml.dropbox_home,
+                    csxml.notification,
+                    caldavxml.calendar,
+                    caldavxml.schedule_inbox,
+                    caldavxml.schedule_outbox]))

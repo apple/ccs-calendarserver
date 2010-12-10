@@ -15,13 +15,22 @@
 #
 ##
 
-from xml.etree import ElementTree, ElementPath
+from operator import getitem
+
+from xml.etree import ElementTree
+ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
 
 from twisted.python.log import err
 from twisted.python.filepath import FilePath
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
+from twisted.internet.task import LoopingCall
 from twisted.web.http_headers import Headers
 from twisted.web.client import Agent
+
+from protocol.webdav.propfindparser import PropFindParser
+from protocol.webdav.definitions import davxml
+from protocol.caldav.definitions import caldavxml
+from protocol.caldav.definitions import csxml
 
 from httpclient import StringProducer, readBody
 from httpauth import AuthHandlerAgent
@@ -30,81 +39,15 @@ def loadRequestBody(label):
     return FilePath(__file__).sibling(label + '.request').getContent()
 
 
-class Principal(object):
-
-    PRINCIPAL_COLLECTION_SET = '{DAV:}principal-collection-set'
-    CALENDAR_HOME_SET = '{urn:ietf:params:xml:ns:caldav}calendar-home-set'
-    SCHEDULE_INBOX_URL = '{urn:ietf:params:xml:ns:caldav}schedule-inbox-URL'
-    SCHEDULE_OUTBOX_URL = '{urn:ietf:params:xml:ns:caldav}schedule-outbox-URL'
-    DROPBOX_HOME_URL = '{http://calendarserver.org/ns/}dropbox-home-URL'
-    NOTIFICATION_URL = '{http://calendarserver.org/ns/}notification-URL'
-    DISPLAY_NAME = '{DAV:}displayname'
-    PRINCIPAL_URL = '{DAV:}principal-URL'
-    
-    _singlePropertyNames = [
-        PRINCIPAL_COLLECTION_SET,
-        CALENDAR_HOME_SET,
-        SCHEDULE_INBOX_URL,
-        SCHEDULE_OUTBOX_URL,
-        DROPBOX_HOME_URL,
-        NOTIFICATION_URL,
-        PRINCIPAL_URL,
-        ]
-
-    CALENDAR_USER_ADDRESS_SET = '{urn:ietf:params:xml:ns:caldav}calendar-user-address-set'
-    SUPPORTED_REPORT_SET = '{DAV:}supported-report-set'
-
-    _multiPropertyNames = [
-        CALENDAR_USER_ADDRESS_SET, SUPPORTED_REPORT_SET]
-
-
-    def __init__(self):
-        self.properties = {}
-
-
-    @classmethod
-    def fromPROPFINDResponse(cls, response):
-        """
-        Construct a principal from the body a response to a
-        I{PROPFIND} request for the principal URL.
-
-        @type response: C{str}
-        @rtype: C{cls}
-        """
-        principal = cls()
-
-        document = ElementTree.fromstring(response)
-        pattern = '{DAV:}response/{DAV:}propstat/{DAV:}prop/'
-
-        name = ElementPath.find(document, pattern + cls.DISPLAY_NAME)
-        if name is not None:
-            principal.properties[cls.DISPLAY_NAME] = name.text
-
-        for prop in cls._singlePropertyNames:
-            href = ElementPath.find(document, pattern + prop + '/{DAV:}href')
-            principal.properties[prop] = href.text
-
-        for prop in cls._multiPropertyNames:
-            hrefs = ElementPath.findall(document, pattern + prop + '/{DAV:}href')
-            principal.properties[prop] = set(href.text for href in hrefs)
-
-        reports = ElementPath.findall(
-            document,
-            pattern + cls.SUPPORTED_REPORT_SET +
-            '/{DAV:}supported-report/{DAV:}report')
-        supported = principal.properties[cls.SUPPORTED_REPORT_SET] = set()
-        for report in reports:
-            for which in report:
-                supported.add(which.tag)
-
-        return principal
-
+SUPPORTED_REPORT_SET = '{DAV:}supported-report-set'
 
 
 class SnowLeopard(object):
     """
     Implementation of the SnowLeopard iCal network behavior.
     """
+
+    CALENDAR_HOME_POLL_INTERVAL = 15
 
     _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody('sl_startup_principal_propfind')
     _STARTUP_PRINCIPALS_REPORT = loadRequestBody('sl_startup_principals_report')
@@ -123,21 +66,68 @@ class SnowLeopard(object):
         # XXX Do return code checking here.
         return self.agent.request(method, url, headers, body)
 
+
+    def _parsePROPFINDResponse(self, response):
+        """
+        Construct a principal from the body a response to a
+        I{PROPFIND} request for the principal URL.
+
+        @type response: C{str}
+        @rtype: C{cls}
+        """
+        parser = PropFindParser()
+        parser.parseData(response)
+        return parser.getResults()
+
     
+    _CALENDAR_TYPES = set([
+            caldavxml.calendar,
+            caldavxml.schedule_inbox,
+            caldavxml.schedule_outbox,
+            csxml.notification,
+            csxml.dropbox_home,
+            ])
+    def _extractCalendars(self, response):
+        """
+        Parse 
+        """
+        calendars = []
+        principals = self._parsePROPFINDResponse(response)
+
+        # XXX Here, it would be really great to somehow use
+        # CalDAVClientLibrary.client.principal.CalDAVPrincipal.listCalendars
+        for principal in principals:
+            nodes = principals[principal].getNodeProperties()
+            for nodeType in nodes[davxml.resourcetype].getchildren():
+                if nodeType.tag in self._CALENDAR_TYPES:
+                    calendars.append((nodeType.tag, principals[principal]))
+                    break
+        return sorted(calendars)
+
+
     def _principalPropfind(self, user):
+        """
+        Issue a PROPFIND on the likely principal URL for the given
+        user and return a L{Principal} instance constructed from the
+        response.
+        """
+        principalURL = '/principals/__uids__/' + user + '/'
         d = self._request(
             'PROPFIND',
-            self.root + 'principals/__uids__/' + user + '/',
+            self.root + principalURL[1:],
             Headers({
                     'content-type': ['text/xml'],
                     'depth': ['0']}),
             StringProducer(self._STARTUP_PRINCIPAL_PROPFIND))
         d.addCallback(readBody)
-        d.addCallback(Principal.fromPROPFINDResponse)
+        d.addCallback(self._parsePROPFINDResponse)
+        d.addCallback(getitem, principalURL)
         return d
 
 
     def _principalsReport(self, principalCollectionSet):
+        if principalCollectionSet.startswith('/'):
+            principalCollectionSet = principalCollectionSet[1:]
         d = self._request(
             'REPORT',
             self.root + principalCollectionSet,
@@ -150,6 +140,10 @@ class SnowLeopard(object):
 
 
     def _calendarHomePropfind(self, calendarHomeSet):
+        if calendarHomeSet.startswith('/'):
+            calendarHomeSet = calendarHomeSet[1:]
+        if not calendarHomeSet.endswith('/'):
+            calendarHomeSet = calendarHomeSet + '/'
         d = self._request(
             'PROPFIND',
             self.root + calendarHomeSet,
@@ -158,10 +152,16 @@ class SnowLeopard(object):
                     'depth': ['1']}),
             StringProducer(self._STARTUP_CALENDARHOME_PROPFIND))
         d.addCallback(readBody)
+        d.addCallback(self._parsePROPFINDResponse)
+        def report(result):
+            print result
+        d.addCallback(report)
         return d
 
 
     def _notificationPropfind(self, notificationURL):
+        if notificationURL.startswith('/'):
+            notificationURL = notificationURL[1:]
         d = self._request(
             'PROPFIND',
             self.root + notificationURL,
@@ -170,10 +170,13 @@ class SnowLeopard(object):
                     'depth': ['1']}),
             StringProducer(self._STARTUP_NOTIFICATION_PROPFIND))
         d.addCallback(readBody)
+        d.addCallback(self._extractCalendars)
         return d
 
     
     def _principalReport(self, principalURL):
+        if principalURL.startswith('/'):
+            principalURL = principalURL[1:]
         d = self._request(
             'REPORT',
             self.root + principalURL,
@@ -186,32 +189,46 @@ class SnowLeopard(object):
 
 
     @inlineCallbacks
+    def startup(self):
+        # Orient ourselves, or something
+        principal = yield self._principalPropfind(self.user)
+        hrefs = principal.getHrefProperties()
+
+        # Do another kind of thing I guess
+        principalCollection = hrefs[caldavxml.principal_collection_set].toString()
+        print (yield self._principalsReport(principalCollection))
+
+        # Whatever
+        calendarHome = hrefs[caldavxml.calendar_home_set].toString()
+        print (yield self._calendarHomePropfind(calendarHome))
+
+        # Learn stuff I guess
+        notificationURL = hrefs[caldavxml.notification_URL].toString()
+        print (yield self._notificationPropfind(notificationURL))
+
+        # More too
+        principalURL = hrefs[davxml.principal_URL].toString()
+        print (yield self._principalReport(principalURL))
+
+        returnValue(principal)
+
+
+    @inlineCallbacks
     def run(self):
         """
         Emulate a CalDAV client.
         """
-        # Orient ourselves, or something
-        principal = yield self._principalPropfind(self.user)
+        principal = yield self.startup()
+        hrefs = principal.getHrefProperties()
 
-        # Do another kind of thing I guess
-        principalCollectionSet = principal.properties[
-            principal.PRINCIPAL_COLLECTION_SET]
-        print (yield self._principalsReport(principalCollectionSet))
+        # Poll Calendar Home (and notifications?) every 15 (or
+        # whatever) minutes
+        pollCalendarHome = LoopingCall(
+            self._calendarHomePropfind, 
+            hrefs[caldavxml.calendar_home_set].toString())
+        pollCalendarHome.start(self.CALENDAR_HOME_POLL_INTERVAL)
 
-        # Whatever
-        calendarHome = principal.properties[
-            principal.CALENDAR_HOME_SET]
-        print (yield self._calendarHomePropfind(calendarHome))
-
-        # Learn stuff I guess
-        notificationURL = principal.properties[
-            principal.NOTIFICATION_URL]
-        print (yield self._notificationPropfind(notificationURL))
-
-        # More too
-        principalURL = principal.properties[
-            principal.PRINCIPAL_URL]
-        print (yield self._principalReport(principalURL))
+        yield Deferred()
 
 
 def main():
