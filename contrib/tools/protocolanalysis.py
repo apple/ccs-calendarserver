@@ -1222,11 +1222,14 @@ class CalendarServerLogAnalyzer(object):
         table.setDefaultColumnFormats((
                 tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%0.2f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 ))
-        table.addHeader(("# users accessed", "# of users"))
-        for k, v in sorted(self.summarizeUserInteraction("PROPFIND Calendar Home").iteritems()):
+        table.addHeader(("# users accessed", "# of users", "% of users"))
+        summary = self.summarizeUserInteraction("PROPFIND Calendar Home")
+        total = sum(summary.values())
+        for k, v in sorted(summary.iteritems()):
             # Chop off the "(a):" part.
-            table.addRow((k[4:], str(v)))
+            table.addRow((k[4:], v, 100.0 * float(v) / total))
         table.printTabDelimitedData() if doTabs else table.printTable()
         print ""
 
