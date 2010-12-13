@@ -158,11 +158,11 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 access = True
                 break
 
+        # Mark SACLs as having been checked so we can avoid doing it
+        # multiple times
         request.checkedSACL = True
 
         if access:
-            # Mark SACLs as having been checked so we can avoid doing it
-            # multiple times
             returnValue(True)
 
         log.info("User %r is not enabled with the %r SACL" % (username, saclServices,))
