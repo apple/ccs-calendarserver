@@ -81,6 +81,21 @@ requestTimeBuckets = (
     (  None, "(l):120s+"),
 )
 
+userInteractionCountBuckets = (
+    (   0, "(a):0"),
+    (   1, "(b):1"),
+    (   2, "(c):2"),
+    (   3, "(d):3"),
+    (   4, "(e):4"),
+    (   5, "(f):5"),
+    (  10, "(g):6-10"),
+    (  15, "(h):11-15"),
+    (  20, "(i):16-20"),
+    (  30, "(j):21-30"),
+    (  50, "(k):31-50"),
+    (None, "(l):51+"),
+)
+
 httpMethods = set((
     "ACL",
     "BIND",
@@ -103,6 +118,20 @@ httpMethods = set((
 
 class CalendarServerLogAnalyzer(object):
     
+    """
+    @ivar resolutionMinutes: The number of minutes long a statistics
+        bucket will be.  For example, if this is C{5}, then all data
+        points less than 5 will be placed into the first bucket; data
+        points greater than or equal to 5 and less than 10 will be
+        placed into the second bucket, and so on.
+
+    @ivar timeBucketCount: The number of statistics buckets of length
+        C{resolutionMinutes} needed to hold one day of data.
+
+    @ivar hourlyTotals: A C{list} of length C{timeBucketCount} holding ...
+
+    """
+
     class LogLine(object):
         
         def __init__(self, userid, logDateTime, logTime, method, uri, status, bytes, referer, client, extended):
@@ -181,11 +210,12 @@ class CalendarServerLogAnalyzer(object):
         self.userCounts = collections.defaultdict(int)
         self.userResponseTimes = collections.defaultdict(float)
 
+        self.otherUserCalendarRequests = {}
+
         self.currentLine = None
         self.linesRead = 0
 
     def analyzeLogFile(self, logFilePath):
-        
         fpath = os.path.expanduser(logFilePath)
         if fpath.endswith(".gz"):
             f = GzipFile(fpath)
@@ -198,7 +228,6 @@ class CalendarServerLogAnalyzer(object):
         try:
             ctr = 0
             for line in f:
-                
                 ctr += 1
                 if ctr <= self.linesRead:
                     continue
@@ -225,7 +254,6 @@ class CalendarServerLogAnalyzer(object):
 #                if hourFromStart > 1:
 #                    break
                 if hourFromStart > lastHourFromStart:
-                    print logHour
                     lastHourFromStart = hourFromStart
                 if hourFromStart < self.startHourFromStart:
                     continue
@@ -351,6 +379,9 @@ class CalendarServerLogAnalyzer(object):
                 self.requestURI[self.currentLine.uri] += 1
 
                 self.userAnalysis(adjustedMethod)
+
+                # Look at interactions between different users
+                self.userInteractionAnalysis(adjustedMethod)
 
         except Exception:
             print line
@@ -656,7 +687,31 @@ class CalendarServerLogAnalyzer(object):
         responseTime = float(self.currentLine.extended.get("t", 0.0))
         self.userCounts["%s:%s" % (self.currentLine.userid, self.getClientAdjustedName(),)] += 1
         self.userResponseTimes["%s:%s" % (self.currentLine.userid, self.getClientAdjustedName(),)] += responseTime
-        
+
+
+    def summarizeUserInteraction(self, adjustedMethod):
+        summary = {}
+        otherData = self.otherUserCalendarRequests.get(adjustedMethod, {})
+        for user, others in otherData.iteritems():
+            bucket = self.getCountBucket(len(others), userInteractionCountBuckets)
+            summary[bucket] = summary.get(bucket, 0) + 1
+        return summary
+
+
+    def userInteractionAnalysis(self, adjustedMethod):
+        """
+        If the current line is a record of one user accessing another
+        user's data, update C{self.otherUserCalendarRequests} to
+        account for it.
+        """
+        forMethod = self.otherUserCalendarRequests.setdefault(adjustedMethod, {})
+        others = forMethod.setdefault(self.currentLine.userid, set())
+        segments = self.currentLine.uri.split('/')
+        if segments[:3] == ['', 'calendars', '__uids__']:
+            if segments[3:] != [self.currentLine.userid, '']:
+                others.add(segments[3])
+
+
     def printAll(self, doTabs):
 
         self.printInfo(doTabs)
@@ -717,6 +772,9 @@ class CalendarServerLogAnalyzer(object):
         
         print "URI Counts"
         self.printURICounts(doTabs)
+
+        print "User Interaction Counts"
+        self.printUserInteractionCounts(doTabs)
 
         #print "User Weights (top 100)"
         #self.printUserWeights(doTabs)
@@ -1158,6 +1216,20 @@ class CalendarServerLogAnalyzer(object):
    
         table.printTabDelimitedData() if doTabs else table.printTable()
         print ""
+
+    def printUserInteractionCounts(self, doTabs):
+        table = tables.Table()
+        table.setDefaultColumnFormats((
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                ))
+        table.addHeader(("# users accessed", "# of users"))
+        for k, v in sorted(self.summarizeUserInteraction("PROPFIND Calendar Home").iteritems()):
+            # Chop off the "(a):" part.
+            table.addRow((k[4:], str(v)))
+        table.printTabDelimitedData() if doTabs else table.printTable()
+        print ""
+
 
 class TablePrinter(object):
     
