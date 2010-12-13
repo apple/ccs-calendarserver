@@ -434,10 +434,6 @@ def getRootResource(config, newStore, resources=None):
         principalCollections=(principalCollection,),
     )
 
-    if config.EnableCardDAV and not config.EnableCalDAV:
-        # TODO need a better way to do this when both services are enabled
-        root.saclService = "addressbook"
-
 
     root.putChild("principals", principalCollection)
     if config.EnableCalDAV:

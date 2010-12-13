@@ -44,7 +44,17 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
     """
 
     useSacls = False
-    saclService = "calendar"
+
+    # Mapping of top-level resource paths to SACLs.  If a request path
+    # starts with any of these, then the list of SACLs are checked.  If the
+    # request path does not start with any of these, then no SACLs are checked.
+    saclMap = {
+        "addressbooks" : ("addressbook",),
+        "calendars" : ("calendar",),
+        "directory" : ("addressbook",),
+        "principals" : ("addressbook", "calendar"),
+        "webcal" : ("calendar",),
+    }
 
     def __init__(self, path, *args, **kwargs):
         super(RootResource, self).__init__(path, *args, **kwargs)
@@ -89,6 +99,11 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         Check SACLs against the current request
         """
 
+        topLevel = request.path.strip("/").split("/")[0]
+        saclServices = self.saclMap.get(topLevel, None)
+        if not saclServices:
+            returnValue(True)
+
         try:
             authnUser, authzUser = yield self.authenticate(request)
         except Exception:
@@ -98,19 +113,24 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             ))
             raise HTTPError(response)
 
+
         # SACLs are enabled in the plist, but there may not actually
         # be a SACL group assigned to this service.  Let's see if
         # unauthenticated users are allowed by calling CheckSACL
         # with an empty string.
         if authzUser == davxml.Principal(davxml.Unauthenticated()):
-            if RootResource.CheckSACL("", self.saclService) != 0:
-                response = (yield UnauthorizedResponse.makeResponse(
-                    request.credentialFactories,
-                    request.remoteAddr
-                ))
-                raise HTTPError(response)
-            else:
-                returnValue(True)
+            for saclService in saclServices:
+                if RootResource.CheckSACL("", saclService) == 0:
+                    # No group actually exists for this SACL, so allow
+                    # unauthenticated access
+                    returnValue(True)
+            # There is a SACL group for at least one of the SACLs, so no
+            # unauthenticated access
+            response = (yield UnauthorizedResponse.makeResponse(
+                request.credentialFactories,
+                request.remoteAddr
+            ))
+            raise HTTPError(response)
 
         # Cache the authentication details
         request.authnUser = authnUser
@@ -131,15 +151,22 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         delattr(request, "checkingSACL")
         username = principal.record.shortNames[0]
 
-        if RootResource.CheckSACL(username, self.saclService) != 0:
-            log.info("User %r is not enabled with the %r SACL" % (username, self.saclService,))
-            raise HTTPError(responsecode.FORBIDDEN)
+        access = False
+        for saclService in saclServices:
+            if RootResource.CheckSACL(username, saclService) == 0:
+                # Access is allowed
+                access = True
+                break
 
-        # Mark SACLs as having been checked so we can avoid doing it multiple times
         request.checkedSACL = True
 
+        if access:
+            # Mark SACLs as having been checked so we can avoid doing it
+            # multiple times
+            returnValue(True)
 
-        returnValue(True)
+        log.info("User %r is not enabled with the %r SACL" % (username, saclServices,))
+        raise HTTPError(responsecode.FORBIDDEN)
 
     @inlineCallbacks
     def locateChild(self, request, segments):
