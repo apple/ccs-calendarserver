@@ -165,7 +165,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         if access:
             returnValue(True)
 
-        log.info("User %r is not enabled with the %r SACL" % (username, saclServices,))
+        log.warn("User %r is not enabled with the %r SACL(s)" % (username, saclServices,))
         raise HTTPError(responsecode.FORBIDDEN)
 
     @inlineCallbacks
