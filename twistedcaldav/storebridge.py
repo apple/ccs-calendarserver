@@ -59,6 +59,7 @@ from twistedcaldav.ical import Property as VProperty
 from twistedcaldav.vcard import Component as VCard
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.common.icommondatastore import NoSuchObjectResourceError
 
 log = Logger()
 
@@ -1133,9 +1134,12 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         # Do delete
 
-        yield self._newStoreParent.removeObjectResourceWithName(
-            self._newStoreObject.name()
-        )
+        try:
+            yield self._newStoreParent.removeObjectResourceWithName(
+                self._newStoreObject.name()
+            )
+        except NoSuchObjectResourceError:
+            raise HTTPError(responsecode.NOT_FOUND)
 
         # Re-initialize to get stuff setup again now we have no object
         self._initializeWithObject(None, self._newStoreParent)
@@ -1603,5 +1607,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
         except MemcacheLockTimeoutError:
             raise HTTPError(StatusResponse(CONFLICT, "Resource: %s currently in use on the server." % (where,)))
+        except NoSuchObjectResourceError:
+            raise HTTPError(responsecode.NOT_FOUND)
 
         returnValue(NO_CONTENT)
