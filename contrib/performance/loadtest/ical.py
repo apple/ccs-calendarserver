@@ -21,7 +21,7 @@ from pprint import pprint
 from xml.etree import ElementTree
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
 
-from twisted.python.log import err
+from twisted.python.log import err, msg
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
@@ -65,7 +65,17 @@ class SnowLeopard(object):
 
     def _request(self, method, url, headers, body):
         # XXX Do return code checking here.
-        return self.agent.request(method, url, headers, body)
+        d = self.agent.request(method, url, headers, body)
+        before = self.reactor.seconds()
+        def report(passthrough):
+            after = self.reactor.seconds()
+            # XXX This is time to receive response headers, not time
+            # to receive full response.  Should measure the latter, if
+            # not both.
+            msg(type="request", duration=(after - before), url=url)
+            return passthrough
+        d.addCallback(report)
+        return d
 
 
     def _parsePROPFINDResponse(self, response):

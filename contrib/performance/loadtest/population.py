@@ -22,6 +22,7 @@ certain usage parameters.
 
 from itertools import izip
 
+from stats import mean, median, stddev, mad
 from loadtest.ical import SnowLeopard
 
 
@@ -102,12 +103,30 @@ class CalendarClientSimulator(object):
         print 'Now running', self._user, 'clients.'
 
 
+
+class Statistics(object):
+    def __init__(self):
+        self._times = []
+
+    def observe(self, event):
+        if event.get('type') == 'request':
+            self._times.append(event['duration'])
+            if len(self._times) == 200:
+                print 'mean:', mean(self._times)
+                print 'median:', median(self._times)
+                print 'stddev:', stddev(self._times)
+                print 'mad:', mad(self._times)
+                del self._times[:100]
+
     
 def main():
     import random
 
     from twisted.internet import reactor
     from twisted.internet.task import LoopingCall
+    from twisted.python.log import addObserver
+
+    addObserver(Statistics().observe)
 
     r = random.Random()
     r.seed(100)
@@ -117,7 +136,10 @@ def main():
         populator, parameters, reactor, '127.0.0.1', 8008)
 
     # Uh yea let's see
-    LoopingCall(simulator.add, 1).start(1)
+    call = LoopingCall(simulator.add, 1)
+    call.start(1)
+    reactor.callLater(60, call.stop)
+
 
     reactor.run()
 
