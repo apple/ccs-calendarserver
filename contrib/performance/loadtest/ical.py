@@ -16,6 +16,7 @@
 ##
 
 from operator import getitem
+from pprint import pprint
 
 from xml.etree import ElementTree
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
@@ -152,9 +153,10 @@ class SnowLeopard(object):
                     'depth': ['1']}),
             StringProducer(self._STARTUP_CALENDARHOME_PROPFIND))
         d.addCallback(readBody)
-        d.addCallback(self._parsePROPFINDResponse)
+        d.addCallback(self._extractCalendars)
         def report(result):
-            print result
+            # pprint(result)
+            pass
         d.addCallback(report)
         return d
 
@@ -196,19 +198,19 @@ class SnowLeopard(object):
 
         # Do another kind of thing I guess
         principalCollection = hrefs[davxml.principal_collection_set].toString()
-        print (yield self._principalsReport(principalCollection))
+        (yield self._principalsReport(principalCollection))
 
         # Whatever
         calendarHome = hrefs[caldavxml.calendar_home_set].toString()
-        print (yield self._calendarHomePropfind(calendarHome))
+        (yield self._calendarHomePropfind(calendarHome))
 
         # Learn stuff I guess
         notificationURL = hrefs[csxml.notification_URL].toString()
-        print (yield self._notificationPropfind(notificationURL))
+        (yield self._notificationPropfind(notificationURL))
 
         # More too
         principalURL = hrefs[davxml.principal_URL].toString()
-        print (yield self._principalReport(principalURL))
+        (yield self._principalReport(principalURL))
 
         returnValue(principal)
 
