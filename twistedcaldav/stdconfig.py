@@ -418,6 +418,8 @@ DEFAULT_CONFIG = {
             "MailGatewayPort"   : 62310,
             "Username"          : "com.apple.calendarserver", # For account injecting replies
             "Password"          : "",    # For account injecting replies
+            "GUID"              : "B86ED9D3-49BD-44F8-8F5E-C89D08753DAC", # GUID for special internal user
+            "Header"            : "x-calendarserver-internal", # HTTP header for internal authentication
             "Sending": {
                 "Server"        : "",    # SMTP server to relay messages through
                 "Port"          : 587,   # SMTP server port to relay messages through

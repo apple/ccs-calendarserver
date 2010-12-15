@@ -110,13 +110,10 @@ class ScheduleViaIMip(DeliveryService):
             'Content-Type' : 'text/calendar',
             'Originator' : fromAddr,
             'Recipient' : toAddr,
+            config.Scheduling.iMIP.Header : config.Scheduling.iMIP.Password,
         }
         factory = client.HTTPClientFactory(url, method='POST', headers=headers,
             postdata=caldata, agent="CalDAV server")
-
-        if config.Scheduling.iMIP.Username:
-            factory.username = config.Scheduling.iMIP.Username
-            factory.password = config.Scheduling.iMIP.Password
 
         factory.noisy = False
         factory.protocol = AuthorizedHTTPGetter

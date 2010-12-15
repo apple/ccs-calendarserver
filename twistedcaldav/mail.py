@@ -199,21 +199,11 @@ class IMIPInboxResource(CalDAVResource):
         expanding=False, inherited_aces=None):
 
         if not hasattr(self, "iMIPACL"):
-
-            for principalCollection in self.principalCollections():
-                principal = principalCollection.principalForShortName("users",
-                    config.Scheduling.iMIP.Username)
-                if principal is not None:
-                    break
-            else:
-                log.err("iMIP injection principal not found: %s" %
-                    (config.Scheduling.iMIP.Username,))
-                raise HTTPError(responsecode.FORBIDDEN)
-
+            guid = config.Scheduling.iMIP.GUID
             self.iMIPACL = davxml.ACL(
                 davxml.ACE(
                     davxml.Principal(
-                        davxml.HRef.fromString(principal.principalURL())
+                        davxml.HRef.fromString("/principals/__uids__/%s/" % (guid,))
                     ),
                     davxml.Grant(
                         davxml.Privilege(caldavxml.ScheduleDeliver()),
@@ -357,6 +347,7 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
         'Content-Type' : 'text/calendar',
         'Originator' : attendee,
         'Recipient' : organizer,
+        config.Scheduling.iMIP.Header : config.Scheduling.iMIP.Password,
     }
 
     data = str(calendar)
@@ -369,7 +360,7 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
         port = config.HTTPPort
 
     # If we're running on same host as calendar server, inject via localhost
-    if config.Scheduling['iMIP']['MailGatewayServer'] == 'localhost':
+    if config.Scheduling.iMIP.MailGatewayServer == 'localhost':
         host = 'localhost'
     else:
         host = config.ServerHostName
@@ -381,10 +372,6 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
 
     factory = client.HTTPClientFactory(url, method='POST', headers=headers,
         postdata=data, agent="iMIP gateway")
-
-    if config.Scheduling.iMIP.Username:
-        factory.username = config.Scheduling.iMIP.Username
-        factory.password = config.Scheduling.iMIP.Password
 
     factory.noisy = False
     factory.protocol = AuthorizedHTTPGetter
