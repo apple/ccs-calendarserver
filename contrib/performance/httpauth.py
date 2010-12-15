@@ -14,20 +14,47 @@
 # limitations under the License.
 ##
 
-import shlex, urlparse
+import urlparse, urllib2
 
 from twisted.web.http_headers import Headers
+
+# CalDAVClientLibrary
+from protocol.http.authentication.digest import Digest
 
 class BasicChallenge(object):
     def __init__(self, realm):
         self.realm = realm
 
 
-    def response(self, uri, keyring):
+    def response(self, uri, method, keyring):
         username, password = keyring.passwd.find_user_password(self.realm, uri)
         credentials = ('%s:%s' % (username, password)).encode('base64').strip()
         authorization = 'basic ' + credentials
         return {'authorization': [authorization]}
+
+
+
+class DigestChallenge(object):
+    def __init__(self, realm, **fields):
+        self.realm = realm
+        self.fields = fields
+        self.fields['realm'] = realm
+
+
+    def response(self, uri, method, keyring):
+        username, password = keyring.passwd.find_user_password(self.realm, uri)
+        digest = Digest(username, password, [])
+        digest.fields.update(self.fields)
+        authorization = []
+
+        class BigSigh:
+            def getURL(self):
+                return uri
+        BigSigh.method = method
+        BigSigh.url = uri
+
+        digest.addHeaders(authorization, BigSigh())
+        return {'authorization': [value for (name, value) in authorization]}
 
 
 
@@ -52,20 +79,23 @@ class AuthHandlerAgent(object):
 
 
     def _parse(self, authorization):
-        parts = shlex.split(authorization)
-        scheme = parts.pop(0)
-        args = dict([p.split('=', 1) for p in parts])
-        if scheme == 'basic':
-            return BasicChallenge(**args)
-        return None
+        scheme, rest = authorization.split(None, 1)
+        args = urllib2.parse_keqv_list(urllib2.parse_http_list(rest))
+        challengeType = {
+            'basic': BasicChallenge,
+            'digest': DigestChallenge,
+            }.get(scheme)
+        if challengeType is None:
+            return None
+        return challengeType(**args)
 
-    
+
     def _respondToChallenge(self, challenge, method, uri, headers, bodyProducer):
         if headers is None:
             headers = Headers()
         else:
             headers = Headers(dict(headers.getAllRawHeaders()))
-        for k, vs in challenge.response(uri, self._authinfo).iteritems():
+        for k, vs in challenge.response(uri, method, self._authinfo).iteritems():
             for v in vs:
                 headers.addRawHeader(k, v)
         return self._agent.request(method, uri, headers, bodyProducer)
@@ -85,6 +115,7 @@ class AuthHandlerAgent(object):
                 self._challenged[self._authKey(method, uri)] = challenge
                 return self._respondToChallenge(challenge, method, uri, headers, bodyProducer)
         return response
+
 
 
 if __name__ == '__main__':
