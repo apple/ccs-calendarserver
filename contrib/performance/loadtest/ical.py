@@ -43,12 +43,23 @@ def loadRequestBody(label):
 SUPPORTED_REPORT_SET = '{DAV:}supported-report-set'
 
 
+class Calendar(object):
+    def __init__(self, resourceType, name, url, ctag):
+        self.resourceType = resourceType
+        self.name = name
+        self.url = url
+        self.ctag = ctag
+
+
+
 class SnowLeopard(object):
     """
     Implementation of the SnowLeopard iCal network behavior.
     """
 
-    CALENDAR_HOME_POLL_INTERVAL = 15
+    USER_AGENT = "DAVKit/4.0.3 (732); CalendarStore/4.0.3 (991); iCal/4.0.3 (1388); Mac OS X/10.6.4 (10F569)"
+
+    CALENDAR_HOME_POLL_INTERVAL = 15 * 60
 
     _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody('sl_startup_principal_propfind')
     _STARTUP_PRINCIPALS_REPORT = loadRequestBody('sl_startup_principals_report')
@@ -65,6 +76,7 @@ class SnowLeopard(object):
 
     def _request(self, method, url, headers, body):
         # XXX Do return code checking here.
+        headers.setRawHeaders('User-Agent', [self.USER_AGENT])
         d = self.agent.request(method, url, headers, body)
         before = self.reactor.seconds()
         def report(passthrough):
@@ -111,9 +123,15 @@ class SnowLeopard(object):
             nodes = principals[principal].getNodeProperties()
             for nodeType in nodes[davxml.resourcetype].getchildren():
                 if nodeType.tag in self._CALENDAR_TYPES:
-                    calendars.append((nodeType.tag, principals[principal]))
+                    textProps = principals[principal].getTextProperties()
+                    calendars.append(Calendar(
+                            nodeType.tag,
+                            textProps.get(davxml.displayname, None),
+                            principal,
+                            textProps.get(csxml.getctag, None),
+                            ))
                     break
-        return sorted(calendars)
+        return calendars
 
 
     def _principalPropfind(self, user):

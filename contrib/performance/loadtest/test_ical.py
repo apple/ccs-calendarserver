@@ -774,11 +774,30 @@ class SnowLeopardTests(TestCase):
         constructed from the data extracted from the response.
         """
         calendars = self.client._extractCalendars(CALENDAR_HOME_PROPFIND_RESPONSE)
-        resourceTypes = [resourceType for (resourceType, element) in calendars]
-        self.assertEquals(
-            resourceTypes,
-            sorted([csxml.dropbox_home,
-                    csxml.notification,
-                    caldavxml.calendar,
-                    caldavxml.schedule_inbox,
-                    caldavxml.schedule_outbox]))
+        calendars.sort(key=lambda cal: cal.resourceType)
+        dropbox, notification, calendar, inbox, outbox = calendars
+
+        self.assertEquals(dropbox.resourceType, csxml.dropbox_home)
+        self.assertEquals(dropbox.name, None)
+        self.assertEquals(dropbox.url, "/calendars/__uids__/user01/dropbox/")
+        self.assertEquals(dropbox.ctag, None)
+
+        self.assertEquals(notification.resourceType, csxml.notification)
+        self.assertEquals(notification.name, "notification")
+        self.assertEquals(notification.url, "/calendars/__uids__/user01/notification/")
+        self.assertEquals(notification.ctag, None)
+
+        self.assertEquals(calendar.resourceType, caldavxml.calendar)
+        self.assertEquals(calendar.name, "calendar")
+        self.assertEquals(calendar.url, "/calendars/__uids__/user01/calendar/")
+        self.assertEquals(calendar.ctag, "c2696540-4c4c-4a31-adaf-c99630776828#3")
+
+        self.assertEquals(inbox.resourceType, caldavxml.schedule_inbox)
+        self.assertEquals(inbox.name, "inbox")
+        self.assertEquals(inbox.url, "/calendars/__uids__/user01/inbox/")
+        self.assertEquals(inbox.ctag, "a483dab3-1391-445b-b1c3-5ae9dfc81c2f#0")
+
+        self.assertEquals(outbox.resourceType, caldavxml.schedule_outbox)
+        self.assertEquals(outbox.name, None)
+        self.assertEquals(outbox.url, "/calendars/__uids__/user01/outbox/")
+        self.assertEquals(outbox.ctag, None)
