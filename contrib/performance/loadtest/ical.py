@@ -37,7 +37,7 @@ from httpclient import StringProducer, readBody
 from httpauth import AuthHandlerAgent
 
 def loadRequestBody(label):
-    return FilePath(__file__).sibling(label + '.request').getContent()
+    return FilePath(__file__).sibling('request-data').child(label + '.request').getContent()
 
 
 SUPPORTED_REPORT_SET = '{DAV:}supported-report-set'
