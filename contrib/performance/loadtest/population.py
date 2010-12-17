@@ -136,11 +136,10 @@ def main():
     simulator = CalendarClientSimulator(
         populator, parameters, reactor, '127.0.0.1', 8008)
 
-    # Uh yea let's see
+    # Add some clients.
     call = LoopingCall(simulator.add, 1)
-    call.start(1)
-    reactor.callLater(60, call.stop)
-
+    call.start(3)
+    reactor.callLater(3 * 90, call.stop)
 
     reactor.run()
 

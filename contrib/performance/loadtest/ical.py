@@ -43,6 +43,12 @@ def loadRequestBody(label):
 SUPPORTED_REPORT_SET = '{DAV:}supported-report-set'
 
 
+class Event(object):
+    def __init__(self, url, etag):
+        self.url = url
+        self.etag = etag
+
+
 class Calendar(object):
     def __init__(self, resourceType, name, url, ctag):
         self.resourceType = resourceType
@@ -67,11 +73,25 @@ class SnowLeopard(object):
     _STARTUP_NOTIFICATION_PROPFIND = loadRequestBody('sl_startup_notification_propfind')
     _STARTUP_PRINCIPAL_REPORT = loadRequestBody('sl_startup_principal_report')
 
+    _CALENDAR_PROPFIND = loadRequestBody('sl_calendar_propfind')
+    _CALENDAR_REPORT = loadRequestBody('sl_calendar_report')
+
+
     def __init__(self, reactor, host, port, user, auth):
         self.reactor = reactor
         self.agent = AuthHandlerAgent(Agent(self.reactor), auth)
         self.root = 'http://%s:%d/' % (host, port)
         self.user = user
+
+        # Keep track of the calendars on this account, keys are
+        # Calendar URIs, values are Calendar instances.
+        self._calendars = {}
+
+        # Keep track of the events on this account, keys are event
+        # URIs (which are unambiguous across different calendars
+        # because they start with the uri of the calendar they are
+        # part of), values are Event instances.
+        self._events = {}
 
 
     def _request(self, method, url, headers, body):
@@ -90,9 +110,9 @@ class SnowLeopard(object):
         return d
 
 
-    def _parsePROPFINDResponse(self, response):
+    def _parseMultiStatus(self, response):
         """
-        Construct a principal from the body a response to a
+        Parse a <multistatus>
         I{PROPFIND} request for the principal URL.
 
         @type response: C{str}
@@ -115,7 +135,7 @@ class SnowLeopard(object):
         Parse 
         """
         calendars = []
-        principals = self._parsePROPFINDResponse(response)
+        principals = self._parseMultiStatus(response)
 
         # XXX Here, it would be really great to somehow use
         # CalDAVClientLibrary.client.principal.CalDAVPrincipal.listCalendars
@@ -149,7 +169,7 @@ class SnowLeopard(object):
                     'depth': ['0']}),
             StringProducer(self._STARTUP_PRINCIPAL_PROPFIND))
         d.addCallback(readBody)
-        d.addCallback(self._parsePROPFINDResponse)
+        d.addCallback(self._parseMultiStatus)
         d.addCallback(getitem, principalURL)
         return d
 
@@ -182,10 +202,62 @@ class SnowLeopard(object):
             StringProducer(self._STARTUP_CALENDARHOME_PROPFIND))
         d.addCallback(readBody)
         d.addCallback(self._extractCalendars)
-        def report(result):
-            # pprint(result)
-            pass
-        d.addCallback(report)
+        return d
+
+
+    @inlineCallbacks
+    def _updateCalendar(self, calendar):
+        url = calendar.url
+        if url.startswith('/'):
+            url = url[1:]
+
+        # First do a PROPFIND on the calendar to learn about events it
+        # might have.
+        response = yield self._request(
+            'PROPFIND',
+            self.root + url,
+            Headers({'content-type': ['text/xml'], 'depth': ['1']}),
+            StringProducer(self._CALENDAR_PROPFIND))
+
+        # XXX Check the response status code
+
+        body = yield readBody(response)
+
+        result = self._parseMultiStatus(body)
+        for responseHref in result:
+            if responseHref == calendar.url:
+                continue
+
+            etag = result[responseHref].getTextProperties()[davxml.getetag]
+            if responseHref not in self._events:
+                self._events[responseHref] = Event(responseHref, None)
+
+            if self._events[responseHref].etag != etag:
+                response = yield self._updateEvent(url, responseHref)
+                body = yield readBody(response)
+                result = self._parseMultiStatus(body)[responseHref]
+                etag = result.getTextProperties()[davxml.getetag]
+                self._events[responseHref].etag = etag
+
+                
+    def _updateEvent(self, calendar, event):
+        # Next do a REPORT on each event that might have information
+        # we don't know about.
+        return self._request(
+            'REPORT',
+            self.root + calendar,
+            Headers({'content-type': ['text/xml']}),
+            StringProducer(self._CALENDAR_REPORT % {'href': event}))
+
+
+    def _checkCalendarsForEvents(self, calendarHomeSet):
+        d = self._calendarHomePropfind(calendarHomeSet)
+        def cbCalendars(calendars):
+            for cal in calendars:
+                if self._calendars.setdefault(cal.url, cal).ctag != cal.ctag or True:
+                    self._updateCalendar(cal)
+                    break
+        d.addCallback(cbCalendars)
         return d
 
 
@@ -229,16 +301,14 @@ class SnowLeopard(object):
         (yield self._principalsReport(principalCollection))
 
         # Whatever
-        calendarHome = hrefs[caldavxml.calendar_home_set].toString()
-        (yield self._calendarHomePropfind(calendarHome))
 
         # Learn stuff I guess
-        notificationURL = hrefs[csxml.notification_URL].toString()
-        (yield self._notificationPropfind(notificationURL))
+        # notificationURL = hrefs[csxml.notification_URL].toString()
+        # (yield self._notificationPropfind(notificationURL))
 
         # More too
-        principalURL = hrefs[davxml.principal_URL].toString()
-        (yield self._principalReport(principalURL))
+        # principalURL = hrefs[davxml.principal_URL].toString()
+        # (yield self._principalReport(principalURL))
 
         returnValue(principal)
 
@@ -254,7 +324,7 @@ class SnowLeopard(object):
         # Poll Calendar Home (and notifications?) every 15 (or
         # whatever) minutes
         pollCalendarHome = LoopingCall(
-            self._calendarHomePropfind, 
+            self._checkCalendarsForEvents, 
             hrefs[caldavxml.calendar_home_set].toString())
         pollCalendarHome.start(self.CALENDAR_HOME_POLL_INTERVAL)
 
