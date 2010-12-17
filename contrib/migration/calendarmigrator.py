@@ -110,7 +110,6 @@ Profiling
 ProxyDBService
 ProxyLoadFromFile
 ReadPrincipals
-RedirectHTTPToHTTPS
 RejectClients
 ResourceService
 ResponseCompression
@@ -149,6 +148,7 @@ DocumentRoot
 ErrorLogFile
 MaxAddressBookMultigetHrefs
 MaxAddressBookQueryResults
+RedirectHTTPToHTTPS
 """.split()
 
 ignoredKkeys = """
@@ -205,6 +205,13 @@ def main():
             enableCalDAV, enableCardDAV = examineRunState(options)
             migrateConfiguration(options, newServerRootValue, enableCalDAV,
                 enableCardDAV)
+
+            # FIXME: For now, disable service because postgres isn't
+            # automatically starting (since launchd is directly starting
+            # calendar service)
+            enableCalDAV = False
+            enableCardDAV = False
+
             setRunState(options, enableCalDAV, enableCardDAV)
             triggerResourceMigration(newServerRootValue)
 
@@ -382,6 +389,9 @@ def mergePlist(oldCalDAVDPlist, oldCardDAVDPlist, newCalDAVDPlist):
             if key not in ("node", "cacheTimeout", "xmlFile"):
                 del newCalDAVDPlist["DirectoryService"]["params"][key]
 
+    # If SSL is enabled, redirect HTTP to HTTPS.
+    enableSSL = newCalDAVDPlist.get("EnableSSL", False)
+    newCalDAVDPlist["RedirectHTTPToHTTPS"] = enableSSL
 
 
 def isServiceDisabled(source, service):
