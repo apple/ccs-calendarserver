@@ -785,7 +785,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 where
                   %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s and
                   %(BIND:column_BIND_MODE)s """ + ("=" if owned else "!=") + """ %%s and
-                  %(REV:column_DELETED)s = FALSE
+                  (%(REV:column_RESOURCE_NAME)s is not null or %(REV:column_DELETED)s = FALSE)
                 group by %(REV:name)s.%(REV:column_RESOURCE_ID)s
                 """) % cls._revisionsBindTable,
                 [
