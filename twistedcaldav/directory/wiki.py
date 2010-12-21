@@ -182,6 +182,10 @@ def getWikiACL(resource, request):
                                         request.authnUser,
                                         davxml.Grant(
                                             davxml.Privilege(davxml.Read()),
+                                            
+                                            # We allow write-properties so that direct sharees can change
+                                            # e.g. calendar color properties
+                                            davxml.Privilege(davxml.WriteProperties()),
                                         ),
                                         TwistedACLInheritable(),
                                     ),
@@ -203,12 +207,6 @@ def getWikiACL(resource, request):
                                         request.authnUser,
                                         davxml.Grant(
                                             davxml.Privilege(davxml.Read()),
-                                        ),
-                                        TwistedACLInheritable(),
-                                    ),
-                                    davxml.ACE(
-                                        request.authnUser,
-                                        davxml.Grant(
                                             davxml.Privilege(davxml.Write()),
                                         ),
                                         TwistedACLInheritable(),
@@ -219,14 +217,6 @@ def getWikiACL(resource, request):
                                         ),
                                         davxml.Grant(
                                             davxml.Privilege(davxml.Read()),
-                                        ),
-                                        TwistedACLInheritable(),
-                                    ),
-                                    davxml.ACE(
-                                        davxml.Principal(
-                                            davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
-                                        ),
-                                        davxml.Grant(
                                             davxml.Privilege(davxml.Write()),
                                         ),
                                         TwistedACLInheritable(),
