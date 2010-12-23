@@ -1245,7 +1245,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
 
     @inlineCallbacks
-    def _deletedSyncToken(self):
+    def _deletedSyncToken(self, sharedRemoval=False):
 
         # Remove all child entries
         yield self._txn.execSQL("""
@@ -1255,17 +1255,29 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             [self._home._resourceID, self._resourceID,]
         )
 
-        # Then adjust collection entry to deleted state (do this for all entries with this collection's
-        # resource-id so that we deal with direct shares which are not normally removed through an unshare
-        yield self._txn.execSQL("""
-            update %(name)s
-            set (%(column_RESOURCE_ID)s, %(column_REVISION)s, %(column_DELETED)s)
-             = (null, nextval('%(sequence)s'), TRUE)
-            where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-            returning %(column_REVISION)s
-            """ % self._revisionsTable,
-            [self._resourceID,]
-        )
+        # If this is a share being removed then we only mark this one specific home/resource-id as being deleted.
+        # On the other hand, if it is a non-shared collection, then we need to mark all collections
+        # with the resource-id as being deleted to account for direct shares.
+        if sharedRemoval:
+            yield self._txn.execSQL("""
+                update %(name)s
+                set (%(column_RESOURCE_ID)s, %(column_REVISION)s, %(column_DELETED)s)
+                 = (null, nextval('%(sequence)s'), TRUE)
+                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+                returning %(column_REVISION)s
+                """ % self._revisionsTable,
+                [self._home._resourceID, self._resourceID,]
+            )
+        else:
+            yield self._txn.execSQL("""
+                update %(name)s
+                set (%(column_RESOURCE_ID)s, %(column_REVISION)s, %(column_DELETED)s)
+                 = (null, nextval('%(sequence)s'), TRUE)
+                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
+                returning %(column_REVISION)s
+                """ % self._revisionsTable,
+                [self._resourceID,]
+            )
         self._syncTokenRevision = None
 
 

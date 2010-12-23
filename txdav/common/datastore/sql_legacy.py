@@ -584,7 +584,7 @@ class SQLLegacyShares(object):
     def removeRecordForLocalName(self, localname):
         record = yield self.recordForLocalName(localname)
         shareeCollection = yield self._home.sharedChildWithName(record.localname)
-        yield shareeCollection._deletedSyncToken()
+        yield shareeCollection._deletedSyncToken(sharedRemoval=True)
 
         returnValue((yield self._txn.execSQL(
             """
@@ -602,7 +602,7 @@ class SQLLegacyShares(object):
 
         record = yield self.recordForShareUID(shareUID)
         shareeCollection = yield self._home.sharedChildWithName(record.localname)
-        yield shareeCollection._deletedSyncToken()
+        yield shareeCollection._deletedSyncToken(sharedRemoval=True)
 
         if not shareUID.startswith("Direct"):
             yield self._txn.execSQL(
