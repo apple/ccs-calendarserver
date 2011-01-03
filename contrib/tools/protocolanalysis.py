@@ -1229,7 +1229,7 @@ class CalendarServerLogAnalyzer(object):
         total = sum(summary.values())
         for k, v in sorted(summary.iteritems()):
             # Chop off the "(a):" part.
-            table.addRow((k[4:], v, 100.0 * float(v) / total))
+            table.addRow((k[4:], v, safePercent(float(v), total)))
         table.printTabDelimitedData() if doTabs else table.printTable()
         print ""
 
