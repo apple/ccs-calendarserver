@@ -21,7 +21,7 @@ Index: vobject/vcard.py
 -    return [toListOrString(i) for i in
 -            stringToTextValues(string, listSeparator=';', charList=';')]
 +    return [(toListOrString(i) if maybeList else i) for i in
-+            stringToTextValues(string, listSeparator=';')]
++            stringToTextValues(string, listSeparator=';', leaveEscapes=maybeList)]
  
  def toList(stringOrList):
      if isinstance(stringOrList, basestring):

@@ -8,19 +8,29 @@ Index: vobject/icalendar.py
  # although it isn't actually supposed to be escaped according to rfc2445 TEXT
 -escapableCharList = '\\;,Nn"'
  
+-def stringToTextValues(s, listSeparator=',', charList=None, strict=False):
 +# COLON included to work around Address Book's escaping it in vCard data,
 +# despite the fact that it is similarly not supposed to be escaped.
 +
 +escapableCharList = '\\;:,Nn'
 +
- def stringToTextValues(s, listSeparator=',', charList=None, strict=False):
++def stringToTextValues(s, listSeparator=',', charList=None, strict=False, leaveEscapes=False):
      """Returns list of strings."""
 -    
 +
      if charList is None:
          charList = escapableCharList
  
-@@ -1675,9 +1679,10 @@
+@@ -1656,6 +1660,8 @@
+         if state == "read normal":
+             if char == '\\':
+                 state = "read escaped char"
++                if leaveEscapes:
++                    current.append(char)
+             elif char == listSeparator:
+                 state = "read normal"
+                 current = "".join(current)
+@@ -1675,9 +1681,10 @@
                  else:
                      current.append(char)
              else:
