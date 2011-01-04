@@ -574,9 +574,11 @@ dependencies () {
     "SQLParse" "sqlparse" "sqlparse-0.1.1" \
     "http://python-sqlparse.googlecode.com/files/sqlparse-0.1.1.tar.gz";
 
-  svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
+  py_dependency -v 0.4.0 -m "630a72510aae8758f48cf60e4fa17176" \
+    "Pyflakes" "pyflakes" "pyflakes-0.4.0" \
+    "http://pypi.python.org/packages/source/p/pyflakes/pyflakes-0.4.0.tar.gz";
 
-  svn_get "Pyflakes" "${top}/Pyflakes" http://divmod.org/svn/Divmod/trunk/Pyflakes HEAD;
+  svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
   local pd="pydoctor-0.3";
   py_dependency -m "b000aa1fb458fe25952dadf26049ae68" \
