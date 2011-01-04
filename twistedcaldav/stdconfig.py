@@ -43,6 +43,7 @@ DEFAULT_SERVICE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "accounts.xml",
         "recordTypes": ("users", "groups"),
+        "statSeconds" : 15,
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
@@ -63,6 +64,7 @@ DEFAULT_RESOURCE_PARAMS = {
 DEFAULT_AUGMENT_PARAMS = {
     "twistedcaldav.directory.augment.AugmentXMLDB": {
         "xmlFiles": ["augments.xml",],
+        "statSeconds" : 15,
     },
     "twistedcaldav.directory.augment.AugmentSqliteDB": {
         "dbpath": "augments.sqlite",

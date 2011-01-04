@@ -274,6 +274,17 @@ class AugmentXMLTests(AugmentTests):
             yield self._checkRecord(newdb, item)
         yield self._checkRecord(newdb, testModifyRecords[0])
 
+    def test_shouldReparse(self):
+        """
+        Verify that a change to the file will get noticed
+        """
+        newxmlfile = FilePath(self.mktemp())
+        FilePath(xmlFile).copyTo(newxmlfile)
+        db = AugmentXMLDB((newxmlfile.path,))
+        self.assertFalse(db._shouldReparse(newxmlfile.path)) # No need to parse
+        newxmlfile.setContent("") # Change the file
+        self.assertTrue(db._shouldReparse(newxmlfile.path)) # Need to parse
+
 class AugmentSqliteTests(AugmentTests, AugmentTestsMixin):
 
     def _db(self, dbpath=None):

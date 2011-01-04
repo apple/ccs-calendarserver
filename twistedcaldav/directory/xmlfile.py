@@ -69,12 +69,14 @@ class XMLDirectoryService(DirectoryService):
                 self.recordType_resources,
             ),
             'realmName' : '/Search',
+            'statSeconds' : 15,
         }
         ignored = None
         params = self.getParams(params, defaults, ignored)
 
         self._recordTypes = params['recordTypes']
         self.realmName = params['realmName']
+        self.statSeconds = params['statSeconds']
 
         super(XMLDirectoryService, self).__init__()
 
@@ -138,15 +140,15 @@ class XMLDirectoryService(DirectoryService):
         XMLAccountRecords as returned by XMLAccountsParser, returns a list
         of XMLAccountRecords.
 
-        The XML file is only stat'ed at most every 60 seconds, and is only
-        reparsed if it's been modified.
+        The XML file is only stat'ed at most every self.statSeconds, and is
+        only reparsed if it's been modified.
 
         FIXME: don't return XMLAccountRecords, and have any code in this module
         which currently does work with XMLAccountRecords, modify such code to
         use XMLDirectoryRecords instead.
         """
         currentTime = time()
-        if self._alwaysStat or currentTime - self._lastCheck > 60:
+        if self._alwaysStat or currentTime - self._lastCheck > self.statSeconds:
             self.xmlFile.restat()
             self._lastCheck = currentTime
             fileInfo = (self.xmlFile.getmtime(), self.xmlFile.getsize())

@@ -208,11 +208,15 @@ class AugmentXMLDB(AugmentDB):
     XMLFile based augment database implementation.
     """
 
-    def __init__(self, xmlFiles, cacheTimeout=30):
+    def __init__(self, xmlFiles, statSeconds=15):
 
         super(AugmentXMLDB, self).__init__()
         self.xmlFiles = [fullServerPath(config.DataRoot, path) for path in xmlFiles]
-        self.cacheTimeout = cacheTimeout * 60 # Value is mins we want secs
+        self.xmlFileStats = { }
+        for path in self.xmlFiles:
+            self.xmlFileStats[path] = (0, 0) # mtime, size
+
+        self.statSeconds = statSeconds # Don't stat more often than this value
         self.lastCached = 0
         self.db = {}
 
@@ -246,7 +250,7 @@ class AugmentXMLDB(AugmentDB):
         """
         
         # May need to re-cache
-        if self.lastCached + self.cacheTimeout <= time.time():
+        if time.time() - self.lastCached > self.statSeconds:
             self.refresh()
             
         return succeed(self.db.get(uid))
@@ -433,6 +437,18 @@ class AugmentXMLDB(AugmentDB):
         self.removeAugmentRecords(self.db.keys())
         return succeed(None)
 
+    def _shouldReparse(self, xmlFile):
+        """
+        Check to see whether the given file has been modified since we last
+        parsed it.
+        """
+        oldModTime, oldSize = self.xmlFileStats.get(xmlFile, (0, 0))
+        newModTime = os.path.getmtime(xmlFile)
+        newSize = os.path.getsize(xmlFile)
+        if (oldModTime != newModTime) or (oldSize != newSize):
+            return True
+        return False
+
     def _parseXML(self):
         """
         Parse self.xmlFiles into AugmentRecords.
@@ -446,8 +462,14 @@ class AugmentXMLDB(AugmentDB):
         allMissing = True
         for xmlFile in self.xmlFiles:
             if os.path.exists(xmlFile):
-                # Creating a parser does the parse
-                XMLAugmentsParser(xmlFile, results)
+                # Compare previously seen modification time and size of each
+                # xml file.  If unchanged, skip.
+                if self._shouldReparse(xmlFile):
+                    # Creating a parser does the parse
+                    XMLAugmentsParser(xmlFile, results)
+                    newModTime = os.path.getmtime(xmlFile)
+                    newSize = os.path.getsize(xmlFile)
+                    self.xmlFileStats[xmlFile] = (newModTime, newSize)
                 allMissing = False
 
         if allMissing:
@@ -457,7 +479,7 @@ class AugmentXMLDB(AugmentDB):
                 enabledForCalendaring=True,
                 enabledForAddressBooks=True,
             )
-        
+
         return results
 
 class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
