@@ -20,10 +20,10 @@ except ImportError:
     pass
 else:
     from twisted.trial.unittest import SkipTest
-    import twext.web2.auth.digest
+    from twisted.internet.defer import inlineCallbacks
+    from twext.web2.auth.digest import DigestedCredentials
     import twistedcaldav.directory.test.util
     from twistedcaldav.directory import augment
-    from twisted.internet.defer import inlineCallbacks
     from twistedcaldav.directory.directory import DirectoryService
     from twistedcaldav.directory.appleopendirectory import OpenDirectoryRecord
     from calendarserver.platform.darwin.od import dsattributes
@@ -97,7 +97,7 @@ else:
             )
 
             digestFields = {}
-            digested = twext.web2.auth.digest.DigestedCredentials("user", "GET", "example.com", digestFields, None)
+            digested = DigestedCredentials("user", "GET", "example.com", digestFields, None)
 
             self.assertFalse(record.verifyCredentials(digested))
 
@@ -136,7 +136,7 @@ else:
 
             record.digestcache = {}
             record.digestcache["/"] = response
-            digested = twext.web2.auth.digest.DigestedCredentials("user", "GET", "example.com", digestFields, None)
+            digested = DigestedCredentials("user", "GET", "example.com", digestFields, None)
 
             self.assertTrue(record.verifyCredentials(digested))
 
@@ -451,4 +451,10 @@ else:
         def setUp(self):
             super(OpenDirectorySubset, self).setUp()
             augment.AugmentService = augment.AugmentXMLDB(xmlFiles=())
-            self._service = OpenDirectoryService({'node' : "/Search", 'recordTypes' : (DirectoryService.recordType_users, DirectoryService.recordType_groups)}, dosetup=False)
+            self._service = OpenDirectoryService(
+                {
+                    "node" : "/Search",
+                    "recordTypes" : (DirectoryService.recordType_users, DirectoryService.recordType_groups),
+                },
+                dosetup = False
+            )
