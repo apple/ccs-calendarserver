@@ -359,15 +359,17 @@ else:
             # OR
             #
             fields = [
-                ('fullName', 'mor', True, u'starts-with'),
-                ('emailAddresses', 'mor', True, u'starts-with'),
-                ('firstName', 'mor', True, u'starts-with'),
-                ('lastName', 'mor', True, u'starts-with')
+                ("fullName", "mor", True, u"starts-with"),
+                ("emailAddresses", "mor", True, u"starts-with"),
+                ("firstName", "mor", True, u"starts-with"),
+                ("lastName", "mor", True, u"starts-with"),
             ]
 
             # any record type
-            results = (yield self.service().recordsMatchingFields(fields,
-                lookupMethod=lookupMethod))
+            results = (yield self.service().recordsMatchingFields(
+                fields,
+                lookupMethod=lookupMethod
+            ))
             results = list(results)
             self.assertEquals(len(results), 4)
             for record in results:
@@ -392,8 +394,8 @@ else:
             # AND
             #
             fields = [
-                ('firstName', 'morgen', True, u'equals'),
-                ('lastName', 'age', True, u'contains')
+                ("firstName", "morgen", True, u"equals"),
+                ("lastName", "age", True, u"contains")
             ]
             results = (yield self.service().recordsMatchingFields(fields,
                 operand="and", lookupMethod=lookupMethod))
@@ -404,7 +406,7 @@ else:
             # case sensitivity
             #
             fields = [
-                ('firstName', 'morgen', False, u'equals'),
+                ("firstName", "morgen", False, u"equals"),
             ]
             results = (yield self.service().recordsMatchingFields(fields,
                 lookupMethod=lookupMethod))
@@ -412,10 +414,12 @@ else:
             self.assertEquals(len(results), 0)
 
             fields = [
-                ('firstName', 'morgen', True, u'equals'),
+                ("firstName", "morgen", True, u"equals"),
             ]
-            results = (yield self.service().recordsMatchingFields(fields,
-                lookupMethod=lookupMethod))
+            results = (yield self.service().recordsMatchingFields(
+                fields,
+                lookupMethod=lookupMethod
+            ))
             results = list(results)
             self.assertEquals(len(results), 1)
 
@@ -423,11 +427,14 @@ else:
             # no matches
             #
             fields = [
-                ('firstName', 'xyzzy', True, u'starts-with'),
-                ('lastName', 'plugh', True, u'contains')
+                ("firstName", "xyzzy", True, u"starts-with"),
+                ("lastName", "plugh", True, u"contains")
             ]
-            results = (yield self.service().recordsMatchingFields(fields,
-                operand="and", lookupMethod=lookupMethod))
+            results = (yield self.service().recordsMatchingFields(
+                fields,
+                operand="and",
+                lookupMethod=lookupMethod
+            ))
             results = list(results)
             self.assertEquals(len(results), 0)
 
