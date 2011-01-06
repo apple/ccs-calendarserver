@@ -19,6 +19,7 @@ try:
 except ImportError:
     pass
 else:
+    from twisted.trial.unittest import SkipTest
     import twext.web2.auth.digest
     import twistedcaldav.directory.test.util
     from twistedcaldav.directory import augment
@@ -52,7 +53,10 @@ else:
         def setUp(self):
             super(OpenDirectory, self).setUp()
             augment.AugmentService = augment.AugmentXMLDB(xmlFiles=())
-            self._service = OpenDirectoryService({'node' : "/Search"}, dosetup=False)
+            try:
+                self._service = OpenDirectoryService({"node" : "/Search"}, dosetup=False)
+            except ImportError, e:
+                raise SkipTest("OpenDirectory module is not available: %s" % (e,))
 
         def tearDown(self):
             for call in self._service._delayedCalls:
