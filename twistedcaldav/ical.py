@@ -1279,9 +1279,10 @@ class Component (object):
 
         self.validateComponentsForCalDAV(False)
 
-    def validateComponentsForCalDAV(self, method):
+    def validateComponentsForCalDAV(self, method, fix=False):
         """
         @param method:     True if METHOD property is allowed, False otherwise.
+        @param fix:        True to try and fix bogus data
         @raise InvalidICalendarDataError: if the given calendar component is not valid for
             use as a X{CalDAV} resource.
         """
@@ -1374,18 +1375,38 @@ class Component (object):
                 # If they're not both date or both date-time, raise error
                 if (subcomponent.hasProperty("DTSTART") and
                     subcomponent.hasProperty("RRULE")):
-                    dtType = type(subcomponent.getProperty("DTSTART").value())
+                    # dtValue may be datetime or date, or unicode in which case
+                    # we look at the length to see if it's datetime or date.
+                    dtValue = subcomponent.getProperty("DTSTART").value()
+                    dtType = type(dtValue)
+                    if dtType is unicode:
+                        dtType = datetime.date if len(dtValue) == 8 else datetime.datetime
                     for rrule in subcomponent.properties("RRULE"):
                         indexedTokens = {}
                         indexedTokens.update([valuePart.split("=")
                             for valuePart in rrule.value().split(";")])
-                        until = indexedTokens.get('UNTIL', None)
+                        until = indexedTokens.get("UNTIL", None)
+                        # FIXME: can "until" ever be anything but a unicode?
                         if until:
                             untilType = datetime.date if len(until) == 8 else datetime.datetime
                             if untilType is not dtType:
                                 msg = "Calendar resources must have matching type for DTSTART and UNTIL"
                                 log.debug(msg)
-                                raise InvalidICalendarDataError(msg)
+                                if fix:
+                                    log.debug("Fixing mismatch")
+                                    if dtType is datetime.datetime:
+                                        # TODO: does this need to be smarter?
+                                        indexedTokens["UNTIL"] = "%sT000000" % (until,)
+                                    else:
+                                        # TODO: does this need to be smarter?
+                                        # It's just stripping off the time.
+                                        indexedTokens["UNTIL"] = until[:8]
+
+                                    # Update rrule
+                                    newValue = u";".join(["%s=%s" % (k,v) for k,v in indexedTokens.iteritems()])
+                                    rrule.setValue(newValue)
+                                else:
+                                    raise InvalidICalendarDataError(msg)
 
                 timezone_refs.update(subcomponent.timezoneIDs())
         

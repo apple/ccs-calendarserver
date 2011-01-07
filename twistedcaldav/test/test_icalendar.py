@@ -81,6 +81,96 @@ class iCalendar (twistedcaldav.test.util.TestCase):
             try: calendar.validateForCalDAV()
             except ValueError: self.fail("Resource iCalendar %s didn't validate for CalDAV" % (filename,))
 
+    def test_component_validate_and_fix(self):
+        """
+        CalDAV resource validation and fixing.
+        """
+        data = """BEGIN:VCALENDAR
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20110105T191945Z
+UID:5D70FD7E-3DFA-4981-8B91-E9E6CD5FCE28
+DTEND;TZID=America/Los_Angeles:20110107T141500
+RRULE:FREQ=DAILY;INTERVAL=1;UNTIL=20110121
+TRANSP:OPAQUE
+SUMMARY:test
+DTSTART;TZID=America/Los_Angeles:20110107T123000
+DTSTAMP:20110105T192229Z
+END:VEVENT
+END:VCALENDAR
+"""
+        # Ensure it starts off invalid
+        calendar = Component.fromString(data)
+        try: calendar.validateComponentsForCalDAV(False)
+        except InvalidICalendarDataError: pass
+        else: self.fail("Shouldn't validate for CalDAV")
+
+        # Fix it
+        calendar.validateComponentsForCalDAV(False, fix=True)
+
+        # Now it should pass without fixing
+        calendar.validateComponentsForCalDAV(False, fix=False)
+
+        data = """BEGIN:VCALENDAR
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;VALUE=DATE:20110107
+DTEND;VALUE=DATE:20110108
+DTSTAMP:20110106T231917Z
+RRULE:FREQ=DAILY;INTERVAL=1;UNTIL=20110131T123456
+TRANSP:TRANSPARENT
+SUMMARY:test
+CREATED:20110105T191945Z
+UID:5D70FD7E-3DFA-4981-8B91-E9E6CD5FCE28
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+"""
+        # Ensure it starts off invalid
+        calendar = Component.fromString(data)
+        try: calendar.validateComponentsForCalDAV(False)
+        except InvalidICalendarDataError: pass
+        else: self.fail("Shouldn't validate for CalDAV")
+
+        # Fix it
+        calendar.validateComponentsForCalDAV(False, fix=True)
+
+        # Now it should pass without fixing
+        calendar.validateComponentsForCalDAV(False, fix=False)
+
+
     def test_component_timeranges(self):
         """
         Component time range query.

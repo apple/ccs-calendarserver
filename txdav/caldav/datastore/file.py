@@ -311,6 +311,8 @@ class CalendarObject(CommonObjectResource):
 
         try:
             component = VComponent.fromString(text)
+            # Fix any bogus data we can
+            component.validateComponentsForCalDAV(False, fix=True)
         except InvalidICalendarDataError, e:
             raise InternalDataStoreError(
                 "File corruption detected (%s) in file: %s"
