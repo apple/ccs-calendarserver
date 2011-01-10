@@ -26,6 +26,9 @@ from getopt import getopt, GetoptError
 masterNodeName = "/LDAPv3/127.0.0.1"
 localNodeName = "/Local/Default"
 
+saclGroupNodeName = "/Local/Default"
+saclGroupNames = ("com.apple.access_calendar", "com.apple.access_addressbook")
+
 masterUsers = [
     (
         "odtestamanda",
@@ -245,7 +248,9 @@ def main():
     }
 
 
+
     session = odframework.ODSession.defaultSession()
+    userRecords = []
 
     for nodeName, info in userInfo.iteritems():
 
@@ -290,6 +295,9 @@ def main():
             else:
                 print "User %s already exists" % (recordName,)
 
+            if record is not None:
+                userRecords.append(record)
+
         print "Creating groups within %s:" % (nodeName,)
         for recordName, attrs in groups:
             record = lookupRecordName(node, dsattributes.kDSStdRecordTypeGroups, recordName)
@@ -305,7 +313,30 @@ def main():
 
         print
 
+    # Populate SACL groups
+    node, error = odframework.ODNode.nodeWithSession_name_error_(session, saclGroupNodeName, None)
+    result, error = node.setCredentialsWithRecordType_recordName_password_error_(
+        dsattributes.kDSStdRecordTypeUsers,
+        userInfo[saclGroupNodeName]["user"],
+        userInfo[saclGroupNodeName]["password"],
+        None
+    )
+    if not error:
+        for saclGroupName in saclGroupNames:
+            saclGroupRecord = lookupRecordName(node, dsattributes.kDSStdRecordTypeGroups, saclGroupName)
+            if saclGroupRecord:
+                print "Populating %s SACL group:" % (saclGroupName,)
+                for userRecord in userRecords:
+                    details, error = userRecord.recordDetailsForAttributes_error_(None, None)
+                    recordName = details.get(dsattributes.kDSNAttrRecordName, [None])[0]
+                    result, error = saclGroupRecord.isMemberRecord_error_(userRecord, None)
+                    if result:
+                        print "%s is already in the %s SACL group" % (recordName, saclGroupName)
+                    else:
+                        result, error = saclGroupRecord.addMemberRecord_error_(userRecord, None)
+                        print "Adding %s to the %s SACL group" % (recordName, saclGroupName)
 
+            print
 
 class ODError(Exception):
     def __init__(self, error):
