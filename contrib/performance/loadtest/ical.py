@@ -26,6 +26,7 @@ from twisted.python.filepath import FilePath
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.http_headers import Headers
+from twisted.web.http import OK, MULTI_STATUS
 from twisted.web.client import Agent
 
 from protocol.webdav.propfindparser import PropFindParser
@@ -94,18 +95,20 @@ class SnowLeopard(object):
         self._events = {}
 
 
-    def _request(self, method, url, headers, body):
-        # XXX Do return code checking here.
+    def _request(self, expectedResponseCode, method, url, headers, body):
         headers.setRawHeaders('User-Agent', [self.USER_AGENT])
         d = self.agent.request(method, url, headers, body)
         before = self.reactor.seconds()
-        def report(passthrough):
+        def report(response):
+            success = response.code == expectedResponseCode
             after = self.reactor.seconds()
             # XXX This is time to receive response headers, not time
             # to receive full response.  Should measure the latter, if
             # not both.
-            msg(type="request", duration=(after - before), url=url)
-            return passthrough
+            msg(
+                type="request", success=success, method=method,
+                duration=(after - before), url=url)
+            return response
         d.addCallback(report)
         return d
 
@@ -162,6 +165,7 @@ class SnowLeopard(object):
         """
         principalURL = '/principals/__uids__/' + user + '/'
         d = self._request(
+            MULTI_STATUS,
             'PROPFIND',
             self.root + principalURL[1:],
             Headers({
@@ -178,6 +182,7 @@ class SnowLeopard(object):
         if principalCollectionSet.startswith('/'):
             principalCollectionSet = principalCollectionSet[1:]
         d = self._request(
+            OK,
             'REPORT',
             self.root + principalCollectionSet,
             Headers({
@@ -194,6 +199,7 @@ class SnowLeopard(object):
         if not calendarHomeSet.endswith('/'):
             calendarHomeSet = calendarHomeSet + '/'
         d = self._request(
+            MULTI_STATUS,
             'PROPFIND',
             self.root + calendarHomeSet,
             Headers({
@@ -214,6 +220,7 @@ class SnowLeopard(object):
         # First do a PROPFIND on the calendar to learn about events it
         # might have.
         response = yield self._request(
+            MULTI_STATUS,
             'PROPFIND',
             self.root + url,
             Headers({'content-type': ['text/xml'], 'depth': ['1']}),
@@ -244,6 +251,7 @@ class SnowLeopard(object):
         # Next do a REPORT on each event that might have information
         # we don't know about.
         return self._request(
+            MULTI_STATUS,
             'REPORT',
             self.root + calendar,
             Headers({'content-type': ['text/xml']}),
@@ -265,6 +273,7 @@ class SnowLeopard(object):
         if notificationURL.startswith('/'):
             notificationURL = notificationURL[1:]
         d = self._request(
+            MULTI_STATUS,
             'PROPFIND',
             self.root + notificationURL,
             Headers({
@@ -280,6 +289,7 @@ class SnowLeopard(object):
         if principalURL.startswith('/'):
             principalURL = principalURL[1:]
         d = self._request(
+            OK,
             'REPORT',
             self.root + principalURL,
             Headers({

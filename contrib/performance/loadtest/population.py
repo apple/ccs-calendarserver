@@ -105,19 +105,81 @@ class CalendarClientSimulator(object):
 
 
 
-class Statistics(object):
+class StatisticsBase(object):
+    def observe(self, event):
+        if event.get('type') == 'request':
+            self.eventReceived(event)
+
+
+
+class SimpleStatistics(StatisticsBase):
     def __init__(self):
         self._times = []
 
-    def observe(self, event):
-        if event.get('type') == 'request':
-            self._times.append(event['duration'])
-            if len(self._times) == 200:
-                print 'mean:', mean(self._times)
-                print 'median:', median(self._times)
-                print 'stddev:', stddev(self._times)
-                print 'mad:', mad(self._times)
-                del self._times[:100]
+
+    def eventReceived(self, event):
+        self._times.append(event['duration'])
+        if len(self._times) == 200:
+            print 'mean:', mean(self._times)
+            print 'median:', median(self._times)
+            print 'stddev:', stddev(self._times)
+            print 'mad:', mad(self._times)
+            del self._times[:100]
+
+
+
+class ReportStatistics(StatisticsBase):
+    _fields = [
+        ('operation', 10, '%10s'),
+        ('count', 8, '%8s'),
+        ('failed', 8, '%8s'),
+        ('>3sec', 8, '%8s'),
+        ('mean', 8, '%8.4f'),
+        ('median', 8, '%8.4f'),
+        ]
+
+    def __init__(self):
+        self._perMethodTimes = {}
+
+
+    def eventReceived(self, event):
+        dataset = self._perMethodTimes.setdefault(event['method'], [])
+        dataset.append((event['success'], event['duration']))
+
+
+    def _printHeader(self):
+        format = []
+        labels = []
+        for (label, width, fmt) in self._fields:
+            format.append('%%%ds' % (width,))
+            labels.append(label)
+        print ''.join(format) % tuple(labels)
+
+
+    def _summarizeData(self, method, data):
+        failed = 0
+        threesec = 0
+        durations = []
+        for (success, duration) in data:
+            if not success:
+                failed += 1
+            if duration > 3:
+                threesec += 1
+            durations.append(duration)
+
+        return method, len(data), failed, threesec, mean(durations), median(durations)
+
+
+    def _printData(self, *values):
+        format = ''.join(fmt for (label, width, fmt) in self._fields)
+        print format % values
+
+
+    def summarize(self):
+        print
+        self._printHeader()
+        for method, data in self._perMethodTimes.iteritems():
+            self._printData(*self._summarizeData(method, data))
 
     
 def main():
@@ -127,7 +189,9 @@ def main():
     from twisted.internet.task import LoopingCall
     from twisted.python.log import addObserver
 
-    addObserver(Statistics().observe)
+    report = ReportStatistics()
+    addObserver(SimpleStatistics().observe)
+    addObserver(report.observe)
 
     r = random.Random()
     r.seed(100)
@@ -142,6 +206,7 @@ def main():
     reactor.callLater(3 * 90, call.stop)
 
     reactor.run()
+    report.summarize()
 
 if __name__ == '__main__':
     main()
