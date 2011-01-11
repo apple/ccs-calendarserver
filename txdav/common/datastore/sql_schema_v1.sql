@@ -1,3 +1,21 @@
+-- -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
+
+----
+-- Copyright (c) 2010 Apple Inc. All rights reserved.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+--
+-- http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+----
+
 -----------------
 -- Resource ID --
 -----------------
@@ -14,6 +32,7 @@ create table CALENDAR_HOME (
   OWNER_UID        varchar(255) not null unique
 );
 
+create index CALENDAR_HOME_OWNER_UID on CALENDAR_HOME(OWNER_UID);
 
 ----------------------------
 -- Calendar Home Metadata --
@@ -24,6 +43,8 @@ create table CALENDAR_HOME_METADATA (
   QUOTA_USED_BYTES integer      default 0 not null
 );
 
+create index CALENDAR_HOME_METADATA_RESOURCE_ID
+    on CALENDAR_HOME_METADATA(RESOURCE_ID);
 
 --------------
 -- Calendar --
@@ -48,6 +69,9 @@ create table INVITE (
     RESOURCE_ID        integer      not null
 );
 
+create index INVITE_INVITE_UID on INVITE(INVITE_UID);
+create index INVITE_RESOURCE_ID on INVITE(INVITE_UID);
+create index INVITE_HOME_RESOURCE_ID on INVITE(INVITE_UID);
 
 ---------------------------
 -- Sharing Notifications --
@@ -57,6 +81,8 @@ create table NOTIFICATION_HOME (
   RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'),
   OWNER_UID   varchar(255) not null unique
 );
+
+create index NOTIFICATION_HOME_OWNER_UID on NOTIFICATION_HOME(OWNER_UID);
 
 
 create table NOTIFICATION (
@@ -72,6 +98,10 @@ create table NOTIFICATION (
   unique(NOTIFICATION_UID, NOTIFICATION_HOME_RESOURCE_ID)
 );
 
+create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
+  NOTIFICATION(NOTIFICATION_HOME_RESOURCE_ID);
+
+create index NOTIFICATION_NOTIFICATION_UID on NOTIFICATION(NOTIFICATION_UID);
 
 -------------------
 -- Calendar Bind --
@@ -96,6 +126,11 @@ create table CALENDAR_BIND (
   primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID),
   unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME)
 );
+
+create index CALENDAR_BIND_HOME_RESOURCE_ID on
+  CALENDAR_BIND(CALENDAR_HOME_RESOURCE_ID);
+create index CALENDAR_BIND_RESOURCE_ID on
+  CALENDAR_BIND(CALENDAR_RESOURCE_ID);
 
 -- Enumeration of calendar bind modes
 
@@ -155,6 +190,12 @@ create table CALENDAR_OBJECT (
   -- unique(CALENDAR_RESOURCE_ID, ICALENDAR_UID)
 );
 
+create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID on
+  CALENDAR_OBJECT(CALENDAR_RESOURCE_ID);
+
+create index CALENDAR_OBJECT_ORGANIZER_OBJECT on
+  CALENDAR_OBJECT(ORGANIZER_OBJECT);
+
 -- Enumeration of attachment modes
 
 create table CALENDAR_OBJECT_ATTACHMENTS_MODE (
@@ -201,6 +242,12 @@ create table TIME_RANGE (
   TRANSPARENT                 boolean        not null
 );
 
+create index TIME_RANGE_CALENDAR_RESOURCE_ID on
+  TIME_RANGE(CALENDAR_RESOURCE_ID);
+create index TIME_RANGE_CALENDAR_OBJECT_RESOURCE_ID on
+  TIME_RANGE(CALENDAR_OBJECT_RESOURCE_ID);
+
+
 -- Enumeration of free/busy types
 
 create table FREE_BUSY_TYPE (
@@ -225,6 +272,8 @@ create table TRANSPARENCY (
   TRANSPARENT                 boolean      not null
 );
 
+create index TRANSPARENCY_TIME_RANGE_INSTANCE_ID on
+  TRANSPARENCY(TIME_RANGE_INSTANCE_ID);
 
 ----------------
 -- Attachment --
@@ -242,6 +291,9 @@ create table ATTACHMENT (
   unique(CALENDAR_OBJECT_RESOURCE_ID, PATH)
 );
 
+create index ATTACHMENT_CALENDAR_OBJECT_RESOURCE_ID on
+  ATTACHMENT(CALENDAR_OBJECT_RESOURCE_ID);
+
 
 ------------------
 -- iTIP Message --
@@ -254,6 +306,10 @@ create table ITIP_MESSAGE (
   MD5                  char(32)     not null,
   CHANGES              text         not null
 );
+
+
+create index ITIP_MESSAGE_CALENDAR_RESOURCE_ID on
+  ITIP_MESSAGE(CALENDAR_RESOURCE_ID);
 
 
 -----------------------
