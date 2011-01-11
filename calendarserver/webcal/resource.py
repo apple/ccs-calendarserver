@@ -29,7 +29,7 @@ from urlparse import urlparse
 from cgi import parse_qs
 
 from twext.web2 import responsecode
-from twext.web2.http import Response
+from twext.web2.http import Response, RedirectResponse, HTTPError
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 from twext.web2.dav import davxml
@@ -37,8 +37,48 @@ from twext.web2.dav.resource import TwistedACLInheritable
 
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
+from twisted.internet.defer import inlineCallbacks, returnValue
+
 
 class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
+
+    @inlineCallbacks
+    def http_GET(self, request):
+        """
+        If configured to use Wiki authentication dialog, redirect to the
+        auth URL rather than return a 401 when unauthenticated.
+        """
+        if config.WebCalendarAuthPath:
+            try:
+                (yield self.authorize(request, (davxml.Read(),)))
+            except HTTPError:
+                # Use config.ServerHostName if no x-forwarded-host header,
+                # otherwise use the final hostname in x-forwarded-host.
+                host = request.headers.getRawHeaders("x-forwarded-host",
+                    [config.ServerHostName])[-1].split(",")[-1].strip()
+                port = 443 if config.EnableSSL else 80
+                scheme = "https" if config.EnableSSL else "http"
+
+                returnValue(
+                    RedirectResponse(
+                        request.unparseURL(
+                            host=host,
+                            port=port,
+                            scheme=scheme,
+                            path=config.WebCalendarAuthPath,
+                            querystring="redirect=%s://%s%s" % (
+                                scheme,
+                                host,
+                                request.path
+                            )
+                        )
+                    )
+                )
+
+        returnValue(
+            (yield super(WebCalendarResource, self).http_GET(request))
+        )
+
     def defaultAccessControlList(self):
         return davxml.ACL(
             davxml.ACE(

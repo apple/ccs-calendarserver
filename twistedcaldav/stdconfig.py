@@ -195,6 +195,11 @@ DEFAULT_CONFIG = {
     "MaxInstancesForRRULE"    :       400, # Maximum number of instances for an RRULE
     "WebCalendarRoot"         : "/usr/share/collabd",
 
+    # Set to URL path of wiki authentication service, e.g. "/auth", in order
+    # to use javascript authentication dialog.  Empty string indicates standard
+    # browser authentication dialog should be used.
+    "WebCalendarAuthPath"     : "",
+
     "Aliases": {},
 
     #

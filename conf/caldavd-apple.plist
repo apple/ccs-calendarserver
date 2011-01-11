@@ -520,6 +520,10 @@
     <key>EnableWebAdmin</key>
     <true/>
 
+    <!-- On OS X use wiki authentication dialogs for webcal -->
+    <key>WebCalendarAuthPath</key>
+    <string>/auth</string>
+
     <!-- Directory searching -->
     <key>DirectoryAddressBook</key>
     <dict>
