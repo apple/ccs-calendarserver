@@ -294,13 +294,13 @@ class CommonTests(CommonCommonTests):
         abc = yield notifications.notificationObjectWithUID("abc")
         self.assertEquals((yield abc.xmldata()), inviteNotification2.toxml())
 
+
     @inlineCallbacks
     def test_addRemoveNotification(self):
         """
         L{INotificationCollection.writeNotificationObject} will silently
         overwrite the notification object.
         """
-        
         # Prime the home collection first
         yield self.transactionUnderTest().notificationsWithUID(
             "home1"
@@ -343,6 +343,7 @@ class CommonTests(CommonCommonTests):
             ]
         )
 
+
     @inlineCallbacks
     def test_loadAllNotifications(self):
         """
@@ -365,7 +366,9 @@ class CommonTests(CommonCommonTests):
             "home1"
         )
         allObjects = yield notifications.notificationObjects()
-        self.assertEqual([obj.uid() for obj in allObjects], ["abc", "def"])
+        self.assertEqual(set([obj.uid() for obj in allObjects]),
+                         set(["abc", "def"]))
+
 
     @inlineCallbacks
     def test_notificationObjectMetaData(self):
