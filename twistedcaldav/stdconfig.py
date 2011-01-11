@@ -622,9 +622,9 @@ DEFAULT_CONFIG = {
     # Specify which opendirectory module to use:
     # "opendirectory" is PyOpenDirectory (the old one which uses
     # DirectoryService.framework)
-    # "calendarserver.platform.darwin.od.opendirectory" is the new PyObjC version which uses
-    # OpenDirectory.framework
-    "OpenDirectoryModule": "calendarserver.platform.darwin.od.opendirectory",
+    # "calendarserver.platform.darwin.od.opendirectory" is the new PyObjC
+    # version which uses OpenDirectory.framework
+    "OpenDirectoryModule": "opendirectory",
 
     # Used in the command line utilities to specify which service class to
     # use to carry out work.

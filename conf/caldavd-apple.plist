@@ -538,5 +538,8 @@
     <key>EnableSearchAddressBook</key>
     <true/>
 
+    <key>OpenDirectoryModule</key>
+    <string>calendarserver.platform.darwin.od.opendirectory</string>
+
   </dict>
 </plist>
