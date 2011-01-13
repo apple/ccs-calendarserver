@@ -21,7 +21,7 @@ from pprint import pprint
 from xml.etree import ElementTree
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
 
-from twisted.python.log import err, msg
+from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
@@ -62,6 +62,13 @@ class Calendar(object):
 class SnowLeopard(object):
     """
     Implementation of the SnowLeopard iCal network behavior.
+
+    Anything SnowLeopard iCal does on its own, or any particular
+    network behaviors it takes in response to a user action, belong on
+    this class.
+
+    Usage-profile based behaviors ("the user modifies an event every
+    3.2 minutes") belong elsewhere.
     """
 
     USER_AGENT = "DAVKit/4.0.3 (732); CalendarStore/4.0.3 (991); iCal/4.0.3 (1388); Mac OS X/10.6.4 (10F569)"
@@ -97,6 +104,7 @@ class SnowLeopard(object):
 
     def _request(self, expectedResponseCode, method, url, headers, body):
         headers.setRawHeaders('User-Agent', [self.USER_AGENT])
+        msg(type="request", method=method, url=url)
         d = self.agent.request(method, url, headers, body)
         before = self.reactor.seconds()
         def report(response):
@@ -106,7 +114,7 @@ class SnowLeopard(object):
             # to receive full response.  Should measure the latter, if
             # not both.
             msg(
-                type="request", success=success, method=method,
+                type="response", success=success, method=method,
                 duration=(after - before), url=url)
             return response
         d.addCallback(report)
@@ -235,15 +243,20 @@ class SnowLeopard(object):
             if responseHref == calendar.url:
                 continue
 
-            etag = result[responseHref].getTextProperties()[davxml.getetag]
+            try:
+                etag = result[responseHref].getTextProperties()[davxml.getetag]
+            except KeyError:
+                # XXX Ignore things with no etag?  Seems to be dropbox.
+                continue
+
             if responseHref not in self._events:
                 self._events[responseHref] = Event(responseHref, None)
 
             if self._events[responseHref].etag != etag:
                 response = yield self._updateEvent(url, responseHref)
                 body = yield readBody(response)
-                result = self._parseMultiStatus(body)[responseHref]
-                etag = result.getTextProperties()[davxml.getetag]
+                res = self._parseMultiStatus(body)[responseHref]
+                etag = res.getTextProperties()[davxml.getetag]
                 self._events[responseHref].etag = etag
 
                 
@@ -264,7 +277,6 @@ class SnowLeopard(object):
             for cal in calendars:
                 if self._calendars.setdefault(cal.url, cal).ctag != cal.ctag or True:
                     self._updateCalendar(cal)
-                    break
         d.addCallback(cbCalendars)
         return d
 
@@ -323,6 +335,20 @@ class SnowLeopard(object):
         returnValue(principal)
 
 
+    def _calendarCheckLoop(self, calendarHome):
+        """
+        Poll Calendar Home (and notifications?) every 15 (or whatever)
+        minutes
+        """
+        pollCalendarHome = LoopingCall(
+            self._checkCalendarsForEvents, calendarHome)
+        pollCalendarHome.start(self.CALENDAR_HOME_POLL_INTERVAL)
+
+
+    def _eventChangeLoop(self):
+        pass
+
+
     @inlineCallbacks
     def run(self):
         """
@@ -331,16 +357,18 @@ class SnowLeopard(object):
         principal = yield self.startup()
         hrefs = principal.getHrefProperties()
 
-        # Poll Calendar Home (and notifications?) every 15 (or
-        # whatever) minutes
-        pollCalendarHome = LoopingCall(
-            self._checkCalendarsForEvents, 
-            hrefs[caldavxml.calendar_home_set].toString())
-        pollCalendarHome.start(self.CALENDAR_HOME_POLL_INTERVAL)
+        self._calendarCheckLoop(hrefs[caldavxml.calendar_home_set].toString())
+        self._eventChangeLoop()
 
         yield Deferred()
 
 
+class RequestLogger(object):
+    def observe(self, event):
+        if event.get("type") == "request":
+            print event["method"], event["url"]
+
+    
 def main():
     from urllib2 import HTTPDigestAuthHandler
     from twisted.internet import reactor
@@ -350,6 +378,9 @@ def main():
         uri="http://127.0.0.1:8008/",
         user="user01",
         passwd="user01")
+
+    addObserver(RequestLogger().observe)
+
     client = SnowLeopard(reactor, '127.0.0.1', 8008, 'user01', auth)
     d = client.run()
     d.addErrback(err, "Snow Leopard client run() problem")

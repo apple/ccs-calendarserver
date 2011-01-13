@@ -23,7 +23,7 @@ certain usage parameters.
 from itertools import izip
 
 from stats import mean, median, stddev, mad
-from loadtest.ical import SnowLeopard
+from loadtest.ical import SnowLeopard, RequestLogger
 
 
 class PopulationParameters(object):
@@ -107,7 +107,7 @@ class CalendarClientSimulator(object):
 
 class StatisticsBase(object):
     def observe(self, event):
-        if event.get('type') == 'request':
+        if event.get('type') == 'response':
             self.eventReceived(event)
 
 
@@ -181,7 +181,7 @@ class ReportStatistics(StatisticsBase):
         for method, data in self._perMethodTimes.iteritems():
             self._printData(*self._summarizeData(method, data))
 
-    
+
 def main():
     import random
 
@@ -192,6 +192,7 @@ def main():
     report = ReportStatistics()
     addObserver(SimpleStatistics().observe)
     addObserver(report.observe)
+    addObserver(RequestLogger().observe)
 
     r = random.Random()
     r.seed(100)
