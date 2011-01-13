@@ -72,11 +72,9 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import upgradeData
 
 from calendarserver.tap.util import pgServiceFromConfig
-from txdav.base.datastore.asyncsqlpool import ConnectionPool
 
+from txdav.base.datastore.asyncsqlpool import ConnectionPool
 from txdav.base.datastore.asyncsqlpool import ConnectionPoolConnection
-from txdav.base.datastore.dbapiclient import DBAPIConnector
-from txdav.base.datastore.dbapiclient import postgresPreflight
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -91,6 +89,7 @@ from calendarserver.tap.util import getRootResource, computeProcessCount
 from calendarserver.tap.util import ConnectionWithPeer
 from calendarserver.tap.util import storeFromConfig
 from calendarserver.tap.util import transactionFactoryFromFD
+from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tools.util import checkDirectory
 
 try:
@@ -627,16 +626,33 @@ class CalDAVServiceMaker (LoggingMixIn):
         L{makeService_Combined}, which does the work of actually handling
         CalDAV and CardDAV requests.
         """
+        pool = None
         if config.DBAMPFD:
             txnFactory = transactionFactoryFromFD(int(config.DBAMPFD))
         elif not config.UseDatabase:
             txnFactory = None
+        elif not config.SharedConnectionPool:
+            if config.DBType == '':
+                # get a PostgresService to tell us what the local connection
+                # info is, but *don't* start it (that would start one postgres
+                # master per slave, resulting in all kinds of mayhem...)
+                connectionFactory = pgServiceFromConfig(
+                    config, None).produceConnection
+            elif config.DBType == 'postgres':
+                connectionFactory = pgConnectorFromConfig(config)
+            else:
+                raise UsageError("unknown DB type: %r" % (config.DBType,))
+            pool = ConnectionPool(connectionFactory)
+            txnFactory = pool.connection
         else:
             raise UsageError(
                 "trying to use DB in slave, but no connection info from parent"
             )
         store = storeFromConfig(config, txnFactory)
-        return self.requestProcessingService(options, store)
+        result = self.requestProcessingService(options, store)
+        if pool is not None:
+            pool.setServiceParent(result)
+        return result
 
 
     def requestProcessingService(self, options, store):
@@ -911,11 +927,9 @@ class CalDAVServiceMaker (LoggingMixIn):
                 return pgserv
             elif config.DBType == 'postgres':
                 # Connect to a postgres database that is already running.
-                import pgdb
                 return self.subServiceFactoryFactory(createMainService,
                     uid=overrideUID, gid=overrideGID)(
-                    DBAPIConnector(
-                        pgdb, postgresPreflight, config.DSN).connect)
+                            pgConnectorFromConfig(config))
             else:
                 raise UsageError("Unknown database type %r" (config.DBType,))
         else:
@@ -1083,7 +1097,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         # filesystem to the database (if that's necessary, and there is
         # filesystem data in need of upgrading).
         def spawnerSvcCreator(pool, store):
-            if pool is not None:
+            if pool is not None and config.SharedConnectionPool:
+                self.log_warn("Using Shared Connection Pool")
                 dispenser = ConnectionDispenser(pool)
             else:
                 dispenser = None

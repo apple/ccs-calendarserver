@@ -67,7 +67,11 @@ try:
     NegotiateCredentialFactory  # pacify pyflakes
 except ImportError:
     NegotiateCredentialFactory = None
+
 from txdav.base.datastore.asyncsqlpool import ConnectionPoolClient
+from txdav.base.datastore.dbapiclient import DBAPIConnector
+from txdav.base.datastore.dbapiclient import postgresPreflight
+from txdav.base.datastore.subpostgres import PostgresService
 
 from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
@@ -77,7 +81,6 @@ from calendarserver.webcal.resource import WebCalendarResource
 from txdav.common.datastore.sql import CommonDataStore as CommonSQLDataStore
 from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
 from txdav.common.datastore.sql import v1_schema
-from txdav.base.datastore.subpostgres import PostgresService
 from twext.python.filepath import CachingFilePath
 from urllib import quote
 
@@ -119,6 +122,16 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
     )
 
 
+
+def pgConnectorFromConfig(config):
+    """
+    Create a postgres DB-API connector from the given configuration.
+    """
+    import pgdb
+    return DBAPIConnector(pgdb, postgresPreflight, config.DSN).connect
+
+
+
 class ConnectionWithPeer(Connection):
 
     connected = True
@@ -143,7 +156,6 @@ def transactionFactoryFromFD(dbampfd):
     return protocol.newTransaction
 
 
-# txnFacSub(int(config.DBAMPFD))
 
 def storeFromConfig(config, txnFactory):
     """

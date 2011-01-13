@@ -172,6 +172,10 @@ DEFAULT_CONFIG = {
                            # as an AMP connection over a UNIX socket; see
                            # txdav.base.datastore.asyncsqlpool.
 
+    "SharedConnectionPool" : False, # Use a shared database connection pool in
+                                    # the master process, rather than having
+                                    # each client make its connections directly.
+
     #
     # Types of service provided
     #

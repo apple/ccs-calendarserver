@@ -43,6 +43,7 @@ from twisted.internet.defer import maybeDeferred
 from twisted.python.components import proxyForInterface
 
 
+
 class BaseSqlTxn(object):
     """
     L{IAsyncTransaction} implementation based on a L{ThreadHolder} in the
@@ -56,8 +57,10 @@ class BaseSqlTxn(object):
             2.0 connection.
         """
         self._completed = False
+        self._cursor = None
         self._holder = ThreadHolder(reactor)
         self._holder.start()
+
         def initCursor():
             # support threadlevel=1; we can't necessarily cursor() in a
             # different thread than we do transactions in.
@@ -71,7 +74,7 @@ class BaseSqlTxn(object):
         # Note: no locking necessary here; since this gets submitted first, all
         # subsequent submitted work-units will be in line behind it and the
         # cursor will already have been initialized.
-        self._holder.submit(initCursor)
+        self._holder.submit(initCursor).addErrback(log.err)
 
 
     def _reallyExecSQL(self, sql, args=None, raiseOnZeroRowCount=None):
