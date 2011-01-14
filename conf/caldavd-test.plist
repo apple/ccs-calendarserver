@@ -761,6 +761,12 @@
       </array>
     </dict>
 
+    <!-- Response Caching -->
+    <key>EnableResponseCache</key>
+    <true/>
+    <key>ResponseCacheTimeout</key>
+    <integer>30</integer> <!-- in minutes -->
+
     <!-- Support for Postgres -->
     <key>Postgres</key>
     <dict>

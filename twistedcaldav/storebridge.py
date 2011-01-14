@@ -465,6 +465,12 @@ class _CommonHomeChildCollectionMixin(object):
         yield self._newStoreObject.rename(basename)
         returnValue(NO_CONTENT)
 
+    def notifierID(self, label="default"):
+        self._newStoreObject.notifierID(label)
+
+    def notifyChanged(self):
+        self._newStoreObject.notifyChanged()
+
 class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource):
     """
     Wrapper around a L{txdav.caldav.icalendar.ICalendar}.

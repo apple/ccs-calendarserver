@@ -718,6 +718,12 @@
       </array>
     </dict>
 
+    <!-- Response Caching -->
+    <key>EnableResponseCache</key>
+    <true/>
+    <key>ResponseCacheTimeout</key>
+    <integer>30</integer> <!-- in minutes -->
+
 
     <!--
         Twisted

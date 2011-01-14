@@ -193,9 +193,22 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
             principals.append(principal)
             newUIDs.add(principal.principalUID())
 
+        # Get the old set of UIDs
+        oldUIDs = (yield self._index().getMembers(self.uid))
+        
         # Change membership
         yield self.setGroupMemberSetPrincipals(principals)
-
+        
+        # Invalidate the primary principal's cache, and any principal's whose
+        # membership status changed
+        yield self.parent.cacheNotifier.changed()
+        
+        changedUIDs = newUIDs.symmetric_difference(oldUIDs)
+        for uid in changedUIDs:
+            principal = self.pcollection.principalForUID(uid)
+            if principal:
+                yield principal.cacheNotifier.changed()
+            
         returnValue(True)
 
     def setGroupMemberSetPrincipals(self, principals):

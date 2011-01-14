@@ -623,6 +623,9 @@ DEFAULT_CONFIG = {
 
     "EnableKeepAlive": True,
 
+    "EnableResponseCache":  True,
+    "ResponseCacheTimeout": 30, # Minutes
+
     # Specify which opendirectory module to use:
     # "opendirectory" is PyOpenDirectory (the old one which uses
     # DirectoryService.framework)

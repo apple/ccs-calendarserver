@@ -23,6 +23,7 @@ from twext.web2.dav.fileop import rmdir
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.test.test_server import SimpleRequest
 
+from twistedcaldav.cache import DisabledCacheNotifier
 from twistedcaldav.config import config
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
@@ -298,6 +299,15 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     # DirectoryPrincipalResource
     ##
 
+    def test_cacheNotifier(self):
+        """
+        Each DirectoryPrincipalResource should have a cacheNotifier attribute
+        that is an instance of DisabledCacheNotifier
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            self.failUnless(isinstance(recordResource.cacheNotifier,
+                                       DisabledCacheNotifier))
+
     def test_displayName(self):
         """
         DirectoryPrincipalResource.displayName()
@@ -367,7 +377,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             os.mkdir(path)
 
             # Need a data store
-            _newStore = CommonDataStore(path, True, False)
+            _newStore = CommonDataStore(path, None, True, False)
 
             provisioningResource = DirectoryCalendarHomeProvisioningResource(
                 directory,

@@ -157,7 +157,7 @@ def getDirectory():
     root.putChild("principals", principalCollection)
 
     # Need a data store
-    _newStore = CommonDataStore(FilePath(config.DocumentRoot), True, False)
+    _newStore = CommonDataStore(FilePath(config.DocumentRoot), None, True, False)
 
     from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
     calendarCollection = DirectoryCalendarHomeProvisioningResource(

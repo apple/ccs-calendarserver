@@ -238,12 +238,12 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
     _topPath = None
     _notifierPrefix = None
 
-    def __init__(self, uid, path, dataStore, transaction, notifier):
+    def __init__(self, uid, path, dataStore, transaction, notifiers):
         self._dataStore = dataStore
         self._uid = uid
         self._path = path
         self._transaction = transaction
-        self._notifier = notifier
+        self._notifiers = notifiers
         self._shares = SharedCollectionsDatabase(StubResource(self))
         self._newChildren = {}
         self._removedChildren = set()
@@ -297,12 +297,12 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             homePath = childPath
 
         if txn._notifierFactory:
-            notifier = txn._notifierFactory.newNotifier(id=uid,
-                prefix=cls._notifierPrefix)
+            notifiers = (txn._notifierFactory.newNotifier(id=uid,
+                prefix=cls._notifierPrefix),)
         else:
-            notifier = None
+            notifiers = None
 
-        home = cls(uid, homePath, txn._dataStore, txn, notifier)
+        home = cls(uid, homePath, txn._dataStore, txn, notifiers)
         if creating:
             home.createdHome()
             if withNotifications:
@@ -502,9 +502,14 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         self.properties()[PropertyName.fromElement(TwistedQuotaUsedProperty)] = TwistedQuotaUsedProperty(str(new_used))
             
 
+    def addNotifier(self, notifier):
+        if self._notifiers is None:
+            self._notifiers = ()
+        self._notifiers += (notifier,)
+ 
     def notifierID(self, label="default"):
-        if self._notifier:
-            return self._notifier.getID(label)
+        if self._notifiers:
+            return self._notifiers[0].getID(label)
         else:
             return None
 
@@ -512,8 +517,9 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         """
         Trigger a notification of a change
         """
-        if self._notifier:
-            self._transaction.postCommit(self._notifier.notify)
+        if self._notifiers:
+            for notifier in self._notifiers:
+                self._transaction.postCommit(notifier.notify)
 
 
 class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
@@ -550,12 +556,12 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         self._invites = None # Derived classes need to set this
         self._renamedName = realName
 
-        if home._notifier:
+        if home._notifiers:
             childID = "%s/%s" % (home.uid(), name)
-            notifier = home._notifier.clone(label="collection", id=childID)
+            notifiers = [notifier.clone(label="collection", id=childID) for notifier in home._notifiers]
         else:
-            notifier = None
-        self._notifier = notifier
+            notifiers = None
+        self._notifiers = notifiers
 
 
     @classmethod
@@ -819,9 +825,14 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     def _doValidate(self, component):
         raise NotImplementedError
 
+    def addNotifier(self, notifier):
+        if self._notifiers is None:
+            self._notifiers = ()
+        self._notifiers += (notifier,)
+ 
     def notifierID(self, label="default"):
-        if self._notifier:
-            return self._notifier.getID(label)
+        if self._notifiers:
+            return self._notifiers[0].getID(label)
         else:
             return None
 
@@ -829,8 +840,9 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         """
         Trigger a notification of a change
         """
-        if self._notifier:
-            self._transaction.postCommit(self._notifier.notify)
+        if self._notifiers:
+            for notifier in self._notifiers:
+                self._transaction.postCommit(notifier.notify)
 
 
 class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):

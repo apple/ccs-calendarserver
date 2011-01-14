@@ -52,6 +52,7 @@ from twext.python.log import Logger
 
 from twistedcaldav.authkerb import NegotiateCredentials
 from twistedcaldav.config import config
+from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
@@ -500,7 +501,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     def principalCollections(self):
         return self.parent.principalCollections()
 
-class DirectoryPrincipalResource (PermissionsMixIn, DAVPrincipalResource):
+class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource):
     """
     Directory principal resource.
     """
@@ -514,12 +515,16 @@ class DirectoryPrincipalResource (PermissionsMixIn, DAVPrincipalResource):
             davxml.ResourceID.qname(),
         )
 
+    cacheNotifierFactory = DisabledCacheNotifier
+
     def __init__(self, parent, record):
         """
         @param parent: the parent of this resource.
         @param record: the L{IDirectoryRecord} that this resource represents.
         """
         super(DirectoryPrincipalResource, self).__init__()
+
+        self.cacheNotifier = self.cacheNotifierFactory(self, cacheHandle="PrincipalToken")
 
         if self.isCollection():
             slash = "/"

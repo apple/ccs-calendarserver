@@ -59,6 +59,8 @@ from twext.web2.stream import MemoryStream
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav import carddavxml
+from twistedcaldav.cache import PropfindCacheMixin, DisabledCacheNotifier,\
+    CacheStoreNotifier
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
@@ -175,6 +177,22 @@ def _calendarPrivilegeSet ():
     return davxml.SupportedPrivilegeSet(*top_supported_privileges)
 
 calendarPrivilegeSet = _calendarPrivilegeSet()
+
+def updateCacheTokenOnCallback(f):
+    def fun(self, *args, **kwargs):
+        def _updateToken(response):
+            return self.cacheNotifier.changed().addCallback(
+                lambda _: response)
+
+        d = maybeDeferred(f, self, *args, **kwargs)
+
+        if hasattr(self, 'cacheNotifier'):
+            d.addCallback(_updateToken)
+
+        return d
+
+    return fun
+
 
 class CalDAVResource (
         CalDAVComplianceMixIn, SharedCollectionMixin,
@@ -342,6 +360,18 @@ class CalDAVResource (
                                   (self,))
 
     # End transitional new-store interface 
+
+    @updateCacheTokenOnCallback
+    def http_PROPPATCH(self, request):
+        return super(CalDAVResource, self).http_PROPPATCH(request)
+
+    @updateCacheTokenOnCallback
+    def http_DELETE(self, request):
+        return super(CalDAVResource, self).http_DELETE(request)
+
+    @updateCacheTokenOnCallback
+    def http_ACL(self, request):
+        return super(CalDAVResource, self).http_ACL(request)
 
     ##
     # WebDAV
@@ -1935,10 +1965,12 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         """
         return None
 
-class CommonHomeResource(SharedHomeMixin, CalDAVResource):
+class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     """
     Logic common to Calendar and Addressbook home resources.
     """
+    cacheNotifierFactory = DisabledCacheNotifier
+
     def __init__(self, parent, name, transaction, home):
         self.parent = parent
         self.name = name
@@ -1947,6 +1979,8 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
         self._provisionedLinks = {}
         self._setupProvisions()
         self._newStoreHome = home
+        self.cacheNotifier = self.cacheNotifierFactory(self)
+        self._newStoreHome.addNotifier(CacheStoreNotifier(self))
         CalDAVResource.__init__(self)
 
         from twistedcaldav.storebridge import _NewStorePropertiesWrapper
@@ -2296,6 +2330,9 @@ class CommonHomeResource(SharedHomeMixin, CalDAVResource):
 
     def principalForRecord(self):
         raise NotImplementedError("Subclass must implement principalForRecord()")
+
+    def notifierID(self, label="default"):
+        self._newStoreHome.notifierID(label)
 
     def notifyChanged(self):
         self._newStoreHome.notifyChanged()

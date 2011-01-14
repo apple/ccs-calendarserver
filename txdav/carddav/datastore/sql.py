@@ -66,10 +66,10 @@ class AddressBookHome(CommonHome):
     _notifierPrefix = "CardDAV"
     _revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
 
-    def __init__(self, transaction, ownerUID, notifier):
+    def __init__(self, transaction, ownerUID, notifiers):
 
         self._childClass = AddressBook
-        super(AddressBookHome, self).__init__(transaction, ownerUID, notifier)
+        super(AddressBookHome, self).__init__(transaction, ownerUID, notifiers)
         self._shares = SQLLegacyAddressBookShares(self)
 
 

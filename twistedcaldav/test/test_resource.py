@@ -27,6 +27,9 @@ class StubProperty(object):
 class StubHome(object):
     def properties(self):
         return []
+    
+    def addNotifier(self, notifier):
+        pass
 
 
 class CalDAVResourceTests(TestCase):

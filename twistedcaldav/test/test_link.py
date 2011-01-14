@@ -36,6 +36,9 @@ class StubHome(object):
 
     def calendarWithName(self, name):
         return succeed(None)
+    
+    def addNotifier(self, notifier):
+        pass
 
 class StubCalendarHomeResource(CalendarHomeResource):
     def principalForRecord(self):

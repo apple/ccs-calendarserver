@@ -74,10 +74,10 @@ class CalendarHome(CommonHome):
     _notifierPrefix = "CalDAV"
     _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
 
-    def __init__(self, transaction, ownerUID, notifier):
+    def __init__(self, transaction, ownerUID, notifiers):
 
         self._childClass = Calendar
-        super(CalendarHome, self).__init__(transaction, ownerUID, notifier)
+        super(CalendarHome, self).__init__(transaction, ownerUID, notifiers)
         self._shares = SQLLegacyCalendarShares(self)
 
     createCalendarWithName = CommonHome.createChildWithName

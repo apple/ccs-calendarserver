@@ -243,7 +243,7 @@ class CommonHome(LoggingMixIn):
     _revisionsTable = None
     _notificationRevisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
 
-    def __init__(self, transaction, ownerUID, notifier):
+    def __init__(self, transaction, ownerUID, notifiers):
         self._txn = transaction
         self._ownerUID = ownerUID
         self._resourceID = None
@@ -251,7 +251,7 @@ class CommonHome(LoggingMixIn):
         self._childrenLoaded = False
         self._children = {}
         self._sharedChildren = {}
-        self._notifier = notifier
+        self._notifiers = notifiers
         self._quotaUsedBytes = None
 
         # Needed for REVISION/BIND table join
@@ -285,12 +285,12 @@ class CommonHome(LoggingMixIn):
     def homeWithUID(cls, txn, uid, create=False):
 
         if txn._notifierFactory:
-            notifier = txn._notifierFactory.newNotifier(
+            notifiers = (txn._notifierFactory.newNotifier(
                 id=uid, prefix=cls._notifierPrefix
-            )
+            ),)
         else:
-            notifier = None
-        homeObject = cls(txn, uid, notifier)
+            notifiers = None
+        homeObject = cls(txn, uid, notifiers)
         homeObject = (yield homeObject.initFromStore())
         if homeObject is not None:
             returnValue(homeObject)
@@ -657,9 +657,14 @@ class CommonHome(LoggingMixIn):
             self._quotaUsedBytes = 0
 
 
+    def addNotifier(self, notifier):
+        if self._notifiers is None:
+            self._notifiers = ()
+        self._notifiers += (notifier,)
+ 
     def notifierID(self, label="default"):
-        if self._notifier:
-            return self._notifier.getID(label)
+        if self._notifiers:
+            return self._notifiers[0].getID(label)
         else:
             return None
 
@@ -667,8 +672,9 @@ class CommonHome(LoggingMixIn):
         """
         Trigger a notification of a change
         """
-        if self._notifier:
-            self._txn.postCommit(self._notifier.notify)
+        if self._notifiers:
+            for notifier in self._notifiers:
+                self._txn.postCommit(notifier.notify)
 
 
 class CommonHomeChild(LoggingMixIn, FancyEqMixin):
@@ -696,12 +702,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._objectNames = None
         self._syncTokenRevision = None
 
-        if home._notifier:
+        if home._notifiers:
             childID = "%s/%s" % (home.uid(), name)
-            notifier = home._notifier.clone(label="collection", id=childID)
+            notifiers = [notifier.clone(label="collection", id=childID) for notifier in home._notifiers]
         else:
-            notifier = None
-        self._notifier = notifier
+            notifiers = None
+        self._notifiers = notifiers
 
         self._index = None  # Derived classes need to set this
         self._invites = None # Derived classes need to set this
@@ -1392,19 +1398,24 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         return datetimeMktime(datetime.datetime.strptime(self._modified, "%Y-%m-%d %H:%M:%S.%f")) if self._modified else None
 
 
+    def addNotifier(self, notifier):
+        if self._notifiers is None:
+            self._notifiers = ()
+        self._notifiers += (notifier,)
+ 
     def notifierID(self, label="default"):
-        if self._notifier:
-            return self._notifier.getID(label)
+        if self._notifiers:
+            return self._notifiers[0].getID(label)
         else:
             return None
-
 
     def notifyChanged(self):
         """
         Trigger a notification of a change
         """
-        if self._notifier:
-            self._txn.postCommit(self._notifier.notify)
+        if self._notifiers:
+            for notifier in self._notifiers:
+                self._txn.postCommit(notifier.notify)
 
 
 
@@ -1677,9 +1688,10 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                 prefix=txn._homeClass[txn._primaryHomeType]._notifierPrefix
             )
             notifier.addID(id=uid)
+            notifiers = (notifier,)
         else:
-            notifier = None
-        self._notifier = notifier
+            notifiers = None
+        self._notifiers = notifiers
 
     @classmethod
     @inlineCallbacks
@@ -1945,8 +1957,8 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
 
     def notifierID(self, label="default"):
-        if self._notifier:
-            return self._notifier.getID(label)
+        if self._notifiers:
+            return self._notifiers[0].getID(label)
         else:
             return None
 
@@ -1955,8 +1967,9 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         """
         Trigger a notification of a change
         """
-        if self._notifier:
-            self._txn.postCommit(self._notifier.notify)
+        if self._notifiers:
+            for notifier in self._notifiers:
+                self._txn.postCommit(notifier.notify)
 
 
 class NotificationObject(LoggingMixIn, FancyEqMixin):
