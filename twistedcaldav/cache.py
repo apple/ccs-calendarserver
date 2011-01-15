@@ -364,3 +364,6 @@ class CacheStoreNotifier(object):
 
     def clone(self, label="default", id=None):
         return self
+
+    def getID(self, label="default"):
+        return None
