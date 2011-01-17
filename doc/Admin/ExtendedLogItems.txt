@@ -59,6 +59,10 @@ response include:
     the number of attendee refreshes completed after a scheduling
     operation.
 
+  ``itip.auto``
+
+    the number of auto-accept attendees specified
+
   ``itip.reply``
 
     Either ``reply`` or ``cancel`` depending on...???
