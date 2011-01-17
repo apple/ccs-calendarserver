@@ -168,7 +168,8 @@ create table CALENDAR_OBJECT (
   ICALENDAR_TEXT       text         not null,
   ICALENDAR_UID        varchar(255) not null,
   ICALENDAR_TYPE       varchar(255) not null,
-  ATTACHMENTS_MODE     integer      not null, -- enum CALENDAR_OBJECT_ATTACHMENTS_MODE
+  ATTACHMENTS_MODE     integer      default 0 not null, -- enum CALENDAR_OBJECT_ATTACHMENTS_MODE
+  DROPBOX_ID           varchar(255),
   ORGANIZER            varchar(255),
   ORGANIZER_OBJECT     integer      references CALENDAR_OBJECT,
   RECURRANCE_MAX       date,        -- maximum date that recurrences have been expanded to.
@@ -193,8 +194,14 @@ create table CALENDAR_OBJECT (
 create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID on
   CALENDAR_OBJECT(CALENDAR_RESOURCE_ID);
 
+create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_AND_ICALENDAR_UID on
+  CALENDAR_OBJECT(CALENDAR_RESOURCE_ID, ICALENDAR_UID);
+
 create index CALENDAR_OBJECT_ORGANIZER_OBJECT on
   CALENDAR_OBJECT(ORGANIZER_OBJECT);
+
+create index CALENDAR_OBJECT_DROPBOX_ID on
+  CALENDAR_OBJECT(DROPBOX_ID);
 
 -- Enumeration of attachment modes
 
@@ -203,8 +210,9 @@ create table CALENDAR_OBJECT_ATTACHMENTS_MODE (
   DESCRIPTION varchar(16) not null unique
 );
 
-insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (0, 'read' );
-insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (1, 'write');
+insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (0, 'none' );
+insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (1, 'read' );
+insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (2, 'write');
 
 
 -- Enumeration of calendar access types

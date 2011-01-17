@@ -53,8 +53,10 @@ from txdav.common.datastore.sql_legacy import \
     SQLLegacyCalendarShares, PostgresLegacyInboxIndexEmulator
 from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE,\
-    _ATTACHMENTS_MODE_WRITE, CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE,\
-    CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE
+    _ATTACHMENTS_MODE_NONE, _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE,\
+    CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE,\
+    CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE,\
+    CALENDAR_OBJECT_AND_BIND_TABLE
 from txdav.common.icommondatastore import IndexedSearchException
 
 from vobject.icalendar import utc
@@ -91,14 +93,48 @@ class CalendarHome(CommonHome):
     @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
         """
-        Implement lookup with brute-force scanning.
+        Implement lookup via queries.
         """
-        for calendar in (yield self.calendars()):
-            for calendarObject in (yield calendar.calendarObjects()):
-                dbid = yield calendarObject.dropboxID()
-                if dropboxID == dbid:
-                    returnValue(calendarObject)
+        rows = (yield self._txn.execSQL("""
+            select %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s, %(OBJECT:column_RESOURCE_ID)s
+            from %(OBJECT:name)s
+            left outer join %(BIND:name)s on (
+              %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
+            )
+            where
+             %(OBJECT:column_DROPBOX_ID)s = %%s and
+             %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s
+            """ % CALENDAR_OBJECT_AND_BIND_TABLE,
+            [dropboxID, self._resourceID,]
+        ))
 
+        if rows:
+            calendarID, objectID = rows[0]
+            calendar = (yield self.childWithID(calendarID))
+            if calendar:
+                calendarObject = (yield calendar.objectResourceWithID(objectID))
+                returnValue(calendarObject)
+        
+        returnValue(None)
+
+    @inlineCallbacks
+    def getAllDropboxIDs(self):
+
+        rows = (yield self._txn.execSQL("""
+            select %(OBJECT:column_DROPBOX_ID)s
+            from %(OBJECT:name)s
+            left outer join %(BIND:name)s on (
+              %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
+            )
+            where
+             %(OBJECT:column_DROPBOX_ID)s is not null and
+             %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s
+            order by %(OBJECT:column_DROPBOX_ID)s
+            """ % CALENDAR_OBJECT_AND_BIND_TABLE,
+            [self._resourceID]
+        ))
+        
+        returnValue([row[0] for row in rows])
 
     @inlineCallbacks
     def createdHome(self):
@@ -107,8 +143,6 @@ class CalendarHome(CommonHome):
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(
             Opaque())
         yield self.createCalendarWithName("inbox")
-
-
 
 class Calendar(CommonHomeChild):
     """
@@ -245,9 +279,9 @@ class CalendarObject(CommonObjectResource):
 
     _objectTable = CALENDAR_OBJECT_TABLE
 
-    def __init__(self, calendar, name, uid, metadata=None):
+    def __init__(self, calendar, name, uid, resourceID=None, metadata=None):
 
-        super(CalendarObject, self).__init__(calendar, name, uid)
+        super(CalendarObject, self).__init__(calendar, name, uid, resourceID)
         
         if metadata is None:
             metadata = {}
@@ -271,6 +305,8 @@ class CalendarObject(CommonObjectResource):
               %(column_UID)s,
               %(column_MD5)s,
               character_length(%(column_TEXT)s),
+              %(column_ATTACHMENTS_MODE)s,
+              %(column_DROPBOX_ID)s,
               %(column_ACCESS)s,
               %(column_SCHEDULE_OBJECT)s,
               %(column_SCHEDULE_TAG)s,
@@ -290,6 +326,8 @@ class CalendarObject(CommonObjectResource):
          self._uid,
          self._md5,
          self._size,
+         self._attachment,
+         self._dropboxID,
          self._access,
          self._schedule_object,
          self._schedule_tag,
@@ -369,32 +407,48 @@ class CalendarObject(CommonObjectResource):
             organizer = ""
 
         # CALENDAR_OBJECT table update
+        self._uid = component.resourceUID()
         self._md5 = hashlib.md5(componentText).hexdigest()
         self._size = len(componentText)
+
+        # Determine attachment mode (ignore inbox's) - NB we have to do this
+        # after setting up other properties as UID at least is needed
+        self._attachment = _ATTACHMENTS_MODE_NONE
+        self._dropboxID = None
+        if self._parentCollection.name() != "inbox":
+            if component.hasPropertyInAnyComponent("X-APPLE-DROPBOX"):
+                self._attachment = _ATTACHMENTS_MODE_WRITE
+                self._dropboxID = (yield self.dropboxID())
+            elif component.hasPropertyInAnyComponent("ATTACH"):
+                # FIXME: really we ought to check to see if the ATTACH properties have URI values
+                # and if those are pointing to our server dropbox collections and only then set
+                # the read mode
+                self._attachment = _ATTACHMENTS_MODE_READ
+                self._dropboxID = (yield self.dropboxID())
+
         if inserting:
             self._resourceID, self._created, self._modified  = (
                 yield self._txn.execSQL(
                 """
                 insert into CALENDAR_OBJECT
                 (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE,
-                 ATTACHMENTS_MODE, ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_TAG,
+                 ATTACHMENTS_MODE, DROPBOX_ID, ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_TAG,
                  SCHEDULE_ETAGS, PRIVATE_COMMENTS, MD5)
                  values
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 returning
                  RESOURCE_ID,
                  CREATED,
                  MODIFIED
                 """,
-                # FIXME: correct ATTACHMENTS_MODE based on X-APPLE-
-                # DROPBOX
                 [
                     self._calendar._resourceID,
                     self._name,
                     componentText,
-                    component.resourceUID(),
+                    self._uid,
                     component.resourceType(),
-                    _ATTACHMENTS_MODE_WRITE,
+                    self._attachment,
+                    self._dropboxID,
                     organizer,
                     normalizeForIndex(instances.limit) if instances.limit else None,
                     self._access,
@@ -410,21 +464,19 @@ class CalendarObject(CommonObjectResource):
                 """
                 update CALENDAR_OBJECT set
                 (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE,
-                 ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_TAG,
+                 DROPBOX_ID, ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_TAG,
                  SCHEDULE_ETAGS, PRIVATE_COMMENTS, MD5, MODIFIED)
                  =
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
                 where RESOURCE_ID = %s
                 returning MODIFIED
                 """,
-                # should really be filling out more fields: ORGANIZER,
-                # ORGANIZER_OBJECT, a correct ATTACHMENTS_MODE based on X-APPLE-
-                # DROPBOX
                 [
                     componentText,
-                    component.resourceUID(),
+                    self._uid,
                     component.resourceType(),
-                    _ATTACHMENTS_MODE_WRITE,
+                    self._attachment,
+                    self._dropboxID,
                     organizer,
                     normalizeForIndex(instances.limit) if instances.limit else None,
                     self._access,
@@ -446,7 +498,6 @@ class CalendarObject(CommonObjectResource):
                     self._resourceID,
                 ],
             )
-        self._uid = component.resourceUID()
 
 
         # CALENDAR_OBJECT table update
@@ -630,11 +681,8 @@ class CalendarObject(CommonObjectResource):
         attachment = (yield attachment.initFromStore())
         returnValue(attachment)
 
-    @inlineCallbacks
     def attendeesCanManageAttachments(self):
-        returnValue((yield self.component()).hasPropertyInAnyComponent(
-            "X-APPLE-DROPBOX"
-        ))
+        return self._attachment == _ATTACHMENTS_MODE_WRITE
 
 
     dropboxID = dropboxIDFromCalendarObject

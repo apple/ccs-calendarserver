@@ -138,6 +138,17 @@ class CalendarHome(CommonHome):
                     returnValue(calendarObject)
 
 
+    @inlineCallbacks
+    def getAllDropboxIDs(self):
+
+        dropboxIDs = []
+        for calendar in self.calendars():
+            for calendarObject in calendar.calendarObjects():
+                dropboxID = (yield calendarObject.dropboxID())
+                dropboxIDs.append(dropboxID)
+        
+        returnValue(dropboxIDs)
+
     @property
     def _calendarStore(self):
         return self._dataStore
@@ -483,7 +494,7 @@ class CalendarObject(CommonObjectResource):
 
     @inlineCallbacks
     def attendeesCanManageAttachments(self):
-        returnValue((yield self.component()).hasPropertyInAnyComponent("X-APPLE-DROPBOX"))
+        return self.component().hasPropertyInAnyComponent("X-APPLE-DROPBOX")
 
 
     def dropboxID(self):

@@ -748,13 +748,8 @@ class DropboxCollection(_GetChildHelper):
         return davxml.ResourceType.dropboxhome #@UndefinedVariable
 
 
-    @inlineCallbacks
     def listChildren(self):
-        l = []
-        for everyCalendar in (yield self._newStoreHome.calendars()):
-            for everyObject in (yield everyCalendar.calendarObjects()):
-                l.append((yield everyObject.dropboxID()))
-        returnValue(l)
+        return self._newStoreHome.getAllDropboxIDs()
 
 
 
@@ -894,9 +889,7 @@ class CalendarObjectDropbox(_GetChildHelper):
                 ),
             )
 
-        othersCanWrite = (
-            yield self._newStoreCalendarObject.attendeesCanManageAttachments()
-        )
+        othersCanWrite = self._newStoreCalendarObject.attendeesCanManageAttachments()
         cuas = (yield self._newStoreCalendarObject.component()).getAttendees()
         newACEs = []
         for calendarUserAddress in cuas:

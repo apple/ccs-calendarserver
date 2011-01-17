@@ -172,9 +172,9 @@ class AddressBookObject(CommonObjectResource):
 
     _objectTable = ADDRESSBOOK_OBJECT_TABLE
 
-    def __init__(self, addressbook, name, uid, metadata=None):
+    def __init__(self, addressbook, name, uid, resourceID=None, metadata=None):
 
-        super(AddressBookObject, self).__init__(addressbook, name, uid)
+        super(AddressBookObject, self).__init__(addressbook, name, uid, resourceID)
 
 
     @property

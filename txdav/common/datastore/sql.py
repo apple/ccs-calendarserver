@@ -417,6 +417,16 @@ class CommonHome(LoggingMixIn):
         """
         return self._childClass.objectWithName(self, name, owned=True)
 
+    @memoizedKey("resourceID", "_children")
+    def childWithID(self, resourceID):
+        """
+        Retrieve the child with the given C{resourceID} contained in this
+        home.
+
+        @param name: a string.
+        @return: an L{ICalendar} or C{None} if no such child exists.
+        """
+        return self._childClass.objectWithID(self, resourceID)
 
     @memoizedKey("name", "_sharedChildren")
     def sharedChildWithName(self, name):
@@ -822,7 +832,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         @param home: a L{CommonHome}.
         @param name: a string.
         @param owned: a boolean - whether or not to get a shared child
-        @param mustExist: a boolean - if False return and empty object
         @return: an L{CommonHomChild} or C{None} if no such child
             exists.
         """
@@ -859,6 +868,38 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         if not data:
             returnValue(None)
         resourceID = data[0][0]
+        child = cls(home, name, resourceID)
+        yield child.initFromStore()
+        returnValue(child)
+
+    @classmethod
+    @inlineCallbacks
+    def objectWithID(cls, home, resourceID):
+        """
+        Retrieve the child with the given C{resourceID} contained in this
+        C{home}.
+
+        @param home: a L{CommonHome}.
+        @param resourceID: a string.
+        @return: an L{CommonHomChild} or C{None} if no such child
+            exists.
+        """
+
+        data = yield home._txn.execSQL("""
+            select %(column_RESOURCE_NAME)s from %(name)s
+            where
+              %(column_RESOURCE_ID)s = %%s and
+              %(column_HOME_RESOURCE_ID)s = %%s
+            """ % cls._bindTable,
+            [
+                resourceID,
+                home._resourceID,
+            ]
+        )
+
+        if not data:
+            returnValue(None)
+        name = data[0][0]
         child = cls(home, name, resourceID)
         yield child.initFromStore()
         returnValue(child)
@@ -1033,27 +1074,41 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         if name in self._objects:
             return succeed(self._objects[name])
         else:
-            return self._makeObjectResource(name, None)
+            return self._makeObjectResource(name=name)
 
 
     def objectResourceWithUID(self, uid):
         if uid in self._objects:
             return succeed(self._objects[uid])
         else:
-            return self._makeObjectResource(None, uid)
+            return self._makeObjectResource(uid=uid)
 
+
+    def objectResourceWithID(self, resourceID):
+        if resourceID in self._objects:
+            return succeed(self._objects[resourceID])
+        else:
+            return self._makeObjectResource(resourceID=resourceID)
 
     @inlineCallbacks
-    def _makeObjectResource(self, name, uid):
+    def _makeObjectResource(self, name=None, uid=None, resourceID=None):
         """
         We create the empty object first then have it initialize itself from the store
         """
-        objectResource = (yield self._objectResourceClass.objectWithName(self, name, uid))
+        
+        if resourceID:
+            objectResource = (yield self._objectResourceClass.objectWithID(self, resourceID))
+        else:
+            objectResource = (yield self._objectResourceClass.objectWithName(self, name, uid))
         if objectResource:
             self._objects[objectResource.name()] = objectResource
             self._objects[objectResource.uid()] = objectResource
+            self._objects[objectResource._resourceID] = objectResource
         else:
-            self._objects[name if name else uid] = None
+            if resourceID:
+                self._objects[resourceID] = None
+            else:
+                self._objects[name if name else uid] = None
         returnValue(objectResource)
 
 
@@ -1430,9 +1485,9 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     _objectTable = None
 
-    def __init__(self, parent, name, uid, metadata=None):
+    def __init__(self, parent, name, uid, resourceID=None, metadata=None):
         self._parentCollection = parent
-        self._resourceID = None
+        self._resourceID = resourceID
         self._name = name
         self._uid = uid
         self._md5 = None
@@ -1483,7 +1538,12 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     @classmethod
     def objectWithName(cls, parent, name, uid):
-        objectResource = cls(parent, name, uid)
+        objectResource = cls(parent, name, uid, None)
+        return objectResource.initFromStore()
+
+    @classmethod
+    def objectWithID(cls, parent, resourceID):
+        objectResource = cls(parent, None, None, resourceID)
         return objectResource.initFromStore()
 
     @classmethod
@@ -1497,7 +1557,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
         
-        objectResource = cls(parent, name, None, metadata)
+        objectResource = cls(parent, name, None, None, metadata=metadata)
         yield objectResource.setComponent(component, inserting=True)
         yield objectResource._loadPropertyStore(created=True)
 
@@ -1523,12 +1583,19 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
                 """ % self._objectTable,
                 [self._name, self._parentCollection._resourceID]
             )
-        else:
+        elif self._uid:
             rows = yield self._txn.execSQL(self._selectAllColumns() + """
                 from %(name)s
                 where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
                 """ % self._objectTable,
                 [self._uid, self._parentCollection._resourceID]
+            )
+        elif self._resourceID:
+            rows = yield self._txn.execSQL(self._selectAllColumns() + """
+                from %(name)s
+                where %(column_RESOURCE_ID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
+                """ % self._objectTable,
+                [self._resourceID, self._parentCollection._resourceID]
             )
         if rows:
             self._initFromRow(tuple(rows[0]))
