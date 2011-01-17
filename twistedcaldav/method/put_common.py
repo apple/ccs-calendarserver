@@ -768,6 +768,8 @@ class StoreCalendarObjectResource(object):
                     # Schedule-Tag did not change => add current ETag to list of those that can
                     # be used in a weak pre-condition test
                     etags = self.destination.scheduleEtags
+                    if etags is None:
+                        etags = ()
                 etags += (hashlib.md5(data).hexdigest(),)
                 self.destination.scheduleEtags = etags
             else:
