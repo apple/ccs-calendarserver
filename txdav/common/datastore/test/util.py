@@ -201,7 +201,7 @@ def populateCalendarsFrom(requirements, store):
                     calendar = yield home.calendarWithName(calendarName)
                     for objectName in calendarObjNames:
                         objData = calendarObjNames[objectName]
-                        calendar.createCalendarObjectWithName(
+                        yield calendar.createCalendarObjectWithName(
                             objectName, VComponent.fromString(objData)
                         )
     yield populateTxn.commit()

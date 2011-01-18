@@ -86,13 +86,33 @@ def usage_purge_principal(e=None):
 
 class PurgeOldEventsService(Service):
 
+    cutoff = None
+    dryrun = False
+    verbose = False
+
     def __init__(self, store):
         self._store = store
 
+    @inlineCallbacks
     def startService(self):
         try:
             rootResource = getRootResource(config, self._store)
             directory = rootResource.getDirectory()
+            total = (yield purgeOldEvents(self._store, directory, rootResource,
+                self.cutoff, verbose=self.verbose, dryrun=self.dryrun))
+            if self.verbose:
+                if total:
+                    amount = "%d event%s" % (total, "s" if total > 1 else "")
+                    if self.dryrun:
+                        print "Would have deleted %s" % (amount,)
+                    else:
+                        print "Deleted %s" % (amount,)
+                else:
+                    print "No old events found"
+        except Exception, e:
+            print "Error:", e
+            raise
+
         finally:
             reactor.stop()
 
@@ -197,13 +217,13 @@ def main_purge_events():
         usage_purge_events("Too many arguments: %s" % (args,))
 
     cutoff = (date.today()-timedelta(days=days)).strftime("%Y%m%dT000000Z")
+    PurgeOldEventsService.cutoff = cutoff
+    PurgeOldEventsService.dryrun = dryrun
+    PurgeOldEventsService.verbose = verbose
 
     shared_main(
         configFileName,
         PurgeOldEventsService,
-        cutoff,
-        verbose=verbose,
-        dryrun=dryrun,
     )
 
 
@@ -271,111 +291,73 @@ def callThenStop(method, *args, **kwds):
 
 
 @inlineCallbacks
-def purgeOldEvents(directory, root, date, verbose=False, dryrun=False):
-
-    calendars = root.getChild("calendars")
-    uidsFPath = calendars.fp.child("__uids__")
+def purgeOldEvents(store, directory, root, date, verbose=False, dryrun=False):
 
     if dryrun:
         print "Dry run"
 
     if verbose:
-        print "Scanning calendar homes ...",
+        print "Querying database for old events..."
 
-    records = []
-    calendars = root.getChild("calendars")
-    uidsFPath = calendars.fp.child("__uids__")
+    oldEvents = (yield store.eventsOlderThan(date))
 
-    if uidsFPath.exists():
-        for firstFPath in uidsFPath.children():
-            if len(firstFPath.basename()) == 2:
-                for secondFPath in firstFPath.children():
-                    if len(secondFPath.basename()) == 2:
-                        for homeFPath in secondFPath.children():
-                            uid = homeFPath.basename()
-                            record = directory.recordWithUID(uid)
-                            if record is not None:
-                                records.append(record)
-
-    if verbose:
-        print "%d calendar homes found" % (len(records),)
-
-    log.info("Purging events from %d calendar homes" % (len(records),))
-
-    filter =  caldavxml.Filter(
-        caldavxml.ComponentFilter(
-            caldavxml.ComponentFilter(
-                TimeRange(start=date,),
-                name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
-            ),
-            name="VCALENDAR",
-        )
-    )
-    filter = calendarqueryfilter.Filter(filter)
-
+    request = FakeRequest(root, None, None)
+    request.checkedSACL = True
     eventCount = 0
-    for record in records:
-        # Get the calendar home
-        principalCollection = directory.principalCollection
-        principal = principalCollection.principalForRecord(record)
-        calendarHome = yield principal.calendarHome()
+    prevHomeName = None
 
+    for homeName, calendarName, eventName, maxDate in oldEvents:
+        if homeName != prevHomeName:
+
+            # Retrieve the calendar home
+            record = directory.recordWithGUID(homeName)
+            if record is None:
+                # The user has already been removed from the directory service.  We
+                # need to fashion a temporary, fake record
+
+                # FIXME: probaby want a more elegant way to accomplish this,
+                # since it requires the aggregate directory to examine these first:
+                record = DirectoryRecord(directory, "users", homeName, shortNames=(homeName,),
+                    enabledForCalendaring=True)
+                record.enabled = True
+                directory._tmpRecords["shortNames"][homeName] = record
+                directory._tmpRecords["guids"][homeName] = record
+
+            principalCollection = directory.principalCollection
+            principal = principalCollection.principalForRecord(record)
+            calendarHome = (yield principal.calendarHome(request))
+            prevHomeName = homeName
+
+        eventCount += 1
         if verbose:
-            print "%s %-15s :" % (record.uid, record.shortNames[0]),
+            print "%s %s/%s/%s ends: %s" % (record.shortNames[0], homeName,
+                calendarName, eventName, maxDate)
+        if not dryrun:
+            calendar = (yield calendarHome.getChild(calendarName))
+            event = (yield calendar.getChild(eventName))
+            uri = "/calendars/__uids__/%s/%s/%s" % (
+                homeName,
+                calendarName,
+                eventName
+            )
+            request.authnUser = request.authzUser = davxml.Principal(
+                davxml.HRef.fromString("/principals/__uids__/%s/" % (homeName,))
+            )
+            request.path = uri
+            request._rememberResource(event, uri)
+            if verbose:
+                print "Removing %s/%s/%s" % (homeName, calendarName, eventName)
+            result = (yield event.storeRemove(request, True, uri))
 
-        homeEventCount = 0
-        # For each collection in calendar home...
-        for collName in calendarHome.listChildren():
-            collection = calendarHome.getChild(collName)
-            if collection.isCalendarCollection():
-                # ...use their indexes to figure out which events to purge.
-
-                # First, get the list of all child resources...
-                resources = set(collection.listChildren())
-
-                # ...and ignore those that appear *after* the given cutoff
-                for name, uid, type in collection.index().indexedSearch(filter):
-                    if isinstance(name, unicode):
-                        name = name.encode("utf-8")
-                    if name in resources:
-                        resources.remove(name)
-
-                for name in resources:
-                    resource = collection.getChild(name)
-                    uri = "/calendars/__uids__/%s/%s/%s" % (
-                        record.uid,
-                        collName,
-                        name
-                    )
-                    try:
-                        if not dryrun:
-                            (yield deleteResource(root, collection, resource,
-                                uri, record.guid))
-                        eventCount += 1
-                        homeEventCount += 1
-                    except Exception, e:
-                        log.error("Failed to purge old event: %s (%s)" %
-                            (uri, e))
-
+    if eventCount and not dryrun:
         if verbose:
-            print "%d events" % (homeEventCount,)
+            print "Committing changes"
+        txn = request._newStoreTransaction
+        (yield txn.commit())
 
     returnValue(eventCount)
 
 
-def deleteResource(root, collection, resource, uri, guid, implicit=False):
-    request = FakeRequest(root, "DELETE", uri)
-    request.authnUser = request.authzUser = davxml.Principal(
-        davxml.HRef.fromString("/principals/__uids__/%s/" % (guid,))
-    )
-
-    # TODO: this seems hacky, even for a stub request:
-    request._rememberResource(resource, uri)
-
-    # Cyrus says to use resource.storeRemove( ) -- see twistedcaldav/method/delete_common.py
-    deleter = DeleteResource(request, resource, uri,
-        collection, "infinity", allowImplicitSchedule=implicit)
-    return deleter.run()
 
 
 @inlineCallbacks
@@ -640,5 +622,4 @@ def purgeProxyAssignments(principal):
         (yield subPrincipal.writeProperty(davxml.GroupMemberSet(), None))
 
     returnValue(assignments)
-
 

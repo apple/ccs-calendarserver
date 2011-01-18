@@ -139,6 +139,8 @@ class AggregateDirectoryService(DirectoryService):
 
         return self._queryAll("recordWithUID", uid)
 
+    recordWithGUID = recordWithUID
+
     def recordWithAuthID(self, authID):
         return self._queryAll("recordWithAuthID", authID)
 

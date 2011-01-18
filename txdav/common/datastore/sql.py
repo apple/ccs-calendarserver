@@ -109,6 +109,53 @@ class CommonDataStore(Service, object):
         return []
 
 
+    def eventsOlderThan(self, cutoff):
+        """
+        All events which exist *completely* earlier than cutoff datetime
+
+        @param cutoff: Any events which have any instances more recent than
+        this are not returned.  All others are returned.
+        @type cutoff: C{datetime.datetime}
+
+        @return: a deferred returning a generator of tuples of the form:
+        (calendar_home_name, calendar_name, event_name, latest_date_string).
+        """
+        txn = self.newTransaction(label="Finding old events")
+        d = txn.execSQL(
+
+            """
+            select
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_NAME,
+                max(tr.END_DATE)
+            from
+                TIME_RANGE tr,
+                CALENDAR_BIND cb,
+                CALENDAR_OBJECT co,
+                CALENDAR_HOME ch
+            where
+                cb.BIND_MODE=%s AND
+                cb.CALENDAR_RESOURCE_ID=tr.CALENDAR_RESOURCE_ID AND
+                tr.CALENDAR_OBJECT_RESOURCE_ID=co.RESOURCE_ID AND
+                ch.RESOURCE_ID=cb.CALENDAR_HOME_RESOURCE_ID
+            group by
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_NAME
+            having
+                max(tr.END_DATE) < %s
+            """, (_BIND_MODE_OWN, cutoff,)
+        )
+
+        def yieldResults(results):
+            for result in results:
+                yield tuple(result)
+
+        d.addCallback(yieldResults)
+        return d
+
+
     def newTransaction(self, label="unlabeled", migrating=False):
         """
         @see L{IDataStore.newTransaction}
