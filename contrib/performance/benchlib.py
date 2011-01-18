@@ -91,11 +91,13 @@ def sample(dtrace, samples, agent, paramgen, responseCode, concurrency=1):
     def once():
         msg('emitting request')
         before = time()
-        d = agent.request(*paramgen())
+        params = paramgen()
+        d = agent.request(*params)
         def cbResponse(response):
             if response.code != responseCode:
                 raise Exception(
-                    "Unexpected response code received: %d" % (response.code,))
+                    "Request %r received unexpected response code: %d" % (
+                        params, response.code))
 
             d = readBody(response)
             def cbBody(ignored):
