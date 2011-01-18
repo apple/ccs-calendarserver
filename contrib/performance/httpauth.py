@@ -70,10 +70,15 @@ class AuthHandlerAgent(object):
 
 
     def request(self, method, uri, headers=None, bodyProducer=None):
+        return self._requestWithAuth(method, uri, headers, bodyProducer)
+
+
+    def _requestWithAuth(self, method, uri, headers, bodyProducer):
         key = self._authKey(method, uri)
         if key in self._challenged:
-            return self._respondToChallenge(self._challenged[key], method, uri, headers, bodyProducer)
-        d = self._agent.request(method, uri, headers, bodyProducer)
+            d = self._respondToChallenge(self._challenged[key], method, uri, headers, bodyProducer)
+        else:
+            d = self._agent.request(method, uri, headers, bodyProducer)
         d.addCallback(self._authenticate, method, uri, headers, bodyProducer)
         return d
 
