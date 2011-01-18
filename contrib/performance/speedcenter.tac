@@ -14,19 +14,36 @@
 # limitations under the License.
 ##
 
+import os
+
+from twisted.python.threadpool import ThreadPool
 from twisted.python.modules import getModule
-from twisted.application.service import Application
+from twisted.application.service import Application, Service
 from twisted.application.internet import TCPServer
 from twisted.web.server import Site
 from twisted.web.wsgi import WSGIResource
 from twisted.internet import reactor
+
+class ThreadService(Service):
+    def __init__(self):
+        self.pool = ThreadPool(minthreads=0, maxthreads=1)
+
+    def startService(self):
+        self.pool.start()
+
+    def stopService(self):
+        self.pool.stop()
+
 
 speedcenter = getModule("speedcenter").filePath
 django = speedcenter.sibling("wsgi").child("django.wsgi")
 namespace = {"__file__": django.path}
 execfile(django.path, namespace, namespace)
 
+threads = ThreadService()
 application = Application("SpeedCenter")
-resource = WSGIResource(reactor, reactor.getThreadPool(), namespace["application"])
-site = Site(resource, 'httpd.log')
-TCPServer(8000, site).setServiceParent(application)
+threads.setServiceParent(application)
+
+resource = WSGIResource(reactor, threads.pool, namespace["application"])
+site = Site(resource) # , 'httpd.log')
+TCPServer(int(os.environ.get('PORT', 8000)), site).setServiceParent(application)
