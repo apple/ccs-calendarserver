@@ -19,21 +19,17 @@ Tests for calendarserver.tools.purge
 """
 
 from twisted.trial import unittest
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.task import deferLater
-from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks
 
-from twext.python.vcomponent import VComponent
-from twext.web2.dav.element.rfc2518 import GETContentLanguage, ResourceType
-
-from txdav.common.datastore.sql import ECALENDARTYPE
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
 
-from txdav.caldav.datastore.test.test_file import setUpCalendarStore
-from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
-from txdav.base.propertystore.base import PropertyName
+from calendarserver.tap.util import getRootResource
+from calendarserver.tools.purge import purgeOldEvents, purgeGUID
+from twistedcaldav.config import config
+from vobject.icalendar import utc
 
 import datetime
+import os
 
 
 
@@ -304,8 +300,6 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         import types
         self.assertEquals(types.GeneratorType, type(results))
         results = list(results)
-        for result in results:
-            print result
         self.assertEquals(set(results),
             set([
                 ('home2', 'calendar2', 'recent.ics', '2010-03-04 22:15:00'),
@@ -314,3 +308,42 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             ])
         )
 
+
+    @inlineCallbacks
+    def test_purgeOldEvents(self):
+        self.patch(config.DirectoryService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "accounts.xml"
+            )
+        )
+        self.patch(config.ResourceService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "resources.xml"
+            )
+        )
+        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
+        rootResource = getRootResource(config, self._sqlCalendarStore)
+        directory = rootResource.getDirectory()
+        total = (yield purgeOldEvents(self._sqlCalendarStore, directory,
+            rootResource, datetime.datetime(2010, 4, 1)))
+        self.assertEquals(total, 3)
+
+    @inlineCallbacks
+    def test_purgeGUID(self):
+        self.patch(config.DirectoryService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "accounts.xml"
+            )
+        )
+        self.patch(config.ResourceService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "resources.xml"
+            )
+        )
+        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
+        rootResource = getRootResource(config, self._sqlCalendarStore)
+        directory = rootResource.getDirectory()
+        total, ignored = (yield purgeGUID("home2", directory, rootResource,
+            verbose=False, proxies=False,
+            when=datetime.datetime(2010, 4, 1, 12, 0, 0, 0, utc)))
+        self.assertEquals(total, 1)

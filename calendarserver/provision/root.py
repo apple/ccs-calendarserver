@@ -25,6 +25,7 @@ from twext.web2.auth.wrapper import UnauthorizedResponse
 from twext.web2.dav import davxml
 from twext.web2.http import HTTPError, StatusResponse
 
+from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.xmlrpc import Proxy
 

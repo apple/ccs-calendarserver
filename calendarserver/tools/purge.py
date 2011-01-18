@@ -26,13 +26,13 @@ from datetime import date, timedelta, datetime
 from getopt import getopt, GetoptError
 from twext.python.log import Logger
 from twext.web2.dav import davxml
+from twext.web2.responsecode import NO_CONTENT
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryRecord
-from twistedcaldav.method.delete_common import DeleteResource
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
@@ -346,8 +346,11 @@ def purgeOldEvents(store, directory, root, date, verbose=False, dryrun=False):
             request.path = uri
             request._rememberResource(event, uri)
             if verbose:
-                print "Removing %s/%s/%s" % (homeName, calendarName, eventName)
+                print "Deleting %s/%s/%s" % (homeName, calendarName, eventName)
             result = (yield event.storeRemove(request, True, uri))
+            if result != NO_CONTENT:
+                print "Error deleting %s/%s/%s: %s" % (homeName, calendarName,
+                    eventName, result)
 
     if eventCount and not dryrun:
         if verbose:
@@ -496,9 +499,11 @@ def cancelEvent(event, when, cua):
 
 
 @inlineCallbacks
-def purgeGUID(guid, directory, root, verbose=False, dryrun=False):
+def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
+    when=None):
 
-    when = datetime.now(tz=utc)
+    if when is None:
+        when = datetime.now(tz=utc)
     # when = datetime(2010, 12, 6, 12, 0, 0, 0, utc)
 
     # Does the record exist?
@@ -589,12 +594,15 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False):
                             print "Deleting: %s" % (uri,)
                     if not dryrun:
                         result = (yield childResource.storeRemove(request, True, uri))
+                        if result != NO_CONTENT:
+                            print "Error deleting %s/%s/%s: %s" % (guid,
+                                collName, childName, result)
 
     # Commit
     txn = request._newStoreTransaction
     (yield txn.commit())
 
-    if not dryrun:
+    if proxies and not dryrun:
         if verbose:
             print "Deleting any proxy assignments"
         assignments = (yield purgeProxyAssignments(principal))
