@@ -1375,12 +1375,8 @@ class Component (object):
                 # If they're not both date or both date-time, raise error
                 if (subcomponent.hasProperty("DTSTART") and
                     subcomponent.hasProperty("RRULE")):
-                    # dtValue may be datetime or date, or unicode in which case
-                    # we look at the length to see if it's datetime or date.
-                    dtValue = subcomponent.getProperty("DTSTART").value()
+                    dtValue = subcomponent.propertyNativeValue("DTSTART")
                     dtType = type(dtValue)
-                    if dtType is unicode:
-                        dtType = datetime.date if len(dtValue) == 8 else datetime.datetime
                     for rrule in subcomponent.properties("RRULE"):
                         indexedTokens = {}
                         indexedTokens.update([valuePart.split("=")
