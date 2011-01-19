@@ -19,15 +19,12 @@ from twext.web2.dav.http import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2 import responsecode
-from twext.web2.dav.util import joinURL
-from twext.web2.dav.util import parentForURL
 from twext.web2.http import HTTPError
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.ical import Property
-from twistedcaldav.method import report_common
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
     LocalCalendarUser, PartitionedCalendarUser
@@ -353,38 +350,11 @@ class ImplicitScheduler(object):
         calendar_owner_principal = (yield self.resource.resourceOwnerPrincipal(self.request))
         calendar_home = yield calendar_owner_principal.calendarHome(self.request)
 
-        check_parent_uri = parentForURL(check_uri)[:-1] if check_uri else None
-
-        # FIXME: because of the URL->resource request mapping thing, we have to force the request
-        # to recognize this resource
-        self.request._rememberResource(calendar_home, calendar_home.url())
-
-        # Run a UID query against the UID
-
-        @inlineCallbacks
-        def queryCalendarCollection(collection, collection_uri):
-            rname = yield collection.index().resourceNameForUID(self.uid)
-            if rname:
-                child = (yield self.request.locateResource(joinURL(collection_uri, rname)))
-                if child == check_resource:
-                    returnValue(True)
-                is_scheduling_object = self.checkSchedulingObjectResource(child)
-                matched_type = "schedule" if is_scheduling_object else "calendar"
-                if (
-                    collection_uri != check_parent_uri and
-                    (type == "schedule" or matched_type == "schedule")
-                ):
-                    log.debug("Implicit - found component with same UID in a different collection: %s" % (check_uri,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "unique-scheduling-object-resource")))
-
-                # Here we can always return true as the unique UID in a calendar collection
-                # requirement will already have been tested.
-
-            returnValue(True)
-
-        # NB We are by-passing privilege checking here. That should be OK as the data found is not
-        # exposed to the user.
-        yield report_common.applyToCalendarCollections(calendar_home, self.request, calendar_home.url(), "infinity", queryCalendarCollection, None)
+        # Check for matching resource somewhere else in the home
+        foundElsewhere = (yield calendar_home.hasCalendarResourceUIDSomewhereElse(self.uid, check_resource, type))
+        if foundElsewhere:
+            log.debug("Implicit - found component with same UID in a different collection: %s" % (check_uri,))
+            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "unique-scheduling-object-resource")))
 
     @inlineCallbacks
     def isOrganizerScheduling(self):

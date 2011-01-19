@@ -15,8 +15,10 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twistedcaldav.method import report_common
 from twext.web2.dav.util import joinURL
+from twext.python.log import Logger
+
+log = Logger()
 
 @inlineCallbacks
 def getCalendarObjectForPrincipals(request, principal, uid, allow_shared=False):
@@ -39,32 +41,17 @@ def getCalendarObjectForPrincipals(request, principal, uid, allow_shared=False):
         # force the request to recognize this resource.
         request._rememberResource(calendar_home, calendar_home.url())
 
-        # Run a UID query against the UID.
-        @inlineCallbacks
-        def queryCalendarCollection(collection, uri):
-            if not allow_shared:
-                if collection.isVirtualShare():
-                    returnValue(True)
-
-            rname = yield collection.index().resourceNameForUID(uid)
-            if rname:
-                resource = yield collection.getChild(rname)
-                request._rememberResource(resource, joinURL(uri, rname))
-
-                result["resource"] = resource
-                result["resource_name"] = rname
-                result["calendar_collection"] = collection
-                result["calendar_collection_uri"] = uri
-                returnValue(False)
-            else:
-                returnValue(True)
-
-        # NB We are by-passing privilege checking here. That should be OK as
-        # the data found is not exposed to the user.
-        yield report_common.applyToCalendarCollections(
-            calendar_home, request, calendar_home.url(),
-            "infinity", queryCalendarCollection, None
-        )
+        # Get matching newstore objects
+        objectResources = (yield calendar_home.getCalendarResourcesForUID(uid, allow_shared))
+        
+        # We really want only one or zero of these
+        if len(objectResources) == 1:
+            result["calendar_collection_uri"] = joinURL(calendar_home.url(), objectResources[0]._parentCollection.name())
+            result["calendar_collection"] = (yield request.locateResource(result["calendar_collection_uri"]))
+            result["resource_name"] = objectResources[0].name()
+            result["resource"] = (yield request.locateResource(joinURL(result["calendar_collection_uri"], result["resource_name"])))
+        elif len(objectResources):
+            log.debug("Should only have zero or one scheduling object resource with UID '%s' in calendar home: %s" % (uid, calendar_home,))
 
     returnValue((result["resource"], result["resource_name"], result["calendar_collection"], result["calendar_collection_uri"],))
 

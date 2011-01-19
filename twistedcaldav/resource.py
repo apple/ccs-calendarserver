@@ -2408,6 +2408,22 @@ class CalendarHomeResource(CommonHomeResource):
         returnValue(similar)
 
 
+    def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
+        """
+        Test if there are other child object resources with the specified UID.
+        
+        Pass through direct to store.
+        """
+        return self._newStoreHome.hasCalendarResourceUIDSomewhereElse(uid, ok_object._newStoreObject, type)
+
+    def getCalendarResourcesForUID(self, uid, allow_shared=False):
+        """
+        Return all child object resources with the specified UID.
+        
+        Pass through direct to store.
+        """
+        return self._newStoreHome.getCalendarResourcesForUID(uid, allow_shared)
+
     def defaultAccessControlList(self):
         myPrincipal = self.principalForRecord()
 

@@ -73,6 +73,7 @@ class CalendarHome(CommonHome):
     _homeMetaDataTable = CALENDAR_HOME_METADATA_TABLE
     _childTable = CALENDAR_TABLE
     _bindTable = CALENDAR_BIND_TABLE
+    _objectBindTable = CALENDAR_OBJECT_AND_BIND_TABLE
     _notifierPrefix = "CalDAV"
     _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
 
@@ -89,6 +90,30 @@ class CalendarHome(CommonHome):
     listCalendars = CommonHome.listChildren
     loadCalendars = CommonHome.loadChildren
 
+
+    @inlineCallbacks
+    def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
+        
+        objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
+        for objectResource in objectResources:
+            if ok_object and objectResource._resourceID == ok_object._resourceID:
+                continue
+            matched_type = "schedule" if objectResource.isScheduleObject else "calendar"
+            if type == "schedule" or matched_type == "schedule":
+                returnValue(True)
+            
+        returnValue(False)
+
+    @inlineCallbacks
+    def getCalendarResourcesForUID(self, uid, allow_shared=False):
+        
+        results = []
+        objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
+        for objectResource in objectResources:
+            if allow_shared or objectResource._parentCollection._owned:
+                results.append(objectResource)
+            
+        returnValue(results)
 
     @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
@@ -157,7 +182,7 @@ class Calendar(CommonHomeChild):
     _revisionsBindTable = CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE
     _objectTable = CALENDAR_OBJECT_TABLE
 
-    def __init__(self, home, name, resourceID):
+    def __init__(self, home, name, resourceID, owned):
         """
         Initialize a calendar pointing at a record in a database.
 
@@ -167,7 +192,7 @@ class Calendar(CommonHomeChild):
         @param home: the home containing this calendar.
         @type home: L{CalendarHome}
         """
-        super(Calendar, self).__init__(home, name, resourceID)
+        super(Calendar, self).__init__(home, name, resourceID, owned)
 
         if name == 'inbox':
             self._index = PostgresLegacyInboxIndexEmulator(self)

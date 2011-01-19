@@ -385,7 +385,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         if name.startswith("."):
             return None
 
-        child = self._childClass.objectWithName(self, name)
+        child = self._childClass.objectWithName(self, name, True)
         if child is not None:
             self._cachedChildren[name] = child
         return child
@@ -409,7 +409,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
         # FIXME: some way to roll this back.
 
-        c = self._newChildren[name] = self._childClass(temporary.basename(), self, realName=name)
+        c = self._newChildren[name] = self._childClass(temporary.basename(), self, True, realName=name)
         c.retrieveOldIndex().create()
         def do():
             childPath = self._path.child(name)
@@ -484,6 +484,20 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         self._transaction.addOperation(props.flush, "flush home properties")
         return props
 
+    def objectResourcesWithUID(self, uid, ignore_children=()):
+        """
+        Return all child object resources with the specified UID, ignoring any in the
+        named child collections. The file implementation just iterates all child collections.
+        """
+        results = []
+        for child in self.children():
+            if child.name() in ignore_children:
+                continue
+            object = child.objectResourceWithUID(uid)
+            if object:
+                results.append(object)
+        return results
+
     def quotaUsedBytes(self):
 
         try:
@@ -534,7 +548,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
     _objectResourceClass = None
 
-    def __init__(self, name, home, realName=None):
+    def __init__(self, name, home, owned, realName=None):
         """
         Initialize an home child pointing at a path on disk.
 
@@ -551,6 +565,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         """
         self._name = name
         self._home = home
+        self._owned = owned
         self._transaction = home._transaction
         self._newObjectResources = {}
         self._cachedObjectResources = {}
@@ -568,8 +583,8 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
 
     @classmethod
-    def objectWithName(cls, home, name):
-        return cls(name, home) if home._path.child(name).isdir() else None
+    def objectWithName(cls, home, name, owned):
+        return cls(name, home, owned) if home._path.child(name).isdir() else None
 
     @property
     def _path(self):
@@ -715,16 +730,11 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
 
     def objectResourceWithUID(self, uid):
-        # FIXME: This _really_ needs to be inspecting an index, not parsing
-        # every resource.
-        for objectResourcePath in self._path.children():
-            if not isValidName(objectResourcePath.basename()):
-                continue
-            obj = self._objectResourceClass(objectResourcePath.basename(), self)
-            if obj.component().resourceUID() == uid:
-                if obj.name() in self._removedObjectResources:
-                    return None
-                return obj
+        rname = self.retrieveOldIndex().resourceNameForUID(uid)
+        if rname and rname not in self._removedObjectResources:
+            return self.objectResourceWithName(rname)
+        
+        return None
 
 
     @writeOperation

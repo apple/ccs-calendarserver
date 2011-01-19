@@ -286,6 +286,7 @@ class CommonHome(LoggingMixIn):
     _childClass = None
     _childTable = None
     _bindTable = None
+    _objectBindTable = None
     _notifierPrefix = None
     _revisionsTable = None
     _notificationRevisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
@@ -665,6 +666,36 @@ class CommonHome(LoggingMixIn):
 
 
     @inlineCallbacks
+    def objectResourcesWithUID(self, uid, ignore_children=()):
+        """
+        Return all child object resources with the specified UID, ignoring any in the
+        named child collections. The file implementation just iterates all child collections.
+        """
+        
+        results = []
+        rows = (yield self._txn.execSQL("""
+            select %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s, %(OBJECT:column_RESOURCE_ID)s
+            from %(OBJECT:name)s
+            left outer join %(BIND:name)s on (
+              %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
+            )
+            where
+             %(OBJECT:column_UID)s = %%s and
+             %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s
+            """ % self._objectBindTable,
+            [uid, self._resourceID,]
+        ))
+
+        if rows:
+            childID, objectID = rows[0]
+            child = (yield self.childWithID(childID))
+            if child and child.name() not in ignore_children:
+                objectResource = (yield child.objectResourceWithID(objectID))
+                results.append(objectResource)
+        
+        returnValue(results)
+
+    @inlineCallbacks
     def quotaUsedBytes(self):
         
         if self._quotaUsedBytes is None:
@@ -749,10 +780,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     _revisionsBindTable = None
     _objectTable = None
 
-    def __init__(self, home, name, resourceID):
+    def __init__(self, home, name, resourceID, owned):
         self._home = home
         self._name = name
         self._resourceID = resourceID
+        self._owned = owned
         self._created = None
         self._modified = None
         self._objects = {}
@@ -860,7 +892,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         
         # Create the actual objects merging in properties
         for resource_id, resource_name, created, modified in dataRows:
-            child = cls(home, resource_name, resource_id)
+            child = cls(home, resource_name, resource_id, owned)
             child._created = created
             child._modified = modified
             child._syncTokenRevision = revisions[resource_id]
@@ -915,7 +947,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         if not data:
             returnValue(None)
         resourceID = data[0][0]
-        child = cls(home, name, resourceID)
+        child = cls(home, name, resourceID, owned)
         yield child.initFromStore()
         returnValue(child)
 
@@ -933,7 +965,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         """
 
         data = yield home._txn.execSQL("""
-            select %(column_RESOURCE_NAME)s from %(name)s
+            select %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s from %(name)s
             where
               %(column_RESOURCE_ID)s = %%s and
               %(column_HOME_RESOURCE_ID)s = %%s
@@ -946,8 +978,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
         if not data:
             returnValue(None)
-        name = data[0][0]
-        child = cls(home, name, resourceID)
+        name, mode = data[0]
+        child = cls(home, name, resourceID, mode == _BIND_MODE_OWN)
         yield child.initFromStore()
         returnValue(child)
 
@@ -986,7 +1018,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         )
 
         # Initialize other state
-        child = cls(home, name, resourceID)
+        child = cls(home, name, resourceID, True)
         child._created = _created
         child._modified = _modified
         yield child._loadPropertyStore()

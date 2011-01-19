@@ -92,7 +92,7 @@ class AddressBook(CommonHomeChild):
     """
     implements(IAddressBook)
 
-    def __init__(self, name, addressbookHome, realName=None):
+    def __init__(self, name, addressbookHome, owned, realName=None):
         """
         Initialize an addressbook pointing at a path on disk.
 
@@ -108,7 +108,7 @@ class AddressBook(CommonHomeChild):
         @type realName: C{str}
         """
         
-        super(AddressBook, self).__init__(name, addressbookHome, realName=realName)
+        super(AddressBook, self).__init__(name, addressbookHome, owned, realName=realName)
 
         self._index = Index(self)
         self._invites = Invites(self)

@@ -50,7 +50,8 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
     ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE,\
     ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE,\
     ADDRESSBOOK_HOME_METADATA_TABLE, ADDRESSBOOK_AND_ADDRESSBOOK_BIND,\
-    ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE
+    ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE,\
+    ADDRESSBOOK_OBJECT_AND_BIND_TABLE
 from txdav.base.propertystore.base import PropertyName
 
 
@@ -63,6 +64,7 @@ class AddressBookHome(CommonHome):
     _homeMetaDataTable = ADDRESSBOOK_HOME_METADATA_TABLE
     _childTable = ADDRESSBOOK_TABLE
     _bindTable = ADDRESSBOOK_BIND_TABLE
+    _objectBindTable = ADDRESSBOOK_OBJECT_AND_BIND_TABLE
     _notifierPrefix = "CardDAV"
     _revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
 
@@ -99,7 +101,7 @@ class AddressBook(CommonHomeChild):
     _revisionsBindTable = ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE
     _objectTable = ADDRESSBOOK_OBJECT_TABLE
 
-    def __init__(self, home, name, resourceID):
+    def __init__(self, home, name, resourceID, owned):
         """
         Initialize an addressbook pointing at a path on disk.
 
@@ -115,7 +117,7 @@ class AddressBook(CommonHomeChild):
         @type realName: C{str}
         """
 
-        super(AddressBook, self).__init__(home, name, resourceID)
+        super(AddressBook, self).__init__(home, name, resourceID, owned)
 
         self._index = PostgresLegacyABIndexEmulator(self)
         self._invites = SQLLegacyAddressBookInvites(self)

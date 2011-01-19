@@ -128,6 +128,30 @@ class CalendarHome(CommonHome):
 
 
     @inlineCallbacks
+    def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
+        
+        objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
+        for objectResource in objectResources:
+            if ok_object and objectResource._path == ok_object._path:
+                continue
+            matched_type = "schedule" if objectResource.isScheduleObject else "calendar"
+            if type == "schedule" or matched_type == "schedule":
+                returnValue(True)
+            
+        returnValue(False)
+
+    @inlineCallbacks
+    def getCalendarResourcesForUID(self, uid, allow_shared=False):
+        
+        results = []
+        objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
+        for objectResource in objectResources:
+            if allow_shared or objectResource._parentCollection._owned:
+                results.append(objectResource)
+            
+        returnValue(results)
+
+    @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
         """
         Implement lookup with brute-force scanning.
@@ -169,7 +193,7 @@ class Calendar(CommonHomeChild):
     """
     implements(ICalendar)
 
-    def __init__(self, name, calendarHome, realName=None):
+    def __init__(self, name, calendarHome, owned, realName=None):
         """
         Initialize a calendar pointing at a path on disk.
 
@@ -184,7 +208,7 @@ class Calendar(CommonHomeChild):
         will eventually have on disk.
         @type realName: C{str}
         """
-        super(Calendar, self).__init__(name, calendarHome, realName=realName)
+        super(Calendar, self).__init__(name, calendarHome, owned, realName=realName)
 
         self._index = Index(self)
         self._invites = Invites(self)

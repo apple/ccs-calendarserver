@@ -718,6 +718,38 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_hasCalendarResourceUIDSomewhereElse(self):
+        """
+        L{ICalendar.calendarObjects} will enumerate the calendar objects present
+        in the filesystem, in name order, but skip those with hidden names.
+        """
+        home = yield self.homeUnderTest()
+        object = yield self.calendarObjectUnderTest()
+        result = (yield home.hasCalendarResourceUIDSomewhereElse("123", object, "schedule"))
+        self.assertFalse(result)
+
+        result = (yield home.hasCalendarResourceUIDSomewhereElse("uid1", object, "schedule"))
+        self.assertFalse(result)
+
+        result = (yield home.hasCalendarResourceUIDSomewhereElse("uid2", object, "schedule"))
+        self.assertTrue(result)
+
+
+    @inlineCallbacks
+    def test_getCalendarResourcesForUID(self):
+        """
+        L{ICalendar.calendarObjects} will enumerate the calendar objects present
+        in the filesystem, in name order, but skip those with hidden names.
+        """
+        home = yield self.homeUnderTest()
+        calendarObjects = (yield home.getCalendarResourcesForUID("123"))
+        self.assertEquals(len(calendarObjects), 0)
+
+        calendarObjects = (yield home.getCalendarResourcesForUID("uid1"))
+        self.assertEquals(len(calendarObjects), 1)
+
+
+    @inlineCallbacks
     def test_calendarObjectName(self):
         """
         L{ICalendarObject.name} reflects the name of the calendar object.
