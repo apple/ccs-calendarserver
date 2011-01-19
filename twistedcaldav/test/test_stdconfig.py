@@ -142,3 +142,10 @@ class ConfigParsingTests(TestCase):
         cfg.load(tempfile1.path)
         self.assertEquals(cfg.DocumentRoot, "/root/defaultdoc")
         self.assertEquals(cfg.DataRoot, "/root/overridedata")
+
+    def test_updateDataStore(self):
+        configDict = {
+            "ServerRoot" : "/a/b/c/",
+        }
+        _updateDataStore(configDict)
+        self.assertEquals(configDict["ServerRoot"], "/a/b/c")

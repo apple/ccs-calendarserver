@@ -714,6 +714,13 @@ def _updateDataStore(configDict):
     Post-update configuration hook for making all configured paths relative to
     their respective root directories rather than the current working directory.
     """
+
+    # Remove possible trailing slash from ServerRoot
+    try:
+        configDict["ServerRoot"] = configDict["ServerRoot"].rstrip("/")
+    except KeyError:
+        pass
+
     for root, relativePath in RELATIVE_PATHS:
         if root in configDict:
             if isinstance(relativePath, str):
