@@ -63,7 +63,7 @@ function start() {
   PIDDIR=$SOURCE/$($EXTRACT $CONF ServerRoot)/$($EXTRACT $CONF RunRoot)
 
   shift
-  ./run -d -n $*
+  ./run -d $*
   while sleep 2; do
     instances=($PIDDIR/*instance*)
     if [ "${#instances[*]}" -eq "$NUM_INSTANCES" ]; then
