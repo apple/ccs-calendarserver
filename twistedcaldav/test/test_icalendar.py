@@ -124,6 +124,8 @@ END:VCALENDAR
 
         # Fix it
         calendar.validateComponentsForCalDAV(False, fix=True)
+        self.assertTrue("RRULE:FREQ=DAILY;UNTIL=20110121T203000Z\r\n"
+            in str(calendar))
 
         # Now it should pass without fixing
         calendar.validateComponentsForCalDAV(False, fix=False)
@@ -167,6 +169,7 @@ END:VCALENDAR
 
         # Fix it
         calendar.validateComponentsForCalDAV(False, fix=True)
+        self.assertTrue("RRULE:FREQ=DAILY;UNTIL=20110131\r\n" in str(calendar))
 
         # Now it should pass without fixing
         calendar.validateComponentsForCalDAV(False, fix=False)

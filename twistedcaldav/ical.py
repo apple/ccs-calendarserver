@@ -1377,30 +1377,26 @@ class Component (object):
                     subcomponent.hasProperty("RRULE")):
                     dtValue = subcomponent.propertyNativeValue("DTSTART")
                     dtType = type(dtValue)
+                    # Using properties("RRULE") rather than getRRuleSet() here
+                    # because the dateutil rrule's _until values are datetime
+                    # even if the UNTIL is a date (and therefore we can't
+                    # check validity without doing the following):
                     for rrule in subcomponent.properties("RRULE"):
                         indexedTokens = {}
                         indexedTokens.update([valuePart.split("=")
                             for valuePart in rrule.value().split(";")])
                         until = indexedTokens.get("UNTIL", None)
-                        # FIXME: can "until" ever be anything but a unicode?
                         if until:
                             untilType = datetime.date if len(until) == 8 else datetime.datetime
                             if untilType is not dtType:
                                 msg = "Calendar resources must have matching type for DTSTART and UNTIL"
                                 log.debug(msg)
                                 if fix:
-                                    log.debug("Fixing mismatch")
-                                    if dtType is datetime.datetime:
-                                        # TODO: does this need to be smarter?
-                                        indexedTokens["UNTIL"] = "%sT000000" % (until,)
-                                    else:
-                                        # TODO: does this need to be smarter?
-                                        # It's just stripping off the time.
-                                        indexedTokens["UNTIL"] = until[:8]
-
-                                    # Update rrule
-                                    newValue = u";".join(["%s=%s" % (k,v) for k,v in indexedTokens.iteritems()])
-                                    rrule.setValue(newValue)
+                                    rrules = subcomponent.getRRuleSet()
+                                    if rrules:
+                                        log.debug("Fixing mismatch")
+                                        # vobject fixes DTSTART/UNTIL mismatches
+                                        subcomponent.setRRuleSet(rrules)
                                 else:
                                     raise InvalidICalendarDataError(msg)
 
