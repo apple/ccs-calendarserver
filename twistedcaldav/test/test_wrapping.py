@@ -22,7 +22,7 @@ Tests for the interaction between model-level and protocol-level logic.
 from twext.web2.server import Request
 from twext.web2.responsecode import UNAUTHORIZED
 from twext.web2.http_headers import Headers
-from txdav.idav import AlreadyFinishedError, IDataStore
+from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from twext.web2.dav import davxml
 from twistedcaldav.config import config
@@ -37,6 +37,7 @@ from twistedcaldav.storebridge import DropboxCollection,\
 
 from twistedcaldav.test.util import TestCase
 
+from txdav.idav import IDataStore
 from txdav.caldav.datastore.test.test_file import event4_text
 
 from txdav.carddav.datastore.test.test_file import vcard4_text

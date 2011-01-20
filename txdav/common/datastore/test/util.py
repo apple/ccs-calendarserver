@@ -37,7 +37,7 @@ from txdav.common.datastore.sql import CommonDataStore, v1_schema
 from txdav.base.datastore.subpostgres import PostgresService
 from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
 from txdav.common.icommondatastore import NoSuchHomeChildError
-from txdav.base.datastore.asyncsqlpool import ConnectionPool
+from twext.enterprise.adbapi2 import ConnectionPool
 from twisted.internet.defer import returnValue
 from twistedcaldav.notify import Notifier
 

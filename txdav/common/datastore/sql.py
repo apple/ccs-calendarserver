@@ -57,6 +57,10 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 
+from twext.enterprise.dal.syntax import Parameter
+from twext.python.clsprop import classproperty
+from twext.enterprise.dal.syntax import Select
+
 from txdav.base.propertystore.sql import PropertyStore
 from txdav.base.propertystore.base import PropertyName
 
@@ -211,6 +215,7 @@ class CommonStoreTransaction(object):
         CommonStoreTransaction._homeClass[ECALENDARTYPE] = CalendarHome
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
         self._sqlTxn = sqlTxn
+        self.paramstyle = sqlTxn.paramstyle
 
 
     def store(self):
@@ -889,7 +894,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 ]
             ))
             revisions = dict(revisions)
-        
+
         # Create the actual objects merging in properties
         for resource_id, resource_name, created, modified in dataRows:
             child = cls(home, resource_name, resource_id, owned)
@@ -898,8 +903,46 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             child._syncTokenRevision = revisions[resource_id]
             yield child._loadPropertyStore(propertyStores.get(resource_id, None))
             results.append(child)
-        
         returnValue(results)
+
+
+    @classmethod
+    def _objectResourceLookup(cls, ownedPart):
+        """
+        Common portions of C{_ownedResourceIDByName}
+        C{_resourceIDSharedToHomeByName}, except for the 'owned' fragment of the
+        Where clause, supplied as an argument.
+        """
+        bind = cls._bindSchema
+        return Select(
+            [bind.RESOURCE_ID],
+            From=bind,
+            Where=(bind.RESOURCE_NAME == Parameter('objectName')).And(
+                   bind.HOME_RESOURCE_ID == Parameter('homeID')).And(
+                    ownedPart))
+
+
+    @classproperty
+    def _resourceIDOwnedByHomeByName(cls):
+        """
+        DAL query to look up an object resource ID owned by a home, given a
+        resource name (C{objectName}), and a home resource ID
+        (C{homeID}).
+        """
+        return cls._objectResourceLookup(
+            cls._bindSchema.BIND_MODE == _BIND_MODE_OWN)
+
+
+    @classproperty
+    def _resourceIDSharedToHomeByName(cls):
+        """
+        DAL query to look up an object resource ID shared to a home, given a
+        resource name (C{objectName}), and a home resource ID
+        (C{homeID}).
+        """
+        return cls._objectResourceLookup(
+            cls._bindSchema.BIND_MODE != _BIND_MODE_OWN)
+
 
     @classmethod
     @inlineCallbacks
@@ -911,45 +954,22 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         @param home: a L{CommonHome}.
         @param name: a string.
         @param owned: a boolean - whether or not to get a shared child
-        @return: an L{CommonHomChild} or C{None} if no such child
+        @return: an L{CommonHomeChild} or C{None} if no such child
             exists.
         """
-
         if owned:
-            data = yield home._txn.execSQL("""
-                select %(column_RESOURCE_ID)s from %(name)s
-                where
-                  %(column_RESOURCE_NAME)s = %%s and
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s = %%s
-                """ % cls._bindTable,
-                [
-                    name,
-                    home._resourceID,
-                    _BIND_MODE_OWN
-                ]
-            )
+            query = cls._resourceIDOwnedByHomeByName
         else:
-            data = yield home._txn.execSQL("""
-                select %(column_RESOURCE_ID)s from %(name)s
-                where
-                  %(column_RESOURCE_NAME)s = %%s and
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s != %%s
-                """ % cls._bindTable,
-                [
-                    name,
-                    home._resourceID,
-                    _BIND_MODE_OWN
-                ]
-            )
-
+            query = cls._resourceIDSharedToHomeByName
+        data = yield query.on(home._txn,
+                              objectName=name, homeID=home._resourceID)
         if not data:
             returnValue(None)
         resourceID = data[0][0]
         child = cls(home, name, resourceID, owned)
         yield child.initFromStore()
         returnValue(child)
+
 
     @classmethod
     @inlineCallbacks

@@ -170,7 +170,7 @@ DEFAULT_CONFIG = {
     "DBAMPFD"      : 0,    # Internally used by database to tell slave
                            # processes to inherit a file descriptor and use it
                            # as an AMP connection over a UNIX socket; see
-                           # txdav.base.datastore.asyncsqlpool.
+                           # twext.enterprise.adbapi2.ConnectionPoolConnection
 
     "SharedConnectionPool" : False, # Use a shared database connection pool in
                                     # the master process, rather than having

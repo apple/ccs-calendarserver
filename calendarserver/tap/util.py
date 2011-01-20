@@ -68,7 +68,7 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
-from txdav.base.datastore.asyncsqlpool import ConnectionPoolClient
+from twext.enterprise.adbapi2 import ConnectionPoolClient
 from txdav.base.datastore.dbapiclient import DBAPIConnector
 from txdav.base.datastore.dbapiclient import postgresPreflight
 from txdav.base.datastore.subpostgres import PostgresService

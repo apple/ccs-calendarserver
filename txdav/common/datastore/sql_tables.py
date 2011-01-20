@@ -19,174 +19,177 @@
 SQL Table definitions.
 """
 
-CALENDAR_HOME_TABLE = {
-    "name"                    : "CALENDAR_HOME",
-    "column_RESOURCE_ID"      : "RESOURCE_ID",
-    "column_OWNER_UID"        : "OWNER_UID",
-}
+from twisted.python.modules import getModule
+from twext.enterprise.dal.syntax import SchemaSyntax
+from twext.enterprise.dal.parseschema import schemaFromPath
 
-CALENDAR_HOME_METADATA_TABLE = {
-    "name"                    : "CALENDAR_HOME_METADATA",
-    "column_RESOURCE_ID"      : "RESOURCE_ID",
-    "column_QUOTA_USED_BYTES" : "QUOTA_USED_BYTES",
-}
 
-ADDRESSBOOK_HOME_TABLE = {
-    "name"                    : "ADDRESSBOOK_HOME",
-    "column_RESOURCE_ID"      : "RESOURCE_ID",
-    "column_OWNER_UID"        : "OWNER_UID",
-}
 
-ADDRESSBOOK_HOME_METADATA_TABLE = {
-    "name"                    : "ADDRESSBOOK_HOME_METADATA",
-    "column_RESOURCE_ID"      : "RESOURCE_ID",
-    "column_QUOTA_USED_BYTES" : "QUOTA_USED_BYTES",
-}
+def _populateSchema():
+    """
+    Generate the global L{SchemaSyntax}.
+    """
+    pathObj = getModule(__name__).filePath.sibling("sql_schema_v1.sql")
+    return SchemaSyntax(schemaFromPath(pathObj))
 
-NOTIFICATION_HOME_TABLE = {
-    "name"               : "NOTIFICATION_HOME",
-    "column_RESOURCE_ID" : "RESOURCE_ID",
-    "column_OWNER_UID"   : "OWNER_UID",
-}
 
-CALENDAR_TABLE = {
-    "name"               : "CALENDAR",
-    "column_RESOURCE_ID" : "RESOURCE_ID",
-    "column_CREATED"     : "CREATED",
-    "column_MODIFIED"    : "MODIFIED",
-}
 
-ADDRESSBOOK_TABLE = {
-    "name"               : "ADDRESSBOOK",
-    "column_RESOURCE_ID" : "RESOURCE_ID",
-    "column_CREATED"     : "CREATED",
-    "column_MODIFIED"    : "MODIFIED",
-}
+schema = _populateSchema()
 
-CALENDAR_BIND_TABLE = {
-    "name"                    : "CALENDAR_BIND",
-    "column_HOME_RESOURCE_ID" : "CALENDAR_HOME_RESOURCE_ID",
-    "column_RESOURCE_ID"      : "CALENDAR_RESOURCE_ID",
-    "column_RESOURCE_NAME"    : "CALENDAR_RESOURCE_NAME",
-    "column_BIND_MODE"        : "BIND_MODE",
-    "column_BIND_STATUS"      : "BIND_STATUS",
-    "column_SEEN_BY_OWNER"    : "SEEN_BY_OWNER",
-    "column_SEEN_BY_SHAREE"   : "SEEN_BY_SHAREE",
-    "column_MESSAGE"          : "MESSAGE",
-}
 
-ADDRESSBOOK_BIND_TABLE = {
-    "name"                    : "ADDRESSBOOK_BIND",
-    "column_HOME_RESOURCE_ID" : "ADDRESSBOOK_HOME_RESOURCE_ID",
-    "column_RESOURCE_ID"      : "ADDRESSBOOK_RESOURCE_ID",
-    "column_RESOURCE_NAME"    : "ADDRESSBOOK_RESOURCE_NAME",
-    "column_BIND_MODE"        : "BIND_MODE",
-    "column_BIND_STATUS"      : "BIND_STATUS",
-    "column_SEEN_BY_OWNER"    : "SEEN_BY_OWNER",
-    "column_SEEN_BY_SHAREE"   : "SEEN_BY_SHAREE",
-    "column_MESSAGE"          : "MESSAGE",
-}
+# Column aliases, defined so that similar tables (such as CALENDAR_OBJECT and
+# ADDRESSBOOK_OBJECT) can be used according to a polymorphic interface.
 
-CALENDAR_OBJECT_REVISIONS_TABLE = {
-    "name"                    : "CALENDAR_OBJECT_REVISIONS",
-    "sequence"                : "REVISION_SEQ",
-    "column_HOME_RESOURCE_ID" : "CALENDAR_HOME_RESOURCE_ID",
-    "column_RESOURCE_ID"      : "CALENDAR_RESOURCE_ID",
-    "column_COLLECTION_NAME"  : "CALENDAR_NAME",
-    "column_RESOURCE_NAME"    : "RESOURCE_NAME",
-    "column_REVISION"         : "REVISION",
-    "column_DELETED"          : "DELETED",
-}
+schema.CALENDAR_BIND.RESOURCE_NAME = \
+    schema.CALENDAR_BIND.CALENDAR_RESOURCE_NAME
+schema.CALENDAR_BIND.RESOURCE_ID = \
+    schema.CALENDAR_BIND.CALENDAR_RESOURCE_ID
+schema.CALENDAR_BIND.HOME_RESOURCE_ID = \
+    schema.CALENDAR_BIND.CALENDAR_HOME_RESOURCE_ID
+schema.ADDRESSBOOK_BIND.RESOURCE_NAME = \
+    schema.ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME
+schema.ADDRESSBOOK_BIND.RESOURCE_ID = \
+    schema.ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID
+schema.ADDRESSBOOK_BIND.HOME_RESOURCE_ID = \
+    schema.ADDRESSBOOK_BIND.ADDRESSBOOK_HOME_RESOURCE_ID
+schema.CALENDAR_OBJECT_REVISIONS.RESOURCE_ID = \
+    schema.CALENDAR_OBJECT_REVISIONS.CALENDAR_RESOURCE_ID
+schema.CALENDAR_OBJECT_REVISIONS.HOME_RESOURCE_ID = \
+    schema.CALENDAR_OBJECT_REVISIONS.CALENDAR_HOME_RESOURCE_ID
+schema.CALENDAR_OBJECT_REVISIONS.COLLECTION_NAME = \
+    schema.CALENDAR_OBJECT_REVISIONS.CALENDAR_NAME
+schema.ADDRESSBOOK_OBJECT_REVISIONS.RESOURCE_ID = \
+    schema.ADDRESSBOOK_OBJECT_REVISIONS.ADDRESSBOOK_RESOURCE_ID
+schema.ADDRESSBOOK_OBJECT_REVISIONS.HOME_RESOURCE_ID = \
+    schema.ADDRESSBOOK_OBJECT_REVISIONS.ADDRESSBOOK_HOME_RESOURCE_ID
+schema.ADDRESSBOOK_OBJECT_REVISIONS.COLLECTION_NAME = \
+    schema.ADDRESSBOOK_OBJECT_REVISIONS.ADDRESSBOOK_NAME
+schema.NOTIFICATION_OBJECT_REVISIONS.HOME_RESOURCE_ID = \
+    schema.NOTIFICATION_OBJECT_REVISIONS.NOTIFICATION_HOME_RESOURCE_ID
+schema.CALENDAR_OBJECT.TEXT = \
+    schema.CALENDAR_OBJECT.ICALENDAR_TEXT
+schema.CALENDAR_OBJECT.UID = \
+    schema.CALENDAR_OBJECT.ICALENDAR_UID
+schema.CALENDAR_OBJECT.PARENT_RESOURCE_ID = \
+    schema.CALENDAR_OBJECT.CALENDAR_RESOURCE_ID
+schema.ADDRESSBOOK_OBJECT.TEXT = \
+    schema.ADDRESSBOOK_OBJECT.VCARD_TEXT
+schema.ADDRESSBOOK_OBJECT.UID = \
+    schema.ADDRESSBOOK_OBJECT.VCARD_UID
+schema.ADDRESSBOOK_OBJECT.PARENT_RESOURCE_ID = \
+    schema.ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID
 
-ADDRESSBOOK_OBJECT_REVISIONS_TABLE = {
-    "name"                    : "ADDRESSBOOK_OBJECT_REVISIONS",
-    "sequence"                : "REVISION_SEQ",
-    "column_HOME_RESOURCE_ID" : "ADDRESSBOOK_HOME_RESOURCE_ID",
-    "column_RESOURCE_ID"      : "ADDRESSBOOK_RESOURCE_ID",
-    "column_COLLECTION_NAME"  : "ADDRESSBOOK_NAME",
-    "column_RESOURCE_NAME"    : "RESOURCE_NAME",
-    "column_REVISION"         : "REVISION",
-    "column_DELETED"          : "DELETED",
-}
 
-NOTIFICATION_OBJECT_REVISIONS_TABLE = {
-    "name"                    : "NOTIFICATION_OBJECT_REVISIONS",
-    "sequence"                : "REVISION_SEQ",
-    "column_HOME_RESOURCE_ID" : "NOTIFICATION_HOME_RESOURCE_ID",
-    "column_RESOURCE_NAME"    : "RESOURCE_NAME",
-    "column_REVISION"         : "REVISION",
-    "column_DELETED"          : "DELETED",
-}
 
-CALENDAR_OBJECT_TABLE = {
-    "name"                      : "CALENDAR_OBJECT",
-    "column_RESOURCE_ID"        : "RESOURCE_ID",
-    "column_PARENT_RESOURCE_ID" : "CALENDAR_RESOURCE_ID",
-    "column_RESOURCE_NAME"      : "RESOURCE_NAME",
-    "column_TEXT"               : "ICALENDAR_TEXT",
-    "column_UID"                : "ICALENDAR_UID",
-    "column_ATTACHMENTS_MODE"   : "ATTACHMENTS_MODE",
-    "column_DROPBOX_ID"         : "DROPBOX_ID",
-    "column_ACCESS"             : "ACCESS",
-    "column_SCHEDULE_OBJECT"    : "SCHEDULE_OBJECT",
-    "column_SCHEDULE_TAG"       : "SCHEDULE_TAG",
-    "column_SCHEDULE_ETAGS"     : "SCHEDULE_ETAGS",
-    "column_PRIVATE_COMMENTS"   : "PRIVATE_COMMENTS",
-    "column_MD5"                : "MD5",
-    "column_CREATED"            : "CREATED",
-    "column_MODIFIED"           : "MODIFIED",
-}
+def _combine(**kw):
+    """
+    Combine two table dictionaries used in a join to produce a single dictionary
+    that can be used in formatting.
+    """
+    result = {}
+    for tableRole, tableDictionary in kw.items():
+        result.update([("%s:%s" % (tableRole, k), v)
+                       for k,v in tableDictionary.items()])
+    return result
 
-ADDRESSBOOK_OBJECT_TABLE = {
-    "name"                      : "ADDRESSBOOK_OBJECT",
-    "column_RESOURCE_ID"        : "RESOURCE_ID",
-    "column_PARENT_RESOURCE_ID" : "ADDRESSBOOK_RESOURCE_ID",
-    "column_RESOURCE_NAME"      : "RESOURCE_NAME",
-    "column_TEXT"               : "VCARD_TEXT",
-    "column_UID"                : "VCARD_UID",
-    "column_MD5"                : "MD5",
-    "column_CREATED"            : "CREATED",
-    "column_MODIFIED"           : "MODIFIED",
-}
+
+
+def _S(tableSyntax):
+    """
+    Construct a dictionary of strings from a L{TableSyntax} for those queries
+    that are still constructed via string interpolation.
+    """
+    result = {}
+    result['name'] = tableSyntax.model.name
+    #pkey = tableSyntax.model.primaryKey
+    #if pkey is not None:
+    #    default = pkey.default
+    #    if isinstance(default, Sequence):
+    #        result['sequence'] = default.name
+    result['sequence'] = schema.model.sequenceNamed('REVISION_SEQ').name
+    for columnSyntax in tableSyntax:
+        result['column_' + columnSyntax.model.name] = columnSyntax.model.name
+    for alias, realColumnSyntax in tableSyntax.aliases().items():
+        result['column_' + alias] = realColumnSyntax.model.name
+    return result
+
+
+
+def _schemaConstants(nameColumn, valueColumn):
+    """
+    Get a constant value from the rows defined in the schema.
+    """
+    def get(name):
+        for row in nameColumn.model.table.schemaRows:
+            if row[nameColumn.model] == name:
+                return row[valueColumn.model]
+    return get
+
 
 
 # Various constants
 
-_BIND_STATUS_INVITED  = 0
-_BIND_STATUS_ACCEPTED = 1
-_BIND_STATUS_DECLINED = 2
-_BIND_STATUS_INVALID  = 3
+_bindStatus = _schemaConstants(
+    schema.CALENDAR_BIND_STATUS.DESCRIPTION,
+    schema.CALENDAR_BIND_STATUS.ID
+)
 
-_ATTACHMENTS_MODE_NONE  = 0
-_ATTACHMENTS_MODE_READ  = 1
-_ATTACHMENTS_MODE_WRITE = 2
+_BIND_STATUS_INVITED  = _bindStatus('invited')
+_BIND_STATUS_ACCEPTED = _bindStatus('accepted')
+_BIND_STATUS_DECLINED = _bindStatus('declined')
+_BIND_STATUS_INVALID  = _bindStatus('invalid')
 
-_BIND_MODE_OWN = 0
-_BIND_MODE_READ = 1
-_BIND_MODE_WRITE = 2
-_BIND_MODE_DIRECT = 3
+_attachmentsMode = _schemaConstants(
+    schema.CALENDAR_OBJECT_ATTACHMENTS_MODE.DESCRIPTION,
+    schema.CALENDAR_OBJECT_ATTACHMENTS_MODE.ID
+)
 
-# Some combined tables used in joins
-CALENDAR_AND_CALENDAR_BIND = {}
-CALENDAR_AND_CALENDAR_BIND.update([("CHILD:%s" % (k,), v) for k,v in CALENDAR_TABLE.items()])
-CALENDAR_AND_CALENDAR_BIND.update([("BIND:%s" % (k,), v) for k,v in CALENDAR_BIND_TABLE.items()])
+_ATTACHMENTS_MODE_NONE  = _attachmentsMode('none')
+_ATTACHMENTS_MODE_READ  = _attachmentsMode('read')
+_ATTACHMENTS_MODE_WRITE = _attachmentsMode('write')
 
-CALENDAR_OBJECT_AND_BIND_TABLE = {}
-CALENDAR_OBJECT_AND_BIND_TABLE.update([("OBJECT:%s" % (k,), v) for k,v in CALENDAR_OBJECT_TABLE.items()])
-CALENDAR_OBJECT_AND_BIND_TABLE.update([("BIND:%s" % (k,), v) for k,v in CALENDAR_BIND_TABLE.items()])
 
-CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE = {}
-CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE.update([("REV:%s" % (k,), v) for k,v in CALENDAR_OBJECT_REVISIONS_TABLE.items()])
-CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE.update([("BIND:%s" % (k,), v) for k,v in CALENDAR_BIND_TABLE.items()])
+_bindMode = _schemaConstants(
+    schema.CALENDAR_BIND_MODE.DESCRIPTION,
+    schema.CALENDAR_BIND_MODE.ID
+)
 
-ADDRESSBOOK_AND_ADDRESSBOOK_BIND = {}
-ADDRESSBOOK_AND_ADDRESSBOOK_BIND.update([("CHILD:%s" % (k,), v) for k,v in ADDRESSBOOK_TABLE.items()])
-ADDRESSBOOK_AND_ADDRESSBOOK_BIND.update([("BIND:%s" % (k,), v) for k,v in ADDRESSBOOK_BIND_TABLE.items()])
 
-ADDRESSBOOK_OBJECT_AND_BIND_TABLE = {}
-ADDRESSBOOK_OBJECT_AND_BIND_TABLE.update([("OBJECT:%s" % (k,), v) for k,v in ADDRESSBOOK_OBJECT_TABLE.items()])
-ADDRESSBOOK_OBJECT_AND_BIND_TABLE.update([("BIND:%s" % (k,), v) for k,v in ADDRESSBOOK_BIND_TABLE.items()])
+_BIND_MODE_OWN = _bindMode('own')
+_BIND_MODE_READ = _bindMode('read')
+_BIND_MODE_WRITE = _bindMode('write')
+_BIND_MODE_DIRECT = _bindMode('direct')
 
-ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE = {}
-ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE.update([("REV:%s" % (k,), v) for k,v in ADDRESSBOOK_OBJECT_REVISIONS_TABLE.items()])
-ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE.update([("BIND:%s" % (k,), v) for k,v in ADDRESSBOOK_BIND_TABLE.items()])
+
+# Compatibility tables for string formatting:
+CALENDAR_HOME_TABLE                 = _S(schema.CALENDAR_HOME)
+CALENDAR_HOME_METADATA_TABLE        = _S(schema.CALENDAR_HOME_METADATA)
+ADDRESSBOOK_HOME_TABLE              = _S(schema.ADDRESSBOOK_HOME)
+ADDRESSBOOK_HOME_METADATA_TABLE     = _S(schema.ADDRESSBOOK_HOME_METADATA)
+NOTIFICATION_HOME_TABLE             = _S(schema.NOTIFICATION_HOME)
+CALENDAR_TABLE                      = _S(schema.CALENDAR)
+ADDRESSBOOK_TABLE                   = _S(schema.ADDRESSBOOK)
+CALENDAR_BIND_TABLE                 = _S(schema.CALENDAR_BIND)
+ADDRESSBOOK_BIND_TABLE              = _S(schema.ADDRESSBOOK_BIND)
+CALENDAR_OBJECT_REVISIONS_TABLE     = _S(schema.CALENDAR_OBJECT_REVISIONS)
+ADDRESSBOOK_OBJECT_REVISIONS_TABLE  = _S(schema.ADDRESSBOOK_OBJECT_REVISIONS)
+NOTIFICATION_OBJECT_REVISIONS_TABLE = _S(schema.NOTIFICATION_OBJECT_REVISIONS)
+CALENDAR_OBJECT_TABLE               = _S(schema.CALENDAR_OBJECT)
+ADDRESSBOOK_OBJECT_TABLE            = _S(schema.ADDRESSBOOK_OBJECT)
+
+# Some combined tables used in join-string-formatting.
+CALENDAR_AND_CALENDAR_BIND = _combine(CHILD=CALENDAR_TABLE,
+                                     BIND=CALENDAR_BIND_TABLE)
+CALENDAR_OBJECT_AND_BIND_TABLE = _combine(OBJECT=CALENDAR_OBJECT_TABLE,
+                                         BIND=CALENDAR_BIND_TABLE)
+CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE = _combine(
+    REV=CALENDAR_OBJECT_REVISIONS_TABLE,
+    BIND=CALENDAR_BIND_TABLE)
+ADDRESSBOOK_AND_ADDRESSBOOK_BIND = _combine(CHILD=ADDRESSBOOK_TABLE,
+                                           BIND=ADDRESSBOOK_BIND_TABLE)
+ADDRESSBOOK_OBJECT_AND_BIND_TABLE = _combine(OBJECT=ADDRESSBOOK_OBJECT_TABLE,
+                                             BIND=ADDRESSBOOK_BIND_TABLE)
+ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE = _combine(
+    REV=ADDRESSBOOK_OBJECT_REVISIONS_TABLE,
+    BIND=ADDRESSBOOK_BIND_TABLE)
+

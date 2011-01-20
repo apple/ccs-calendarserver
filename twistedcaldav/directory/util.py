@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test.test_util -*-
 ##
 # Copyright (c) 2006-2007 Apple Inc. All rights reserved.
 #
@@ -22,7 +23,7 @@ __all__ = [
     "uuidFromName",
 ]
 
-from txdav.idav import AlreadyFinishedError
+from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from uuid import UUID, uuid5
 

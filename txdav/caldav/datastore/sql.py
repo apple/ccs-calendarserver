@@ -56,7 +56,7 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     _ATTACHMENTS_MODE_NONE, _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE,\
     CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE,\
     CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE,\
-    CALENDAR_OBJECT_AND_BIND_TABLE
+    CALENDAR_OBJECT_AND_BIND_TABLE, schema
 from txdav.common.icommondatastore import IndexedSearchException
 
 from vobject.icalendar import utc
@@ -175,6 +175,7 @@ class Calendar(CommonHomeChild):
     """
     implements(ICalendar)
 
+    _bindSchema = schema.CALENDAR_BIND
     _bindTable = CALENDAR_BIND_TABLE
     _homeChildTable = CALENDAR_TABLE
     _homeChildBindTable = CALENDAR_AND_CALENDAR_BIND

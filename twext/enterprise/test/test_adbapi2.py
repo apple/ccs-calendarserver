@@ -1,4 +1,3 @@
-# -*- test-case-name: txdav.caldav.datastore -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -16,14 +15,16 @@
 ##
 
 """
-Tests for L{txdav.base.datastore.asyncsqlpool}.
+Tests for L{twext.enterprise.adbapi2}.
 """
 
 from itertools import count
+
 from twisted.trial.unittest import TestCase
 
-from txdav.base.datastore.asyncsqlpool import ConnectionPool
 from twisted.internet.defer import inlineCallbacks
+
+from twext.enterprise.adbapi2 import ConnectionPool
 
 
 class Child(object):

@@ -570,9 +570,9 @@ dependencies () {
   # they are useful to developers.
   #
 
-  py_dependency -v 0.1.1 -m "000053e0352f5bf19c2f8d5242329ea4" \
-    "SQLParse" "sqlparse" "sqlparse-0.1.1" \
-    "http://python-sqlparse.googlecode.com/files/sqlparse-0.1.1.tar.gz";
+  py_dependency -v 0.1.2 -m "aa9852ad81822723adcd9f96838de14e" \
+    "SQLParse" "sqlparse" "sqlparse-0.1.2" \
+    "http://python-sqlparse.googlecode.com/files/sqlparse-0.1.2.tar.gz";
 
   py_dependency -v 0.4.0 -m "630a72510aae8758f48cf60e4fa17176" \
     "Pyflakes" "pyflakes" "pyflakes-0.4.0" \

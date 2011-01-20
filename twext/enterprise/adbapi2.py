@@ -1,4 +1,4 @@
-# -*- test-case-name: txdav.caldav.datastore -*-
+# -*- test-case-name: twext.enterprise.test. -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -17,6 +17,16 @@
 
 """
 Asynchronous multi-process connection pool.
+
+This is similar to L{twisted.enterprise.adbapi}, but can hold a transaction (and
+thereby a thread) open across multiple asynchronous operations, rather than
+forcing the transaction to be completed entirely in a thread and/or entirely in
+a single SQL statement.
+
+Also, this module includes an AMP protocol for multiplexing connections through
+a single choke-point host.  This is not currently in use, however, as AMP needs
+some optimization before it can be low-impact enough for this to be an
+improvement.
 """
 
 import sys
@@ -29,20 +39,24 @@ from zope.interface import implements
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.defer import returnValue
-from txdav.idav import IAsyncTransaction
 from twisted.internet.defer import Deferred
 from twisted.protocols.amp import Boolean
 from twisted.python.failure import Failure
 from twisted.protocols.amp import Argument, String, Command, AMP, Integer
 from twisted.internet import reactor as _reactor
 from twisted.application.service import Service
-from txdav.base.datastore.threadutils import ThreadHolder
-from txdav.idav import AlreadyFinishedError
 from twisted.python import log
 from twisted.internet.defer import maybeDeferred
 from twisted.python.components import proxyForInterface
 
+from twext.internet.threadutils import ThreadHolder
+from twext.enterprise.ienterprise import AlreadyFinishedError, IAsyncTransaction
 
+
+# FIXME: there should be no default, it should be discovered dynamically
+# everywhere.  Right now we're only using pgdb so we only support that.
+
+DEFAULT_PARAM_STYLE = 'pyformat'
 
 class BaseSqlTxn(object):
     """
@@ -50,6 +64,9 @@ class BaseSqlTxn(object):
     current process.
     """
     implements(IAsyncTransaction)
+
+    # FIXME: this should *really* be 
+    paramstyle = DEFAULT_PARAM_STYLE
 
     def __init__(self, connectionFactory, reactor=_reactor):
         """
@@ -171,6 +188,11 @@ class SpooledTxn(object):
     """
 
     implements(IAsyncTransaction)
+
+    # FIXME: this should be relayed from the connection factory of the thing
+    # creating the spooled transaction.
+
+    paramstyle = DEFAULT_PARAM_STYLE
 
     def __init__(self):
         self._spool = []
@@ -606,13 +628,16 @@ class _Query(object):
 
 
 
-
 class Transaction(object):
     """
     Async protocol-based transaction implementation.
     """
 
     implements(IAsyncTransaction)
+
+    # FIXME: this needs to come from the other end of the wire.
+
+    paramstyle = DEFAULT_PARAM_STYLE
 
     def __init__(self, client, transactionID):
         """
