@@ -42,7 +42,7 @@ from twext.python.vcomponent import VComponent
 from twext.web2.dav import davxml
 from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
-from twext.web2.http_headers import generateContentType
+from twext.web2.http_headers import generateContentType, MimeType
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
@@ -252,6 +252,12 @@ class Calendar(CommonHomeChild):
             ),
         )
 
+    def contentType(self):
+        """
+        The content type of Calendar objects is text/calendar.
+        """
+        return MimeType.fromString("text/calendar; charset=utf-8")
+
 
 
 class CalendarObject(CommonObjectResource):
@@ -266,13 +272,12 @@ class CalendarObject(CommonObjectResource):
         super(CalendarObject, self).__init__(name, calendar)
         self._attachments = {}
         
-        if metadata is None:
-            metadata = {}
-        self.accessMode = metadata.get("accessMode", "")
-        self.isScheduleObject = metadata.get("isScheduleObject", False)
-        self.scheduleTag = metadata.get("scheduleTag", "")
-        self.scheduleEtags = metadata.get("scheduleEtags", "")
-        self.hasPrivateComment = metadata.get("hasPrivateComment", False)
+        if metadata is not None:
+            self.accessMode = metadata.get("accessMode", "")
+            self.isScheduleObject = metadata.get("isScheduleObject", False)
+            self.scheduleTag = metadata.get("scheduleTag", "")
+            self.scheduleEtags = metadata.get("scheduleEtags", "")
+            self.hasPrivateComment = metadata.get("hasPrivateComment", False)
 
 
     @property
@@ -516,7 +521,6 @@ class CalendarObject(CommonObjectResource):
             returnValue(None)
 
 
-    @inlineCallbacks
     def attendeesCanManageAttachments(self):
         return self.component().hasPropertyInAnyComponent("X-APPLE-DROPBOX")
 
@@ -562,6 +566,13 @@ class CalendarObject(CommonObjectResource):
                 PropertyName.fromElement(customxml.ScheduleChanges),
             ),
         )
+
+    # IDataStoreResource
+    def contentType(self):
+        """
+        The content type of Calendar objects is text/calendar.
+        """
+        return MimeType.fromString("text/calendar; charset=utf-8")
 
 
 

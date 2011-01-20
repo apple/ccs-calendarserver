@@ -31,6 +31,7 @@ from errno import ENOENT
 
 from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
+from twext.web2.http_headers import MimeType
 
 from twisted.python import hashlib
 
@@ -146,6 +147,11 @@ class AddressBook(CommonHomeChild):
     def _doValidate(self, component):
         component.validForCardDAV()
 
+    def contentType(self):
+        """
+        The content type of Addresbook objects is text/vcard.
+        """
+        return MimeType.fromString("text/vcard; charset=utf-8")
 
 class AddressBookObject(CommonObjectResource):
     """
@@ -269,6 +275,12 @@ class AddressBookObject(CommonObjectResource):
             self._uid = self.component().resourceUID()
         return self._uid
 
+    # IDataStoreResource
+    def contentType(self):
+        """
+        The content type of Addressbook objects is text/x-vcard.
+        """
+        return MimeType.fromString("text/vcard; charset=utf-8")
 
 class AddressBookStubResource(CommonStubResource):
     """
