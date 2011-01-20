@@ -296,18 +296,51 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def test_eventsOlderThan(self):
         cutoff = datetime.datetime(2010, 4, 1)
-        results = (yield self._sqlCalendarStore.eventsOlderThan(cutoff))
-        import types
-        self.assertEquals(types.GeneratorType, type(results))
-        results = list(results)
-        self.assertEquals(set(results),
-            set([
-                ('home2', 'calendar2', 'recent.ics', '2010-03-04 22:15:00'),
-                ('home1', 'calendar1', 'old.ics', '2000-03-07 23:15:00'),
-                ('home2', 'calendar3', 'repeating_awhile.ics', '2002-03-09 23:15:00'),
-            ])
+        txn = self._sqlCalendarStore.newTransaction()
+
+        # Query for all old events
+        results = (yield txn.eventsOlderThan(cutoff))
+        self.assertEquals(results,
+            [
+                ['home1', 'calendar1', 'old.ics', '2000-03-07 23:15:00'],
+                ['home2', 'calendar3', 'repeating_awhile.ics', '2002-03-09 23:15:00'],
+                ['home2', 'calendar2', 'recent.ics', '2010-03-04 22:15:00'],
+            ]
         )
 
+        # Query for oldest event
+        results = (yield txn.eventsOlderThan(cutoff, batchSize=1))
+        self.assertEquals(results,
+            [
+                ['home1', 'calendar1', 'old.ics', '2000-03-07 23:15:00'],
+            ]
+        )
+
+    @inlineCallbacks
+    def test_removeOldEvents(self):
+        cutoff = datetime.datetime(2010, 4, 1)
+        txn = self._sqlCalendarStore.newTransaction()
+
+        # Remove oldest event
+        count = (yield txn.removeOldEvents(cutoff, batchSize=1))
+        self.assertEquals(count, 1)
+        results = (yield txn.eventsOlderThan(cutoff))
+        self.assertEquals(results,
+            [
+                ['home2', 'calendar3', 'repeating_awhile.ics', '2002-03-09 23:15:00'],
+                ['home2', 'calendar2', 'recent.ics', '2010-03-04 22:15:00'],
+            ]
+        )
+
+        # Remove remaining oldest events
+        count = (yield txn.removeOldEvents(cutoff))
+        self.assertEquals(count, 2)
+        results = (yield txn.eventsOlderThan(cutoff))
+        self.assertEquals(results, [ ])
+
+        # Remove oldest events (none left)
+        count = (yield txn.removeOldEvents(cutoff))
+        self.assertEquals(count, 0)
 
     @inlineCallbacks
     def test_purgeOldEvents(self):
@@ -324,9 +357,22 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
         rootResource = getRootResource(config, self._sqlCalendarStore)
         directory = rootResource.getDirectory()
+
+        # Dry run
         total = (yield purgeOldEvents(self._sqlCalendarStore, directory,
-            rootResource, datetime.datetime(2010, 4, 1)))
+            rootResource, datetime.datetime(2010, 4, 1), 2, dryrun=True,
+            verbose=False))
         self.assertEquals(total, 3)
+
+        # Actually remove
+        total = (yield purgeOldEvents(self._sqlCalendarStore, directory,
+            rootResource, datetime.datetime(2010, 4, 1), 2, verbose=False))
+        self.assertEquals(total, 3)
+
+        # There should be no more left
+        total = (yield purgeOldEvents(self._sqlCalendarStore, directory,
+            rootResource, datetime.datetime(2010, 4, 1), 2, verbose=False))
+        self.assertEquals(total, 0)
 
     @inlineCallbacks
     def test_purgeGUID(self):

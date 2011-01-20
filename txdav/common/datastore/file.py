@@ -145,10 +145,6 @@ class CommonDataStore(DataStore):
     def eachAddressbookHome(self):
         return self._homesOfType(EADDRESSBOOKTYPE)
 
-    def eventsOlderThan(self, cutoff):
-        """ Not implemented for file """
-        return succeed([])
-
 
 class CommonStoreTransaction(DataStoreTransaction):
     """

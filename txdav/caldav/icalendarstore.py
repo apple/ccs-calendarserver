@@ -78,18 +78,6 @@ class ICalendarStore(IDataStore):
             home} is an L{ICalendarHome} provider.
         """
 
-    def eventsOlderThan(self, cutoff):
-        """
-        Query the data store for all events which exist *completely* earlier
-        then the cutoff datetime
-
-        @param cutoff: Any events which have any instances more recent than
-        this are not returned.  All others are returned.
-        @type cutoff: C{datetime.datetime}
-
-        @return: a deferred returning a generator of tuples of the form:
-        (calendar_home_name, calendar_name, event_name, latest_date_string).
-        """
 
 #
 # Interfaces

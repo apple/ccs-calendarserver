@@ -51,6 +51,7 @@ def usage_purge_events(e=None):
     print ""
     print "options:"
     print "  -d --days <number>: specify how many days in the past to retain (default=365)"
+    print "  -b --batch <number>: number of events to remove in each transaction (default=100)"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -h --help: print this help and exit"
     print "  -n --dry-run: only calculate how many events to purge"
@@ -87,6 +88,7 @@ def usage_purge_principal(e=None):
 class PurgeOldEventsService(Service):
 
     cutoff = None
+    batchSize = None
     dryrun = False
     verbose = False
 
@@ -99,16 +101,8 @@ class PurgeOldEventsService(Service):
             rootResource = getRootResource(config, self._store)
             directory = rootResource.getDirectory()
             total = (yield purgeOldEvents(self._store, directory, rootResource,
-                self.cutoff, verbose=self.verbose, dryrun=self.dryrun))
-            if self.verbose:
-                if total:
-                    amount = "%d event%s" % (total, "s" if total > 1 else "")
-                    if self.dryrun:
-                        print "Would have deleted %s" % (amount,)
-                    else:
-                        print "Deleted %s" % (amount,)
-                else:
-                    print "No old events found"
+                self.cutoff, self.batchSize, verbose=self.verbose,
+                dryrun=self.dryrun))
         except Exception, e:
             print "Error:", e
             raise
@@ -171,8 +165,9 @@ def main_purge_events():
 
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "d:f:hnv", [
+            sys.argv[1:], "d:b:f:hnv", [
                 "days=",
+                "batch=",
                 "dry-run",
                 "config=",
                 "help",
@@ -187,6 +182,7 @@ def main_purge_events():
     #
     configFileName = None
     days = 365
+    batchSize = 100
     dryrun = False
     verbose = False
 
@@ -199,6 +195,13 @@ def main_purge_events():
                 days = int(arg)
             except ValueError, e:
                 print "Invalid value for --days: %s" % (arg,)
+                usage_purge_events(e)
+
+        elif opt in ("-b", "--batch"):
+            try:
+                batchSize = int(arg)
+            except ValueError, e:
+                print "Invalid value for --batch: %s" % (arg,)
                 usage_purge_events(e)
 
         elif opt in ("-v", "--verbose"):
@@ -216,8 +219,12 @@ def main_purge_events():
     if args:
         usage_purge_events("Too many arguments: %s" % (args,))
 
+    if dryrun:
+        verbose = True
+
     cutoff = (date.today()-timedelta(days=days)).strftime("%Y%m%dT000000Z")
     PurgeOldEventsService.cutoff = cutoff
+    PurgeOldEventsService.batchSize = batchSize
     PurgeOldEventsService.dryrun = dryrun
     PurgeOldEventsService.verbose = verbose
 
@@ -291,13 +298,51 @@ def callThenStop(method, *args, **kwds):
 
 
 @inlineCallbacks
-def purgeOldEvents(store, directory, root, date, verbose=False, dryrun=False):
+def purgeOldEvents(store, directory, root, date, batchSize, verbose=False,
+    dryrun=False):
 
     if dryrun:
-        print "Dry run"
+        if verbose:
+            print "(Dry run) Searching for old events..."
+        txn = store.newTransaction(label="Find old events")
+        oldEvents = (yield txn.eventsOlderThan(date))
+        eventCount = len(oldEvents)
+        if verbose:
+            if eventCount == 0:
+                print "No events are older than %s" % (date,)
+            elif eventCount == 1:
+                print "1 event is older than %s" % (date,)
+            else:
+                print "%d events are older than %s" % (eventCount, date)
+        returnValue(eventCount)
 
     if verbose:
-        print "Querying database for old events..."
+        print "Removing events older than %s..." % (date,)
+
+    numEventsRemoved = -1
+    totalRemoved = 0
+    while numEventsRemoved:
+        txn = store.newTransaction(label="Remove old events")
+        numEventsRemoved = (yield txn.removeOldEvents(date, batchSize=batchSize))
+        (yield txn.commit())
+        if numEventsRemoved:
+            totalRemoved += numEventsRemoved
+            if verbose:
+                print "%d," % (totalRemoved,),
+
+    if verbose:
+        print
+        if totalRemoved == 0:
+            print "No events were removed"
+        elif totalRemoved == 1:
+            print "1 event was removed in total"
+        else:
+            print "%d events were removed in total" % (totalRemoved,)
+
+    returnValue(totalRemoved)
+
+
+    """
 
     oldEvents = (yield store.eventsOlderThan(date))
 
@@ -360,6 +405,7 @@ def purgeOldEvents(store, directory, root, date, verbose=False, dryrun=False):
 
     returnValue(eventCount)
 
+    """
 
 
 
