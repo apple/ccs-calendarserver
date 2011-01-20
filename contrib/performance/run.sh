@@ -16,4 +16,4 @@
 # limitations under the License.
 ##
 
-PYTHONPATH=$PYTHONPATH:~/Projects/CalendarServer/Twisted "$@"
+PYTHONPATH=$PYTHONPATH:~/Projects/CalendarServer/Twisted:~/Projects/CalDAVClientLibrary/trunk/src "$@"
