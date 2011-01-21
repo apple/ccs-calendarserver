@@ -50,6 +50,9 @@ class StringProducer(object):
     implements(IBodyProducer)
 
     def __init__(self, body):
+        if not isinstance(body, str):
+            raise TypeError(
+                "StringProducer body must be str, not %r" % (type(body),))
         self._body = body
         self.length = len(self._body)
 

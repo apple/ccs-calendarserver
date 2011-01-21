@@ -24,6 +24,7 @@ from itertools import izip
 
 from stats import mean, median, stddev, mad
 from loadtest.ical import SnowLeopard, RequestLogger
+from loadtest.profiles import Inviter
 
 
 class PopulationParameters(object):
@@ -83,10 +84,15 @@ class CalendarClientSimulator(object):
         self._user = 1
 
 
-    def _nextUser(self):
-        from urllib2 import HTTPDigestAuthHandler
-        user = "user%02d" % (self._user,)
+    def _nextUserNumber(self):
+        result = self._user
         self._user += 1
+        return self._user
+
+
+    def _createUser(self, number):
+        from urllib2 import HTTPDigestAuthHandler
+        user = "user%02d" % (number,)
         auth = HTTPDigestAuthHandler()
         auth.add_password(
             realm="Test Realm",
@@ -98,9 +104,11 @@ class CalendarClientSimulator(object):
 
     def add(self, numClients):
         for n in range(numClients):
-            user, auth = self._nextUser()
+            number = self._nextUserNumber()
+            user, auth = self._createUser(number)
             client = self._pop.next()(self.reactor, self.host, self.port, user, auth)
             client.run()
+            Inviter(self.reactor, client, number).run()
         print 'Now running', self._user, 'clients.'
 
 
@@ -188,6 +196,9 @@ def main():
     from twisted.internet import reactor
     from twisted.internet.task import LoopingCall
     from twisted.python.log import addObserver
+
+    from twisted.python.failure import startDebugMode
+    startDebugMode()
 
     report = ReportStatistics()
     addObserver(SimpleStatistics().observe)

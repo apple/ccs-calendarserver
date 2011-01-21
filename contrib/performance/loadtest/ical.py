@@ -15,18 +15,23 @@
 #
 ##
 
+from uuid import uuid4
 from operator import getitem
-from pprint import pprint
+from pprint import pformat
+from datetime import datetime
 
 from xml.etree import ElementTree
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
+
+from vobject import readComponents
+from vobject.icalendar import dateTimeToString
 
 from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.http_headers import Headers
-from twisted.web.http import OK, MULTI_STATUS
+from twisted.web.http import OK, MULTI_STATUS, NO_CONTENT
 from twisted.web.client import Agent
 
 from protocol.webdav.propfindparser import PropFindParser
@@ -45,9 +50,11 @@ SUPPORTED_REPORT_SET = '{DAV:}supported-report-set'
 
 
 class Event(object):
-    def __init__(self, url, etag):
+    def __init__(self, url, etag, vevent=None):
         self.url = url
         self.etag = etag
+        self.vevent = vevent
+
 
 
 class Calendar(object):
@@ -59,7 +66,13 @@ class Calendar(object):
 
 
 
-class SnowLeopard(object):
+class BaseClient(object):
+    def addEventAttendee(self, href, attendee):
+        raise NotImplementedError("%r does not implement addEventAttendee" % (self.__class__,))
+
+
+
+class SnowLeopard(BaseClient):
     """
     Implementation of the SnowLeopard iCal network behavior.
 
@@ -84,6 +97,10 @@ class SnowLeopard(object):
     _CALENDAR_PROPFIND = loadRequestBody('sl_calendar_propfind')
     _CALENDAR_REPORT = loadRequestBody('sl_calendar_report')
 
+    _USER_LIST_PRINCIPAL_PROPERTY_SEARCH = loadRequestBody('sl_user_list_principal_property_search')
+    _POST_AVAILABILITY = loadRequestBody('sl_post_availability')
+
+    email = None
 
     def __init__(self, reactor, host, port, user, auth):
         self.reactor = reactor
@@ -102,9 +119,11 @@ class SnowLeopard(object):
         self._events = {}
 
 
-    def _request(self, expectedResponseCode, method, url, headers, body):
+    def _request(self, expectedResponseCode, method, url, headers=None, body=None):
+        if headers is None:
+            headers = Headers({})
         headers.setRawHeaders('User-Agent', [self.USER_AGENT])
-        msg(type="request", method=method, url=url)
+        msg(type="request", method=method, url=url, user=self.user)
         d = self.agent.request(method, url, headers, body)
         before = self.reactor.seconds()
         def report(response):
@@ -251,13 +270,20 @@ class SnowLeopard(object):
 
             if responseHref not in self._events:
                 self._events[responseHref] = Event(responseHref, None)
-
-            if self._events[responseHref].etag != etag:
+                
+            event = self._events[responseHref]
+            if event.etag != etag:
                 response = yield self._updateEvent(url, responseHref)
                 body = yield readBody(response)
-                res = self._parseMultiStatus(body)[responseHref]
-                etag = res.getTextProperties()[davxml.getetag]
-                self._events[responseHref].etag = etag
+                self.eventChanged(responseHref, body)
+
+
+    def eventChanged(self, href, body):
+        event = self._events[href]
+        res = self._parseMultiStatus(body)[href]
+        text = res.getTextProperties()
+        event.etag = text[davxml.getetag]
+        event.vevent = list(readComponents(text[caldavxml.calendar_data]))[0]
 
                 
     def _updateEvent(self, calendar, event):
@@ -318,6 +344,14 @@ class SnowLeopard(object):
         principal = yield self._principalPropfind(self.user)
         hrefs = principal.getHrefProperties()
 
+        # Remember our own email-like principal address
+        for principalURL in hrefs[caldavxml.calendar_user_address_set]:
+            if principalURL.toString().startswith("mailto:"):
+                self.email = principalURL.toString()
+                break
+        if self.email is None:
+            raise ValueError("Cannot operate without a mail-style principal URL")
+
         # Do another kind of thing I guess
         principalCollection = hrefs[davxml.principal_collection_set].toString()
         (yield self._principalsReport(principalCollection))
@@ -363,10 +397,96 @@ class SnowLeopard(object):
         yield Deferred()
 
 
+    def addEventAttendee(self, href, attendee):
+        name = attendee.params[u'CN'][0].encode('utf-8')
+        prefix = name[:4].lower()
+        email = attendee.params[u'EMAIL'][0].encode('utf-8')
+
+        event = self._events[href]
+        vevent = event.vevent
+
+        # First try to discover some names to supply to the
+        # auto-completion
+        d = self._request(
+            MULTI_STATUS, 'REPORT', self.root + 'principals/',
+            Headers({'content-type': ['text/xml']}),
+            StringProducer(self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
+                    'displayname': prefix,
+                    'email': prefix,
+                    'firstname': prefix,
+                    'lastname': prefix,
+                    }))
+        d.addCallback(readBody)
+        def narrowed(ignored):
+            # Next just learn about the one name we selected.
+            d = self._request(
+                MULTI_STATUS, 'REPORT', self.root + 'principals/',
+                Headers({'content-type': ['text/xml']}),
+                StringProducer(self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
+                        'displayname': name,
+                        'email': name,
+                        'firstname': name,
+                        'lastname': name,
+                        }))
+            d.addCallback(readBody)
+            return d
+        d.addCallback(narrowed)
+        def specific(ignored):
+            # Now learn about the attendee's availability
+            uid = vevent.contents[u'vevent'][0].contents[u'uid'][0].value
+            start = vevent.contents[u'vevent'][0].contents[u'dtstart'][0].value
+            end = vevent.contents[u'vevent'][0].contents[u'dtend'][0].value
+            now = datetime.now()
+            d = self._request(
+                OK, 'POST', self.root + 'calendars/__uids__/' + self.user + '/outbox/',
+                Headers({
+                        'content-type': ['text/calendar'],
+                        'originator': [self.email],
+                        'recipient': ['mailto:' + email]}),
+                StringProducer(self._POST_AVAILABILITY % {
+                        'attendee': 'mailto:' + email,
+                        'organizer': self.email,
+                        'vfreebusy-uid': str(uuid4()).upper(),
+                        'event-uid': uid.encode('utf-8'),
+                        'start': dateTimeToString(start, convertToUTC=True),
+                        'end': dateTimeToString(end, convertToUTC=True),
+                        'now': dateTimeToString(now, convertToUTC=True)}))
+            d.addCallback(readBody)
+            return d
+        d.addCallback(specific)
+        def availability(ignored):
+            # At last, upload the new event definition
+            vevent.contents['vevent'][0].contents.setdefault('attendee', []).append(attendee)
+            d = self._request(
+                NO_CONTENT, 'PUT', self.root + href[1:],
+                Headers({
+                        'content-type': ['text/calendar'],
+                        'if-match': [event.etag]}),
+                StringProducer(vevent.serialize()))
+            return d
+        d.addCallback(availability)
+        def check(ignored):
+            # Finally, re-retrieve the event
+            return self._request(OK, 'GET', self.root + href[1:])
+        d.addCallback(check)
+        def getETag(response):
+            etag = response.headers.getRawHeaders('etag')[0]
+            return readBody(response).addCallback(lambda body: (etag, body))
+        d.addCallback(getETag)
+        def record((etag, body)):
+            event = self._events[href]
+            event.etag = etag
+            event.vevent = list(readComponents(body))[0]
+        d.addCallback(record)
+        return d
+
+
+
 class RequestLogger(object):
     def observe(self, event):
         if event.get("type") == "request":
-            print event["method"], event["url"]
+            print event["user"], event["method"], event["url"]
+
 
     
 def main():
