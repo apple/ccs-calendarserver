@@ -1345,14 +1345,20 @@ class CalDAVResource (
                 if revision > current_revision:
                     raise ValueError
             except ValueError:
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "valid-sync-token")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (dav_namespace, "valid-sync-token")
+                ))
         else:
             revision = 0
 
         try:
             changed, removed, notallowed = yield self._indexWhatChanged(revision, depth)
         except SyncTokenValidException:
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "valid-sync-token")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (dav_namespace, "valid-sync-token")
+            ))
 
         returnValue((changed, removed, notallowed, current_token))
 
@@ -1459,7 +1465,7 @@ class CalDAVResource (
                 self.log_error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    customxml.MaxCollections.qname()
+                    customxml.MaxCollections
                 ))
                 
         returnValue((yield self.createCalendarCollection()))
@@ -1552,7 +1558,7 @@ class CalDAVResource (
                 self.log_error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    customxml.MaxCollections.qname()
+                    customxml.MaxCollections
                 ))
                 
         returnValue((yield self.createAddressBookCollection()))

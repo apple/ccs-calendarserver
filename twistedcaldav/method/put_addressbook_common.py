@@ -166,7 +166,10 @@ class StoreAddressObjectResource(object):
             result, message = (yield self.validCollectionSize())
             if not result:
                 log.err(message)
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, customxml.MaxResources.qname()))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    customxml.MaxResources
+                ))
 
             if not self.sourceadbk:
                 # Valid content type check on the source resource if its not in a vcard collection
@@ -174,7 +177,10 @@ class StoreAddressObjectResource(object):
                     result, message = self.validContentType()
                     if not result:
                         log.err(message)
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "supported-address-data")))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (carddav_namespace, "supported-address-data")
+                        ))
                 
                     # At this point we need the calendar data to do more tests
                     self.vcard = (yield self.source.vCard())
@@ -185,13 +191,19 @@ class StoreAddressObjectResource(object):
                             self.vcard = Component.fromString(self.vcard)
                     except ValueError, e:
                         log.err(str(e))
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-address-data")))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (carddav_namespace, "valid-address-data")
+                        ))
                         
                 # Valid vcard data for CalDAV check
                 result, message = self.validAddressDataCheck()
                 if not result:
                     log.err(message)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-addressbook-object-resource")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (carddav_namespace, "valid-addressbook-object-resource")
+                    ))
 
                 # Must have a valid UID at this point
                 self.uid = self.vcard.resourceUID()
@@ -201,7 +213,10 @@ class StoreAddressObjectResource(object):
                 self.uid = yield self.source_index.resourceUIDForName(self.source.name())
                 if self.uid is None:
                     log.err("Source vcard does not have a UID: %s" % self.source.name())
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-addressbook-object-resource")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (carddav_namespace, "valid-addressbook-object-resource")
+                    ))
 
                 # FIXME: We need this here because we have to re-index the destination. Ideally it
                 # would be better to copy the index entries from the source and add to the destination.
@@ -211,7 +226,10 @@ class StoreAddressObjectResource(object):
             result, message = self.validSizeCheck()
             if not result:
                 log.err(message)
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "max-resource-size")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (carddav_namespace, "max-resource-size")
+                ))
 
             # Check access
             returnValue(None)
@@ -407,8 +425,16 @@ class StoreAddressObjectResource(object):
                 result, message, rname = yield self.noUIDConflict(self.uid)
                 if not result:
                     log.err(message)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN,
-                        NoUIDConflict(davxml.HRef.fromString(joinURL(parentForURL(self.destination_uri), rname.encode("utf-8"))))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        NoUIDConflict(
+                            davxml.HRef.fromString(
+                                joinURL(
+                                    parentForURL(self.destination_uri),
+                                    rname.encode("utf-8")
+                                )
+                            )
+                        )
                     ))
             
             # Do the actual put or copy

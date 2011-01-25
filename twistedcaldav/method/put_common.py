@@ -212,7 +212,10 @@ class StoreCalendarObjectResource(object):
             result, message = (yield self.validCollectionSize())
             if not result:
                 log.err(message)
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, customxml.MaxResources.qname()))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    customxml.MaxResources
+                ))
 
             # Valid data sizes - do before parsing the data
             if self.source is not None:
@@ -220,13 +223,19 @@ class StoreCalendarObjectResource(object):
                 result, message = self.validContentLength()
                 if not result:
                     log.err(message)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "max-resource-size")
+                    ))
             else:
                 # Valid calendar data size check
                 result, message = self.validSizeCheck()
                 if not result:
                     log.err(message)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "max-resource-size")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "max-resource-size")
+                    ))
 
             if not self.sourcecal:
                 # Valid content type check on the source resource if its not in a calendar collection
@@ -234,14 +243,21 @@ class StoreCalendarObjectResource(object):
                     result, message = self.validContentType()
                     if not result:
                         log.err(message)
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "supported-calendar-data")
+                        ))
                 
                     # At this point we need the calendar data to do more tests
                     try:
                         self.calendar = (yield self.source.iCalendarForUser(self.request))
                     except ValueError, e:
                         log.err(str(e))
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Can't parse calendar data"))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "valid-calendar-data"),
+                            description="Can't parse calendar data"
+                        ))
                 else:
                     try:
                         if type(self.calendar) in (types.StringType, types.UnicodeType,):
@@ -249,19 +265,30 @@ class StoreCalendarObjectResource(object):
                             self.calendar = Component.fromString(self.calendar)
                     except ValueError, e:
                         log.err(str(e))
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Can't parse calendar data"))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "valid-calendar-data"),
+                            description="Can't parse calendar data"
+                        ))
                         
                 # Valid calendar data check
                 result, message = self.validCalendarDataCheck()
                 if not result:
                     log.err(message)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=message))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "valid-calendar-data"),
+                        description=message
+                    ))
                     
                 # Valid calendar data for CalDAV check
                 result, message = self.validCalDAVDataCheck()
                 if not result:
                     log.err(message)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "valid-calendar-object-resource")
+                    ))
 
                 # Valid attendee list size check
                 result, message = self.validAttendeeListSizeCheck()
@@ -286,7 +313,10 @@ class StoreCalendarObjectResource(object):
                 self.uid = yield self.source_index.resourceUIDForName(self.source.name())
                 if self.uid is None:
                     log.err("Source calendar does not have a UID: %s" % self.source)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-object-resource")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "valid-calendar-object-resource")
+                    ))
 
                 # FIXME: We need this here because we have to re-index the destination. Ideally it
                 # would be better to copy the index entries from the source and add to the destination.
@@ -493,7 +523,10 @@ class StoreCalendarObjectResource(object):
             # Must be a value we know about
             self.access = self.calendar.accessLevel(default=None)
             if self.access is None:
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (calendarserver_namespace, "valid-access-restriction")
+                ))
                 
             # Only DAV:owner is able to set the property to other than PUBLIC
             if not self.internal_request:
@@ -501,7 +534,10 @@ class StoreCalendarObjectResource(object):
                     
                     authz = self.destinationparent.currentPrincipal(self.request)
                     if davxml.Principal(parent_owner) != authz and self.access != Component.ACCESS_PUBLIC:
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "valid-access-restriction-change")))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (calendarserver_namespace, "valid-access-restriction-change")
+                        ))
                     
                     return None
     
@@ -526,7 +562,10 @@ class StoreCalendarObjectResource(object):
             except (ValueError, TypeError), ex:
                 msg = "Cannot truncate calendar resource: %s" % (ex,)
                 log.err(msg)
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"), description=msg
+                ))
             if result:
                 self.calendardata = str(self.calendar)
                 return result
@@ -694,7 +733,10 @@ class StoreCalendarObjectResource(object):
             except ValueError:
                 msg = "Invalid per-user data merge"
                 log.err(msg)
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"), description=msg
+                ))
             self.calendardata = None
 
 
@@ -845,10 +887,17 @@ class StoreCalendarObjectResource(object):
                     result, message, rname = yield self.noUIDConflict(self.uid) 
                     if not result: 
                         log.err(message)
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN,
-                            NoUIDConflict(davxml.HRef.fromString(
-                                joinURL(parentForURL(self.destination_uri),
-                                        rname.encode("utf-8"))))))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            NoUIDConflict(
+                                davxml.HRef.fromString(
+                                    joinURL(
+                                        parentForURL(self.destination_uri),
+                                        rname.encode("utf-8")
+                                    )
+                                )
+                            )
+                        ))
 
 
             # Handle RRULE truncation
@@ -876,14 +925,22 @@ class StoreCalendarObjectResource(object):
                     else:
                         msg = "Attendee cannot create event for Organizer: %s" % (implicit_result,)
                         log.err(msg)
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed"), description=msg))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "attendee-allowed"),
+                            description=msg
+                        ))
 
                     returnValue(StatusResponse(responsecode.OK, "Resource modified but immediately deleted by the server."))
 
                 else:
                     msg = "Invalid return status code from ImplicitScheduler: %s" % (implicit_result,)
                     log.err(msg)
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "valid-calendar-data"),
+                        description=msg
+                    ))
             else:
                 self.isScheduleResource, data_changed, did_implicit_action = implicit_result
 
@@ -915,12 +972,16 @@ class StoreCalendarObjectResource(object):
             # FIXME: transaction needs to be rolled back.
 
             if isinstance(err, InvalidOverriddenInstanceError):
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Invalid overridden instance"))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="Invalid overridden instance"
+                ))
             elif isinstance(err, TooManyInstancesError):
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                        NumberOfRecurrencesWithinLimits(PCDATAElement(str(err.max_allowed)))
-                    ))
+                    NumberOfRecurrencesWithinLimits(PCDATAElement(str(err.max_allowed)))
+                ))
             else:
                 # Display the traceback.  Unfortunately this will usually be
                 # duplicated by the higher-level exception handler that captures
