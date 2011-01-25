@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.carddav.datastore.test.test_file -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -175,8 +175,6 @@ class AddressBookObject(CommonObjectResource):
     @writeOperation
     def setComponent(self, component, inserting=False):
 
-        old_size = 0 if inserting else self.size()
-
         validateAddressBookComponent(self, self._addressbook, component, inserting)
 
         self._addressbook.retrieveOldIndex().addResource(
@@ -211,16 +209,11 @@ class AddressBookObject(CommonObjectResource):
             # Now re-write the original properties on the updated file
             self.properties().flush()
 
-            # Adjust quota
-            quota_adjustment = self.size() - old_size
-            self._addressbook._home.adjustQuotaUsedBytes(quota_adjustment)
-
             def undo():
                 if backup:
                     backup.moveTo(self._path)
                 else:
                     self._path.remove()
-                self._addressbook._home.adjustQuotaUsedBytes(-quota_adjustment)
             return undo
         self._transaction.addOperation(do, "set addressbook component %r" % (self.name(),))
 

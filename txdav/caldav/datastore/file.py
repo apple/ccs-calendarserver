@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_file -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -292,8 +292,6 @@ class CalendarObject(CommonObjectResource):
     @writeOperation
     def setComponent(self, component, inserting=False):
 
-        old_size = 0 if inserting else self.size()
-
         validateCalendarComponent(self, self._calendar, component, inserting)
 
         self._calendar.retrieveOldIndex().addResource(
@@ -328,16 +326,11 @@ class CalendarObject(CommonObjectResource):
             # Now re-write the original properties on the updated file
             self.properties().flush()
 
-            # Adjust quota
-            quota_adjustment = self.size() - old_size
-            self._calendar._home.adjustQuotaUsedBytes(quota_adjustment)
-
             def undo():
                 if backup:
                     backup.moveTo(self._path)
                 else:
                     self._path.remove()
-                self._calendar._home.adjustQuotaUsedBytes(-quota_adjustment)
             return undo
         self._transaction.addOperation(do, "set calendar component %r" % (self.name(),))
 

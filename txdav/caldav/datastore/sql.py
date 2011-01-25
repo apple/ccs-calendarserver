@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_sql -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -374,8 +374,6 @@ class CalendarObject(CommonObjectResource):
     @inlineCallbacks
     def setComponent(self, component, inserting=False):
 
-        old_size = 0 if inserting else self.size()
-
         validateCalendarComponent(self, self._calendar, component, inserting)
 
         yield self.updateDatabase(component, inserting=inserting)
@@ -383,9 +381,6 @@ class CalendarObject(CommonObjectResource):
             yield self._calendar._insertRevision(self._name)
         else:
             yield self._calendar._updateRevision(self._name)
-
-        # Adjust quota
-        yield self._calendar._home.adjustQuotaUsedBytes(self.size() - old_size)
 
         self._calendar.notifyChanged()
 
@@ -674,11 +669,11 @@ class CalendarObject(CommonObjectResource):
         attachment = Attachment(self, name)
         yield self._txn.execSQL(
             """
-            insert into ATTACHMENT (CALENDAR_OBJECT_RESOURCE_ID, CONTENT_TYPE,
+            insert into ATTACHMENT (DROPBOX_ID, CONTENT_TYPE,
             SIZE, MD5, PATH) values (%s, %s, %s, %s, %s)
             """,
             [
-                self._resourceID, generateContentType(contentType), 0, "",
+                self._dropboxID, generateContentType(contentType), 0, "",
                 name,
             ]
         )
@@ -692,14 +687,16 @@ class CalendarObject(CommonObjectResource):
         self._txn.postCommit(attachment._path.remove)
         yield self._txn.execSQL(
             """
-            delete from ATTACHMENT where CALENDAR_OBJECT_RESOURCE_ID = %s AND
+            delete from ATTACHMENT where DROPBOX_ID = %s AND
             PATH = %s
-            """, [self._resourceID, name]
+            """, [self._dropboxID, name]
         )
 
         # Adjust quota
         yield self._calendar._home.adjustQuotaUsedBytes(-old_size)
-
+        
+        # Send change notification to home
+        yield self._calendar._home.notifyChanged()
 
     @inlineCallbacks
     def attachmentWithName(self, name):
@@ -726,8 +723,8 @@ class CalendarObject(CommonObjectResource):
     def attachments(self):
         rows = yield self._txn.execSQL(
             """
-            select PATH from ATTACHMENT where CALENDAR_OBJECT_RESOURCE_ID = %s
-            """, [self._resourceID])
+            select PATH from ATTACHMENT where DROPBOX_ID = %s
+            """, [self._dropboxID])
         result = []
         for row in rows:
             result.append((yield self.attachmentWithName(row[0])))
@@ -803,6 +800,9 @@ class AttachmentStorageTransport(object):
 
         # Adjust quota
         yield self.attachment._calendarObject._calendar._home.adjustQuotaUsedBytes(self.attachment.size() - old_size)
+        
+        # Send change notification to home
+        yield self.attachment._calendarObject._calendar._home.notifyChanged()
 
 
 def sqltime(value):

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -223,6 +223,24 @@ class CalendarAvailability (davxml.WebDAVTextElement):
                 return False
 
         return found
+
+class MaxCollections (davxml.WebDAVTextElement):
+    """
+    Maximum number of child collections in a home collection
+    """
+    namespace = calendarserver_namespace
+    name = "max-collections"
+    hidden = True
+    protected = True
+
+class MaxResources (davxml.WebDAVTextElement):
+    """
+    Maximum number of child resources in a collection
+    """
+    namespace = calendarserver_namespace
+    name = "max-resources"
+    hidden = True
+    protected = True
 
 class Timezones (davxml.WebDAVEmptyElement):
     """

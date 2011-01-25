@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_wrapping -*-
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ from twext.web2.stream import ProducerStream, readStream, MemoryStream
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
+from twistedcaldav import customxml
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.notifications import NotificationCollectionResource, \
     NotificationResource
@@ -215,6 +216,27 @@ class _CommonHomeChildCollectionMixin(object):
             self._newStoreObject.properties()
         ) if self._newStoreObject else NonePropertyStore(self)
 
+
+    def liveProperties(self):
+
+        props = super(_CommonHomeChildCollectionMixin, self).liveProperties()
+        
+        if config.MaxResourcesPerCollection:
+            props += (customxml.MaxResources.qname(),)
+
+        return props
+
+    @inlineCallbacks
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname == customxml.MaxResources.qname() and config.MaxResourcesPerCollection:
+            returnValue(customxml.MaxResources.fromString(config.MaxResourcesPerCollection))
+
+        returnValue((yield super(_CommonHomeChildCollectionMixin, self).readProperty(property, request)))
 
     def index(self):
         """

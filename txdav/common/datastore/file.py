@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_file -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -765,10 +765,6 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
         objectResourcePath = self._path.child(name)
         if objectResourcePath.isfile():
-            # Handle quota adjustment
-            child = self.objectResourceWithName(name)
-            old_size = child.size()
-
             self._removedObjectResources.add(name)
             # FIXME: test for undo
             def do():
@@ -776,9 +772,6 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
                 return lambda: None
             self._transaction.addOperation(do, "remove object resource object %r" %
                                            (name,))
-
-            # Adjust quota
-            self._home.adjustQuotaUsedBytes(-old_size)
 
             self.notifyChanged()
         else:

@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -701,11 +701,11 @@ class CommonHome(LoggingMixIn):
         ))
 
         if rows:
-            childID, objectID = rows[0]
-            child = (yield self.childWithID(childID))
-            if child and child.name() not in ignore_children:
-                objectResource = (yield child.objectResourceWithID(objectID))
-                results.append(objectResource)
+            for childID, objectID in rows:
+                child = (yield self.childWithID(childID))
+                if child and child.name() not in ignore_children:
+                    objectResource = (yield child.objectResourceWithID(objectID))
+                    results.append(objectResource)
         
         returnValue(results)
 
@@ -1284,19 +1284,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def removeObjectResourceWithName(self, name):
 
-        uid, old_size = (yield self._txn.execSQL(
+        uid = (yield self._txn.execSQL(
             "delete from %(name)s "
             "where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "
-            "returning %(column_UID)s, character_length(%(column_TEXT)s)" % self._objectTable,
+            "returning %(column_UID)s" % self._objectTable,
             [name, self._resourceID],
             raiseOnZeroRowCount=lambda:NoSuchObjectResourceError()
-        ))[0]
+        ))[0][0]
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
         yield self._deleteRevision(name)
-
-        # Adjust quota
-        yield self._home.adjustQuotaUsedBytes(-old_size)
 
         self.notifyChanged()
 
@@ -1304,19 +1301,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def removeObjectResourceWithUID(self, uid):
 
-        name, old_size = (yield self._txn.execSQL(
+        name = (yield self._txn.execSQL(
             "delete from %(name)s "
             "where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "
-            "returning %(column_RESOURCE_NAME)s, character_length(%(column_TEXT)s)" % self._objectTable,
+            "returning %(column_RESOURCE_NAME)s" % self._objectTable,
             [uid, self._resourceID],
             raiseOnZeroRowCount=lambda:NoSuchObjectResourceError()
-        ))[0]
+        ))[0][0]
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
         yield self._deleteRevision(name)
-
-        # Adjust quota
-        yield self._home.adjustQuotaUsedBytes(-old_size)
 
         self.notifyChanged()
 

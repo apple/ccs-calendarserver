@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.carddav.datastore.test.test_sql -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -192,8 +192,6 @@ class AddressBookObject(CommonObjectResource):
     @inlineCallbacks
     def setComponent(self, component, inserting=False):
 
-        old_size = 0 if inserting else self.size()
-
         validateAddressBookComponent(self, self._addressbook, component, inserting)
 
         yield self.updateDatabase(component, inserting=inserting)
@@ -201,9 +199,6 @@ class AddressBookObject(CommonObjectResource):
             yield self._addressbook._insertRevision(self._name)
         else:
             yield self._addressbook._updateRevision(self._name)
-
-        # Adjust quota
-        yield self._addressbook._home.adjustQuotaUsedBytes(self.size() - old_size)
 
         self._addressbook.notifyChanged()
 

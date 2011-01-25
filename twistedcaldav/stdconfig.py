@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_stdconfig -*-
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -193,11 +193,21 @@ DEFAULT_CONFIG = {
     "ConfigRoot"              : "/etc/caldavd",
     "LogRoot"                 : "/var/log/caldavd",
     "RunRoot"                 : "/var/run/caldavd",
-    "UserQuota"               : 104857600, # User quota (in bytes)
-    "MaximumAttachmentSize"   :   1048576, # Attachment size limit (in bytes)
-    "MaxAttendeesPerInstance" :       100, # Maximum number of unique attendees
-    "MaxInstancesForRRULE"    :       400, # Maximum number of instances for an RRULE
     "WebCalendarRoot"         : "/usr/share/collabd",
+    
+    #
+    # Quotas
+    #
+    
+    # Attachments
+    "UserQuota"                 : 104857600, # User attachment quota (in bytes)
+    
+    # Resource data
+    "MaxCollectionsPerHome"     :      50, # Maximum number of calendars/address books allowed in a home
+    "MaxResourcesPerCollection" :   10000, # Maximum number of resources in a calendar/address book
+    "MaxResourceSize"           : 1048576, # Maximum resource size (in bytes)
+    "MaxAttendeesPerInstance"   :     100, # Maximum number of unique attendees
+    "MaxInstancesForRRULE"      :     400, # Maximum number of instances for an RRULE
 
     # Set to URL path of wiki authentication service, e.g. "/auth", in order
     # to use javascript authentication dialog.  Empty string indicates standard

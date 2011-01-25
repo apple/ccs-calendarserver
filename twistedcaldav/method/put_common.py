@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_validation -*-
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,12 +33,10 @@ from twisted.python import hashlib
 from twext.web2.dav.util import joinURL, parentForURL
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.element.base import dav_namespace
 from twext.web2.dav.element.base import PCDATAElement
 
 from twext.web2.http import HTTPError
 from twext.web2.http import StatusResponse
-from twext.web2.http_headers import generateContentType, MimeType
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 
@@ -51,6 +49,7 @@ from twistedcaldav.config import config
 from twistedcaldav.caldavxml import NoUIDConflict
 from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
 from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance
+from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
@@ -208,6 +207,12 @@ class StoreCalendarObjectResource(object):
             if not result:
                 log.err(message)
                 raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Resource name not allowed"))
+
+            # Valid collection size check on the destination parent resource
+            result, message = (yield self.validCollectionSize())
+            if not result:
+                log.err(message)
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, customxml.MaxResources.qname()))
 
             # Valid data sizes - do before parsing the data
             if self.source is not None:
@@ -384,13 +389,28 @@ class StoreCalendarObjectResource(object):
         """
         result = True
         message = ""
-        if config.MaximumAttachmentSize:
+        if config.MaxResourceSize:
             calsize = self.source.contentLength()
-            if calsize is not None and calsize > config.MaximumAttachmentSize:
+            if calsize is not None and calsize > config.MaxResourceSize:
                 result = False
-                message = "File size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaximumAttachmentSize)
+                message = "File size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaxResourceSize)
 
         return result, message
+    
+    @inlineCallbacks
+    def validCollectionSize(self):
+        """
+        Make sure that any limits on the number of resources in a collection are enforced.
+        """
+        result = True
+        message = ""
+        if not self.destination.exists() and \
+            config.MaxResourcesPerCollection and \
+            len((yield self.destinationparent.listChildren())) >= config.MaxResourcesPerCollection:
+                result = False
+                message = "Too many resources in collection %s" % (self.destinationparent,)
+
+        returnValue((result, message,))
         
     def validCalendarDataCheck(self):
         """
@@ -438,11 +458,11 @@ class StoreCalendarObjectResource(object):
         """
         result = True
         message = ""
-        if config.MaximumAttachmentSize:
+        if config.MaxResourceSize:
             calsize = len(str(self.calendar))
-            if calsize > config.MaximumAttachmentSize:
+            if calsize > config.MaxResourceSize:
                 result = False
-                message = "Data size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaximumAttachmentSize)
+                message = "Data size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaxResourceSize)
 
         return result, message
 
@@ -797,17 +817,6 @@ class StoreCalendarObjectResource(object):
         returnValue(None)
 
     @inlineCallbacks
-    def doDestinationQuotaCheck(self):
-        """
-        Look at current quota after changes and see if we have gone over the top.
-        """
-        quota = (yield self.destination.quota(self.request))
-        if quota[0] < 0:
-            log.err("Over quota by %d" % (-quota[0],))
-            raise HTTPError(ErrorResponse(responsecode.INSUFFICIENT_STORAGE_SPACE, (dav_namespace, "quota-not-exceeded")))
-
-
-    @inlineCallbacks
     def run(self):
         """
         Function that does common PUT/COPY/MOVE behavior.
@@ -890,9 +899,6 @@ class StoreCalendarObjectResource(object):
 
                 self.request.addResponseFilter(_removeEtag, atEnd=True)
 
-            # Do quota check on destination
-            yield self.doDestinationQuotaCheck()
-    
             if reservation:
                 yield reservation.unreserve()
     

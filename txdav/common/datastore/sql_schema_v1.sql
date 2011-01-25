@@ -1,7 +1,7 @@
 -- -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
 
 ----
--- Copyright (c) 2010 Apple Inc. All rights reserved.
+-- Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -288,7 +288,7 @@ create index TRANSPARENCY_TIME_RANGE_INSTANCE_ID on
 ----------------
 
 create table ATTACHMENT (
-  CALENDAR_OBJECT_RESOURCE_ID integer       not null references CALENDAR_OBJECT on delete cascade,
+  DROPBOX_ID                  varchar(255)  not null,
   CONTENT_TYPE                varchar(255)  not null,
   SIZE                        integer       not null,
   MD5                         char(32)      not null,
@@ -296,11 +296,10 @@ create table ATTACHMENT (
   MODIFIED                    timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   PATH                        varchar(1024) not null,
 
-  unique(CALENDAR_OBJECT_RESOURCE_ID, PATH)
+  unique(DROPBOX_ID, PATH)
 );
 
-create index ATTACHMENT_CALENDAR_OBJECT_RESOURCE_ID on
-  ATTACHMENT(CALENDAR_OBJECT_RESOURCE_ID);
+create index ATTACHMENT_DROPBOX_ID on ATTACHMENT(DROPBOX_ID);
 
 
 ------------------

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-    Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+    Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -131,13 +131,23 @@
         Quotas and limits
       -->
 
-    <!-- User quota (in bytes) [0 = no quota] -->
+    <!-- User quota (in bytes) [0 = no quota] applies to attachments only -->
     <key>UserQuota</key>
     <integer>104857600</integer><!-- 100Mb -->
 
-    <!-- Attachment size limit (in bytes) -->
-    <key>MaximumAttachmentSize</key>
-    <integer>1048576</integer><!-- 1Mb -->
+    <!-- Maximum number of calendars/address books allowed in a home -->
+    <!-- 0 for no limit -->
+    <key>MaxCollectionsPerHome</key>
+    <integer>50</integer>
+
+    <!-- Maximum number of resources in a calendar/address book -->
+    <!-- 0 for no limit -->
+    <key>MaxResourcesPerCollection</key>
+    <integer>10000</integer>
+
+    <!-- Maximum resource size (in bytes) -->
+    <key>MaxResourceSize</key>
+    <integer>1048576</integer> <!-- 1Mb -->
 
     <!-- Maximum number of unique attendees per entire event -->
     <!-- 0 for no limit -->

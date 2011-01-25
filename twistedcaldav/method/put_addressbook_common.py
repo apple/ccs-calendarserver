@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@ from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.defer import returnValue
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.element.base import dav_namespace
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.util import joinURL, parentForURL
 from twext.web2.http import HTTPError
@@ -41,6 +40,7 @@ from twext.web2.stream import MemoryStream
 
 from twistedcaldav.config import config
 from twistedcaldav.carddavxml import NoUIDConflict, carddav_namespace
+from twistedcaldav import customxml
 from twistedcaldav.vcard import Component
 from twext.python.log import Logger
 
@@ -162,6 +162,12 @@ class StoreAddressObjectResource(object):
                 log.err(message)
                 raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Resource name not allowed"))
 
+            # Valid collection size check on the destination parent resource
+            result, message = (yield self.validCollectionSize())
+            if not result:
+                log.err(message)
+                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, customxml.MaxResources.qname()))
+
             if not self.sourceadbk:
                 # Valid content type check on the source resource if its not in a vcard collection
                 if self.source is not None:
@@ -237,6 +243,21 @@ class StoreAddressObjectResource(object):
 
         return result, message
         
+    @inlineCallbacks
+    def validCollectionSize(self):
+        """
+        Make sure that any limits on the number of resources in a collection are enforced.
+        """
+        result = True
+        message = ""
+        if not self.destination.exists() and \
+            config.MaxResourcesPerCollection and \
+            len((yield self.destinationparent.listChildren())) >= config.MaxResourcesPerCollection:
+                result = False
+                message = "Too many resources in collection %s" % (self.destinationparent,)
+
+        returnValue((result, message,))
+        
     def validAddressDataCheck(self):
         """
         Check that the vcard data is valid vCard.
@@ -264,11 +285,11 @@ class StoreAddressObjectResource(object):
         """
         result = True
         message = ""
-        if config.MaximumAttachmentSize:
+        if config.MaxResourceSize:
             vcardsize = len(str(self.vcard))
-            if vcardsize > config.MaximumAttachmentSize:
+            if vcardsize > config.MaxResourceSize:
                 result = False
-                message = "Data size %d bytes is larger than allowed limit %d bytes" % (vcardsize, config.MaximumAttachmentSize)
+                message = "Data size %d bytes is larger than allowed limit %d bytes" % (vcardsize, config.MaxResourceSize)
 
         return result, message
 
@@ -358,16 +379,6 @@ class StoreAddressObjectResource(object):
         returnValue(None)
 
     @inlineCallbacks
-    def doDestinationQuotaCheck(self):
-        """
-        Look at current quota after changes and see if we have gone over the top.
-        """
-        quota = (yield self.destination.quota(self.request))
-        if quota[0] < 0:
-            log.err("Over quota by %d" % (-quota[0],))
-            raise HTTPError(ErrorResponse(responsecode.INSUFFICIENT_STORAGE_SPACE, (dav_namespace, "quota-not-exceeded")))
-
-    @inlineCallbacks
     def run(self):
         """
         Function that does common PUT/COPY/MOVE behavior.
@@ -414,8 +425,6 @@ class StoreAddressObjectResource(object):
                 )
 
             # Do quota check on destination
-            yield self.doDestinationQuotaCheck()
-    
             if reservation:
                 yield reservation.unreserve()
     
