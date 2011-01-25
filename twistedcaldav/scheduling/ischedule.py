@@ -90,7 +90,10 @@ class ScheduleViaISchedule(DeliveryService):
                 assert False, "Incorrect calendar user address class"
             if not server:
                 # Cannot do server-to-server for this recipient.
-                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-allowed")))
+                err = HTTPError(ErrorResponse(
+                    responsecode.NOT_FOUND,
+                    (caldav_namespace, "recipient-allowed")
+                ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_USER_SUPPORT)
             
                 # Process next recipient
@@ -98,7 +101,10 @@ class ScheduleViaISchedule(DeliveryService):
             
             if not server.allow_to:
                 # Cannot do server-to-server outgoing requests for this server.
-                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-allowed")))
+                err = HTTPError(ErrorResponse(
+                    responsecode.NOT_FOUND,
+                    (caldav_namespace, "recipient-allowed")
+                ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
             
                 # Process next recipient
@@ -169,7 +175,10 @@ class IScheduleRequest(object):
             # Generated failed responses for each recipient
             log.err("Could not do server-to-server request : %s %s" % (self, e))
             for recipient in self.recipients:
-                err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
+                err = HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "recipient-failed")
+                ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
 
     def logRequest(self, level, message, request, **kwargs):

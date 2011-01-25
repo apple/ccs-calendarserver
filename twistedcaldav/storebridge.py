@@ -622,11 +622,16 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         default = (yield self.isDefaultCalendar(request))
         if default:
             log.err("Cannot DELETE default calendar: %s" % (self,))
-            raise HTTPError(ErrorResponse(FORBIDDEN,
-                            (caldav_namespace,
-                             "default-calendar-delete-allowed",)))
+            raise HTTPError(ErrorResponse(
+                FORBIDDEN,
+                (caldav_namespace, "default-calendar-delete-allowed",)
+            ))
 
-        response = (yield super(CalendarCollectionResource, self).storeRemove(request, implicitly, where))
+        response = (
+            yield super(CalendarCollectionResource, self).storeRemove(
+                request, implicitly, where
+            )
+        )
 
         if response == NO_CONTENT:
             # Do some clean up

@@ -46,7 +46,10 @@ def http_GET(self, request):
             if request.args:
                 action = request.args.get("action", ("",))
                 if len(action) != 1:
-                    raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST, (calendarserver_namespace, "valid-action")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.BAD_REQUEST,
+                        (calendarserver_namespace, "valid-action")
+                    ))
                 action = action[0]
                     
                 dispatch = {
@@ -54,7 +57,10 @@ def http_GET(self, request):
                 }.get(action, None)
                 
                 if dispatch is None:
-                    raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST, (calendarserver_namespace, "supported-action")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.BAD_REQUEST,
+                        (calendarserver_namespace, "supported-action")
+                    ))
         
                 response = (yield dispatch(request))
                 returnValue(response)

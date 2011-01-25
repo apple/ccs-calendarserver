@@ -66,8 +66,15 @@ class ScheduleViaIMip(DeliveryService):
             ):
                 log.info("Could not do server-to-imip method: %s" % (method,))
                 for recipient in self.recipients:
-                    err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
-                    self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_USER_SUPPORT)
+                    err = HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "recipient-failed")
+                    ))
+                    self.responses.add(
+                        recipient.cuaddr,
+                        Failure(exc_value=err),
+                        reqstatus=iTIPRequestStatus.NO_USER_SUPPORT
+                    )
                 returnValue(None)
 
             caldata = str(self.scheduler.calendar)
@@ -86,18 +93,36 @@ class ScheduleViaIMip(DeliveryService):
                 except Exception, e:
                     # Generated failed response for this recipient
                     log.err("Could not do server-to-imip request : %s %s" % (self, e))
-                    err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
-                    self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
+                    err = HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "recipient-failed")
+                    ))
+                    self.responses.add(
+                        recipient.cuaddr,
+                        Failure(exc_value=err),
+                        reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE
+                    )
                 
                 else:
-                    self.responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_SENT)
+                    self.responses.add(
+                        recipient.cuaddr,
+                        responsecode.OK,
+                        reqstatus=iTIPRequestStatus.MESSAGE_SENT
+                    )
 
         except Exception, e:
             # Generated failed responses for each recipient
             log.err("Could not do server-to-imip request : %s %s" % (self, e))
             for recipient in self.recipients:
-                err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-failed")))
-                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
+                err = HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "recipient-failed")
+                ))
+                self.responses.add(
+                    recipient.cuaddr,
+                    Failure(exc_value=err),
+                    reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE
+                )
 
     def postToGateway(self, fromAddr, toAddr, caldata, reactor=None):
         if reactor is None:

@@ -733,7 +733,10 @@ class SharedCollectionMixin(object):
                 doc = davxml.WebDAVDocument.fromString(data)
             except ValueError, e:
                 self.log_error("Error parsing doc (%s) Doc:\n %s" % (str(e), data,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (customxml.calendarserver_namespace, "valid-request")
+                ))
 
             root = doc.root_element
             xmlDocHanders = {
@@ -743,7 +746,10 @@ class SharedCollectionMixin(object):
                 return xmlDocHanders[type(root)](root).addErrback(_handleErrorResponse)
             else:
                 self.log_error("Unsupported XML (%s)" % (root,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (customxml.calendarserver_namespace, "valid-request")
+                ))
 
         return allDataFromStream(request.stream).addCallback(_getData)
 
@@ -753,7 +759,10 @@ class SharedCollectionMixin(object):
             if mimetype.mediaType in ("application", "text",) and mimetype.mediaSubtype == "xml":
                 encoding = mimetype.params["charset"] if "charset" in mimetype.params else "utf8"
                 return succeed(encoding)
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request")))
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            (customxml.calendarserver_namespace, "valid-request")
+        ))
 
     def xmlPOSTAuth(self, request):
         d = self.authorize(request, (davxml.Read(), davxml.Write()))
@@ -1187,7 +1196,11 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 return xmlDocHanders[type(root)](root).addErrback(_handleErrorResponse)
             else:
                 self.log_error("Unsupported XML (%s)" % (root,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (customxml.calendarserver_namespace, "valid-request")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (customxml.calendarserver_namespace,
+                     "valid-request")
+                ))
 
         return allDataFromStream(request.stream).addCallback(_getData)
 

@@ -112,8 +112,15 @@ class ScheduleViaCalDAV(DeliveryService):
                     yield recipient.inbox.checkPrivileges(self.scheduler.request, (caldavxml.ScheduleDeliver(),), principal=organizerPrincipal)
                 except AccessDeniedError:
                     log.err("Could not access Inbox for recipient: %s" % (recipient.cuaddr,))
-                    err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-permissions")))
-                    self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_AUTHORITY)
+                    err = HTTPError(ErrorResponse(
+                        responsecode.NOT_FOUND,
+                        (caldav_namespace, "recipient-permissions")
+                    ))
+                    self.responses.add(
+                        recipient.cuaddr,
+                        Failure(exc_value=err),
+                        reqstatus=iTIPRequestStatus.NO_AUTHORITY
+                    )
                 
                     # Process next recipient
                     continue
@@ -150,7 +157,10 @@ class ScheduleViaCalDAV(DeliveryService):
             ))
         except ImplicitProcessorException, e:
             log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
-            err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
+            err = HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "recipient-permissions")
+            ))
             responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=e.msg)
             returnValue(False)
 
@@ -178,7 +188,10 @@ class ScheduleViaCalDAV(DeliveryService):
             except:
                 # FIXME: Bare except
                 log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
-                err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
+                err = HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "recipient-permissions")
+                ))
                 responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_AUTHORITY)
                 returnValue(False)
             else:
@@ -216,11 +229,23 @@ class ScheduleViaCalDAV(DeliveryService):
             ))
         except:
             log.err("Could not determine free busy information: %s" % (recipient.cuaddr,))
-            err = HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-permissions")))
-            responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_AUTHORITY)
+            err = HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "recipient-permissions")
+            ))
+            responses.add(
+                recipient.cuaddr,
+                Failure(exc_value=err),
+                reqstatus=iTIPRequestStatus.NO_AUTHORITY
+            )
             returnValue(False)
         else:
-            responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.SUCCESS, calendar=fbresult)
+            responses.add(
+                recipient.cuaddr,
+                responsecode.OK,
+                reqstatus=iTIPRequestStatus.SUCCESS,
+                calendar=fbresult
+            )
             returnValue(True)
     
     @inlineCallbacks

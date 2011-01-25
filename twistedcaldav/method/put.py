@@ -52,7 +52,10 @@ def http_PUT(self, request):
         content_type = request.headers.getHeader("content-type")
         if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "calendar"):
             log.err("MIME type %s not allowed in calendar collection" % (content_type,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "supported-calendar-data")
+            ))
             
         # Read the calendar component from the stream
         try:
@@ -64,7 +67,11 @@ def http_PUT(self, request):
             # We must have some data at this point
             if calendardata is None:
                 # Use correct DAV:error response
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="No calendar data"))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="No calendar data"
+                ))
 
             storer = StoreCalendarObjectResource(
                 request = request,
@@ -87,7 +94,10 @@ def http_PUT(self, request):
         content_type = request.headers.getHeader("content-type")
         if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "vcard"):
             log.err("MIME type %s not allowed in address book collection" % (content_type,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "supported-address-data")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (carddav_namespace, "supported-address-data")
+            ))
             
         # Read the vcard component from the stream
         try:
@@ -99,7 +109,11 @@ def http_PUT(self, request):
             # We must have some data at this point
             if vcarddata is None:
                 # Use correct DAV:error response
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-address-data"), description="No vcard data"))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (carddav_namespace, "valid-address-data"),
+                    description="No vcard data"
+                ))
 
             storer = StoreAddressObjectResource(
                 request = request,

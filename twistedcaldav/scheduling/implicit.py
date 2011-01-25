@@ -88,8 +88,16 @@ class ImplicitScheduler(object):
             yield self.checkImplicitState()
         
         # Attendees are not allowed to overwrite one type with another
-        if not self.internal_request and self.state == "attendee" and (existing_type != new_type) and existing_resource:
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+        if (
+            not self.internal_request and
+            self.state == "attendee" and
+            (existing_type != new_type) and
+            existing_resource
+        ):
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "valid-attendee-change")
+            ))
 
         returnValue((self.action != "none", new_type == "schedule",))
 
@@ -110,7 +118,10 @@ class ImplicitScheduler(object):
         if srccal and destcal:
             if src_is_implicit and dest_exists or dest_is_implicit:
                 log.debug("Implicit - cannot MOVE with a scheduling object resource")
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "unique-scheduling-object-resource")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "unique-scheduling-object-resource")
+                ))
             else:
                 self.action = "none"
         elif srccal and not destcal:
@@ -140,7 +151,10 @@ class ImplicitScheduler(object):
         if srccal and destcal:
             if src_is_implicit or dest_is_implicit:
                 log.debug("Implicit - cannot COPY with a scheduling object resource")
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "unique-scheduling-object-resource")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "unique-scheduling-object-resource")
+                ))
             else:
                 self.action = "none"
         elif srccal and not destcal:
@@ -308,7 +322,10 @@ class ImplicitScheduler(object):
             self.originatorPrincipal = (yield self.resource.ownerPrincipal(self.request))
             if not isinstance(self.originatorPrincipal, DirectoryCalendarPrincipalResource):
                 log.error("Originator '%s' is not enabled for calendaring" % (self.originatorPrincipal,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "invalid-originator")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "invalid-originator")
+                ))
     
             # Pick the first mailto cu address or the first other type
             for item in self.originatorPrincipal.calendarUserAddresses():
@@ -324,7 +341,10 @@ class ImplicitScheduler(object):
         except ValueError:
             # We have different ORGANIZERs in the same iCalendar object - this is an error
             log.error("Only one ORGANIZER is allowed in an iCalendar object:\n%s" % (self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "single-organizer")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "single-organizer")
+            ))
         
         # Get the ATTENDEEs
         self.attendeesByInstance = self.calendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
@@ -354,7 +374,10 @@ class ImplicitScheduler(object):
         foundElsewhere = (yield calendar_home.hasCalendarResourceUIDSomewhereElse(self.uid, check_resource, type))
         if foundElsewhere:
             log.debug("Implicit - found component with same UID in a different collection: %s" % (check_uri,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "unique-scheduling-object-resource")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "unique-scheduling-object-resource")
+            ))
 
     @inlineCallbacks
     def isOrganizerScheduling(self):
@@ -526,7 +549,10 @@ class ImplicitScheduler(object):
                 newOrganizer = self.calendar.getOrganizer()
                 if oldOrganizer != newOrganizer:
                     log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-organizer-change")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "valid-organizer-change")
+                    ))
         else:
             # Special case of SCHEDULE-FORCE-SEND added to attendees and no other change
             reinvites = set()
@@ -755,7 +781,10 @@ class ImplicitScheduler(object):
                 newOrganizer = self.calendar.getOrganizer()
                 if oldOrganizer != newOrganizer:
                     log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "valid-attendee-change")
+                    ))
             else:
                 self.oldcalendar = None
             
@@ -766,7 +795,10 @@ class ImplicitScheduler(object):
                 # If Organizer copy exists we cannot allow SCHEDULE-AGENT=CLIENT or NONE
                 if not doScheduling:
                     log.error("Attendee '%s' is not allowed to change SCHEDULE-AGENT on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "valid-attendee-change")
+                    ))
 
                 # Determine whether the current change is allowed
                 changeAllowed, doITipReply, changedRids, newCalendar = self.isAttendeeChangeInsignificant()
@@ -780,7 +812,10 @@ class ImplicitScheduler(object):
                         returnValue(None)
                     else:
                         log.error("Attendee '%s' is not allowed to make an unauthorized change to an organized event: UID:%s" % (self.attendeePrincipal, self.uid,))
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "valid-attendee-change")
+                        ))
 
                 if not doITipReply:
                     log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
@@ -801,7 +836,10 @@ class ImplicitScheduler(object):
                             oldScheduling = self.oldcalendar.getOrganizerScheduleAgent()
                             if not oldScheduling:
                                 log.error("Attendee '%s' is not allowed to set SCHEDULE-AGENT=SERVER on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
-                                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-attendee-change")))
+                                raise HTTPError(ErrorResponse(
+                                    responsecode.FORBIDDEN,
+                                    (caldav_namespace, "valid-attendee-change")
+                                ))
 
                         log.debug("Attendee '%s' is not allowed to update UID: '%s' - missing organizer copy - removing entire event" % (self.attendee, self.uid,))
                         self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT

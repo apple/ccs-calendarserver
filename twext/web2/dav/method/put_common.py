@@ -234,7 +234,10 @@ def storeResource(
             diff_size = new_dest_size - old_dest_size
             if diff_size >= destquota[0]:
                 log.err("Over quota: available %d, need %d" % (destquota[0], diff_size))
-                raise HTTPError(ErrorResponse(responsecode.INSUFFICIENT_STORAGE_SPACE, (dav_namespace, "quota-not-exceeded")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.INSUFFICIENT_STORAGE_SPACE,
+                    (dav_namespace, "quota-not-excee")
+                ))
             d = waitForDeferred(destination.quotaSizeAdjust(request, diff_size))
             yield d
             d.getResult()

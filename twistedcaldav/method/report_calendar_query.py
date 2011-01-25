@@ -74,7 +74,10 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
     if query_tz is not None and not query_tz.valid():
         msg = "CalDAV:timezone must contain one VTIMEZONE component only: %s" % (query_tz,)
         log.err(msg)
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            (caldav_namespace, "valid-calendar-data"), description=msg
+        ))
     if query_tz:
         filter.settimezone(query_tz)
         query_timezone = tuple(calendar_query.timezone.calendar().subcomponents())[0]
@@ -94,7 +97,10 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         result, message, generate_calendar_data = report_common.validPropertyListCalendarDataTypeVersion(props)
         if not result:
             log.err(message)
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "supported-calendar-data")
+            ))
         
     else:
         raise AssertionError("We shouldn't be here")
@@ -102,7 +108,10 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
     # Verify that the filter element is valid
     if (filter is None) or not filter.valid():
         log.err("Invalid filter element: %r" % (xmlfilter,))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-filter")))
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            (caldav_namespace, "valid-filter")
+        ))
 
     matchcount = [0]
     max_number_of_results = [config.MaxQueryWithDataResults if generate_calendar_data else None,]
@@ -232,11 +241,14 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         log.err("Too many instances need to be computed in calendar-query report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-                NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
-            ))
+            NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
+        ))
     except NumberOfMatchesWithinLimits:
         log.err("Too many matching components in calendar-query report")
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            davxml.NumberOfMatchesWithinLimits()
+        ))
     
     if not hasattr(request, "extendedLogItems"):
         request.extendedLogItems = {}

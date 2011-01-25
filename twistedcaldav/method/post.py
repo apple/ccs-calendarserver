@@ -75,7 +75,10 @@ def POST_handler_add_member(self, request):
         content_type = request.headers.getHeader("content-type")
         if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "calendar"):
             self.log_error("MIME type %s not allowed in calendar collection" % (content_type,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "supported-calendar-data")
+            ))
             
         # Read the calendar component from the stream
         try:
@@ -87,7 +90,11 @@ def POST_handler_add_member(self, request):
             # We must have some data at this point
             if calendardata is None:
                 # Use correct DAV:error response
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="No calendar data"))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="No calendar data"
+                ))
 
             # Create a new name if one was not provided
             name =  md5(str(calendardata) + str(time.time()) + request.path).hexdigest() + ".ics"
@@ -124,7 +131,10 @@ def POST_handler_add_member(self, request):
         content_type = request.headers.getHeader("content-type")
         if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "vcard"):
             self.log_error("MIME type %s not allowed in address book collection" % (content_type,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "supported-address-data")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (carddav_namespace, "supported-address-data")
+            ))
             
         # Read the calendar component from the stream
         try:
@@ -136,7 +146,11 @@ def POST_handler_add_member(self, request):
             # We must have some data at this point
             if vcarddata is None:
                 # Use correct DAV:error response
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (carddav_namespace, "valid-address-data"), description="No address data"))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (carddav_namespace, "valid-address-data"),
+                    description="No address data"
+                ))
 
             # Create a new name if one was not provided
             name =  md5(str(vcarddata) + str(time.time()) + request.path).hexdigest() + ".vcf"

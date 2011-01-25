@@ -181,7 +181,10 @@ class Scheduler(object):
 
         if not originator:
             log.err("%s request must have Originator" % (self.method,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-specified")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "originator-specified")
+            ))
         else:
             self.originator = originator
 
@@ -197,7 +200,10 @@ class Scheduler(object):
         
         if not attendees:
             log.err("%s request must have at least one Recipient" % (self.method,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-specified")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "recipient-specified")
+            ))
         else:
             self.recipients = list(attendees)
 
@@ -213,7 +219,10 @@ class Scheduler(object):
         originator = self.request.headers.getRawHeaders("originator")
         if originator is None or (len(originator) != 1):
             log.err("%s request must have Originator header" % (self.method,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-specified")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "originator-specified")
+            ))
         else:
             self.originator = originator[0]
     
@@ -222,7 +231,10 @@ class Scheduler(object):
         rawRecipients = self.request.headers.getRawHeaders("recipient")
         if rawRecipients is None or (len(rawRecipients) == 0):
             log.err("%s request must have at least one Recipient header" % (self.method,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "recipient-specified")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "recipient-specified")
+            ))
     
         # Recipient header may be comma separated list
         self.recipients = []
@@ -238,7 +250,10 @@ class Scheduler(object):
         contentType = self.request.headers.getHeader("content-type")
         if contentType is not None and (contentType.mediaType, contentType.mediaSubtype) != ("text", "calendar"):
             log.err("MIME type %s not allowed in calendar collection" % (contentType,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "supported-calendar-data")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "supported-calendar-data")
+            ))
     
         # Parse the calendar object from the HTTP request stream
         try:
@@ -247,7 +262,11 @@ class Scheduler(object):
         except:
             # FIXME: Bare except
             log.err("Error while handling %s: %s" % (self.method, Failure(),))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Can't parse calendar data"))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "valid-calendar-data"),
+                description="Can't parse calendar data"
+            ))
 
     def checkAuthorization(self):
         raise NotImplementedError
@@ -273,22 +292,37 @@ class Scheduler(object):
             self.calendar.validCalendarForCalDAV()
         except ValueError, e:
             log.err("%s request calendar component is not valid:%s %s" % (self.method, e, self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Calendar component is not valid"))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "valid-calendar-data"),
+                description="Calendar component is not valid"
+            ))
     
         # Must have a METHOD
         if not self.calendar.isValidMethod():
             log.err("%s request must have valid METHOD property in calendar component: %s" % (self.method, self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Must have valid METHOD property"))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "valid-calendar-data"),
+                description="Must have valid METHOD property"
+            ))
         
         # Verify iTIP behavior
         if not self.calendar.isValidITIP():
             log.err("%s request must have a calendar component that satisfies iTIP requirements: %s" % (self.method, self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="Must have a calendar component that satisfies iTIP requirements"))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "valid-calendar-data"),
+                description="Must have a calendar component that satisfies iTIP requirements"
+            ))
 
         # X-CALENDARSERVER-ACCESS is not allowed in Outbox POSTs
         if self.calendar.hasProperty(Component.ACCESS_PROPERTY):
             log.err("X-CALENDARSERVER-ACCESS not allowed in a calendar component %s request: %s" % (self.method, self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (calendarserver_namespace, "no-access-restrictions")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "no-access-restrictions")
+            ))
     
         # Determine iTIP method mode
         if self.calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER"):
@@ -303,13 +337,20 @@ class Scheduler(object):
             # Must have only one
             if len(attendees) != 1:
                 log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendardata,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "attendee-allowed")
+                ))
             self.attendee = attendees[0]
 
         else:
             msg = "Unknown iTIP METHOD: %s" % (self.calendar.propertyValue("METHOD"),)
             log.err(msg)
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "valid-calendar-data"),
+                description=msg
+            ))
 
     def checkForFreeBusy(self):
         if not hasattr(self, "isfreebusy"):
@@ -318,17 +359,28 @@ class Scheduler(object):
                 vfreebusies = [v for v in self.calendar.subcomponents() if v.name() == "VFREEBUSY"]
                 if len(vfreebusies) != 1:
                     log.err("iTIP data is not valid for a VFREEBUSY request: %s" % (self.calendar,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="iTIP data is not valid for a VFREEBUSY request"))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "valid-calendar-data"), description="iTIP data is not valid for a VFREEBUSY request"
+                    ))
                 dtstart = vfreebusies[0].getStartDateUTC()
                 dtend = vfreebusies[0].getEndDateUTC()
                 if dtstart is None or dtend is None:
                     log.err("VFREEBUSY start/end not valid: %s" % (self.calendar,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="VFREEBUSY start/end not valid"))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "valid-calendar-data"),
+                        description="VFREEBUSY start/end not valid"
+                    ))
 
                 # Some clients send floating instead of UTC - coerce to UTC
                 if dtstart.tzinfo is None or dtend.tzinfo is None:
                     log.err("VFREEBUSY start or end not UTC: %s" % (self.calendar,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description="VFREEBUSY start or end not UTC"))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "valid-calendar-data"),
+                        description="VFREEBUSY start or end not UTC"
+                    ))
 
                 self.timeRange = caldavxml.TimeRange(start=iCalendarString(dtstart), end=iCalendarString(dtend))
                 self.timeRange.start = dtstart
@@ -398,7 +450,10 @@ class Scheduler(object):
     
             # Check for freebusy limit
             if freebusy and config.Scheduling.Options.LimitFreeBusyAttendees and ctr >= config.Scheduling.Options.LimitFreeBusyAttendees:
-                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-limit")))
+                err = HTTPError(ErrorResponse(
+                    responsecode.NOT_FOUND,
+                    (caldav_namespace, "recipient-limit")
+                ))
                 responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
                 continue
                 
@@ -418,7 +473,10 @@ class Scheduler(object):
                 imip_recipients.append(recipient)
 
             else:
-                err = HTTPError(ErrorResponse(responsecode.NOT_FOUND, (caldav_namespace, "recipient-exists")))
+                err = HTTPError(ErrorResponse(
+                    responsecode.NOT_FOUND,
+                    (caldav_namespace, "recipient-exists")
+                ))
                 responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.INVALID_CALENDAR_USER)
 
         # Now process local recipients
@@ -487,7 +545,10 @@ class CalDAVScheduler(Scheduler):
         # Must have an authenticated user
         if not self.internal_request and self.resource.currentPrincipal(self.request) == davxml.Principal(davxml.Unauthenticated()):
             log.err("Unauthenticated originators not allowed: %s" % (self.originator,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "originator-allowed")
+            ))
 
     def checkOriginator(self):
         """
@@ -499,13 +560,19 @@ class CalDAVScheduler(Scheduler):
         if originatorPrincipal is None:
             # Local requests MUST have a principal.
             log.err("Could not find principal for originator: %s" % (self.originator,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "originator-allowed")
+            ))
         else:
             # Must have a valid Inbox.
             inboxURL = originatorPrincipal.scheduleInboxURL()
             if inboxURL is None:
                 log.err("Could not find inbox for originator: %s" % (self.originator,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "originator-allowed")
+                ))
 
             self.originator = LocalCalendarUser(self.originator, originatorPrincipal)
 
@@ -559,34 +626,52 @@ class CalDAVScheduler(Scheduler):
                 if outboxURL:
                     if not organizerPrincipal.enabledAsOrganizer():
                         log.err("ORGANIZER not allowed to be an Organizer: %s" % (self.calendar,))
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "organizer-allowed")
+                        ))
 
                     self.organizer = LocalCalendarUser(organizer, organizerPrincipal)
                 else:
                     log.err("No outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "organizer-allowed")
+                    ))
             else:
                 localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(organizer))
                 if localUser:
                     log.err("No principal for ORGANIZER in calendar data: %s" % (self.calendar,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "organizer-allowed")
+                    ))
                 else:
                     self.organizer = RemoteCalendarUser(organizer) 
         else:
             log.err("ORGANIZER missing in calendar data: %s" % (self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "organizer-allowed")
+            ))
 
     def checkOrganizerAsOriginator(self):
 
         # Make sure that the ORGANIZER is local
         if not isinstance(self.organizer, LocalCalendarUser):
             log.err("ORGANIZER is not local to server in calendar data: %s" % (self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "organizer-allowed")
+            ))
 
         # Make sure that the ORGANIZER's Outbox is the request URI
         if self.doingPOST and self.organizer.principal.scheduleOutboxURL() != self.request.uri:
             log.err("Wrong outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "organizer-allowed")
+            ))
 
     def checkAttendeeAsOriginator(self):
         """
@@ -599,10 +684,16 @@ class CalDAVScheduler(Scheduler):
         if attendeePrincipal:
             if self.doingPOST and attendeePrincipal.scheduleOutboxURL() != self.request.uri:
                 log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "attendee-allowed")
+                ))
         else:
             log.err("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "attendee-allowed")
+            ))
     
     def securityChecks(self):
         """
@@ -700,7 +791,10 @@ class IScheduleScheduler(RemoteScheduler):
         # Must have an unauthenticated user
         if self.resource.currentPrincipal(self.request) != davxml.Principal(davxml.Unauthenticated()):
             log.err("Authenticated originators not allowed: %s" % (self.originator,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "originator-allowed")
+            ))
 
     @inlineCallbacks
     def checkOriginator(self):
@@ -714,7 +808,10 @@ class IScheduleScheduler(RemoteScheduler):
         if originatorPrincipal or localUser:
             if originatorPrincipal.locallyHosted():
                 log.err("Cannot use originator that is on this server: %s" % (self.originator,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "originator-allowed")
+                ))
             else:
                 self.originator = PartitionedCalendarUser(self.originator, originatorPrincipal)
                 #self._validPartitionServer()
@@ -732,7 +829,10 @@ class IScheduleScheduler(RemoteScheduler):
         server = servermgr.mapDomain(self.originator.domain)
         if not server or not server.allow_from:
             log.err("Originator not on recognized server: %s" % (self.originator,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "originator-allowed")
+            ))
         else:
             # Get the request IP and map to hostname.
             clientip = self.request.remoteAddr.host
@@ -768,7 +868,10 @@ class IScheduleScheduler(RemoteScheduler):
                         
             if not matched:
                 log.err("Originator not on allowed server: %s" % (self.originator,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "originator-allowed")
+                ))
 
     def _validPartitionServer(self, principal):
         """
@@ -800,7 +903,10 @@ class IScheduleScheduler(RemoteScheduler):
         
         if not matched:
             log.err("Originator not on allowed server: %s" % (self.originator,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "originator-allowed")
+            ))
 
     @inlineCallbacks
     def checkOrganizerAsOriginator(self):
@@ -815,7 +921,10 @@ class IScheduleScheduler(RemoteScheduler):
             if organizerPrincipal:
                 if organizerPrincipal.locallyHosted():
                     log.err("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "organizer-allowed")
+                    ))
                 else:
                     # Check that the origin server is the correct partition
                     self.organizer = PartitionedCalendarUser(organizer, organizerPrincipal)
@@ -824,12 +933,18 @@ class IScheduleScheduler(RemoteScheduler):
                 localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(organizer))
                 if localUser:
                     log.err("Unsupported ORGANIZER in calendar data: %s" % (self.calendar,))
-                    raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "organizer-allowed")
+                    ))
                 else:
                     self.organizer = RemoteCalendarUser(organizer)
         else:
             log.err("ORGANIZER missing in calendar data: %s" % (self.calendar,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "organizer-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "organizer-allowed")
+            ))
 
     @inlineCallbacks
     def checkAttendeeAsOriginator(self):
@@ -843,14 +958,20 @@ class IScheduleScheduler(RemoteScheduler):
         if attendeePrincipal:
             if attendeePrincipal.locallyHosted():
                 log.err("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "attendee-allowed")
+                ))
             else:
                 self._validPartitionServer(attendeePrincipal)                
         else:
             localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.attendee))
             if localUser:
                 log.err("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
-                raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "attendee-allowed")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "attendee-allowed")
+                ))
     
         # TODO: in this case we should check that the ORGANIZER is the sole recipient.
 
@@ -871,7 +992,10 @@ class IScheduleScheduler(RemoteScheduler):
         else:
             msg = "Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),)
             log.err(msg)
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "valid-calendar-data"), description=msg))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "valid-calendar-data"), description=msg
+            ))
 
 
 class DirectScheduler(Scheduler):
@@ -916,7 +1040,10 @@ class IMIPScheduler(RemoteScheduler):
         localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
         if originatorPrincipal or localUser:
             log.err("Cannot use originator that is on this server: %s" % (self.originator,))
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "originator-allowed")
+            ))
         else:
             self.originator = RemoteCalendarUser(self.originator)
 
@@ -940,7 +1067,10 @@ class IMIPScheduler(RemoteScheduler):
         else:
             log.err("Only %s is allowed to submit internal scheduling requests, not %s" % (allowed, host))
             # TODO: verify this is the right response:
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (caldav_namespace, "originator-allowed")))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "originator-allowed")
+            ))
 
 
 class ScheduleResponseResponse (Response):

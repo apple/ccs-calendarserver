@@ -160,13 +160,19 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         
         # Some things we do not handle
         if self.token or self.user:
-            raise HTTPError(ErrorResponse(responsecode.NOT_ACCEPTABLE, (calendarserver_namespace, "supported-query-parameter")))
+            raise HTTPError(ErrorResponse(
+                responsecode.NOT_ACCEPTABLE,
+                (calendarserver_namespace, "supported-query-parameter")
+            ))
         
         # Check format
         if self.format:
             self.format = self.format.split(";")[0]
             if self.format not in ("text/calendar", "text/plain"):
-                raise HTTPError(ErrorResponse(responsecode.NOT_ACCEPTABLE, (calendarserver_namespace, "supported-format")))
+                raise HTTPError(ErrorResponse(
+                    responsecode.NOT_ACCEPTABLE,
+                    (calendarserver_namespace, "supported-format")
+                ))
         else:
             self.format = "text/calendar"
             
@@ -183,17 +189,26 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
             if self.duration:
                 self.duration = parse_duration(self.duration)
         except ValueError:
-            raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST, (calendarserver_namespace, "valid-query-parameters")))
+            raise HTTPError(ErrorResponse(
+                responsecode.BAD_REQUEST,
+                (calendarserver_namespace, "valid-query-parameters")
+            ))
         
         # Sanity check start/end/duration
 
         # End and duration cannot both be present
         if self.end and self.duration:
-            raise HTTPError(ErrorResponse(responsecode.NOT_ACCEPTABLE, (calendarserver_namespace, "valid-query-parameters")))
+            raise HTTPError(ErrorResponse(
+                responsecode.NOT_ACCEPTABLE,
+                (calendarserver_namespace, "valid-query-parameters")
+            ))
         
         # Duration must be positive
         if self.duration and self.duration.days < 0:
-            raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST, (calendarserver_namespace, "valid-query-parameters")))
+            raise HTTPError(ErrorResponse(
+                responsecode.BAD_REQUEST,
+                (calendarserver_namespace, "valid-query-parameters")
+            ))
         
         # Now fill in the missing pieces
         if self.start is None:
@@ -206,7 +221,10 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
             
         # End > start
         if self.end <= self.start:
-            raise HTTPError(ErrorResponse(responsecode.BAD_REQUEST, (calendarserver_namespace, "valid-query-parameters")))
+            raise HTTPError(ErrorResponse(
+                responsecode.BAD_REQUEST,
+                (calendarserver_namespace, "valid-query-parameters")
+            ))
         
         # TODO: We should probably verify that the actual time-range is within sensible bounds (e.g. not too far in the past or future and not too long)
         
