@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.web2.dav.test.test_prop.PROP.test_PROPPATCH -*-
 ##
-# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -47,7 +47,7 @@ def http_PROPPATCH(self, request):
     Respond to a PROPPATCH request. (RFC 2518, section 8.2)
     """
     if not self.exists():
-        log.err("File not found: %s" % (self.path,))
+        log.err("File not found: %s" % (self,))
         raise HTTPError(responsecode.NOT_FOUND)
 
     x = waitForDeferred(self.authorize(request, (davxml.WriteProperties(),)))
