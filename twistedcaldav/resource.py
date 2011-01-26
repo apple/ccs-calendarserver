@@ -1465,7 +1465,7 @@ class CalDAVResource (
                 self.log_error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    customxml.MaxCollections
+                    customxml.MaxCollections()
                 ))
                 
         returnValue((yield self.createCalendarCollection()))
@@ -1558,7 +1558,7 @@ class CalDAVResource (
                 self.log_error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    customxml.MaxCollections
+                    customxml.MaxCollections()
                 ))
                 
         returnValue((yield self.createAddressBookCollection()))

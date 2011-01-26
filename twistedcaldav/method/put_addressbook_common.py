@@ -168,7 +168,7 @@ class StoreAddressObjectResource(object):
                 log.err(message)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    customxml.MaxResources
+                    customxml.MaxResources()
                 ))
 
             if not self.sourceadbk:

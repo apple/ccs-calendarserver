@@ -214,7 +214,7 @@ class StoreCalendarObjectResource(object):
                 log.err(message)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    customxml.MaxResources
+                    customxml.MaxResources()
                 ))
 
             # Valid data sizes - do before parsing the data
