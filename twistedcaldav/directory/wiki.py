@@ -182,6 +182,7 @@ def getWikiACL(resource, request):
                                         request.authnUser,
                                         davxml.Grant(
                                             davxml.Privilege(davxml.Read()),
+                                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
                                             
                                             # We allow write-properties so that direct sharees can change
                                             # e.g. calendar color properties
@@ -195,6 +196,7 @@ def getWikiACL(resource, request):
                                         ),
                                         davxml.Grant(
                                             davxml.Privilege(davxml.Read()),
+                                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
                                         ),
                                         TwistedACLInheritable(),
                                     )
@@ -207,6 +209,7 @@ def getWikiACL(resource, request):
                                         request.authnUser,
                                         davxml.Grant(
                                             davxml.Privilege(davxml.Read()),
+                                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
                                             davxml.Privilege(davxml.Write()),
                                         ),
                                         TwistedACLInheritable(),
@@ -217,6 +220,7 @@ def getWikiACL(resource, request):
                                         ),
                                         davxml.Grant(
                                             davxml.Privilege(davxml.Read()),
+                                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
                                             davxml.Privilege(davxml.Write()),
                                         ),
                                         TwistedACLInheritable(),
