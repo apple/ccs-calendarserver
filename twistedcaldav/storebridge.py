@@ -959,8 +959,66 @@ class CalendarObjectDropbox(_GetChildHelper):
                 TwistedACLInheritable(),
             ))
 
+        # Now also need invitees
+        newACEs.extend((yield self.sharedDropboxACEs()))
+
         returnValue(davxml.ACL(*tuple(originalACEs + newACEs)))
 
+    @inlineCallbacks
+    def sharedDropboxACEs(self):
+
+        aces = ()
+        records = yield self._newStoreCalendarObject._parentCollection.retrieveOldInvites().allRecords()
+        for record in records:
+            # Invite shares use access mode from the invite
+            if record.state != "ACCEPTED":
+                continue
+            
+            userprivs = [
+            ]
+            if record.access in ("read-only", "read-write", "read-write-schedule",):
+                userprivs.append(davxml.Privilege(davxml.Read()))
+                userprivs.append(davxml.Privilege(davxml.ReadACL()))
+                userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
+            if record.access in ("read-only",):
+                userprivs.append(davxml.Privilege(davxml.WriteProperties()))
+            if record.access in ("read-write", "read-write-schedule",):
+                userprivs.append(davxml.Privilege(davxml.Write()))
+            proxyprivs = list(userprivs)
+            proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
+
+            aces += (
+                # Inheritable specific access for the resource's associated principal.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(record.principalURL)),
+                    davxml.Grant(*userprivs),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ),
+            )
+
+            if config.EnableProxyPrincipals:
+                aces += (
+                    # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
+                    davxml.ACE(
+                        davxml.Principal(davxml.HRef(joinURL(record.principalURL, "calendar-proxy-read/"))),
+                        davxml.Grant(
+                            davxml.Privilege(davxml.Read()),
+                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                        ),
+                        davxml.Protected(),
+                        TwistedACLInheritable(),
+                    ),
+                    # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
+                    davxml.ACE(
+                        davxml.Principal(davxml.HRef(joinURL(record.principalURL, "calendar-proxy-write/"))),
+                        davxml.Grant(*proxyprivs),
+                        davxml.Protected(),
+                        TwistedACLInheritable(),
+                    ),
+                )
+
+        returnValue(aces)
 
 
 class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
