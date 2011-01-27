@@ -542,14 +542,16 @@ dependencies () {
     "http://svn.red-bean.com/bob/xattr/releases/xattr-0.6.1/";
 
   if [ "${py_version}" != "${py_version##2.5}" ] && ! py_have_module select26; then
+    local s26="select26-0.1a3";
     py_dependency -m "01b8929e7cfc4a8deb777b92e3115c15" \
-      "select26" "select26" "select26-0.1a3" \
-      "http://pypi.python.org/packages/source/s/select26/select26-0.1a3.tar.gz";
+      "select26" "select26" "${s26}" \
+      "http://pypi.python.org/packages/source/s/select26/${s26}.tar.gz";
   fi;
 
+  local pg="PyGreSQL-4.0";
   py_dependency -v 4.0 -m "1aca50e59ff4cc56abe9452a9a49c5ff" -o \
-    "PyGreSQL" "pgdb" "PyGreSQL-4.0" \
-    "http://pypi.python.org/packages/source/P/PyGreSQL/PyGreSQL-4.0.tar.gz";
+    "PyGreSQL" "pgdb" "${pg}" \
+    "http://pypi.python.org/packages/source/P/PyGreSQL/${pg}.tar.gz";
 
   py_dependency -v 10.1 -r 30159 \
     "Twisted" "twisted" "Twisted" \
@@ -559,6 +561,11 @@ dependencies () {
   py_dependency -m "35f3732db3f2cc4afdc68a8533b60a52" \
     "dateutil" "dateutil" "${du}" \
     "http://www.labix.org/download/python-dateutil/${du}.tar.gz";
+
+  local ld="python-ldap-2.3.12";
+  py_dependency -m "2dadc521b2c2590d9b033894ba5c6f31" \
+    "python-ldap" "python-ldap" "${ld}" \
+    "http://pypi.python.org/packages/source/p/python-ldap/${ld}.tar.gz";
 
   # XXX actually vObject should be imported in-place.
   py_dependency -fie -r 219 \
