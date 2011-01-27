@@ -127,6 +127,10 @@ def http_PROPFIND(self, request):
         inherited_aces=filtered_aces,
     )
 
+    # This needed for propfind cache tracking of children changes
+    if depth == "1":
+        request.childCacheURIs = []
+
     for readable, resource, uri in resources:
         if readable:
             if search_properties is "names":
@@ -183,6 +187,11 @@ def http_PROPFIND(self, request):
                 propstats.append(xml_propstat)
     
             xml_response = davxml.PropertyStatusResponse(davxml.HRef(uri), *propstats)
+
+            # This needed for propfind cache tracking of children changes
+            if depth == "1":
+                if resource != self and hasattr(resource, "url"):
+                    request.childCacheURIs.append(resource.url())
         else:
             xml_response = davxml.StatusResponse(davxml.HRef(uri), davxml.Status.fromResponseCode(responsecode.FORBIDDEN))
     

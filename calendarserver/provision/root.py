@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.provision.test.test_root -*-
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,6 +39,8 @@ from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.resource import CalDAVComplianceMixIn
 from twistedcaldav.resource import CalendarHomeResource, AddressBookHomeResource
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
+from twistedcaldav.storebridge import CalendarCollectionResource,\
+    AddressBookCollectionResource
 
 log = Logger()
 
@@ -76,9 +78,12 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         if config.EnableResponseCache and config.Memcached.Pools.Default.ClientEnabled:
             self.responseCache = MemcacheResponseCache(self.fp)
 
+            # These class attributes need to be setup with our memcache notifier
             CalendarHomeResource.cacheNotifierFactory = MemcacheChangeNotifier
             AddressBookHomeResource.cacheNotifierFactory = MemcacheChangeNotifier
             DirectoryPrincipalResource.cacheNotifierFactory = MemcacheChangeNotifier
+            CalendarCollectionResource.cacheNotifierFactory = MemcacheChangeNotifier
+            AddressBookCollectionResource.cacheNotifierFactory = MemcacheChangeNotifier
         else:
             self.responseCache = DisabledCache()
 

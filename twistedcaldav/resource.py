@@ -2438,7 +2438,7 @@ class CalendarHomeResource(CommonHomeResource):
         newCalendar = yield self._newStoreHome.calendarWithName(name)
         from twistedcaldav.storebridge import CalendarCollectionResource
         similar = CalendarCollectionResource(
-            newCalendar, self._newStoreHome, name=name,
+            newCalendar, self, name=name,
             principalCollections=self.principalCollections()
         )
         self.propagateTransaction(similar)
@@ -2617,7 +2617,7 @@ class AddressBookHomeResource (CommonHomeResource):
 
         newAddressBook = yield self._newStoreHome.addressbookWithName(name)
         similar = mainCls(
-            newAddressBook, self._newStoreHome, name,
+            newAddressBook, self, name,
             principalCollections=self.principalCollections()
         )
         self.propagateTransaction(similar)

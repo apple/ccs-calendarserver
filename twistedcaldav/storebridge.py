@@ -46,6 +46,8 @@ from twext.web2.responsecode import (
 )
 from twext.web2.stream import ProducerStream, readStream, MemoryStream
 
+from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin,\
+    DisabledCacheNotifier
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav import customxml
@@ -193,12 +195,13 @@ class _NewStoreFileMetaDataHelper(object):
 
 
 
-class _CommonHomeChildCollectionMixin(object):
+class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
     """
     Methods for things which are like calendars.
     """
 
     _childClass = None
+    cacheNotifierFactory = DisabledCacheNotifier
 
     def _initializeWithHomeChild(self, child, home):
         """
@@ -211,10 +214,14 @@ class _CommonHomeChildCollectionMixin(object):
         @type home: L{txdav.common._.CommonHome}
         """
         self._newStoreObject = child
-        self._newStoreParentHome = home
+        self._newStoreParentHome = home._newStoreHome
+        self._parentResource = home
         self._dead_properties = _NewStorePropertiesWrapper(
             self._newStoreObject.properties()
         ) if self._newStoreObject else NonePropertyStore(self)
+        if self._newStoreObject:
+            self.cacheNotifier = self.cacheNotifierFactory(self)
+            self._newStoreObject.addNotifier(CacheStoreNotifier(self))
 
 
     def liveProperties(self):
@@ -237,6 +244,9 @@ class _CommonHomeChildCollectionMixin(object):
             returnValue(customxml.MaxResources.fromString(config.MaxResourcesPerCollection))
 
         returnValue((yield super(_CommonHomeChildCollectionMixin, self).readProperty(property, request)))
+
+    def url(self):
+        return joinURL(self._parentResource.url(), self._name, "/")
 
     def index(self):
         """
@@ -343,7 +353,7 @@ class _CommonHomeChildCollectionMixin(object):
         self._newStoreObject = (yield self._newStoreParentHome.createChildWithName(self._name))
         
         # Re-initialize to get stuff setup again now we have a "real" object
-        self._initializeWithHomeChild(self._newStoreObject, self._newStoreParentHome)
+        self._initializeWithHomeChild(self._newStoreObject, self._parentResource)
 
         returnValue(CREATED)
 
@@ -437,7 +447,7 @@ class _CommonHomeChildCollectionMixin(object):
         yield self._newStoreObject.remove()
         
         # Re-initialize to get stuff setup again now we have no object
-        self._initializeWithHomeChild(None, self._newStoreParentHome)
+        self._initializeWithHomeChild(None, self._parentResource)
 
         # FIXME: handle exceptions, possibly like this:
 
@@ -682,7 +692,7 @@ class StoreScheduleInboxResource(_CommonHomeChildCollectionMixin, ScheduleInboxR
             storage = yield home.calendarWithName("inbox")
         self._initializeWithHomeChild(
             storage,
-            self.parent._newStoreHome
+            self.parent
         )
         self._name = storage.name()
         returnValue(self)

@@ -231,6 +231,18 @@ class BaseCacheTestMixin(object):
         return d
 
 
+    def test_getResponseForRequestChildTokenChanged(self):
+        self.tokens['/calendars/__uids__/cdaboo/calendars/'] = 'childToken1'
+
+        d = self.rc.getResponseForRequest(StubRequest(
+                'PROPFIND',
+                '/calendars/__uids__/cdaboo/',
+                '/principals/__uids__/cdaboo/'))
+
+        d.addCallback(self.assertEquals, None)
+        return d
+
+
     def test_getResponseForDepthZero(self):
         d = self.rc.getResponseForRequest(StubRequest(
                 'PROPFIND',
@@ -333,6 +345,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
         self.tokens = {}
 
         self.tokens['/calendars/__uids__/cdaboo/'] = 'uriToken0'
+        self.tokens['/calendars/__uids__/cdaboo/calendars/'] = 'childToken0'
         self.tokens['/principals/__uids__/cdaboo/'] = 'principalToken0'
         self.tokens['/principals/__uids__/dreid/'] = 'principalTokenX'
 
@@ -357,6 +370,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
             'principalToken0',
             hash('directoryToken0'),
             'uriToken0',
+            {'/calendars/__uids__/cdaboo/calendars/':'childToken0'},
             (self.expected_response[0],
              dict(list(self.expected_response[1].getAllRawHeaders())),
              self.expected_response[2]))))
@@ -386,6 +400,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
                     'principalToken0',
                     hash('directoryToken0'),
                     'uriToken0',
+                    {'/calendars/__uids__/cdaboo/calendars/':'childToken0'},
                     (expected_response[0],
                      dict(list(expected_response[1].getAllRawHeaders())),
                      expected_response[2]))))
