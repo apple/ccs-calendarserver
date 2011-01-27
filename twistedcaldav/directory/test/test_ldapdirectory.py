@@ -14,68 +14,72 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.directory.ldapdirectory import buildFilter
-from twistedcaldav.test.util import TestCase
+try:
+    from twistedcaldav.directory.ldapdirectory import buildFilter
+except ImportError:
+    print "Skipping because ldap module not installed"
+else:
+    from twistedcaldav.test.util import TestCase
 
-class BuildFilterTestCase(TestCase):
+    class BuildFilterTestCase(TestCase):
 
-    def test_buildFilter(self):
-        mapping = {
-            "fullName" : "cn",
-            "emailAddresses" : "mail",
-            "firstName" : "givenName",
-            "lastName" : "sn",
-        }
+        def test_buildFilter(self):
+            mapping = {
+                "fullName" : "cn",
+                "emailAddresses" : "mail",
+                "firstName" : "givenName",
+                "lastName" : "sn",
+            }
 
-        entries = [
-            {
-                "fields" : [
-                    ("fullName", "mor", True, u"starts-with"),
-                    ("emailAddresses", "mor", True, u"starts-with"),
-                    ("firstName", "mor", True, u"starts-with"),
-                    ("lastName", "mor", True, u"starts-with")
-                ],
-                "operand" : "or",
-                "recordType" : None,
-                "expected" : "(|(cn=mor*)(mail=mor*)(givenName=mor*)(sn=mor*))"
-            },
-            {
-                "fields" : [
-                    ("fullName", "mor", True, u"starts-with"),
-                ],
-                "operand" : "or",
-                "recordType" : None,
-                "expected" : "(cn=mor*)"
-            },
-            {
-                "fields" : [
-                    ("fullName", "mor", True, u"contains"),
-                    ("emailAddresses", "mor", True, u"equals"),
-                    ("invalid", "mor", True, u"starts-with"),
-                ],
-                "operand" : "and",
-                "recordType" : None,
-                "expected" : "(&(cn=*mor*)(mail=mor))"
-            },
-            {
-                "fields" : [
-                    ("invalid", "mor", True, u"contains"),
-                    ("invalid", "mor", True, u"starts-with"),
-                ],
-                "operand" : "and",
-                "recordType" : None,
-                "expected" : None
-            },
-            {
-                "fields" : [ ],
-                "operand" : "and",
-                "recordType" : None,
-                "expected" : None
-            },
-        ]
-        for entry in entries:
-            self.assertEquals(
-                buildFilter(mapping, entry["fields"],
-                    operand=entry["operand"]),
-                entry["expected"]
-            )
+            entries = [
+                {
+                    "fields" : [
+                        ("fullName", "mor", True, u"starts-with"),
+                        ("emailAddresses", "mor", True, u"starts-with"),
+                        ("firstName", "mor", True, u"starts-with"),
+                        ("lastName", "mor", True, u"starts-with")
+                    ],
+                    "operand" : "or",
+                    "recordType" : None,
+                    "expected" : "(|(cn=mor*)(mail=mor*)(givenName=mor*)(sn=mor*))"
+                },
+                {
+                    "fields" : [
+                        ("fullName", "mor", True, u"starts-with"),
+                    ],
+                    "operand" : "or",
+                    "recordType" : None,
+                    "expected" : "(cn=mor*)"
+                },
+                {
+                    "fields" : [
+                        ("fullName", "mor", True, u"contains"),
+                        ("emailAddresses", "mor", True, u"equals"),
+                        ("invalid", "mor", True, u"starts-with"),
+                    ],
+                    "operand" : "and",
+                    "recordType" : None,
+                    "expected" : "(&(cn=*mor*)(mail=mor))"
+                },
+                {
+                    "fields" : [
+                        ("invalid", "mor", True, u"contains"),
+                        ("invalid", "mor", True, u"starts-with"),
+                    ],
+                    "operand" : "and",
+                    "recordType" : None,
+                    "expected" : None
+                },
+                {
+                    "fields" : [ ],
+                    "operand" : "and",
+                    "recordType" : None,
+                    "expected" : None
+                },
+            ]
+            for entry in entries:
+                self.assertEquals(
+                    buildFilter(mapping, entry["fields"],
+                        operand=entry["operand"]),
+                    entry["expected"]
+                )
