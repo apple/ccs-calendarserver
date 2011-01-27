@@ -563,7 +563,7 @@ dependencies () {
     "http://www.labix.org/download/python-dateutil/${du}.tar.gz";
 
   local ld="python-ldap-2.3.12";
-  py_dependency -m "2dadc521b2c2590d9b033894ba5c6f31" \
+  py_dependency -v "2.3.12" -m "2dadc521b2c2590d9b033894ba5c6f31" \
     "python-ldap" "python-ldap" "${ld}" \
     "http://pypi.python.org/packages/source/p/python-ldap/${ld}.tar.gz";
 
