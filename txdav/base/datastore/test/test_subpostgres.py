@@ -66,11 +66,11 @@ class SubprocessStartup(TestCase):
                     cursor.close()
 
         svc = PostgresService(
-                CachingFilePath("../_postgres_test_db1"),
-                SimpleService1,
-                "create table TEST_DUMMY_TABLE (stub varchar)",
-                databaseName="dummy_db",
-                testMode=True
+            CachingFilePath("postgres_1.pgdb"),
+            SimpleService1,
+            "create table TEST_DUMMY_TABLE (stub varchar)",
+            databaseName="dummy_db",
+            testMode=True
         )
         svc.startService()
         self.addCleanup(svc.stopService)
@@ -116,12 +116,12 @@ class SubprocessStartup(TestCase):
                     cursor.close()
 
         svc = PostgresService(
-                CachingFilePath("../_postgres_test_db2"),
-                SimpleService2,
-                "create table TEST_DUMMY_TABLE (stub varchar)",
-                databaseName="dummy_db",
-                listenAddresses=['127.0.0.1',],
-                testMode=True
+            CachingFilePath("postgres_2.pgdb"),
+            SimpleService2,
+            "create table TEST_DUMMY_TABLE (stub varchar)",
+            databaseName="dummy_db",
+            listenAddresses=['127.0.0.1',],
+            testMode=True
         )
         svc.startService()
         self.addCleanup(svc.stopService)
