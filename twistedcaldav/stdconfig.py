@@ -52,6 +52,61 @@ DEFAULT_SERVICE_PARAMS = {
         "restrictToGroup": "",
         "recordTypes": ("users", "groups"),
     },
+    "twistedcaldav.directory.ldapdirectory.LdapDirectoryService": {
+        "cacheTimeout": 30,
+        "restrictEnabledRecords": False,
+        "restrictToGroup": "",
+        "recordTypes": ("users", "groups"),
+        "uri": "ldap://localhost/",
+        "tls": False,
+        "tlsCACertFile": None,
+        "tlsCACertDir": None,
+        "tlsRequireCert": None, # never, allow, try, demand, hard
+        "credentials": {
+            "dn": None,
+            "password": None,
+        },
+        "authMethod": "LDAP",
+        "rdnSchema": {
+            "base": "dc=example,dc=com",
+            "guidAttr": None,
+            "users": {
+                "rdn": "ou=People",
+                "attr": "uid", # used only to synthesize email address
+                "emailSuffix": None, # used only to synthesize email address
+                "filter": None, # additional filter for this type
+            },
+            "groups": {
+                "rdn": "ou=Group",
+                "attr": "cn", # used only to synthesize email address
+                "emailSuffix": None, # used only to synthesize email address
+                "filter": None, # additional filter for this type
+            },
+            "locations": {
+                "rdn": "ou=Locations",
+                "attr": "cn", # used only to synthesize email address
+                "emailSuffix": None, # used only to synthesize email address
+                "filter": None, # additional filter for this type
+            },
+            "resources": {
+                "rdn": "ou=Resources",
+                "attr": "cn", # used only to synthesize email address
+                "emailSuffix": None, # used only to synthesize email address
+                "filter": None, # additional filter for this type
+            },
+        },
+        "groupSchema": {
+            "membersAttr": "member", # how members are specified
+            "nestedGroupsAttr": None, # how nested groups are specified
+            "memberIdAttr": None, # which attribute the above refer to
+        },
+        "attributeMapping": { # maps internal record names to LDAP
+            "fullName" : "cn",
+            "emailAddresses" : "mail",
+            "firstName" : "givenName",
+            "lastName" : "sn",
+        },
+    },
 }
 
 DEFAULT_RESOURCE_PARAMS = {

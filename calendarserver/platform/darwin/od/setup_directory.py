@@ -94,11 +94,21 @@ masterUsers = [
 
 masterGroups = [
     (
+        "odtestsubgroupb",
+        {
+            dsattributes.kDS1AttrGeneratedUID : ["6C6CD282-E6E3-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrDistinguishedName : ["OD Test Subgroup B"],
+            dsattributes.kDSNAttrGroupMembers : ["9DC04A72-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrPrimaryGroupID : ["33401"],
+        },
+    ),
+    (
         "odtestgrouptop",
         {
             dsattributes.kDS1AttrGeneratedUID : ["6C6CD280-E6E3-11DF-9492-0800200C9A66"],
             dsattributes.kDS1AttrDistinguishedName : ["OD Test Group Top"],
             dsattributes.kDSNAttrGroupMembers : ["9DC04A70-E6DD-11DF-9492-0800200C9A66", "9DC04A71-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDSNAttrNestedGroups : ["6C6CD282-E6E3-11DF-9492-0800200C9A66"],
             dsattributes.kDS1AttrPrimaryGroupID : ["33400"],
         },
     ),
@@ -162,7 +172,7 @@ localGroups = [
             dsattributes.kDS1AttrGeneratedUID : ["6C6CD281-E6E3-11DF-9492-0800200C9A66"],
             dsattributes.kDS1AttrDistinguishedName : ["OD Test Subgroup A"],
             dsattributes.kDSNAttrGroupMembers : ["9DC04A74-E6DD-11DF-9492-0800200C9A66", "9DC04A75-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["33400"],
+            dsattributes.kDS1AttrPrimaryGroupID : ["33402"],
         },
     ),
 ]

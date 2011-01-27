@@ -54,7 +54,7 @@ class OpenDirectoryService(CachingDirectoryService):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
 
-    def __init__(self, params, dosetup=True):
+    def __init__(self, params):
         """
         @param params: a dictionary containing the following keys:
             node: an OpenDirectory node name to bind to.
@@ -64,9 +64,6 @@ class OpenDirectoryService(CachingDirectoryService):
             restrictToGroup: C{str} guid or name of group used to
               restrict enabled users.
             cacheTimeout: C{int} number of minutes before cache is invalidated.
-        @param dosetup: if C{True} then the directory records are initialized,
-                        if C{False} they are not.
-                        This should only be set to C{False} when doing unit tests.
         """
         defaults = {
             'node' : '/Search',
@@ -105,8 +102,6 @@ class OpenDirectoryService(CachingDirectoryService):
         else:
             self.restrictToGUID = True
         self.restrictedTimestamp = 0
-        self._records = {}
-        self._delayedCalls = set()
 
     @property
     def restrictedGUIDs(self):

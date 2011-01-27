@@ -100,7 +100,7 @@ class PurgeOldEventsService(Service):
         try:
             rootResource = getRootResource(config, self._store)
             directory = rootResource.getDirectory()
-            total = (yield purgeOldEvents(self._store, directory, rootResource,
+            (yield purgeOldEvents(self._store, directory, rootResource,
                 self.cutoff, self.batchSize, verbose=self.verbose,
                 dryrun=self.dryrun))
         except Exception, e:
