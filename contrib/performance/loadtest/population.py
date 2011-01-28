@@ -24,7 +24,7 @@ from itertools import izip
 
 from stats import mean, median, stddev, mad
 from loadtest.ical import SnowLeopard, RequestLogger
-from loadtest.profiles import Inviter
+from loadtest.profiles import Inviter, Accepter
 
 
 class PopulationParameters(object):
@@ -87,7 +87,7 @@ class CalendarClientSimulator(object):
     def _nextUserNumber(self):
         result = self._user
         self._user += 1
-        return self._user
+        return result
 
 
     def _createUser(self, number):
@@ -109,7 +109,8 @@ class CalendarClientSimulator(object):
             client = self._pop.next()(self.reactor, self.host, self.port, user, auth)
             client.run()
             Inviter(self.reactor, client, number).run()
-        print 'Now running', self._user, 'clients.'
+            Accepter(self.reactor, client, number).run()
+        print 'Now running', self._user - 1, 'clients.'
 
 
 
@@ -213,10 +214,8 @@ def main():
         populator, parameters, reactor, '127.0.0.1', 8008)
 
     # Add some clients.
-    call = LoopingCall(simulator.add, 1)
-    call.start(3)
-    reactor.callLater(3 * 90, call.stop)
-
+    for i in range(50):
+        reactor.callLater(i, simulator.add, 1)
     reactor.run()
     report.summarize()
 
