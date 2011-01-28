@@ -53,7 +53,7 @@ from twistedcaldav.directory.internal import InternalDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.wiki import WikiDirectoryService
-from twistedcaldav.notify import NotifierFactory
+from twistedcaldav.notify import NotifierFactory, getPubSubConfiguration
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.schedule import IScheduleInboxResource
@@ -172,6 +172,7 @@ def storeFromConfig(config, txnFactory):
         notifierFactory = NotifierFactory(
             config.Notifications.InternalNotificationHost,
             config.Notifications.InternalNotificationPort,
+            pubSubConfig=getPubSubConfiguration(config)
         )
     else:
         notifierFactory = None

@@ -236,3 +236,25 @@ class INotifier(Interface):
 
         @return: a string (or None if notifications are disabled)
         """
+
+    def nodeName(label):
+        """
+        Returns a pubsub node path.
+
+        A pubsub node path is comprised of the following values:
+
+        /<protocol>/<hostname>/<notifierID>/
+
+        <protocol> is either CalDAV or CardDAV
+        <hostname> is the name of the calendar server
+        <notifierID> is a unique string representing the resource
+
+        This method builds this string based on pubsub configuration
+        that was passed to the NotifierFactory, and it also attempts
+        to create and configure the node in the pubsub server.  If that
+        fails, a value of None will be returned. This is used when a client
+        requests push-related DAV properties.
+
+        @return: a deferred to a string (or None if notifications are disabled
+        or the node could not be created)
+        """

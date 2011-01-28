@@ -405,6 +405,20 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(calendar.notifierID(), "CalDAV|home1")
         self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
 
+    @inlineCallbacks
+    def test_nodeNameSuccess(self):
+        home = yield self.homeUnderTest()
+        name = yield home.nodeName()
+        self.assertEquals(name, "/CalDAV/example.com/home1/")
+
+    @inlineCallbacks
+    def test_nodeNameFailure(self):
+        # The StubNodeCacher is set up to fail when the node name has the
+        # word "fail" in it, for testing the failure mode:
+        home = yield self.transactionUnderTest().calendarHomeWithUID("fail",
+            create=True)
+        name = yield home.nodeName()
+        self.assertEquals(name, None)
 
     @inlineCallbacks
     def test_calendarHomeWithUID_exists(self):

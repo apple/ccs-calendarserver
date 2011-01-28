@@ -770,6 +770,16 @@ class CommonHome(LoggingMixIn):
         else:
             return None
 
+    @inlineCallbacks
+    def nodeName(self, label="default"):
+        if self._notifiers:
+            for notifier in self._notifiers:
+                name = (yield notifier.nodeName(label=label))
+                if name is not None:
+                    returnValue(name)
+        else:
+            returnValue(None)
+
     def notifyChanged(self):
         """
         Trigger a notification of a change
@@ -1566,6 +1576,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         else:
             return None
 
+    @inlineCallbacks
+    def nodeName(self, label="default"):
+        if self._notifiers:
+            for notifier in self._notifiers:
+                name = (yield notifier.nodeName(label=label))
+                if name is not None:
+                    returnValue(name)
+        else:
+            returnValue(None)
+
     def notifyChanged(self):
         """
         Trigger a notification of a change
@@ -2131,6 +2151,15 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         else:
             return None
 
+    @inlineCallbacks
+    def nodeName(self, label="default"):
+        if self._notifiers:
+            for notifier in self._notifiers:
+                name = (yield notifier.nodeName(label=label))
+                if name is not None:
+                    returnValue(name)
+        else:
+            returnValue(None)
 
     def notifyChanged(self):
         """

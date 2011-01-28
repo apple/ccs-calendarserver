@@ -28,7 +28,7 @@ from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.task import deferLater
 from twisted.python import log
 from twisted.application.service import Service
@@ -39,7 +39,7 @@ from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from twext.enterprise.adbapi2 import ConnectionPool
 from twisted.internet.defer import returnValue
-from twistedcaldav.notify import Notifier
+from twistedcaldav.notify import Notifier, NodeCreationException
 
 
 def allInstancesOf(cls):
@@ -283,6 +283,14 @@ class CommonCommonTests(object):
             return self.commit()
 
 
+class StubNodeCacher(object):
+
+    def waitForNode(self, notifier, nodeName):
+        if "fail" in nodeName:
+            raise NodeCreationException("Could not create node")
+        else:
+            return succeed(True)
+
 
 class StubNotifierFactory(object):
     """
@@ -291,6 +299,13 @@ class StubNotifierFactory(object):
 
     def __init__(self):
         self.reset()
+        self.nodeCacher = StubNodeCacher()
+        self.pubSubConfig = {
+            "enabled" : True,
+            "service" : "pubsub.example.com",
+            "host" : "example.com",
+            "port" : "123",
+        }
 
     def newNotifier(self, label="default", id=None, prefix=None):
         return Notifier(self, label=label, id=id, prefix=prefix)

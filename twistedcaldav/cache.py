@@ -436,3 +436,6 @@ class CacheStoreNotifier(object):
 
     def getID(self, label="default"):
         return None
+
+    def nodeName(self, label="default"):
+        return succeed(None)

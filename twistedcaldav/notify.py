@@ -39,7 +39,7 @@ from twext.python.log import LoggingMixIn
 
 from twisted.internet.protocol import ReconnectingClientFactory, ServerFactory
 from twisted.internet.ssl import ClientContextFactory
-from twisted.internet.defer import inlineCallbacks, Deferred
+from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.protocols.basic import LineReceiver
 from twisted.plugin import IPlugin
 from twisted.application import internet, service
@@ -142,6 +142,21 @@ class Notifier(LoggingMixIn):
         else:
             return "%s|%s" % (self._prefix, id)
 
+    @inlineCallbacks
+    def nodeName(self, label="default"):
+        id = self.getID(label=label)
+        pubSubConfig = self._notifierFactory.pubSubConfig
+        name = getPubSubPath(id, pubSubConfig)
+        try:
+            if self._notifierFactory.nodeCacher:
+                nodeCacher = self._notifierFactory.nodeCacher
+            else:
+                nodeCacher = getNodeCacher()
+            (yield nodeCacher.waitForNode(self, name))
+        except NodeCreationException, e:
+            self.log_warn(e)
+            returnValue(None)
+        returnValue(name)
 
 class NotificationClientLineProtocol(LineReceiver, LoggingMixIn):
     """
@@ -205,10 +220,16 @@ class NotifierFactory(LoggingMixIn):
     gateway.
     """
 
-    def __init__(self, host, port, reactor=None):
+    def __init__(self, gatewayHost, gatewayPort, pubSubConfig=None,
+        nodeCacher=None, reactor=None):
+
         self.factory = None
-        self.host = host
-        self.port = port
+
+        self.gatewayHost = gatewayHost
+        self.gatewayPort = gatewayPort
+        self.pubSubConfig = pubSubConfig
+        self.nodeCacher = nodeCacher
+
         self.observers = set()
         self.queued = set()
 
@@ -219,7 +240,8 @@ class NotifierFactory(LoggingMixIn):
     def send(self, op, id):
         if self.factory is None:
             self.factory = NotificationClientFactory(self)
-            self.reactor.connectTCP(self.host, self.port, self.factory)
+            self.reactor.connectTCP(self.gatewayHost, self.gatewayPort,
+                self.factory)
             self.log_debug("Creating factory")
 
         msg = "%s %s" % (op, str(id))

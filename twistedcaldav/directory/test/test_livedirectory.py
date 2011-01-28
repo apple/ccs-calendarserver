@@ -182,6 +182,8 @@ if runLDAPTests or runODTests:
     if runODTests:
 
         from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+        print "Running live OD tests"
+
         class LiveODDirectoryServiceCase(LiveDirectoryTests, TestCase):
 
             def setUp(self):
