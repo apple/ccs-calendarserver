@@ -42,6 +42,8 @@ from protocol.caldav.definitions import csxml
 from httpclient import StringProducer, readBody
 from httpauth import AuthHandlerAgent
 
+from subscribe import Periodical
+
 def loadRequestBody(label):
     return FilePath(__file__).sibling('request-data').child(label + '.request').getContent()
 
@@ -53,6 +55,7 @@ class Event(object):
     def __init__(self, url, etag, vevent=None):
         self.url = url
         self.etag = etag
+        self.scheduleTag = None
         self.vevent = vevent
 
 
@@ -63,12 +66,21 @@ class Calendar(object):
         self.name = name
         self.url = url
         self.ctag = ctag
+        self.events = {}
 
 
 
 class BaseClient(object):
+    user = None
+    _events = None
+    _calendars = None
+
     def addEventAttendee(self, href, attendee):
         raise NotImplementedError("%r does not implement addEventAttendee" % (self.__class__,))
+
+
+    def changeEventAttendee(self, href, oldAttendee, newAttendee):
+        raise NotImplementedError("%r does not implement changeEventAttendee" % (self.__class__,))
 
 
 
@@ -86,7 +98,7 @@ class SnowLeopard(BaseClient):
 
     USER_AGENT = "DAVKit/4.0.3 (732); CalendarStore/4.0.3 (991); iCal/4.0.3 (1388); Mac OS X/10.6.4 (10F569)"
 
-    CALENDAR_HOME_POLL_INTERVAL = 15 * 60
+    CALENDAR_HOME_POLL_INTERVAL = 15 # * 60
 
     _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody('sl_startup_principal_propfind')
     _STARTUP_PRINCIPALS_REPORT = loadRequestBody('sl_startup_principals_report')
@@ -118,6 +130,11 @@ class SnowLeopard(BaseClient):
         # part of), values are Event instances.
         self._events = {}
 
+        # Allow events to go out into the world.
+        self.catalog = {
+            "eventChanged": Periodical(),
+            }
+
 
     def _request(self, expectedResponseCode, method, url, headers=None, body=None):
         if headers is None:
@@ -128,12 +145,15 @@ class SnowLeopard(BaseClient):
         before = self.reactor.seconds()
         def report(response):
             success = response.code == expectedResponseCode
+            # if not success:
+            #     import pdb; pdb.set_trace()
             after = self.reactor.seconds()
             # XXX This is time to receive response headers, not time
             # to receive full response.  Should measure the latter, if
             # not both.
             msg(
                 type="response", success=success, method=method,
+                headers=headers, body=body,
                 duration=(after - before), url=url)
             return response
         d.addCallback(report)
@@ -253,8 +273,6 @@ class SnowLeopard(BaseClient):
             Headers({'content-type': ['text/xml'], 'depth': ['1']}),
             StringProducer(self._CALENDAR_PROPFIND))
 
-        # XXX Check the response status code
-
         body = yield readBody(response)
 
         result = self._parseMultiStatus(body)
@@ -269,24 +287,39 @@ class SnowLeopard(BaseClient):
                 continue
 
             if responseHref not in self._events:
-                self._events[responseHref] = Event(responseHref, None)
+                self._setEvent(responseHref, Event(responseHref, None))
                 
             event = self._events[responseHref]
             if event.etag != etag:
-                response = yield self._updateEvent(url, responseHref)
+                response = yield self._eventReport(url, responseHref)
                 body = yield readBody(response)
-                self.eventChanged(responseHref, body)
+                res = self._parseMultiStatus(body)[responseHref]
+                text = res.getTextProperties()
+                etag = text[davxml.getetag]
+                try:
+                    scheduleTag = text[caldavxml.schedule_tag]
+                except KeyError:
+                    scheduleTag = None
+                body = text[caldavxml.calendar_data]
+                self.eventChanged(responseHref, etag, scheduleTag, body)
 
 
-    def eventChanged(self, href, body):
+    def _setEvent(self, href, event):
+        self._events[href] = event
+        calendar, uid = href.rsplit('/', 1)
+        self._calendars[calendar + '/'].events[uid] = event
+
+
+    def eventChanged(self, href, etag, scheduleTag, body):
         event = self._events[href]
-        res = self._parseMultiStatus(body)[href]
-        text = res.getTextProperties()
-        event.etag = text[davxml.getetag]
-        event.vevent = list(readComponents(text[caldavxml.calendar_data]))[0]
+        event.etag = etag
+        if scheduleTag is not None:
+            event.scheduleTag = scheduleTag
+        event.vevent = list(readComponents(body))[0]
+        self.catalog["eventChanged"].issue(href)
 
                 
-    def _updateEvent(self, calendar, event):
+    def _eventReport(self, calendar, event):
         # Next do a REPORT on each event that might have information
         # we don't know about.
         return self._request(
@@ -465,18 +498,43 @@ class SnowLeopard(BaseClient):
                 StringProducer(vevent.serialize()))
             return d
         d.addCallback(availability)
-        def check(ignored):
-            # Finally, re-retrieve the event
-            return self._request(OK, 'GET', self.root + href[1:])
-        d.addCallback(check)
+        # Finally, re-retrieve the event to update the etag
+        d.addCallback(self._updateEvent, href)
+        return d
+
+
+    def changeEventAttendee(self, href, oldAttendee, newAttendee):
+        event = self._events[href]
+        vevent = event.vevent
+
+        # Change the event to have the new attendee instead of the old attendee
+        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        attendees.remove(oldAttendee)
+        attendees.append(newAttendee)
+        headers = Headers({
+                'content-type': ['text/calendar'],
+                })
+        if event.scheduleTag is not None:
+            headers.addRawHeader('if-schedule-tag-match', event.scheduleTag)
+
+        d = self._request(
+            NO_CONTENT, 'PUT', self.root + href[1:],
+            headers, StringProducer(vevent.serialize()))
+        d.addCallback(self._updateEvent, href)
+        return d
+
+
+    def _updateEvent(self, ignored, href):
+        d = self._request(OK, 'GET', self.root + href[1:])
         def getETag(response):
-            etag = response.headers.getRawHeaders('etag')[0]
-            return readBody(response).addCallback(lambda body: (etag, body))
+            headers = response.headers
+            etag = headers.getRawHeaders('etag')[0]
+            scheduleTag = headers.getRawHeaders('schedule-tag')[0]
+            return readBody(response).addCallback(
+                lambda body: (etag, scheduleTag, body))
         d.addCallback(getETag)
-        def record((etag, body)):
-            event = self._events[href]
-            event.etag = etag
-            event.vevent = list(readComponents(body))[0]
+        def record((etag, scheduleTag, body)):
+            self.eventChanged(href, etag, scheduleTag, body)
         d.addCallback(record)
         return d
 

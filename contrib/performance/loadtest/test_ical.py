@@ -15,6 +15,10 @@
 #
 ##
 
+from vobject import readComponents
+from vobject.base import ContentLine
+
+from twisted.internet.defer import Deferred
 from twisted.trial.unittest import TestCase
 
 from protocol.url import URL
@@ -22,7 +26,8 @@ from protocol.webdav.definitions import davxml
 from protocol.caldav.definitions import caldavxml
 from protocol.caldav.definitions import csxml
 
-from ical import SnowLeopard
+from loadtest.ical import Event, SnowLeopard
+from httpclient import MemoryConsumer
 
 
 PRINCIPAL_PROPFIND_RESPONSE = """\
@@ -719,8 +724,46 @@ END:VCALENDAR
 </multistatus>
 """
 
-
-
+EVENT = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:America/New_York
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0500
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:EDT
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0400
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:EST
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20101018T155454Z
+UID:D94F247D-7433-43AF-B84B-ADD684D023B0
+DTEND;TZID=America/New_York:20101028T130000
+ATTENDEE;CN="User 03";CUTYPE=INDIVIDUAL;EMAIL="user03@example.com";PARTS
+ TAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:user03@example.co
+ m
+ATTENDEE;CN="User 01";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:user01@
+ example.com
+TRANSP:OPAQUE
+SUMMARY:Attended Event
+DTSTART;TZID=America/New_York:20101028T120000
+DTSTAMP:20101018T155513Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+SEQUENCE:3
+END:VEVENT
+END:VCALENDAR
+"""
 
 class SnowLeopardTests(TestCase):
     """
@@ -801,3 +844,44 @@ class SnowLeopardTests(TestCase):
         self.assertEquals(outbox.name, None)
         self.assertEquals(outbox.url, "/calendars/__uids__/user01/outbox/")
         self.assertEquals(outbox.ctag, None)
+
+
+    def test_changeEventAttendee(self):
+        """
+        SnowLeopard.changeEventAttendee removes one attendee from an
+        existing event and appends another.
+        """
+        requests = []
+        def request(*args):
+            result = Deferred()
+            requests.append((result, args))
+            return result
+        self.client._request = request
+
+        vevent = list(readComponents(EVENT))[0]
+        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        old = attendees[0]
+        new = ContentLine.duplicate(old)
+        new.params[u'CN'] = [u'Some Other Guy']
+        event = Event('/some/calendar/1234.ics', None, vevent)
+        self.client._events[event.url] = event
+        self.client.changeEventAttendee(event.url, old, new)
+
+        result, req = requests.pop(0)
+
+        # iCal PUTs the new VCALENDAR object.
+        expectedResponseCode, method, url, headers, body = req
+        self.assertEquals(method, 'PUT')
+        self.assertEquals(url, 'http://127.0.0.1:80' + event.url)
+        self.assertEquals(headers.getRawHeaders('content-type'), ['text/calendar'])
+
+        consumer = MemoryConsumer()
+        finished = body.startProducing(consumer)
+        def cbFinished(ignored):
+            vevent = list(readComponents(consumer.value()))[0]
+            attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+            self.assertEquals(len(attendees), 2)
+            self.assertEquals(attendees[0].params[u'CN'], [u'User 01'])
+            self.assertEquals(attendees[1].params[u'CN'], [u'Some Other Guy'])
+        finished.addCallback(cbFinished)
+        return finished
