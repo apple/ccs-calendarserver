@@ -25,6 +25,8 @@ from twisted.trial.unittest import TestCase
 from twisted.internet.defer import inlineCallbacks
 
 from twisted.internet.defer import execute
+from twisted.internet.task import Clock
+
 from twext.enterprise.adbapi2 import ConnectionPool
 
 
@@ -227,6 +229,7 @@ class ConnectionPoolTests(TestCase):
         self.factory = ConnectionFactory()
         self.pool = ConnectionPool(self.factory.connect, maxConnections=2)
         self.pool._createHolder = self.makeAHolder
+        self.clock = self.pool.reactor = Clock()
         self.pool.startService()
         self.addCleanup(self.pool.stopService)
 
@@ -303,13 +306,25 @@ class ConnectionPoolTests(TestCase):
         exception, the L{ConnectionPool} will log the exception and delay
         execution of a new connection's SQL methods until an attempt succeeds.
         """
-        self.factory.defaultFail()
+        self.factory.willFail()
+        self.factory.willFail()
+        self.factory.willConnect()
         c = self.pool.connection()
-        errors = self.flushLoggedErrors(FakeConnectionError)
-        self.assertEquals(len(errors), 1)
+        def checkOneFailure():
+            errors = self.flushLoggedErrors(FakeConnectionError)
+            self.assertEquals(len(errors), 1)
+        checkOneFailure()
         d = c.execSQL("alpha")
         happened = []
         d.addBoth(happened.append)
         self.assertEquals(happened, [])
+        self.clock.advance(self.pool.RETRY_TIMEOUT)
+        checkOneFailure()
+        self.assertEquals(happened, [])
+        self.clock.advance(self.pool.RETRY_TIMEOUT)
+        checkOneFailure()
+        self.assertEquals(happened, [])
+        self.clock.advance(self.pool.RETRY_TIMEOUT)
+        self.assertEquals(happened, [[1, "alpha"]])
 
 

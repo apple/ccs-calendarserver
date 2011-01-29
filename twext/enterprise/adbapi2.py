@@ -1,4 +1,4 @@
-# -*- test-case-name: twext.enterprise.test. -*-
+# -*- test-case-name: twext.enterprise.test.test_adbapi2 -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -69,10 +69,6 @@ class BaseSqlTxn(object):
     paramstyle = DEFAULT_PARAM_STYLE
 
     def __init__(self, connectionFactory, threadHolder):
-        """
-        @param connectionFactory: A 0-argument callable which returns a DB-API
-            2.0 connection.
-        """
         self._completed = False
         self._cursor = None
         self._holder = threadHolder
@@ -129,6 +125,8 @@ class BaseSqlTxn(object):
         if not self._completed:
             self._completed = True
             def reallyCommit():
+                if self._cursor is None:
+                    return
                 self._connection.commit()
             result = self._holder.submit(reallyCommit)
             return result
@@ -140,6 +138,8 @@ class BaseSqlTxn(object):
         if not self._completed:
             self._completed = True
             def reallyAbort():
+                if self._cursor is None:
+                    return
                 self._connection.rollback()
             result = self._holder.submit(reallyAbort)
             return result
@@ -174,7 +174,11 @@ class BaseSqlTxn(object):
         self._stopped = True
         holder = self._holder
         self._holder = None
-        holder.submit(self._connection.close)
+        def _reallyClose():
+            if self._cursor is None:
+                return
+            self._connection.close()
+        holder.submit(_reallyClose)
         return holder.stop()
 
 
@@ -313,7 +317,16 @@ class ConnectionPool(Service, object):
         than this many concurrent connections to the database.
 
     @type maxConnections: C{int}
+
+    @ivar reactor: The reactor used for scheduling threads as well as retries
+        for failed connect() attempts.
+
+    @type reactor: L{IReactorTime} and L{IReactorThreads} provider.
     """
+
+    reactor = _reactor
+
+    RETRY_TIMEOUT = 10.0
 
 
     def __init__(self, connectionFactory, maxConnections=10):
@@ -353,7 +366,7 @@ class ConnectionPool(Service, object):
         """
         Create a L{ThreadHolder}.  (Test hook.)
         """
-        return ThreadHolder(_reactor)
+        return ThreadHolder(self.reactor)
 
 
     def connection(self, label="<unlabeled>"):
@@ -363,7 +376,7 @@ class ConnectionPool(Service, object):
 
         @return: an L{IAsyncTransaction}
         """
-        overload = False
+        tracking = self.busy
         if self.free:
             basetxn = self.free.pop(0)
         elif len(self.busy) < self.maxConnections:
@@ -373,12 +386,9 @@ class ConnectionPool(Service, object):
             )
         else:
             basetxn = SpooledTxn()
-            overload = True
+            tracking = self.waiting
         txn = PooledSqlTxn(self, basetxn)
-        if overload:
-            self.waiting.append(txn)
-        else:
-            self.busy.append(txn)
+        tracking.append(txn)
         return txn
 
 
