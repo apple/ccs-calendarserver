@@ -68,7 +68,7 @@ class BaseSqlTxn(object):
     # FIXME: this should *really* be 
     paramstyle = DEFAULT_PARAM_STYLE
 
-    def __init__(self, connectionFactory, threadHolder, connection, cursor):
+    def __init__(self, threadHolder, connection, cursor):
         self._completed = True
         self._cursor = cursor
         self._connection = connection
@@ -354,20 +354,26 @@ class ConnectionPool(Service, object):
     @inlineCallbacks
     def stopService(self):
         """
-        Forcibly abort any outstanding transactions.
+        Forcibly abort any outstanding transactions, and release all resources
+        (notably, threads).
         """
+        # Phase 1: All of the busy transactions must be aborted first.  As each
+        # one is aborted, it will remove itself from the list.
         while self.busy:
             busy = self.busy[0]
             try:
                 yield busy.abort()
             except:
                 log.err()
-        # all transactions should now be in the free list, since 'abort()' will
-        # have put them there.
-        for free in self.free:
+        # Phase 2: All transactions should now be in the free list, since
+        # 'abort()' will have put them there.  Shut down all the associated
+        # ThreadHolders.
+        while self.free:
+            # (Stopping a BaseSqlTxn doesn't automatically recycle it / remove
+            # it the way aborting a PooledSqlTxn does, so we need to .pop()
+            # here.)
+            free = self.free.pop()
             yield free.stop()
-        self.busy = []
-        self.free = []
 
 
     def _createHolder(self):
@@ -415,7 +421,6 @@ class ConnectionPool(Service, object):
             return (connection, cursor)
         def finishInit((connection, cursor)):
             baseTxn = BaseSqlTxn(
-                connectionFactory=self.connectionFactory,
                 threadHolder=holder,
                 connection=connection,
                 cursor=cursor
