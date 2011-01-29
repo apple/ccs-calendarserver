@@ -32,6 +32,9 @@ from twext.enterprise.adbapi2 import ConnectionPool
 
 
 class Child(object):
+    """
+    An object with a L{Parent}, in its list of C{children}.
+    """
     def __init__(self, parent):
         self.parent = parent
         self.parent.children.append(self)
@@ -42,6 +45,9 @@ class Child(object):
 
 
 class Parent(object):
+    """
+    An object with a list of L{Child}ren.
+    """
 
     def __init__(self):
         self.children = []
@@ -114,7 +120,6 @@ class FakeCursor(Child):
 
 
 class ConnectionFactory(Parent):
-
 
     def __init__(self):
         Parent.__init__(self)
@@ -414,7 +419,6 @@ class ConnectionPoolTests(TestCase):
         [holder] = self.holders
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
-        # FIXME: next, 'failed' case.
 
 
     def test_shutdownDuringAttemptFailed(self):
@@ -436,6 +440,6 @@ class ConnectionPoolTests(TestCase):
         [holder] = self.holders
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
-        # FIXME: next, 'failed' case.
+
 
 

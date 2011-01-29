@@ -53,8 +53,9 @@ from twext.internet.threadutils import ThreadHolder
 from twext.enterprise.ienterprise import AlreadyFinishedError, IAsyncTransaction
 
 
-# FIXME: there should be no default, it should be discovered dynamically
-# everywhere.  Right now we're only using pgdb so we only support that.
+# FIXME: there should be no default for DEFAULT_PARAM_STYLE, it should be
+# discovered dynamically everywhere.  Right now we're only using pgdb so we only
+# support that.
 
 DEFAULT_PARAM_STYLE = 'pyformat'
 
@@ -65,7 +66,7 @@ class BaseSqlTxn(object):
     """
     implements(IAsyncTransaction)
 
-    # FIXME: this should *really* be 
+    # See DEFAULT_PARAM_STYLE FIXME above.
     paramstyle = DEFAULT_PARAM_STYLE
 
     def __init__(self, threadHolder, connection, cursor):
@@ -178,9 +179,7 @@ class SpooledTxn(object):
 
     implements(IAsyncTransaction)
 
-    # FIXME: this should be relayed from the connection factory of the thing
-    # creating the spooled transaction.
-
+    # See DEFAULT_PARAM_STYLE FIXME above.
     paramstyle = DEFAULT_PARAM_STYLE
 
     def __init__(self):
@@ -409,7 +408,6 @@ class ConnectionPool(Service, object):
         """
         holder = self._createHolder()
         holder.start()
-        # FIXME: attach the holder to the txn so it can be aborted.
         txn = _ConnectingPsuedoTxn(self, holder)
         # take up a slot in the 'busy' list, sit there so we can be aborted.
         self.busy.append(txn)
@@ -428,9 +426,6 @@ class ConnectionPool(Service, object):
             txn._baseTxn = baseTxn
             self.reclaim(txn)
         def maybeTryAgain(f):
-            # not all errors are errors in connect() - in particular there's the
-            # possibility of errors in submit(); TODO: test for shutdown while
-            # connecting.
             log.err(f)
             txn._retry = self.reactor.callLater(self.RETRY_TIMEOUT, resubmit)
         def resubmit():
@@ -443,7 +438,7 @@ class ConnectionPool(Service, object):
     def reclaim(self, txn):
         """
         Shuck the L{PooledSqlTxn} wrapper off, and recycle the underlying
-        BaseSqlTxn into the free list.
+        L{BaseSqlTxn} into the free list.
         """
         self.busy.remove(txn)
         baseTxn = txn._baseTxn
@@ -548,7 +543,7 @@ class Row(Command):
 
 class QueryComplete(Command):
     """
-    A query issued with ExecSQL is complete.
+    A query issued with L{ExecSQL} is complete.
     """
 
     arguments = [('queryID', String()),
@@ -700,8 +695,7 @@ class Transaction(object):
 
     implements(IAsyncTransaction)
 
-    # FIXME: this needs to come from the other end of the wire.
-
+    # See DEFAULT_PARAM_STYLE FIXME above.
     paramstyle = DEFAULT_PARAM_STYLE
 
     def __init__(self, client, transactionID):
