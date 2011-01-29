@@ -68,14 +68,14 @@ class BaseSqlTxn(object):
     # FIXME: this should *really* be 
     paramstyle = DEFAULT_PARAM_STYLE
 
-    def __init__(self, connectionFactory, reactor=_reactor):
+    def __init__(self, connectionFactory, threadHolder):
         """
         @param connectionFactory: A 0-argument callable which returns a DB-API
             2.0 connection.
         """
         self._completed = False
         self._cursor = None
-        self._holder = ThreadHolder(reactor)
+        self._holder = threadHolder
         self._holder.start()
 
         def initCursor():
@@ -315,7 +315,6 @@ class ConnectionPool(Service, object):
     @type maxConnections: C{int}
     """
 
-    reactor = _reactor
 
     def __init__(self, connectionFactory, maxConnections=10):
         super(ConnectionPool, self).__init__()
@@ -346,6 +345,15 @@ class ConnectionPool(Service, object):
         # have put them there.
         for free in self.free:
             yield free.stop()
+        self.busy = []
+        self.free = []
+
+
+    def _createHolder(self):
+        """
+        Create a L{ThreadHolder}.  (Test hook.)
+        """
+        return ThreadHolder(_reactor)
 
 
     def connection(self, label="<unlabeled>"):
@@ -355,14 +363,13 @@ class ConnectionPool(Service, object):
 
         @return: an L{IAsyncTransaction}
         """
-
         overload = False
         if self.free:
             basetxn = self.free.pop(0)
         elif len(self.busy) < self.maxConnections:
             basetxn = BaseSqlTxn(
                 connectionFactory=self.connectionFactory,
-                reactor=self.reactor
+                threadHolder=self._createHolder()
             )
         else:
             basetxn = SpooledTxn()
