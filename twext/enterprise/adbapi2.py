@@ -407,7 +407,6 @@ class ConnectionPool(Service, object):
             connection = self.connectionFactory()
             cursor = connection.cursor()
             return (connection, cursor)
-        d = holder.submit(initCursor)
         def finishInit((connection, cursor)):
             baseTxn = BaseSqlTxn(
                 connectionFactory=self.connectionFactory,
@@ -417,7 +416,16 @@ class ConnectionPool(Service, object):
             )
             txn._baseTxn = baseTxn
             self.reclaim(txn)
-        d.addCallbacks(finishInit, log.err)
+        def maybeTryAgain(f):
+            # not all errors are errors in connect() - in particular there's the
+            # possibility of errors in submit(); TODO: test for shutdown while
+            # connecting.
+            log.err(f)
+            self.reactor.callLater(self.RETRY_TIMEOUT, resubmit)
+        def resubmit():
+            d = holder.submit(initCursor)
+            d.addCallbacks(finishInit, maybeTryAgain)
+        resubmit()
         return txn
 
 
