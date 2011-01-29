@@ -325,3 +325,22 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(happened, [[[1, "alpha"]]])
 
 
+    def test_shutdownDuringRetry(self):
+        """
+        If a L{ConnectionPool} is attempting to shut down while it's in the
+        process of re-trying a connection attempt that received an error, the
+        connection attempt should be cancelled and the shutdown should complete
+        as normal.
+        """
+        self.factory.defaultFail()
+        self.pool.connection()
+        errors = self.flushLoggedErrors(FakeConnectionError)
+        self.assertEquals(len(errors), 1)
+        stopd = []
+        self.pool.stopService().addBoth(stopd.append)
+        self.assertEquals([None], stopd)
+        self.assertEquals(self.clock.calls, [])
+        [holder] = self.holders
+        self.assertEquals(holder.started, True)
+        self.assertEquals(holder.stopped, True)
+

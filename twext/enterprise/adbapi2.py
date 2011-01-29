@@ -291,14 +291,18 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
 
 class _ConnectingPsuedoTxn(object):
 
-    def __init__(self):
-        pass
+    _retry = None
 
+    def __init__(self, holder):
+        self._holder = holder
 
     def abort(self):
         # not implemented yet, but let's fail rather than break the test
         # raise NotImplementedError()
-        pass
+        if self._retry is not None:
+            self._retry.cancel()
+        # deferred, should be returned
+        self._holder.stop()
 
 
 
@@ -394,7 +398,7 @@ class ConnectionPool(Service, object):
         holder = self._createHolder()
         holder.start()
         # FIXME: attach the holder to the txn so it can be aborted.
-        txn = _ConnectingPsuedoTxn()
+        txn = _ConnectingPsuedoTxn(holder)
         # take up a slot in the 'busy' list, sit there so we can be aborted.
         self.busy.append(txn)
         def initCursor():
@@ -421,7 +425,7 @@ class ConnectionPool(Service, object):
             # possibility of errors in submit(); TODO: test for shutdown while
             # connecting.
             log.err(f)
-            self.reactor.callLater(self.RETRY_TIMEOUT, resubmit)
+            txn._retry = self.reactor.callLater(self.RETRY_TIMEOUT, resubmit)
         def resubmit():
             d = holder.submit(initCursor)
             d.addCallbacks(finishInit, maybeTryAgain)
