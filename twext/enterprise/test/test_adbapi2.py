@@ -318,13 +318,10 @@ class ConnectionPoolTests(TestCase):
         happened = []
         d.addBoth(happened.append)
         self.assertEquals(happened, [])
-        self.clock.advance(self.pool.RETRY_TIMEOUT)
+        self.clock.advance(self.pool.RETRY_TIMEOUT + 0.01)
         checkOneFailure()
         self.assertEquals(happened, [])
-        self.clock.advance(self.pool.RETRY_TIMEOUT)
-        checkOneFailure()
-        self.assertEquals(happened, [])
-        self.clock.advance(self.pool.RETRY_TIMEOUT)
-        self.assertEquals(happened, [[1, "alpha"]])
+        self.clock.advance(self.pool.RETRY_TIMEOUT + 0.01)
+        self.assertEquals(happened, [[[1, "alpha"]]])
 
 
