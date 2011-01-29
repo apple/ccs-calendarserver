@@ -256,7 +256,16 @@ class ConnectionPoolTests(TestCase):
         self.pool._createHolder = self.makeAHolder
         self.clock = self.pool.reactor = Clock()
         self.pool.startService()
-        self.addCleanup(self.pool.stopService)
+
+
+    @inlineCallbacks
+    def tearDown(self):
+        """
+        Make sure the service is stopped and the fake ThreadHolders are all
+        executing their queues so failed tests can exit cleanly.
+        """
+        self.flushHolders()
+        yield self.pool.stopService()
 
 
     def flushHolders(self):
@@ -393,7 +402,7 @@ class ConnectionPoolTests(TestCase):
         """
         If L{ConnectionPool.stopService} is called while a connection attempt is
         outstanding, the resulting L{Deferred} won't be fired until the
-        connection attempt has succeeded.
+        connection attempt has finished; in this case, succeeded.
         """
         self.pauseHolders()
         self.pool.connection()
@@ -401,6 +410,28 @@ class ConnectionPoolTests(TestCase):
         self.pool.stopService().addBoth(stopd.append)
         self.assertEquals(stopd, [])
         self.flushHolders()
+        self.assertEquals(stopd, [None])
+        [holder] = self.holders
+        self.assertEquals(holder.started, True)
+        self.assertEquals(holder.stopped, True)
+        # FIXME: next, 'failed' case.
+
+
+    def test_shutdownDuringAttemptFailed(self):
+        """
+        If L{ConnectionPool.stopService} is called while a connection attempt is
+        outstanding, the resulting L{Deferred} won't be fired until the
+        connection attempt has finished; in this case, failed.
+        """
+        self.factory.defaultFail()
+        self.pauseHolders()
+        self.pool.connection()
+        stopd = []
+        self.pool.stopService().addBoth(stopd.append)
+        self.assertEquals(stopd, [])
+        self.flushHolders()
+        errors = self.flushLoggedErrors(FakeConnectionError)
+        self.assertEquals(len(errors), 1)
         self.assertEquals(stopd, [None])
         [holder] = self.holders
         self.assertEquals(holder.started, True)
