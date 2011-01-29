@@ -293,7 +293,8 @@ class _ConnectingPsuedoTxn(object):
 
     _retry = None
 
-    def __init__(self, holder):
+    def __init__(self, pool, holder):
+        self._pool = pool
         self._holder = holder
 
     def abort(self):
@@ -301,8 +302,12 @@ class _ConnectingPsuedoTxn(object):
         # raise NotImplementedError()
         if self._retry is not None:
             self._retry.cancel()
-        # deferred, should be returned
-        self._holder.stop()
+        d = self._holder.stop()
+        def removeme(ignored):
+            if self in self._pool.busy:
+                self._pool.busy.remove(self)
+        d.addCallback(removeme)
+        return d
 
 
 
@@ -351,7 +356,8 @@ class ConnectionPool(Service, object):
         """
         Forcibly abort any outstanding transactions.
         """
-        for busy in self.busy[:]:
+        while self.busy:
+            busy = self.busy[0]
             try:
                 yield busy.abort()
             except:
@@ -398,16 +404,12 @@ class ConnectionPool(Service, object):
         holder = self._createHolder()
         holder.start()
         # FIXME: attach the holder to the txn so it can be aborted.
-        txn = _ConnectingPsuedoTxn(holder)
+        txn = _ConnectingPsuedoTxn(self, holder)
         # take up a slot in the 'busy' list, sit there so we can be aborted.
         self.busy.append(txn)
         def initCursor():
             # support threadlevel=1; we can't necessarily cursor() in a
             # different thread than we do transactions in.
-
-            # TODO: Re-try connect when it fails.  Specify a timeout.  That
-            # should happen in this layer because we need to be able to stop
-            # the reconnect attempt if it's hanging.
             connection = self.connectionFactory()
             cursor = connection.cursor()
             return (connection, cursor)

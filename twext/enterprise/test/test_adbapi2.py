@@ -27,6 +27,7 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.internet.defer import execute
 from twisted.internet.task import Clock
 
+from twisted.internet.defer import Deferred
 from twext.enterprise.adbapi2 import ConnectionPool
 
 
@@ -188,9 +189,11 @@ class FakeThreadHolder(object):
     execution is easier to control.
     """
 
-    def __init__(self):
+    def __init__(self, test):
         self.started = False
         self.stopped = False
+        self.test = test
+        self.queue = []
 
 
     def start(self):
@@ -204,14 +207,35 @@ class FakeThreadHolder(object):
         """
         Mark this L{FakeThreadHolder} as stopped.
         """
-        self.stopped = True
+        def stopped(nothing):
+            self.stopped = True
+        return self.submit(lambda : None).addCallback(stopped)
 
 
     def submit(self, work):
         """
-        Call the function.
+        Call the function (or queue it)
         """
-        return execute(work)
+        if self.test.paused:
+            d = Deferred()
+            self.queue.append((d, work))
+            return d
+        else:
+            return execute(work)
+
+
+    def flush(self):
+        """
+        Fire all deferreds previously returned from submit.
+        """
+        self.queue, queue = [], self.queue
+        for (d, work) in queue:
+            try:
+                result = work()
+            except:
+                d.errback()
+            else:
+                d.callback(result)
 
 
 
@@ -225,6 +249,7 @@ class ConnectionPoolTests(TestCase):
         Create a L{ConnectionPool} attached to a C{ConnectionFactory}.  Start
         the L{ConnectionPool}.
         """
+        self.paused = False
         self.holders = []
         self.factory = ConnectionFactory()
         self.pool = ConnectionPool(self.factory.connect, maxConnections=2)
@@ -234,11 +259,28 @@ class ConnectionPoolTests(TestCase):
         self.addCleanup(self.pool.stopService)
 
 
+    def flushHolders(self):
+        """
+        Flush all pending C{submit}s since C{pauseHolders} was called.
+        """
+        self.paused = False
+        for holder in self.holders:
+            holder.flush()
+
+
+    def pauseHolders(self):
+        """
+        Pause all L{FakeThreadHolder}s, causing C{submit} to return an unfired
+        L{Deferred}.
+        """
+        self.paused = True
+
+
     def makeAHolder(self):
         """
         Make a ThreadHolder-alike.
         """
-        fth = FakeThreadHolder()
+        fth = FakeThreadHolder(self)
         self.holders.append(fth)
         return fth
 
@@ -343,4 +385,24 @@ class ConnectionPoolTests(TestCase):
         [holder] = self.holders
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
+
+
+    def test_shutdownDuringAttemptSuccess(self):
+        """
+        If L{ConnectionPool.stopService} is called while a connection attempt is
+        outstanding, the resulting L{Deferred} won't be fired until the
+        connection attempt has succeeded.
+        """
+        self.pauseHolders()
+        self.pool.connection()
+        stopd = []
+        self.pool.stopService().addBoth(stopd.append)
+        self.assertEquals(stopd, [])
+        self.flushHolders()
+        self.assertEquals(stopd, [None])
+        [holder] = self.holders
+        self.assertEquals(holder.started, True)
+        self.assertEquals(holder.stopped, True)
+        # FIXME: next, 'failed' case.
+
 
