@@ -21,6 +21,8 @@ from zope.interface import implements
 from twisted.internet.protocol import Protocol
 from twisted.internet.defer import Deferred, succeed
 from twisted.web.iweb import IBodyProducer
+from twisted.internet.interfaces import IConsumer
+
 
 class _BufferReader(Protocol):
     def __init__(self, finished):
@@ -60,3 +62,21 @@ class StringProducer(object):
     def startProducing(self, consumer):
         consumer.write(self._body)
         return succeed(None)
+
+
+
+class MemoryConsumer(object):
+    implements(IConsumer)
+
+    def __init__(self):
+        self._buffer = []
+
+
+    def write(self, bytes):
+        self._buffer.append(bytes)
+
+
+    def value(self):
+        if len(self._buffer) > 1:
+            self._buffer = ["".join(self._buffer)]
+        return "".join(self._buffer)
