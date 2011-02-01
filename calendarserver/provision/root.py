@@ -23,7 +23,7 @@ from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.auth.wrapper import UnauthorizedResponse
 from twext.web2.dav import davxml
-from twext.web2.http import HTTPError, StatusResponse
+from twext.web2.http import HTTPError, StatusResponse, RedirectResponse
 
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -62,6 +62,12 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         "directory" : ("addressbook",),
         "principals" : ("addressbook", "calendar"),
         "webcal" : ("calendar",),
+    }
+
+    # If a top-level resource path starts with any of these, an unauthenticated
+    # request is redirected to the auth url (config.WebCalendarAuthPath)
+    authServiceMap = {
+        "webcal" : True,
     }
 
     def __init__(self, path, *args, **kwargs):
@@ -263,6 +269,35 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                             request.authzUser = request.authnUser = davxml.Principal(
                                 davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,))
                             )
+
+        if not hasattr(request, "authzUser") and config.WebCalendarAuthPath:
+            topLevel = request.path.strip("/").split("/")[0]
+            if self.authServiceMap.get(topLevel, False):
+                # We've not been authenticated and the auth service is enabled
+                # for this resource, so redirect.
+
+                # Use config.ServerHostName if no x-forwarded-host header,
+                # otherwise use the final hostname in x-forwarded-host.
+                host = request.headers.getRawHeaders("x-forwarded-host",
+                    [config.ServerHostName])[-1].split(",")[-1].strip()
+                port = 443 if config.EnableSSL else 80
+                scheme = "https" if config.EnableSSL else "http"
+
+                response = RedirectResponse(
+                        request.unparseURL(
+                            host=host,
+                            port=port,
+                            scheme=scheme,
+                            path=config.WebCalendarAuthPath,
+                            querystring="redirect=%s://%s%s" % (
+                                scheme,
+                                host,
+                                request.path
+                            )
+                        )
+                    )
+                raise HTTPError(response)
+
 
         # We don't want the /inbox resource to pay attention to SACLs because
         # we just want it to use the hard-coded ACL for the imip reply user.

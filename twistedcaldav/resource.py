@@ -75,9 +75,10 @@ from twistedcaldav.ical import Component
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
-from twistedcaldav.notify import (getPubSubConfiguration, getPubSubPath,
-    getPubSubXMPPURI, getPubSubHeartbeatURI, getPubSubAPSConfiguration,
-    getNodeCacher, NodeCreationException)
+from twistedcaldav.notify import (
+    getPubSubConfiguration, getPubSubXMPPURI, getPubSubHeartbeatURI,
+    getPubSubAPSConfiguration,
+)
 from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
 from twistedcaldav.vcard import Component as vComponent
 
