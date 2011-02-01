@@ -467,7 +467,7 @@ class CalendarObject(CommonObjectResource):
     hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
 
     @inlineCallbacks
-    def createAttachmentWithName(self, name, contentType):
+    def createAttachmentWithName(self, name):
         """
         Implement L{ICalendarObject.removeAttachmentWithName}.
         """
@@ -475,7 +475,7 @@ class CalendarObject(CommonObjectResource):
         dropboxPath = yield self._dropboxPath()
         attachment = Attachment(self, name, dropboxPath)
         self._attachments[name] = attachment
-        returnValue(attachment.store(contentType))
+        returnValue(attachment)
 
 
     @inlineCallbacks

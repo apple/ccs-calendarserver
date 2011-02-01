@@ -1054,22 +1054,15 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         if content_type is None:
             content_type = MimeType("application", "octet-stream")
 
-        if self._newStoreAttachment:
-            t = self._newStoreAttachment.store(content_type)
-            yield readStream(request.stream, t.write)
-            yield t.loseConnection()
-            returnValue(NO_CONTENT)
-        else:
-            t = yield self._newStoreCalendarObject.createAttachmentWithName(
+        creating = (self._newStoreAttachment is None)
+        if creating:
+            self._newStoreAttachment = self._newStoreObject =  (yield self._newStoreCalendarObject.createAttachmentWithName(
                 self.attachmentName,
-                content_type,
-            )
-            yield readStream(request.stream, t.write)
-            self._newStoreAttachment = self._newStoreObject = yield self._newStoreCalendarObject.attachmentWithName(
-                self.attachmentName
-            )
-            yield t.loseConnection()
-            returnValue(CREATED)
+            ))
+        t = self._newStoreAttachment.store(content_type)
+        yield readStream(request.stream, t.write)
+        yield t.loseConnection()
+        returnValue(CREATED if creating else NO_CONTENT)
 
 
     @requiresPermissions(davxml.Read())
@@ -1085,7 +1078,12 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
                 stream.write(data)
             def connectionLost(self, reason):
                 stream.finish()
-        self._newStoreAttachment.retrieve(StreamProtocol())
+        try:
+            self._newStoreAttachment.retrieve(StreamProtocol())
+        except IOError, e:
+            log.error("Unable to read attachment: %s, due to: %s" % (self, e,))
+            raise HTTPError(responsecode.NOT_FOUND)
+            
         return Response(OK, {"content-type":self.contentType()}, stream)
 
 

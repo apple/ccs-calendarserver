@@ -659,48 +659,21 @@ class CalendarObject(CommonObjectResource):
     hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
 
     @inlineCallbacks
-    def createAttachmentWithName(self, name, contentType):
-
-        try:
-            self._attachmentPathRoot().makedirs()
-        except:
-            pass
-
-        attachment = Attachment(self, name)
-        yield self._txn.execSQL(
-            """
-            insert into ATTACHMENT (DROPBOX_ID, CONTENT_TYPE,
-            SIZE, MD5, PATH) values (%s, %s, %s, %s, %s)
-            """,
-            [
-                self._dropboxID, generateContentType(contentType), 0, "",
-                name,
-            ]
-        )
-        returnValue(attachment.store(contentType))
-
+    def createAttachmentWithName(self, name):
+        
+        # We need to know the resource_ID of the home collection of the owner (not sharee)
+        # of this event
+        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        returnValue((yield Attachment.create(self._txn, self._dropboxID, name, sharerHomeID)))
 
     @inlineCallbacks
     def removeAttachmentWithName(self, name):
         attachment = (yield self.attachmentWithName(name))
-        old_size = attachment.size()
-        self._txn.postCommit(attachment._path.remove)
-        yield self._txn.execSQL(
-            """
-            delete from ATTACHMENT where DROPBOX_ID = %s AND
-            PATH = %s
-            """, [self._dropboxID, name]
-        )
-
-        # Adjust quota
-        yield self._calendar._home.adjustQuotaUsedBytes(-old_size)
-        
-        # Send change notification to home
-        yield self._calendar._home.notifyChanged()
+        yield attachment.remove()
 
     @inlineCallbacks
     def attachmentWithName(self, name):
-        attachment = Attachment(self, name)
+        attachment = Attachment(self._txn, self._dropboxID, name)
         attachment = (yield attachment.initFromStore())
         returnValue(attachment)
 
@@ -709,14 +682,6 @@ class CalendarObject(CommonObjectResource):
 
 
     dropboxID = dropboxIDFromCalendarObject
-
-
-    def _attachmentPathRoot(self):
-        attachmentRoot = self._txn._store.attachmentsPath
-        
-        # Use directory hashing scheme based on owner user id
-        homeName = self._calendar.ownerHome().name()
-        return attachmentRoot.child(homeName[0:2]).child(homeName[2:4]).child(homeName).child(self.uid())
 
 
     @inlineCallbacks
@@ -798,11 +763,13 @@ class AttachmentStorageTransport(object):
             ))[0]
         )
 
-        # Adjust quota
-        yield self.attachment._calendarObject._calendar._home.adjustQuotaUsedBytes(self.attachment.size() - old_size)
-        
-        # Send change notification to home
-        yield self.attachment._calendarObject._calendar._home.notifyChanged()
+        home = (yield self._txn.calendarHomeWithResourceID(self.attachment._ownerHomeID))
+        if home:
+            # Adjust quota
+            yield home.adjustQuotaUsedBytes(self.attachment.size() - old_size)
+            
+            # Send change notification to home
+            yield home.notifyChanged()
 
 
 def sqltime(value):
@@ -812,16 +779,52 @@ class Attachment(object):
 
     implements(IAttachment)
 
-    def __init__(self, calendarObject, name):
-        self._calendarObject = calendarObject
+    def __init__(self, txn, dropboxID, name, ownerHomeID=None):
+        self._txn = txn
+        self._dropboxID = dropboxID
         self._name = name
+        self._ownerHomeID = ownerHomeID
         self._size = 0
 
 
-    @property
-    def _txn(self):
-        return self._calendarObject._txn
+    @classmethod
+    def _attachmentPathRoot(cls, txn, dropboxID):
+        attachmentRoot = txn._store.attachmentsPath
+        
+        # Use directory hashing scheme based on MD5 of dropboxID
+        hasheduid = hashlib.md5(dropboxID).hexdigest()
+        return attachmentRoot.child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
 
+
+    @classmethod
+    @inlineCallbacks
+    def create(cls, txn, dropboxID, name, ownerHomeID):
+
+        # File system paths need to exist
+        try:
+            cls._attachmentPathRoot(txn, dropboxID).makedirs()
+        except:
+            pass
+
+        # Now create the DB entry
+        attachment = cls(txn, dropboxID, name, ownerHomeID)
+        yield txn.execSQL(
+            """
+            insert into ATTACHMENT
+              (CALENDAR_HOME_RESOURCE_ID, DROPBOX_ID, CONTENT_TYPE, SIZE, MD5, PATH)
+             values
+              (%s, %s, %s, %s, %s, %s)
+            """,
+            [
+                ownerHomeID,
+                dropboxID,
+                "",
+                0,
+                "",
+                name,
+            ]
+        )
+        returnValue(attachment)
 
     @inlineCallbacks
     def initFromStore(self):
@@ -832,17 +835,20 @@ class Attachment(object):
         """
         rows = yield self._txn.execSQL(
             """
-            select CONTENT_TYPE, SIZE, MD5, CREATED, MODIFIED from ATTACHMENT where PATH = %s
+            select CALENDAR_HOME_RESOURCE_ID, CONTENT_TYPE, SIZE, MD5, CREATED, MODIFIED
+             from ATTACHMENT
+             where DROPBOX_ID = %s and PATH = %s
             """,
-            [self._name]
+            [self._dropboxID, self._name]
         )
         if not rows:
             returnValue(None)
-        self._contentType = MimeType.fromString(rows[0][0])
-        self._size = rows[0][1]
-        self._md5 = rows[0][2]
-        self._created = sqltime(rows[0][3])
-        self._modified = sqltime(rows[0][4])
+        self._ownerHomeID = rows[0][0]
+        self._contentType = MimeType.fromString(rows[0][1])
+        self._size = rows[0][2]
+        self._md5 = rows[0][3]
+        self._created = sqltime(rows[0][4])
+        self._modified = sqltime(rows[0][5])
         returnValue(self)
 
 
@@ -851,8 +857,11 @@ class Attachment(object):
 
     @property
     def _path(self):
-        attachmentPath = self._calendarObject._attachmentPathRoot()
-        return attachmentPath.child(self.name())
+        attachmentRoot = self._txn._store.attachmentsPath
+        
+        # Use directory hashing scheme based on MD5 of dropboxID
+        hasheduid = hashlib.md5(self._dropboxID).hexdigest()
+        return attachmentRoot.child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid).child(self.name())
 
     def properties(self):
         pass # stub
@@ -866,6 +875,26 @@ class Attachment(object):
         protocol.dataReceived(self._path.getContent())
         protocol.connectionLost(Failure(ConnectionLost()))
 
+
+    @inlineCallbacks
+    def remove(self):
+        old_size = self._size
+        self._txn.postCommit(self._path.remove)
+        yield self._txn.execSQL(
+            """
+            delete from ATTACHMENT
+             where DROPBOX_ID = %s and PATH = %s
+            """,
+            [self._dropboxID, self._name]
+        )
+
+        # Adjust quota
+        home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
+        if home:
+            yield home.adjustQuotaUsedBytes(-old_size)
+            
+            # Send change notification to home
+            yield home.notifyChanged()
 
     # IDataStoreResource
     def contentType(self):

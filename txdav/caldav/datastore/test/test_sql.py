@@ -23,6 +23,7 @@ from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import deferLater
 from twisted.internet import reactor
+from twisted.python import hashlib
 
 from twext.python.vcomponent import VComponent
 from twext.web2.dav.element.rfc2518 import GETContentLanguage, ResourceType
@@ -120,10 +121,9 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         attachmentRoot = (
             yield self.calendarObjectUnderTest()
         )._txn._store.attachmentsPath
-        attachmentPath = attachmentRoot.child("ho").child("me").child("home1")
-        attachmentPath = attachmentPath.child(
-            (yield self.calendarObjectUnderTest()).uid()).child(
-                "new.attachment")
+        obj = yield self.calendarObjectUnderTest()
+        hasheduid = hashlib.md5(obj._dropboxID).hexdigest()
+        attachmentPath = attachmentRoot.child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid).child("new.attachment")
         self.assertTrue(attachmentPath.isfile())
 
 

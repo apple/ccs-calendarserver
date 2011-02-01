@@ -359,7 +359,7 @@ class ICalendarObject(IDataStoreResource):
         """
 
 
-    def createAttachmentWithName(name, contentType):
+    def createAttachmentWithName(name):
         """
         Add an attachment to this calendar object.
 
@@ -368,11 +368,7 @@ class ICalendarObject(IDataStoreResource):
 
         @type name: C{str}
 
-        @param contentType: The content-type of the data to store.
-
-        @type contentType: L{twext.web2.http_headers.MimeType}
-
-        @return: the same type as L{IAttachment.store} returns.
+        @return: the L{IAttachment}.
         """
 
 

@@ -196,6 +196,24 @@ class CommonStoreTransaction(object):
 
         return self._homeClass[storeType].homeWithUID(self, uid, create)
 
+    @inlineCallbacks
+    def calendarHomeWithResourceID(self, rid):
+        uid = (yield self._homeClass[ECALENDARTYPE].homeUIDWithResourceID(self, rid))
+        if uid:
+            result = (yield self.calendarHomeWithUID(uid))
+        else:
+            result = None
+        returnValue(result)
+
+    @inlineCallbacks
+    def addressbookHomeWithResourceID(self, rid):
+        uid = (yield self._homeClass[EADDRESSBOOKTYPE].homeUIDWithResourceID(self, rid))
+        if uid:
+            result = (yield self.addressbookHomeWithUID(uid))
+        else:
+            result = None
+        returnValue(result)
+
     @memoizedKey("uid", "_notificationHomes")
     def notificationsWithUID(self, uid):
         """
@@ -388,6 +406,20 @@ class CommonHome(LoggingMixIn):
             if not exists:
                 yield home.createdHome()
             returnValue(home)
+
+    @classmethod
+    @inlineCallbacks
+    def homeUIDWithResourceID(cls, txn, rid):
+
+        rows = (yield txn.execSQL(
+            "select %(column_OWNER_UID)s from %(name)s"
+            " where %(column_RESOURCE_ID)s = %%s" % cls._homeTable,
+            [rid]
+        ))
+        if rows:
+            returnValue(rows[0][0])
+        else:
+            returnValue(None)
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
@@ -1158,6 +1190,22 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     def ownerHome(self):
         return self._home
 
+    @inlineCallbacks
+    def sharerHomeID(self):
+        
+        # If this is not shared then our home is what we want
+        if self._owned:
+            returnValue(self._home._resourceID)
+        else:
+            rid = (yield self._txn.execSQL("""
+                select %(column_HOME_RESOURCE_ID)s from %(name)s
+                where
+                  %(column_RESOURCE_ID)s = %%s and
+                  %(column_BIND_MODE)s = %%s
+                """ % self._bindTable,
+                [self._resourceID, _BIND_MODE_OWN]
+            ))[0][0]
+            returnValue(rid)
 
     def setSharingUID(self, uid):
         self.properties()._setPerUserUID(uid)

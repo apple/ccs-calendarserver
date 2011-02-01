@@ -23,6 +23,7 @@ __all__ = ["StoreCalendarObjectResource"]
 
 import types
 import uuid
+from urlparse import urlparse, urlunparse
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
@@ -599,6 +600,69 @@ class StoreCalendarObjectResource(object):
 
 
     @inlineCallbacks
+    def dropboxPathNormalization(self):
+        """
+        Make sure sharees only use dropbox paths of the sharer.
+        """
+        
+        # Only relevant if calendar is virtual share
+        changed = False
+        if self.destinationparent.isVirtualShare():
+            
+            # Get all X-APPLE-DROPBOX's and ATTACH's that are http URIs
+            xdropboxes = self.calendar.getAllPropertiesInAnyComponent(
+                "X-APPLE-DROPBOX",
+                depth=1,
+            )
+            attachments = self.calendar.getAllPropertiesInAnyComponent(
+                "ATTACH",
+                depth=1,
+            )
+            attachments = [
+                attachment for attachment in attachments
+                if attachment.params().get("VALUE", ("TEXT",))[0] == "URI" and attachment.value().startswith("http")
+            ]
+
+            if len(xdropboxes) or len(attachments):
+                
+                # Determine owner GUID
+                ownerPrincipal = (yield self.destinationparent.ownerPrincipal(self.request))
+                owner = ownerPrincipal.principalURL().split("/")[-2]
+
+                def uriNormalize(uri):
+                    urichanged = False
+                    scheme, netloc, path, params, query, fragment = urlparse(uri)
+                    pathbits = path.split("/")
+                    if pathbits[1] != "calendars":
+                        pathbits[1] = "calendars"
+                        urichanged = True
+                    if pathbits[2] != "__uids__":
+                        pathbits[2] = "__uids__"
+                        urichanged = True
+                    if pathbits[3] != owner:
+                        pathbits[3] = owner
+                        urichanged = True
+                    if urichanged:
+                        return urlunparse((scheme, netloc, "/".join(pathbits), params, query, fragment,))
+                    return None
+
+                for xdropbox in xdropboxes:
+                    uri = uriNormalize(xdropbox.value())
+                    if uri:
+                        xdropbox.setValue(uri)
+                        changed = True
+                for attachment in attachments:
+                    uri = uriNormalize(attachment.value())
+                    if uri:
+                        attachment.setValue(uri)
+                        changed = True
+
+                if changed:
+                    self.calendardata = None
+        
+        returnValue(changed)
+
+    @inlineCallbacks
     def noUIDConflict(self, uid): 
         """ 
         Check that the UID of the new calendar object conforms to the requirements of 
@@ -906,6 +970,9 @@ class StoreCalendarObjectResource(object):
             # Preserve private comments
             yield self.preservePrivateComments()
     
+            # Handle sharing dropbox normalization
+            dropboxChanged = (yield self.dropboxPathNormalization())
+
             # Do scheduling
             implicit_result = (yield self.doImplicitScheduling())
             if isinstance(implicit_result, int):
@@ -948,7 +1015,7 @@ class StoreCalendarObjectResource(object):
             response = (yield self.doStore(data_changed))
 
             # Must not set ETag in response if data changed
-            if did_implicit_action or rruleChanged:
+            if did_implicit_action or rruleChanged or dropboxChanged:
                 def _removeEtag(request, response):
                     response.headers.removeHeader('etag')
                     return response

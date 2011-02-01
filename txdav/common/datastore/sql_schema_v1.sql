@@ -288,6 +288,7 @@ create index TRANSPARENCY_TIME_RANGE_INSTANCE_ID on
 ----------------
 
 create table ATTACHMENT (
+  CALENDAR_HOME_RESOURCE_ID   integer       not null references CALENDAR_HOME,
   DROPBOX_ID                  varchar(255)  not null,
   CONTENT_TYPE                varchar(255)  not null,
   SIZE                        integer       not null,

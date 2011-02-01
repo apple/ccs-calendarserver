@@ -1254,9 +1254,10 @@ END:VCALENDAR
         Common logic for attachment-creation tests.
         """
         obj = yield self.calendarObjectUnderTest()
-        t = yield obj.createAttachmentWithName(
-            "new.attachment", MimeType("text", "x-fixture")
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
         )
+        t = attachment.store(MimeType("text", "x-fixture"))
         t.write("new attachment")
         t.write(" text")
         yield t.loseConnection()
@@ -1345,9 +1346,10 @@ END:VCALENDAR
         L{ICalendarHome.calendarWithName} or L{ICalendarHome.calendars}.
         """
         obj = yield self.calendarObjectUnderTest()
-        t = yield obj.createAttachmentWithName(
-            "new.attachment", MimeType("text", "plain")
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
         )
+        t = attachment.store(MimeType("text", "plain"))
         t.write("new attachment text")
         yield t.loseConnection()
         yield self.commit()

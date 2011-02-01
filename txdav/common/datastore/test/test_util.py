@@ -138,9 +138,10 @@ class HomeMigrationTests(TestCase):
         inObject = yield getSampleObj()
         someAttachmentName = "some-attachment"
         someAttachmentType = MimeType.fromString("application/x-custom-type")
-        transport = yield inObject.createAttachmentWithName(
-            someAttachmentName, someAttachmentType
+        attachment = yield inObject.createAttachmentWithName(
+            someAttachmentName,
         )
+        transport = attachment.store(someAttachmentType)
         someAttachmentData = "Here is some data for your attachment, enjoy."
         transport.write(someAttachmentData)
         transport.loseConnection()
