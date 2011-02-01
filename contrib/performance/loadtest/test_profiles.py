@@ -202,7 +202,6 @@ class InviterTests(TestCase):
         return vevent, event, calendar, client
 
 
-
     def test_doNotAddAttendeeToInbox(self):
         """
         When the only calendar with any events is a schedule inbox, no
@@ -228,6 +227,22 @@ class InviterTests(TestCase):
         inviter._invite()
         self.assertEquals(client._events, {})
         self.assertEquals(client._calendars, {})
+
+
+    def test_doNotAddAttendeeToUninitializedEvent(self):
+        """
+        When there is an L{Event} on a calendar but the details of the
+        event have not yet been retrieved, no attempt is made to add
+        invitees to that event.
+        """
+        userNumber = 19
+        vevent, event, calendar, client = self._simpleAccount(
+            userNumber, SIMPLE_EVENT)
+        event.vevent = event.etag = event.scheduleTag = None
+        inviter = Inviter(None, client, userNumber)
+        inviter._invite()
+        self.assertEquals(client._events, {event.url: event})
+        self.assertEquals(client._calendars, {calendar.url: calendar})
 
 
     def test_addAttendeeToEvent(self):
@@ -360,6 +375,33 @@ class AccepterTests(TestCase):
         accepter.eventChanged(event.url)
 
 
+    def test_ignoreAlreadyAccepting(self):
+        """
+        If the client sees an event change a second time before
+        responding to an invitation found on it during the first
+        change notification, the second change notification does not
+        generate another accept attempt.
+        """
+        clock = Clock()
+        randomDelay = 7
+        vevent = list(readComponents(INVITED_EVENT))[0]
+        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        userNumber = int(attendees[1].params[u'CN'][0].split(None, 1)[1])
+        calendarURL = '/some/calendar/'
+        calendar = Calendar(
+            caldavxml.calendar, u'calendar', calendarURL, None)
+        client = StubClient(userNumber)
+        client._calendars[calendarURL] = calendar
+        event = Event(calendarURL + u'1234.ics', None, vevent)
+        client._events[event.url] = event
+        accepter = Accepter(clock, client, userNumber)
+        accepter.random = Deterministic()
+        accepter.random.gauss = lambda mu, sigma: randomDelay
+        accepter.eventChanged(event.url)
+        accepter.eventChanged(event.url)
+        clock.advance(randomDelay)
+
+
     def test_acceptInvitation(self):
         """
         If the client is an attendee on an event and the PARTSTAT is
@@ -394,4 +436,43 @@ class AccepterTests(TestCase):
         self.assertNotIn(u'RSVP', attendees[1].params)
 
 
-        
+    def test_reacceptInvitation(self):
+        """
+        If a client accepts an invitation on an event and then is
+        later re-invited to the same event, the invitation is again
+        accepted.
+        """
+        clock = Clock()
+        randomDelay = 7
+        vevent = list(readComponents(INVITED_EVENT))[0]
+        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        userNumber = int(attendees[1].params[u'CN'][0].split(None, 1)[1])
+        calendarURL = '/some/calendar/'
+        calendar = Calendar(
+            caldavxml.calendar, u'calendar', calendarURL, None)
+        client = StubClient(userNumber)
+        client._calendars[calendarURL] = calendar
+        event = Event(calendarURL + u'1234.ics', None, vevent)
+        client._events[event.url] = event
+        accepter = Accepter(clock, client, userNumber)
+        accepter.random = Deterministic()
+        accepter.random.gauss = lambda mu, sigma: randomDelay
+        accepter.eventChanged(event.url)
+        clock.advance(randomDelay)
+
+        # Now re-set the event so it has to be accepted again
+        event.vevent = list(readComponents(INVITED_EVENT))[0]
+
+        # And now re-deliver it
+        accepter.eventChanged(event.url)
+        clock.advance(randomDelay)
+
+        # And ensure that it was accepted again
+        vevent = client._events[event.url].vevent
+        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        self.assertEquals(len(attendees), 2)
+        self.assertEquals(
+            attendees[1].params[u'CN'], [u'User %02d' % (userNumber,)])
+        self.assertEquals(
+            attendees[1].params[u'PARTSTAT'], [u'ACCEPTED'])
+        self.assertNotIn(u'RSVP', attendees[1].params)

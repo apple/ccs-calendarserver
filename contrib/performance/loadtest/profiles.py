@@ -26,6 +26,7 @@ from vobject.icalendar import VEvent
 
 from protocol.caldav.definitions import caldavxml
 
+from twisted.python.log import msg
 from twisted.internet.defer import succeed
 from twisted.internet.task import LoopingCall
 
@@ -108,19 +109,25 @@ class Inviter(object):
             if not calendar.events:
                 continue
 
-            uuid = self.random.choice(calendar.events.keys())
-            event = calendar.events[uuid].vevent
-            href = calendar.url + uuid
+            events = calendar.events.keys()
+            while events:
+                uuid = self.random.choice(events)
+                events.remove(uuid)
+                event = calendar.events[uuid].vevent
+                if event is None:
+                    continue
 
-            # Find out who might attend
-            attendees = event.contents['vevent'][0].contents.get('attendee', [])
+                href = calendar.url + uuid
 
-            d = self._addAttendee(event, attendees)
-            d.addCallback(
-                lambda attendee:
-                    self._client.addEventAttendee(
-                        href, attendee))
-            return d
+                # Find out who might attend
+                attendees = event.contents['vevent'][0].contents.get('attendee', [])
+
+                d = self._addAttendee(event, attendees)
+                d.addCallback(
+                    lambda attendee:
+                        self._client.addEventAttendee(
+                            href, attendee))
+                return d
 
 
 
@@ -134,6 +141,7 @@ class Accepter(object):
         self._reactor = reactor
         self._client = client
         self._number = userNumber
+        self._accepting = set()
 
 
     def run(self):
@@ -149,6 +157,8 @@ class Accepter(object):
             return
         if calendar.resourceType != caldavxml.calendar:
             return
+        if href in self._accepting:
+            return
 
         vevent = self._client._events[href].vevent
         # Check to see if this user is in the attendee list in the
@@ -158,13 +168,15 @@ class Accepter(object):
             if attendee.params[u'EMAIL'][0] == self._client.email[len('mailto:'):]:
                 if attendee.params[u'PARTSTAT'][0] == 'NEEDS-ACTION':
                     # XXX Base this on something real
-                    delay = 3 # self.random.gauss(10, 10)
+                    delay = self.random.gauss(10, 2)
+                    self._accepting.add(href)
                     self._reactor.callLater(
                         delay, self._acceptInvitation, href, attendee)
                     return
 
 
     def _acceptInvitation(self, href, attendee):
+        self._accepting.remove(href)
         accepted = self._makeAcceptedAttendee(attendee)
         self._client.changeEventAttendee(href, attendee, accepted)
 
@@ -172,5 +184,8 @@ class Accepter(object):
     def _makeAcceptedAttendee(self, attendee):
         accepted = ContentLine.duplicate(attendee)
         accepted.params[u'PARTSTAT'] = [u'ACCEPTED']
-        del accepted.params[u'RSVP']
+        try:
+            del accepted.params[u'RSVP']
+        except KeyError:
+            msg("Duplicated an attendee with no RSVP: %r" % (attendee,))
         return accepted
