@@ -671,11 +671,8 @@ class CalendarObject(CommonObjectResource):
         attachment = (yield self.attachmentWithName(name))
         yield attachment.remove()
 
-    @inlineCallbacks
     def attachmentWithName(self, name):
-        attachment = Attachment(self._txn, self._dropboxID, name)
-        attachment = (yield attachment.initFromStore())
-        returnValue(attachment)
+        return Attachment.attachmentWithName(self._txn, self._dropboxID, name)
 
     def attendeesCanManageAttachments(self):
         return self._attachment == _ATTACHMENTS_MODE_WRITE
@@ -824,6 +821,13 @@ class Attachment(object):
                 name,
             ]
         )
+        returnValue(attachment)
+
+    @classmethod
+    @inlineCallbacks
+    def attachmentWithName(cls, txn, dropboxID, name):
+        attachment = Attachment(txn, dropboxID, name)
+        attachment = (yield attachment.initFromStore())
         returnValue(attachment)
 
     @inlineCallbacks
