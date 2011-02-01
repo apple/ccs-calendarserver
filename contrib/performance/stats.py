@@ -100,7 +100,7 @@ class SQLDuration(_Statistic):
     commands = ['summarize', 'statements', 'transcript']
 
     def _is_literal(self, token):
-        if sqlparse.tokens.is_token_subtype(token.ttype, sqlparse.tokens.Literal):
+        if token.ttype in sqlparse.tokens.Literal:
             return True
         if token.ttype == sqlparse.tokens.Keyword and token.value in (u'True', u'False'):
             return True
