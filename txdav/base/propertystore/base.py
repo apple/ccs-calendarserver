@@ -98,8 +98,8 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
     """
     implements(IPropertyStore)
 
-    _defaultShadowableKeys = set()
-    _defaultGlobalKeys = set((
+    _defaultShadowableKeys = frozenset()
+    _defaultGlobalKeys = frozenset((
         PropertyName.fromElement(davxml.ACL),
         PropertyName.fromElement(davxml.ResourceID),
         PropertyName.fromElement(davxml.ResourceType),
@@ -108,7 +108,7 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
         PropertyName.fromElement(TwistedQuotaRootProperty),
     ))
 
-    def __init__(self, defaultuser):
+    def __init__(self, defaultUser):
         """
         Instantiate the property store for a user. The default is the default user
         (owner) property to read in the case of global or shadowable properties.
@@ -117,7 +117,7 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
         @type defaultuser: C{str}
         """
         
-        self._peruser = self._defaultuser = defaultuser
+        self._perUser = self._defaultUser = defaultUser
         self._shadowableKeys = set(AbstractPropertyStore._defaultShadowableKeys)
         self._globalKeys = set(AbstractPropertyStore._defaultGlobalKeys)
 
@@ -126,7 +126,7 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
         return "<%s>" % (self.__class__.__name__)
 
     def _setPerUserUID(self, uid):
-        self._peruser = uid
+        self._perUser = uid
 
     def setSpecialProperties(self, shadowableKeys, globalKeys):
         self._shadowableKeys.update(shadowableKeys)
@@ -162,34 +162,34 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
         # Handle per-user behavior 
         if self.isShadowableProperty(key):
             try:
-                result = self._getitem_uid(key, self._peruser)
+                result = self._getitem_uid(key, self._perUser)
             except KeyError:
-                result = self._getitem_uid(key, self._defaultuser)
+                result = self._getitem_uid(key, self._defaultUser)
             return result
         elif self.isGlobalProperty(key):
-            return self._getitem_uid(key, self._defaultuser)
+            return self._getitem_uid(key, self._defaultUser)
         else:
-            return self._getitem_uid(key, self._peruser)
+            return self._getitem_uid(key, self._perUser)
 
     def __setitem__(self, key, value):
         # Handle per-user behavior 
         if self.isGlobalProperty(key):
-            return self._setitem_uid(key, value, self._defaultuser)
+            return self._setitem_uid(key, value, self._defaultUser)
         else:
-            return self._setitem_uid(key, value, self._peruser)
+            return self._setitem_uid(key, value, self._perUser)
 
     def __delitem__(self, key):
         # Handle per-user behavior 
         if self.isGlobalProperty(key):
-            self._delitem_uid(key, self._defaultuser)
+            self._delitem_uid(key, self._defaultUser)
         else:
-            self._delitem_uid(key, self._peruser)
+            self._delitem_uid(key, self._perUser)
 
     def keys(self):
         
-        userkeys = list(self._keys_uid(self._peruser))
-        if self._defaultuser != self._peruser:
-            defaultkeys = self._keys_uid(self._defaultuser)
+        userkeys = list(self._keys_uid(self._perUser))
+        if self._defaultUser != self._perUser:
+            defaultkeys = self._keys_uid(self._defaultUser)
             for key in defaultkeys:
                 if self.isShadowableProperty(key) and key not in userkeys:
                     userkeys.append(key)

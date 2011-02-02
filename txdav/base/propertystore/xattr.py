@@ -114,7 +114,7 @@ class PropertyStore(AbstractPropertyStore):
         qname, uid = effective
         namespace = self._namespaceCompress.get(qname.namespace, qname.namespace) if compressNamespace else qname.namespace
         result = urllib.quote("{%s}%s" % (namespace, qname.name), safe="{}:")
-        if uid and uid != self._defaultuser:
+        if uid and uid != self._defaultUser:
             result = uid + result
         r = self.deadPropertyXattrPrefix + result
         return r
@@ -129,7 +129,7 @@ class PropertyStore(AbstractPropertyStore):
         if (index1 is - 1 or index2 is - 1 or not len(name) > index2):
             raise ValueError("Invalid encoded name: %r" % (name,))
         if index1 == 0:
-            uid = self._defaultuser
+            uid = self._defaultUser
         else:
             uid = name[:index1]
         propnamespace = name[index1 + 1:index2]

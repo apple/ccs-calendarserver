@@ -20,9 +20,7 @@ Property store tests.
 """
 
 from twext.python.filepath import CachingFilePath as FilePath
-
 from txdav.base.propertystore.base import PropertyName
-
 from txdav.base.propertystore.test import base
 
 try:
@@ -39,9 +37,8 @@ class PropertyStoreTest(base.PropertyStoreTest):
         tempDir.makedirs()
         tempFile = tempDir.child("test")
         tempFile.touch()
-        self.propertyStore = self.propertyStore1 = PropertyStore(
-            "user01", lambda : tempFile
-        )
+        self.propertyStore = PropertyStore("user01", lambda : tempFile)
+        self.propertyStore1 = self.propertyStore
         self.propertyStore2 = PropertyStore("user01", lambda : tempFile)
         self.propertyStore2._setPerUserUID("user02")
 
@@ -64,8 +61,8 @@ class PropertyStoreTest(base.PropertyStoreTest):
             name = "dummy"
 
         name = PropertyName.fromElement(DummyProperty)
-        compressedKey = self.propertyStore._encodeKey((name, self.propertyStore._defaultuser))
-        uncompressedKey = self.propertyStore._encodeKey((name, self.propertyStore._defaultuser), compressNamespace=False)
+        compressedKey = self.propertyStore._encodeKey((name, self.propertyStore._defaultUser))
+        uncompressedKey = self.propertyStore._encodeKey((name, self.propertyStore._defaultUser), compressNamespace=False)
 
         self.propertyStore[name] = DummyProperty.fromString("data")
         self.propertyStore.flush()
@@ -80,14 +77,10 @@ class PropertyStoreTest(base.PropertyStoreTest):
             name = "dummy"
 
         name = PropertyName.fromElement(DummyProperty)
-        uncompressedKey = self.propertyStore._encodeKey((name, self.propertyStore._defaultuser), compressNamespace=False)
+        uncompressedKey = self.propertyStore._encodeKey((name, self.propertyStore._defaultUser), compressNamespace=False)
         self.propertyStore.attrs[uncompressedKey] = DummyProperty.fromString("data").toxml()
         self.assertEqual(self.propertyStore[name], DummyProperty.fromString("data"))
-        self.assertRaises(KeyError, lambda:self.propertyStore.attrs[uncompressedKey])
+        self.assertRaises(KeyError, lambda: self.propertyStore.attrs[uncompressedKey])
 
 if PropertyStore is None:
     PropertyStoreTest.skip = importErrorMessage
-
-
-def propertyName(name):
-    return PropertyName("http://calendarserver.org/ns/test/", name)

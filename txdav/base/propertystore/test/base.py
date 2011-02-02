@@ -36,19 +36,46 @@ from txdav.idav import IPropertyStore
 from txdav.base.propertystore.base import PropertyName
 
 
-class PropertyStoreTest(unittest.TestCase):
+class NonePropertyStoreTest(unittest.TestCase):
     # Subclass must define self.propertyStore in setUp().
-
-    def _changed(self, store):
-        store.flush()
-    def _abort(self, store):
-        store.abort()
 
     def test_interface(self):
         try:
             verifyObject(IPropertyStore, self.propertyStore)
         except BrokenMethodImplementation, e:
             self.fail(e)
+
+
+    def test_delete_none(self):
+        def doDelete():
+            del self.propertyStore[propertyName("xyzzy")]
+
+        self.assertRaises(KeyError, doDelete)
+
+
+    def test_keyInPropertyName(self):
+        def doGet():
+            self.propertyStore["xyzzy"]
+        def doSet():
+            self.propertyStore["xyzzy"] = propertyValue("Hello, World!")
+        def doDelete():
+            del self.propertyStore["xyzzy"]
+        def doContains():
+            return "xyzzy" in self.propertyStore
+
+        self.assertRaises(TypeError, doGet)
+        self.assertRaises(TypeError, doSet)
+        self.assertRaises(TypeError, doDelete)
+        self.assertRaises(TypeError, doContains)
+
+
+class PropertyStoreTest(NonePropertyStoreTest):
+    # Subclass must define self.propertyStore in setUp().
+
+    def _changed(self, store):
+        store.flush()
+    def _abort(self, store):
+        store.abort()
 
 
     @inlineCallbacks
@@ -221,34 +248,6 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEquals(len(self.propertyStore), len(names))
 
 
-    def test_delete_none(self):
-
-        def doDelete():
-            del self.propertyStore[propertyName("xyzzy")]
-
-        self.assertRaises(KeyError, doDelete)
-
-
-    def test_keyInPropertyName(self):
-
-        def doGet():
-            self.propertyStore["xyzzy"]
-
-        def doSet():
-            self.propertyStore["xyzzy"] = propertyValue("Hello, World!")
-
-        def doDelete():
-            del self.propertyStore["xyzzy"]
-
-        def doContains():
-            return "xyzzy" in self.propertyStore
-
-        self.assertRaises(TypeError, doGet)
-        self.assertRaises(TypeError, doSet)
-        self.assertRaises(TypeError, doDelete)
-        self.assertRaises(TypeError, doContains)
-
-
     @inlineCallbacks
     def test_flush(self):
 
@@ -305,6 +304,7 @@ class PropertyStoreTest(unittest.TestCase):
         yield self._changed(self.propertyStore1)
 
         self.failUnless(name in self.propertyStore2.keys())
+
 
 def propertyName(name):
     return PropertyName("http://calendarserver.org/ns/test/", name)

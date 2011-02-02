@@ -31,7 +31,6 @@ class PropertyStore(AbstractPropertyStore):
     Always-empty property store.
     Writing properties is not allowed.
     """
-
     #
     # We override the UserDict items directly here rather than the _uid methods
     #
