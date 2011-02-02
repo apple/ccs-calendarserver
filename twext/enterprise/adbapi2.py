@@ -281,6 +281,17 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
 
 
     def _repoolAfter(self, d):
+        # FIXME: if abort() is called (say, by an HTTP connection terminating
+        # because the reactor is shutting down), the transaction will not
+        # immediately be moved to the 'stopped' list or removed from the 'busy'
+        # list; instead, it will be re-pooled only after the first abort()
+        # concludes, and stopService will sit in a loop calling abort() over and
+        # over again (and logging the traceback from _checkComplete()) until the
+        # thread actually doing the aborting finishes what it's doing.  This
+        # needs to be fixed to represent an intermediary state where completion
+        # has started and not stopped - note that this is *only* for interaction
+        # with stopService, there's no other legitimate cause for two abort()s
+        # to be called.
         def repool(result):
             self._pool.reclaim(self)
             return result
