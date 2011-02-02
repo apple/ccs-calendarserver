@@ -21,7 +21,7 @@ set -u;
 
 wd="$(cd "$(dirname "$0")" && pwd -L)";
 
-. support/build.sh;
+. "${wd}/support/build.sh";
 
 do_setup="false";
 do_get="false";
