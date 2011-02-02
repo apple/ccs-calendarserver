@@ -19,8 +19,6 @@
 Always-empty property store.
 """
 
-from __future__ import absolute_import
-
 __all__ = [
     "PropertyStore",
 ]
@@ -33,28 +31,24 @@ class PropertyStore(AbstractPropertyStore):
     Always-empty property store.
     Writing properties is not allowed.
     """
-    def __init__(self, defaultuser, pathFactory):
-        super(PropertyStore, self).__init__(defaultuser)
-        del self.__setitem__
-        del self.__delitem__
 
     #
-    # Required implementations
+    # We override the UserDict items directly here rather than the _uid methods
     #
 
-    def _getitem_uid(self, key, uid):
+    def __getitem__(self, key):
         validKey(key)
         raise KeyError(key)
 
-    def _setitem_uid(self, key, value, uid):
+    def __setitem__(self, key, value):
         validKey(key)
         raise PropertyChangeNotAllowedError("Property store is read-only.", (key,))
 
-    def _delitem_uid(self, key, uid):
+    def __delitem__(self, key):
         validKey(key)
         raise KeyError(key)
 
-    def _keys_uid(self, uid):
+    def keys(self):
         return ()
 
     #

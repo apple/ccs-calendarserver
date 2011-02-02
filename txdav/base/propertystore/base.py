@@ -123,7 +123,7 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
 
 
     def __str__(self):
-        return "<%s %s>" % (self.__class__.__name__)
+        return "<%s>" % (self.__class__.__name__)
 
     def _setPerUserUID(self, uid):
         self._peruser = uid
