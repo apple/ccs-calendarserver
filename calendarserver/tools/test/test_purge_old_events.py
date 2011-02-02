@@ -19,12 +19,13 @@ Tests for calendarserver.tools.purge
 """
 
 from twisted.trial import unittest
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twext.web2.http_headers import MimeType
 
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
 
 from calendarserver.tap.util import getRootResource
-from calendarserver.tools.purge import purgeOldEvents, purgeGUID
+from calendarserver.tools.purge import purgeOldEvents, purgeGUID, purgeOrphanedAttachments
 from twistedcaldav.config import config
 from vobject.icalendar import utc
 
@@ -76,6 +77,56 @@ TRANSP:OPAQUE
 SUMMARY:Ancient event
 DTSTART;TZID=US/Pacific:20000307T111500
 DTSTAMP:20100303T181220Z
+SEQUENCE:2
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+OLD_ATTACHMENT_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;UNTIL=20061029T090000Z;BYMONTH=10;BYDAY=-1SU
+DTSTART:19621028T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;UNTIL=20060402T100000Z;BYMONTH=4;BYDAY=1SU
+DTSTART:19870405T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:57A5D1F6-9A57-4F74-9520-25C617F54B88
+TRANSP:OPAQUE
+SUMMARY:Ancient event with attachment
+DTSTART;TZID=US/Pacific:20000308T111500
+DTEND;TZID=US/Pacific:20000308T151500
+DTSTAMP:20100303T181220Z
+X-APPLE-DROPBOX:/calendars/__uids__/user01/dropbox/57A5D1F6-9A57-4F74-95
+ 20-25C617F54B88.dropbox
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
@@ -260,6 +311,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             "calendar1" : {
                 "old.ics" : OLD_ICS,
                 "endless.ics" : ENDLESS_ICS,
+                "oldattachment.ics" : OLD_ATTACHMENT_ICS,
             }
         },
         "home2" : {
@@ -303,6 +355,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         self.assertEquals(results,
             [
                 ['home1', 'calendar1', 'old.ics', '2000-03-07 23:15:00'],
+                ['home1', 'calendar1', 'oldattachment.ics', '2000-03-08 23:15:00'],
                 ['home2', 'calendar3', 'repeating_awhile.ics', '2002-03-09 23:15:00'],
                 ['home2', 'calendar2', 'recent.ics', '2010-03-04 22:15:00'],
             ]
@@ -327,6 +380,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         results = (yield txn.eventsOlderThan(cutoff))
         self.assertEquals(results,
             [
+                ['home1', 'calendar1', 'oldattachment.ics', '2000-03-08 23:15:00'],
                 ['home2', 'calendar3', 'repeating_awhile.ics', '2002-03-09 23:15:00'],
                 ['home2', 'calendar2', 'recent.ics', '2010-03-04 22:15:00'],
             ]
@@ -334,13 +388,70 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         # Remove remaining oldest events
         count = (yield txn.removeOldEvents(cutoff))
-        self.assertEquals(count, 2)
+        self.assertEquals(count, 3)
         results = (yield txn.eventsOlderThan(cutoff))
         self.assertEquals(results, [ ])
 
         # Remove oldest events (none left)
         count = (yield txn.removeOldEvents(cutoff))
         self.assertEquals(count, 0)
+
+
+    @inlineCallbacks
+    def _addAttachment(self):
+
+        txn = self._sqlCalendarStore.newTransaction()
+
+        # Create an event with an attachment
+        home = (yield txn.calendarHomeWithUID("home1"))
+        calendar = (yield home.calendarWithName("calendar1"))
+        event = (yield calendar.calendarObjectWithName("oldattachment.ics"))
+        attachment = (yield event.createAttachmentWithName("oldattachment.ics"))
+        t = attachment.store(MimeType("text", "x-fixture"))
+        t.write("old attachment")
+        t.write(" text")
+        (yield t.loseConnection())
+        (yield txn.commit())
+
+        returnValue(attachment)
+
+    @inlineCallbacks
+    def test_removeOrphanedAttachments(self):
+        attachment = (yield self._addAttachment())
+        txn = self._sqlCalendarStore.newTransaction()
+        attachmentPath = attachment._path.path
+        self.assertTrue(os.path.exists(attachmentPath))
+
+        orphans = (yield txn.orphanedAttachments())
+        self.assertEquals(len(orphans), 0)
+
+        count = (yield txn.removeOrphanedAttachments(batchSize=100))
+        self.assertEquals(count, 0)
+
+        # File still exists
+        self.assertTrue(os.path.exists(attachmentPath))
+
+        # Delete all old events (including the event containing the attachment)
+        cutoff = datetime.datetime(2010, 4, 1)
+        count = (yield txn.removeOldEvents(cutoff))
+
+        # Just look for orphaned attachments but don't delete
+        orphans = (yield txn.orphanedAttachments())
+        self.assertEquals(len(orphans), 1)
+
+        # Remove orphaned attachments, should be 1
+        count = (yield txn.removeOrphanedAttachments(batchSize=100))
+        self.assertEquals(count, 1)
+
+        # Remove orphaned attachments, shouldn't be any
+        count = (yield txn.removeOrphanedAttachments())
+        self.assertEquals(count, 0)
+
+        # File isn't actually removed until after commit
+        (yield txn.commit())
+
+        # Verify the file itself is gone
+        self.assertFalse(os.path.exists(attachmentPath))
 
     @inlineCallbacks
     def test_purgeOldEvents(self):
@@ -362,12 +473,12 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         total = (yield purgeOldEvents(self._sqlCalendarStore, directory,
             rootResource, datetime.datetime(2010, 4, 1), 2, dryrun=True,
             verbose=False))
-        self.assertEquals(total, 3)
+        self.assertEquals(total, 4)
 
         # Actually remove
         total = (yield purgeOldEvents(self._sqlCalendarStore, directory,
             rootResource, datetime.datetime(2010, 4, 1), 2, verbose=False))
-        self.assertEquals(total, 3)
+        self.assertEquals(total, 4)
 
         # There should be no more left
         total = (yield purgeOldEvents(self._sqlCalendarStore, directory,
@@ -393,3 +504,43 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             verbose=False, proxies=False,
             when=datetime.datetime(2010, 4, 1, 12, 0, 0, 0, utc)))
         self.assertEquals(total, 1)
+
+
+    @inlineCallbacks
+    def test_purgeOrphanedAttachments(self):
+
+        (yield self._addAttachment())
+
+        self.patch(config.DirectoryService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "accounts.xml"
+            )
+        )
+        self.patch(config.ResourceService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "resources.xml"
+            )
+        )
+        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
+        rootResource = getRootResource(config, self._sqlCalendarStore)
+        directory = rootResource.getDirectory()
+
+        # Remove old events first
+        total = (yield purgeOldEvents(self._sqlCalendarStore, directory,
+            rootResource, datetime.datetime(2010, 4, 1), 2, verbose=False))
+        self.assertEquals(total, 4)
+
+        # Dry run
+        total = (yield purgeOrphanedAttachments(self._sqlCalendarStore, 2,
+            dryrun=True, verbose=False))
+        self.assertEquals(total, 1)
+
+        # Actually remove
+        total = (yield purgeOrphanedAttachments(self._sqlCalendarStore, 2,
+            dryrun=False, verbose=False))
+        self.assertEquals(total, 1)
+
+        # There should be no more left
+        total = (yield purgeOrphanedAttachments(self._sqlCalendarStore, 2,
+            dryrun=False, verbose=False))
+        self.assertEquals(total, 0)

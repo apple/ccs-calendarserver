@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+.\" Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 .\"
 .\" Licensed under the Apache License, Version 2.0 (the "License");
 .\" you may not use this file except in compliance with the License.
@@ -15,21 +15,20 @@
 .\"
 .\" The following requests are required for all man pages.
 .Dd June 17, 2009
-.Dt CALENDARSERVER_PURGE_EVENTS 8
+.Dt CALENDARSERVER_PURGE_ATTACHMENTS 8
 .Os
 .Sh NAME
-.Nm calendarserver_purge_events
-.Nd Darwin Calendar Server event clean-up utility
+.Nm calendarserver_purge_attachments
+.Nd Darwin Calendar Server orphaned attachments clean-up utility
 .Sh SYNOPSIS
 .Nm
 .Op Fl -config Ar file
-.Op Fl -days Ad number
 .Op Fl -dry-run
 .Op Fl -verbose
 .Op Fl -help
 .Sh DESCRIPTION
 .Nm
-is a tool for removing old events from the calendar server.  By default, events older than 365 days are removed, but the user can specify the number of days in the past to use as a cut-off.  Repeating events that have any occurrences after the cut-off day are not removed.
+is a tool for removing attachments that are no longer referenced by any calendar events.
 .Pp
 .Nm
 should be run as a user with the same priviledges as the Calendar
@@ -42,11 +41,9 @@ Display usage information
 .It Fl f, -config Ar FILE
 Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
 .It Fl n, -dry-run
-Calculate and display how many events would be removed, but don't actually remove them.  
+Calculate and display how many orphaned attachments would be removed, but don't actually remove them.
 .It Fl v, -verbose
 Print progress information.
-.It Fl d, -days Ar NUMBER
-Specify how many days in the past to retain.  Defaults to 365 days.
 .El
 .Sh FILES
 .Bl -tag -width flag

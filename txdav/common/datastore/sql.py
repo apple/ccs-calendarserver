@@ -258,6 +258,9 @@ class CommonStoreTransaction(object):
         """
         Return up to the oldest batchSize events which exist completely earlier
         than "cutoff" (datetime)
+
+        Returns a deferred to a list of (uid, calendarName, eventName, maxDate)
+        tuples.
         """
 
         query = """
@@ -308,6 +311,49 @@ class CommonStoreTransaction(object):
             count += 1
         returnValue(count)
 
+    def orphanedAttachments(self, batchSize=None):
+        """
+        Find attachments no longer referenced by any events.
+
+        Returns a deferred to a list of (dropbox_id, path) tuples.
+        """
+
+        query = """
+            select
+                at.DROPBOX_ID,
+                at.PATH
+            from
+                ATTACHMENT at
+            left outer join
+                CALENDAR_OBJECT co
+            on
+                at.DROPBOX_ID = co.DROPBOX_ID
+            where
+                co.DROPBOX_ID is null
+            """
+        args = []
+        if batchSize is not None:
+            query += "limit %s"
+            args.append(batchSize)
+
+        return self.execSQL(query, args)
+
+    @inlineCallbacks
+    def removeOrphanedAttachments(self, batchSize=None):
+        """
+        Remove attachments that no longer have any references to them
+        """
+
+        # TODO: see if there is a better way to import Attachment
+        from txdav.caldav.datastore.sql import Attachment
+
+        results = (yield self.orphanedAttachments(batchSize=batchSize))
+        count = 0
+        for dropboxID, path in results:
+            attachment = Attachment(self, dropboxID, path)
+            (yield attachment.remove( ))
+            count += 1
+        returnValue(count)
 
 
 class CommonHome(LoggingMixIn):

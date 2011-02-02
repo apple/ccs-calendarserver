@@ -64,6 +64,27 @@ def usage_purge_events(e=None):
     else:
         sys.exit(0)
 
+def usage_purge_orphaned_attachments(e=None):
+
+    name = os.path.basename(sys.argv[0])
+    print "usage: %s [options]" % (name,)
+    print ""
+    print "  Remove orphaned attachments from the calendar server"
+    print ""
+    print "options:"
+    print "  -b --batch <number>: number of attachments to remove in each transaction (default=100)"
+    print "  -f --config <path>: Specify caldavd.plist configuration path"
+    print "  -h --help: print this help and exit"
+    print "  -n --dry-run: only calculate how many attachments to purge"
+    print "  -v --verbose: print progress information"
+    print ""
+
+    if e:
+        sys.stderr.write("%s\n" % (e,))
+        sys.exit(64)
+    else:
+        sys.exit(0)
+
 def usage_purge_principal(e=None):
 
     name = os.path.basename(sys.argv[0])
@@ -103,6 +124,28 @@ class PurgeOldEventsService(Service):
             (yield purgeOldEvents(self._store, directory, rootResource,
                 self.cutoff, self.batchSize, verbose=self.verbose,
                 dryrun=self.dryrun))
+        except Exception, e:
+            print "Error:", e
+            raise
+
+        finally:
+            reactor.stop()
+
+
+class PurgeOrphanedAttachmentsService(Service):
+
+    batchSize = None
+    dryrun = False
+    verbose = False
+
+    def __init__(self, store):
+        self._store = store
+
+    @inlineCallbacks
+    def startService(self):
+        try:
+            (yield purgeOrphanedAttachments(self._store, self.batchSize,
+                verbose=self.verbose, dryrun=self.dryrun))
         except Exception, e:
             print "Error:", e
             raise
@@ -234,6 +277,68 @@ def main_purge_events():
     )
 
 
+def main_purge_orphaned_attachments():
+
+    try:
+        (optargs, args) = getopt(
+            sys.argv[1:], "d:b:f:hnv", [
+                "batch=",
+                "dry-run",
+                "config=",
+                "help",
+                "verbose",
+            ],
+        )
+    except GetoptError, e:
+        usage_purge_orphaned_attachments(e)
+
+    #
+    # Get configuration
+    #
+    configFileName = None
+    batchSize = 100
+    dryrun = False
+    verbose = False
+
+    for opt, arg in optargs:
+        if opt in ("-h", "--help"):
+            usage_purge_orphaned_attachments()
+
+        elif opt in ("-b", "--batch"):
+            try:
+                batchSize = int(arg)
+            except ValueError, e:
+                print "Invalid value for --batch: %s" % (arg,)
+                usage_purge_orphaned_attachments(e)
+
+        elif opt in ("-v", "--verbose"):
+            verbose = True
+
+        elif opt in ("-n", "--dry-run"):
+            dryrun = True
+
+        elif opt in ("-f", "--config"):
+            configFileName = arg
+
+        else:
+            raise NotImplementedError(opt)
+
+    if args:
+        usage_purge_orphaned_attachments("Too many arguments: %s" % (args,))
+
+    if dryrun:
+        verbose = True
+
+    PurgeOrphanedAttachmentsService.batchSize = batchSize
+    PurgeOrphanedAttachmentsService.dryrun = dryrun
+    PurgeOrphanedAttachmentsService.verbose = verbose
+
+    shared_main(
+        configFileName,
+        PurgeOrphanedAttachmentsService,
+    )
+
+
 def main_purge_principals():
 
     try:
@@ -342,70 +447,51 @@ def purgeOldEvents(store, directory, root, date, batchSize, verbose=False,
     returnValue(totalRemoved)
 
 
-    """
 
-    oldEvents = (yield store.eventsOlderThan(date))
+@inlineCallbacks
+def purgeOrphanedAttachments(store, batchSize, verbose=False, dryrun=False):
 
-    request = FakeRequest(root, None, None)
-    request.checkedSACL = True
-    eventCount = 0
-    prevHomeName = None
-
-    for homeName, calendarName, eventName, maxDate in oldEvents:
-        if homeName != prevHomeName:
-
-            # Retrieve the calendar home
-            record = directory.recordWithGUID(homeName)
-            if record is None:
-                # The user has already been removed from the directory service.  We
-                # need to fashion a temporary, fake record
-
-                # FIXME: probaby want a more elegant way to accomplish this,
-                # since it requires the aggregate directory to examine these first:
-                record = DirectoryRecord(directory, "users", homeName, shortNames=(homeName,),
-                    enabledForCalendaring=True)
-                record.enabled = True
-                directory._tmpRecords["shortNames"][homeName] = record
-                directory._tmpRecords["guids"][homeName] = record
-
-            principalCollection = directory.principalCollection
-            principal = principalCollection.principalForRecord(record)
-            calendarHome = (yield principal.calendarHome(request))
-            prevHomeName = homeName
-
-        eventCount += 1
+    if dryrun:
         if verbose:
-            print "%s %s/%s/%s ends: %s" % (record.shortNames[0], homeName,
-                calendarName, eventName, maxDate)
-        if not dryrun:
-            calendar = (yield calendarHome.getChild(calendarName))
-            event = (yield calendar.getChild(eventName))
-            uri = "/calendars/__uids__/%s/%s/%s" % (
-                homeName,
-                calendarName,
-                eventName
-            )
-            request.authnUser = request.authzUser = davxml.Principal(
-                davxml.HRef.fromString("/principals/__uids__/%s/" % (homeName,))
-            )
-            request.path = uri
-            request._rememberResource(event, uri)
-            if verbose:
-                print "Deleting %s/%s/%s" % (homeName, calendarName, eventName)
-            result = (yield event.storeRemove(request, True, uri))
-            if result != NO_CONTENT:
-                print "Error deleting %s/%s/%s: %s" % (homeName, calendarName,
-                    eventName, result)
-
-    if eventCount and not dryrun:
+            print "(Dry run) Searching for orphaned attachments..."
+        txn = store.newTransaction(label="Find orphaned attachments")
+        orphans = (yield txn.orphanedAttachments())
+        orphanCount = len(orphans)
         if verbose:
-            print "Committing changes"
-        txn = request._newStoreTransaction
+            if orphanCount == 0:
+                print "No orphaned attachments"
+            elif orphanCount == 1:
+                print "1 orphaned attachment"
+            else:
+                print "%d orphaned attachments" % (eventCount,)
+        returnValue(orphanCount)
+
+    if verbose:
+        print "Removing orphaned attachments..."
+
+    numOrphansRemoved = -1
+    totalRemoved = 0
+    while numOrphansRemoved:
+        txn = store.newTransaction(label="Remove orphaned attachments")
+        numOrphansRemoved = (yield txn.removeOrphanedAttachments(batchSize=batchSize))
         (yield txn.commit())
+        if numOrphansRemoved:
+            totalRemoved += numOrphansRemoved
+            if verbose:
+                print "%d," % (totalRemoved,),
 
-    returnValue(eventCount)
+    if verbose:
+        print
+        if totalRemoved == 0:
+            print "No orphaned attachments were removed"
+        elif totalRemoved == 1:
+            print "1 orphaned attachment was removed in total"
+        else:
+            print "%d orphaned attachments were removed in total" % (totalRemoved,)
 
-    """
+    returnValue(totalRemoved)
+
+
 
 
 
