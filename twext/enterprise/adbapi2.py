@@ -50,6 +50,7 @@ from twisted.internet.defer import maybeDeferred
 from twisted.python.components import proxyForInterface
 
 from twext.internet.threadutils import ThreadHolder
+from twisted.internet.defer import succeed
 from twext.enterprise.ienterprise import AlreadyFinishedError, IAsyncTransaction
 
 
@@ -135,7 +136,6 @@ class BaseSqlTxn(object):
 
     def __del__(self):
         if not self._completed:
-            print 'BaseSqlTxn.__del__: OK'
             self.abort()
 
 
@@ -230,7 +230,7 @@ class SpooledTxn(object):
 
 
     def abort(self):
-        return self._enspool('abort')
+        return succeed(None)
 
 
 
@@ -249,6 +249,15 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
         self._complete = False
 
 
+    def _unspoolOnto(self, baseTxn):
+        """
+        Replace my C{_baseTxn}, currently a L{SpooledTxn}, with a L{BaseSqlTxn}.
+        """
+        spooledBase = self._baseTxn
+        self._baseTxn = baseTxn
+        spooledBase._unspool(baseTxn)
+
+
     def execSQL(self, *a, **kw):
         self._checkComplete()
         return super(PooledSqlTxn, self).execSQL(*a, **kw)
@@ -256,12 +265,18 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
 
     def commit(self):
         self._markComplete()
-        return self._repoolAfter(super(PooledSqlTxn, self).commit())
+        return self._pool._repoolAfter(self, super(PooledSqlTxn, self).commit())
 
 
     def abort(self):
         self._markComplete()
-        return self._repoolAfter(super(PooledSqlTxn, self).abort())
+        waiting = self._pool.waiting
+        if self in waiting:
+            waiting.remove(self)
+            # FIXME: waiting.remove()
+            return succeed(None)
+        else:
+            return self._pool._repoolAfter(self, super(PooledSqlTxn, self).abort())
 
 
     def _checkComplete(self):
@@ -280,32 +295,15 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
         self._complete = True
 
 
-    def _repoolAfter(self, d):
-        # FIXME: if abort() is called (say, by an HTTP connection terminating
-        # because the reactor is shutting down), the transaction will not
-        # immediately be moved to the 'stopped' list or removed from the 'busy'
-        # list; instead, it will be re-pooled only after the first abort()
-        # concludes, and stopService will sit in a loop calling abort() over and
-        # over again (and logging the traceback from _checkComplete()) until the
-        # thread actually doing the aborting finishes what it's doing.  This
-        # needs to be fixed to represent an intermediary state where completion
-        # has started and not stopped - note that this is *only* for interaction
-        # with stopService, there's no other legitimate cause for two abort()s
-        # to be called.
-        def repool(result):
-            self._pool.reclaim(self)
-            return result
-        return d.addCallback(repool)
 
-
-
-class _ConnectingPsuedoTxn(object):
+class _ConnectingPseudoTxn(object):
 
     _retry = None
 
     def __init__(self, pool, holder):
         self._pool = pool
         self._holder = holder
+
 
     def abort(self):
         # not implemented yet, but let's fail rather than break the test
@@ -339,6 +337,22 @@ class ConnectionPool(Service, object):
         for failed connect() attempts.
 
     @type reactor: L{IReactorTime} and L{IReactorThreads} provider.
+
+    @ivar free: The list of free L{BaseSqlTxn} objects which are not currently
+        attached to a L{PooledSqlTxn} object, and have active connections ready
+        for processing a new transaction.
+
+    @ivar busy: The list of busy (currently bound to a L{BaseSqlTxn})
+        L{PooledSqlTxn} objects.
+
+    @ivar finishing: The list of 2-tuples of L{PooledSqlTxn} objects which have
+        had C{abort} or C{commit} called on them, but are not done executing
+        that method, and the L{Deferred} returned from that method that will be
+        fired when its execution has completed.
+
+    @ivar waiting: The list of L{PooledSqlTxn} objects attached to a
+        L{SpooledTxn}; i.e. those which are awaiting a connection to become free
+        so that they can be executed.
     """
 
     reactor = _reactor
@@ -347,12 +361,16 @@ class ConnectionPool(Service, object):
 
 
     def __init__(self, connectionFactory, maxConnections=10):
+
         super(ConnectionPool, self).__init__()
+        self.connectionFactory = connectionFactory
+        self.maxConnections = maxConnections
+
         self.free = []
         self.busy = []
         self.waiting = []
-        self.connectionFactory = connectionFactory
-        self.maxConnections = maxConnections
+        self.finishing = []
+        self.connecting = []
 
 
     def startService(self):
@@ -371,10 +389,13 @@ class ConnectionPool(Service, object):
         # one is aborted, it will remove itself from the list.
         while self.busy:
             busy = self.busy[0]
-            try:
-                yield busy.abort()
-            except:
-                log.err()
+#            try:
+            # FIXME: abort() might fail.
+            yield busy.abort()
+#            except:
+#                log.err()
+#            if self.busy and busy is self.busy[0]:
+#                raise RuntimeError("this will result in an infinite loop.")
         # Phase 2: All transactions should now be in the free list, since
         # 'abort()' will have put them there.  Shut down all the associated
         # ThreadHolders.
@@ -383,6 +404,8 @@ class ConnectionPool(Service, object):
             # it the way aborting a PooledSqlTxn does, so we need to .pop()
             # here.)
             free = self.free.pop()
+            # stop() really shouldn't be able to fail, as it's just stopping the
+            # thread, and the holder's stop() is independently submitted.
             yield free.stop()
 
 
@@ -408,6 +431,8 @@ class ConnectionPool(Service, object):
             tracking = self.waiting
         txn = PooledSqlTxn(self, basetxn)
         tracking.append(txn)
+        # FIXME/TESTME: should be len(self.busy) + len(self.finishing) (free
+        # doesn't need to be considered, as it's tested above)
         if tracking is self.waiting and len(self.busy) < self.maxConnections:
             self._startOneMore()
         return txn
@@ -419,7 +444,7 @@ class ConnectionPool(Service, object):
         """
         holder = self._createHolder()
         holder.start()
-        txn = _ConnectingPsuedoTxn(self, holder)
+        txn = _ConnectingPseudoTxn(self, holder)
         # take up a slot in the 'busy' list, sit there so we can be aborted.
         self.busy.append(txn)
         def initCursor():
@@ -434,36 +459,47 @@ class ConnectionPool(Service, object):
                 connection=connection,
                 cursor=cursor
             )
+            self.busy.remove(txn)
             txn._baseTxn = baseTxn
-            self.reclaim(txn)
+            self._repoolNow(txn)
         def maybeTryAgain(f):
-            log.err(f)
+            log.err(f, "Re-trying connection due to connection failure")
             txn._retry = self.reactor.callLater(self.RETRY_TIMEOUT, resubmit)
         def resubmit():
             d = holder.submit(initCursor)
             d.addCallbacks(finishInit, maybeTryAgain)
         resubmit()
-        return txn
 
 
-    def reclaim(self, txn):
+    def _repoolAfter(self, txn, d):
+        """
+        Re-pool the back-end for the given L{PooledSqlTxn} after the given
+        L{Deferred} has fired.
+        """
+        if txn in self.busy:
+            # should only _not_ in self.busy if its underlying txn is a SpooledTxn
+            self.busy.remove(txn)
+        finishRecord = (txn, d)
+        self.finishing.append(finishRecord)
+        def repool(result):
+            self.finishing.remove(finishRecord)
+            self._repoolNow(txn)
+            return result
+        return d.addBoth(repool)
+
+
+    def _repoolNow(self, txn):
         """
         Shuck the L{PooledSqlTxn} wrapper off, and recycle the underlying
         L{BaseSqlTxn} into the free list.
         """
-        self.busy.remove(txn)
         baseTxn = txn._baseTxn
+        txn._baseTxn = None
         baseTxn.reset()
         if self.waiting:
             waiting = self.waiting.pop(0)
-            waiting._baseTxn._unspool(baseTxn)
-            # Note: although commit() may already have been called, we don't
-            # have to handle it specially here.  It only unspools after the
-            # deferred returned by commit() has actually been called, and since
-            # that occurs in a callFromThread, that won't happen until the next
-            # iteration of the mainloop, when the _baseTxn is safely correct.
-            waiting._baseTxn = baseTxn
             self.busy.append(waiting)
+            waiting._unspoolOnto(baseTxn)
         else:
             self.free.append(baseTxn)
 

@@ -22,13 +22,29 @@ from itertools import count
 
 from twisted.trial.unittest import TestCase
 
-from twisted.internet.defer import inlineCallbacks
-
 from twisted.internet.defer import execute
 from twisted.internet.task import Clock
 
 from twisted.internet.defer import Deferred
 from twext.enterprise.adbapi2 import ConnectionPool
+
+
+def resultOf(deferred, propagate=False):
+    """
+    Add a callback and errback which will capture the result of a L{Deferred} in
+    a list, and return that list.  If 'propagate' is True, pass through the
+    results.
+    """
+    results = []
+    if propagate:
+        def cb(r):
+            results.append(r)
+            return r
+    else:
+        cb = results.append
+    deferred.addBoth(cb)
+    return results
+
 
 
 class Child(object):
@@ -263,14 +279,12 @@ class ConnectionPoolTests(TestCase):
         self.pool.startService()
 
 
-    @inlineCallbacks
     def tearDown(self):
         """
         Make sure the service is stopped and the fake ThreadHolders are all
         executing their queues so failed tests can exit cleanly.
         """
         self.flushHolders()
-        yield self.pool.stopService()
 
 
     def flushHolders(self):
@@ -299,7 +313,6 @@ class ConnectionPoolTests(TestCase):
         return fth
 
 
-    @inlineCallbacks
     def test_tooManyConnections(self):
         """
         When the number of outstanding busy transactions exceeds the number of
@@ -309,48 +322,52 @@ class ConnectionPoolTests(TestCase):
         until an existing connection becomes available.
         """
         a = self.pool.connection()
-        [[counter, echo]] = yield a.execSQL("alpha")
+
+        alphaResult = resultOf(a.execSQL("alpha"))
+        [[counter, echo]] = alphaResult[0]
+
         b = self.pool.connection()
-        [[bcounter, becho]] = yield b.execSQL("beta")
+        # 'b' should have opened a connection.
+        self.assertEquals(len(self.factory.connections), 2)
+        betaResult = resultOf(b.execSQL("beta"))
+        [[bcounter, becho]] = betaResult[0]
 
         # both 'a' and 'b' are holding open a connection now; let's try to open
         # a third one.  (The ordering will be deterministic even if this fails,
         # because those threads are already busy.)
         c = self.pool.connection()
-        enqueue = c.execSQL("gamma")
-        x = []
-        def addtox(it):
-            x.append(it)
-            return it
-        enqueue.addCallback(addtox)
+        gammaResult = resultOf(c.execSQL("gamma"))
 
         # Did 'c' open a connection?  Let's hope not...
         self.assertEquals(len(self.factory.connections), 2)
+        # SQL shouldn't be executed too soon...
+        self.assertEquals(gammaResult, [])
 
-        self.failIf(bool(x), "SQL executed too soon!")
-        yield b.commit()
+        commitResult = resultOf(b.commit())
 
         # Now that 'b' has committed, 'c' should be able to complete.
-        [[ccounter, cecho]] = yield enqueue
+        [[ccounter, cecho]] = gammaResult[0]
 
-        # The connection for 'a' ought to be busy, so let's make sure we're
-        # using the one for 'c'.
+        # The connection for 'a' ought to still be busy, so let's make sure
+        # we're using the one for 'c'.
         self.assertEquals(ccounter, bcounter)
 
+        # Sanity check: the commit should have succeded!
+        self.assertEquals(commitResult, [None])
 
-    @inlineCallbacks
+
     def test_stopService(self):
         """
         L{ConnectionPool.stopService} stops all the associated L{ThreadHolder}s
         and thereby frees up the resources it is holding.
         """
         a = self.pool.connection()
-        [[counter, echo]] = yield a.execSQL("alpha")
+        [[[counter, echo]]] = resultOf(a.execSQL("alpha"))
         self.assertEquals(len(self.holders), 1)
         [holder] = self.holders
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, False)
-        yield self.pool.stopService()
+        self.pool.stopService()
         self.assertEquals(self.pool.busy, [])
         self.assertEquals(self.pool.free, [])
         self.assertEquals(len(self.holders), 1)
@@ -440,6 +457,28 @@ class ConnectionPoolTests(TestCase):
         [holder] = self.holders
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
+
+
+    def test_stopServiceMidAbort(self):
+        """
+        When L{ConnectionPool.stopService} is called with deferreds from
+        C{abort} still outstanding, it will wait for the currently-aborting
+        transaction to fully abort before firing the L{Deferred} returned from
+        C{stopService}.
+        """
+        # TODO: commit() too?
+        self.pauseHolders()
+        c = self.pool.connection()
+        abortResult = resultOf(c.abort())
+        # Should abort instantly, as it hasn't managed to unspool anything yet.
+        # FIXME: kill all Deferreds associated with this thing, make sure that
+        # any outstanding query callback chains get nuked.
+        self.assertEquals(abortResult, [None])
+        stopResult = resultOf(self.pool.stopService())
+        self.assertEquals(stopResult, [])
+        self.flushHolders()
+        #self.assertEquals(abortResult, [None])
+        self.assertEquals(stopResult, [None])
 
 
 
