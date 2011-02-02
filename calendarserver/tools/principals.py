@@ -243,11 +243,15 @@ def main():
 
         os.umask(config.umask)
 
+        # Configure memcached client settings prior to setting up resource
+        # hierarchy (in getDirectory)
+        setupMemcached(config)
+
         try:
             config.directory = getDirectory()
         except DirectoryError, e:
             abort(e)
-        setupMemcached(config)
+
     except ConfigurationError, e:
         abort(e)
 
