@@ -122,9 +122,11 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
         self._globalKeys = set(AbstractPropertyStore._defaultGlobalKeys)
 
 
+    def __str__(self):
+        return "<%s %s>" % (self.__class__.__name__)
+
     def _setPerUserUID(self, uid):
         self._peruser = uid
-
 
     def setSpecialProperties(self, shadowableKeys, globalKeys):
         self._shadowableKeys.update(shadowableKeys)
@@ -146,6 +148,12 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
     def _keys_uid(self, uid):
         raise NotImplementedError()
         
+    def flush(self):
+        raise NotImplementedError()
+
+    def abort(self):
+        raise NotImplementedError()
+
     #
     # Required UserDict implementations
     #
@@ -193,7 +201,6 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
         # valid, it should just raise an error.
         for key in other:
             self[key] = other[key]
-
 
     # Per-user property handling
     def isShadowableProperty(self, key):
