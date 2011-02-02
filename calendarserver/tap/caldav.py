@@ -39,7 +39,7 @@ from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
-from twisted.internet.defer import gatherResults
+from twisted.internet.defer import gatherResults, Deferred
 from twisted.internet import reactor as _reactor
 from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.process import ProcessExitedAlready
@@ -1428,6 +1428,8 @@ class DelayedStartupProcessMonitor(Service, object):
         """
         self.stopping = True
         self.deferreds = {}
+        for name in self.processes:
+            self.deferreds[name] = Deferred()
         super(DelayedStartupProcessMonitor, self).stopService()
 
         # Cancel any outstanding restarts
@@ -1503,7 +1505,7 @@ class DelayedStartupProcessMonitor(Service, object):
                                                          self.startProcess,
                                                          name)
         if self.stopping:
-            deferred = self.deferreds.get(name, None)
+            deferred = self.deferreds.pop(name, None)
             if deferred is not None:
                 deferred.callback(None)
 
