@@ -85,6 +85,17 @@ class IPropertyStore(IMapping):
     # FIXME: the type for values isn't quite right, there should be some more
     # specific interface for that.
 
+    def flush():
+        """
+        Flush the property store.
+        @return: C{None}
+        """
+
+    def abort():
+        """
+        Abort changes to the property store.
+        @return: C{None}
+        """
 
 
 class IDataStore(Interface):
