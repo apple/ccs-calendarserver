@@ -159,9 +159,10 @@ class _ConnectedTxn(object):
         transaction.
         """
         self._completed = True
-        self._stopped = True
-        holder = self._holder
-        self._holder = None
+        self._stopped   = True
+        holder          = self._holder
+        self._holder    = None
+
         def _reallyClose():
             if self._cursor is None:
                 return
@@ -185,8 +186,8 @@ class _NoTxn(object):
         return fail(ConnectionError())
 
     execSQL = _everything
-    commit = _everything
-    abort = _everything
+    commit  = _everything
+    abort   = _everything
 
 
 
