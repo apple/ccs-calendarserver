@@ -478,21 +478,19 @@ class ConnectionPool(Service, object):
 
         @return: an L{IAsyncTransaction}
         """
-        tracking = self._busy
         if self._stopping:
-            basetxn = _NoTxn()
-            tracking = []
-        elif self._free:
+            return _NoTxn()
+        if self._free:
             basetxn = self._free.pop(0)
+            self._busy.append(basetxn)
+            txn = _SingleTxn(self, basetxn)
         else:
-            basetxn = _WaitingTxn()
-            tracking = self._waiting
-        txn = _SingleTxn(self, basetxn)
-        tracking.append(txn)
-        # FIXME/TESTME: should be len(self._busy) + len(self._finishing) (free
-        # doesn't need to be considered, as it's tested above)
-        if tracking is self._waiting and len(self._busy) < self.maxConnections:
-            self._startOneMore()
+            txn = _SingleTxn(self, _WaitingTxn())
+            self._waiting.append(txn)
+            # FIXME/TESTME: should be len(self._busy) + len(self._finishing)
+            # (free doesn't need to be considered, as it's tested above)
+            if len(self._busy) < self.maxConnections:
+                self._startOneMore()
         return txn
 
 
