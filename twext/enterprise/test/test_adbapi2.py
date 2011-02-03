@@ -371,8 +371,6 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, False)
         self.pool.stopService()
-        self.assertEquals(self.pool.busy, [])
-        self.assertEquals(self.pool.free, [])
         self.assertEquals(len(self.holders), 1)
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
