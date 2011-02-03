@@ -16,7 +16,7 @@
 ##
 
 from vobject import readComponents
-from vobject.base import ContentLine
+from vobject.base import Component, ContentLine
 
 from twisted.internet.defer import Deferred
 from twisted.trial.unittest import TestCase
@@ -863,7 +863,7 @@ class SnowLeopardTests(TestCase):
         old = attendees[0]
         new = ContentLine.duplicate(old)
         new.params[u'CN'] = [u'Some Other Guy']
-        event = Event('/some/calendar/1234.ics', None, vevent)
+        event = Event(u'/some/calendar/1234.ics', None, vevent)
         self.client._events[event.url] = event
         self.client.changeEventAttendee(event.url, old, new)
 
@@ -873,6 +873,7 @@ class SnowLeopardTests(TestCase):
         expectedResponseCode, method, url, headers, body = req
         self.assertEquals(method, 'PUT')
         self.assertEquals(url, 'http://127.0.0.1:80' + event.url)
+        self.assertIsInstance(url, str)
         self.assertEquals(headers.getRawHeaders('content-type'), ['text/calendar'])
 
         consumer = MemoryConsumer()
@@ -885,3 +886,69 @@ class SnowLeopardTests(TestCase):
             self.assertEquals(attendees[1].params[u'CN'], [u'Some Other Guy'])
         finished.addCallback(cbFinished)
         return finished
+
+
+    def test_addEvent(self):
+        """
+        L{SnowLeopard.addEvent} PUTs the event passed to it to the
+        server and updates local state to reflect its existence.
+        """
+        requests = []
+        def request(*args):
+            result = Deferred()
+            requests.append((result, args))
+            return result
+        self.client._request = request
+
+        vcalendar = list(readComponents(EVENT))[0]
+        d = self.client.addEvent(u'/mumble/frotz.ics', vcalendar)
+
+        result, req = requests.pop(0)
+
+        # iCal PUTs the new VCALENDAR object.
+        expectedResponseCode, method, url, headers, body = req
+        self.assertEquals(method, 'PUT')
+        self.assertEquals(url, 'http://127.0.0.1:80/mumble/frotz.ics')
+        self.assertIsInstance(url, str)
+        self.assertEquals(headers.getRawHeaders('content-type'), ['text/calendar'])
+
+        consumer = MemoryConsumer()
+        finished = body.startProducing(consumer)
+        def cbFinished(ignored):
+            self.assertComponentsEqual(
+                list(readComponents(consumer.value()))[0],
+                vcalendar)
+        finished.addCallback(cbFinished)
+        return finished
+
+
+    def assertComponentsEqual(self, first, second):
+        self.assertEquals(first.name, second.name, "Component names not equal")
+        self.assertEquals(first.behavior, second.behavior, "Component behaviors not equal")
+
+        for k in first.contents:
+            if k not in second.contents:
+                self.fail("Content %r present in first but not second" % (k,))
+            self.assertEquals(
+                len(first.contents[k]), len(second.contents[k]), "Different length content %r" % (k,))
+            for (a, b) in zip(first.contents[k], second.contents[k]):
+                if isinstance(a, ContentLine):
+                    f = self.assertContentLinesEqual
+                elif isinstance(a, Component):
+                    f = self.assertComponentsEqual
+                else:
+                    f = self.assertEquals
+                f(a, b)
+        for k in second.contents:
+            if k not in first.contents:
+                self.fail("Content %r present in second but not first" % (k,))
+
+
+    def assertContentLinesEqual(self, first, second):
+        self.assertEquals(first.name, second.name, "ContentLine names not equal")
+        self.assertEquals(first.behavior, second.behavior, "ContentLine behaviors not equal")
+        self.assertEquals(first.value, second.value, "ContentLine values not equal")
+        self.assertEquals(first.params, second.params, "ContentLine params not equal")
+        self.assertEquals(
+            first.singletonparams, second.singletonparams,
+            "ContentLine singletonparams not equal")

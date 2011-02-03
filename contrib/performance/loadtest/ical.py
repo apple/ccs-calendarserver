@@ -24,14 +24,15 @@ from xml.etree import ElementTree
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
 
 from vobject import readComponents
-from vobject.icalendar import dateTimeToString
+from vobject.base import ContentLine
+from vobject.icalendar import VEvent, dateTimeToString
 
 from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.http_headers import Headers
-from twisted.web.http import OK, MULTI_STATUS, NO_CONTENT
+from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT
 from twisted.web.client import Agent
 
 from protocol.webdav.propfindparser import PropFindParser
@@ -75,6 +76,10 @@ class BaseClient(object):
     _events = None
     _calendars = None
 
+    def addEvent(self, href, vcalendar):
+        raise NotImplementedError("%r does not implement addEvent" % (self.__class__,))
+
+
     def addEventAttendee(self, href, attendee):
         raise NotImplementedError("%r does not implement addEventAttendee" % (self.__class__,))
 
@@ -98,7 +103,7 @@ class SnowLeopard(BaseClient):
 
     USER_AGENT = "DAVKit/4.0.3 (732); CalendarStore/4.0.3 (991); iCal/4.0.3 (1388); Mac OS X/10.6.4 (10F569)"
 
-    CALENDAR_HOME_POLL_INTERVAL = 15 # * 60
+    CALENDAR_HOME_POLL_INTERVAL = 60 * 3
 
     _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody('sl_startup_principal_propfind')
     _STARTUP_PRINCIPALS_REPORT = loadRequestBody('sl_startup_principals_report')
@@ -221,7 +226,9 @@ class SnowLeopard(BaseClient):
             StringProducer(self._STARTUP_PRINCIPAL_PROPFIND))
         d.addCallback(readBody)
         d.addCallback(self._parseMultiStatus)
-        d.addCallback(getitem, principalURL)
+        def get(result):
+            return result[principalURL]
+        d.addCallback(get)
         return d
 
 
@@ -374,14 +381,20 @@ class SnowLeopard(BaseClient):
     @inlineCallbacks
     def startup(self):
         # Orient ourselves, or something
-        principal = yield self._principalPropfind(self.user)
+        try:
+            principal = yield self._principalPropfind(self.user)
+        except:
+            err(None, "Startup principal PROPFIND failed")
+            return
+
         hrefs = principal.getHrefProperties()
 
         # Remember our own email-like principal address
         for principalURL in hrefs[caldavxml.calendar_user_address_set]:
-            if principalURL.toString().startswith("mailto:"):
+            if principalURL.toString().startswith(u"mailto:"):
                 self.email = principalURL.toString()
-                break
+            elif principalURL.toString().startswith(u"urn:"):
+                self.uuid = principalURL.toString()
         if self.email is None:
             raise ValueError("Cannot operate without a mail-style principal URL")
 
@@ -428,6 +441,30 @@ class SnowLeopard(BaseClient):
         self._eventChangeLoop()
 
         yield Deferred()
+
+
+    def _makeSelfAttendee(self):
+        attendee = ContentLine(
+            name=u'ATTENDEE', params=[
+                [u'CN', self.user],
+                [u'CUTYPE', u'INDIVIDUAL'],
+                [u'PARTSTAT', u'ACCEPTED'],
+                ],
+            value=self.uuid,
+            encoded=True)
+        attendee.parentBehavior = VEvent
+        return attendee
+
+
+    def _makeSelfOrganizer(self):
+        organizer = ContentLine(
+            name=u'ORGANIZER', params=[
+                [u'CN', self.user],
+                ],
+            value=self.uuid,
+            encoded=True)
+        organizer.parentBehavior = VEvent
+        return organizer
 
 
     def addEventAttendee(self, href, attendee):
@@ -488,10 +525,19 @@ class SnowLeopard(BaseClient):
             return d
         d.addCallback(specific)
         def availability(ignored):
+            # If the event has no attendees, add ourselves as an attendee.
+            attendees = vevent.contents[u'vevent'][0].contents.setdefault(u'attendee', [])
+            if len(attendees) == 0:
+                # First add ourselves as a participant and as the
+                # organizer.  In the future for this event we should
+                # already have those roles.
+                attendees.append(self._makeSelfAttendee())
+                vevent.contents[u'vevent'][0].contents[u'organizer'] = [self._makeSelfOrganizer()]
+            attendees.append(attendee)
+
             # At last, upload the new event definition
-            vevent.contents['vevent'][0].contents.setdefault('attendee', []).append(attendee)
             d = self._request(
-                NO_CONTENT, 'PUT', self.root + href[1:],
+                NO_CONTENT, 'PUT', self.root + href[1:].encode('utf-8'),
                 Headers({
                         'content-type': ['text/calendar'],
                         'if-match': [event.etag]}),
@@ -518,18 +564,39 @@ class SnowLeopard(BaseClient):
             headers.addRawHeader('if-schedule-tag-match', event.scheduleTag)
 
         d = self._request(
-            NO_CONTENT, 'PUT', self.root + href[1:],
+            NO_CONTENT, 'PUT', self.root + href[1:].encode('utf-8'),
             headers, StringProducer(vevent.serialize()))
         d.addCallback(self._updateEvent, href)
         return d
 
 
+    def addEvent(self, href, vcalendar):
+        headers = Headers({
+                'content-type': ['text/calendar'],
+                })
+        d = self._request(
+            CREATED, 'PUT', self.root + href[1:].encode('utf-8'),
+            headers, StringProducer(vcalendar.serialize()))
+        d.addCallback(self._localUpdateEvent, href, vcalendar)
+        return d
+
+
+    def _localUpdateEvent(self, response, href, vcalendar):
+        headers = response.headers
+        etag = headers.getRawHeaders("etag", [None])[0]
+        scheduleTag = headers.getRawHeaders("schedule-tag", [None])[0]
+
+        event = Event(href, etag, vcalendar)
+        event.scheduleTag = scheduleTag
+        self._setEvent(href, event)
+
+
     def _updateEvent(self, ignored, href):
-        d = self._request(OK, 'GET', self.root + href[1:])
+        d = self._request(OK, 'GET', self.root + href[1:].encode('utf-8'))
         def getETag(response):
             headers = response.headers
             etag = headers.getRawHeaders('etag')[0]
-            scheduleTag = headers.getRawHeaders('schedule-tag')[0]
+            scheduleTag = headers.getRawHeaders('schedule-tag', [None])[0]
             return readBody(response).addCallback(
                 lambda body: (etag, scheduleTag, body))
         d.addCallback(getETag)

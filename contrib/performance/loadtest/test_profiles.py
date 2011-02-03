@@ -26,7 +26,7 @@ from protocol.caldav.definitions import caldavxml
 from twisted.trial.unittest import TestCase
 from twisted.internet.task import Clock
 
-from loadtest.profiles import Inviter, Accepter
+from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.ical import Calendar, Event
 
 SIMPLE_EVENT = """\
@@ -169,6 +169,10 @@ class StubClient(object):
         self._calendars = {}
         self.user = u"user%02d" % (number,)
         self.email = u"mailto:user%02d@example.com" % (number,)
+
+
+    def addEvent(self, href, vevent):
+        self._events[href] = Event(href, None, vevent)
 
 
     def addEventAttendee(self, href, attendee):
@@ -476,3 +480,44 @@ class AccepterTests(TestCase):
         self.assertEquals(
             attendees[1].params[u'PARTSTAT'], [u'ACCEPTED'])
         self.assertNotIn(u'RSVP', attendees[1].params)
+
+
+
+class EventerTests(TestCase):
+    """
+    Tests for loadtest.profiles.Eventer, a profile which adds new
+    events on calendars.
+    """
+    def test_doNotAddEventOnInbox(self):
+        """
+        When the only calendar is a schedule inbox, no attempt is made
+        to add events on it.
+        """
+        calendar = Calendar(
+            caldavxml.schedule_inbox, u'inbox', u'/sched/inbox', None)
+        client = StubClient(21)
+        client._calendars.update({calendar.url: calendar})
+
+        eventer = Eventer(None, client, None)
+        eventer._addEvent()
+
+        self.assertEquals(client._events, {})
+
+
+    def test_addEvent(self):
+        """
+        When there is a normal calendar to add events to,
+        L{Eventer._addEvent} adds an event to it.
+        """
+        calendar = Calendar(
+            caldavxml.calendar, u'personal stuff', u'/cals/personal', None)
+        client = StubClient(31)
+        client._calendars.update({calendar.url: calendar})
+
+        eventer = Eventer(None, client, None)
+        eventer._addEvent()
+
+        self.assertEquals(len(client._events), 1)
+
+        # XXX Vary the event period/interval and the uid
+

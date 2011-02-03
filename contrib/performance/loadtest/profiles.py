@@ -20,8 +20,12 @@ Implementation of specific end-user behaviors.
 """
 
 import random
+from uuid import uuid4
 
-from vobject.base import ContentLine
+from datetime import datetime, timedelta
+
+from vobject import readComponents
+from vobject.base import Component, ContentLine
 from vobject.icalendar import VEvent
 
 from protocol.caldav.definitions import caldavxml
@@ -31,9 +35,10 @@ from twisted.internet.defer import succeed
 from twisted.internet.task import LoopingCall
 
 
-class Inviter(object):
+class ProfileBase(object):
     """
-    A Calendar user who invites and de-invites other users to events.
+    Base class which provides some conveniences for profile
+    implementations.
     """
     random = random
 
@@ -43,11 +48,24 @@ class Inviter(object):
         self._number = userNumber
 
 
+    def _calendarsOfType(self, calendarType):
+        return [
+            cal 
+            for cal 
+            in self._client._calendars.itervalues() 
+            if cal.resourceType == calendarType]
+
+
+
+class Inviter(ProfileBase):
+    """
+    A Calendar user who invites and de-invites other users to events.
+    """
     def run(self):
         self._call = LoopingCall(self._invite)
         self._call.clock = self._reactor
         # XXX Base this on something real
-        self._call.start(3)
+        self._call.start(20)
 
 
     def _addAttendee(self, event, attendees):
@@ -55,18 +73,18 @@ class Inviter(object):
         Create a new attendee to add to the list of attendees for the
         given event.
         """
-        invitees = set([self._client.email[len('mailto:'):]])
+        invitees = set([u'urn:uuid:user%02d' % (self._number,)])
         for att in attendees:
-            invitees.add(att.params[u'EMAIL'][0])
+            invitees.add(att.value)
 
         while True:
-            invitee = max(1, int(self.random.gauss(self._number, 30)))
-            email = u'user%02d@example.com' % (invitee,)
-            if email not in invitees:
+            invitee = max(1, int(self.random.gauss(self._number, 3)))
+            uuid = u'urn:uuid:user%02d' % (invitee,)
+            if uuid not in invitees:
                 break
 
         user = u'User %02d' % (invitee,)
-        uuid = u'urn:uuid:user%02d' % (invitee,)
+        email = u'user%02d@example.com' % (invitee,)
 
         attendee = ContentLine(
             name=u'ATTENDEE', params=[
@@ -76,6 +94,7 @@ class Inviter(object):
                 [u'PARTSTAT', u'NEEDS-ACTION'],
                 [u'ROLE', u'REQ-PARTICIPANT'],
                 [u'RSVP', u'TRUE'],
+                # [u'SCHEDULE-STATUS', u'1.2'],
                 ],
             value=uuid,
             encoded=True)
@@ -94,11 +113,7 @@ class Inviter(object):
             change has been made.
         """
         # Find calendars which are eligible for invites
-        calendars = [
-            cal 
-            for cal 
-            in self._client._calendars.itervalues() 
-            if cal.resourceType == caldavxml.calendar]
+        calendars = self._calendarsOfType(caldavxml.calendar)
 
         while calendars:
             # Pick one at random from which to try to select an event
@@ -131,16 +146,13 @@ class Inviter(object):
 
 
 
-class Accepter(object):
+class Accepter(ProfileBase):
     """
     A Calendar user who accepts invitations to events.
     """
-    random = random
 
     def __init__(self, reactor, client, userNumber):
-        self._reactor = reactor
-        self._client = client
-        self._number = userNumber
+        ProfileBase.__init__(self, reactor, client, userNumber)
         self._accepting = set()
 
 
@@ -189,3 +201,74 @@ class Accepter(object):
         except KeyError:
             msg("Duplicated an attendee with no RSVP: %r" % (attendee,))
         return accepted
+
+
+
+class Eventer(ProfileBase):
+    """
+    A Calendar user who creates new events.
+    """
+    _eventTemplate = list(readComponents("""\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:America/New_York
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0500
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:EDT
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0400
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:EST
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20101018T155431Z
+UID:C98AD237-55AD-4F7D-9009-0D355D835822
+DTEND;TZID=America/New_York:20101021T130000
+TRANSP:OPAQUE
+SUMMARY:Simple event
+DTSTART;TZID=America/New_York:20101021T120000
+DTSTAMP:20101018T155438Z
+SEQUENCE:2
+END:VEVENT
+END:VCALENDAR
+"""))[0]
+
+    def run(self):
+        self._call = LoopingCall(self._addEvent)
+        self._call.clock = self._reactor
+        # XXX Base this on something real
+        self._call.start(25)
+
+
+    def _addEvent(self):
+        calendars = self._calendarsOfType(caldavxml.calendar)
+
+        while calendars:
+            calendar = self.random.choice(calendars)
+            calendars.remove(calendar)
+
+            # Copy the template event and fill in some of its fields
+            # to make a new event to create on the calendar.
+            vcalendar = Component.duplicate(self._eventTemplate)
+            vevent = vcalendar.contents[u'vevent'][0]
+            tz = vevent.contents[u'created'][0].value.tzinfo
+            dtstamp = datetime.now(tz)
+            vevent.contents[u'created'][0].value = dtstamp
+            vevent.contents[u'dtstamp'][0].value = dtstamp
+            vevent.contents[u'dtstart'][0].value = dtstamp
+            vevent.contents[u'dtend'][0].value = dtstamp + timedelta(hours=1)
+            vevent.contents[u'uid'][0].value = unicode(uuid4())
+
+            href = '%s%s.ics' % (
+                calendar.url, vevent.contents[u'uid'][0].value)
+            return self._client.addEvent(href, vcalendar)
