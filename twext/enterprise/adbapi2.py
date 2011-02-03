@@ -387,10 +387,10 @@ class ConnectionPool(Service, object):
     @ivar _busy: The list of busy L{_ConnectedTxn} objects; those currently
         servicing an unfinished L{_SingleTxn} object.
 
-    @ivar _finishing: The list of 2-tuples of L{_SingleTxn} objects which have
-        had C{abort} or C{commit} called on them, but are not done executing
-        that method, and the L{Deferred} returned from that method that will be
-        fired when its execution has completed.
+    @ivar _finishing: The list of 2-tuples of L{_ConnectedTxn} objects which
+        have had C{abort} or C{commit} called on them, but are not done
+        executing that method, and the L{Deferred} returned from that method
+        that will be fired when its execution has completed.
 
     @ivar _waiting: The list of L{_SingleTxn} objects attached to a
         L{_WaitingTxn}; i.e. those which are awaiting a connection to become
