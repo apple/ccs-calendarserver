@@ -90,12 +90,12 @@ def usage_purge_principal(e=None):
     name = os.path.basename(sys.argv[0])
     print "usage: %s [options]" % (name,)
     print ""
-    print "  Remove a principal's events from the calendar server"
+    print "  Remove a principal's events and contacts from the calendar server"
     print ""
     print "options:"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -h --help: print this help and exit"
-    print "  -n --dry-run: only calculate how many events to purge"
+    print "  -n --dry-run: only calculate how many events and contacts to purge"
     print "  -v --verbose: print progress information"
     print ""
 
@@ -691,9 +691,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
                 childResource = (yield collection.getChild(childName))
                 event = (yield childResource.iCalendar())
                 event = perUserFilter.filter(event)
-                # print "BEFORE CANCEL", event
                 action = cancelEvent(event, when, cua)
-                # print "AFTER CANCEL", action, event
 
                 uri = "/calendars/__uids__/%s/%s/%s" % (guid, collName, childName)
                 request.path = uri
@@ -730,8 +728,29 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
                             print "Error deleting %s/%s/%s: %s" % (guid,
                                 collName, childName, result)
 
-    # Commit
+
     txn = request._newStoreTransaction
+
+    # Remove VCards
+    abHome = (yield txn.addressbookHomeWithUID(guid))
+    if abHome is not None:
+        for abColl in list( (yield abHome.addressbooks()) ):
+            for card in list( (yield abColl.addressbookObjects()) ):
+                cardName = card.name()
+                if verbose:
+                    uri = "/addressbooks/__uids__/%s/%s/%s" % (guid, abColl.name(), cardName)
+                    if dryrun:
+                        print "Would delete: %s" % (uri,)
+                    else:
+                        print "Deleting: %s" % (uri,)
+                if not dryrun:
+                    (yield abColl.removeObjectResourceWithName(cardName))
+                count += 1
+            if not dryrun:
+                # Also remove the addressbook collection itself
+                (yield abHome.removeChildWithName(abColl.name()))
+
+    # Commit
     (yield txn.commit())
 
     if proxies and not dryrun:
