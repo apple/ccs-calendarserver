@@ -26,6 +26,7 @@ from twisted.internet.defer import execute
 from twisted.internet.task import Clock
 
 from twisted.internet.defer import Deferred
+from twext.enterprise.ienterprise import ConnectionError
 from twext.enterprise.adbapi2 import ConnectionPool
 
 
@@ -480,5 +481,25 @@ class ConnectionPoolTests(TestCase):
         #self.assertEquals(abortResult, [None])
         self.assertEquals(stopResult, [None])
 
+
+    def test_stopServiceWithSpooled(self):
+        """
+        When L{ConnectionPool.stopService} is called when spooled transactions
+        are outstanding, any pending L{Deferreds} returned by those transactions
+        will be failed with L{ConnectionError}.
+        """
+        # Use up the free slots so we have to spool.
+        hold = []
+        hold.append(self.pool.connection())
+        hold.append(self.pool.connection())
+
+        c = self.pool.connection()
+        se = resultOf(c.execSQL("alpha"))
+        ce = resultOf(c.commit())
+        self.assertEquals(se, [])
+        self.assertEquals(ce, [])
+        self.pool.stopService()
+        self.assertEquals(se[0].type, ConnectionError)
+        self.assertEquals(ce[0].type, ConnectionError)
 
 
