@@ -271,12 +271,13 @@ class ConnectionPoolTests(TestCase):
         Create a L{ConnectionPool} attached to a C{ConnectionFactory}.  Start
         the L{ConnectionPool}.
         """
-        self.paused = False
-        self.holders = []
-        self.factory = ConnectionFactory()
-        self.pool = ConnectionPool(self.factory.connect, maxConnections=2)
+        self.paused             = False
+        self.holders            = []
+        self.factory            = ConnectionFactory()
+        self.pool               = ConnectionPool(self.factory.connect,
+                                                 maxConnections=2)
         self.pool._createHolder = self.makeAHolder
-        self.clock = self.pool.reactor = Clock()
+        self.clock              = self.pool.reactor = Clock()
         self.pool.startService()
 
 
@@ -364,6 +365,7 @@ class ConnectionPoolTests(TestCase):
         """
         a = self.pool.connection()
         [[[counter, echo]]] = resultOf(a.execSQL("alpha"))
+        self.assertEquals(len(self.factory.connections), 1)
         self.assertEquals(len(self.holders), 1)
         [holder] = self.holders
         self.assertEquals(holder.started, True)
@@ -374,6 +376,8 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(len(self.holders), 1)
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
+        # Closing fake connections removes them from the list.
+        self.assertEquals(len(self.factory.connections), 0)
 
 
     def test_retryAfterConnectError(self):
@@ -501,5 +505,27 @@ class ConnectionPoolTests(TestCase):
         self.pool.stopService()
         self.assertEquals(se[0].type, ConnectionError)
         self.assertEquals(ce[0].type, ConnectionError)
+
+
+    def test_repoolSpooled(self):
+        """
+        Regression test for a somewhat tricky-to-explain bug: when a spooled
+        transaction which has already had commit() called on it before it's
+        received a real connection to start executing on, it will not leave
+        behind any detritus that prevents stopService from working.
+        """
+        self.pauseHolders()
+        c = self.pool.connection()
+        c2 = self.pool.connection()
+        c3 = self.pool.connection()
+        c.commit()
+        c2.commit()
+        c3.commit()
+        self.flushHolders()
+        self.assertEquals(len(self.factory.connections), 2)
+        stopResult = resultOf(self.pool.stopService())
+        self.assertEquals(stopResult, [None])
+        self.assertEquals(len(self.factory.connections), 0)
+
 
 
