@@ -255,14 +255,21 @@ class _WaitingTxn(object):
 
 
 
-class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
+class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
                                      originalAttribute='_baseTxn')):
     """
-    This is a temporary throw-away wrapper for the longer-lived
+    A L{_SingleTxn} is a single-use wrapper for the longer-lived
     L{_ConnectedTxn}, so that if a badly-behaved API client accidentally hangs
     on to one of these and, for example C{.abort()}s it multiple times once
     another client is using that connection, it will get some harmless
     tracebacks.
+
+    It's a wrapper around a "real" implementation; either a L{_ConnectedTxn},
+    L{_NoTxn}, or L{_WaitingTxn} depending on the availability of real
+    underlying datbase connections.
+
+    This is the only L{IAsyncTransaction} implementation exposed to application
+    code.
     """
 
     def __init__(self, pool, baseTxn):
@@ -275,7 +282,7 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
         """
         Reveal the backend in the string representation.
         """
-        return 'PooledSqlTxn(%r)' % (self._baseTxn,)
+        return '_SingleTxn(%r)' % (self._baseTxn,)
 
 
     def _unspoolOnto(self, baseTxn):
@@ -291,19 +298,19 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
 
     def execSQL(self, *a, **kw):
         self._checkComplete()
-        return super(PooledSqlTxn, self).execSQL(*a, **kw)
+        return super(_SingleTxn, self).execSQL(*a, **kw)
 
 
     def commit(self):
         self._markComplete()
-        return super(PooledSqlTxn, self).commit()
+        return super(_SingleTxn, self).commit()
 
 
     def abort(self):
         self._markComplete()
         if self in self._pool._waiting:
             return self._stopWaiting()
-        return super(PooledSqlTxn, self).abort()
+        return super(_SingleTxn, self).abort()
 
 
     def _stopWaiting(self):
@@ -373,18 +380,18 @@ class ConnectionPool(Service, object):
     @type reactor: L{IReactorTime} and L{IReactorThreads} provider.
 
     @ivar _free: The list of free L{_ConnectedTxn} objects which are not
-        currently attached to a L{PooledSqlTxn} object, and have active
+        currently attached to a L{_SingleTxn} object, and have active
         connections ready for processing a new transaction.
 
     @ivar _busy: The list of busy L{_ConnectedTxn} objects; those currently
-        servicing an unfinished L{PooledSqlTxn} object.
+        servicing an unfinished L{_SingleTxn} object.
 
-    @ivar _finishing: The list of 2-tuples of L{PooledSqlTxn} objects which have
+    @ivar _finishing: The list of 2-tuples of L{_SingleTxn} objects which have
         had C{abort} or C{commit} called on them, but are not done executing
         that method, and the L{Deferred} returned from that method that will be
         fired when its execution has completed.
 
-    @ivar _waiting: The list of L{PooledSqlTxn} objects attached to a
+    @ivar _waiting: The list of L{_SingleTxn} objects attached to a
         L{_WaitingTxn}; i.e. those which are awaiting a connection to become
         free so that they can be executed.
 
@@ -434,11 +441,11 @@ class ConnectionPool(Service, object):
         # one is aborted, it will remove itself from the list.
         while self._busy:
             busy = self._busy[0]
-#            try:
+            try:
             # FIXME: abort() might fail.
-            yield busy.abort()
-#            except:
-#                log.err()
+                yield busy.abort()
+            except:
+                log.err()
 #            if self._busy and busy is self._busy[0]:
 #                raise RuntimeError("this will result in an infinite loop.")
         # Phase 2: All transactions should now be in the free list, since
@@ -446,11 +453,12 @@ class ConnectionPool(Service, object):
         # ThreadHolders.
         while self._free:
             # (Stopping a _ConnectedTxn doesn't automatically recycle it /
-            # remove it the way aborting a PooledSqlTxn does, so we need to
-            # .pop() here.)
+            # remove it the way aborting a _SingleTxn does, so we need to .pop()
+            # here.)
             free = self._free.pop()
             # stop() really shouldn't be able to fail, as it's just stopping the
-            # thread, and the holder's stop() is independently submitted.
+            # thread, and the holder's stop() is independently submitted from
+            # .abort() / .close().
             yield free.stop()
 
 
@@ -463,8 +471,9 @@ class ConnectionPool(Service, object):
 
     def connection(self, label="<unlabeled>"):
         """
-        Find a transaction; either retrieve a free one from the list or
-        allocate a new one if no free ones are available.
+        Find and immediately return an L{IAsyncTransaction} object.  Execution
+        of statements, commit and abort on that transaction may be delayed until
+        a real underlying database connection is available.
 
         @return: an L{IAsyncTransaction}
         """
@@ -477,7 +486,7 @@ class ConnectionPool(Service, object):
         else:
             basetxn = _WaitingTxn()
             tracking = self._waiting
-        txn = PooledSqlTxn(self, basetxn)
+        txn = _SingleTxn(self, basetxn)
         tracking.append(txn)
         # FIXME/TESTME: should be len(self._busy) + len(self._finishing) (free
         # doesn't need to be considered, as it's tested above)
@@ -730,8 +739,16 @@ class ConnectionPoolClient(AMP):
 
 
     def newTransaction(self):
+        """
+        Create a new networked provider of L{IAsyncTransaction}.
+
+        (This will ultimately call L{ConnectionPool.connection} on the other end
+        of the wire.)
+
+        @rtype: L{IAsyncTransaction}
+        """
         txnid             = str(self._nextID())
-        txn               = Transaction(client=self, transactionID=txnid)
+        txn               = _NetTransaction(client=self, transactionID=txnid)
         self._txns[txnid] = txn
         self.callRemote(StartTxn, transactionID=txnid)
         return txn
@@ -778,9 +795,11 @@ class _Query(object):
 
 
 
-class Transaction(object):
+class _NetTransaction(object):
     """
-    Async protocol-based transaction implementation.
+    A L{_NetTransaction} is an L{AMP}-protocol-based provider of the
+    L{IAsyncTransaction} interface.  It sends SQL statements, query results, and
+    commit/abort commands via an AMP socket to a pooling process.
     """
 
     implements(IAsyncTransaction)

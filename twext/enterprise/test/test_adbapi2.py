@@ -97,11 +97,28 @@ class FakeConnection(Parent, Child):
 
 
     def commit(self):
-        return
+        if self.parent.commitFail:
+            self.parent.commitFail = False
+            raise CommitFail()
 
 
     def rollback(self):
-        return
+        if self.parent.rollbackFail:
+            self.parent.rollbackFail = False
+            raise RollbackFail()
+
+
+class RollbackFail(Exception):
+    """
+    Sample rollback-failure exception.
+    """
+
+
+
+class CommitFail(Exception):
+    """
+    Sample Commit-failure exception.
+    """
 
 
 
@@ -138,6 +155,9 @@ class FakeCursor(Child):
 
 
 class ConnectionFactory(Parent):
+
+    rollbackFail = False
+    commitFail = False
 
     def __init__(self):
         Parent.__init__(self)
@@ -561,5 +581,23 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(queryResult[0].type, ConnectionError)
         self.assertEquals(len(preCloseResult), 1)
         self.assertEquals(preCloseResult[0].type, ConnectionError)
+
+
+    def test_abortFailsDuringStopService(self):
+        """
+        L{IAsyncTransaction.abort} might fail, most likely because the
+        underlying database connection has already been disconnected.  If this
+        happens, shutdown should continue.
+        """
+        txns = []
+        txns.append(self.pool.connection())
+        txns.append(self.pool.connection())
+        # Fail one (and only one) call to rollback().
+        self.factory.rollbackFail = True
+        stopResult = resultOf(self.pool.stopService())
+        self.assertEquals(stopResult, [None])
+        self.assertEquals(len(self.flushLoggedErrors(RollbackFail)), 1)
+        self.assertEquals(self.factory.connections[0].closed, True)
+        self.assertEquals(self.factory.connections[1].closed, True)
 
 
