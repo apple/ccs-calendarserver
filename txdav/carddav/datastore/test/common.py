@@ -874,34 +874,36 @@ class CommonTests(CommonCommonTests):
         propertyContent.name = propertyName.name
         propertyContent.namespace = propertyName.namespace
 
-        (yield self.addressbookObjectUnderTest()).properties()[
-            propertyName] = propertyContent
-        yield self.commit()
-        # Sanity check; are properties even readable in a separate transaction?
-        # Should probably be a separate test.
-        self.assertEquals(
+        abobject = (yield self.addressbookObjectUnderTest())
+        if abobject._parentCollection.objectResourcesHaveProperties():
             (yield self.addressbookObjectUnderTest()).properties()[
-                propertyName
-            ],
-            propertyContent)
-        obj = yield self.addressbookObjectUnderTest()
-        vcard1_text = yield obj.vCardText()
-        vcard1_text_withDifferentNote = vcard1_text.replace(
-            "NOTE:CardDAV protocol updates",
-            "NOTE:Changed"
-        )
-        # Sanity check; make sure the test has the right idea of the subject.
-        self.assertNotEquals(vcard1_text, vcard1_text_withDifferentNote)
-        newComponent = VComponent.fromString(vcard1_text_withDifferentNote)
-        yield obj.setComponent(newComponent)
-
-        # Putting everything into a separate transaction to account for any
-        # caching that may take place.
-        yield self.commit()
-        self.assertEquals(
-            (yield self.addressbookObjectUnderTest()).properties()[propertyName],
-            propertyContent
-        )
+                propertyName] = propertyContent
+            yield self.commit()
+            # Sanity check; are properties even readable in a separate transaction?
+            # Should probably be a separate test.
+            self.assertEquals(
+                (yield self.addressbookObjectUnderTest()).properties()[
+                    propertyName
+                ],
+                propertyContent)
+            obj = yield self.addressbookObjectUnderTest()
+            vcard1_text = yield obj.vCardText()
+            vcard1_text_withDifferentNote = vcard1_text.replace(
+                "NOTE:CardDAV protocol updates",
+                "NOTE:Changed"
+            )
+            # Sanity check; make sure the test has the right idea of the subject.
+            self.assertNotEquals(vcard1_text, vcard1_text_withDifferentNote)
+            newComponent = VComponent.fromString(vcard1_text_withDifferentNote)
+            yield obj.setComponent(newComponent)
+    
+            # Putting everything into a separate transaction to account for any
+            # caching that may take place.
+            yield self.commit()
+            self.assertEquals(
+                (yield self.addressbookObjectUnderTest()).properties()[propertyName],
+                propertyContent
+            )
 
 
     @inlineCallbacks

@@ -49,6 +49,7 @@ from txdav.base.datastore.file import DataStoreTransaction, DataStore, writeOper
 from txdav.base.datastore.util import cached
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
 from txdav.base.propertystore.xattr import PropertyStore
 
 from errno import EEXIST, ENOENT
@@ -812,6 +813,12 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         return succeed(self.retrieveOldIndex().whatchanged(token))
 
 
+    def objectResourcesHaveProperties(self):
+        """
+        So filestore objects do need to support properties.
+        """
+        return True
+
     # FIXME: property writes should be a write operation
     @cached
     def properties(self):
@@ -911,7 +918,7 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     @cached
     def properties(self):
         uid = self._parentCollection._home.uid()
-        props = PropertyStore(uid, lambda : self._path)
+        props = PropertyStore(uid, lambda : self._path) if self._parentCollection.objectResourcesHaveProperties() else NonePropertyStore(uid)
         self.initPropertyStore(props)
         self._transaction.addOperation(props.flush, "object properties flush")
         return props
@@ -1168,6 +1175,10 @@ class NotificationObject(CommonObjectResource):
 
     def uid(self):
         return self._uid
+
+    def xmlType(self):
+        # NB This is the NotificationType property element
+        return self.properties()[PropertyName.fromElement(NotificationType)]
 
     def initPropertyStore(self, props):
         # Setup peruser special properties

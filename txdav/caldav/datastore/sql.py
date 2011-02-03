@@ -227,6 +227,13 @@ class Calendar(CommonHomeChild):
         raise NotImplementedError()
 
 
+    def objectResourcesHaveProperties(self):
+        """
+        inbox resources need to store Originator, Recipient etc properties.
+        Other calendars do not have object resources with properties.
+        """
+        return self._name == "inbox"
+
     def initPropertyStore(self, props):
         # Setup peruser special properties
         props.setSpecialProperties(

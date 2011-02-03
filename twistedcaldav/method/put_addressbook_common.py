@@ -440,17 +440,6 @@ class StoreAddressObjectResource(object):
             # Do the actual put or copy
             response = (yield self.doStore())
             
-            # Remember the resource's content-type.
-            if self.destinationadbk:
-                content_type = self.request.headers.getHeader("content-type")
-                if content_type is None:
-                    content_type = MimeType("text", "vcard",
-                                            params={"charset":"utf-8"})
-                self.destination.writeDeadProperty(
-                    davxml.GETContentType.fromString(generateContentType(content_type))
-                )
-
-            # Do quota check on destination
             if reservation:
                 yield reservation.unreserve()
     

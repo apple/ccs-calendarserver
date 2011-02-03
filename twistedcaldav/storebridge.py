@@ -63,6 +63,7 @@ from twistedcaldav.vcard import Component as VCard
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.icommondatastore import NoSuchObjectResourceError
+from txdav.idav import PropertyChangeNotAllowedError
 
 log = Logger()
 
@@ -91,42 +92,40 @@ class _NewStorePropertiesWrapper(object):
 
     # FIXME 'uid' here should be verifying something.
     def get(self, qname, uid=None):
-        """
-        
-        """
         try:
             return self._newPropertyStore[self._convertKey(qname)]
         except KeyError:
             raise HTTPError(StatusResponse(
-                    NOT_FOUND,
-                    "No such property: {%s}%s" % qname))
+                NOT_FOUND,
+                "No such property: {%s}%s" % qname
+            ))
 
 
     def set(self, property, uid=None):
-        """
-        
-        """
-        self._newPropertyStore[self._convertKey(property.qname())] = property
+        try:
+            self._newPropertyStore[self._convertKey(property.qname())] = property
+        except PropertyChangeNotAllowedError:
+            raise HTTPError(StatusResponse(
+                FORBIDDEN,
+                "Property cannot be changed: {%s}%s" % property.qname(),
+            ))
+            
 
 
     def delete(self, qname, uid=None):
-        """
-        
-        """
-        del self._newPropertyStore[self._convertKey(qname)]
+        try:
+            del self._newPropertyStore[self._convertKey(qname)]
+        except KeyError:
+            # RFC 2518 Section 12.13.1 says that removal of
+            # non-existing property is not an error.
+            pass
 
 
     def contains(self, qname, uid=None, cache=True):
-        """
-        
-        """
         return (self._convertKey(qname) in self._newPropertyStore)
 
 
     def list(self, uid=None, filterByUID=True, cache=True):
-        """
-        
-        """
         return [(pname.namespace, pname.name) for pname in
                 self._newPropertyStore.keys()]
 
@@ -1037,6 +1036,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         super(CalendarAttachment, self).__init__(**kw)
         self._newStoreCalendarObject = calendarObject
         self._newStoreAttachment = self._newStoreObject = attachment
+        self._dead_properties = NonePropertyStore(self)
         self.attachmentName = attachmentName
 
 
@@ -1104,18 +1104,19 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
     http_MKCOL = None
     http_MKCALENDAR = None
 
+    def http_PROPPATCH(self, request):
+        """
+        No dead properties allowed on attachments. 
+        """
+        return FORBIDDEN
+
     def isCollection(self):
         return False
-
-
-
-
 
 
 class NoParent(CalDAVResource):
     def http_MKCALENDAR(self, request):
         return CONFLICT
-
 
     def http_PUT(self, request):
         return CONFLICT
@@ -1145,7 +1146,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         self._newStoreObject = storeObject
         self._dead_properties = _NewStorePropertiesWrapper(
             self._newStoreObject.properties()
-        ) if self._newStoreObject else NonePropertyStore(self)
+        ) if self._newStoreObject and self._newStoreParent.objectResourcesHaveProperties() else NonePropertyStore(self)
 
 
     def isCollection(self):
@@ -1186,6 +1187,14 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         return self.storeRemove(request, True, request.uri)
 
+    def http_PROPPATCH(self, request):
+        """
+        No dead properties allowed on object resources. 
+        """
+        if self._newStoreParent.objectResourcesHaveProperties():
+            return super(_CommonObjectResource, self).http_PROPPATCH(request)
+        else:
+            return FORBIDDEN
 
     @inlineCallbacks
     def storeStream(self, stream):
@@ -1636,10 +1645,26 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
     def _initializeWithObject(self, notificationObject):
         self._newStoreObject = notificationObject
-        self._dead_properties = _NewStorePropertiesWrapper(
-            self._newStoreObject.properties()
-        ) if self._newStoreObject else NonePropertyStore(self)
+        self._dead_properties = NonePropertyStore(self)
 
+
+    def liveProperties(self):
+
+        props = super(StoreNotificationObjectFile, self).liveProperties()
+        props += (customxml.NotificationType.qname(),)
+        return props
+
+    @inlineCallbacks
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname == customxml.NotificationType.qname():
+            returnValue(self._newStoreObject.xmlType())
+
+        returnValue((yield super(StoreNotificationObjectFile, self).readProperty(property, request)))
 
     def isCollection(self):
         return False
@@ -1678,6 +1703,11 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
         return self.storeRemove(request, request.uri)
 
+    def http_PROPPATCH(self, request):
+        """
+        No dead properties allowed on notification objects. 
+        """
+        return FORBIDDEN
 
     @inlineCallbacks
     def storeRemove(self, request, where):

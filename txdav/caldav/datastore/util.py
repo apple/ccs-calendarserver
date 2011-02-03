@@ -133,7 +133,8 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
             # calendar server didn't have per-user properties.
             outObject = yield outCalendar.calendarObjectWithName(
                 calendarObject.name())
-            outObject.properties().update(calendarObject.properties())
+            if outCalendar.objectResourcesHaveProperties():
+                outObject.properties().update(calendarObject.properties())
     
             # Migrate attachments.
             for attachment in (yield calendarObject.attachments()):

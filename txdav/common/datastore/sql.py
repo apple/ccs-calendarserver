@@ -31,6 +31,7 @@ from zope.interface import implements, directlyProvides
 
 from twext.python.log import Logger, LoggingMixIn
 from twext.web2.dav.element.rfc2518 import ResourceType
+from twext.web2.dav.element.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
 
 from twisted.python import hashlib
@@ -61,8 +62,9 @@ from twext.enterprise.dal.syntax import Parameter
 from twext.python.clsprop import classproperty
 from twext.enterprise.dal.syntax import Select
 
-from txdav.base.propertystore.sql import PropertyStore
 from txdav.base.propertystore.base import PropertyName
+from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
+from txdav.base.propertystore.sql import PropertyStore
 
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime
@@ -1609,6 +1611,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                     [self._home._resourceID, self._resourceID, name]
                 ))[0][0]
 
+    def objectResourcesHaveProperties(self):
+        return False
+
     @inlineCallbacks
     def _loadPropertyStore(self, props=None):
         if props is None:
@@ -1734,14 +1739,17 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         
         if dataRows:
             # Get property stores for all these child resources (if any found)
-            propertyStores =(yield PropertyStore.loadAll(
-                parent._home.uid(),
-                parent._txn,
-                cls._objectTable["name"],
-                "%s.%s" % (cls._objectTable["name"], cls._objectTable["column_RESOURCE_ID"],),
-                "%s.%s" % (cls._objectTable["name"], cls._objectTable["column_PARENT_RESOURCE_ID"]),
-                parent._resourceID,
-            ))
+            if parent.objectResourcesHaveProperties():
+                propertyStores =(yield PropertyStore.loadAll(
+                    parent._home.uid(),
+                    parent._txn,
+                    cls._objectTable["name"],
+                    "%s.%s" % (cls._objectTable["name"], cls._objectTable["column_RESOURCE_ID"],),
+                    "%s.%s" % (cls._objectTable["name"], cls._objectTable["column_PARENT_RESOURCE_ID"]),
+                    parent._resourceID,
+                ))
+            else:
+                propertyStores = {}
         
         # Create the actual objects merging in properties
         for row in dataRows:
@@ -1853,12 +1861,15 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def _loadPropertyStore(self, props=None, created=False):
         if props is None:
-            props = yield PropertyStore.load(
-                self._parentCollection.ownerHome().uid(),
-                self._txn,
-                self._resourceID,
-                created=created
-            )
+            if self._parentCollection.objectResourcesHaveProperties():
+                props = yield PropertyStore.load(
+                    self._parentCollection.ownerHome().uid(),
+                    self._txn,
+                    self._resourceID,
+                    created=created
+                )
+            else:
+                props = NonePropertyStore(self._parentCollection.ownerHome().uid())
         self.initPropertyStore(props)
         self._propertyStore = props
 
@@ -2278,6 +2289,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         self._size = None
         self._created = None
         self._modified = None
+        self._xmlType = None
         self._objectText = None
 
     def __repr__(self):
@@ -2301,6 +2313,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
                 NOTIFICATION_UID,
                 MD5,
                 character_length(XML_DATA),
+                XML_TYPE,
                 CREATED,
                 MODIFIED
             from NOTIFICATION
@@ -2327,9 +2340,10 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
              child._uid,
              child._md5,
              child._size,
+             child._xmlType,
              child._created,
              child._modified,) = tuple(row)
-            yield child._loadPropertyStore(props=propertyStores.get(child._resourceID, None))
+            child._loadPropertyStore(props=propertyStores.get(child._resourceID, None))
             results.append(child)
         
         returnValue(results)
@@ -2347,6 +2361,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
                 RESOURCE_ID,
                 MD5,
                 character_length(XML_DATA),
+                XML_TYPE,
                 CREATED,
                 MODIFIED
             from NOTIFICATION
@@ -2357,39 +2372,22 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
             (self._resourceID,
              self._md5,
              self._size,
+             self._xmlType,
              self._created,
              self._modified,) = tuple(rows[0])
-            yield self._loadPropertyStore()
+            self._loadPropertyStore()
             returnValue(self)
         else:
             returnValue(None)
 
-    @inlineCallbacks
     def _loadPropertyStore(self, props=None, created=False):
         if props is None:
-            props = yield PropertyStore.load(
-                self._home.uid(),
-                self._txn,
-                self._resourceID,
-                created=created
-            )
-        self.initPropertyStore(props)
+            props = NonePropertyStore(self._home.uid())
         self._propertyStore = props
 
 
     def properties(self):
         return self._propertyStore
-
-
-    def initPropertyStore(self, props):
-        # Setup peruser special properties
-        props.setSpecialProperties(
-            (
-            ),
-            (
-                PropertyName.fromElement(NotificationType),
-            ),
-        )
 
 
     @property
@@ -2415,7 +2413,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         Set the object resource data and update and cached metadata.
         """
 
-        xmltypeString = xmltype.toxml()
+        self._xmlType = NotificationType(xmltype)
         self._md5 = hashlib.md5(xmldata).hexdigest()
         self._size = len(xmldata)
         if inserting:
@@ -2429,10 +2427,10 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
                   CREATED,
                   MODIFIED
                 """,
-                [self._home._resourceID, uid, xmltypeString, xmldata, self._md5]
+                [self._home._resourceID, uid, self._xmlType.toxml(), xmldata, self._md5]
             )
             self._resourceID, self._created, self._modified = rows[0]
-            yield self._loadPropertyStore()
+            self._loadPropertyStore()
         else:
             rows = yield self._txn.execSQL("""
                 update NOTIFICATION
@@ -2440,10 +2438,8 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
                 where NOTIFICATION_HOME_RESOURCE_ID = %s and NOTIFICATION_UID = %s
                 returning MODIFIED
                 """,
-                [xmltypeString, xmldata, self._md5, self._home._resourceID, uid])
+                [self._xmlType.toxml(), xmldata, self._md5, self._home._resourceID, uid])
             self._modified = rows[0][0]
-
-        self.properties()[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
         
         self._objectText = xmldata
 
@@ -2480,6 +2476,13 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
     def size(self):
         return self._size
 
+    def xmlType(self):
+        # NB This is the NotificationType property element
+        if isinstance(self._xmlType, str):
+            # Convert into NotificationType property element
+            self._xmlType = WebDAVDocument.fromString(self._xmlType).root_element
+
+        return self._xmlType
 
     def created(self):
         utc = datetime.datetime.strptime(self._created, "%Y-%m-%d %H:%M:%S.%f")

@@ -1144,32 +1144,34 @@ class CommonTests(CommonCommonTests):
         propertyContent.name = propertyName.name
         propertyContent.namespace = propertyName.namespace
 
-        (yield self.calendarObjectUnderTest()).properties()[
-            propertyName] = propertyContent
-        yield self.commit()
-        # Sanity check; are properties even readable in a separate transaction?
-        # Should probably be a separate test.
-        self.assertEquals(
-            (yield self.calendarObjectUnderTest()).properties()[propertyName],
-            propertyContent)
-        obj = yield self.calendarObjectUnderTest()
-        event1_text = yield obj.iCalendarText()
-        event1_text_withDifferentSubject = event1_text.replace(
-            "SUMMARY:CalDAV protocol updates",
-            "SUMMARY:Changed"
-        )
-        # Sanity check; make sure the test has the right idea of the subject.
-        self.assertNotEquals(event1_text, event1_text_withDifferentSubject)
-        newComponent = VComponent.fromString(event1_text_withDifferentSubject)
-        yield obj.setComponent(newComponent)
-
-        # Putting everything into a separate transaction to account for any
-        # caching that may take place.
-        yield self.commit()
-        self.assertEquals(
-            (yield self.calendarObjectUnderTest()).properties()[propertyName],
-            propertyContent
-        )
+        calobject = (yield self.calendarObjectUnderTest())
+        if calobject._parentCollection.objectResourcesHaveProperties():
+            (yield self.calendarObjectUnderTest()).properties()[
+                propertyName] = propertyContent
+            yield self.commit()
+            # Sanity check; are properties even readable in a separate transaction?
+            # Should probably be a separate test.
+            self.assertEquals(
+                (yield self.calendarObjectUnderTest()).properties()[propertyName],
+                propertyContent)
+            obj = yield self.calendarObjectUnderTest()
+            event1_text = yield obj.iCalendarText()
+            event1_text_withDifferentSubject = event1_text.replace(
+                "SUMMARY:CalDAV protocol updates",
+                "SUMMARY:Changed"
+            )
+            # Sanity check; make sure the test has the right idea of the subject.
+            self.assertNotEquals(event1_text, event1_text_withDifferentSubject)
+            newComponent = VComponent.fromString(event1_text_withDifferentSubject)
+            yield obj.setComponent(newComponent)
+    
+            # Putting everything into a separate transaction to account for any
+            # caching that may take place.
+            yield self.commit()
+            self.assertEquals(
+                (yield self.calendarObjectUnderTest()).properties()[propertyName],
+                propertyContent
+            )
 
 
     eventWithDropbox = "\r\n".join("""

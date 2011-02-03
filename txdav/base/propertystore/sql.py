@@ -67,28 +67,37 @@ class PropertyStore(AbstractPropertyStore):
         rows = yield txn.execSQL(
             """
             select
+              %s,
               RESOURCE_PROPERTY.RESOURCE_ID,
               RESOURCE_PROPERTY.NAME,
               RESOURCE_PROPERTY.VIEWER_UID,
               RESOURCE_PROPERTY.VALUE
             from RESOURCE_PROPERTY
-            left join %s on (RESOURCE_PROPERTY.RESOURCE_ID = %s) 
+            right join %s on (RESOURCE_PROPERTY.RESOURCE_ID = %s) 
             where %s = %%s
-            """ % (joinTable, joinColumn, parentIDColumn),
+            """ % (joinColumn, joinTable, joinColumn, parentIDColumn),
             [parentID]
         )
         
         createdStores = {}
-        for resource_id, name, view_uid, value in rows:
-            if resource_id not in createdStores:
+        for object_resource_id, resource_id, name, view_uid, value in rows:
+            if resource_id:
+                if resource_id not in createdStores:
+                    store = cls.__new__(cls)
+                    super(PropertyStore, store).__init__(defaultuser)
+                    store._txn = txn
+                    store._resourceID = resource_id
+                    store._cached = {}
+                    createdStores[resource_id] = store
+                createdStores[resource_id]._cached[(name, view_uid)] = value
+            else:
                 store = cls.__new__(cls)
                 super(PropertyStore, store).__init__(defaultuser)
                 store._txn = txn
-                store._resourceID = resource_id
+                store._resourceID = object_resource_id
                 store._cached = {}
-                createdStores[resource_id] = store
-            createdStores[resource_id]._cached[(name, view_uid)] = value
-
+                createdStores[object_resource_id] = store
+                
         returnValue(createdStores)
 
 

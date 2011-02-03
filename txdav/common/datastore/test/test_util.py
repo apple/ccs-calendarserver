@@ -144,7 +144,7 @@ class HomeMigrationTests(TestCase):
         transport = attachment.store(someAttachmentType)
         someAttachmentData = "Here is some data for your attachment, enjoy."
         transport.write(someAttachmentData)
-        transport.loseConnection()
+        yield transport.loseConnection()
         yield maybeCommit()
         self.topService.startService()
         yield self.subStarted
