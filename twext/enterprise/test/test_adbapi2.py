@@ -320,9 +320,9 @@ class ConnectionPoolTests(TestCase):
         """
         When the number of outstanding busy transactions exceeds the number of
         slots specified by L{ConnectionPool.maxConnections},
-        L{ConnectionPool.connection} will return a L{PooledSqlTxn} that is not
-        backed by any L{BaseSqlTxn}; this object will queue its SQL statements
-        until an existing connection becomes available.
+        L{ConnectionPool.connection} will return a pooled transaction that is
+        not backed by any real database connection; this object will queue its
+        SQL statements until an existing connection becomes available.
         """
         a = self.pool.connection()
 

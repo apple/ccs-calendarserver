@@ -62,7 +62,7 @@ from twext.enterprise.ienterprise import AlreadyFinishedError, IAsyncTransaction
 
 DEFAULT_PARAM_STYLE = 'pyformat'
 
-class BaseSqlTxn(object):
+class _ConnectedTxn(object):
     """
     L{IAsyncTransaction} implementation based on a L{ThreadHolder} in the
     current process.
@@ -193,7 +193,7 @@ class SpooledTxn(object):
     """
     A L{SpooledTxn} is an implementation of L{IAsyncTransaction} which cannot
     yet actually execute anything, so it spools SQL reqeusts for later
-    execution.  When a L{BaseSqlTxn} becomes available later, it can be
+    execution.  When a L{_ConnectedTxn} becomes available later, it can be
     unspooled onto that.
     """
 
@@ -257,10 +257,11 @@ class SpooledTxn(object):
 class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
                                      originalAttribute='_baseTxn')):
     """
-    This is a temporary throw-away wrapper for the longer-lived BaseSqlTxn, so
-    that if a badly-behaved API client accidentally hangs on to one of these
-    and, for example C{.abort()}s it multiple times once another client is
-    using that connection, it will get some harmless tracebacks.
+    This is a temporary throw-away wrapper for the longer-lived
+    L{_ConnectedTxn}, so that if a badly-behaved API client accidentally hangs
+    on to one of these and, for example C{.abort()}s it multiple times once
+    another client is using that connection, it will get some harmless
+    tracebacks.
     """
 
     def __init__(self, pool, baseTxn):
@@ -278,7 +279,9 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
 
     def _unspoolOnto(self, baseTxn):
         """
-        Replace my C{_baseTxn}, currently a L{SpooledTxn}, with a L{BaseSqlTxn}.
+        Replace my C{_baseTxn}, currently a L{SpooledTxn}, with a new
+        implementation of L{IAsyncTransaction} that will actually do the work;
+        either a L{_ConnectedTxn} or a L{FailedTxn}.
         """
         spooledBase   = self._baseTxn
         self._baseTxn = baseTxn
@@ -368,11 +371,11 @@ class ConnectionPool(Service, object):
 
     @type reactor: L{IReactorTime} and L{IReactorThreads} provider.
 
-    @ivar _free: The list of free L{BaseSqlTxn} objects which are not currently
-        attached to a L{PooledSqlTxn} object, and have active connections ready
-        for processing a new transaction.
+    @ivar _free: The list of free L{_ConnectedTxn} objects which are not
+        currently attached to a L{PooledSqlTxn} object, and have active
+        connections ready for processing a new transaction.
 
-    @ivar _busy: The list of busy L{BaseSqlTxn} objects; those currently
+    @ivar _busy: The list of busy L{_ConnectedTxn} objects; those currently
         servicing an unfinished L{PooledSqlTxn} object.
 
     @ivar _finishing: The list of 2-tuples of L{PooledSqlTxn} objects which have
@@ -441,9 +444,9 @@ class ConnectionPool(Service, object):
         # 'abort()' will have put them there.  Shut down all the associated
         # ThreadHolders.
         while self._free:
-            # (Stopping a BaseSqlTxn doesn't automatically recycle it / remove
-            # it the way aborting a PooledSqlTxn does, so we need to .pop()
-            # here.)
+            # (Stopping a _ConnectedTxn doesn't automatically recycle it /
+            # remove it the way aborting a PooledSqlTxn does, so we need to
+            # .pop() here.)
             free = self._free.pop()
             # stop() really shouldn't be able to fail, as it's just stopping the
             # thread, and the holder's stop() is independently submitted.
@@ -484,7 +487,7 @@ class ConnectionPool(Service, object):
 
     def _startOneMore(self):
         """
-        Start one more BaseSqlTxn.
+        Start one more _ConnectedTxn.
         """
         holder = self._createHolder()
         holder.start()
@@ -498,7 +501,7 @@ class ConnectionPool(Service, object):
             cursor     = connection.cursor()
             return (connection, cursor)
         def finishInit((connection, cursor)):
-            baseTxn = BaseSqlTxn(
+            baseTxn = _ConnectedTxn(
                 pool=self,
                 threadHolder=holder,
                 connection=connection,
@@ -517,7 +520,8 @@ class ConnectionPool(Service, object):
 
     def _repoolAfter(self, txn, d):
         """
-        Re-pool the given L{BaseSqlTxn} after the given L{Deferred} has fired.
+        Re-pool the given L{_ConnectedTxn} after the given L{Deferred} has
+        fired.
         """
         self._busy.remove(txn)
         finishRecord = (txn, d)
@@ -531,7 +535,7 @@ class ConnectionPool(Service, object):
 
     def _repoolNow(self, txn):
         """
-        Recycle a L{BaseSqlTxn} into the free list.
+        Recycle a L{_ConnectedTxn} into the free list.
         """
         txn.reset()
         if self._waiting:
