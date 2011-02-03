@@ -153,7 +153,7 @@ class _ConnectedTxn(object):
         self._completed = False
 
 
-    def stop(self):
+    def _releaseConnection(self):
         """
         Release the thread and database connection associated with this
         transaction.
@@ -310,7 +310,8 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
     def abort(self):
         self._markComplete()
         if self in self._pool._waiting:
-            return self._stopWaiting()
+            self._stopWaiting()
+            return succeed(None)
         return super(_SingleTxn, self).abort()
 
 
@@ -320,7 +321,6 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         """
         self._pool._waiting.remove(self)
         self._unspoolOnto(_NoTxn())
-        return succeed(None)
 
 
     def _checkComplete(self):
@@ -358,6 +358,21 @@ class _ConnectingPseudoTxn(object):
                 self._pool._busy.remove(self)
         d.addCallback(removeme)
         return d
+
+
+
+def _fork(x):
+    """
+    Produce a L{Deferred} that will fire when another L{Deferred} fires without
+    disturbing its results.
+    """
+    d = Deferred()
+    def fired(result):
+        d.callback(result)
+        return result
+
+    x.addBoth(fired)
+    return d
 
 
 
@@ -430,37 +445,38 @@ class ConnectionPool(Service, object):
         Forcibly abort any outstanding transactions, and release all resources
         (notably, threads).
         """
-        # FIXME: actually honor this flag
         self._stopping = True
+
         # Phase 1: Cancel any transactions that are waiting so they won't try to
         # eagerly acquire new connections as they flow into the free-list.
         while self._waiting:
             waiting = self._waiting[0]
-            yield waiting._stopWaiting()
-        # FIXME: there should be tests for these 'yield's.
-        # Phase 1: All of the busy transactions must be aborted first.  As each
+            waiting._stopWaiting()
+
+        # Phase 2: Wait for all the Deferreds from the L{_ConnectedTxn}s that
+        # have *already* been stopped.
+        while self._finishing:
+            yield _fork(self._finishing[0][1])
+
+        # Phase 3: All of the busy transactions must be aborted first.  As each
         # one is aborted, it will remove itself from the list.
         while self._busy:
-            busy = self._busy[0]
+            d = self._busy[0].abort()
             try:
-            # FIXME: abort() might fail.
-                yield busy.abort()
+                yield d
             except:
                 log.err()
-#            if self._busy and busy is self._busy[0]:
-#                raise RuntimeError("this will result in an infinite loop.")
-        # Phase 2: All transactions should now be in the free list, since
+
+        # Phase 4: All transactions should now be in the free list, since
         # 'abort()' will have put them there.  Shut down all the associated
         # ThreadHolders.
         while self._free:
-            # (Stopping a _ConnectedTxn doesn't automatically recycle it /
+            # Releasing a L{_ConnectedTxn} doesn't automatically recycle it /
             # remove it the way aborting a _SingleTxn does, so we need to .pop()
-            # here.)
-            free = self._free.pop()
-            # stop() really shouldn't be able to fail, as it's just stopping the
-            # thread, and the holder's stop() is independently submitted from
-            # .abort() / .close().
-            yield free.stop()
+            # here.  L{_ConnectedTxn.stop} really shouldn't be able to fail, as
+            # it's just stopping the thread, and the holder's stop() is
+            # independently submitted from .abort() / .close().
+            yield self._free.pop()._releaseConnection()
 
 
     def _createHolder(self):
