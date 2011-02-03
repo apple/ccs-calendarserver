@@ -613,4 +613,30 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(resultOf(self.pool.stopService()), [None])
 
 
+    def test_waitForAlreadyAbortedTransaction(self):
+        """
+        L{ConnectionPool.stopService} will wait for all transactions to shut
+        down before exiting, including those which have already been stopped.
+        """
+        it = self.pool.connection()
+        self.pauseHolders()
+        abortResult = resultOf(it.abort())
+
+        # steal it from the queue so we can do it out of order
+        d, work = self.holders[0].queue.pop()
+        # that should be the only work unit so don't continue if something else
+        # got in there
+        self.assertEquals(self.holders[0].queue, [])
+        self.assertEquals(len(self.holders), 1)
+        self.flushHolders()
+        stopResult = resultOf(self.pool.stopService())
+        # Sanity check that we haven't actually stopped it yet
+        self.assertEquals(abortResult, [])
+        # We haven't fired it yet, so the service had better not have stopped...
+        self.assertEquals(stopResult, [])
+        d.callback(None)
+        self.assertEquals(abortResult, [None])
+        self.assertEquals(stopResult, [None])
+
+
 
