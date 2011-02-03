@@ -530,5 +530,36 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(self.factory.connections[1].closed, True)
 
 
+    def test_connectAfterStop(self):
+        """
+        Calls to connection() after stopService() result in transactions which
+        immediately fail all operations.
+        """
+        stopResults = resultOf(self.pool.stopService())
+        self.assertEquals(stopResults, [None])
+        self.pauseHolders()
+        postClose = self.pool.connection()
+        queryResult = resultOf(postClose.execSQL("hello"))
+        self.assertEquals(len(queryResult), 1)
+        self.assertEquals(queryResult[0].type, ConnectionError)
+
+
+    def test_connectAfterStartedStopping(self):
+        """
+        Calls to connection() after stopService() has been called but before it
+        has completed will result in transactions which immediately fail all
+        operations.
+        """
+        self.pauseHolders()
+        preClose = self.pool.connection()
+        preCloseResult = resultOf(preClose.execSQL('statement'))
+        stopResult = resultOf(self.pool.stopService())
+        postClose = self.pool.connection()
+        queryResult = resultOf(postClose.execSQL("hello"))
+        self.assertEquals(stopResult, [])
+        self.assertEquals(len(queryResult), 1)
+        self.assertEquals(queryResult[0].type, ConnectionError)
+        self.assertEquals(len(preCloseResult), 1)
+        self.assertEquals(preCloseResult[0].type, ConnectionError)
 
 

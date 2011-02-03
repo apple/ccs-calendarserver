@@ -465,7 +465,10 @@ class ConnectionPool(Service, object):
         @return: an L{IAsyncTransaction}
         """
         tracking = self._busy
-        if self._free:
+        if self._stopping:
+            basetxn = FailedTxn()
+            tracking = []
+        elif self._free:
             basetxn = self._free.pop(0)
         else:
             basetxn = SpooledTxn()
