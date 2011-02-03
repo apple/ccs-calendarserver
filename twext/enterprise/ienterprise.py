@@ -33,6 +33,13 @@ class AlreadyFinishedError(Exception):
 
 
 
+class ConnectionError(Exception):
+    """
+    An error occurred with the underlying database connection.
+    """
+
+
+
 class IAsyncTransaction(Interface):
     """
     Asynchronous execution of SQL.
