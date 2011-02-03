@@ -639,4 +639,22 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(stopResult, [None])
 
 
+    def test_tooManyConnectionsWhileOthersFinish(self):
+        """
+        L{ConnectionPool.connection} will not spawn more than the maximum
+        connections if there are finishing transactions outstanding.
+        """
+        a = self.pool.connection()
+        b = self.pool.connection()
+        self.pauseHolders()
+        a.abort()
+        b.abort()
+        # Remove the holders for the existing connections, so that the 'extra'
+        # connection() call wins the race and gets executed first.
+        self.holders[:] = []
+        self.pool.connection()
+        self.flushHolders()
+        self.assertEquals(len(self.factory.connections), 2)
+
+
 
