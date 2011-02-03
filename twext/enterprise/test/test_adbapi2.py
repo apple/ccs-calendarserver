@@ -53,11 +53,12 @@ class Child(object):
     An object with a L{Parent}, in its list of C{children}.
     """
     def __init__(self, parent):
+        self.closed = False
         self.parent = parent
         self.parent.children.append(self)
 
     def close(self):
-        self.parent.children.remove(self)
+        self.closed = True
 
 
 
@@ -375,7 +376,8 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
         # Closing fake connections removes them from the list.
-        self.assertEquals(len(self.factory.connections), 0)
+        self.assertEquals(len(self.factory.connections), 1)
+        self.assertEquals(self.factory.connections[0].closed, True)
 
 
     def test_retryAfterConnectError(self):
@@ -523,7 +525,10 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(len(self.factory.connections), 2)
         stopResult = resultOf(self.pool.stopService())
         self.assertEquals(stopResult, [None])
-        self.assertEquals(len(self.factory.connections), 0)
+        self.assertEquals(len(self.factory.connections), 2)
+        self.assertEquals(self.factory.connections[0].closed, True)
+        self.assertEquals(self.factory.connections[1].closed, True)
+
 
 
 
