@@ -601,3 +601,16 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(self.factory.connections[1].closed, True)
 
 
+    def test_abortRecycledTransaction(self):
+        """
+        L{ConnectionPool.stopService} will shut down if a recycled transaction
+        is still pending.
+        """
+        recycled = self.pool.connection()
+        recycled.commit()
+        remember = []
+        remember.append(self.pool.connection())
+        self.assertEquals(resultOf(self.pool.stopService()), [None])
+
+
+
