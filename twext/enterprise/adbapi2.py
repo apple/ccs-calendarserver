@@ -170,12 +170,13 @@ class _ConnectedTxn(object):
         return holder.stop()
 
 
-class FailedTxn(object):
+class _NoTxn(object):
     """
     An L{IAsyncTransaction} that indicates a local failure before we could even
     communicate any statements (or possibly even any connection attempts) to the
     server.
     """
+    implements(IAsyncTransaction)
 
     def _everything(self, *a, **kw):
         """
@@ -281,7 +282,7 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
         """
         Replace my C{_baseTxn}, currently a L{_WaitingTxn}, with a new
         implementation of L{IAsyncTransaction} that will actually do the work;
-        either a L{_ConnectedTxn} or a L{FailedTxn}.
+        either a L{_ConnectedTxn} or a L{_NoTxn}.
         """
         spooledBase   = self._baseTxn
         self._baseTxn = baseTxn
@@ -310,7 +311,7 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
         Stop waiting for a free transaction and fail.
         """
         self._pool._waiting.remove(self)
-        self._unspoolOnto(FailedTxn())
+        self._unspoolOnto(_NoTxn())
         return succeed(None)
 
 
@@ -469,7 +470,7 @@ class ConnectionPool(Service, object):
         """
         tracking = self._busy
         if self._stopping:
-            basetxn = FailedTxn()
+            basetxn = _NoTxn()
             tracking = []
         elif self._free:
             basetxn = self._free.pop(0)
