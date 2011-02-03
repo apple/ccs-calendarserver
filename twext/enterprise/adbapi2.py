@@ -505,9 +505,16 @@ class ConnectionPool(Service, object):
             self._waiting.append(txn)
             # FIXME/TESTME: should be len(self._busy) + len(self._finishing)
             # (free doesn't need to be considered, as it's tested above)
-            if len(self._busy) < self.maxConnections:
+            if self._activeConnectionCount() < self.maxConnections:
                 self._startOneMore()
         return txn
+
+
+    def _activeConnectionCount(self):
+        """
+        @return: the number of active outgoing connections to the database.
+        """
+        return len(self._busy) + len(self._finishing)
 
 
     def _startOneMore(self):
