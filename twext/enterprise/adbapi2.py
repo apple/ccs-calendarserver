@@ -189,10 +189,10 @@ class FailedTxn(object):
 
 
 
-class SpooledTxn(object):
+class _WaitingTxn(object):
     """
-    A L{SpooledTxn} is an implementation of L{IAsyncTransaction} which cannot
-    yet actually execute anything, so it spools SQL reqeusts for later
+    A L{_WaitingTxn} is an implementation of L{IAsyncTransaction} which cannot
+    yet actually execute anything, so it waits and spools SQL requests for later
     execution.  When a L{_ConnectedTxn} becomes available later, it can be
     unspooled onto that.
     """
@@ -279,7 +279,7 @@ class PooledSqlTxn(proxyForInterface(iface=IAsyncTransaction,
 
     def _unspoolOnto(self, baseTxn):
         """
-        Replace my C{_baseTxn}, currently a L{SpooledTxn}, with a new
+        Replace my C{_baseTxn}, currently a L{_WaitingTxn}, with a new
         implementation of L{IAsyncTransaction} that will actually do the work;
         either a L{_ConnectedTxn} or a L{FailedTxn}.
         """
@@ -384,8 +384,8 @@ class ConnectionPool(Service, object):
         fired when its execution has completed.
 
     @ivar _waiting: The list of L{PooledSqlTxn} objects attached to a
-        L{SpooledTxn}; i.e. those which are awaiting a connection to become free
-        so that they can be executed.
+        L{_WaitingTxn}; i.e. those which are awaiting a connection to become
+        free so that they can be executed.
 
     @ivar _stopping: Is this L{ConnectionPool} in the process of shutting down?
         (If so, new connections will not be established.)
@@ -474,7 +474,7 @@ class ConnectionPool(Service, object):
         elif self._free:
             basetxn = self._free.pop(0)
         else:
-            basetxn = SpooledTxn()
+            basetxn = _WaitingTxn()
             tracking = self._waiting
         txn = PooledSqlTxn(self, basetxn)
         tracking.append(txn)
