@@ -22,20 +22,24 @@
 .Nd Darwin Calendar Server push notification monitor
 .Sh SYNOPSIS
 .Nm
+.Op Fl -admin Ar username
 .Op Fl -config Ar file
-.Op Fl -host AH hostname
-.Op Fl -port Ap port number
+.Op Fl -host Ar hostname
+.Op Fl -port Ar port-number
 .Op Fl -ssl
 .Op Fl -verbose
 .Op Fl -help
+.Ar username
 .Sh DESCRIPTION
 .Nm
-is a tool for making sure XMPP push notifications are working properly.  Given a username and password it will connect to the calendar server and determine which pubsub node(s) correspond to that user's calendar home, as well as those of any user which has delegated calendar access.  Next it will subscribe to those nodes and await notifications, printing them to stdout.  Exit by hitting Control-C.
+is a tool for making sure XMPP push notifications are working properly.  Given a username and password it will connect to the calendar server and determine which pubsub node(s) correspond to that user's calendar home, as well as those of any user which has delegated calendar access.  Next it will subscribe to those nodes and await notifications, printing them to stdout.  An administrator can monitor the push notifications for another user by passing the --admin option.  Exit by hitting Control-C.
 .Pp
 .Sh OPTIONS
 .Bl -tag -width flag
+.It Fl a, -admin
+Authenticate using the credentials of the given administrator.
 .It Fl h, -help
-Display usage information
+Display usage information.
 .It Fl f, -config Ar FILE
 Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
 .It Fl H, -host Ar HOSTNAME

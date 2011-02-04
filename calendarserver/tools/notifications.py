@@ -43,6 +43,7 @@ def usage(e=None):
     print " Monitor push notification events from calendar server"
     print ""
     print "options:"
+    print "  -a --admin <username>: Specify an administrator username"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -h --help: print this help and exit"
     print "  -H --host <hostname>: calendar server host name"
@@ -61,7 +62,8 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "f:hH:p:sv", [
+            sys.argv[1:], "a:f:hH:p:sv", [
+                "admin=",
                 "config=",
                 "help",
                 "host=",
@@ -73,6 +75,7 @@ def main():
     except GetoptError, e:
         usage(e)
 
+    admin = None
     configFileName = None
     host = None
     port = None
@@ -84,6 +87,8 @@ def main():
             usage()
         elif opt in ("-f", "--config"):
             configFileName = arg
+        elif opt in ("-a", "--admin"):
+            admin = arg
         elif opt in ("-H", "--host"):
             host = arg
         elif opt in ("-p", "--port"):
@@ -115,10 +120,14 @@ def main():
     if port is None:
         usage("Must specify a port number")
 
-    password = getpass("Password for %s: " % (username,))
+    if admin:
+        password = getpass("Password for administrator %s: " % (admin,))
+    else:
+        password = getpass("Password for %s: " % (username,))
+        admin = username
 
-    monitorService = PushMonitorService(useSSL, host, port, username, password,
-        verbose)
+    monitorService = PushMonitorService(useSSL, host, port, admin, username,
+        password, verbose)
     reactor.addSystemEventTrigger("during", "startup",
         monitorService.startService)
     reactor.addSystemEventTrigger("before", "shutdown",
@@ -296,10 +305,11 @@ class PushMonitorService(Service):
     using XMPP and monitored for updates.
     """
 
-    def __init__(self, useSSL, host, port, username, password, verbose):
+    def __init__(self, useSSL, host, port, authname, username, password, verbose):
         self.useSSL = useSSL
         self.host = host
         self.port = port
+        self.authname = authname
         self.username = username
         self.password = password
         self.verbose = verbose
@@ -526,18 +536,19 @@ class PushMonitorService(Service):
 
     def startMonitoring(self, host, port, nodes):
         service = "pubsub.%s" % (host,)
-        jid = "%s@%s" % (self.username, host)
+        jid = "%s@%s" % (self.authname, host)
 
         pubsubFactory = PubSubClientFactory(jid, self.password, service, nodes,
             self.verbose)
         reactor.connectTCP(host, port, pubsubFactory)
+
 
     def makeRequest(self, path, method, headers, body):
         scheme = "https:" if self.useSSL else "http:"
         url = "%s//%s:%d/%s/" % (scheme, self.host, self.port, path)
         caldavFactory = client.HTTPClientFactory(url, method=method,
             headers=headers, postdata=body, agent="Push Monitor")
-        caldavFactory.username = self.username
+        caldavFactory.username = self.authname
         caldavFactory.password = self.password
         caldavFactory.noisy = False
         caldavFactory.protocol = PropfindRequestor
