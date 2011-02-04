@@ -208,7 +208,7 @@ class ConnectionLimiter(MultiService, object):
             # If load has indeed decreased (i.e. in any case except 'a new,
             # idle process replaced an old, idle process'), then start
             # listening again.
-            if result < previousStatus:
+            if result < previousStatus and self.running:
                 for f in self.factories:
                     f.myServer.myPort.startReading()
         else:
