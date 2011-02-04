@@ -314,11 +314,11 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
         self.transport.loseConnection()
 
         if not hasattr(self.factory, "username"):
-            self.factory.deferred.errback(failure.Failure(Unauthorized("Mail gateway not able to process reply; authentication required for calendar server")))
+            self.factory.deferred.errback(failure.Failure(Unauthorized("Authentication required")))
             return self.factory.deferred
 
         if hasattr(self.factory, "retried"):
-            self.factory.deferred.errback(failure.Failure(Unauthorized("Mail gateway not able to process reply; could not authenticate user %s with calendar server" % (self.factory.username,))))
+            self.factory.deferred.errback(failure.Failure(Unauthorized("Could not authenticate user %s with calendar server" % (self.factory.username,))))
             return self.factory.deferred
 
         self.factory.retried = True

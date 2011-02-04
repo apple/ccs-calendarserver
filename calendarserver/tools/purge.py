@@ -463,7 +463,7 @@ def purgeOrphanedAttachments(store, batchSize, verbose=False, dryrun=False):
             elif orphanCount == 1:
                 print "1 orphaned attachment"
             else:
-                print "%d orphaned attachments" % (eventCount,)
+                print "%d orphaned attachments" % (orphanCount,)
         returnValue(orphanCount)
 
     if verbose:
