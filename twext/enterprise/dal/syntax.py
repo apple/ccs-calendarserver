@@ -378,11 +378,12 @@ class Select(_Statement):
     """
 
     def __init__(self, columns=None, Where=None, From=None, OrderBy=None,
-                 GroupBy=None):
+                 GroupBy=None, Limit=None):
         self.From = From
         self.Where = Where
         self.OrderBy = OrderBy
         self.GroupBy = GroupBy
+        self.Limit = Limit
         if columns is None:
             columns = ALL_COLUMNS
         else:
@@ -415,6 +416,10 @@ class Select(_Statement):
             if expr is not None:
                 stmt.text += quote(" " + bywhat + " by ")
                 stmt.append(expr.subSQL(placeholder, quote, allTables))
+        if self.Limit is not None:
+            stmt.text += quote(" limit ")
+            stmt.text += placeholder
+            stmt.parameters.append(self.Limit)
         return stmt
 
 

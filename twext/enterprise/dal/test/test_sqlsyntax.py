@@ -415,3 +415,17 @@ class GenerationTests(TestCase):
         self.assertEquals(Lock.exclusive(self.schema.FOO).toSQL(),
                           SQLFragment("lock table FOO in exclusive mode"))
 
+
+    def test_limit(self):
+        """
+        A L{Select} object with a 'Limit' keyword parameter will generate
+        a SQL statement with a 'limit' clause.
+        """
+        self.assertEquals(
+            Select([self.schema.FOO.BAR],
+                   From=self.schema.FOO,
+                   Limit=123).toSQL(),
+            SQLFragment(
+                "select BAR from FOO limit ?", [123])
+        )
+
