@@ -40,7 +40,28 @@ def _newCacheToken(self):
     setattr(self, '_called', called + 1)
     return token
 
+class StubDirectoryRecord(object):
+    
+    def __init__(self, uid):
+        self.uid = uid
 
+class StubDirectory(object):
+    
+    def recordWithShortName(self, recordType, recordName):
+        return StubDirectoryRecord(recordName)
+
+class StubSiteResource(object):
+
+    def __init__(self):
+        self.directory = StubDirectory()
+    
+    def getDirectory(self):
+        return self.directory
+
+class StubSite(object):
+    
+    def __init__(self):
+        self.resource = StubSiteResource()
 
 class StubRequest(object):
     resources = {}
@@ -56,6 +77,8 @@ class StubRequest(object):
 
         self.body = body
         self.stream = MemoryStream(body)
+        
+        self.site = StubSite()
 
 
     def locateResource(self, uri):

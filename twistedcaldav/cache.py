@@ -149,7 +149,26 @@ class BaseResponseCache(LoggingMixIn):
     def _canonicalizeURIForRequest(self, uri, request):
         """
         Always use canonicalized forms of the URIs for caching (i.e. __uids__ paths).
+        
+        Do this without calling locateResource which may cause a query on the store. 
         """
+        
+        uribits = uri.split("/")
+        if len(uribits) > 1 and uribits[1] in ("principals", "calendars", "addressbooks"):
+            if uribits[2] == "__uids__":
+                return succeed(uri)
+            else:
+                recordType = uribits[2]
+                recordName = uribits[3]
+                directory = request.site.resource.getDirectory()
+                record = directory.recordWithShortName(recordType, recordName)
+                if record is not None:
+                    uribits[2] = "__uids__"
+                    uribits[3] = record.uid
+                    return succeed("/".join(uribits))
+                
+            
+        # Fall back to the locateResource approach
         try:
             return request.locateResource(uri).addCallback(
                 lambda resrc: resrc.url()).addErrback(self._uriNotFound, uri)
