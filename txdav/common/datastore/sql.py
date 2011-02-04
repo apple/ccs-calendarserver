@@ -49,6 +49,7 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 
+from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.sql_tables import NOTIFICATION_HOME_TABLE, _BIND_MODE_OWN, \
     _BIND_STATUS_ACCEPTED, NOTIFICATION_OBJECT_REVISIONS_TABLE
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
@@ -313,32 +314,39 @@ class CommonStoreTransaction(object):
             count += 1
         returnValue(count)
 
+
+    def _orphanedBase(limited):
+        at = schema.ATTACHMENT
+        co = schema.CALENDAR_OBJECT
+        kwds = {}
+        if limited:
+            kwds["Limit"] = Parameter('batchSize')
+        return Select(
+            [at.DROPBOX_ID, at.PATH],
+            From=at.join(co, at.DROPBOX_ID == co.DROPBOX_ID, "left outer"),
+            Where=co.DROPBOX_ID == None,
+            **kwds
+        )
+
+    _orphanedLimited = _orphanedBase(True)
+    _orphanedUnlimited = _orphanedBase(False)
+    del _orphanedBase
+
+
     def orphanedAttachments(self, batchSize=None):
         """
         Find attachments no longer referenced by any events.
 
         Returns a deferred to a list of (dropbox_id, path) tuples.
         """
-
-        query = """
-            select
-                at.DROPBOX_ID,
-                at.PATH
-            from
-                ATTACHMENT at
-            left outer join
-                CALENDAR_OBJECT co
-            on
-                at.DROPBOX_ID = co.DROPBOX_ID
-            where
-                co.DROPBOX_ID is null
-            """
-        args = []
         if batchSize is not None:
-            query += "limit %s"
-            args.append(batchSize)
+            kwds = {'batchSize': batchSize}
+            query = self._orphanedLimited
+        else:
+            kwds = {}
+            query = self._orphanedUnlimited
+        return query.on(self, **kwds)
 
-        return self.execSQL(query, args)
 
     @inlineCallbacks
     def removeOrphanedAttachments(self, batchSize=None):
