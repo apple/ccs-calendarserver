@@ -72,7 +72,7 @@ COLUMN_local_blks_written = 11
 COLUMN_temp_blks_read = 12
 COLUMN_temp_blks_written = 13
 
-def sqlStatementsByAverageTime(entries):
+def sqlStatementsReport(entries):
     
     dcount = collections.defaultdict(int)    
     dtime = collections.defaultdict(float)    
@@ -91,7 +91,7 @@ def sqlStatementsByAverageTime(entries):
     for sorttype, sortedkeys in (
         ("count", [i[0] for i in sorted(dcount.iteritems(), key=lambda x:x[1], reverse=True)],),
         ("total time", [i[0] for i in sorted(dtime.iteritems(), key=lambda x:x[1], reverse=True)],),
-        ("average time", [i[0] for i in sorted(dtime.iteritems(), key=lambda x:x[1], reverse=True)],),
+        ("average time", [i[0] for i in sorted(daverage.iteritems(), key=lambda x:x[1], reverse=True)],),
     ):
         table = tables.Table()
         table.addHeader(("Statement", "Count", "Count %", "Total Time", "Total Time %", "Av. Time", "Av. Time %",))
@@ -177,7 +177,7 @@ def parseStats(logFilePath, donormlize=True, verbose=False):
     if verbose:
         print "Read %d entries" % (len(entries,))
     
-    sqlStatementsByAverageTime(entries)
+    sqlStatementsReport(entries)
             
 def usage(error_msg=None):
     if error_msg:
