@@ -409,7 +409,11 @@ class Select(_Statement):
                  GroupBy=None, Limit=None):
         self.From = From
         self.Where = Where
+        if not isinstance(OrderBy, (list, tuple, type(None))):
+            OrderBy = [OrderBy]
         self.OrderBy = OrderBy
+        if not isinstance(GroupBy, (list, tuple, type(None))):
+            GroupBy = [GroupBy]
         self.GroupBy = GroupBy
         self.Limit = Limit
         if columns is None:
@@ -440,7 +444,14 @@ class Select(_Statement):
         for bywhat, expr in [('group', self.GroupBy), ('order', self.OrderBy)]:
             if expr is not None:
                 stmt.text += quote(" " + bywhat + " by ")
-                stmt.append(expr.subSQL(placeholder, quote, allTables))
+                fst = True
+                for subthing in expr:
+                    if fst:
+                        fst = False
+                    else:
+                        stmt.text += ', '
+                    stmt.append(subthing.subSQL(placeholder, quote, allTables))
+
         if self.Limit is not None:
             stmt.text += quote(" limit ")
             stmt.text += placeholder

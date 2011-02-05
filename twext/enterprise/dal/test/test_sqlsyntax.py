@@ -149,6 +149,18 @@ class GenerationTests(TestCase):
         )
 
 
+    def test_groupByMulti(self):
+        """
+        L{Select}'s L{GroupBy} parameter can accept multiple columns in a list.
+        """
+        self.assertEquals(
+            Select(From=self.schema.FOO,
+                   GroupBy=[self.schema.FOO.BAR,
+                            self.schema.FOO.BAZ]).toSQL(),
+            SQLFragment("select * from FOO group by BAR, BAZ")
+        )
+
+
     def test_joinClause(self):
         """
         A table's .join() method returns a join statement in a SELECT.
@@ -291,6 +303,21 @@ class GenerationTests(TestCase):
         self.assertEquals(Select([Max(self.schema.BOZ.QUX) + 12],
                                 From=self.schema.BOZ).toSQL(),
                           SQLFragment("select max(QUX) + ? from BOZ", [12]))
+
+
+    def test_multiColumnExpression(self):
+        """
+        Multiple columns may be provided in an expression in the 'columns'
+        portion of a Select() statement.  All arithmetic operators are
+        supported.
+        """
+        self.assertEquals(
+            Select([((self.schema.FOO.BAR + self.schema.FOO.BAZ) / 3) * 7],
+                   From=self.schema.FOO).toSQL(),
+            SQLFragment("select ((BAR + BAZ) / ?) * ? from FOO", [3, 7])
+        )
+
+    test_multiColumnExpression.todo = 'not implemented yet'
 
 
     def test_len(self):
