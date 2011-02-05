@@ -274,12 +274,23 @@ class GenerationTests(TestCase):
 
     def test_max(self):
         """
-        Test for the 'Max' function.
+        L{Max}C{(column)} produces an object in the 'columns' clause that
+        renders the 'max' aggregate in SQL.
         """
         self.assertEquals(
             Select([Max(self.schema.BOZ.QUX)], From=self.schema.BOZ).toSQL(),
             SQLFragment(
                 "select max(QUX) from BOZ"))
+
+
+    def test_aggregateComparison(self):
+        """
+        L{Max}C{(column) > constant} produces an object in the 'columns' clause
+        that renders a comparison to the 'max' aggregate in SQL.
+        """
+        self.assertEquals(Select([Max(self.schema.BOZ.QUX) + 12],
+                                From=self.schema.BOZ).toSQL(),
+                          SQLFragment("select max(QUX) + ? from BOZ", [12]))
 
 
     def test_len(self):

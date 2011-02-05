@@ -82,10 +82,44 @@ class Syntax(object):
 
 
 
-class FunctionInvocation(object):
+def comparison(comparator):
+    def __(self, other):
+        if other is None:
+            return NullComparison(self, comparator)
+        if isinstance(other, ColumnSyntax):
+            return ColumnComparison(self, comparator, other)
+        else:
+            return ConstantComparison(self, comparator, other)
+    return __
+
+
+
+class ExpressionSyntax(Syntax):
+    __eq__ = comparison('=')
+    __ne__ = comparison('!=')
+    __gt__ = comparison('>')
+    __ge__ = comparison('>=')
+    __lt__ = comparison('<')
+    __le__ = comparison('<=')
+    __add__ = comparison("+")
+    __sub__ = comparison("-")
+
+
+    def In(self, subselect):
+        # Can't be Select.__contains__ because __contains__ gets __nonzero__
+        # called on its result by the 'in' syntax.
+        return CompoundComparison(self, 'in', subselect)
+
+
+
+class FunctionInvocation(ExpressionSyntax):
     def __init__(self, name, arg):
         self.name = name
         self.arg = arg
+
+
+    def allColumns(self):
+        return self.arg.allColumns()
 
 
     def subSQL(self, placeholder, quote, allTables):
@@ -217,33 +251,16 @@ class Join(object):
 
 
 
-def comparison(comparator):
-    def __(self, other):
-        if other is None:
-            return NullComparison(self, comparator)
-        if isinstance(other, ColumnSyntax):
-            return ColumnComparison(self, comparator, other)
-        else:
-            return ConstantComparison(self, comparator, other)
-    return __
-
-
-
-class ColumnSyntax(Syntax):
+class ColumnSyntax(ExpressionSyntax):
     """
     Syntactic convenience for L{Column}.
     """
 
     modelType = Column
 
-    __eq__ = comparison('=')
-    __ne__ = comparison('!=')
-    __gt__ = comparison('>')
-    __ge__ = comparison('>=')
-    __lt__ = comparison('<')
-    __le__ = comparison('<=')
-    __add__ = comparison("+")
-    __sub__ = comparison("-")
+
+    def allColumns(self):
+        return [self]
 
 
     def subSQL(self, placeholder, quote, allTables):
@@ -256,12 +273,6 @@ class ColumnSyntax(Syntax):
                     return SQLFragment((self.model.table.name + '.' +
                                          self.model.name))
         return SQLFragment(self.model.name)
-
-
-    def In(self, subselect):
-        # Can't be Select.__contains__ because __contains__ gets __nonzero__
-        # called on its result by the 'in' syntax.
-        return CompoundComparison(self, 'in', subselect)
 
 
 
@@ -310,7 +321,12 @@ class NullComparison(Comparison):
         return sqls
 
 
+
 class ConstantComparison(Comparison):
+
+    def allColumns(self):
+        return [self.a]
+
 
     def subSQL(self, placeholder, quote, allTables):
         sqls = SQLFragment()
@@ -372,6 +388,18 @@ class _SomeColumns(object):
 
 
 
+def _columnsMatchTables(columns, tables):
+    for expression in columns:
+        for column in expression.allColumns():
+            for table in tables:
+                if column in table:
+                    break
+            else:
+                return False
+    return True
+
+
+
 class Select(_Statement):
     """
     'select' statement.
@@ -387,12 +415,9 @@ class Select(_Statement):
         if columns is None:
             columns = ALL_COLUMNS
         else:
-            for column in columns:
-                for table in From.tables():
-                    if column in table:
-                        break
-                else:
-                    raise TableMismatch()
+            if not _columnsMatchTables(columns, From.tables()):
+                raise TableMismatch()
+
             columns = _SomeColumns(columns)
         self.columns = columns
 
