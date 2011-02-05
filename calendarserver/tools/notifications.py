@@ -110,7 +110,7 @@ def main():
         try:
             loadConfig(configFileName)
         except ConfigurationError, e:
-            print "Error in confiuration: %s" % (e,)
+            print "Error in configuration: %s" % (e,)
             sys.exit(1)
 
         useSSL = config.EnableSSL
