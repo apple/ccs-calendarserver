@@ -77,6 +77,21 @@ def tail(filename, n):
     output, _ignore_error = child.communicate()
     return output.split("\n")
 
+def cpuPerDaemon():
+    a = []
+    child = Popen(
+        args=[
+            "ps", "auxw",
+        ],
+        stdout=PIPE, stderr=STDOUT,
+    )
+    output, _ignore_ = child.communicate()
+    for l in output.split("\n"):
+        if "ProcessType=" in l:
+            f = l.split()
+            a.append(f[2])
+    return ", ".join(a)
+
 
 def cpuidle():
     child = Popen(
@@ -380,6 +395,7 @@ while True:
         q = idleHistory()
         print "CPU idle %:", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
         print "Memory free:", freemem()
+        print "CPU Per Daemon:", cpuPerDaemon()
 
         if avg:
             print avg, "|",
