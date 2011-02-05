@@ -69,6 +69,7 @@ class Syntax(object):
     """
 
     modelType = None
+    model = None
 
     def __init__(self, model):
         if not isinstance(model, self.modelType):
@@ -78,7 +79,9 @@ class Syntax(object):
 
 
     def __repr__(self):
-        return '<Syntax for: %r>' % (self.model,)
+        if self.model is not None:
+            return '<Syntax for: %r>' % (self.model,)
+        return super(Syntax, self).__repr__()
 
 
 
@@ -103,6 +106,13 @@ class ExpressionSyntax(Syntax):
     __le__ = comparison('<=')
     __add__ = comparison("+")
     __sub__ = comparison("-")
+    __div__= comparison("/")
+    __mul__= comparison("*")
+
+
+    def __nonzero__(self):
+        raise ValueError(
+            "SQL expressions should not be tested for truth value in Python.")
 
 
     def In(self, subselect):
@@ -276,7 +286,7 @@ class ColumnSyntax(ExpressionSyntax):
 
 
 
-class Comparison(object):
+class Comparison(ExpressionSyntax):
 
     def __init__(self, a, op, b):
         self.a = a
@@ -284,9 +294,11 @@ class Comparison(object):
         self.b = b
 
 
-    def __nonzero__(self):
-        raise ValueError(
-            "column comparisons should not be tested for truth value")
+    def _subexpression(self, expr, placeholder, quote, allTables):
+        result = expr.subSQL(placeholder, quote, allTables)
+        if self.op not in ('and', 'or') and isinstance(expr, Comparison):
+            result = _inParens(result)
+        return result
 
 
     def booleanOp(self, operand, other):
@@ -325,12 +337,12 @@ class NullComparison(Comparison):
 class ConstantComparison(Comparison):
 
     def allColumns(self):
-        return [self.a]
+        return self.a.allColumns()
 
 
     def subSQL(self, placeholder, quote, allTables):
         sqls = SQLFragment()
-        sqls.append(self.a.subSQL(placeholder, quote, allTables))
+        sqls.append(self._subexpression(self.a, placeholder, quote, allTables))
         sqls.append(SQLFragment(' ' + ' '.join([self.op, placeholder]),
                                  [self.b]))
         return sqls
@@ -343,11 +355,15 @@ class CompoundComparison(Comparison):
     (currently only AND or OR).
     """
 
+    def allColumns(self):
+        return self.a.allColumns() + self.b.allColumns()
+
+
     def subSQL(self, placeholder, quote, allTables):
         stmt = SQLFragment()
-        stmt.append(self.a.subSQL(placeholder, quote, allTables))
+        stmt.append(self._subexpression(self.a, placeholder, quote, allTables))
         stmt.text += ' %s ' % (self.op,)
-        stmt.append(self.b.subSQL(placeholder, quote, allTables))
+        stmt.append(self._subexpression(self.b, placeholder, quote, allTables))
         return stmt
 
 

@@ -317,8 +317,6 @@ class GenerationTests(TestCase):
             SQLFragment("select ((BAR + BAZ) / ?) * ? from FOO", [3, 7])
         )
 
-    test_multiColumnExpression.todo = 'not implemented yet'
-
 
     def test_len(self):
         """
