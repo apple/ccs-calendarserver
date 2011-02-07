@@ -89,8 +89,8 @@ def sqlStatementsReport(entries):
     averagetotal = sum(daverage.values())
 
     for sorttype, sortedkeys in (
-        ("count", [i[0] for i in sorted(dcount.iteritems(), key=lambda x:x[1], reverse=True)],),
         ("total time", [i[0] for i in sorted(dtime.iteritems(), key=lambda x:x[1], reverse=True)],),
+        ("count", [i[0] for i in sorted(dcount.iteritems(), key=lambda x:x[1], reverse=True)],),
         ("average time", [i[0] for i in sorted(daverage.iteritems(), key=lambda x:x[1], reverse=True)],),
     ):
         table = tables.Table()
