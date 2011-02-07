@@ -37,7 +37,6 @@ from twisted.internet.defer import succeed, DeferredList, maybeDeferred
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 
-import twext.web2.server
 from twext.web2 import responsecode, server
 from twext.web2.auth.wrapper import UnauthorizedResponse
 from twext.web2.http import HTTPError, Response, RedirectResponse
@@ -58,7 +57,6 @@ from twext.web2.dav.method.report import max_number_of_matches
 
 from twext.python.log import Logger, LoggingMixIn
 
-import twistedcaldav
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.util import Alternator

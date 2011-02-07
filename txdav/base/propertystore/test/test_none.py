@@ -13,16 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twext.web2.dav.element.base import WebDAVTextElement
 
 """
 Property store tests.
 """
 
-from zope.interface.verify import verifyObject, BrokenMethodImplementation
-
-from txdav.idav import IPropertyStore, PropertyChangeNotAllowedError
-from txdav.base.propertystore.base import PropertyName
+from txdav.idav import PropertyChangeNotAllowedError
 from txdav.base.propertystore.none import PropertyStore
 from txdav.base.propertystore.test.base import propertyName, propertyValue
 

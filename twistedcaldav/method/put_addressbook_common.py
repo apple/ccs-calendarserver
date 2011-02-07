@@ -35,7 +35,6 @@ from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.util import joinURL, parentForURL
 from twext.web2.http import HTTPError
 from twext.web2.http import StatusResponse
-from twext.web2.http_headers import MimeType, generateContentType
 from twext.web2.stream import MemoryStream
 
 from twistedcaldav.config import config
