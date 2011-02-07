@@ -130,7 +130,10 @@ class ImplicitCalendarObject(object):
 class ImplicitCalendar(FancyEqMixin,
                        proxyForInterface(ICalendar, "_subCalendar")):
 
-    compareAttributes = ['_subCalendar', '_parentHome']
+    compareAttributes = (
+        "_subCalendar",
+        "_parentHome",
+    )
 
     def __init__(self, parentHome, subCalendar):
         self._parentHome = parentHome

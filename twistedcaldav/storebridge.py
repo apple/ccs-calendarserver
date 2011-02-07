@@ -1313,7 +1313,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
     A resource wrapping a calendar object.
     """
 
-    compareAttributes = '_newStoreObject'.split()
+    compareAttributes = ("_newStoreObject")
 
     _componentFromStream = VCalendar.fromString
 
@@ -1493,7 +1493,9 @@ class AddressBookObjectResource(_CommonObjectResource):
     A resource wrapping a addressbook object.
     """
 
-    compareAttributes = '_newStoreObject'.split()
+    compareAttributes = (
+        "_newStoreObject",
+    )
 
     _componentFromStream = VCard.fromString
 

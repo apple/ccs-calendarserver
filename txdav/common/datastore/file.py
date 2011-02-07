@@ -551,7 +551,11 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     Common ancestor class of AddressBooks and Calendars.
     """
 
-    compareAttributes = '_name _home _transaction'.split()
+    compareAttributes = (
+        "_name",
+        "_home",
+        "_transaction",
+    )
 
     _objectResourceClass = None
 
@@ -881,7 +885,10 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     @type _path: L{FilePath}
     """
 
-    compareAttributes = '_name _parentCollection'.split()
+    compareAttributes = (
+        "_name",
+        "_parentCollection",
+    )
 
     def __init__(self, name, parent, metadata=None):
         self._name = name

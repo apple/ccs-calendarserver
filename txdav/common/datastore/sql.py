@@ -882,7 +882,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     Common ancestor class of AddressBooks and Calendars.
     """
 
-    compareAttributes = "_name _home _resourceID".split()
+    compareAttributes = (
+        "_name",
+        "_home",
+        "_resourceID",
+    )
 
     _objectResourceClass = None
     _bindTable = None
@@ -1710,7 +1714,10 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     @type _path: L{FilePath}
     """
 
-    compareAttributes = "_name _parentCollection".split()
+    compareAttributes = (
+        "_name",
+        "_parentCollection",
+    )
 
     _objectTable = None
 
@@ -1967,7 +1974,10 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
 
     implements(INotificationCollection)
 
-    compareAttributes = "_uid _resourceID".split()
+    compareAttributes = (
+        "_uid",
+        "_resourceID",
+    )
 
     _revisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
 
@@ -2287,7 +2297,10 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
     implements(INotificationObject)
 
-    compareAttributes = "_resourceID _home".split()
+    compareAttributes = (
+        "_resourceID",
+        "_home",
+    )
 
     def __init__(self, home, uid):
         self._home = home
