@@ -155,12 +155,12 @@ def parseStats(logFilePath, donormlize=True, verbose=False):
                 newbits = line.split("|")
                 bits[COLUMN_query] = bits[COLUMN_query][:-1] + newbits[COLUMN_query]
                 
-            if donormlize:
-                bits[COLUMN_query] = sqlnormalize(bits[COLUMN_query].strip())
-            
             pos = bits[COLUMN_query].find("BEGIN:VCALENDAR")
             if pos != -1:
                 bits[COLUMN_query] = bits[COLUMN_query][:pos]
+            
+            if donormlize:
+                bits[COLUMN_query] = sqlnormalize(bits[COLUMN_query].strip())
             
             if bits[COLUMN_query] not in (
                 "BEGIN",
