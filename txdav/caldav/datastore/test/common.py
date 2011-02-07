@@ -779,8 +779,8 @@ class CommonTests(CommonCommonTests):
     @inlineCallbacks
     def test_calendarObjectMetaData(self):
         """
-        The objects retrieved from the calendar have a variou
-        methods which return metadata values.
+        The objects retrieved from the calendar have a various methods which
+        return metadata values.
         """
         calendar = yield self.calendarObjectUnderTest()
         self.assertIsInstance(calendar.name(), basestring)
@@ -793,17 +793,17 @@ class CommonTests(CommonCommonTests):
         self.assertIsInstance(calendar.size(), int)
         self.assertIsInstance(calendar.created(), int)
         self.assertIsInstance(calendar.modified(), int)
-        
+
         self.assertEqual(calendar.accessMode, "")
         self.assertEqual(calendar.isScheduleObject, False)
         self.assertEqual(calendar.scheduleEtags, ())
         self.assertEqual(calendar.hasPrivateComment, False)
-        
+
         calendar.accessMode = Component.ACCESS_PRIVATE
         calendar.isScheduleObject = True
         calendar.scheduleEtags = ("1234", "5678",)
         calendar.hasPrivateComment = True
-        
+
         self.assertEqual(calendar.accessMode, Component.ACCESS_PRIVATE)
         self.assertEqual(calendar.isScheduleObject, True)
         self.assertEqual(calendar.scheduleEtags, ("1234", "5678",))
