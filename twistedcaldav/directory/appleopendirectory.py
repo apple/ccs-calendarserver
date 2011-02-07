@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test.test_opendirectory -*-
 ##
 # Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
@@ -627,8 +628,7 @@ class OpenDirectoryService(CachingDirectoryService):
                         listRecordTypes,
                         attrs,
                     ))
-                    results.extend(
-                        lookupMethod(
+                    lookedUp = lookupMethod(
                             self.directory,
                             queryattr,
                             indexKey,
@@ -637,7 +637,7 @@ class OpenDirectoryService(CachingDirectoryService):
                             listRecordTypes,
                             attrs,
                         )
-                    )
+                    results.extend(lookedUp)
 
                 except self.odModule.ODError, ex:
                     if ex.message[1] == -14987:
