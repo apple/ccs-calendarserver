@@ -569,7 +569,7 @@ dependencies () {
 
   # XXX actually vObject should be imported in-place.
   py_dependency -fie -r 219 \
-    "vObject" "vobject" "vobject" \
+    "vobject" "vobject" "vobject" \
     "http://svn.osafoundation.org/vobject/trunk";
 
   #
