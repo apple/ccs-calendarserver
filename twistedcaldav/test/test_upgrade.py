@@ -22,16 +22,26 @@ from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
-from twistedcaldav.upgrade import UpgradeError, upgradeData, updateFreeBusySet
+from twistedcaldav.upgrade import (
+    xattrname, UpgradeError, upgradeData, updateFreeBusySet
+)
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
 
 import hashlib
 import os, zlib, cPickle
 
-freeBusyAttr = "WebDAV:{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"
-cTagAttr = "WebDAV:{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"
-md5Attr = "WebDAV:{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"
+
+
+freeBusyAttr = xattrname(
+    "{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"
+)
+cTagAttr = xattrname(
+    "{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"
+)
+md5Attr = xattrname(
+    "{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"
+)
 
 OLDPROXYFILE = ".db.calendaruserproxy"
 NEWPROXYFILE = "proxies.sqlite"
@@ -852,7 +862,7 @@ class UpgradeTests(TestCase):
                                     },
                                     "@xattrs" :
                                     {
-                                        "ignore" : "extra",
+                                        xattrname("ignore") : "extra",
                                         cTagAttr : "12345",
                                     },
                                 },
@@ -908,7 +918,7 @@ class UpgradeTests(TestCase):
                                     },
                                     "@xattrs" :
                                     {
-                                        "ignore" : "extra",
+                                        xattrname("ignore") : "extra",
                                         cTagAttr : isValidCTag, # method below
                                     },
                                 },
@@ -972,7 +982,7 @@ class UpgradeTests(TestCase):
                                     },
                                     "@xattrs" :
                                     {
-                                        "ignore" : "extra",
+                                        xattrname("ignore") : "extra",
                                         cTagAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?>\r\n<getctag xmlns='http://calendarserver.org/ns/'>2009-02-25 14:34:34.703093</getctag>\r\n"),
                                     },
                                 },
@@ -1028,7 +1038,7 @@ class UpgradeTests(TestCase):
                                     },
                                     "@xattrs" :
                                     {
-                                        "ignore" : "extra",
+                                        xattrname("ignore") : "extra",
                                         cTagAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?>\r\n<getctag xmlns='http://calendarserver.org/ns/'>2009-02-25 14:34:34.703093</getctag>\r\n"),
                                     },
                                 },

@@ -39,8 +39,16 @@ from twisted.internet.defer import inlineCallbacks, succeed
 
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.resources import migrateResources
+from twisted.python.reflect import namedAny
+
+deadPropertyXattrPrefix = namedAny(
+    "txdav.base.propertystore.xattr.PropertyStore.deadPropertyXattrPrefix"
+)
 
 log = Logger()
+
+def xattrname(n):
+    return deadPropertyXattrPrefix + n
 
 def getCalendarServerIDs(config):
 
@@ -164,7 +172,7 @@ def upgrade_to_1(config):
 
                 md5value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getcontentmd5 xmlns='http://twistedmatrix.com/xml_namespace/dav/'>%s</getcontentmd5>\r\n" % (hashlib.md5(data).hexdigest(),)
                 md5value = zlib.compress(md5value)
-                xattr.setxattr(resPath, "WebDAV:{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5", md5value)
+                xattr.setxattr(resPath, xattrname("{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"), md5value)
 
                 collectionUpdated = True
 
@@ -172,7 +180,7 @@ def upgrade_to_1(config):
         if collectionUpdated:
             ctagValue = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getctag xmlns='http://calendarserver.org/ns/'>%s</getctag>\r\n" % (str(datetime.datetime.now()),)
             ctagValue = zlib.compress(ctagValue)
-            xattr.setxattr(calPath, "WebDAV:{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag", ctagValue)
+            xattr.setxattr(calPath, xattrname("{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"), ctagValue)
 
         return errorOccurred
 
@@ -202,7 +210,7 @@ def upgrade_to_1(config):
                 # __uids__/<guid> form
                 if cal == "inbox":
                     for attr, value in xattr.xattr(calPath).iteritems():
-                        if attr == "WebDAV:{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set":
+                        if attr == xattrname("{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"):
                             value = updateFreeBusySet(value, directory)
                             if value is not None:
                                 # Need to write the xattr back to disk
