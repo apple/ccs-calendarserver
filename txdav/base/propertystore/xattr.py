@@ -36,6 +36,7 @@ from twext.web2.dav.davxml import WebDAVDocument
 
 from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName, validKey
 from txdav.idav import PropertyStoreError
+from twisted.python.reflect import namedAny
 
 
 #
@@ -61,15 +62,11 @@ class PropertyStore(AbstractPropertyStore):
 
         http://undefined.org/python/#xattr
     """
-    #
-    # Dead properties are stored as extended attributes on disk.  In order to
-    # avoid conflicts with other attributes, prefix dead property names.
-    #
-    deadPropertyXattrPrefix = "WebDAV:"
 
-    # Linux seems to require that attribute names use a "user." prefix.
-    if sys.platform == "linux2":
-        deadPropertyXattrPrefix = "user." + deadPropertyXattrPrefix
+    # Mimic old xattr-prefix behavior by importing it directly.
+    deadPropertyXattrPrefix = namedAny(
+        "twext.web2.dav.xattrprops.xattrPropertyStore.deadPropertyXattrPrefix"
+    )
 
     # There is a 127 character limit for xattr keys so we need to compress/expand
     # overly long namespaces to help stay under that limit now that GUIDs are also
