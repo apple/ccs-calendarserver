@@ -1883,21 +1883,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         result = (yield super(CalendarPrincipalResource, self).readProperty(property, request))
         returnValue(result)
 
-    def calendarHomeURLs(self):
-        if self.hasDeadProperty((caldav_namespace, "calendar-home-set")):
-            home_set = self.readDeadProperty((caldav_namespace, "calendar-home-set"))
-            return [str(h) for h in home_set.children]
-        else:
-            return ()
-
-    def calendarUserAddresses(self):
-        if self.hasDeadProperty((caldav_namespace, "calendar-user-address-set")):
-            addresses = self.readDeadProperty((caldav_namespace, "calendar-user-address-set"))
-            return [str(h) for h in addresses.children]
-        else:
-            # Must have a valid address of some kind so use the principal uri
-            return (self.principalURL(),)
-
     def calendarFreeBusyURIs(self, request):
         def gotInbox(inbox):
             if inbox is None:
@@ -1927,47 +1912,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         @return: the deferred schedule inbox for this principal.
         """
         return request.locateResource(self.scheduleInboxURL())
-
-    def scheduleInboxURL(self):
-        if self.hasDeadProperty((caldav_namespace, "schedule-inbox-URL")):
-            inbox = self.readDeadProperty((caldav_namespace, "schedule-inbox-URL"))
-            return str(inbox.children[0])
-        else:
-            return None
-
-    def scheduleOutboxURL(self):
-        """
-        @return: the schedule outbox URL for this principal.
-        """
-        if self.hasDeadProperty((caldav_namespace, "schedule-outbox-URL")):
-            outbox = self.readDeadProperty((caldav_namespace, "schedule-outbox-URL"))
-            return str(outbox.children[0])
-        else:
-            return None
-
-    def dropboxURL(self):
-        """
-        @return: the drop box home collection URL for this principal.
-        """
-        if self.hasDeadProperty((calendarserver_namespace, "dropbox-home-URL")):
-            inbox = self.readDeadProperty((caldav_namespace, "dropbox-home-URL"))
-            return str(inbox.children[0])
-        else:
-            return None
-
-    def notificationURL(self, request=None):
-        if self.hasDeadProperty((calendarserver_namespace, "notification-URL")):
-            notification = self.readDeadProperty((calendarserver_namespace, "notification-URL"))
-            return succeed(str(notification.children[0]))
-        else:
-            return succeed(None)
-
-    def addressBookHomeURLs(self):
-        if self.hasDeadProperty((carddav_namespace, "addressbook-home-set")):
-            home_set = self.readDeadProperty((carddav_namespace, "addressbook-home-set"))
-            return [str(h) for h in home_set.children]
-        else:
-            return ()
 
     ##
     # Quota
