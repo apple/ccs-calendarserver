@@ -306,23 +306,6 @@ create table ATTACHMENT (
 create index ATTACHMENT_DROPBOX_ID on ATTACHMENT(DROPBOX_ID);
 
 
-------------------
--- iTIP Message --
-------------------
-
-create table ITIP_MESSAGE (
-  CALENDAR_RESOURCE_ID integer      not null references CALENDAR,
-  ICALENDAR_TEXT       text         not null,
-  ICALENDAR_UID        varchar(255) not null,
-  MD5                  char(32)     not null,
-  CHANGES              text         not null
-);
-
-
-create index ITIP_MESSAGE_CALENDAR_RESOURCE_ID on
-  ITIP_MESSAGE(CALENDAR_RESOURCE_ID);
-
-
 -----------------------
 -- Resource Property --
 -----------------------
