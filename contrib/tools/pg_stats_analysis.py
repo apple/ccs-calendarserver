@@ -74,11 +74,13 @@ COLUMN_temp_blks_written = 13
 
 def sqlStatementsReport(entries):
     
-    dcount = collections.defaultdict(int)    
-    dtime = collections.defaultdict(float)    
+    dcount = collections.defaultdict(int)
+    dtime = collections.defaultdict(float)
+    drows = collections.defaultdict(int)
     for entry in entries:
         dcount[entry[COLUMN_query]] += int(entry[COLUMN_calls])
         dtime[entry[COLUMN_query]] += float(entry[COLUMN_total_time])
+        drows[entry[COLUMN_query]] += int(entry[COLUMN_rows])
     
     daverage = {}
     for k in dcount.keys():
@@ -94,7 +96,7 @@ def sqlStatementsReport(entries):
         ("average time", [i[0] for i in sorted(daverage.iteritems(), key=lambda x:x[1], reverse=True)],),
     ):
         table = tables.Table()
-        table.addHeader(("Statement", "Count", "Count %", "Total Time", "Total Time %", "Av. Time", "Av. Time %",))
+        table.addHeader(("Statement", "Count", "Count %", "Total Time", "Total Time %", "Av. Time", "Av. Time %", "Av. rows",))
         table.setDefaultColumnFormats((
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY), 
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -103,6 +105,7 @@ def sqlStatementsReport(entries):
             tables.Table.ColumnFormat("%.2f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.2f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
         ))
     
         for key in sortedkeys:
@@ -116,11 +119,13 @@ def sqlStatementsReport(entries):
                 safePercent(dtime[key], timetotal, 100.0),
                 daverage[key],
                 safePercent(daverage[key], averagetotal, 100.0),
+                float(drows[key])/dcount[key],
             ))
             
             for keyline in keylines[1:]:
                 table.addRow((
                     keyline,
+                    None,
                     None,
                     None,
                     None,
