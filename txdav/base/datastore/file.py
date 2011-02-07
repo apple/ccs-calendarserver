@@ -240,7 +240,7 @@ class FileMetaDataMixin(object):
         @rtype: C{int}
         """
         if self._path.exists():
-            return self._path.getsize()
+            return int(self._path.getsize())
         else:
             return 0
 
