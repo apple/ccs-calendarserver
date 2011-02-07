@@ -21,6 +21,7 @@ except ImportError:
 else:
     from twisted.trial.unittest import SkipTest
     from twisted.internet.defer import inlineCallbacks
+    from twisted.python.runtime import platform
     from twext.web2.auth.digest import DigestedCredentials
     import twistedcaldav.directory.test.util
     from twistedcaldav.directory import augment
@@ -43,6 +44,8 @@ else:
         """
         Test Open Directory directory implementation.
         """
+        if not platform.isMacOSX():
+            skip = "Currently, OpenDirectory backend only works on MacOS X."
         recordTypes = set((
             DirectoryService.recordType_users,
             DirectoryService.recordType_groups,
