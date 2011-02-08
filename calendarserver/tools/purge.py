@@ -16,29 +16,34 @@
 # limitations under the License.
 ##
 
-from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
-from twisted.application.service import Service
-from calendarserver.tap.util import FakeRequest
-from calendarserver.tap.util import getRootResource
-from calendarserver.tools.principals import removeProxy
-from calendarserver.tools.util import loadConfig
+import os
+import sys
+
 from datetime import date, timedelta, datetime
 from getopt import getopt, GetoptError
-from twext.python.log import Logger
-from twext.web2.dav import davxml
-from twext.web2.responsecode import NO_CONTENT
+
+from vobject.icalendar import utc
+
+from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.directory.directory import DirectoryRecord
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.query import calendarqueryfilter
-from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
-from vobject.icalendar import utc
-import os
-import sys
+
+from twext.python.log import Logger
+from twext.web2.dav import davxml
+from twext.web2.responsecode import NO_CONTENT
+
+from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
+from calendarserver.tap.util import FakeRequest
+from calendarserver.tap.util import getRootResource
+from calendarserver.tools.principals import removeProxy
+from calendarserver.tools.util import loadConfig
 
 log = Logger()
 
@@ -125,7 +130,7 @@ class PurgeOldEventsService(Service):
                 self.cutoff, self.batchSize, verbose=self.verbose,
                 dryrun=self.dryrun))
         except Exception, e:
-            print "Error:", e
+            sys.stderr.write("Error: %s\n" % (e,))
             raise
 
         finally:
@@ -147,7 +152,7 @@ class PurgeOrphanedAttachmentsService(Service):
             (yield purgeOrphanedAttachments(self._store, self.batchSize,
                 verbose=self.verbose, dryrun=self.dryrun))
         except Exception, e:
-            print "Error:", e
+            sys.stderr.write("Error: %s\n" % (e,))
             raise
 
         finally:
@@ -177,7 +182,7 @@ class PurgePrincipalService(Service):
                 else:
                     print "Modified or deleted %s" % (amount,)
         except Exception, e:
-            print "Error:", e
+            sys.stderr.write("Error: %s\n" % (e,))
             raise
         finally:
             reactor.stop()
@@ -199,7 +204,7 @@ def shared_main(configFileName, serviceClass):
         reactor.addSystemEventTrigger("before", "shutdown", service.stopService)
 
     except ConfigurationError, e:
-        print "Error: %s" % (e,)
+        sys.stderr.write("Error: %s\n" % (e,))
         return
 
     reactor.run()
@@ -397,7 +402,7 @@ def callThenStop(method, *args, **kwds):
         else:
             print "Purged %d events" % (count,)
     except Exception, e:
-        print "Error: %s" % (e,)
+        sys.stderr.write("Error: %s\n" % (e,))
     finally:
         reactor.stop()
 
