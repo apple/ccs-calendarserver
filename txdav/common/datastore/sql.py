@@ -378,6 +378,8 @@ class CommonHome(LoggingMixIn):
     _notifierPrefix = None
     _revisionsTable = None
     _notificationRevisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
+    
+    _cacher = None  # Initialize in derived classes
 
     def __init__(self, transaction, ownerUID, notifiers):
         self._txn = transaction
@@ -398,17 +400,22 @@ class CommonHome(LoggingMixIn):
             self._revisionBindJoinTable["BIND:%s" % (key,)] = value
 
     @inlineCallbacks
-    def initFromStore(self):
+    def initFromStore(self, no_cache=False):
         """
         Initialize this object from the store. We read in and cache all the extra meta-data
         from the DB to avoid having to do DB queries for those individually later.
         """
 
-        result = yield self._txn.execSQL(
-            "select %(column_RESOURCE_ID)s from %(name)s"
-            " where %(column_OWNER_UID)s = %%s" % self._homeTable,
-            [self._ownerUID]
-        )
+        result = yield self._cacher.get(self._ownerUID)
+        if result is None:
+            result = yield self._txn.execSQL(
+                "select %(column_RESOURCE_ID)s from %(name)s"
+                " where %(column_OWNER_UID)s = %%s" % self._homeTable,
+                [self._ownerUID]
+            )
+            if result and not no_cache:
+                yield self._cacher.set(self._ownerUID, result)
+
         if result:
             self._resourceID = result[0][0]
             yield self._loadPropertyStore()
@@ -434,10 +441,15 @@ class CommonHome(LoggingMixIn):
             if not create:
                 returnValue(None)
             # Need to lock to prevent race condition
+
             # FIXME: this is an entire table lock - ideally we want a row lock
             # but the row does not exist yet. However, the "exclusive" mode
             # does allow concurrent reads so the only thing we block is other
             # attempts to provision a home, which is not too bad
+            
+            # Also note that we must not cache the owner_uid->resource_id mapping in _cacher
+            # when creating as we don't want that to appear until AFTER the commit
+
             yield txn.execSQL(
                 "lock %(name)s in exclusive mode" % cls._homeTable,
             )
@@ -458,7 +470,8 @@ class CommonHome(LoggingMixIn):
                     "insert into %(name)s (%(column_RESOURCE_ID)s) values (%%s)" % cls._homeMetaDataTable,
                     [resourceid]
                 )
-            home = yield cls.homeWithUID(txn, uid)
+            home = cls(txn, uid, notifiers)
+            home = (yield home.initFromStore(no_cache=not exists))
             if not exists:
                 yield home.createdHome()
             returnValue(home)

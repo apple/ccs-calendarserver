@@ -34,7 +34,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 class PropertyStore(AbstractPropertyStore):
 
-    cacher = Memcacher("propertystore.sql", pickle=True)
+    _cacher = Memcacher("propertystore.sql", pickle=True, key_normalization=False)
 
     def __init__(self, *a, **kw):
         raise NotImplementedError(
@@ -55,7 +55,7 @@ class PropertyStore(AbstractPropertyStore):
             # Cache existing properties in this object 
 
             # Look for memcache entry first
-            rows = yield self.cacher.get(str(self._resourceID))
+            rows = yield self._cacher.get(str(self._resourceID))
             
             if rows is None:
                 rows = yield self._txn.execSQL(
@@ -65,7 +65,7 @@ class PropertyStore(AbstractPropertyStore):
                     """,
                     [self._resourceID]
                 )
-                yield self.cacher.set(str(self._resourceID), rows if rows is not None else ())
+                yield self._cacher.set(str(self._resourceID), rows if rows is not None else ())
             for name, uid, value in rows:
                 self._cached[(name, uid)] = value
 
@@ -151,7 +151,7 @@ class PropertyStore(AbstractPropertyStore):
                 [self._resourceID, key_str, value_str, uid]
             )
         self._cached[(key_str, uid)] = value_str
-        self.cacher.delete(str(self._resourceID))
+        self._cacher.delete(str(self._resourceID))
 
     def _delitem_uid(self, key, uid):
         validKey(key)
@@ -166,7 +166,7 @@ class PropertyStore(AbstractPropertyStore):
             [self._resourceID, key_str, uid],
             raiseOnZeroRowCount=lambda:KeyError(key)
         )
-        self.cacher.delete(str(self._resourceID))
+        self._cacher.delete(str(self._resourceID))
             
 
     def _keys_uid(self, uid):

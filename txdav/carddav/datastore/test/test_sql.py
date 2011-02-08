@@ -31,6 +31,8 @@ from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks, returnValue
 
+from twistedcaldav import memcacher
+from twistedcaldav.config import config
 from twistedcaldav.vcard import Component as VCard
 
 
@@ -41,6 +43,10 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
+        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
+        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
+        self.patch(memcacher.Memcacher, "allowTestCache", True)
+
         yield super(AddressBookSQLStorageTests, self).setUp()
         self._sqlStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()

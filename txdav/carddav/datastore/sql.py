@@ -34,6 +34,7 @@ from twext.web2.dav.element.rfc2518 import ResourceType
 from twext.web2.http_headers import MimeType
 
 from twistedcaldav import carddavxml, customxml
+from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.vcard import Component as VCard
 
 from txdav.common.datastore.sql_legacy import \
@@ -67,6 +68,8 @@ class AddressBookHome(CommonHome):
     _objectBindTable = ADDRESSBOOK_OBJECT_AND_BIND_TABLE
     _notifierPrefix = "CardDAV"
     _revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
+
+    _cacher = Memcacher("datastore.adbkhome", pickle=True, key_normalization=False)
 
     def __init__(self, transaction, ownerUID, notifiers):
 

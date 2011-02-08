@@ -36,7 +36,8 @@ from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
 from txdav.base.propertystore.base import PropertyName
 
-
+from twistedcaldav import memcacher
+from twistedcaldav.config import config
 
 class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     """
@@ -45,6 +46,10 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
+        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
+        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
+        self.patch(memcacher.Memcacher, "allowTestCache", True)
+
         yield super(CalendarSQLStorageTests, self).setUp()
         self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()

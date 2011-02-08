@@ -70,6 +70,10 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             except KeyError:
                 return succeed(False)
 
+        def flush_all(self):
+            self._cache = {}
+            return succeed(True)
+            
     #TODO: an sqlite based cacher that can be used for multiple instance servers
     # in the absence of memcached. This is not ideal and we may want to not implement
     # this, but it is being documented for completeness.
@@ -93,7 +97,10 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         def delete(self, key):
             return succeed(True)
 
-    def __init__(self, namespace, pickle=False, no_invalidation=False):
+        def flush_all(self):
+            return succeed(True)
+
+    def __init__(self, namespace, pickle=False, no_invalidation=False, key_normalization=True):
         """
         @param namespace: a unique namespace for this cache's keys
         @type namespace: C{str}
@@ -105,6 +112,9 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             is not present,as there is no issue with caches in each instance getting out of sync. If C{False} the
             nullCacher will be used for the multi-instance case when memcached is not configured.
         @type no_invalidation: C{bool}
+        @param key_normalization: if C{True} the key is assumed to possibly be longer than the Memcache key size and so additional
+            work is done to truncate and append a hash.
+        @type key_normalization: C{bool}
         """
         
         assert len(namespace) <= Memcacher.NAMESPACE_MAX_LENGTH, "Memcacher namespace must be less than or equal to %s characters long" % (Memcacher.NAMESPACE_MAX_LENGTH,)
@@ -113,6 +123,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         self._namespace = namespace
         self._pickle = pickle
         self._noInvalidation = no_invalidation
+        self._key_normalization = key_normalization
 
 
     def _getMemcacheProtocol(self):
@@ -141,9 +152,12 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             key = key.encode("utf-8")
         assert isinstance(key, str), "Key must be a str."
 
-        hash = hashlib.md5(key).hexdigest()
-        key = key[:Memcacher.TRUNCATED_KEY_LENGTH]
-        return "%s-%s" % (key.translate(Memcacher.keyNormalizeTranslateTable), hash,)
+        if self._key_normalization:
+            hash = hashlib.md5(key).hexdigest()
+            key = key[:Memcacher.TRUNCATED_KEY_LENGTH]
+            return "%s-%s" % (key.translate(Memcacher.keyNormalizeTranslateTable), hash,)
+        else:
+            return key
 
     def add(self, key, value, expire_time=0):
         
@@ -177,7 +191,10 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         d.addCallback(_gotit)
         return d
 
-
     def delete(self, key):
         self.log_debug("Deleting Cache Token for %r" % (key,))
         return self._getMemcacheProtocol().delete('%s:%s' % (self._namespace, self._normalizeKey(key)))
+
+    def flush_all(self):
+        self.log_debug("Flushing All Cache Tokens")
+        return self._getMemcacheProtocol().flush_all()

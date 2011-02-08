@@ -40,6 +40,7 @@ from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime
 from twistedcaldav.ical import Component
 from twistedcaldav.instance import InvalidOverriddenInstanceError
+from twistedcaldav.memcacher import Memcacher
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.util import validateCalendarComponent,\
@@ -76,6 +77,8 @@ class CalendarHome(CommonHome):
     _objectBindTable = CALENDAR_OBJECT_AND_BIND_TABLE
     _notifierPrefix = "CalDAV"
     _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
+
+    _cacher = Memcacher("datastore.calhome", pickle=True, key_normalization=False)
 
     def __init__(self, transaction, ownerUID, notifiers):
 

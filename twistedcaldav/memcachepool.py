@@ -360,6 +360,9 @@ class MemCachePool(LoggingMixIn):
     def add(self, *args, **kwargs):
         return self.performRequest('add', *args, **kwargs)
 
+    def flush_all(self, *args, **kwargs):
+        return self.performRequest('flush_all', *args, **kwargs)
+
 
 
 class CachePoolUserMixIn(object):

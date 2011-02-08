@@ -164,6 +164,14 @@ class SQLStoreBuilder(object):
             except:
                 log.err()
         yield cleanupTxn.commit()
+        
+        # Deal with memcached items that must be cleared
+        from txdav.caldav.datastore.sql import CalendarHome
+        CalendarHome._cacher.flush_all()
+        from txdav.carddav.datastore.sql import AddressBookHome
+        AddressBookHome._cacher.flush_all()
+        from txdav.base.propertystore.sql import PropertyStore
+        PropertyStore._cacher.flush_all()
 
 theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore

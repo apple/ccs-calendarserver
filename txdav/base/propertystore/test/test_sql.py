@@ -26,6 +26,9 @@ from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.test import base
 
+from twistedcaldav import memcacher
+from twistedcaldav.config import config
+
 try:
     from txdav.base.propertystore.sql import PropertyStore
 except ImportError, e:
@@ -39,6 +42,10 @@ class PropertyStoreTest(base.PropertyStoreTest):
 
     @inlineCallbacks
     def setUp(self):
+        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
+        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
+        self.patch(memcacher.Memcacher, "allowTestCache", True)
+
         self.notifierFactory = StubNotifierFactory()
         self.store = yield buildStore(self, self.notifierFactory)
         self.addCleanup(self.maybeCommitLast)
