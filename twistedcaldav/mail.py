@@ -853,6 +853,7 @@ class MailHandler(LoggingMixIn):
                     attendees.append( (cn, mailto) )
 
 
+        recipient = recipient.lower()
         toAddr = recipient
         if not recipient.startswith("mailto:"):
             raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (recipient,))
@@ -909,12 +910,13 @@ class MailHandler(LoggingMixIn):
 
         else: # REPLY
             inviteState = "reply"
+            originator = originator.lower()
             if not originator.startswith("mailto:"):
                 raise ValueError("Originator address '%s' must be mailto: for REPLY." % (originator,))
             formattedFrom = fromAddr = originator = originator[7:]
 
             organizerMailto = str(calendar.getOrganizer())
-            if not organizerMailto.startswith("mailto:"):
+            if not organizerMailto.lower().startswith("mailto:"):
                 raise ValueError("ORGANIZER address '%s' must be mailto: for REPLY." % (organizerMailto,))
             orgEmail = organizerMailto[7:]
 

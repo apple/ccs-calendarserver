@@ -22,6 +22,7 @@ from twistedcaldav.scheduling.imip import ScheduleViaIMip
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.scheduling.scheduler import ScheduleResponseQueue
 import twistedcaldav.test.util
+from twistedcaldav.config import config
 
 class iMIPProcessing (twistedcaldav.test.util.TestCase):
     """
@@ -60,3 +61,10 @@ END:VCALENDAR
         
         self.assertEqual(len(responses.responses), 1)
         self.assertEqual(str(responses.responses[0].children[1]), iTIPRequestStatus.SERVICE_UNAVAILABLE)
+
+
+    def test_matchCalendarUserAddress(self):
+        # iMIP not sensitive to case:
+        self.patch(config.Scheduling[ScheduleViaIMip.serviceType()], "AddressPatterns", ["mailto:.*"])
+        self.assertTrue(ScheduleViaIMip.matchCalendarUserAddress("mailto:user@xyzexample.com"))
+        self.assertTrue(ScheduleViaIMip.matchCalendarUserAddress("MAILTO:user@xyzexample.com"))

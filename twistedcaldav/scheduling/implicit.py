@@ -881,7 +881,7 @@ class ImplicitScheduler(object):
         is_server = self.calendar.getOrganizerScheduleAgent()
         local_organizer = isinstance(self.organizerAddress, LocalCalendarUser)
 
-        if config.Scheduling.iMIP.Enabled and self.organizerAddress.cuaddr.startswith("mailto:"):
+        if config.Scheduling.iMIP.Enabled and self.organizerAddress.cuaddr.lower().startswith("mailto:"):
             return True
 
         if not local_organizer and is_server:

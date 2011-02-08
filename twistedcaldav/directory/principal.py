@@ -926,7 +926,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
                 self.record.service.calendarHomesCollection.url(),
                 uidsResourceName,
                 self.record.uid
-            )
+            ) + "/"
         url = self.calendarHomeURL
         if url is None:
             return None
@@ -951,7 +951,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
                 self.record.service.addressBookHomesCollection.url(),
                 uidsResourceName,
                 self.record.uid
-            )
+            ) + "/"
         url = self.addressBookHomeURL
         if url is None:
             return None

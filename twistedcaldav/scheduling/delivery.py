@@ -50,7 +50,8 @@ class DeliveryService(object):
 
     @classmethod
     def matchCalendarUserAddress(cls, cuaddr):
-        
+
+        cuaddr = cuaddr.lower()
         # Do the pattern match
         for pattern in config.Scheduling[cls.serviceType()]["AddressPatterns"]:
             try:
