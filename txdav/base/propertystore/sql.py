@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import inlineCallbacks, returnValue
 
 """
 PostgreSQL data store.
@@ -24,12 +23,18 @@ __all__ = [
     "PropertyStore",
 ]
 
+from twistedcaldav.memcacher import Memcacher
+
 from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName,\
     validKey
 
 from twext.web2.dav.davxml import WebDAVDocument
 
+from twisted.internet.defer import inlineCallbacks, returnValue
+
 class PropertyStore(AbstractPropertyStore):
+
+    cacher = Memcacher("propertystore.sql", pickle=True)
 
     def __init__(self, *a, **kw):
         raise NotImplementedError(
@@ -46,16 +51,25 @@ class PropertyStore(AbstractPropertyStore):
         self._resourceID = resourceID
         self._cached = {}
         if not created:
-            # Cache existing properties
-            rows = yield self._txn.execSQL(
-                """
-                select NAME, VIEWER_UID, VALUE from RESOURCE_PROPERTY
-                where RESOURCE_ID = %s
-                """,
-                [self._resourceID]
-            )
+            
+            # Cache existing properties in this object 
+
+            # Look for memcache entry first
+            rows = yield self.cacher.get(str(self._resourceID))
+            
+            if rows is None:
+                rows = yield self._txn.execSQL(
+                    """
+                    select NAME, VIEWER_UID, VALUE from RESOURCE_PROPERTY
+                    where RESOURCE_ID = %s
+                    """,
+                    [self._resourceID]
+                )
+                yield self.cacher.set(str(self._resourceID), rows if rows is not None else ())
             for name, uid, value in rows:
                 self._cached[(name, uid)] = value
+
+
         returnValue(self)
 
     @classmethod
@@ -137,7 +151,7 @@ class PropertyStore(AbstractPropertyStore):
                 [self._resourceID, key_str, value_str, uid]
             )
         self._cached[(key_str, uid)] = value_str
-
+        self.cacher.delete(str(self._resourceID))
 
     def _delitem_uid(self, key, uid):
         validKey(key)
@@ -152,6 +166,7 @@ class PropertyStore(AbstractPropertyStore):
             [self._resourceID, key_str, uid],
             raiseOnZeroRowCount=lambda:KeyError(key)
         )
+        self.cacher.delete(str(self._resourceID))
             
 
     def _keys_uid(self, uid):
