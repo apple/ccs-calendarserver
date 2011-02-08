@@ -1313,7 +1313,9 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
     A resource wrapping a calendar object.
     """
 
-    compareAttributes = ("_newStoreObject")
+    compareAttributes = (
+        "_newStoreObject",
+    )
 
     _componentFromStream = VCalendar.fromString
 
