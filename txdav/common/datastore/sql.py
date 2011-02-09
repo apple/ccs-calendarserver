@@ -68,7 +68,7 @@ from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
 from txdav.base.propertystore.sql import PropertyStore
 
 from twistedcaldav.customxml import NotificationType
-from twistedcaldav.dateops import datetimeMktime
+from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp
 
 
 v1_schema = getModule(__name__).filePath.sibling("sql_schema_v1.sql").getContent()
@@ -1682,11 +1682,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
 
     def created(self):
-        return datetimeMktime(datetime.datetime.strptime(self._created, "%Y-%m-%d %H:%M:%S.%f")) if self._created else None
+        return datetimeMktime(parseSQLTimestamp(self._created)) if self._created else None
 
 
     def modified(self):
-        return datetimeMktime(datetime.datetime.strptime(self._modified, "%Y-%m-%d %H:%M:%S.%f")) if self._modified else None
+        return datetimeMktime(parseSQLTimestamp(self._modified)) if self._modified else None
 
 
     def addNotifier(self, notifier):
@@ -1959,13 +1959,11 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     def created(self):
-        utc = datetime.datetime.strptime(self._created, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        return datetimeMktime(parseSQLTimestamp(self._created))
 
 
     def modified(self):
-        utc = datetime.datetime.strptime(self._modified, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        return datetimeMktime(parseSQLTimestamp(self._modified))
 
 
     @inlineCallbacks
@@ -2519,13 +2517,11 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         return self._xmlType
 
     def created(self):
-        utc = datetime.datetime.strptime(self._created, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        return datetimeMktime(parseSQLTimestamp(self._created))
 
 
     def modified(self):
-        utc = datetime.datetime.strptime(self._modified, "%Y-%m-%d %H:%M:%S.%f")
-        return datetimeMktime(utc)
+        return datetimeMktime(parseSQLTimestamp(self._modified))
 
 
 

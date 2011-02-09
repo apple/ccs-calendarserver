@@ -37,7 +37,8 @@ from twisted.python.failure import Failure
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
-from twistedcaldav.dateops import normalizeForIndex, datetimeMktime
+from twistedcaldav.dateops import normalizeForIndex, datetimeMktime,\
+    parseSQLTimestamp
 from twistedcaldav.ical import Component
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
@@ -780,7 +781,7 @@ class AttachmentStorageTransport(object):
 
 
 def sqltime(value):
-    return datetimeMktime(datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f"))
+    return datetimeMktime(parseSQLTimestamp(value))
 
 class Attachment(object):
 

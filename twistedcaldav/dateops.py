@@ -223,7 +223,14 @@ def clipPeriod(period, clipPeriod):
             return (start, end - start)
         else:
             return (start, end)
- 
+
+def parseSQLTimestamp(ts):
+    
+    # Handle case where fraction seconds may not be present
+    if len(ts) < 20:
+        ts += ".0"
+    return datetime.datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f")
+
 def datetimeMktime(dt):
 
     assert isinstance(dt, datetime.date)

@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+import datetime
+from twistedcaldav.dateops import datetimeMktime
 
 """
 Tests for txdav.caldav.datastore.postgres, mostly based on
@@ -370,3 +372,23 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
         yield d1
         yield d2
+
+    @inlineCallbacks
+    def test_datetimes(self):
+        calendarStore = self._sqlCalendarStore
+
+        # Provision the home and calendar now
+        txn = calendarStore.newTransaction()
+        home = yield txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        cal = yield home.calendarWithName("calendar")
+        cal._created = "2011-02-05 11:22:47"
+        cal._modified = "2011-02-06 11:22:47"
+        self.assertEqual(cal.created(), datetimeMktime(datetime.datetime(2011, 2, 5, 11, 22, 47)))
+        self.assertEqual(cal.modified(), datetimeMktime(datetime.datetime(2011, 2, 6, 11, 22, 47)))
+
+        obj = yield self.calendarObjectUnderTest()
+        obj._created = "2011-02-07 11:22:47"
+        obj._modified = "2011-02-08 11:22:47"
+        self.assertEqual(obj.created(), datetimeMktime(datetime.datetime(2011, 2, 7, 11, 22, 47)))
+        self.assertEqual(obj.modified(), datetimeMktime(datetime.datetime(2011, 2, 8, 11, 22, 47)))
+        
