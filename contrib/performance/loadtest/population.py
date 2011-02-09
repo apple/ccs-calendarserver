@@ -27,6 +27,17 @@ from loadtest.ical import SnowLeopard, RequestLogger
 from loadtest.profiles import Eventer, Inviter, Accepter
 
 
+class ClientType(object):
+    """
+    @ivar clientType: An L{ICalendarClient} implementation
+    @ivar profileTypes: A list of L{ICalendarUserProfile} implementations
+    """
+    def __init__(self, clientType, profileTypes):
+        self.clientType = clientType
+        self.profileTypes = profileTypes
+
+
+
 class PopulationParameters(object):
     """
     Descriptive statistics about a population of Calendar Server users.
@@ -36,7 +47,9 @@ class PopulationParameters(object):
         Return a list of two-tuples giving the weights and types of
         clients in the population.
         """
-        return [(1, SnowLeopard)]
+        return [
+            (1, ClientType(SnowLeopard, [Eventer, Inviter, Accepter])),
+            ]
 
 
 
@@ -67,7 +80,7 @@ class Populator(object):
         population with the given parameters.
         
         @type parameters: L{PopulationParameters}
-        @rtype: generator of L{ICalendarClient} providers
+        @rtype: generator of L{ClientType} instances
         """
         for (clientType,) in izip(self._cycle(parameters.clientTypes())):
             yield clientType
@@ -106,12 +119,31 @@ class CalendarClientSimulator(object):
         for n in range(numClients):
             number = self._nextUserNumber()
             user, auth = self._createUser(number)
-            client = self._pop.next()(self.reactor, self.host, self.port, user, auth)
+
+            clientType = self._pop.next()
+            client = clientType.clientType(
+                self.reactor, self.host, self.port, user, auth)
             client.run()
-            Eventer(self.reactor, client, number).run()
-            Inviter(self.reactor, client, number).run()
-            Accepter(self.reactor, client, number).run()
+
+            for profileType in clientType.profileTypes:
+                profileType(self.reactor, client, number).run()
+
         print 'Now running', self._user - 1, 'clients.'
+
+
+
+class SmoothRampUp(object):
+    def __init__(self, reactor, groups, groupSize, interval):
+        self.reactor = reactor
+        self.groups = groups
+        self.groupSize = groupSize
+        self.interval = interval
+
+
+    def run(self, simulator):
+        for i in range(self.groups):
+            self.reactor.callLater(
+                self.interval * i, simulator.add, self.groupSize)
 
 
 
@@ -214,9 +246,9 @@ def main():
     simulator = CalendarClientSimulator(
         populator, parameters, reactor, '127.0.0.1', 8008)
 
-    # Add some clients.
-    for i in range(10):
-        reactor.callLater(i * 30, simulator.add, 1)
+    arrivalPolicy = SmoothRampUp(groups=10, groupSize=1, interval=3)
+    arrivalPolicy.run(reactor, simulator)
+
     reactor.run()
     report.summarize()
 
