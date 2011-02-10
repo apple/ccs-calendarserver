@@ -26,6 +26,7 @@ import optparse
 import os
 import pwd
 import shutil
+import subprocess
 import sys
 
 from plistlib import readPlist, writePlist
@@ -42,6 +43,7 @@ CALDAVD_PLIST = "caldavd.plist"
 CARDDAVD_PLIST = "carddavd.plist"
 NEW_SERVER_ROOT = "/Library/Server/Calendar and Contacts"
 RESOURCE_MIGRATION_TRIGGER = "trigger_resource_migration"
+SERVER_ADMIN = "/usr/sbin/serveradmin"
 
 
 verbatimKeys = """
@@ -255,14 +257,13 @@ def examineRunState(options):
 
 def setRunState(options, enableCalDAV, enableCardDAV):
     """
-    Modify the launchd settings in the new system.
+    Use serveradmin to launch the service if needed.
     """
 
-    # Lion has no separate addressbook service, so just worry about caldav:
     if enableCalDAV or enableCardDAV:
-        setServiceStateDisabled(options.targetRoot, CALDAV_LAUNCHD_KEY, False)
-    else:
-        setServiceStateDisabled(options.targetRoot, CALDAV_LAUNCHD_KEY, True)
+        log("Starting service via serveradmin")
+        ret = subprocess.call([SERVER_ADMIN, "start", "calendar"])
+        log("serveradmin exited with %d" % (ret,))
 
 
 def triggerResourceMigration(newServerRootValue):
