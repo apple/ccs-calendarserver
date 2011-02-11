@@ -321,14 +321,14 @@ class DTraceCollector(object):
 
 
 @inlineCallbacks
-def benchmark(host, port, pids, label, benchmarks):
-    parameters = [1, 9, 81]
+def benchmark(host, port, pids, label, scalingParameters, benchmarks):
     samples = 200
 
     statistics = {}
 
     for (name, measure) in benchmarks:
         statistics[name] = {}
+        parameters = scalingParameters.get(name, [1, 9, 81])
         for p in parameters:
             print '%s, parameter=%s' % (name, p)
             dtrace = DTraceCollector("io_measure.d", pids)
@@ -368,6 +368,11 @@ class BenchmarkOptions(Options):
         ('debug', None, 'Enable various debugging helpers'),
         ]
 
+    def __init__(self):
+        Options.__init__(self)
+        self['parameters'] = {}
+
+
     def _selectBenchmarks(self, benchmarks):
         """
         Select the benchmarks to run, based on those named and on the
@@ -392,10 +397,24 @@ class BenchmarkOptions(Options):
         return benchmarks
 
 
+    def opt_parameters(self, which):
+        """
+        Specify the scaling parameters for a particular benchmark.
+        The format of the value is <benchmark>:<value>,...,<value>.
+        The given benchmark will be run with a scaling parameter set
+        to each of the given values.  This option may be specified
+        multiple times to specify parameters for multiple benchmarks.
+        """
+        benchmark, values = which.split(':')
+        values = map(int, values.split(','))
+        self['parameters'][benchmark] = values
+
+
     def parseArgs(self, *benchmarks):
         if not benchmarks:
             raise UsageError("Specify at least one benchmark")
         self['benchmarks'] = self._selectBenchmarks(list(benchmarks))
+
 
 
 def whichPIDs(source, conf):
@@ -433,6 +452,7 @@ def main():
 
     d = benchmark(
         options['host'], options['port'], pids, options['label'],
+        options['parameters'],
         [(arg, namedAny(arg).measure) for arg in options['benchmarks']])
     d.addErrback(err)
     reactor.callWhenRunning(d.addCallback, lambda ign: reactor.stop())

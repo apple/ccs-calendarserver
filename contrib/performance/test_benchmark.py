@@ -35,6 +35,17 @@ class BenchmarkOptionsTests(TestCase):
         self.options = BenchmarkOptions()
 
 
+    def test_parameters(self):
+        """
+        The I{--parameters} option can be specified multiple time and
+        each time specifies the parameters for a particular benchmark
+        as a comma separated list of integers.
+        """
+        self.options.parseOptions(["--parameters", "foo:1,10,100", "foo"])
+        self.assertEquals(
+            self.options['parameters'], {"foo": [1, 10, 100]})
+
+
     def test_filterBenchmarksWithoutDistribution(self):
         """
         If neither I{--hosts-count} nor I{--host-index} are supplied,
