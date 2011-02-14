@@ -150,26 +150,19 @@ def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
     l = []
     for i in range(concurrency):
         l.append(once())
-    print 'Start', concurrency
 
     while True:
         try:
-            print 'Waiting...',
             result, index = yield DeferredList(l, fireOnOneCallback=True, fireOnOneErrback=True)
-            print 'Success result at index', index
         except FirstError, e:
-            print 'Failure result, re-raising'
             e.subFailure.raiseException()
 
         if time() > start + sampleTime:
-            print 'Alloted time expired, waiting for remaining...',
             # Wait for the rest of the outstanding requests to keep things tidy
             yield DeferredList(l)
-            print 'Complete.'
             # And then move on
             break
         else:
-            print 'Starting replacement operation'
             # Get rid of the completed Deferred
             del l[index]
             # And start a new operation to replace it
