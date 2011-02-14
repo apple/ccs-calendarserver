@@ -18,7 +18,8 @@ from itertools import count
 from urllib2 import HTTPDigestAuthHandler
 
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, gatherResults
+from twisted.internet.task import cooperate
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
 from twisted.web.http import MULTI_STATUS
@@ -39,6 +40,20 @@ PROPFIND = """\
  </x0:prop>
 </x0:propfind>
 """
+
+def uploadEvents(numEvents, agent, uri, cal):
+    def worker():
+        for i in range(numEvents):
+            event = makeEvent(i, 1, 0)
+            yield agent.request(
+                'PUT',
+                '%s%s%d.ics' % (uri, cal, i),
+                Headers({"content-type": ["text/calendar"]}),
+                StringProducer(event))
+    worker = worker()
+    return gatherResults([
+            cooperate(worker).whenDone() for i in range(3)])
+
 
 @inlineCallbacks
 def measure(host, port, dtrace, numEvents, samples):
@@ -61,17 +76,11 @@ def measure(host, port, dtrace, numEvents, samples):
         "%s:%d" % (host, port),
         user=user, password=password,
         root=root, principal=principal)
-    cal = "/calendars/users/%s/find-events/" % (user,)
-    yield account.makeCalendar(cal)
+    cal = "calendars/users/%s/find-events/" % (user,)
+    yield account.makeCalendar("/" + cal)
 
     # Create the indicated number of events on the calendar
-    for i in range(numEvents):
-        event = makeEvent(i, 1, 0)
-        yield agent.request(
-            'PUT',
-            '%s%s%d.ics' % (uri, cal, i),
-            Headers({"content-type": ["text/calendar"]}),
-            StringProducer(event))
+    yield uploadEvents(numEvents, agent, uri, cal)
 
     body = StringProducer(PROPFIND)
     params = (
