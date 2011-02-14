@@ -40,7 +40,7 @@ for backend in $BACKENDS; do
   rm -rf data/
   start 2
   popd
-  sudo ./run.sh ./benchmark $CONCURRENT --label r$REV-$backend --source-directory $SOURCE_DIR $BENCHMARKS
+  sudo ./run.sh ./benchmark $CONCURRENT --label r$REV-$backend --source-directory $SOURCE_DIR $SCALE_PARAMETERS $BENCHMARKS
   data=`echo -n r$REV-$backend*`
   ./run.sh ./massupload \
       --url $ADDURL --revision $REV \
