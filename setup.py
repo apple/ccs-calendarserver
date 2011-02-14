@@ -125,6 +125,7 @@ if __name__ == "__main__":
                              "bin/calendarserver_purge_principals",
                              "bin/calendarserver_migrate_resources",
                              "bin/calendarserver_monitor_notifications",
+                             "bin/calendarserver_bootstrap_database",
                            ],
         data_files       = [ ("caldavd", ["conf/caldavd.plist"]), ],
         ext_modules      = extensions,

@@ -468,3 +468,16 @@ create table NOTIFICATION_OBJECT_REVISIONS (
 create index NOTIFICATION_OBJECT_REVISIONS_HOME_RESOURCE_ID
   on NOTIFICATION_OBJECT_REVISIONS(NOTIFICATION_HOME_RESOURCE_ID);
 
+
+--------------------
+-- Schema Version --
+--------------------
+
+create table CALENDARSERVER (
+  NAME                          varchar(255),
+  VALUE                         varchar(255),
+  unique(NAME)
+);
+
+insert into CALENDARSERVER values ('VERSION', '3');
+
