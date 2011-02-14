@@ -322,7 +322,12 @@ class DTraceCollector(object):
 
 @inlineCallbacks
 def benchmark(host, port, pids, label, scalingParameters, benchmarks):
-    samples = 200
+    # Collect samples for 2 minutes.  This should give plenty of data
+    # for quick benchmarks.  It will leave lots of error (due to small
+    # sample size) for very slow benchmarks, but the error isn't as
+    # interesting as the fact that a single operation takes
+    # double-digit seconds or longer to complete.
+    sampleTime = 60 / 2
 
     statistics = {}
 
@@ -332,7 +337,7 @@ def benchmark(host, port, pids, label, scalingParameters, benchmarks):
         for p in parameters:
             print '%s, parameter=%s' % (name, p)
             dtrace = DTraceCollector("io_measure.d", pids)
-            data = yield measure(host, port, dtrace, p, samples)
+            data = yield measure(host, port, dtrace, p, sampleTime)
             statistics[name][p] = data
 
     fObj = file(

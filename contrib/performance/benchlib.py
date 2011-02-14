@@ -18,7 +18,8 @@ import pickle
 from time import time
 
 from twisted.internet.defer import (
-    DeferredSemaphore, inlineCallbacks, returnValue, gatherResults)
+    DeferredSemaphore, DeferredList, inlineCallbacks, returnValue,
+    gatherResults)
 # from twisted.internet.task import deferLater
 from twisted.web.http_headers import Headers
 # from twisted.internet import reactor
@@ -81,10 +82,20 @@ def initialize(agent, host, port, user, password, root, principal, calendar):
     return d
 
 
-@inlineCallbacks
-def sample(dtrace, samples, agent, paramgen, responseCode, concurrency=1):
-    sem = DeferredSemaphore(concurrency)
 
+def firstResult(deferreds):
+    """
+    Return a L{Deferred} which fires when the first L{Deferred} from
+    C{deferreds} fires.
+
+    @param deferreds: A sequence of Deferreds to wait on.
+    """
+    
+    
+
+
+@inlineCallbacks
+def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
     urlopen = Duration('HTTP')
     data = {urlopen: []}
 
@@ -134,11 +145,36 @@ def sample(dtrace, samples, agent, paramgen, responseCode, concurrency=1):
     msg('starting dtrace')
     yield dtrace.start()
     msg('dtrace started')
-    l = []
-    for i in range(samples):
-        l.append(sem.run(once))
-    yield gatherResults(l)
 
+    start = time()
+    l = []
+    for i in range(concurrency):
+        l.append(once())
+    print 'Start', concurrency
+
+    while True:
+        try:
+            print 'Waiting...',
+            result, index = yield DeferredList(l, fireOnOneCallback=True, fireOnOneErrback=True)
+            print 'Success result at index', index
+        except FirstError, e:
+            print 'Failure result, re-raising'
+            e.subFailure.raiseException()
+
+        if time() > start + sampleTime:
+            print 'Alloted time expired, waiting for remaining...',
+            # Wait for the rest of the outstanding requests to keep things tidy
+            yield DeferredList(l)
+            print 'Complete.'
+            # And then move on
+            break
+        else:
+            print 'Starting replacement operation'
+            # Get rid of the completed Deferred
+            del l[index]
+            # And start a new operation to replace it
+            l.append(once())
+    
     msg('stopping dtrace')
     leftOver = yield dtrace.stop()
     msg('dtrace stopped')
