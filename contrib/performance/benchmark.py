@@ -327,7 +327,7 @@ def benchmark(host, port, pids, label, scalingParameters, benchmarks):
     # sample size) for very slow benchmarks, but the error isn't as
     # interesting as the fact that a single operation takes
     # double-digit seconds or longer to complete.
-    sampleTime = 60 / 2
+    sampleTime = 60 * 2
 
     statistics = {}
 

@@ -27,7 +27,6 @@ from upload import UploadOptions, upload
 class MassUploadOptions(UploadOptions):
     optParameters = [
         ("benchmarks", None, None, ""),
-        ("parameters", None, None, ""),
         ("statistics", None, None, "")]
 
     opt_statistic = None
@@ -55,7 +54,7 @@ def main():
 
     def go():
         for benchmark in benchmarks:
-            for param in options['parameters'].split():
+            for param in raw[benchmark].keys():
                 for statistic in options['statistics'].split():
                     stat, samples = select(
                         raw, benchmark, param, statistic)
