@@ -93,6 +93,6 @@ def measure(host, port, dtrace, numEvents, samples):
 
     # Delete the calendar we created to leave the server in roughly
     # the same state as we found it.
-    yield account.deleteResource(cal)
+    yield account.deleteResource("/" + cal)
 
     returnValue(samples)

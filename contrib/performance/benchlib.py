@@ -39,19 +39,24 @@ class CalDAVAccount(object):
         self.principal = principal
 
 
-    def deleteResource(self, url):
-        return self.agent.request('DELETE', 'http://%s%s' % (self.netloc, url))
+    def _makeURL(self, path):
+        if not path.startswith('/'):
+            raise ValueError("Pass a relative URL with an absolute path")
+        return 'http://%s%s' % (self.netloc, path)
 
 
-    def makeCalendar(self, url):
-        return self.agent.request(
-            'MKCALENDAR', 'http://%s%s' % (self.netloc, url))
+    def deleteResource(self, path):
+        return self.agent.request('DELETE', self._makeURL(path))
 
 
-    def writeData(self, url, data, contentType):
+    def makeCalendar(self, path):
+        return self.agent.request('MKCALENDAR', self._makeURL(path))
+
+
+    def writeData(self, path, data, contentType):
         return self.agent.request(
             'PUT',
-            'http://%s%s' % (self.netloc, url),
+            self._makeURL(path),
             Headers({'content-type': [contentType]}),
             StringProducer(data))
 
@@ -157,14 +162,15 @@ def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
         except FirstError, e:
             e.subFailure.raiseException()
 
+        # Get rid of the completed Deferred
+        del l[index]
+
         if time() > start + sampleTime:
             # Wait for the rest of the outstanding requests to keep things tidy
             yield DeferredList(l)
             # And then move on
             break
         else:
-            # Get rid of the completed Deferred
-            del l[index]
             # And start a new operation to replace it
             l.append(once())
     
