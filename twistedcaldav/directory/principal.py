@@ -35,8 +35,6 @@ from cgi import escape
 from urllib import unquote
 from urlparse import urlparse
 
-from weakref import WeakValueDictionary
-
 from twisted.cred.credentials import UsernamePassword
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -437,7 +435,6 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         )
 
         self.parent = parent
-        self._principalResourceCache = WeakValueDictionary()
 
     def principalForUID(self, uid):
         return self.parent.principalForUID(uid)
@@ -449,15 +446,12 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         if record is None:
             return None
 
-        if record in self._principalResourceCache:
-            return self._principalResourceCache[record]
         if record.enabledForCalendaring or record.enabledForAddressBooks:
             # XXX these are different features and one should not automatically
             # imply the other...
             principal = DirectoryCalendarPrincipalResource(self, record)
         else:
             principal = DirectoryPrincipalResource(self, record)
-        self._principalResourceCache[record] = principal
         return principal
 
     ##

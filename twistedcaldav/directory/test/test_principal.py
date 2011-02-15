@@ -177,19 +177,6 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             self.failIf(principal is None)
             self.assertEquals(record, principal.record)
 
-
-    def test_principalForUIDCache(self):
-        """
-        L{DirectoryPrincipalUIDProvisioningResource.principalForUID} should
-        return an identical principal resource when passed the same principal.
-        """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
-            principal = provisioningResource.principalForRecord(record)
-            principal2 = provisioningResource.principalForRecord(record)
-            self.assertIdentical(principal, principal2,
-                                 ("mismatch from %s" % (provisioningResource,)))
-
-
     def test_principalForRecord(self):
         """
         DirectoryPrincipalProvisioningResource.principalForRecord()
