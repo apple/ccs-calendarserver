@@ -31,6 +31,7 @@ from twisted.internet.defer import (
     Deferred, inlineCallbacks, gatherResults)
 from twisted.internet import reactor
 from twisted.python.log import msg
+from twisted.python.modules import getModule
 
 from stats import SQLDuration, Bytes
 
@@ -431,6 +432,14 @@ def whichPIDs(source, conf):
         pid.getContent() for pid in run.globChildren('*instance*')]
 
 
+_benchmarks = getModule("benchmarks")
+def resolveBenchmark(name):
+    for module in _benchmarks.iterModules():
+        if module.name == ".".join((_benchmarks.name, name)):
+            return module.load()
+    raise ValueError("Unknown benchmark: %r" % (name,))
+
+
 def main():
     from twisted.python.log import startLogging, err
 
@@ -458,7 +467,7 @@ def main():
     d = benchmark(
         options['host'], options['port'], pids, options['label'],
         options['parameters'],
-        [(arg, namedAny(arg).measure) for arg in options['benchmarks']])
+        [(arg, resolveBenchmark(arg).measure) for arg in options['benchmarks']])
     d.addErrback(err, "Failure at benchmark runner top-level")
     reactor.callWhenRunning(d.addCallback, lambda ign: reactor.stop())
     reactor.run()
