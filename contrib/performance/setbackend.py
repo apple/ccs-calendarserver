@@ -14,6 +14,12 @@
 # limitations under the License.
 ##
 
+"""
+Generate a new calendar server configuration file based on an existing
+one, with a few values changed to satisfy requirements of the
+benchmarking tools.
+"""
+
 import sys
 from xml.etree import ElementTree
 from xml.etree import ElementPath
@@ -26,16 +32,20 @@ def main():
         value = 'false'
     else:
         raise RuntimeError("Don't know what to do with %r" % (sys.argv[2],))
-    replace(conf.getiterator(), value)
+
+    # Here are the config changes we make - use the specified backend
+    replace(conf.getiterator(), 'UseDatabase', value)
+    # - and disable the response cache
+    replace(conf.getiterator(), 'EnableResponseCache', 'false')
     conf.write(sys.stdout)
 
 
-def replace(elements, value):
+def replace(elements, key, value):
     found = False
     for ele in elements:
         if found:
             ele.tag = value
             return
-        if ele.tag == 'key' and ele.text == 'UseDatabase':
+        if ele.tag == 'key' and ele.text == key:
             found = True
     raise RuntimeError("Failed to find <key>UseDatabase</key>")
