@@ -459,6 +459,6 @@ def main():
         options['host'], options['port'], pids, options['label'],
         options['parameters'],
         [(arg, namedAny(arg).measure) for arg in options['benchmarks']])
-    d.addErrback(err)
+    d.addErrback(err, "Failure at benchmark runner top-level")
     reactor.callWhenRunning(d.addCallback, lambda ign: reactor.stop())
     reactor.run()
