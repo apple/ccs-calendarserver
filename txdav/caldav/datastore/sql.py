@@ -832,25 +832,27 @@ class Attachment(object):
         protocol.connectionLost(Failure(ConnectionLost()))
 
 
+    _removeStatement = Delete(
+        From=schema.ATTACHMENT,
+        Where=(schema.ATTACHMENT.DROPBOX_ID == Parameter("dropboxID")).And(
+            schema.ATTACHMENT.PATH == Parameter("path")
+        ))
+
+
     @inlineCallbacks
     def remove(self):
         old_size = self._size
         self._txn.postCommit(self._path.remove)
-        yield self._txn.execSQL(
-            """
-            delete from ATTACHMENT
-             where DROPBOX_ID = %s and PATH = %s
-            """,
-            [self._dropboxID, self._name]
-        )
-
+        yield self._removeStatement.on(self._txn, dropboxID=self._dropboxID,
+                                       path=self._name)
         # Adjust quota
         home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
         if home:
             yield home.adjustQuotaUsedBytes(-old_size)
-            
+
             # Send change notification to home
             yield home.notifyChanged()
+
 
     # IDataStoreResource
     def contentType(self):
