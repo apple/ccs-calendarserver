@@ -661,6 +661,24 @@ class CommonHome(LoggingMixIn):
         returnValue("%s#%s" % (self._resourceID, revision))
 
 
+    @classproperty
+    def _changesQuery(cls):
+        bind = cls._bindSchema
+        rev = cls._revisionsSchema
+        return Select([bind.RESOURCE_NAME, rev.COLLECTION_NAME,
+                       rev.RESOURCE_NAME, rev.DELETED],
+                      From=rev.join(
+                          bind,
+                          (bind.HOME_RESOURCE_ID ==
+                           Parameter("resourceID")).And(
+                               rev.RESOURCE_ID ==
+                               bind.RESOURCE_ID),
+                          'left outer'),
+                      Where=(rev.REVISION > Parameter("token")).And(
+                          rev.HOME_RESOURCE_ID ==
+                          Parameter("resourceID")))
+
+
     @inlineCallbacks
     def resourceNamesSinceToken(self, token, depth):
 
@@ -671,19 +689,9 @@ class CommonHome(LoggingMixIn):
                 wasdeleted
             )
             for path, collection, name, wasdeleted in
-            (yield self._txn.execSQL("""
-                select %(BIND:column_RESOURCE_NAME)s, %(REV:column_COLLECTION_NAME)s, %(REV:column_RESOURCE_NAME)s, %(REV:column_DELETED)s
-                from %(REV:name)s
-                left outer join %(BIND:name)s on (
-                  %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s and
-                  %(REV:name)s.%(REV:column_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
-                )
-                where
-                  %(REV:column_REVISION)s > %%s and
-                  %(REV:name)s.%(REV:column_HOME_RESOURCE_ID)s = %%s
-                """ % self._revisionBindJoinTable,
-                [self._resourceID, token, self._resourceID],
-            ))
+            (yield self._changesQuery.on(self._txn,
+                                         resourceID=self._resourceID,
+                                         token=token))
         ]
 
         deleted = []
