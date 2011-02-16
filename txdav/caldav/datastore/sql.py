@@ -82,6 +82,7 @@ class CalendarHome(CommonHome):
     _bindSchema = schema.CALENDAR_BIND
     _homeMetaDataSchema = schema.CALENDAR_HOME_METADATA
     _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
+    _objectSchema = schema.CALENDAR_OBJECT
 
     # string mappings (old, removing)
     _homeTable = CALENDAR_HOME_TABLE

@@ -69,6 +69,7 @@ class AddressBookHome(CommonHome):
     _bindSchema = schema.ADDRESSBOOK_BIND
     _homeMetaDataSchema = schema.ADDRESSBOOK_HOME_METADATA
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
+    _objectSchema = schema.ADDRESSBOOK_OBJECT
 
     # string mappings (old, removing)
     _homeTable = ADDRESSBOOK_HOME_TABLE

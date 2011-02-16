@@ -788,35 +788,35 @@ class CommonHome(LoggingMixIn):
         return None
 
 
+    @classproperty
+    def _resourceByUIDQuery(cls):
+        obj = cls._objectSchema
+        bind = cls._bindSchema
+        return Select([obj.PARENT_RESOURCE_ID, obj.RESOURCE_ID],
+                     From=obj.join(bind, obj.PARENT_RESOURCE_ID ==
+                                   bind.RESOURCE_ID),
+                     Where=(obj.UID == Parameter("uid")).And(
+                            bind.HOME_RESOURCE_ID == Parameter("resourceID")))
+
+
     @inlineCallbacks
     def objectResourcesWithUID(self, uid, ignore_children=()):
         """
-        Return all child object resources with the specified UID, ignoring any in the
-        named child collections. The file implementation just iterates all child collections.
+        Return all child object resources with the specified UID, ignoring any
+        in the named child collections.
         """
-        
         results = []
-        rows = (yield self._txn.execSQL("""
-            select %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s, %(OBJECT:column_RESOURCE_ID)s
-            from %(OBJECT:name)s
-            left outer join %(BIND:name)s on (
-              %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
-            )
-            where
-             %(OBJECT:column_UID)s = %%s and
-             %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s
-            """ % self._objectBindTable,
-            [uid, self._resourceID,]
-        ))
-
+        rows = (yield self._resourceByUIDQuery.on(self._txn, uid=uid,
+                                                  resourceID=self._resourceID))
         if rows:
             for childID, objectID in rows:
                 child = (yield self.childWithID(childID))
                 if child and child.name() not in ignore_children:
                     objectResource = (yield child.objectResourceWithID(objectID))
                     results.append(objectResource)
-        
+
         returnValue(results)
+
 
     @inlineCallbacks
     def quotaUsedBytes(self):
