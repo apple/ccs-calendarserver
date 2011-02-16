@@ -2086,43 +2086,66 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         
         returnValue(objectResource)
 
+
+    @classmethod
+    def _allWithParentAnd(cls, column, paramName):
+        """
+        DAL query for all columns where PARENT_RESOURCE_ID matches a parentID
+        parameter and a given instance column matches a given parameter name.
+        """
+        return Select(
+            cls._allColumns, From=cls._objectSchema,
+            Where=(column == Parameter(paramName)).And(
+                cls._objectSchema.PARENT_RESOURCE_ID == Parameter("parentID"))
+        )
+
+
+    @classproperty
+    def _allWithParentAndName(cls):
+        return cls._allWithParentAnd(cls._objectSchema.RESOURCE_NAME, "name")
+
+
+    @classproperty
+    def _allWithParentAndUID(cls):
+        return cls._allWithParentAnd(cls._objectSchema.UID, "uid")
+
+
+    @classproperty
+    def _allWithParentAndID(cls):
+        return cls._allWithParentAnd(cls._objectSchema.RESOURCE_ID,
+                                     "resourceID")
+
+
     @inlineCallbacks
     def initFromStore(self):
         """
-        Initialise this object from the store. We read in and cache all the extra metadata
-        from the DB to avoid having to do DB queries for those individually later. Either the
-        name or uid is present, so we have to tweak the query accordingly.
+        Initialise this object from the store. We read in and cache all the
+        extra metadata from the DB to avoid having to do DB queries for those
+        individually later. Either the name or uid is present, so we have to
+        tweak the query accordingly.
 
         @return: L{self} if object exists in the DB, else C{None}
         """
 
         if self._name:
-            rows = yield self._txn.execSQL(self._selectAllColumns() + """
-                from %(name)s
-                where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-                """ % self._objectTable,
-                [self._name, self._parentCollection._resourceID]
-            )
+            rows = yield self._allWithParentAndName.on(
+                self._txn, name=self._name,
+                parentID=self._parentCollection._resourceID)
         elif self._uid:
-            rows = yield self._txn.execSQL(self._selectAllColumns() + """
-                from %(name)s
-                where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-                """ % self._objectTable,
-                [self._uid, self._parentCollection._resourceID]
-            )
+            rows = yield self._allWithParentAndUID.on(
+                self._txn, uid=self._uid,
+                parentID=self._parentCollection._resourceID)
         elif self._resourceID:
-            rows = yield self._txn.execSQL(self._selectAllColumns() + """
-                from %(name)s
-                where %(column_RESOURCE_ID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-                """ % self._objectTable,
-                [self._resourceID, self._parentCollection._resourceID]
-            )
+            rows = yield self._allWithParentAndID.on(
+                self._txn, resourceID=self._resourceID,
+                parentID=self._parentCollection._resourceID)
         if rows:
             self._initFromRow(tuple(rows[0]))
             yield self._loadPropertyStore()
             returnValue(self)
         else:
             returnValue(None)
+
 
     @classmethod
     def _selectAllColumns(cls):
