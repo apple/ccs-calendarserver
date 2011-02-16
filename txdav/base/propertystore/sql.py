@@ -27,11 +27,12 @@ from twistedcaldav.memcacher import Memcacher
 
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Parameter
+from twext.enterprise.dal.syntax import Update
 
 from txdav.common.datastore.sql_tables import schema
 
-from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName,\
-    validKey
+from txdav.base.propertystore.base import (
+    AbstractPropertyStore, PropertyName, validKey)
 
 from twext.web2.dav.davxml import WebDAVDocument
 
@@ -131,6 +132,12 @@ class PropertyStore(AbstractPropertyStore):
         return WebDAVDocument.fromString(value).root_element
 
 
+    _updateQuery = Update({prop.VALUE: Parameter("value")},
+                          Where=(
+                              prop.RESOURCE_ID == Parameter("resourceID")).And(
+                              prop.NAME == Parameter("name")).And(
+                              prop.VIEWER_UID == Parameter("uid")))
+
     def _setitem_uid(self, key, value, uid):
         validKey(key)
 
@@ -138,15 +145,9 @@ class PropertyStore(AbstractPropertyStore):
         value_str = value.toxml()
 
         if (key_str, uid) in self._cached:
-            self._txn.execSQL(
-                """
-                update RESOURCE_PROPERTY
-                set VALUE = %s
-                where RESOURCE_ID = %s and NAME = %s and VIEWER_UID = %s
-                """,
-                [value_str, self._resourceID, key_str, uid]
-            )
-        else:        
+            self._updateQuery.on(self._txn, resourceID=self._resourceID,
+                                 value=value_str, name=key_str, uid=uid)
+        else:
             self._txn.execSQL(
                 """
                 insert into RESOURCE_PROPERTY
@@ -157,6 +158,7 @@ class PropertyStore(AbstractPropertyStore):
             )
         self._cached[(key_str, uid)] = value_str
         self._cacher.delete(str(self._resourceID))
+
 
     def _delitem_uid(self, key, uid):
         validKey(key)
