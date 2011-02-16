@@ -49,7 +49,7 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 
 from txdav.common.datastore.sql_tables import schema
-from txdav.common.datastore.sql_tables import NOTIFICATION_HOME_TABLE, _BIND_MODE_OWN, \
+from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_STATUS_ACCEPTED, NOTIFICATION_OBJECT_REVISIONS_TABLE
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
@@ -2345,29 +2345,31 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         [_homeSchema.RESOURCE_ID], From=_homeSchema,
         Where=_homeSchema.OWNER_UID == Parameter("uid"))
 
+    _provisionNewNotificationsQuery = Insert(
+        {_homeSchema.OWNER_UID: Parameter("uid")},
+        Return=_homeSchema.RESOURCE_ID
+    )
+
+
     @classmethod
     @inlineCallbacks
     def notificationsWithUID(cls, txn, uid):
-        """
-        Implement notificationsWithUID.
-        """
-
         rows = yield cls._resourceIDFromUIDQuery.on(txn, uid=uid)
 
         if rows:
             resourceID = rows[0][0]
             created = False
         else:
-            resourceID = str((yield txn.execSQL(
-                "insert into %(name)s (%(column_OWNER_UID)s) values (%%s) returning %(column_RESOURCE_ID)s" % NOTIFICATION_HOME_TABLE,
-                [uid]
-            ))[0][0])
+            resourceID = str((
+                yield cls._provisionNewNotificationsQuery.on(txn, uid=uid)
+            )[0][0])
             created = True
         collection = cls(txn, uid, resourceID)
         yield collection._loadPropertyStore()
         if created:
             yield collection._initSyncToken()
         returnValue(collection)
+
 
     @inlineCallbacks
     def _loadPropertyStore(self):
