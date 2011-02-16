@@ -526,6 +526,7 @@ class CalendarObject(CommonObjectResource):
                 yield Insert(values, Return=(
                     co.RESOURCE_ID, co.CREATED, co.MODIFIED)).on(self._txn))[0]
         else:
+            values[co.MODIFIED] = utcNowSQL
             self._modified = (
                 yield Update(values, Return=co.MODIFIED,
                              Where=co.RESOURCE_ID == self._resourceID
