@@ -968,7 +968,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
 
     @classproperty
-    def _objectListQuery(cls):
+    def _ownedChildListQuery(cls):
         bind = cls._bindSchema
         return Select([bind.RESOURCE_NAME], From=bind,
                       Where=(bind.HOME_RESOURCE_ID ==
@@ -980,21 +980,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def listObjects(cls, home, owned):
         """
-        Retrieve the names of the children that exist in this home.
+        Retrieve the names of the children that exist in the given home.
 
         @return: an iterable of C{str}s.
         """
-        # FIXME: not specified on the interface or exercised by the tests, but
-        # required by clients of the implementation!
+        # FIXME: tests don't cover this as directly as they should.
         if owned:
-            rows = yield home._txn.execSQL("""
-                select %(column_RESOURCE_NAME)s from %(name)s
-                where
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s = %%s
-                """ % cls._bindTable,
-                [home._resourceID, _BIND_MODE_OWN]
-            )
+            rows = yield cls._ownedChildListQuery.on(
+                home._txn, resourceID=home._resourceID)
         else:
             rows = yield home._txn.execSQL("""
                 select %(column_RESOURCE_NAME)s from %(name)s
@@ -1077,7 +1070,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
 
     @classmethod
-    def _objectResourceLookup(cls, ownedPart):
+    def _homeChildLookup(cls, ownedPart):
         """
         Common portions of C{_ownedResourceIDByName}
         C{_resourceIDSharedToHomeByName}, except for the 'owned' fragment of the
@@ -1099,7 +1092,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         resource name (C{objectName}), and a home resource ID
         (C{homeID}).
         """
-        return cls._objectResourceLookup(
+        return cls._homeChildLookup(
             cls._bindSchema.BIND_MODE == _BIND_MODE_OWN)
 
 
@@ -1110,7 +1103,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         resource name (C{objectName}), and a home resource ID
         (C{homeID}).
         """
-        return cls._objectResourceLookup(
+        return cls._homeChildLookup(
             cls._bindSchema.BIND_MODE != _BIND_MODE_OWN)
 
 
@@ -1118,11 +1111,13 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def objectWithName(cls, home, name, owned):
         """
-        Retrieve the child with the given C{name} contained in this
+        Retrieve the child with the given C{name} contained in the given
         C{home}.
 
         @param home: a L{CommonHome}.
-        @param name: a string.
+
+        @param name: a string; the name of the L{CommonHomeChild} to retrieve.
+
         @param owned: a boolean - whether or not to get a shared child
         @return: an L{CommonHomeChild} or C{None} if no such child
             exists.
