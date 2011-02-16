@@ -2312,6 +2312,9 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     )
 
     _revisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
+    _revisionsSchema = schema.NOTIFICATION_OBJECT_REVISIONS
+    _homeSchema = schema.NOTIFICATION_HOME
+
 
     def __init__(self, txn, uid, resourceID):
 
@@ -2337,18 +2340,20 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
             notifiers = None
         self._notifiers = notifiers
 
+
+    _resourceIDFromUIDQuery = Select(
+        [_homeSchema.RESOURCE_ID], From=_homeSchema,
+        Where=_homeSchema.OWNER_UID == Parameter("uid"))
+
     @classmethod
     @inlineCallbacks
     def notificationsWithUID(cls, txn, uid):
         """
         Implement notificationsWithUID.
         """
-        rows = yield txn.execSQL(
-            """
-            select %(column_RESOURCE_ID)s from %(name)s where
-            %(column_OWNER_UID)s = %%s
-            """ % NOTIFICATION_HOME_TABLE, [uid]
-        )
+
+        rows = yield cls._resourceIDFromUIDQuery.on(txn, uid=uid)
+
         if rows:
             resourceID = rows[0][0]
             created = False
