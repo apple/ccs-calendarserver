@@ -2483,16 +2483,20 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         yield self._deleteRevision("%s.xml" % (uid,))
 
 
+    _initSyncTokenQuery = Insert(
+        {
+            _revisionsSchema.HOME_RESOURCE_ID : Parameter("resourceID"),
+            _revisionsSchema.RESOURCE_NAME    : None,
+            _revisionsSchema.REVISION         : schema.REVISION_SEQ,
+            _revisionsSchema.DELETED          : False
+        }, Return=_revisionsSchema.REVISION
+    )
+
+
     @inlineCallbacks
     def _initSyncToken(self):
-        self._syncTokenRevision = (yield self._txn.execSQL("""
-            insert into %(name)s
-            (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
-            values (%%s, null, nextval('%(sequence)s'), FALSE)
-            returning %(column_REVISION)s
-            """ % self._revisionsTable,
-            [self._resourceID,]
-        ))[0][0]
+        self._syncTokenRevision = (yield self._initSyncTokenQuery.on(
+            self._txn, resourceID=self._resourceID))[0][0]
 
 
     @inlineCallbacks
