@@ -1541,21 +1541,25 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def createObjectResourceWithName(self, name, component, metadata=None):
         """
-        Create a new resource with component data and optional metadata. We create the
-        python object using the metadata then create the actual store object with setComponent. 
+        Create a new resource with component data and optional metadata. We
+        create the python object using the metadata then create the actual store
+        object with setComponent.
         """
         if name in self._objects:
             if self._objects[name]:
                 raise ObjectResourceNameAlreadyExistsError()
 
-        objectResource = (yield self._objectResourceClass.create(self, name, component, metadata))
+        objectResource = (
+            yield self._objectResourceClass.create(self, name, component,
+                                                   metadata)
+        )
         self._objects[objectResource.name()] = objectResource
         self._objects[objectResource.uid()] = objectResource
 
-        # Note: create triggers a notification when the component is set, so we don't need to
-        # call notify( ) here like we do for object removal.
-
+        # Note: create triggers a notification when the component is set, so we
+        # don't need to call notify() here like we do for object removal.
         returnValue(objectResource)
+
 
     @inlineCallbacks
     def removeObjectResourceWithName(self, name):
