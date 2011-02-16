@@ -2792,7 +2792,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         if self._objectText is None:
             self._objectText = (
                 yield self._xmlDataFromID.on(
-                    self._txn, resourceID=self._resourceID))
+                    self._txn, resourceID=self._resourceID))[0][0]
         returnValue(self._objectText)
 
 
