@@ -19,7 +19,7 @@
 Syntax wrappers and generators for SQL.
 """
 
-from twext.enterprise.dal.model import Schema, Table, Column
+from twext.enterprise.dal.model import Schema, Table, Column, Sequence
 
 
 class TableMismatch(Exception):
@@ -208,16 +208,37 @@ class SchemaSyntax(Syntax):
         try:
             tableModel = self.model.tableNamed(attr)
         except KeyError:
-            raise AttributeError("schema has no table %r" % (attr,))
-        syntax = TableSyntax(tableModel)
-        # Needs to be preserved here so that aliasing will work.
-        setattr(self, attr, syntax)
-        return syntax
+            try:
+                seqModel = self.model.sequenceNamed(attr)
+            except KeyError:
+                raise AttributeError("schema has no table or sequence %r" % (attr,))
+            else:
+                return SequenceSyntax(seqModel)
+        else:
+            syntax = TableSyntax(tableModel)
+            # Needs to be preserved here so that aliasing will work.
+            setattr(self, attr, syntax)
+            return syntax
 
 
     def __iter__(self):
         for table in self.model.tables:
             yield TableSyntax(table)
+
+
+
+class SequenceSyntax(ExpressionSyntax):
+    """
+    Syntactic convenience for L{Sequence}.
+    """
+
+    modelType = Sequence
+
+    def subSQL(self, placeholder, quote, allTables):
+        """
+        Convert to an SQL fragment.
+        """
+        return SQLFragment("nextval('%s')" % (self.model.name,))
 
 
 

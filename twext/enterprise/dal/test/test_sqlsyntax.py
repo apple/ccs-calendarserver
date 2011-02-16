@@ -36,6 +36,7 @@ class GenerationTests(TestCase):
     def setUp(self):
         s = Schema(self.id())
         addSQLToSchema(schema=s, schemaData="""
+                       create sequence A_SEQ;
                        create table FOO (BAR integer, BAZ integer);
                        create table BOZ (QUX integer);
                        create table OTHER (BAR integer,
@@ -520,6 +521,18 @@ class GenerationTests(TestCase):
                    From=self.schema.FOO,
                    Limit=123).toSQL(),
             SQLFragment(
-                "select BAR from FOO limit ?", [123])
-        )
+                "select BAR from FOO limit ?", [123]))
+
+
+    def test_nextSequenceValue(self):
+        """
+        When a sequence is used as a value in an expression, it renders as the
+        call to 'nextval' that will produce its next value.
+        """
+        self.assertEquals(
+            Insert({self.schema.BOZ.QUX:
+                    self.schema.A_SEQ}).toSQL(),
+            SQLFragment("insert into BOZ (QUX) values (nextval('A_SEQ'))", []))
+
+
 
