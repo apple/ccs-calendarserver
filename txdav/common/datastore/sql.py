@@ -857,7 +857,7 @@ class CommonHome(LoggingMixIn):
     def _resetQuotaQuery(cls):
         meta = cls._homeMetaDataSchema
         return Update({meta.QUOTA_USED_BYTES: 0},
-                      Where=meta.resourceID == Parameter("resourceID"))
+                      Where=meta.RESOURCE_ID == Parameter("resourceID"))
 
 
     @inlineCallbacks
@@ -888,12 +888,14 @@ class CommonHome(LoggingMixIn):
         if self._notifiers is None:
             self._notifiers = ()
         self._notifiers += (notifier,)
- 
+
+
     def notifierID(self, label="default"):
         if self._notifiers:
             return self._notifiers[0].getID(label)
         else:
             return None
+
 
     @inlineCallbacks
     def nodeName(self, label="default"):
