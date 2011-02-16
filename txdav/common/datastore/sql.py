@@ -1192,6 +1192,13 @@ class _SharedSyncLogic(object):
                         self._txn, homeID=self._home._resourceID,
                         resourceID=self._resourceID, name=name)
                 )[0][0]
+        self._maybeNotify()
+
+
+    def _maybeNotify(self):
+        """
+        Maybe notify changed.  (Overridden in NotificationCollection.)
+        """
 
 
 
@@ -2343,6 +2350,15 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
     )
 
 
+    @property
+    def _home(self):
+        """
+        L{NotificationCollection} serves as its own C{_home} for the purposes of
+        working with L{_SharedSyncLogic}.
+        """
+        return self
+
+
     @classmethod
     @inlineCallbacks
     def notificationsWithUID(cls, txn, uid):
@@ -2506,60 +2522,6 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         returnValue("%s#%s" % (self._resourceID, self._syncTokenRevision))
 
 
-    @inlineCallbacks
-    def _changeRevision(self, action, name):
-
-        if action == "delete":
-            self._syncTokenRevision = (yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), TRUE)
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._resourceID, name]
-            ))[0][0]
-        elif action == "update":
-            self._syncTokenRevision = (yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s) = (nextval('%(sequence)s'))
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._resourceID, name]
-            ))[0][0]
-        elif action == "insert":
-            # Note that an "insert" may happen for a resource that previously existed and then
-            # was deleted. In that case an entry in the REVISIONS table still exists so we have to
-            # detect that and do db INSERT or UPDATE as appropriate
-
-            found = bool( (yield self._txn.execSQL("""
-                select %(column_HOME_RESOURCE_ID)s from %(name)s
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                """ % self._revisionsTable,
-                [self._resourceID, name, ]
-            )))
-            if found:
-                self._syncTokenRevision = (yield self._txn.execSQL("""
-                    update %(name)s
-                    set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), FALSE)
-                    where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                    returning %(column_REVISION)s
-                    """ % self._revisionsTable,
-                    [self._resourceID, name]
-                ))[0][0]
-            else:
-                self._syncTokenRevision = (yield self._txn.execSQL("""
-                    insert into %(name)s
-                    (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
-                    values (%%s, %%s, nextval('%(sequence)s'), FALSE)
-                    returning %(column_REVISION)s
-                    """ % self._revisionsTable,
-                    [self._resourceID, name,]
-                ))[0][0]
-
-        self.notifyChanged()
-
-
     def properties(self):
         return self._propertyStore
 
@@ -2589,6 +2551,24 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         if self._notifiers:
             for notifier in self._notifiers:
                 self._txn.postCommit(notifier.notify)
+
+
+    @classproperty
+    def _completelyNewRevisionQuery(cls):
+        rev = cls._revisionsSchema
+        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
+                       # rev.RESOURCE_ID: Parameter("resourceID"),
+                       rev.RESOURCE_NAME: Parameter("name"),
+                       rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: False},
+                      Return=rev.REVISION)
+
+
+    def _maybeNotify(self):
+        """
+        Emit a push notification after C{_changeRevision}.
+        """
+        self.notifyChanged()
 
 
 
