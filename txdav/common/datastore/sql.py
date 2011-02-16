@@ -2772,21 +2772,17 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         self._objectText = xmldata
 
 
-    @inlineCallbacks
-    def _fieldQuery(self, field):
-        data = yield self._txn.execSQL(
-            "select " + field + " from NOTIFICATION "
-            "where RESOURCE_ID = %s",
-            [self._resourceID]
-        )
-        returnValue(data[0][0])
+    _xmlDataFromID = Select(
+        [_objectSchema.XML_DATA], From=_objectSchema,
+        Where=_objectSchema.RESOURCE_ID == Parameter("resourceID"))
 
 
     @inlineCallbacks
     def xmldata(self):
-        
         if self._objectText is None:
-            self._objectText = (yield self._fieldQuery("XML_DATA"))
+            self._objectText = (
+                yield self._xmlDataFromID.on(
+                    self._txn, resourceID=self._resourceID))
         returnValue(self._objectText)
 
 
