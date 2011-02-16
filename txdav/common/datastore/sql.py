@@ -1631,17 +1631,25 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         raise NotImplementedError()
 
 
+    @classproperty
+    def _objectNamesSinceRevisionQuery(cls):
+        """
+        DAL query for (resource, deleted-flag)
+        """
+        rev = cls._revisionsSchema
+        return Select([rev.RESOURCE_NAME, rev.DELETED],
+                      From=rev,
+                      Where=(rev.REVISION > Parameter("revision")).And(
+                          rev.RESOURCE_ID == Parameter("resourceID")))
+
+
     @inlineCallbacks
     def resourceNamesSinceToken(self, token):
         results = [
             (name if name else "", deleted)
             for name, deleted in
-            (yield self._txn.execSQL("""
-                select %(column_RESOURCE_NAME)s, %(column_DELETED)s from %(name)s
-                where %(column_REVISION)s > %%s and %(column_RESOURCE_ID)s = %%s
-                """ % self._revisionsTable,
-                [token, self._resourceID],
-            ))
+            (yield self._objectNamesSinceRevisionQuery.on(
+                self._txn, revision=token, resourceID=self._resourceID))
         ]
         results.sort(key=lambda x:x[1])
 

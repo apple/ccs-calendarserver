@@ -306,6 +306,13 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreResource):
         """
 
 
+    def resourceNamesSinceToken(revision):
+        """
+        Low-level query to gather names for calendarObjectsSinceToken.
+        """
+
+
+
 class ICalendarObject(IDataStoreResource):
     """
     Calendar object

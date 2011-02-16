@@ -1246,12 +1246,26 @@ END:VCALENDAR
         self.assertEquals((yield obj.dropboxID()), "some-dropbox-id")
 
 
+    def token2revision(self, token):
+        """
+        FIXME: the API names for L{syncToken}() and L{resourceNamesSinceToken}()
+        are slightly inaccurate; one doesn't produce input for the other.
+        Actually it should be resource names since I{revision} and you need to
+        understand the structure of the tokens to extract the revision.  Right
+        now that logic lives in the protocol layer, so this testing method
+        replicates it.
+        """
+        uuid, rev = token.split("#", 1)
+        rev = int(rev)
+        return rev
+
+
     @inlineCallbacks
     def test_simpleHomeSyncToken(self):
         """
         L{ICalendarHome.resourceNamesSinceToken} will return the names of
-        calenars created since L{ICalendarHome.syncToken} last returned a
-        particular value.
+        calendar objects created since L{ICalendarHome.syncToken} last returned
+        a particular value.
         """
         home = yield self.homeUnderTest()
         cal = yield self.calendarUnderTest()
@@ -1262,31 +1276,48 @@ END:VCALENDAR
         )
 
         yield cal.removeCalendarObjectWithName("2.ics")
+        yield home.createCalendarWithName("other-calendar")
         st2 = yield home.syncToken()
         self.failIfEquals(st, st2)
-
-        def token2revision(token):
-            # FIXME: the API name is a misnomer; there's syncToken() and
-            # resourceNamesSinceToken(), but actually it is resource names since
-            # *revision* and you need to understand the structure of the tokens
-            # to extract the revision.
-            uuid, rev = token.split("#", 1)
-            rev = int(rev)
-            return rev
 
         home = yield self.homeUnderTest()
 
         changed, deleted = yield home.resourceNamesSinceToken(
-            token2revision(st), "depth_is_ignored")
+            self.token2revision(st), "depth_is_ignored")
 
         self.assertEquals(set(changed), set(["calendar_1/new.ics",
-                                             "calendar_1/2.ics"]))
+                                             "calendar_1/2.ics",
+                                             "other-calendar/"]))
         self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
 
         changed, deleted = yield home.resourceNamesSinceToken(
-            token2revision(st2), "depth_is_ignored")
+            self.token2revision(st2), "depth_is_ignored")
         self.assertEquals(changed, [])
         self.assertEquals(deleted, [])
+
+
+    @inlineCallbacks
+    def test_collectionSyncToken(self):
+        """
+        L{ICalendar.resourceNamesSinceToken} will return the names of calendar
+        objects changed or deleted since 
+        """
+        cal = yield self.calendarUnderTest()
+        st = yield cal.syncToken()
+        rev = self.token2revision(st)
+        yield cal.createCalendarObjectWithName("new.ics", VComponent.fromString(
+                self.eventWithDropbox
+            )
+        )
+        yield cal.removeCalendarObjectWithName("2.ics")
+        st2 = yield cal.syncToken()
+        rev2 = self.token2revision(st2)
+        changed, deleted = yield cal.resourceNamesSinceToken(rev)
+        self.assertEquals(set(changed), set(["new.ics"]))
+        self.assertEquals(set(deleted), set(["2.ics"]))
+        changed, deleted = yield cal.resourceNamesSinceToken(rev2)
+        self.assertEquals(set(changed), set([]))
+        self.assertEquals(set(deleted), set([]))
 
 
     @inlineCallbacks
