@@ -2499,17 +2499,20 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
             self._txn, resourceID=self._resourceID))[0][0]
 
 
+    _syncTokenQuery = Select(
+        [Max(_revisionsSchema.REVISION)], From=_revisionsSchema,
+        Where=_revisionsSchema.HOME_RESOURCE_ID == Parameter("resourceID")
+    )
+
+
     @inlineCallbacks
     def syncToken(self):
         if self._syncTokenRevision is None:
-            self._syncTokenRevision = (yield self._txn.execSQL(
-                """
-                select max(%(column_REVISION)s) from %(name)s
-                where %(column_HOME_RESOURCE_ID)s = %%s
-                """ % self._revisionsTable,
-                [self._resourceID,]
-            ))[0][0]
-        returnValue("%s#%s" % (self._resourceID, self._syncTokenRevision,))
+            self._syncTokenRevision = (
+                yield self._syncTokenRevision.on(
+                    self._txn, resourceID=self._resourceID)
+            )[0][0]
+        returnValue("%s#%s" % (self._resourceID, self._syncTokenRevision))
 
 
     def objectResourcesSinceToken(self, token):
