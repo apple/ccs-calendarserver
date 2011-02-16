@@ -561,7 +561,7 @@ class CalendarObject(CommonObjectResource):
                 tr.FBTYPE                      :
                     icalfbtype_to_indexfbtype["UNKNOWN"],
                 tr.TRANSPARENT                 : transp,
-            }, Return=tr.INSTANCE_ID).do(self._txn))[0][0]
+            }, Return=tr.INSTANCE_ID).on(self._txn))[0][0]
             peruserdata = component.perUserTransparency(None)
             for useruid, transp in peruserdata:
                 (yield Insert({
