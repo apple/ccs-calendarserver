@@ -1414,15 +1414,22 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         returnValue(results)
 
 
+    @classproperty
+    def _objectResourceNamesQuery(cls):
+        """
+        DAL query to load all object resource names for a home child.
+        """
+        obj = cls._objectSchema
+        return Select([obj.RESOURCE_NAME], From=obj,
+                      Where=obj.PARENT_RESOURCE_ID == Parameter('resourceID'))
+
+
     @inlineCallbacks
     def listObjectResources(self):
         if self._objectNames is None:
-            rows = yield self._txn.execSQL(
-                "select %(column_RESOURCE_NAME)s from %(name)s "
-                "where %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
-                [self._resourceID])
+            rows = yield self._objectResourceNamesQuery.on(
+                self._txn, resourceID=self._resourceID)
             self._objectNames = sorted([row[0] for row in rows])
-
         returnValue(self._objectNames)
 
 
