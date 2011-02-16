@@ -725,7 +725,7 @@ class CommonHome(LoggingMixIn):
                 [bind.RESOURCE_ID], From=bind,
                 Where=(bind.RESOURCE_NAME == sharename).And(
                     bind.HOME_RESOURCE_ID == self._resourceID).And(
-                        bind.BIND_MODE == _BIND_MODE_OWN)
+                        bind.BIND_MODE != _BIND_MODE_OWN)
             ).on(self._txn))[0][0]
             results = [
                 (
