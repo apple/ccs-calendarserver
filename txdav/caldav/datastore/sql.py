@@ -63,6 +63,7 @@ from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import Parameter
 from txdav.common.icommondatastore import IndexedSearchException
 
 from vobject.icalendar import utc
@@ -631,12 +632,17 @@ class CalendarObject(CommonObjectResource):
     dropboxID = dropboxIDFromCalendarObject
 
 
+    _attachmentsQuery = Select(
+        [schema.ATTACHMENT.PATH],
+        From=schema.ATTACHMENT,
+        Where=schema.ATTACHMENT.DROPBOX_ID == Parameter('dropboxID')
+    )
+
+
     @inlineCallbacks
     def attachments(self):
-        rows = yield self._txn.execSQL(
-            """
-            select PATH from ATTACHMENT where DROPBOX_ID = %s
-            """, [self._dropboxID])
+        rows = yield self._attachmentsQuery.on(self._txn,
+                                               dropboxID=self._dropboxID)
         result = []
         for row in rows:
             result.append((yield self.attachmentWithName(row[0])))
@@ -714,9 +720,10 @@ class AttachmentStorageTransport(object):
         if home:
             # Adjust quota
             yield home.adjustQuotaUsedBytes(self.attachment.size() - old_size)
-            
+
             # Send change notification to home
             yield home.notifyChanged()
+
 
 
 def sqltime(value):
