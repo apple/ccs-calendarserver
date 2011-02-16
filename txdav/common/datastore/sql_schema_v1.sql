@@ -416,7 +416,7 @@ create table CALENDAR_OBJECT_REVISIONS (
   CALENDAR_RESOURCE_ID      integer      references CALENDAR,
   CALENDAR_NAME             varchar(255) default null,
   RESOURCE_NAME             varchar(255),
-  REVISION                  integer      not null,
+  REVISION                  integer      not null default nextval('REVISION_SEQ'),
   DELETED                   boolean      not null,
 
   unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME)
