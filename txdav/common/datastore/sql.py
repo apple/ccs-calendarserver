@@ -1565,7 +1565,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     def _removeObjectResourceByNameQuery(cls):
         """
         DAL query to remove an object resource from this collection by name,
-        returning the UID of the resource it deleted..
+        returning the UID of the resource it deleted.
         """
         obj = cls._objectSchema
         return Delete(From=obj,
@@ -1585,15 +1585,24 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self.notifyChanged()
 
 
+    @classproperty
+    def _removeObjectResourceByUIDQuery(cls):
+        """
+        DAL query to remove an object resource from this collection by UID,
+        returning the name of the resource it deleted.
+        """
+        obj = cls._objectSchema
+        return Delete(From=obj,
+                      Where=(obj.UID == Parameter("uid")).And(
+                          obj.PARENT_RESOURCE_ID == Parameter("resourceID")),
+                     Return=obj.RESOURCE_NAME)
+
+
     @inlineCallbacks
     def removeObjectResourceWithUID(self, uid):
-
-        name = (yield self._txn.execSQL(
-            "delete from %(name)s "
-            "where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "
-            "returning %(column_RESOURCE_NAME)s" % self._objectTable,
-            [uid, self._resourceID],
-            raiseOnZeroRowCount=lambda:NoSuchObjectResourceError()
+        name = (yield self._removeObjectResourceByUIDQuery.on(
+            self._txn, NoSuchObjectResourceError,
+            uid=uid, resourceID=self._resourceID
         ))[0][0]
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
