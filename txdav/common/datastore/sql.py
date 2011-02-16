@@ -65,6 +65,7 @@ from twext.enterprise.dal.syntax import Lock
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Max
 from twext.enterprise.dal.syntax import default
+from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Update
 
 from txdav.base.propertystore.base import PropertyName
@@ -1342,24 +1343,29 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self.notifyChanged()
 
 
+
+    @classproperty
+    def _deleteQuery(cls):
+        """
+        DAL statement to delete a L{CommonHomeChild} by its resource ID.
+        """
+        child = cls._homeChildSchema
+        return Delete(child, Where=child.RESOURCE_ID == Parameter("resourceID"))
+
+
     @inlineCallbacks
     def remove(self):
-
         yield self._deletedSyncToken()
-
-        yield self._txn.execSQL(
-            "delete from %(name)s where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
-            [self._resourceID],
-            raiseOnZeroRowCount=NoSuchHomeChildError
-        )
-
+        yield self._deleteQuery.on(self._txn, NoSuchHomeChildError,
+                                   resourceID=self._resourceID)
         # Set to non-existent state
         self._resourceID = None
-        self._created = None
-        self._modified = None
-        self._objects = {}
+        self._created    = None
+        self._modified   = None
+        self._objects    = {}
 
         self.notifyChanged()
+
 
     def ownerHome(self):
         return self._home
