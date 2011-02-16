@@ -138,6 +138,17 @@ class GenerationTests(TestCase):
         )
 
 
+    def test_forUpdate(self):
+        """
+        L{Select}'s L{ForUpdate} parameter generates a 'for update' clause at
+        the end of the query.
+        """
+        self.assertEquals(
+            Select(From=self.schema.FOO, ForUpdate=True).toSQL(),
+            SQLFragment("select * from FOO for update")
+        )
+
+
     def test_groupBy(self):
         """
         L{Select}'s L{GroupBy} parameter generates a 'group by' clause for a

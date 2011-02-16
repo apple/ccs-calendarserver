@@ -443,7 +443,7 @@ class Select(_Statement):
     """
 
     def __init__(self, columns=None, Where=None, From=None, OrderBy=None,
-                 GroupBy=None, Limit=None):
+                 GroupBy=None, Limit=None, ForUpdate=False):
         self.From = From
         self.Where = Where
         if not isinstance(OrderBy, (list, tuple, type(None))):
@@ -461,6 +461,7 @@ class Select(_Statement):
 
             columns = _SomeColumns(columns)
         self.columns = columns
+        self.ForUpdate = ForUpdate
 
 
     def toSQL(self, placeholder="?", quote=lambda x: x):
@@ -493,6 +494,8 @@ class Select(_Statement):
             stmt.text += quote(" limit ")
             stmt.append(Constant(self.Limit).subSQL(placeholder, quote,
                                                     allTables))
+        if self.ForUpdate:
+            stmt.text += quote(" for update")
         return stmt
 
 
