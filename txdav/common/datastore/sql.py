@@ -1370,22 +1370,32 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     def ownerHome(self):
         return self._home
 
+
+    @classproperty
+    def _ownerHomeFromResourceQuery(cls):
+        """
+        DAL query to retrieve the home resource ID of the owner from the bound
+        home-child ID.
+        """
+        bind = cls._bindSchema
+        return Select([bind.HOME_RESOURCE_ID],
+                     From=bind,
+                     Where=(bind.RESOURCE_ID ==
+                            Parameter("resourceID")).And(
+                                bind.BIND_MODE == _BIND_MODE_OWN))
+
+
     @inlineCallbacks
     def sharerHomeID(self):
-        
-        # If this is not shared then our home is what we want
         if self._owned:
+            # If this was loaded by its owner then we can skip the query, since
+            # we already know who the owner is.
             returnValue(self._home._resourceID)
         else:
-            rid = (yield self._txn.execSQL("""
-                select %(column_HOME_RESOURCE_ID)s from %(name)s
-                where
-                  %(column_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s = %%s
-                """ % self._bindTable,
-                [self._resourceID, _BIND_MODE_OWN]
-            ))[0][0]
+            rid = (yield self._ownerHomeFromResourceQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
             returnValue(rid)
+
 
     def setSharingUID(self, uid):
         self.properties()._setPerUserUID(uid)
