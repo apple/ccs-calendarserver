@@ -1611,16 +1611,22 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self.notifyChanged()
 
 
+    @classproperty
+    def _childSyncTokenQuery(cls):
+        """
+        DAL query for retrieving the sync token of a L{CommonHomeChild} based on
+        its resource ID.
+        """
+        rev = cls._revisionsSchema
+        return Select([Max(rev.REVISION)], From=rev,
+                      Where=rev.RESOURCE_ID == Parameter("resourceID"))
+
+
     @inlineCallbacks
     def syncToken(self):
         if self._syncTokenRevision is None:
-            self._syncTokenRevision = (yield self._txn.execSQL(
-                """
-                select max(%(column_REVISION)s) from %(name)s
-                where %(column_RESOURCE_ID)s = %%s
-                """ % self._revisionsTable,
-                [self._resourceID,]
-            ))[0][0]
+            self._syncTokenRevision = (yield self._childSyncTokenQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
         returnValue(("%s#%s" % (self._resourceID, self._syncTokenRevision,)))
 
 
