@@ -64,6 +64,7 @@ from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Lock
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Max
+from twext.enterprise.dal.syntax import default
 from twext.enterprise.dal.syntax import Update
 
 from txdav.base.propertystore.base import PropertyName
@@ -1193,6 +1194,31 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         returnValue(child)
 
 
+    @classproperty
+    def _insertDefaultHomeChild(cls):
+        """
+        DAL statement to create a home child with all default values.
+        """
+        child = cls._homeChildSchema
+        return Insert({child.RESOURCE_ID: default},
+                      Return=(child.RESOURCE_ID, child.CREATED, child.MODIFIED))
+
+
+    @classproperty
+    def _initialOwnerBind(cls):
+        """
+        DAL statement to create a bind entry for a particular home value.
+        """
+        bind = cls._bindSchema
+        return Insert({bind.HOME_RESOURCE_ID: Parameter("homeID"),
+                       bind.RESOURCE_ID: Parameter("resourceID"),
+                       bind.RESOURCE_NAME: Parameter("name"),
+                       bind.BIND_MODE: _BIND_MODE_OWN,
+                       bind.SEEN_BY_OWNER: True,
+                       bind.SEEN_BY_SHAREE: True,
+                       bind.BIND_STATUS: _BIND_STATUS_ACCEPTED})
+
+
     @classmethod
     @inlineCallbacks
     def create(cls, home, name):
@@ -1203,27 +1229,13 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
 
-        # Create and initialize (in a similar manner to initFromStore) this object
-        resourceID, _created, _modified = (yield home._txn.execSQL(
-            """
-            insert into %(name)s (%(column_RESOURCE_ID)s)
-            values (default)
-            returning
-            %(column_RESOURCE_ID)s, %(column_CREATED)s, %(column_MODIFIED)s
-            """ % cls._homeChildTable, []
-        ))[0]
+        # Create and initialize this object, similar to initFromStore
+        resourceID, _created, _modified = (
+            yield cls._insertDefaultHomeChild.on(home._txn))[0]
 
         # Bind table needs entry
-        yield home._txn.execSQL("""
-            insert into %(name)s (
-                %(column_HOME_RESOURCE_ID)s,
-                %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s,
-                %(column_SEEN_BY_OWNER)s, %(column_SEEN_BY_SHAREE)s, %(column_BIND_STATUS)s) values (
-            %%s, %%s, %%s, %%s, %%s, %%s, %%s)
-            """ % cls._bindTable,
-            [home._resourceID, resourceID, name, _BIND_MODE_OWN, True, True,
-             _BIND_STATUS_ACCEPTED]
-        )
+        yield cls._initialOwnerBind.on(home._txn, homeID=home._resourceID,
+                                       resourceID=resourceID, name=name)
 
         # Initialize other state
         child = cls(home, name, resourceID, True)
