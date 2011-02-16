@@ -2717,6 +2717,36 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         return self.uid() + ".xml"
 
 
+    @classproperty
+    def _newNotificationQuery(cls):
+        no = cls._objectSchema
+        return Insert(
+            {
+                no.NOTIFICATION_HOME_RESOURCE_ID: Parameter("homeID"),
+                no.NOTIFICATION_UID: Parameter("uid"),
+                no.XML_TYPE: Parameter("xmlType"),
+                no.XML_DATA: Parameter("xmlData"),
+                no.MD5: Parameter("md5"),
+            },
+            Return=[no.RESOURCE_ID, no.CREATED, no.MODIFIED]
+        )
+
+
+    @classproperty
+    def _updateNotificationQuery(cls):
+        no = cls._objectSchema
+        return Update(
+            {
+                no.XML_TYPE: Parameter("xmlType"),
+                no.XML_DATA: Parameter("xmlData"),
+                no.MD5: Parameter("md5"),
+            },
+            Where=(no.NOTIFICATION_HOME_RESOURCE_ID == Parameter("homeID")).And(
+                no.NOTIFICATION_UID == Parameter("uid")),
+            Return=no.MODIFIED
+        )
+
+
     @inlineCallbacks
     def setData(self, uid, xmltype, xmldata, inserting=False):
         """
@@ -2727,30 +2757,18 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         self._md5 = hashlib.md5(xmldata).hexdigest()
         self._size = len(xmldata)
         if inserting:
-            rows = yield self._txn.execSQL("""
-                insert into NOTIFICATION
-                  (NOTIFICATION_HOME_RESOURCE_ID, NOTIFICATION_UID, XML_TYPE, XML_DATA, MD5)
-                values
-                  (%s, %s, %s, %s, %s)
-                returning
-                  RESOURCE_ID,
-                  CREATED,
-                  MODIFIED
-                """,
-                [self._home._resourceID, uid, self._xmlType.toxml(), xmldata, self._md5]
+            rows = yield self._newNotificationQuery.on(
+                self._txn, homeID=self._home._resourceID, uid=uid,
+                xmlType=self._xmlType.toxml(), xmlData=xmldata, md5=self._md5
             )
             self._resourceID, self._created, self._modified = rows[0]
             self._loadPropertyStore()
         else:
-            rows = yield self._txn.execSQL("""
-                update NOTIFICATION
-                set XML_TYPE = %s, XML_DATA = %s, MD5 = %s
-                where NOTIFICATION_HOME_RESOURCE_ID = %s and NOTIFICATION_UID = %s
-                returning MODIFIED
-                """,
-                [self._xmlType.toxml(), xmldata, self._md5, self._home._resourceID, uid])
+            rows = yield self._updateNotificationQuery.on(
+                self._txn, homeID=self._home._resourceID, uid=uid,
+                xmlType=self._xmlType.toxml(), xmlData=xmldata, md5=self._md5
+            )
             self._modified = rows[0][0]
-        
         self._objectText = xmldata
 
 
