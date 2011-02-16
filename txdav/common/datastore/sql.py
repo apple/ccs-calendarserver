@@ -1042,7 +1042,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         this constant wrt the number of children. This is an optimization for
         Depth:1 operations on the home.
         """
-
         results = []
 
         # Load from the main table first
@@ -1063,29 +1062,31 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 home._resourceID,
             ))
 
-            revisions = (yield home._txn.execSQL(("""
-                select %(REV:name)s.%(REV:column_RESOURCE_ID)s, max(%(REV:column_REVISION)s) from %(REV:name)s
-                left join %(BIND:name)s on (%(REV:name)s.%(REV:column_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s)
-                where
-                  %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s and
-                  %(BIND:column_BIND_MODE)s """ + ("=" if owned else "!=") + """ %%s and
-                  (%(REV:column_RESOURCE_NAME)s is not null or %(REV:column_DELETED)s = FALSE)
-                group by %(REV:name)s.%(REV:column_RESOURCE_ID)s
-                """) % cls._revisionsBindTable,
-                [
-                    home._resourceID,
-                    _BIND_MODE_OWN,
-                ]
-            ))
+            bind = cls._bindSchema
+            rev = cls._revisionsSchema
+            if owned:
+                ownedCond = bind.BIND_MODE == _BIND_MODE_OWN
+            else:
+                ownedCond = bind.BIND_MODE != _BIND_MODE_OWN
+            revisions = (yield Select(
+                [rev.RESOURCE_ID, Max(rev.REVISION)],
+                From=rev.join(bind, rev.RESOURCE_ID == bind.RESOURCE_ID,
+                              'left'),
+                Where=(bind.HOME_RESOURCE_ID == home._resourceID).And(
+                    ownedCond).And(
+                        (rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
+                GroupBy=rev.RESOURCE_ID
+            ).on(home._txn))
             revisions = dict(revisions)
 
         # Create the actual objects merging in properties
-        for resource_id, resource_name, created, modified in dataRows:
-            child = cls(home, resource_name, resource_id, owned)
+        for resourceID, resource_name, created, modified in dataRows:
+            child = cls(home, resource_name, resourceID, owned)
             child._created = created
             child._modified = modified
-            child._syncTokenRevision = revisions[resource_id]
-            yield child._loadPropertyStore(propertyStores.get(resource_id, None))
+            child._syncTokenRevision = revisions[resourceID]
+            propstore = propertyStores.get(resourceID, None)
+            yield child._loadPropertyStore(propstore)
             results.append(child)
         returnValue(results)
 
