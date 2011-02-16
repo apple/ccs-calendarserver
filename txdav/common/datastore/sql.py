@@ -853,6 +853,13 @@ class CommonHome(LoggingMixIn):
                       Return=meta.QUOTA_USED_BYTES)
 
 
+    @classproperty
+    def _resetQuotaQuery(cls):
+        meta = cls._homeMetaDataSchema
+        return Update({meta.QUOTA_USED_BYTES: 0},
+                      Where=meta.resourceID == Parameter("resourceID"))
+
+
     @inlineCallbacks
     def adjustQuotaUsedBytes(self, delta):
         """
@@ -869,14 +876,11 @@ class CommonHome(LoggingMixIn):
 
         # Double check integrity
         if self._quotaUsedBytes < 0:
-            log.error("Fixing quota adjusted below zero to %s by change amount %s" % (self._quotaUsedBytes, delta,))
-            yield self._txn.execSQL("""
-                update %(name)s
-                set %(column_QUOTA_USED_BYTES)s = 0
-                where %(column_RESOURCE_ID)s = %%s
-                """ % self._homeMetaDataTable,
-                [self._resourceID]
-            )
+            log.error(
+                "Fixing quota adjusted below zero to %s by change amount %s" %
+                (self._quotaUsedBytes, delta,))
+            yield self._resetQuotaQuery.on(self._txn,
+                                           resourceID=self._resourceID)
             self._quotaUsedBytes = 0
 
 

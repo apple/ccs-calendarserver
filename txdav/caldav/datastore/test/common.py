@@ -822,6 +822,10 @@ class CommonTests(CommonCommonTests):
         home2 = yield self.homeUnderTest()
         afterQuota = yield home2.quotaUsedBytes()
         self.assertEqual(afterQuota - initialQuota, 30)
+        yield home2.adjustQuotaUsedBytes(-100000)
+        yield self.commit()
+        home3 = yield self.homeUnderTest()
+        self.assertEqual((yield home3.quotaUsedBytes()), 0)
 
 
     @inlineCallbacks
