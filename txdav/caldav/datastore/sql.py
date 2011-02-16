@@ -466,6 +466,8 @@ class CalendarObject(CommonObjectResource):
 
         tr = schema.TIME_RANGE
         co = schema.CALENDAR_OBJECT
+        tpy = schema.TRANSPARENCY
+
         values = {
             co.CALENDAR_RESOURCE_ID            : self._calendar._resourceID,
             co.RESOURCE_NAME                   : self._name,
@@ -521,19 +523,11 @@ class CalendarObject(CommonObjectResource):
             }, Return=tr.INSTANCE_ID).on(self._txn))[0][0]
             peruserdata = component.perUserTransparency(instance.rid)
             for useruid, transp in peruserdata:
-                yield self._txn.execSQL(
-                    """
-                    insert into TRANSPARENCY
-                    (TIME_RANGE_INSTANCE_ID, USER_ID, TRANSPARENT)
-                     values
-                    (%s, %s, %s)
-                    """,
-                    [
-                        instanceid,
-                        useruid,
-                        transp,
-                    ],
-                )
+                (yield Insert({
+                    tpy.TIME_RANGE_INSTANCE_ID : instanceid,
+                    tpy.USER_ID                : useruid,
+                    tpy.TRANSPARENT            : transp,
+                }).on(self._txn))
 
         # Special - for unbounded recurrence we insert a value for "infinity"
         # that will allow an open-ended time-range to always match it.
@@ -541,40 +535,24 @@ class CalendarObject(CommonObjectResource):
             start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
             end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
             float = False
-            instanceid = (yield self._txn.execSQL(
-                """
-                insert into TIME_RANGE
-                (CALENDAR_RESOURCE_ID, CALENDAR_OBJECT_RESOURCE_ID, FLOATING, START_DATE, END_DATE, FBTYPE, TRANSPARENT)
-                 values
-                (%s, %s, %s, %s, %s, %s, %s)
-                 returning
-                INSTANCE_ID
-                """,
-                [
-                    self._calendar._resourceID,
-                    self._resourceID,
-                    float,
-                    start,
-                    end,
+            transp = True
+            instanceid = (yield Insert({
+                tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
+                tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
+                tr.FLOATING                    : float,
+                tr.START_DATE                  : start,
+                tr.END_DATE                    : end,
+                tr.FBTYPE                      :
                     icalfbtype_to_indexfbtype["UNKNOWN"],
-                    True,
-                ],
-            ))[0][0]
+                tr.TRANSPARENT                 : transp,
+            }, Return=tr.INSTANCE_ID).do(self._txn))[0][0]
             peruserdata = component.perUserTransparency(None)
             for useruid, transp in peruserdata:
-                yield self._txn.execSQL(
-                    """
-                    insert into TRANSPARENCY
-                    (TIME_RANGE_INSTANCE_ID, USER_ID, TRANSPARENT)
-                     values
-                    (%s, %s, %s)
-                    """,
-                    [
-                        instanceid,
-                        useruid,
-                        transp,
-                    ],
-                )
+                (yield Insert({
+                    tpy.TIME_RANGE_INSTANCE_ID : instanceid,
+                    tpy.USER_ID                : useruid,
+                    tpy.TRANSPARENT            : transp,
+                }).on(self._txn))
 
 
     @inlineCallbacks
