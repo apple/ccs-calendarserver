@@ -976,6 +976,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                                  bind.BIND_MODE == _BIND_MODE_OWN))
 
 
+    @classproperty
+    def _sharedChildListQuery(cls):
+        bind = cls._bindSchema
+        return Select([bind.RESOURCE_NAME], From=bind,
+                      Where=(bind.HOME_RESOURCE_ID ==
+                             Parameter("resourceID")).And(
+                                 bind.BIND_MODE != _BIND_MODE_OWN).And(
+                                 bind.RESOURCE_NAME != None))
+
+
     @classmethod
     @inlineCallbacks
     def listObjects(cls, home, owned):
@@ -989,18 +999,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             rows = yield cls._ownedChildListQuery.on(
                 home._txn, resourceID=home._resourceID)
         else:
-            rows = yield home._txn.execSQL("""
-                select %(column_RESOURCE_NAME)s from %(name)s
-                where
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s != %%s and
-                  %(column_RESOURCE_NAME)s is not null
-                """ % cls._bindTable,
-                [home._resourceID, _BIND_MODE_OWN]
-            )
-
+            rows = yield cls._sharedChildListQuery.on(
+                home._txn, resourceID=home._resourceID)
         names = [row[0] for row in rows]
         returnValue(names)
+
 
     @classmethod
     @inlineCallbacks
