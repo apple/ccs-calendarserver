@@ -25,12 +25,20 @@ __all__ = [
 
 from twistedcaldav.memcacher import Memcacher
 
+from twext.enterprise.dal.syntax import Select
+from twext.enterprise.dal.syntax import Parameter
+
+from txdav.common.datastore.sql_tables import schema
+
 from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName,\
     validKey
 
 from twext.web2.dav.davxml import WebDAVDocument
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+
+
+prop = schema.RESOURCE_PROPERTY
 
 class PropertyStore(AbstractPropertyStore):
 
@@ -42,6 +50,11 @@ class PropertyStore(AbstractPropertyStore):
         )
 
 
+    _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
+                        From=prop,
+                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+
+
     @classmethod
     @inlineCallbacks
     def load(cls, defaultuser, txn, resourceID, created=False):
@@ -51,26 +64,18 @@ class PropertyStore(AbstractPropertyStore):
         self._resourceID = resourceID
         self._cached = {}
         if not created:
-            
-            # Cache existing properties in this object 
-
+            # Cache existing properties in this object
             # Look for memcache entry first
             rows = yield self._cacher.get(str(self._resourceID))
-            
             if rows is None:
-                rows = yield self._txn.execSQL(
-                    """
-                    select NAME, VIEWER_UID, VALUE from RESOURCE_PROPERTY
-                    where RESOURCE_ID = %s
-                    """,
-                    [self._resourceID]
-                )
-                yield self._cacher.set(str(self._resourceID), rows if rows is not None else ())
+                rows = yield self._allWithID.on(txn,
+                                                resourceID=self._resourceID)
+                yield self._cacher.set(str(self._resourceID),
+                                       rows if rows is not None else ())
             for name, uid, value in rows:
                 self._cached[(name, uid)] = value
-
-
         returnValue(self)
+
 
     @classmethod
     @inlineCallbacks
