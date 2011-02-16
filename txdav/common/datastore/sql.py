@@ -1196,25 +1196,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     @classmethod
     @inlineCallbacks
     def create(cls, home, name):
-        
         child = (yield cls.objectWithName(home, name, owned=True))
-        if child:
+        if child is not None:
             raise HomeChildNameAlreadyExistsError(name)
 
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
-        
+
         # Create and initialize (in a similar manner to initFromStore) this object
-        rows = yield home._txn.execSQL("select nextval('RESOURCE_ID_SEQ')")
-        resourceID = rows[0][0]
-        _created, _modified = (yield home._txn.execSQL("""
+        resourceID, _created, _modified = (yield home._txn.execSQL(
+            """
             insert into %(name)s (%(column_RESOURCE_ID)s)
-            values (%%s)
-            returning %(column_CREATED)s, %(column_MODIFIED)s
-            """ % cls._homeChildTable,
-            [resourceID]
+            values (default)
+            returning
+            %(column_RESOURCE_ID)s, %(column_CREATED)s, %(column_MODIFIED)s
+            """ % cls._homeChildTable, []
         ))[0]
-        
+
         # Bind table needs entry
         yield home._txn.execSQL("""
             insert into %(name)s (
@@ -1242,6 +1240,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         # Change notification for a create is on the home collection
         home.notifyChanged()
         returnValue(child)
+
 
     @inlineCallbacks
     def initFromStore(self):
