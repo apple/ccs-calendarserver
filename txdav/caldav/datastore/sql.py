@@ -59,6 +59,7 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE,\
     CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE,\
     CALENDAR_OBJECT_AND_BIND_TABLE, schema
+from twext.enterprise.dal.syntax import Select
 from txdav.common.icommondatastore import IndexedSearchException
 
 from vobject.icalendar import utc
@@ -119,23 +120,22 @@ class CalendarHome(CommonHome):
             
         returnValue(results)
 
+
     @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
         """
         Implement lookup via queries.
         """
-        rows = (yield self._txn.execSQL("""
-            select %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s, %(OBJECT:column_RESOURCE_ID)s
-            from %(OBJECT:name)s
-            left outer join %(BIND:name)s on (
-              %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
-            )
-            where
-             %(OBJECT:column_DROPBOX_ID)s = %%s and
-             %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s
-            """ % CALENDAR_OBJECT_AND_BIND_TABLE,
-            [dropboxID, self._resourceID,]
-        ))
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        rows = (yield Select(
+            [co.PARENT_RESOURCE_ID,
+             co.RESOURCE_ID],
+            From=co.join(cb, co.PARENT_RESOURCE_ID == cb.RESOURCE_ID,
+                         'left outer'),
+            Where=(co.DROPBOX_ID == dropboxID).And(
+                cb.HOME_RESOURCE_ID == self._resourceID)
+        ).on(self._txn))
 
         if rows:
             calendarID, objectID = rows[0]
@@ -143,8 +143,8 @@ class CalendarHome(CommonHome):
             if calendar:
                 calendarObject = (yield calendar.objectResourceWithID(objectID))
                 returnValue(calendarObject)
-        
         returnValue(None)
+
 
     @inlineCallbacks
     def getAllDropboxIDs(self):
