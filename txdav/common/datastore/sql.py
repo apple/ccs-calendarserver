@@ -1310,15 +1310,29 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         return self._name
 
 
+    @classproperty
+    def _renameQuery(cls):
+        """
+        DAL statement to rename a L{CommonHomeChild}
+        """
+        bind = cls._bindSchema
+        return Update({bind.RESOURCE_NAME: Parameter("name")},
+                      Where=(bind.RESOURCE_ID == Parameter("resourceID")).And(
+                          bind.HOME_RESOURCE_ID == Parameter("homeID")))
+
+
     @inlineCallbacks
     def rename(self, name):
+        """
+        Change the name of this L{CommonHomeChild} and update its sync token to
+        reflect that change.
+
+        @return: a L{Deferred} which fires when the modification is complete.
+        """
         oldName = self._name
-        yield self._txn.execSQL(
-            "update %(name)s set %(column_RESOURCE_NAME)s = %%s "
-            "where %(column_RESOURCE_ID)s = %%s AND "
-            "%(column_HOME_RESOURCE_ID)s = %%s" % self._bindTable,
-            [name, self._resourceID, self._home._resourceID]
-        )
+        yield self._renameQuery.on(self._txn, name=name,
+                                   resourceID=self._resourceID,
+                                   homeID=self._home._resourceID)
         self._name = name
         # update memos
         del self._home._children[oldName]
