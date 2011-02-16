@@ -29,6 +29,72 @@ from protocol.caldav.definitions import csxml
 from loadtest.ical import Event, SnowLeopard
 from httpclient import MemoryConsumer
 
+EVENT_UID = 'D94F247D-7433-43AF-B84B-ADD684D023B0'
+
+EVENT = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:America/New_York
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0500
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:EDT
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0400
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:EST
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20101018T155454Z
+UID:%(UID)s
+DTEND;TZID=America/New_York:20101028T130000
+ATTENDEE;CN="User 03";CUTYPE=INDIVIDUAL;EMAIL="user03@example.com";PARTS
+ TAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:user03@example.co
+ m
+ATTENDEE;CN="User 01";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:user01@
+ example.com
+TRANSP:OPAQUE
+SUMMARY:Attended Event
+DTSTART;TZID=America/New_York:20101028T120000
+DTSTAMP:20101018T155513Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+SEQUENCE:3
+END:VEVENT
+END:VCALENDAR
+""" % {'UID': EVENT_UID}
+
+
+class EventTests(TestCase):
+    """
+    Tests for L{Event}.
+    """
+    def test_uid(self):
+        """
+        When the C{vevent} attribute of an L{Event} instance is set,
+        L{Event.getUID} returns the UID value from it.
+        """
+        event = Event(u'/foo/bar', u'etag', list(readComponents(EVENT))[0])
+        self.assertEquals(event.getUID(), EVENT_UID)
+
+
+    def test_withoutUID(self):
+        """
+        When an L{Event} has a C{vevent} attribute set to C{None},
+        L{Event.getUID} returns C{None}.
+        """
+        event = Event(u'/bar/baz', u'etag')
+        self.assertIdentical(event.getUID(), None)
+
+
 
 PRINCIPAL_PROPFIND_RESPONSE = """\
 <?xml version='1.0' encoding='UTF-8'?>
@@ -722,47 +788,6 @@ END:VCALENDAR
     </propstat>
   </response>
 </multistatus>
-"""
-
-EVENT = """\
-BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Apple Inc.//iCal 4.0.3//EN
-CALSCALE:GREGORIAN
-BEGIN:VTIMEZONE
-TZID:America/New_York
-BEGIN:DAYLIGHT
-TZOFFSETFROM:-0500
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
-DTSTART:20070311T020000
-TZNAME:EDT
-TZOFFSETTO:-0400
-END:DAYLIGHT
-BEGIN:STANDARD
-TZOFFSETFROM:-0400
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-DTSTART:20071104T020000
-TZNAME:EST
-TZOFFSETTO:-0500
-END:STANDARD
-END:VTIMEZONE
-BEGIN:VEVENT
-CREATED:20101018T155454Z
-UID:D94F247D-7433-43AF-B84B-ADD684D023B0
-DTEND;TZID=America/New_York:20101028T130000
-ATTENDEE;CN="User 03";CUTYPE=INDIVIDUAL;EMAIL="user03@example.com";PARTS
- TAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:user03@example.co
- m
-ATTENDEE;CN="User 01";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:user01@
- example.com
-TRANSP:OPAQUE
-SUMMARY:Attended Event
-DTSTART;TZID=America/New_York:20101028T120000
-DTSTAMP:20101018T155513Z
-ORGANIZER;CN="User 01":mailto:user01@example.com
-SEQUENCE:3
-END:VEVENT
-END:VCALENDAR
 """
 
 class SnowLeopardTests(TestCase):

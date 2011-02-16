@@ -60,6 +60,16 @@ class Event(object):
         self.vevent = vevent
 
 
+    def getUID(self):
+        """
+        Return the UID from the vevent, if there is one.
+        """
+        if self.vevent is not None:
+            uid = self.vevent.contents['vevent'][0].contents['uid'][0]
+            return uid.value
+        return None
+
+
 
 class Calendar(object):
     def __init__(self, resourceType, name, url, ctag):
