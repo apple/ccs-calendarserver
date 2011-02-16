@@ -2278,14 +2278,23 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         return datetimeMktime(parseSQLTimestamp(self._modified))
 
 
+    @classproperty
+    def _textByIDQuery(cls):
+        """
+        DAL query to load iCalendar/vCard text via an object's resource ID.
+        """
+        obj = cls._objectSchema
+        return Select([obj.TEXT], From=obj,
+                      Where=obj.RESOURCE_ID == Parameter("resourceID"))
+
+
     @inlineCallbacks
     def text(self):
         if self._objectText is None:
-            text = (yield self._txn.execSQL(
-                "select %(column_TEXT)s from %(name)s where "
-                "%(column_RESOURCE_ID)s = %%s" % self._objectTable,
-                [self._resourceID]
-            ))[0][0]
+            text = (
+                yield self._textByIDQuery.on(self._txn,
+                                             resourceID=self._resourceID)
+            )[0][0]
             self._objectText = text
             returnValue(text)
         else:
