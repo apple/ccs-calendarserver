@@ -1480,6 +1480,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         returnValue(objectResource)
 
 
+    @classproperty
+    def _resourceNameForUIDQuery(cls):
+        """
+        DAL query to retrieve the resource name for an object resource based on
+        its UID column.
+        """
+        obj = cls._objectSchema
+        return Select(
+            [obj.RESOURCE_NAME],
+            From=obj,
+            Where=(obj.UID == Parameter("uid")
+                  ).And(obj.PARENT_RESOURCE_ID == Parameter("resourceID")))
+
+
     @inlineCallbacks
     def resourceNameForUID(self, uid):
         try:
@@ -1487,19 +1501,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             returnValue(resource.name() if resource else None)
         except KeyError:
             pass
-
-        rows = yield self._txn.execSQL("""
-            select %(column_RESOURCE_NAME)s
-            from %(name)s
-            where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-            """ % self._objectTable,
-            [uid, self._resourceID]
-        )
+        rows = yield self._resourceNameForUIDQuery.on(
+            self._txn, uid=uid, resourceID=self._resourceID)
         if rows:
             returnValue(rows[0][0])
         else:
             self._objects[uid] = None
             returnValue(None)
+
 
     @inlineCallbacks
     def resourceUIDForName(self, name):
