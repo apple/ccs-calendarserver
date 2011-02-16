@@ -818,16 +818,20 @@ class CommonHome(LoggingMixIn):
         returnValue(results)
 
 
+    @classproperty
+    def _quotaQuery(cls):
+        meta = cls._homeMetaDataSchema
+        return Select(
+            [meta.QUOTA_USED_BYTES], From=meta,
+            Where=meta.RESOURCE_ID == Parameter("resourceID")
+        )
+
+
     @inlineCallbacks
     def quotaUsedBytes(self):
-        
         if self._quotaUsedBytes is None:
-            self._quotaUsedBytes = (yield self._txn.execSQL(
-                "select %(column_QUOTA_USED_BYTES)s from %(name)s"
-                " where %(column_RESOURCE_ID)s = %%s" % self._homeMetaDataTable,
-                [self._resourceID]
-            ))[0][0]
-        
+            self._quotaUsedBytes = (yield self._quotaQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
         returnValue(self._quotaUsedBytes)
 
 
