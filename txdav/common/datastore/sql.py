@@ -1453,16 +1453,21 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         else:
             return self._makeObjectResource(resourceID=resourceID)
 
+
     @inlineCallbacks
     def _makeObjectResource(self, name=None, uid=None, resourceID=None):
         """
-        We create the empty object first then have it initialize itself from the store
+        We create the empty object first then have it initialize itself from the
+        store.
         """
-        
         if resourceID:
-            objectResource = (yield self._objectResourceClass.objectWithID(self, resourceID))
+            objectResource = (
+                yield self._objectResourceClass.objectWithID(self, resourceID)
+            )
         else:
-            objectResource = (yield self._objectResourceClass.objectWithName(self, name, uid))
+            objectResource = (
+                yield self._objectResourceClass.objectWithName(self, name, uid)
+            )
         if objectResource:
             self._objects[objectResource.name()] = objectResource
             self._objects[objectResource.uid()] = objectResource
