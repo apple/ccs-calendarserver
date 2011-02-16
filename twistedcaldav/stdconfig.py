@@ -660,13 +660,19 @@ DEFAULT_CONFIG = {
                     "Default",
                 ]
             },
-#            "ProxyDB": {
+#            "Shared": {
 #                "ClientEnabled": True,
 #                "ServerEnabled": True,
 #                "BindAddress": "127.0.0.1",
 #                "Port": 11211,
 #                "HandleCacheTypes": [
-#                    "ProxyDB", "PrincipalToken",
+#                    "ProxyDB",
+#                    "PrincipalToken",
+#                    "FBCache",
+#                    "ScheduleAddressMapper",
+#                    "SQL.props",
+#                    "SQL.calhome",
+#                    "SQL.adbkhome",
 #                ]
 #            },
         },
@@ -690,6 +696,8 @@ DEFAULT_CONFIG = {
 
     "EnableResponseCache":  True,
     "ResponseCacheTimeout": 30, # Minutes
+
+    "EnableFreeBusyCache":  True,
 
     # Specify which opendirectory module to use:
     # "opendirectory" is PyOpenDirectory (the old one which uses

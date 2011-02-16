@@ -42,7 +42,7 @@ prop = schema.RESOURCE_PROPERTY
 
 class PropertyStore(AbstractPropertyStore):
 
-    _cacher = Memcacher("propertystore.sql", pickle=True, key_normalization=False)
+    _cacher = Memcacher("SQL.props", pickle=True, key_normalization=False)
 
     def __init__(self, *a, **kw):
         raise NotImplementedError(

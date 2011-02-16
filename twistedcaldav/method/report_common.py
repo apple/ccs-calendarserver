@@ -37,7 +37,7 @@ try:
 except ImportError:
     from md5 import new as md5
 
-from vobject.icalendar import utc
+from vobject.icalendar import utc, dateTimeToString
 
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
@@ -55,14 +55,17 @@ from twext.python.log import Logger
 
 from twistedcaldav import caldavxml
 from twistedcaldav import carddavxml
-from twistedcaldav.caldavxml import caldav_namespace, CalendarData
+from twistedcaldav.caldavxml import caldav_namespace, CalendarData, TimeRange
 from twistedcaldav.carddavxml import AddressData
+from twistedcaldav.config import config
 from twistedcaldav.datafilters.calendardata import CalendarDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.datafilters.addressdata import AddressDataFilter
-from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap
+from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap,\
+    compareDateTime, normalizeToUTC
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
+from twistedcaldav.memcacher import Memcacher
 
 from twistedcaldav.query import calendarqueryfilter
 
@@ -377,7 +380,51 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
 fbtype_mapper = {"BUSY": 0, "BUSY-TENTATIVE": 1, "BUSY-UNAVAILABLE": 2}
 fbtype_index_mapper = {'B': 0, 'T': 1, 'U': 2}
 
+fbcacher = Memcacher("FBCache", pickle=True)
 
+class FBCacheEntry(object):
+    
+    CACHE_DAYS_FLOATING_ADJUST = 1
+    CACHE_DAYS_BACK = 7             # Must be greater than CACHE_DAYS_FLOATING_ADJUST
+    CACHE_DAYS_FORWARD = 12 * 7     # 12 weeks must be greater than CACHE_DAYS_FLOATING_ADJUST
+    
+    def __init__(self, key, token, timerange, fbresults):
+        self.key = key
+        self.token = token
+        self.timerange = timerange
+        self.fbresults = fbresults
+    
+    @classmethod
+    @inlineCallbacks
+    def getCacheEntry(cls, calresource, useruid, timerange):
+        
+        key = calresource.resourceID() + "/" + useruid
+        token = (yield calresource.getSyncToken())
+        entry = (yield fbcacher.get(key))
+        
+        if entry:
+    
+            # Offset one day at either end to account for floating
+            cached_start = entry.timerange.start + datetime.timedelta(days=FBCacheEntry.CACHE_DAYS_FLOATING_ADJUST)
+            cached_end = entry.timerange.end - datetime.timedelta(days=FBCacheEntry.CACHE_DAYS_FLOATING_ADJUST)
+
+            # Verify that the requested timerange lies within the cache timerange
+            if compareDateTime(timerange.end, cached_end) <= 0 and compareDateTime(timerange.start, cached_start) >= 0:
+                
+                # Verify that cached entry is still valid
+                if token == entry.token:
+                    returnValue(entry.fbresults)
+        
+        returnValue(None) 
+
+    @classmethod
+    @inlineCallbacks
+    def makeCacheEntry(cls, calresource, useruid, timerange, fbresults):
+
+        key = calresource.resourceID() + "/" + useruid
+        token = (yield calresource.getSyncToken())
+        entry = cls(key, token, timerange, fbresults)
+        yield fbcacher.set(key, entry)
 
 @inlineCallbacks
 def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
@@ -416,49 +463,75 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     organizer_principal = calresource.principalForCalendarUserAddress(organizer) if organizer else None
     organizer_uid = organizer_principal.principalUID() if organizer_principal else ""
 
-    #
-    # What we do is a fake calendar-query for VEVENT/VFREEBUSYs in the specified time-range.
-    # We then take those results and merge them into one VFREEBUSY component
-    # with appropriate FREEBUSY properties, and return that single item as iCal data.
-    #
-
-    # Create fake filter element to match time-range
-    filter =  caldavxml.Filter(
-                  caldavxml.ComponentFilter(
-                      caldavxml.ComponentFilter(
-                          timerange,
-                          name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
-                      ),
-                      name="VCALENDAR",
-                   )
-              )
-    filter = calendarqueryfilter.Filter(filter)
-
-    # Get the timezone property from the collection, and store in the query filter
-    # for use during the query itself.
-    has_prop = (yield calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
-    if has_prop:
-        tz = (yield calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
-    else:
-        tz = None
-    tzinfo = filter.settimezone(tz)
-
-    # Do some optimization of access control calculation by determining any
-    # inherited ACLs outside of the child resource loop and supply those to the
-    # checkPrivileges on each child.
-    filteredaces = (yield calresource.inheritedACEsforChildren(request))
-
+    # Free busy is per-user 
     userPrincipal = (yield calresource.resourceOwnerPrincipal(request))
     if userPrincipal:
         useruid = userPrincipal.principalUID()
     else:
         useruid = ""
-    try:
-        resources = yield maybeDeferred(calresource.index().indexedSearch,
-            filter, useruid=useruid, fbtype=True
-        )
-    except IndexedSearchException:
-        resources = yield maybeDeferred(calresource.index().bruteForceSearch)
+            
+    # Try cache
+    resources = (yield FBCacheEntry.getCacheEntry(calresource, useruid, timerange)) if config.EnableFreeBusyCache else None
+
+    if resources is None:
+        
+        caching = False
+        if config.EnableFreeBusyCache:
+            # Log extended item
+            if not hasattr(request, "extendedLogItems"):
+                request.extendedLogItems = {}
+            request.extendedLogItems["fb-uncached"] = request.extendedLogItems.get("fb-uncached", 0) + 1
+
+            # We want to cache a large range of time based on the current date
+            cache_start = normalizeToUTC(datetime.date.today() - datetime.timedelta(days=FBCacheEntry.CACHE_DAYS_BACK))
+            cache_end = normalizeToUTC(datetime.date.today() + datetime.timedelta(days=FBCacheEntry.CACHE_DAYS_FORWARD))
+            
+            # If the requested timerange would fit in our allowed cache range, trigger the cache creation
+            if compareDateTime(timerange.start, cache_start) >= 0 and compareDateTime(timerange.end, cache_end) <= 0:
+                cache_timerange = TimeRange(start=dateTimeToString(cache_start), end=dateTimeToString(cache_end))
+                caching = True
+ 
+        #
+        # What we do is a fake calendar-query for VEVENT/VFREEBUSYs in the specified time-range.
+        # We then take those results and merge them into one VFREEBUSY component
+        # with appropriate FREEBUSY properties, and return that single item as iCal data.
+        #
+    
+        # Create fake filter element to match time-range
+        filter =  caldavxml.Filter(
+                      caldavxml.ComponentFilter(
+                          caldavxml.ComponentFilter(
+                              cache_timerange if caching else timerange,
+                              name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                          ),
+                          name="VCALENDAR",
+                       )
+                  )
+        filter = calendarqueryfilter.Filter(filter)
+    
+        # Get the timezone property from the collection, and store in the query filter
+        # for use during the query itself.
+        has_prop = (yield calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
+        if has_prop:
+            tz = (yield calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
+        else:
+            tz = None
+        tzinfo = filter.settimezone(tz)
+    
+        try:
+            resources = yield maybeDeferred(calresource.index().indexedSearch,
+                filter, useruid=useruid, fbtype=True
+            )
+            if caching:
+                yield FBCacheEntry.makeCacheEntry(calresource, useruid, cache_timerange, resources)
+        except IndexedSearchException:
+            resources = yield maybeDeferred(calresource.index().bruteForceSearch)
+            
+    else:
+        # Log extended item
+        if not hasattr(request, "extendedLogItems"):
+            request.extendedLogItems = {}
+        request.extendedLogItems["fb-cached"] = request.extendedLogItems.get("fb-cached", 0) + 1
 
     # We care about separate instances for VEVENTs only
     aggregated_resources = {}
@@ -470,16 +543,6 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     for key in aggregated_resources.iterkeys():
 
         name, uid, type, test_organizer = key
-
-        # Check privileges - must have at least CalDAV:read-free-busy
-        child = (yield request.locateChildResource(calresource, name))
-
-        # TODO: for server-to-server we bypass this right now as we have no way to authorize external users.
-        if not servertoserver:
-            try:
-                yield child.checkPrivileges(request, (caldavxml.ReadFreeBusy(),), inherited_aces=filteredaces, principal=organizerPrincipal)
-            except AccessDeniedError:
-                continue
 
         # Short-cut - if an fbtype exists we can use that
         if type == "VEVENT" and aggregated_resources[key][0][3] != '?':
@@ -533,6 +596,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                     raise NumberOfMatchesWithinLimits(max_number_of_matches)
                 
         else:
+            child = (yield request.locateChildResource(calresource, name))
             calendar = (yield child.iCalendarForUser(request))
             
             # The calendar may come back as None if the resource is being changed, or was deleted

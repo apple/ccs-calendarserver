@@ -54,6 +54,21 @@ def normalizeForIndex(dt):
     else:
         return datetime.datetime.fromordinal(dt.toordinal())
 
+def normalizeToUTC(dt):
+    """
+    Normalize a L{datetime.date} or L{datetime.datetime} object to UTC.
+    """
+    if not isinstance(dt, datetime.date):
+        raise TypeError("%r is not a datetime.date instance" % (dt,))
+    
+    if isinstance(dt, datetime.datetime):
+        if dt.tzinfo is not None:
+            return dt.astimezone(utc)
+        else:
+            return dt.replace(tzinfo=utc)
+    else:
+        return datetime.datetime.fromordinal(dt.toordinal()).replace(tzinfo=utc)
+
 def floatoffset(dt, tzinfo):
     """
     Apply the timezone offset to the supplied time, then force tz to utc. This gives the local
