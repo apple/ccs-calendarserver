@@ -1699,25 +1699,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
 
     @classproperty
-    def _incrementSyncTokenQuery(cls):
-        """
-        DAL query to increment the sync token to the most recent sequence value.
-        """
-        rev = cls._revisionsSchema
-        return Update({rev.REVISION: schema.REVISION_SEQ},
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                          rev.RESOURCE_NAME == None),
-                      Return=rev.REVISION)
-
-
-    @inlineCallbacks
-    def _updateSyncToken(self):
-        self._syncTokenRevision = (
-            yield self._incrementSyncTokenQuery.on(
-                self._txn, resourceID=self._resourceID))[0][0]
-
-
-    @classproperty
     def _renameSyncTokenQuery(cls):
         """
         DAL query to change sync token for a rename (increment and adjust
@@ -2527,6 +2508,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         )
     )
 
+
     @inlineCallbacks
     def resourceNamesSinceToken(self, token):
         results = [
@@ -2548,17 +2530,6 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
                     changed.append(name)
 
         returnValue((changed, deleted))
-
-
-    def _updateSyncToken(self):
-        self._syncTokenRevision =  self._txn.execSQL("""
-            update %(name)s
-            set (%(column_REVISION)s) = (nextval('%(sequence)s'))
-            where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-            returning %(column_REVISION)s
-            """ % self._revisionsTable,
-            [self._resourceID,]
-        )[0][0]
 
 
     def _insertRevision(self, name):
