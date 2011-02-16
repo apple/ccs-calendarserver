@@ -1561,20 +1561,27 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         returnValue(objectResource)
 
 
+    @classproperty
+    def _removeObjectResourceByNameQuery(cls):
+        """
+        DAL query to remove an object resource from this collection by name,
+        returning the UID of the resource it deleted..
+        """
+        obj = cls._objectSchema
+        return Delete(From=obj,
+                      Where=(obj.RESOURCE_NAME == Parameter("name")).And(
+                          obj.PARENT_RESOURCE_ID == Parameter("resourceID")),
+                     Return=obj.UID)
+
+
     @inlineCallbacks
     def removeObjectResourceWithName(self, name):
-
-        uid = (yield self._txn.execSQL(
-            "delete from %(name)s "
-            "where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "
-            "returning %(column_UID)s" % self._objectTable,
-            [name, self._resourceID],
-            raiseOnZeroRowCount=lambda:NoSuchObjectResourceError()
-        ))[0][0]
+        uid = (yield self._removeObjectResourceByNameQuery.on(
+            self._txn, NoSuchObjectResourceError,
+            name=name, resourceID=self._resourceID))[0][0]
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
         yield self._deleteRevision(name)
-
         self.notifyChanged()
 
 
