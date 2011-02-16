@@ -775,5 +775,16 @@ class Parameter(object):
         return 'Parameter(%r)' % (self.name,)
 
 
-# Common helpers.
+# Common helpers:
+
+# current timestamp in UTC format.
 utcNowSQL = Function('timezone')('UTC', NamedValue('CURRENT_TIMESTAMP'))
+
+# You can't insert a column with no rows.  In SQL that just isn't valid syntax,
+# and in this DAL you need at least one key or we can't tell what table you're
+# talking about.  Luckily there's the 'default' keyword to the rescue, which, in
+# the context of an INSERT statement means 'use the default value explicitly'.
+# (Although this is a special keyword in a CREATE statement, in an INSERT it
+# behaves like an expression to the best of my knowledge.)
+default = NamedValue('default')
+
