@@ -23,18 +23,15 @@ __all__ = [
     "PropertyStore",
 ]
 
+
 from twistedcaldav.memcacher import Memcacher
 
-from twext.enterprise.dal.syntax import Select
-from twext.enterprise.dal.syntax import Parameter
-from twext.enterprise.dal.syntax import Update
-from twext.enterprise.dal.syntax import Insert
-from twext.enterprise.dal.syntax import TableSyntax
+from twext.enterprise.dal.syntax import (
+    Select, Parameter, Update, Insert, TableSyntax, Delete)
 
 from txdav.common.datastore.sql_tables import schema
-
-from txdav.base.propertystore.base import (
-    AbstractPropertyStore, PropertyName, validKey)
+from txdav.base.propertystore.base import (AbstractPropertyStore,
+                                           PropertyName, validKey)
 
 from twext.web2.dav.davxml import WebDAVDocument
 
@@ -183,24 +180,28 @@ class PropertyStore(AbstractPropertyStore):
         self._cacher.delete(str(self._resourceID))
 
 
+    _deleteQuery = Delete(
+        prop, Where=(prop.RESOURCE_ID == Parameter("resourceID")).And(
+            prop.NAME == Parameter("name")).And(
+                prop.VIEWER_UID == Parameter("uid"))
+    )
+
+
     def _delitem_uid(self, key, uid):
         validKey(key)
 
         key_str = key.toString()
         del self._cached[(key_str, uid)]
-        self._txn.execSQL(
-            """
-            delete from RESOURCE_PROPERTY
-            where RESOURCE_ID = %s and NAME = %s and VIEWER_UID = %s
-            """,
-            [self._resourceID, key_str, uid],
-            raiseOnZeroRowCount=lambda:KeyError(key)
-        )
+        self._deleteQuery.on(self._txn, lambda:KeyError(key),
+                             resourceID=self._resourceID,
+                             name=key_str, uid=uid
+                            )
         self._cacher.delete(str(self._resourceID))
-            
+
 
     def _keys_uid(self, uid):
-
         for cachedKey, cachedUID in self._cached.keys():
             if cachedUID == uid:
                 yield PropertyName.fromString(cachedKey)
+
+
