@@ -928,12 +928,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     )
 
     _objectResourceClass = None
-    _bindTable = None
-    _homeChildTable = None
-    _homeChildBindTable = None
-    _revisionsTable = None
-    _revisionsBindTable = None
-    _objectTable = None
+
+    _bindSchema           = None
+    _homeChildSchema      = None
+    _homeChildBindSchema  = None
+    _revisionsSchema      = None
+    _revisionsBindSchema  = None
+    _objectSchema         = None
+
+    _bindTable           = None
+    _homeChildTable      = None
+    _homeChildBindTable  = None
+    _revisionsTable      = None
+    _revisionsBindTable  = None
+    _objectTable         = None
 
 
     def __init__(self, home, name, resourceID, owned):
@@ -957,6 +965,15 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self._notifiers         = notifiers
         self._index             = None  # Derived classes need to set this
         self._invites           = None  # Derived classes need to set this
+
+
+    @classproperty
+    def _objectListQuery(cls):
+        bind = cls._bindSchema
+        return Select([bind.RESOURCE_NAME], From=bind,
+                      Where=(bind.HOME_RESOURCE_ID ==
+                             Parameter("resourceID")).And(
+                                 bind.BIND_MODE == _BIND_MODE_OWN))
 
 
     @classmethod
