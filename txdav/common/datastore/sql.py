@@ -63,6 +63,7 @@ from twext.python.clsprop import classproperty
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Lock
 from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.dal.syntax import Max
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -635,21 +636,28 @@ class CommonHome(LoggingMixIn):
             self._children.pop(name, None)
 
 
+    @classproperty
+    def _syncTokenQuery(cls):
+        """
+        DAL Select statement to find the sync token.
+        """
+        rev = cls._revisionsSchema
+        bind = cls._bindSchema
+        return Select(
+            [Max(rev.REVISION)],
+            From=rev, Where=(
+                rev.RESOURCE_ID in Select(
+                    [bind.RESOURCE_ID], From=bind,
+                    Where=bind.HOME_RESOURCE_ID == Parameter("resourceID"))
+            ).Or((rev.HOME_RESOURCE_ID == Parameter("resourceID")).And(
+                rev.RESOURCE_ID == None))
+        )
+
+
     @inlineCallbacks
     def syncToken(self):
-        revision = (yield self._txn.execSQL(
-            """
-            select max(%(REV:column_REVISION)s) from %(REV:name)s
-            where %(REV:column_RESOURCE_ID)s in (
-              select %(BIND:column_RESOURCE_ID)s from %(BIND:name)s
-              where %(BIND:column_HOME_RESOURCE_ID)s = %%s
-            ) or (
-              %(REV:column_HOME_RESOURCE_ID)s = %%s and
-              %(REV:column_RESOURCE_ID)s is null
-            )
-            """ % self._revisionBindJoinTable,
-            [self._resourceID, self._resourceID,]
-        ))[0][0]
+        revision = (yield self._syncTokenQuery.on(
+            self._txn, resourceID=self._resourceID))[0][0]
         returnValue("%s#%s" % (self._resourceID, revision))
 
 

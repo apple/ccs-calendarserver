@@ -67,6 +67,7 @@ class AddressBookHome(CommonHome):
     # structured tables.  (new, preferred)
     _homeSchema = schema.ADDRESSBOOK_HOME
     _homeMetaDataSchema = schema.ADDRESSBOOK_HOME_METADATA
+    _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
 
     # string mappings (old, removing)
     _homeTable = ADDRESSBOOK_HOME_TABLE

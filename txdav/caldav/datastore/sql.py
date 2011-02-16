@@ -80,6 +80,7 @@ class CalendarHome(CommonHome):
     # structured tables.  (new, preferred)
     _homeSchema = schema.CALENDAR_HOME
     _homeMetaDataSchema = schema.CALENDAR_HOME_METADATA
+    _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
 
     # string mappings (old, removing)
     _homeTable = CALENDAR_HOME_TABLE
