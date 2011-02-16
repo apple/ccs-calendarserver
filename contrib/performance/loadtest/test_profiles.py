@@ -25,9 +25,10 @@ from protocol.caldav.definitions import caldavxml
 
 from twisted.trial.unittest import TestCase
 from twisted.internet.task import Clock
+from twisted.internet.defer import succeed
 
 from loadtest.profiles import Eventer, Inviter, Accepter
-from loadtest.ical import Calendar, Event
+from loadtest.ical import Calendar, Event, BaseClient
 
 SIMPLE_EVENT = """\
 BEGIN:VCALENDAR
@@ -163,7 +164,7 @@ class Deterministic(object):
 
 
 
-class StubClient(object):
+class StubClient(BaseClient):
     def __init__(self, number):
         self._events = {}
         self._calendars = {}
@@ -173,6 +174,12 @@ class StubClient(object):
 
     def addEvent(self, href, vevent):
         self._events[href] = Event(href, None, vevent)
+
+
+    def deleteEvent(self, href):
+        event = self._events.pop(href)
+        calendar, uid = href.rsplit('/', 1)
+        del self._calendars[calendar + '/'].events[uid]
 
 
     def addEventAttendee(self, href, attendee):
@@ -186,7 +193,7 @@ class StubClient(object):
         attendees = vevent.contents[u'vevent'][0].contents.setdefault(u'attendee', [])
         attendees.remove(old)
         attendees.append(new)
-
+        return succeed(None)
 
 
 class InviterTests(TestCase):
@@ -344,7 +351,6 @@ class AccepterTests(TestCase):
         accepter.eventChanged('/some/calendar/1234.ics')
 
 
-
     def test_ignoreNonCalendar(self):
         """
         If an event is on a calendar which is not of type
@@ -410,20 +416,32 @@ class AccepterTests(TestCase):
         """
         If the client is an attendee on an event and the PARTSTAT is
         NEEDS-ACTION, a response is generated which accepts the
-        invitation.
+        invitation and the corresponding event in the
+        I{schedule-inbox} is deleted.
         """
         clock = Clock()
         randomDelay = 7
         vevent = list(readComponents(INVITED_EVENT))[0]
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
         userNumber = int(attendees[1].params[u'CN'][0].split(None, 1)[1])
+        client = StubClient(userNumber)
+        
         calendarURL = '/some/calendar/'
         calendar = Calendar(
             caldavxml.calendar, u'calendar', calendarURL, None)
-        client = StubClient(userNumber)
         client._calendars[calendarURL] = calendar
+
+        inboxURL = '/some/inbox/'
+        inbox = Calendar(
+            caldavxml.schedule_inbox, u'the inbox', inboxURL, None)
+        client._calendars[inboxURL] = inbox
+
         event = Event(calendarURL + u'1234.ics', None, vevent)
-        client._events[event.url] = event
+        client._setEvent(event.url, event)
+
+        inboxEvent = Event(inboxURL + u'4321.ics', None, vevent)
+        client._setEvent(inboxEvent.url, inboxEvent)
+
         accepter = Accepter(clock, client, userNumber)
         accepter.random = Deterministic()
         accepter.random.gauss = lambda mu, sigma: randomDelay
@@ -438,6 +456,9 @@ class AccepterTests(TestCase):
         self.assertEquals(
             attendees[1].params[u'PARTSTAT'], [u'ACCEPTED'])
         self.assertNotIn(u'RSVP', attendees[1].params)
+
+        self.assertNotIn(inboxEvent.url, client._events)
+        self.assertNotIn('4321.ics', inbox.events)
 
 
     def test_reacceptInvitation(self):

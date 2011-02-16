@@ -190,7 +190,17 @@ class Accepter(ProfileBase):
     def _acceptInvitation(self, href, attendee):
         self._accepting.remove(href)
         accepted = self._makeAcceptedAttendee(attendee)
-        self._client.changeEventAttendee(href, attendee, accepted)
+        d = self._client.changeEventAttendee(href, attendee, accepted)
+        def accepted(ignored):
+            # Find the corresponding event in the inbox and delete it.
+            uid = self._client._events[href].getUID()
+            for cal in self._client._calendars.itervalues():
+                if cal.resourceType == caldavxml.schedule_inbox:
+                    for event in cal.events.itervalues():
+                        if uid == event.getUID():
+                            return self._client.deleteEvent(event.url)
+        d.addCallback(accepted)
+        return d
 
 
     def _makeAcceptedAttendee(self, attendee):

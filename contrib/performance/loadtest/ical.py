@@ -86,8 +86,18 @@ class BaseClient(object):
     _events = None
     _calendars = None
 
+    def _setEvent(self, href, event):
+        self._events[href] = event
+        calendar, uid = href.rsplit('/', 1)
+        self._calendars[calendar + '/'].events[uid] = event
+
+
     def addEvent(self, href, vcalendar):
         raise NotImplementedError("%r does not implement addEvent" % (self.__class__,))
+
+
+    def deleteEvent(self, href):
+        raise NotImplementedError("%r does not implement deleteEvent" % (self.__class__,))
 
 
     def addEventAttendee(self, href, attendee):
@@ -319,12 +329,6 @@ class SnowLeopard(BaseClient):
                     scheduleTag = None
                 body = text[caldavxml.calendar_data]
                 self.eventChanged(responseHref, etag, scheduleTag, body)
-
-
-    def _setEvent(self, href, event):
-        self._events[href] = event
-        calendar, uid = href.rsplit('/', 1)
-        self._calendars[calendar + '/'].events[uid] = event
 
 
     def eventChanged(self, href, etag, scheduleTag, body):
