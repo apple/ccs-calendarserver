@@ -1750,6 +1750,37 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                 rev.COLLECTION_NAME == None))
 
 
+    @classproperty
+    def _sharedRemovalQuery(cls):
+        """
+        DAL query to update the sync token for a shared collection.
+        """
+        rev = cls._revisionsSchema
+        return Update({rev.RESOURCE_ID: None,
+                       rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: True},
+                      Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                          rev.RESOURCE_ID == Parameter("resourceID")).And(
+                              rev.RESOURCE_NAME == None),
+                     #Return=rev.REVISION
+                     )
+
+
+    @classproperty
+    def _unsharedRemovalQuery(cls):
+        """
+        DAL query to update the sync token for an owned collection.
+        """
+        rev = cls._revisionsSchema
+        return Update({rev.RESOURCE_ID: None,
+                       rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: True},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                          rev.RESOURCE_NAME == None),
+                      # Return=rev.REVISION,
+                     )
+
+
     @inlineCallbacks
     def _deletedSyncToken(self, sharedRemoval=False):
         # Remove all child entries
@@ -1762,25 +1793,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         # non-shared collection, then we need to mark all collections
         # with the resource-id as being deleted to account for direct shares.
         if sharedRemoval:
-            yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_RESOURCE_ID)s, %(column_REVISION)s, %(column_DELETED)s)
-                 = (null, nextval('%(sequence)s'), TRUE)
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._home._resourceID, self._resourceID,]
-            )
+            yield self._sharedRemovalQuery.on(self._txn,
+                                              homeID=self._home._resourceID,
+                                              resourceID=self._resourceID)
         else:
-            yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_RESOURCE_ID)s, %(column_REVISION)s, %(column_DELETED)s)
-                 = (null, nextval('%(sequence)s'), TRUE)
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._resourceID,]
-            )
+            yield self._unsharedRemovalQuery.on(self._txn,
+                                                resourceID=self._resourceID)
         self._syncTokenRevision = None
 
 
