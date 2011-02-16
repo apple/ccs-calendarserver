@@ -162,6 +162,18 @@ class ICalendarHome(INotifier, IDataStoreResource):
         """
 
 
+    def getAllDropboxIDs():
+        """
+        Retrieve all of the dropbox IDs of events in this home for calendar
+        objects which either allow attendee write access to their dropboxes,
+        have attachments to read, or both.
+
+        @return: a L{Deferred} which fires with a C{list} of all dropbox IDs (as
+            unicode strings)
+        """
+
+
+
 class ICalendar(INotifier, IShareableCollection, IDataStoreResource):
     """
     Calendar

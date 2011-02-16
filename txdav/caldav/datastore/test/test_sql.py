@@ -130,7 +130,9 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         )._txn._store.attachmentsPath
         obj = yield self.calendarObjectUnderTest()
         hasheduid = hashlib.md5(obj._dropboxID).hexdigest()
-        attachmentPath = attachmentRoot.child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid).child("new.attachment")
+        attachmentPath = attachmentRoot.child(
+            hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid).child(
+                "new.attachment")
         self.assertTrue(attachmentPath.isfile())
 
 

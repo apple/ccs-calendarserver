@@ -1229,6 +1229,22 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_dropboxIDs(self):
+        """
+        L{ICalendarObject.getAllDropboxIDs} returns a L{Deferred} that fires
+        with a C{list} of all Dropbox IDs.
+        """
+        home = yield self.homeUnderTest()
+        # The only item in the home which has an ATTACH or X-APPLE-DROPBOX
+        # property.
+        allDropboxIDs = set([
+            u'FE5CDC6F-7776-4607-83A9-B90FF7ACC8D0.dropbox',
+        ])
+        self.assertEquals(set((yield home.getAllDropboxIDs())),
+                          allDropboxIDs)
+
+
+    @inlineCallbacks
     def test_indexByDropboxProperty(self):
         """
         L{ICalendarHome.calendarObjectWithDropboxID} will return a calendar

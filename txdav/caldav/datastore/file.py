@@ -164,14 +164,16 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def getAllDropboxIDs(self):
-
         dropboxIDs = []
         for calendar in self.calendars():
             for calendarObject in calendar.calendarObjects():
-                dropboxID = (yield calendarObject.dropboxID())
-                dropboxIDs.append(dropboxID)
-        
+                component = calendarObject.component()
+                if (component.hasPropertyInAnyComponent("X-APPLE-DROPBOX") or
+                    component.hasPropertyInAnyComponent("ATTACH")):
+                    dropboxID = (yield calendarObject.dropboxID())
+                    dropboxIDs.append(dropboxID)
         returnValue(dropboxIDs)
+
 
     @property
     def _calendarStore(self):
