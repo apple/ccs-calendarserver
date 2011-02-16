@@ -60,6 +60,7 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE,\
     CALENDAR_OBJECT_AND_BIND_TABLE, schema
 from twext.enterprise.dal.syntax import Select
+from twext.enterprise.dal.syntax import Insert
 from txdav.common.icommondatastore import IndexedSearchException
 
 from vobject.icalendar import utc
@@ -456,38 +457,28 @@ class CalendarObject(CommonObjectResource):
                 self._dropboxID = (yield self.dropboxID())
 
         if inserting:
-            self._resourceID, self._created, self._modified  = (
-                yield self._txn.execSQL(
-                """
-                insert into CALENDAR_OBJECT
-                (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE,
-                 ATTACHMENTS_MODE, DROPBOX_ID, ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_TAG,
-                 SCHEDULE_ETAGS, PRIVATE_COMMENTS, MD5)
-                 values
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                returning
-                 RESOURCE_ID,
-                 CREATED,
-                 MODIFIED
-                """,
-                [
-                    self._calendar._resourceID,
-                    self._name,
-                    componentText,
-                    self._uid,
-                    component.resourceType(),
-                    self._attachment,
-                    self._dropboxID,
-                    organizer,
-                    normalizeForIndex(instances.limit) if instances.limit else None,
-                    self._access,
-                    self._schedule_object,
-                    self._schedule_tag,
-                    self._schedule_etags,
-                    self._private_comments,
-                    self._md5,
-                ]
-            ))[0]
+            co = schema.CALENDAR_OBJECT
+            self._resourceID, self._created, self._modified = (yield Insert(
+                {
+                    co.CALENDAR_RESOURCE_ID       : self._calendar._resourceID,
+                    co.RESOURCE_NAME              : self._name,
+                    co.ICALENDAR_TEXT             : componentText,
+                    co.ICALENDAR_UID              : self._uid,
+                    co.ICALENDAR_TYPE             : component.resourceType(),
+                    co.ATTACHMENTS_MODE           : self._attachment,
+                    co.DROPBOX_ID                 : self._dropboxID,
+                    co.ORGANIZER                  : organizer,
+                    co.RECURRANCE_MAX             : 
+                        normalizeForIndex(instances.limit)
+                        if instances.limit else None,
+                    co.ACCESS                     : self._access,
+                    co.SCHEDULE_OBJECT            : self._schedule_object,
+                    co.SCHEDULE_TAG               : self._schedule_tag,
+                    co.SCHEDULE_ETAGS             : self._schedule_etags,
+                    co.PRIVATE_COMMENTS           : self._private_comments,
+                    co.MD5                        : self._md5
+                },
+            Return=(co.RESOURCE_ID, co.CREATED, co.MODIFIED)).on(self._txn))[0]
         else:
             yield self._txn.execSQL(
                 """
