@@ -2658,26 +2658,35 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         returnValue(results)
 
 
+    @classproperty
+    def _oneNotificationQuery(cls):
+        no = cls._objectSchema
+        return Select(
+            [
+                no.RESOURCE_ID,
+                no.MD5,
+                Len(no.XML_DATA),
+                no.XML_TYPE,
+                no.CREATED,
+                no.MODIFIED
+            ],
+            From=no,
+            Where=(no.NOTIFICATION_UID ==
+                   Parameter("uid")).And(no.NOTIFICATION_HOME_RESOURCE_ID ==
+                                         Parameter("homeID")))
+
+
     @inlineCallbacks
     def initFromStore(self):
         """
-        Initialise this object from the store. We read in and cache all the extra metadata
-        from the DB to avoid having to do DB queries for those individually later.
+        Initialise this object from the store, based on its UID and home
+        resource ID. We read in and cache all the extra metadata from the DB to
+        avoid having to do DB queries for those individually later.
 
         @return: L{self} if object exists in the DB, else C{None}
         """
-        rows = (yield self._txn.execSQL("""
-            select
-                RESOURCE_ID,
-                MD5,
-                character_length(XML_DATA),
-                XML_TYPE,
-                CREATED,
-                MODIFIED
-            from NOTIFICATION
-            where NOTIFICATION_UID = %s and NOTIFICATION_HOME_RESOURCE_ID = %s
-            """,
-            [self._uid, self._home._resourceID]))
+        rows = (yield self._oneNotificationQuery.on(
+            self._txn, uid=self._uid, homeID=self._home._resourceID))
         if rows:
             (self._resourceID,
              self._md5,
@@ -2689,6 +2698,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
             returnValue(self)
         else:
             returnValue(None)
+
 
     def _loadPropertyStore(self, props=None, created=False):
         if props is None:
