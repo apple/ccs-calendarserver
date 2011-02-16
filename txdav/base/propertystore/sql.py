@@ -28,6 +28,7 @@ from twistedcaldav.memcacher import Memcacher
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import Insert
 
 from txdav.common.datastore.sql_tables import schema
 
@@ -138,6 +139,13 @@ class PropertyStore(AbstractPropertyStore):
                               prop.NAME == Parameter("name")).And(
                               prop.VIEWER_UID == Parameter("uid")))
 
+
+    _insertQuery = Insert({prop.VALUE: Parameter("value"),
+                           prop.RESOURCE_ID: Parameter("resourceID"),
+                           prop.NAME: Parameter("name"),
+                           prop.VIEWER_UID: Parameter("uid")})
+
+
     def _setitem_uid(self, key, value, uid):
         validKey(key)
 
@@ -148,14 +156,8 @@ class PropertyStore(AbstractPropertyStore):
             self._updateQuery.on(self._txn, resourceID=self._resourceID,
                                  value=value_str, name=key_str, uid=uid)
         else:
-            self._txn.execSQL(
-                """
-                insert into RESOURCE_PROPERTY
-                (RESOURCE_ID, NAME, VALUE, VIEWER_UID)
-                values (%s, %s, %s, %s)
-                """,
-                [self._resourceID, key_str, value_str, uid]
-            )
+            self._insertQuery.on(self._txn, resourceID=self._resourceID,
+                                 value=value_str, name=key_str, uid=uid)
         self._cached[(key_str, uid)] = value_str
         self._cacher.delete(str(self._resourceID))
 
