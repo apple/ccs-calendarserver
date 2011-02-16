@@ -2519,17 +2519,21 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         raise NotImplementedError()
 
 
+    _resourceNamesSinceTokenQuery = Select(
+        [_revisionsSchema.RESOURCE_NAME, _revisionsSchema.DELETED],
+        From=_revisionsSchema,
+        Where=(_revisionsSchema.REVISION > Parameter("revision")).And(
+            _revisionsSchema.HOME_RESOURCE_ID == Parameter("homeID")
+        )
+    )
+
     @inlineCallbacks
     def resourceNamesSinceToken(self, token):
         results = [
             (name if name else "", deleted)
             for name, deleted in
-            (yield self._txn.execSQL("""
-                select %(column_RESOURCE_NAME)s, %(column_DELETED)s from %(name)s
-                where %(column_REVISION)s > %%s and %(column_HOME_RESOURCE_ID)s = %%s
-                """ % self._revisionsTable,
-                [token, self._resourceID],
-            ))
+            (yield self._resourceNamesSinceTokenQuery.on(
+                self._txn, revision=token, homeID=self._resourceID))
         ]
         results.sort(key=lambda x:x[1])
 
