@@ -1666,26 +1666,35 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         returnValue((changed, deleted))
 
 
+    @classproperty
+    def _removeDeletedRevision(cls):
+        rev = cls._revisionsSchema
+        return Delete(From=rev,
+                      Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                          rev.COLLECTION_NAME == Parameter("collectionName")))
+
+    @classproperty
+    def _addNewRevision(cls):
+        rev = cls._revisionsSchema
+        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
+                       rev.RESOURCE_ID: Parameter("resourceID"),
+                       rev.COLLECTION_NAME: Parameter("collectionName"),
+                       rev.RESOURCE_NAME: None,
+                       # Always starts false; may be updated to be a tombstone
+                       # later.
+                       rev.DELETED: False},
+                     Return=[rev.REVISION])
+
+
     @inlineCallbacks
     def _initSyncToken(self):
-
-        # Remove any deleted revision entry that uses the same name
-        yield self._txn.execSQL("""
-            delete from %(name)s
-            where %(column_HOME_RESOURCE_ID)s = %%s and %(column_COLLECTION_NAME)s = %%s
-            """ % self._revisionsTable,
-            [self._home._resourceID, self._name]
+        yield self._removeDeletedRevision.on(
+            self._txn, homeID=self._home._resourceID, collectionName=self._name
         )
-
-        # Insert new entry
-        self._syncTokenRevision = (yield self._txn.execSQL("""
-            insert into %(name)s
-            (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_ID)s, %(column_COLLECTION_NAME)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
-            values (%%s, %%s, %%s, null, nextval('%(sequence)s'), FALSE)
-            returning %(column_REVISION)s
-            """ % self._revisionsTable,
-            [self._home._resourceID, self._resourceID, self._name]
-        ))[0][0]
+        self._syncTokenRevision = (yield (
+            self._addNewRevision.on(self._txn, homeID=self._home._resourceID,
+                                    resourceID=self._resourceID,
+                                    collectionName=self._name)))[0][0]
 
 
     @inlineCallbacks
