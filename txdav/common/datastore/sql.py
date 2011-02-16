@@ -919,7 +919,283 @@ class CommonHome(LoggingMixIn):
                 self._txn.postCommit(notifier.notify)
 
 
-class CommonHomeChild(LoggingMixIn, FancyEqMixin):
+
+class _SharedSyncLogic(object):
+    """
+    Logic for maintaining sync-token shared between notification collections and
+    shared collections.
+    """
+
+    @classproperty
+    def _childSyncTokenQuery(cls):
+        """
+        DAL query for retrieving the sync token of a L{CommonHomeChild} based on
+        its resource ID.
+        """
+        rev = cls._revisionsSchema
+        return Select([Max(rev.REVISION)], From=rev,
+                      Where=rev.RESOURCE_ID == Parameter("resourceID"))
+
+
+    @inlineCallbacks
+    def syncToken(self):
+        if self._syncTokenRevision is None:
+            self._syncTokenRevision = (yield self._childSyncTokenQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
+        returnValue(("%s#%s" % (self._resourceID, self._syncTokenRevision,)))
+
+
+    def objectResourcesSinceToken(self, token):
+        raise NotImplementedError()
+
+
+    @classproperty
+    def _objectNamesSinceRevisionQuery(cls):
+        """
+        DAL query for (resource, deleted-flag)
+        """
+        rev = cls._revisionsSchema
+        return Select([rev.RESOURCE_NAME, rev.DELETED],
+                      From=rev,
+                      Where=(rev.REVISION > Parameter("revision")).And(
+                          rev.RESOURCE_ID == Parameter("resourceID")))
+
+
+    @inlineCallbacks
+    def resourceNamesSinceToken(self, token):
+        results = [
+            (name if name else "", deleted)
+            for name, deleted in
+            (yield self._objectNamesSinceRevisionQuery.on(
+                self._txn, revision=token, resourceID=self._resourceID))
+        ]
+        results.sort(key=lambda x:x[1])
+
+        changed = []
+        deleted = []
+        for name, wasdeleted in results:
+            if name:
+                if wasdeleted:
+                    if token:
+                        deleted.append(name)
+                else:
+                    changed.append(name)
+
+        returnValue((changed, deleted))
+
+
+    @classproperty
+    def _removeDeletedRevision(cls):
+        rev = cls._revisionsSchema
+        return Delete(From=rev,
+                      Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                          rev.COLLECTION_NAME == Parameter("collectionName")))
+
+
+    @classproperty
+    def _addNewRevision(cls):
+        rev = cls._revisionsSchema
+        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
+                       rev.RESOURCE_ID: Parameter("resourceID"),
+                       rev.COLLECTION_NAME: Parameter("collectionName"),
+                       rev.RESOURCE_NAME: None,
+                       # Always starts false; may be updated to be a tombstone
+                       # later.
+                       rev.DELETED: False},
+                     Return=[rev.REVISION])
+
+
+    @inlineCallbacks
+    def _initSyncToken(self):
+        yield self._removeDeletedRevision.on(
+            self._txn, homeID=self._home._resourceID, collectionName=self._name
+        )
+        self._syncTokenRevision = (yield (
+            self._addNewRevision.on(self._txn, homeID=self._home._resourceID,
+                                    resourceID=self._resourceID,
+                                    collectionName=self._name)))[0][0]
+
+
+    @classproperty
+    def _renameSyncTokenQuery(cls):
+        """
+        DAL query to change sync token for a rename (increment and adjust
+        resource name).
+        """
+        rev = cls._revisionsSchema
+        return Update({
+            rev.REVISION: schema.REVISION_SEQ,
+            rev.COLLECTION_NAME: Parameter("name")},
+            Where=(rev.RESOURCE_ID == Parameter("resourceID")
+                  ).And(rev.RESOURCE_NAME == None),
+            Return=rev.REVISION
+        )
+
+
+    @inlineCallbacks
+    def _renameSyncToken(self):
+        self._syncTokenRevision = (yield self._renameSyncTokenQuery.on(
+            self._txn, name=self._name, resourceID=self._resourceID))[0][0]
+
+
+    @classproperty
+    def _deleteSyncTokenQuery(cls):
+        """
+        DAL query to update a sync revision to be a tombstone instead.
+        """
+        rev = cls._revisionsSchema
+        return Delete(From=rev, Where=(
+            rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                rev.RESOURCE_ID == Parameter("resourceID")).And(
+                rev.COLLECTION_NAME == None))
+
+
+    @classproperty
+    def _sharedRemovalQuery(cls):
+        """
+        DAL query to update the sync token for a shared collection.
+        """
+        rev = cls._revisionsSchema
+        return Update({rev.RESOURCE_ID: None,
+                       rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: True},
+                      Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                          rev.RESOURCE_ID == Parameter("resourceID")).And(
+                              rev.RESOURCE_NAME == None),
+                     #Return=rev.REVISION
+                     )
+
+
+    @classproperty
+    def _unsharedRemovalQuery(cls):
+        """
+        DAL query to update the sync token for an owned collection.
+        """
+        rev = cls._revisionsSchema
+        return Update({rev.RESOURCE_ID: None,
+                       rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: True},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                          rev.RESOURCE_NAME == None),
+                      # Return=rev.REVISION,
+                     )
+
+
+    @inlineCallbacks
+    def _deletedSyncToken(self, sharedRemoval=False):
+        # Remove all child entries
+        yield self._deleteSyncTokenQuery.on(self._txn,
+                                            homeID=self._home._resourceID,
+                                            resourceID=self._resourceID)
+
+        # If this is a share being removed then we only mark this one specific
+        # home/resource-id as being deleted.  On the other hand, if it is a
+        # non-shared collection, then we need to mark all collections
+        # with the resource-id as being deleted to account for direct shares.
+        if sharedRemoval:
+            yield self._sharedRemovalQuery.on(self._txn,
+                                              homeID=self._home._resourceID,
+                                              resourceID=self._resourceID)
+        else:
+            yield self._unsharedRemovalQuery.on(self._txn,
+                                                resourceID=self._resourceID)
+        self._syncTokenRevision = None
+
+
+    def _insertRevision(self, name):
+        return self._changeRevision("insert", name)
+
+
+    def _updateRevision(self, name):
+        return self._changeRevision("update", name)
+
+
+    def _deleteRevision(self, name):
+        return self._changeRevision("delete", name)
+
+
+    @classproperty
+    def _deleteBumpTokenQuery(cls):
+        rev = cls._revisionsSchema
+        return Update({rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: True},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")),
+                      Return=rev.REVISION)
+
+
+    @classproperty
+    def _updateBumpTokenQuery(cls):
+        rev = cls._revisionsSchema
+        return Update({rev.REVISION: schema.REVISION_SEQ},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")),
+                      Return=rev.REVISION)
+
+
+    @classproperty
+    def _insertFindPreviouslyNamedQuery(cls):
+        rev = cls._revisionsSchema
+        return Select([rev.RESOURCE_ID], From=rev,
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")))
+
+
+    @classproperty
+    def _updatePreviouslyNamedQuery(cls):
+        rev = cls._revisionsSchema
+        return Update({rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: False},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")),
+                      Return=rev.REVISION)
+
+
+    @classproperty
+    def _completelyNewRevisionQuery(cls):
+        rev = cls._revisionsSchema
+        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
+                       rev.RESOURCE_ID: Parameter("resourceID"),
+                       rev.RESOURCE_NAME: Parameter("name"),
+                       rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: False},
+                      Return=rev.REVISION)
+
+
+    @inlineCallbacks
+    def _changeRevision(self, action, name):
+        if action == "delete":
+            self._syncTokenRevision = (
+                yield self._deleteBumpTokenQuery.on(
+                    self._txn, resourceID=self._resourceID, name=name))[0][0]
+        elif action == "update":
+            self._syncTokenRevision = (
+                yield self._updateBumpTokenQuery.on(
+                    self._txn, resourceID=self._resourceID, name=name))[0][0]
+        elif action == "insert":
+            # Note that an "insert" may happen for a resource that previously
+            # existed and then was deleted. In that case an entry in the
+            # REVISIONS table still exists so we have to detect that and do db
+            # INSERT or UPDATE as appropriate
+
+            found = bool( (
+                yield self._insertFindPreviouslyNamedQuery.on(
+                    self._txn, resourceID=self._resourceID, name=name)) )
+            if found:
+                self._syncTokenRevision = (
+                    yield self._updatePreviouslyNamedQuery.on(
+                        self._txn, resourceID=self._resourceID, name=name)
+                )[0][0]
+            else:
+                self._syncTokenRevision = (
+                    yield self._completelyNewRevisionQuery.on(
+                        self._txn, homeID=self._home._resourceID,
+                        resourceID=self._resourceID, name=name)
+                )[0][0]
+
+
+
+class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
     """
     Common ancestor class of AddressBooks and Calendars.
     """
@@ -1609,272 +1885,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self.notifyChanged()
 
 
-    @classproperty
-    def _childSyncTokenQuery(cls):
-        """
-        DAL query for retrieving the sync token of a L{CommonHomeChild} based on
-        its resource ID.
-        """
-        rev = cls._revisionsSchema
-        return Select([Max(rev.REVISION)], From=rev,
-                      Where=rev.RESOURCE_ID == Parameter("resourceID"))
-
-
-    @inlineCallbacks
-    def syncToken(self):
-        if self._syncTokenRevision is None:
-            self._syncTokenRevision = (yield self._childSyncTokenQuery.on(
-                self._txn, resourceID=self._resourceID))[0][0]
-        returnValue(("%s#%s" % (self._resourceID, self._syncTokenRevision,)))
-
-
-    def objectResourcesSinceToken(self, token):
-        raise NotImplementedError()
-
-
-    @classproperty
-    def _objectNamesSinceRevisionQuery(cls):
-        """
-        DAL query for (resource, deleted-flag)
-        """
-        rev = cls._revisionsSchema
-        return Select([rev.RESOURCE_NAME, rev.DELETED],
-                      From=rev,
-                      Where=(rev.REVISION > Parameter("revision")).And(
-                          rev.RESOURCE_ID == Parameter("resourceID")))
-
-
-    @inlineCallbacks
-    def resourceNamesSinceToken(self, token):
-        results = [
-            (name if name else "", deleted)
-            for name, deleted in
-            (yield self._objectNamesSinceRevisionQuery.on(
-                self._txn, revision=token, resourceID=self._resourceID))
-        ]
-        results.sort(key=lambda x:x[1])
-
-        changed = []
-        deleted = []
-        for name, wasdeleted in results:
-            if name:
-                if wasdeleted:
-                    if token:
-                        deleted.append(name)
-                else:
-                    changed.append(name)
-
-        returnValue((changed, deleted))
-
-
-    @classproperty
-    def _removeDeletedRevision(cls):
-        rev = cls._revisionsSchema
-        return Delete(From=rev,
-                      Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
-                          rev.COLLECTION_NAME == Parameter("collectionName")))
-
-    @classproperty
-    def _addNewRevision(cls):
-        rev = cls._revisionsSchema
-        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
-                       rev.RESOURCE_ID: Parameter("resourceID"),
-                       rev.COLLECTION_NAME: Parameter("collectionName"),
-                       rev.RESOURCE_NAME: None,
-                       # Always starts false; may be updated to be a tombstone
-                       # later.
-                       rev.DELETED: False},
-                     Return=[rev.REVISION])
-
-
-    @inlineCallbacks
-    def _initSyncToken(self):
-        yield self._removeDeletedRevision.on(
-            self._txn, homeID=self._home._resourceID, collectionName=self._name
-        )
-        self._syncTokenRevision = (yield (
-            self._addNewRevision.on(self._txn, homeID=self._home._resourceID,
-                                    resourceID=self._resourceID,
-                                    collectionName=self._name)))[0][0]
-
-
-    @classproperty
-    def _renameSyncTokenQuery(cls):
-        """
-        DAL query to change sync token for a rename (increment and adjust
-        resource name).
-        """
-        rev = cls._revisionsSchema
-        return Update({
-            rev.REVISION: schema.REVISION_SEQ,
-            rev.COLLECTION_NAME: Parameter("name")},
-            Where=(rev.RESOURCE_ID == Parameter("resourceID")
-                  ).And(rev.RESOURCE_NAME == None),
-            Return=rev.REVISION
-        )
-
-
-    @inlineCallbacks
-    def _renameSyncToken(self):
-        self._syncTokenRevision = (yield self._renameSyncTokenQuery.on(
-            self._txn, name=self._name, resourceID=self._resourceID))[0][0]
-
-
-    @classproperty
-    def _deleteSyncTokenQuery(cls):
-        """
-        DAL query to update a sync revision to be a tombstone instead.
-        """
-        rev = cls._revisionsSchema
-        return Delete(From=rev, Where=(
-            rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
-                rev.RESOURCE_ID == Parameter("resourceID")).And(
-                rev.COLLECTION_NAME == None))
-
-
-    @classproperty
-    def _sharedRemovalQuery(cls):
-        """
-        DAL query to update the sync token for a shared collection.
-        """
-        rev = cls._revisionsSchema
-        return Update({rev.RESOURCE_ID: None,
-                       rev.REVISION: schema.REVISION_SEQ,
-                       rev.DELETED: True},
-                      Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
-                          rev.RESOURCE_ID == Parameter("resourceID")).And(
-                              rev.RESOURCE_NAME == None),
-                     #Return=rev.REVISION
-                     )
-
-
-    @classproperty
-    def _unsharedRemovalQuery(cls):
-        """
-        DAL query to update the sync token for an owned collection.
-        """
-        rev = cls._revisionsSchema
-        return Update({rev.RESOURCE_ID: None,
-                       rev.REVISION: schema.REVISION_SEQ,
-                       rev.DELETED: True},
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                          rev.RESOURCE_NAME == None),
-                      # Return=rev.REVISION,
-                     )
-
-
-    @inlineCallbacks
-    def _deletedSyncToken(self, sharedRemoval=False):
-        # Remove all child entries
-        yield self._deleteSyncTokenQuery.on(self._txn,
-                                            homeID=self._home._resourceID,
-                                            resourceID=self._resourceID)
-
-        # If this is a share being removed then we only mark this one specific
-        # home/resource-id as being deleted.  On the other hand, if it is a
-        # non-shared collection, then we need to mark all collections
-        # with the resource-id as being deleted to account for direct shares.
-        if sharedRemoval:
-            yield self._sharedRemovalQuery.on(self._txn,
-                                              homeID=self._home._resourceID,
-                                              resourceID=self._resourceID)
-        else:
-            yield self._unsharedRemovalQuery.on(self._txn,
-                                                resourceID=self._resourceID)
-        self._syncTokenRevision = None
-
-
-    def _insertRevision(self, name):
-        return self._changeRevision("insert", name)
-
-    def _updateRevision(self, name):
-        return self._changeRevision("update", name)
-
-    def _deleteRevision(self, name):
-        return self._changeRevision("delete", name)
-
-
-    @classproperty
-    def _deleteBumpTokenQuery(cls):
-        rev = cls._revisionsSchema
-        return Update({rev.REVISION: schema.REVISION_SEQ,
-                       rev.DELETED: True},
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                           rev.RESOURCE_NAME == Parameter("name")),
-                      Return=rev.REVISION)
-
-
-    @classproperty
-    def _updateBumpTokenQuery(cls):
-        rev = cls._revisionsSchema
-        return Update({rev.REVISION: schema.REVISION_SEQ},
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                           rev.RESOURCE_NAME == Parameter("name")),
-                      Return=rev.REVISION)
-
-
-    @classproperty
-    def _insertFindPreviouslyNamedQuery(cls):
-        rev = cls._revisionsSchema
-        return Select([rev.RESOURCE_ID], From=rev,
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                           rev.RESOURCE_NAME == Parameter("name")))
-
-
-    @classproperty
-    def _updatePreviouslyNamedQuery(cls):
-        rev = cls._revisionsSchema
-        return Update({rev.REVISION: schema.REVISION_SEQ,
-                       rev.DELETED: False},
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                           rev.RESOURCE_NAME == Parameter("name")),
-                      Return=rev.REVISION)
-
-
-    @classproperty
-    def _completelyNewRevisionQuery(cls):
-        rev = cls._revisionsSchema
-        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
-                       rev.RESOURCE_ID: Parameter("resourceID"),
-                       rev.RESOURCE_NAME: Parameter("name"),
-                       rev.REVISION: schema.REVISION_SEQ,
-                       rev.DELETED: False},
-                      Return=rev.REVISION)
-
-
-    @inlineCallbacks
-    def _changeRevision(self, action, name):
-
-        if action == "delete":
-            self._syncTokenRevision = (
-                yield self._deleteBumpTokenQuery.on(
-                    self._txn, resourceID=self._resourceID, name=name))[0][0]
-        elif action == "update":
-            self._syncTokenRevision = (
-                yield self._updateBumpTokenQuery.on(
-                    self._txn, resourceID=self._resourceID, name=name))[0][0]
-        elif action == "insert":
-            # Note that an "insert" may happen for a resource that previously
-            # existed and then was deleted. In that case an entry in the
-            # REVISIONS table still exists so we have to detect that and do db
-            # INSERT or UPDATE as appropriate
-
-            found = bool( (
-                yield self._insertFindPreviouslyNamedQuery.on(
-                    self._txn, resourceID=self._resourceID, name=name)) )
-            if found:
-                self._syncTokenRevision = (
-                    yield self._updatePreviouslyNamedQuery.on(
-                        self._txn, resourceID=self._resourceID, name=name)
-                )[0][0]
-            else:
-                self._syncTokenRevision = (
-                    yield self._completelyNewRevisionQuery.on(
-                        self._txn, homeID=self._home._resourceID,
-                        resourceID=self._resourceID, name=name)
-                )[0][0]
-
-
     def objectResourcesHaveProperties(self):
         return False
 
@@ -2283,7 +2293,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
 
-class NotificationCollection(LoggingMixIn, FancyEqMixin):
+class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     implements(INotificationCollection)
 
@@ -2496,54 +2506,6 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         returnValue("%s#%s" % (self._resourceID, self._syncTokenRevision))
 
 
-    def objectResourcesSinceToken(self, token):
-        raise NotImplementedError()
-
-
-    _resourceNamesSinceTokenQuery = Select(
-        [_revisionsSchema.RESOURCE_NAME, _revisionsSchema.DELETED],
-        From=_revisionsSchema,
-        Where=(_revisionsSchema.REVISION > Parameter("revision")).And(
-            _revisionsSchema.HOME_RESOURCE_ID == Parameter("homeID")
-        )
-    )
-
-
-    @inlineCallbacks
-    def resourceNamesSinceToken(self, token):
-        results = [
-            (name if name else "", deleted)
-            for name, deleted in
-            (yield self._resourceNamesSinceTokenQuery.on(
-                self._txn, revision=token, homeID=self._resourceID))
-        ]
-        results.sort(key=lambda x:x[1])
-
-        changed = []
-        deleted = []
-        for name, wasdeleted in results:
-            if name:
-                if wasdeleted:
-                    if token:
-                        deleted.append(name)
-                else:
-                    changed.append(name)
-
-        returnValue((changed, deleted))
-
-
-    def _insertRevision(self, name):
-        return self._changeRevision("insert", name)
-
-
-    def _updateRevision(self, name):
-        return self._changeRevision("update", name)
-
-
-    def _deleteRevision(self, name):
-        return self._changeRevision("delete", name)
-
-
     @inlineCallbacks
     def _changeRevision(self, action, name):
 
@@ -2608,6 +2570,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         else:
             return None
 
+
     @inlineCallbacks
     def nodeName(self, label="default"):
         if self._notifiers:
@@ -2618,6 +2581,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         else:
             returnValue(None)
 
+
     def notifyChanged(self):
         """
         Trigger a notification of a change
@@ -2625,6 +2589,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         if self._notifiers:
             for notifier in self._notifiers:
                 self._txn.postCommit(notifier.notify)
+
 
 
 class NotificationObject(LoggingMixIn, FancyEqMixin):
