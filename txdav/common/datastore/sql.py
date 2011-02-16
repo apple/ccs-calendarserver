@@ -2410,13 +2410,17 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         returnValue(results)
 
 
+    _notificationUIDsForHomeQuery = Select(
+        [schema.NOTIFICATION.NOTIFICATION_UID], From=schema.NOTIFICATION,
+        Where=schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID ==
+        Parameter("resourceID"))
+
+
     @inlineCallbacks
     def listNotificationObjects(self):
         if self._notificationNames is None:
-            rows = yield self._txn.execSQL(
-                "select (NOTIFICATION_UID) from NOTIFICATION "
-                "where NOTIFICATION_HOME_RESOURCE_ID = %s",
-                [self._resourceID])
+            rows = yield self._notificationUIDsForHomeQuery.on(
+                self._txn, resourceID=self._resourceID)
             self._notificationNames = sorted([row[0] for row in rows])
         returnValue(self._notificationNames)
 
