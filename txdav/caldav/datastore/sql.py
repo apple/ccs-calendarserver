@@ -61,6 +61,8 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_OBJECT_AND_BIND_TABLE, schema
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import Delete
 from txdav.common.icommondatastore import IndexedSearchException
 
 from vobject.icalendar import utc
@@ -456,69 +458,40 @@ class CalendarObject(CommonObjectResource):
                 self._attachment = _ATTACHMENTS_MODE_READ
                 self._dropboxID = (yield self.dropboxID())
 
+        co = schema.CALENDAR_OBJECT
+        values = {
+            co.CALENDAR_RESOURCE_ID            : self._calendar._resourceID,
+            co.RESOURCE_NAME                   : self._name,
+            co.ICALENDAR_TEXT                  : componentText,
+            co.ICALENDAR_UID                   : self._uid,
+            co.ICALENDAR_TYPE                  : component.resourceType(),
+            co.ATTACHMENTS_MODE                : self._attachment,
+            co.DROPBOX_ID                      : self._dropboxID,
+            co.ORGANIZER                       : organizer,
+            co.RECURRANCE_MAX                  :
+                normalizeForIndex(instances.limit) if instances.limit else None,
+            co.ACCESS                          : self._access,
+            co.SCHEDULE_OBJECT                 : self._schedule_object,
+            co.SCHEDULE_TAG                    : self._schedule_tag,
+            co.SCHEDULE_ETAGS                  : self._schedule_etags,
+            co.PRIVATE_COMMENTS                : self._private_comments,
+            co.MD5                             : self._md5
+        }
+
         if inserting:
-            co = schema.CALENDAR_OBJECT
-            self._resourceID, self._created, self._modified = (yield Insert(
-                {
-                    co.CALENDAR_RESOURCE_ID       : self._calendar._resourceID,
-                    co.RESOURCE_NAME              : self._name,
-                    co.ICALENDAR_TEXT             : componentText,
-                    co.ICALENDAR_UID              : self._uid,
-                    co.ICALENDAR_TYPE             : component.resourceType(),
-                    co.ATTACHMENTS_MODE           : self._attachment,
-                    co.DROPBOX_ID                 : self._dropboxID,
-                    co.ORGANIZER                  : organizer,
-                    co.RECURRANCE_MAX             : 
-                        normalizeForIndex(instances.limit)
-                        if instances.limit else None,
-                    co.ACCESS                     : self._access,
-                    co.SCHEDULE_OBJECT            : self._schedule_object,
-                    co.SCHEDULE_TAG               : self._schedule_tag,
-                    co.SCHEDULE_ETAGS             : self._schedule_etags,
-                    co.PRIVATE_COMMENTS           : self._private_comments,
-                    co.MD5                        : self._md5
-                },
-            Return=(co.RESOURCE_ID, co.CREATED, co.MODIFIED)).on(self._txn))[0]
+            self._resourceID, self._created, self._modified = (
+                yield Insert(values, Return=(
+                    co.RESOURCE_ID, co.CREATED, co.MODIFIED)).on(self._txn))[0]
         else:
-            yield self._txn.execSQL(
-                """
-                update CALENDAR_OBJECT set
-                (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE,
-                 DROPBOX_ID, ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_TAG,
-                 SCHEDULE_ETAGS, PRIVATE_COMMENTS, MD5, MODIFIED)
-                 =
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
-                where RESOURCE_ID = %s
-                returning MODIFIED
-                """,
-                [
-                    componentText,
-                    self._uid,
-                    component.resourceType(),
-                    self._attachment,
-                    self._dropboxID,
-                    organizer,
-                    normalizeForIndex(instances.limit) if instances.limit else None,
-                    self._access,
-                    self._schedule_object,
-                    self._schedule_tag,
-                    self._schedule_etags,
-                    self._private_comments,
-                    self._md5,
-                    self._resourceID,
-                ]
-            )
-
+            self._modified = (
+                yield Update(values, Return=co.MODIFIED,
+                             Where=co.RESOURCE_ID == self._resourceID
+                            ).on(self._txn))[0][0]
             # Need to wipe the existing time-range for this and rebuild
-            yield self._txn.execSQL(
-                """
-                delete from TIME_RANGE where CALENDAR_OBJECT_RESOURCE_ID = %s
-                """,
-                [
-                    self._resourceID,
-                ],
-            )
-
+            yield Delete(
+                From=schema.TIME_RANGE,
+                Where=schema.TIME_RANGE.CALENDAR_OBJECT_RESOURCE_ID ==
+                self._resourceID).on(self._txn)
 
         # CALENDAR_OBJECT table update
         for key in instances:

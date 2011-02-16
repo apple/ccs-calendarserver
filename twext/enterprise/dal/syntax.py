@@ -663,7 +663,7 @@ class Update(_Statement):
 
 
 
-class Delete(object):
+class Delete(_Statement):
     """
     'delete' statement.
     """
