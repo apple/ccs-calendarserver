@@ -30,6 +30,7 @@ from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, 
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.purge import purgeOldEvents, purgeGUID, purgeOrphanedAttachments
 from twistedcaldav.config import config
+from twistedcaldav.memcacher import Memcacher
 from vobject.icalendar import utc
 
 import datetime
@@ -339,6 +340,9 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
+        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
+        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
+        self.patch(Memcacher, "allowTestCache", True)
         yield super(PurgeOldEventsTests, self).setUp()
         self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()
@@ -353,7 +357,6 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
                 os.path.dirname(__file__), "purge", "resources.xml"
             )
         )
-        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
         self.rootResource = getRootResource(config, self._sqlCalendarStore)
         self.directory = self.rootResource.getDirectory()
 
