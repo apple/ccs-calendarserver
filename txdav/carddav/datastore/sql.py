@@ -49,8 +49,7 @@ from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
     CommonObjectResource
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Update
-from twext.enterprise.dal.syntax import NamedValue
-from twext.enterprise.dal.syntax import Function
+from twext.enterprise.dal.syntax import utcNowSQL
 from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
     ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE,\
     ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE,\
@@ -59,7 +58,6 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
     ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, schema
 from txdav.base.propertystore.base import PropertyName
 
-dbCurrentTime = Function('timezone')('UTC', NamedValue('CURRENT_TIMESTAMP'))
 
 
 class AddressBookHome(CommonHome):
@@ -246,7 +244,7 @@ class AddressBookObject(CommonObjectResource):
                 {ao.VCARD_TEXT: componentText,
                  ao.VCARD_UID: component.resourceUID(),
                  ao.MD5: self._md5,
-                 ao.MODIFIED: dbCurrentTime},
+                 ao.MODIFIED: utcNowSQL},
                 Where=ao.RESOURCE_ID == self._resourceID,
                 Return=ao.MODIFIED).on(self._txn))[0][0]
 

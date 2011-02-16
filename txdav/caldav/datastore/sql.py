@@ -64,6 +64,7 @@ from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Parameter
+from twext.enterprise.dal.syntax import utcNowSQL
 from txdav.common.icommondatastore import IndexedSearchException
 
 from vobject.icalendar import utc
@@ -698,25 +699,23 @@ class AttachmentStorageTransport(object):
         self.attachment._contentType = self.contentType
         self.attachment._md5 = self.hash.hexdigest()
         self.attachment._size = len(self.buf)
+        att = schema.ATTACHMENT
         self.attachment._created, self.attachment._modified = map(
             sqltime,
-            (yield self._txn.execSQL(
-                """
-                update ATTACHMENT set CONTENT_TYPE = %s, SIZE = %s, MD5 = %s,
-                 MODIFIED = timezone('UTC', CURRENT_TIMESTAMP)
-                where PATH = %s
-                returning CREATED, MODIFIED
-                """,
-                [
-                    generateContentType(self.contentType),
-                    self.attachment._size,
-                    self.attachment._md5,
-                    self.attachment.name()
-                ]
-            ))[0]
+            (yield Update(
+                {
+                    att.CONTENT_TYPE : generateContentType(self.contentType),
+                    att.SIZE         : self.attachment._size,
+                    att.MD5          : self.attachment._md5,
+                    att.MODIFIED     : utcNowSQL
+                },
+                Where=att.PATH == self.attachment.name(),
+                Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
         )
 
-        home = (yield self._txn.calendarHomeWithResourceID(self.attachment._ownerHomeID))
+        home = (
+            yield self._txn.calendarHomeWithResourceID(
+                self.attachment._ownerHomeID))
         if home:
             # Adjust quota
             yield home.adjustQuotaUsedBytes(self.attachment.size() - old_size)

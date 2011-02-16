@@ -628,6 +628,8 @@ class Update(_Statement):
         _fromSameTable(_modelsFromMap(columnMap))
         self.columnMap = columnMap
         self.Where = Where
+        if isinstance(Return, (tuple, list)):
+            Return = _CommaList(Return)
         self.Return = Return
 
 
@@ -770,4 +772,5 @@ class Parameter(object):
         return 'Parameter(%r)' % (self.name,)
 
 
-
+# Common helpers.
+utcNowSQL = Function('timezone')('UTC', NamedValue('CURRENT_TIMESTAMP'))
