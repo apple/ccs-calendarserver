@@ -148,22 +148,17 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def getAllDropboxIDs(self):
-
-        rows = (yield self._txn.execSQL("""
-            select %(OBJECT:column_DROPBOX_ID)s
-            from %(OBJECT:name)s
-            left outer join %(BIND:name)s on (
-              %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
-            )
-            where
-             %(OBJECT:column_DROPBOX_ID)s is not null and
-             %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s
-            order by %(OBJECT:column_DROPBOX_ID)s
-            """ % CALENDAR_OBJECT_AND_BIND_TABLE,
-            [self._resourceID]
-        ))
-        
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        rows = (yield Select(
+            [co.DROPBOX_ID],
+            From=co.join(cb, co.PARENT_RESOURCE_ID == cb.RESOURCE_ID),
+            Where=(co.DROPBOX_ID != None).And(
+                cb.HOME_RESOURCE_ID == self._resourceID),
+            OrderBy=co.DROPBOX_ID
+        ).on(self._txn))
         returnValue([row[0] for row in rows])
+
 
     @inlineCallbacks
     def createdHome(self):
@@ -172,6 +167,8 @@ class CalendarHome(CommonHome):
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(
             Opaque())
         yield self.createCalendarWithName("inbox")
+
+
 
 class Calendar(CommonHomeChild):
     """
