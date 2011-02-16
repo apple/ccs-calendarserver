@@ -59,6 +59,13 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE,\
     CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE,\
     CALENDAR_OBJECT_AND_BIND_TABLE, schema
+from twext.enterprise.dal.syntax import Select
+from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import Parameter
+from twext.enterprise.dal.syntax import utcNowSQL
+from twext.enterprise.dal.syntax import Len
 from txdav.common.icommondatastore import IndexedSearchException
 
 from vobject.icalendar import utc
@@ -71,6 +78,14 @@ class CalendarHome(CommonHome):
 
     implements(ICalendarHome)
 
+    # structured tables.  (new, preferred)
+    _homeSchema = schema.CALENDAR_HOME
+    _bindSchema = schema.CALENDAR_BIND
+    _homeMetaDataSchema = schema.CALENDAR_HOME_METADATA
+    _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
+    _objectSchema = schema.CALENDAR_OBJECT
+
+    # string mappings (old, removing)
     _homeTable = CALENDAR_HOME_TABLE
     _homeMetaDataTable = CALENDAR_HOME_METADATA_TABLE
     _childTable = CALENDAR_TABLE
@@ -119,23 +134,22 @@ class CalendarHome(CommonHome):
             
         returnValue(results)
 
+
     @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
         """
         Implement lookup via queries.
         """
-        rows = (yield self._txn.execSQL("""
-            select %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s, %(OBJECT:column_RESOURCE_ID)s
-            from %(OBJECT:name)s
-            left outer join %(BIND:name)s on (
-              %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
-            )
-            where
-             %(OBJECT:column_DROPBOX_ID)s = %%s and
-             %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s
-            """ % CALENDAR_OBJECT_AND_BIND_TABLE,
-            [dropboxID, self._resourceID,]
-        ))
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        rows = (yield Select(
+            [co.PARENT_RESOURCE_ID,
+             co.RESOURCE_ID],
+            From=co.join(cb, co.PARENT_RESOURCE_ID == cb.RESOURCE_ID,
+                         'left outer'),
+            Where=(co.DROPBOX_ID == dropboxID).And(
+                cb.HOME_RESOURCE_ID == self._resourceID)
+        ).on(self._txn))
 
         if rows:
             calendarID, objectID = rows[0]
@@ -143,27 +157,22 @@ class CalendarHome(CommonHome):
             if calendar:
                 calendarObject = (yield calendar.objectResourceWithID(objectID))
                 returnValue(calendarObject)
-        
         returnValue(None)
+
 
     @inlineCallbacks
     def getAllDropboxIDs(self):
-
-        rows = (yield self._txn.execSQL("""
-            select %(OBJECT:column_DROPBOX_ID)s
-            from %(OBJECT:name)s
-            left outer join %(BIND:name)s on (
-              %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
-            )
-            where
-             %(OBJECT:column_DROPBOX_ID)s is not null and
-             %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s
-            order by %(OBJECT:column_DROPBOX_ID)s
-            """ % CALENDAR_OBJECT_AND_BIND_TABLE,
-            [self._resourceID]
-        ))
-        
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        rows = (yield Select(
+            [co.DROPBOX_ID],
+            From=co.join(cb, co.PARENT_RESOURCE_ID == cb.RESOURCE_ID),
+            Where=(co.DROPBOX_ID != None).And(
+                cb.HOME_RESOURCE_ID == self._resourceID),
+            OrderBy=co.DROPBOX_ID
+        ).on(self._txn))
         returnValue([row[0] for row in rows])
+
 
     @inlineCallbacks
     def createdHome(self):
@@ -173,13 +182,21 @@ class CalendarHome(CommonHome):
             Opaque())
         yield self.createCalendarWithName("inbox")
 
+
+
 class Calendar(CommonHomeChild):
     """
     File-based implementation of L{ICalendar}.
     """
     implements(ICalendar)
 
+    # structured tables.  (new, preferred)
     _bindSchema = schema.CALENDAR_BIND
+    _homeChildSchema = schema.CALENDAR
+    _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
+    _objectSchema = schema.CALENDAR_OBJECT
+
+    # string mappings (old, removing)
     _bindTable = CALENDAR_BIND_TABLE
     _homeChildTable = CALENDAR_TABLE
     _homeChildBindTable = CALENDAR_AND_CALENDAR_BIND
@@ -315,6 +332,7 @@ class CalendarObject(CommonObjectResource):
     implements(ICalendarObject)
 
     _objectTable = CALENDAR_OBJECT_TABLE
+    _objectSchema = schema.CALENDAR_OBJECT
 
     def __init__(self, calendar, name, uid, resourceID=None, metadata=None):
 
@@ -331,10 +349,6 @@ class CalendarObject(CommonObjectResource):
 
     @classmethod
     def _selectAllColumns(cls):
-        """
-        Full set of columns in the object table that need to be loaded to
-        initialize the object resource state.
-        """
         return """
             select 
               %(column_RESOURCE_ID)s,
@@ -353,10 +367,29 @@ class CalendarObject(CommonObjectResource):
               %(column_MODIFIED)s
         """ % cls._objectTable
 
+
+    _allColumns = [
+        _objectSchema.RESOURCE_ID,
+        _objectSchema.RESOURCE_NAME,
+        _objectSchema.UID,
+        _objectSchema.MD5,
+        Len(_objectSchema.TEXT),
+        _objectSchema.ATTACHMENTS_MODE,
+        _objectSchema.DROPBOX_ID,
+        _objectSchema.ACCESS,
+        _objectSchema.SCHEDULE_OBJECT,
+        _objectSchema.SCHEDULE_TAG,
+        _objectSchema.SCHEDULE_ETAGS,
+        _objectSchema.PRIVATE_COMMENTS,
+        _objectSchema.CREATED,
+        _objectSchema.MODIFIED
+    ]
+
+
     def _initFromRow(self, row):
         """
-        Given a select result using the columns from L{_selectAllColumns}, initialize
-        the object resource state.
+        Given a select result using the columns from L{_allColumns}, initialize
+        the calendar object resource state.
         """
         (self._resourceID,
          self._name,
@@ -372,6 +405,7 @@ class CalendarObject(CommonObjectResource):
          self._private_comments,
          self._created,
          self._modified,) = tuple(row)
+
 
     @property
     def _calendar(self):
@@ -397,7 +431,8 @@ class CalendarObject(CommonObjectResource):
 
 
     @inlineCallbacks
-    def updateDatabase(self, component, expand_until=None, reCreate=False, inserting=False):
+    def updateDatabase(self, component,
+                       expand_until=None, reCreate=False, inserting=False):
         """
         Update the database tables for the new data being written.
 
@@ -407,8 +442,10 @@ class CalendarObject(CommonObjectResource):
 
         # Decide how far to expand based on the component
         master = component.masterComponent()
-        if master is None or not component.isRecurring() and not component.isRecurringUnbounded():
-            # When there is no master we have a set of overridden components - index them all.
+        if ( master is None or not component.isRecurring()
+             and not component.isRecurringUnbounded() ):
+            # When there is no master we have a set of overridden components -
+            #   index them all.
             # When there is one instance - index it.
             # When bounded - index all.
             expand = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
@@ -416,19 +453,22 @@ class CalendarObject(CommonObjectResource):
             if expand_until:
                 expand = expand_until
             else:
-                expand = datetime.date.today() + default_future_expansion_duration
-
-            if expand > (datetime.date.today() + maximum_future_expansion_duration):
+                expand = (datetime.date.today() +
+                          default_future_expansion_duration)
+            if expand > (datetime.date.today() +
+                         maximum_future_expansion_duration):
                 raise IndexedSearchException
-
         try:
-            instances = component.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
+            instances = component.expandTimeRanges(
+                expand, ignoreInvalidInstances=reCreate)
         except InvalidOverriddenInstanceError, e:
-            self.log_error("Invalid instance %s when indexing %s in %s" % (e.rid, self._name, self._calendar,))
-            
+            self.log_error("Invalid instance %s when indexing %s in %s" %
+                           (e.rid, self._name, self._calendar,))
+
             if self._txn._migrating:
                 # TODO: fix the data here by re-writing component then re-index
-                instances = component.expandTimeRanges(expand, ignoreInvalidInstances=True)
+                instances = component.expandTimeRanges(
+                    expand, ignoreInvalidInstances=True)
             else:
                 raise
 
@@ -452,85 +492,50 @@ class CalendarObject(CommonObjectResource):
                 self._attachment = _ATTACHMENTS_MODE_WRITE
                 self._dropboxID = (yield self.dropboxID())
             elif component.hasPropertyInAnyComponent("ATTACH"):
-                # FIXME: really we ought to check to see if the ATTACH properties have URI values
-                # and if those are pointing to our server dropbox collections and only then set
-                # the read mode
+                # FIXME: really we ought to check to see if the ATTACH
+                # properties have URI values and if those are pointing to our
+                # server dropbox collections and only then set the read mode
                 self._attachment = _ATTACHMENTS_MODE_READ
                 self._dropboxID = (yield self.dropboxID())
 
+        tr = schema.TIME_RANGE
+        co = schema.CALENDAR_OBJECT
+        tpy = schema.TRANSPARENCY
+
+        values = {
+            co.CALENDAR_RESOURCE_ID            : self._calendar._resourceID,
+            co.RESOURCE_NAME                   : self._name,
+            co.ICALENDAR_TEXT                  : componentText,
+            co.ICALENDAR_UID                   : self._uid,
+            co.ICALENDAR_TYPE                  : component.resourceType(),
+            co.ATTACHMENTS_MODE                : self._attachment,
+            co.DROPBOX_ID                      : self._dropboxID,
+            co.ORGANIZER                       : organizer,
+            co.RECURRANCE_MAX                  :
+                normalizeForIndex(instances.limit) if instances.limit else None,
+            co.ACCESS                          : self._access,
+            co.SCHEDULE_OBJECT                 : self._schedule_object,
+            co.SCHEDULE_TAG                    : self._schedule_tag,
+            co.SCHEDULE_ETAGS                  : self._schedule_etags,
+            co.PRIVATE_COMMENTS                : self._private_comments,
+            co.MD5                             : self._md5
+        }
+
         if inserting:
-            self._resourceID, self._created, self._modified  = (
-                yield self._txn.execSQL(
-                """
-                insert into CALENDAR_OBJECT
-                (CALENDAR_RESOURCE_ID, RESOURCE_NAME, ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE,
-                 ATTACHMENTS_MODE, DROPBOX_ID, ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_TAG,
-                 SCHEDULE_ETAGS, PRIVATE_COMMENTS, MD5)
-                 values
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                returning
-                 RESOURCE_ID,
-                 CREATED,
-                 MODIFIED
-                """,
-                [
-                    self._calendar._resourceID,
-                    self._name,
-                    componentText,
-                    self._uid,
-                    component.resourceType(),
-                    self._attachment,
-                    self._dropboxID,
-                    organizer,
-                    normalizeForIndex(instances.limit) if instances.limit else None,
-                    self._access,
-                    self._schedule_object,
-                    self._schedule_tag,
-                    self._schedule_etags,
-                    self._private_comments,
-                    self._md5,
-                ]
-            ))[0]
+            self._resourceID, self._created, self._modified = (
+                yield Insert(values, Return=(
+                    co.RESOURCE_ID, co.CREATED, co.MODIFIED)).on(self._txn))[0]
         else:
-            yield self._txn.execSQL(
-                """
-                update CALENDAR_OBJECT set
-                (ICALENDAR_TEXT, ICALENDAR_UID, ICALENDAR_TYPE, ATTACHMENTS_MODE,
-                 DROPBOX_ID, ORGANIZER, RECURRANCE_MAX, ACCESS, SCHEDULE_OBJECT, SCHEDULE_TAG,
-                 SCHEDULE_ETAGS, PRIVATE_COMMENTS, MD5, MODIFIED)
-                 =
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
-                where RESOURCE_ID = %s
-                returning MODIFIED
-                """,
-                [
-                    componentText,
-                    self._uid,
-                    component.resourceType(),
-                    self._attachment,
-                    self._dropboxID,
-                    organizer,
-                    normalizeForIndex(instances.limit) if instances.limit else None,
-                    self._access,
-                    self._schedule_object,
-                    self._schedule_tag,
-                    self._schedule_etags,
-                    self._private_comments,
-                    self._md5,
-                    self._resourceID,
-                ]
-            )
-
+            values[co.MODIFIED] = utcNowSQL
+            self._modified = (
+                yield Update(values, Return=co.MODIFIED,
+                             Where=co.RESOURCE_ID == self._resourceID
+                            ).on(self._txn))[0][0]
             # Need to wipe the existing time-range for this and rebuild
-            yield self._txn.execSQL(
-                """
-                delete from TIME_RANGE where CALENDAR_OBJECT_RESOURCE_ID = %s
-                """,
-                [
-                    self._resourceID,
-                ],
-            )
-
+            yield Delete(
+                From=tr,
+                Where=tr.CALENDAR_OBJECT_RESOURCE_ID == self._resourceID
+            ).on(self._txn)
 
         # CALENDAR_OBJECT table update
         for key in instances:
@@ -539,40 +544,25 @@ class CalendarObject(CommonObjectResource):
             end = instance.end.replace(tzinfo=utc)
             float = instance.start.tzinfo is None
             transp = instance.component.propertyValue("TRANSP") == "TRANSPARENT"
-            instanceid = (yield self._txn.execSQL(
-                """
-                insert into TIME_RANGE
-                (CALENDAR_RESOURCE_ID, CALENDAR_OBJECT_RESOURCE_ID, FLOATING, START_DATE, END_DATE, FBTYPE, TRANSPARENT)
-                 values
-                (%s, %s, %s, %s, %s, %s, %s)
-                 returning
-                INSTANCE_ID
-                """,
-                [
-                    self._calendar._resourceID,
-                    self._resourceID,
-                    float,
-                    start,
-                    end,
-                    icalfbtype_to_indexfbtype.get(instance.component.getFBType(), icalfbtype_to_indexfbtype["FREE"]),
-                    transp,
-                ],
-            ))[0][0]
+            instanceid = (yield Insert({
+                tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
+                tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
+                tr.FLOATING                    : float,
+                tr.START_DATE                  : start,
+                tr.END_DATE                    : end,
+                tr.FBTYPE                      :
+                    icalfbtype_to_indexfbtype.get(
+                        instance.component.getFBType(),
+                        icalfbtype_to_indexfbtype["FREE"]),
+                tr.TRANSPARENT                 : transp,
+            }, Return=tr.INSTANCE_ID).on(self._txn))[0][0]
             peruserdata = component.perUserTransparency(instance.rid)
             for useruid, transp in peruserdata:
-                yield self._txn.execSQL(
-                    """
-                    insert into TRANSPARENCY
-                    (TIME_RANGE_INSTANCE_ID, USER_ID, TRANSPARENT)
-                     values
-                    (%s, %s, %s)
-                    """,
-                    [
-                        instanceid,
-                        useruid,
-                        transp,
-                    ],
-                )
+                (yield Insert({
+                    tpy.TIME_RANGE_INSTANCE_ID : instanceid,
+                    tpy.USER_ID                : useruid,
+                    tpy.TRANSPARENT            : transp,
+                }).on(self._txn))
 
         # Special - for unbounded recurrence we insert a value for "infinity"
         # that will allow an open-ended time-range to always match it.
@@ -580,40 +570,24 @@ class CalendarObject(CommonObjectResource):
             start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
             end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
             float = False
-            instanceid = (yield self._txn.execSQL(
-                """
-                insert into TIME_RANGE
-                (CALENDAR_RESOURCE_ID, CALENDAR_OBJECT_RESOURCE_ID, FLOATING, START_DATE, END_DATE, FBTYPE, TRANSPARENT)
-                 values
-                (%s, %s, %s, %s, %s, %s, %s)
-                 returning
-                INSTANCE_ID
-                """,
-                [
-                    self._calendar._resourceID,
-                    self._resourceID,
-                    float,
-                    start,
-                    end,
+            transp = True
+            instanceid = (yield Insert({
+                tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
+                tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
+                tr.FLOATING                    : float,
+                tr.START_DATE                  : start,
+                tr.END_DATE                    : end,
+                tr.FBTYPE                      :
                     icalfbtype_to_indexfbtype["UNKNOWN"],
-                    True,
-                ],
-            ))[0][0]
+                tr.TRANSPARENT                 : transp,
+            }, Return=tr.INSTANCE_ID).on(self._txn))[0][0]
             peruserdata = component.perUserTransparency(None)
             for useruid, transp in peruserdata:
-                yield self._txn.execSQL(
-                    """
-                    insert into TRANSPARENCY
-                    (TIME_RANGE_INSTANCE_ID, USER_ID, TRANSPARENT)
-                     values
-                    (%s, %s, %s)
-                    """,
-                    [
-                        instanceid,
-                        useruid,
-                        transp,
-                    ],
-                )
+                (yield Insert({
+                    tpy.TIME_RANGE_INSTANCE_ID : instanceid,
+                    tpy.USER_ID                : useruid,
+                    tpy.TRANSPARENT            : transp,
+                }).on(self._txn))
 
 
     @inlineCallbacks
@@ -692,12 +666,17 @@ class CalendarObject(CommonObjectResource):
     dropboxID = dropboxIDFromCalendarObject
 
 
+    _attachmentsQuery = Select(
+        [schema.ATTACHMENT.PATH],
+        From=schema.ATTACHMENT,
+        Where=schema.ATTACHMENT.DROPBOX_ID == Parameter('dropboxID')
+    )
+
+
     @inlineCallbacks
     def attachments(self):
-        rows = yield self._txn.execSQL(
-            """
-            select PATH from ATTACHMENT where DROPBOX_ID = %s
-            """, [self._dropboxID])
+        rows = yield self._attachmentsQuery.on(self._txn,
+                                               dropboxID=self._dropboxID)
         result = []
         for row in rows:
             result.append((yield self.attachmentWithName(row[0])))
@@ -753,31 +732,30 @@ class AttachmentStorageTransport(object):
         self.attachment._contentType = self.contentType
         self.attachment._md5 = self.hash.hexdigest()
         self.attachment._size = len(self.buf)
+        att = schema.ATTACHMENT
         self.attachment._created, self.attachment._modified = map(
             sqltime,
-            (yield self._txn.execSQL(
-                """
-                update ATTACHMENT set CONTENT_TYPE = %s, SIZE = %s, MD5 = %s,
-                 MODIFIED = timezone('UTC', CURRENT_TIMESTAMP)
-                where PATH = %s
-                returning CREATED, MODIFIED
-                """,
-                [
-                    generateContentType(self.contentType),
-                    self.attachment._size,
-                    self.attachment._md5,
-                    self.attachment.name()
-                ]
-            ))[0]
+            (yield Update(
+                {
+                    att.CONTENT_TYPE : generateContentType(self.contentType),
+                    att.SIZE         : self.attachment._size,
+                    att.MD5          : self.attachment._md5,
+                    att.MODIFIED     : utcNowSQL
+                },
+                Where=att.PATH == self.attachment.name(),
+                Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
         )
 
-        home = (yield self._txn.calendarHomeWithResourceID(self.attachment._ownerHomeID))
+        home = (
+            yield self._txn.calendarHomeWithResourceID(
+                self.attachment._ownerHomeID))
         if home:
             # Adjust quota
             yield home.adjustQuotaUsedBytes(self.attachment.size() - old_size)
-            
+
             # Send change notification to home
             yield home.notifyChanged()
+
 
 
 def sqltime(value):
@@ -798,10 +776,11 @@ class Attachment(object):
     @classmethod
     def _attachmentPathRoot(cls, txn, dropboxID):
         attachmentRoot = txn._store.attachmentsPath
-        
+
         # Use directory hashing scheme based on MD5 of dropboxID
         hasheduid = hashlib.md5(dropboxID).hexdigest()
-        return attachmentRoot.child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
+        return attachmentRoot.child(hasheduid[0:2]).child(
+            hasheduid[2:4]).child(hasheduid)
 
 
     @classmethod
@@ -816,23 +795,17 @@ class Attachment(object):
 
         # Now create the DB entry
         attachment = cls(txn, dropboxID, name, ownerHomeID)
-        yield txn.execSQL(
-            """
-            insert into ATTACHMENT
-              (CALENDAR_HOME_RESOURCE_ID, DROPBOX_ID, CONTENT_TYPE, SIZE, MD5, PATH)
-             values
-              (%s, %s, %s, %s, %s, %s)
-            """,
-            [
-                ownerHomeID,
-                dropboxID,
-                "",
-                0,
-                "",
-                name,
-            ]
-        )
+        att = schema.ATTACHMENT
+        yield Insert({
+            att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
+            att.DROPBOX_ID                : dropboxID,
+            att.CONTENT_TYPE              : "",
+            att.SIZE                      : 0,
+            att.MD5                       : "",
+            att.PATH                      : name
+        }).on(txn)
         returnValue(attachment)
+
 
     @classmethod
     @inlineCallbacks
@@ -841,6 +814,7 @@ class Attachment(object):
         attachment = (yield attachment.initFromStore())
         returnValue(attachment)
 
+
     @inlineCallbacks
     def initFromStore(self):
         """
@@ -848,14 +822,12 @@ class Attachment(object):
 
         @return: C{True} if this attachment exists, C{False} otherwise.
         """
-        rows = yield self._txn.execSQL(
-            """
-            select CALENDAR_HOME_RESOURCE_ID, CONTENT_TYPE, SIZE, MD5, CREATED, MODIFIED
-             from ATTACHMENT
-             where DROPBOX_ID = %s and PATH = %s
-            """,
-            [self._dropboxID, self._name]
-        )
+        att = schema.ATTACHMENT
+        rows = (yield Select([att.CALENDAR_HOME_RESOURCE_ID, att.CONTENT_TYPE,
+                              att.SIZE, att.MD5, att.CREATED, att.MODIFIED],
+                             From=att,
+                             Where=(att.DROPBOX_ID == self._dropboxID).And(
+                                 att.PATH == self._name)).on(self._txn))
         if not rows:
             returnValue(None)
         self._ownerHomeID = rows[0][0]
@@ -870,13 +842,15 @@ class Attachment(object):
     def name(self):
         return self._name
 
+
     @property
     def _path(self):
         attachmentRoot = self._txn._store.attachmentsPath
-        
         # Use directory hashing scheme based on MD5 of dropboxID
         hasheduid = hashlib.md5(self._dropboxID).hexdigest()
-        return attachmentRoot.child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid).child(self.name())
+        return attachmentRoot.child(hasheduid[0:2]).child(
+            hasheduid[2:4]).child(hasheduid).child(self.name())
+
 
     def properties(self):
         pass # stub
@@ -891,25 +865,27 @@ class Attachment(object):
         protocol.connectionLost(Failure(ConnectionLost()))
 
 
+    _removeStatement = Delete(
+        From=schema.ATTACHMENT,
+        Where=(schema.ATTACHMENT.DROPBOX_ID == Parameter("dropboxID")).And(
+            schema.ATTACHMENT.PATH == Parameter("path")
+        ))
+
+
     @inlineCallbacks
     def remove(self):
         old_size = self._size
         self._txn.postCommit(self._path.remove)
-        yield self._txn.execSQL(
-            """
-            delete from ATTACHMENT
-             where DROPBOX_ID = %s and PATH = %s
-            """,
-            [self._dropboxID, self._name]
-        )
-
+        yield self._removeStatement.on(self._txn, dropboxID=self._dropboxID,
+                                       path=self._name)
         # Adjust quota
         home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
         if home:
             yield home.adjustQuotaUsedBytes(-old_size)
-            
+
             # Send change notification to home
             yield home.notifyChanged()
+
 
     # IDataStoreResource
     def contentType(self):

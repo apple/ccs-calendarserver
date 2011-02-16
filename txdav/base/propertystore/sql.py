@@ -23,14 +23,22 @@ __all__ = [
     "PropertyStore",
 ]
 
+
 from twistedcaldav.memcacher import Memcacher
 
-from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName,\
-    validKey
+from twext.enterprise.dal.syntax import (
+    Select, Parameter, Update, Insert, TableSyntax, Delete)
+
+from txdav.common.datastore.sql_tables import schema
+from txdav.base.propertystore.base import (AbstractPropertyStore,
+                                           PropertyName, validKey)
 
 from twext.web2.dav.davxml import WebDAVDocument
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+
+
+prop = schema.RESOURCE_PROPERTY
 
 class PropertyStore(AbstractPropertyStore):
 
@@ -42,6 +50,11 @@ class PropertyStore(AbstractPropertyStore):
         )
 
 
+    _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
+                        From=prop,
+                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+
+
     @classmethod
     @inlineCallbacks
     def load(cls, defaultuser, txn, resourceID, created=False):
@@ -51,54 +64,66 @@ class PropertyStore(AbstractPropertyStore):
         self._resourceID = resourceID
         self._cached = {}
         if not created:
-            
-            # Cache existing properties in this object 
-
+            # Cache existing properties in this object
             # Look for memcache entry first
             rows = yield self._cacher.get(str(self._resourceID))
-            
             if rows is None:
-                rows = yield self._txn.execSQL(
-                    """
-                    select NAME, VIEWER_UID, VALUE from RESOURCE_PROPERTY
-                    where RESOURCE_ID = %s
-                    """,
-                    [self._resourceID]
-                )
-                yield self._cacher.set(str(self._resourceID), rows if rows is not None else ())
+                rows = yield self._allWithID.on(txn,
+                                                resourceID=self._resourceID)
+                yield self._cacher.set(str(self._resourceID),
+                                       rows if rows is not None else ())
             for name, uid, value in rows:
                 self._cached[(name, uid)] = value
-
-
         returnValue(self)
+
 
     @classmethod
     @inlineCallbacks
-    def loadAll(cls, defaultuser, txn, joinTable, joinColumn, parentIDColumn, parentID):
+    def forMultipleResources(cls, defaultUser, txn,
+                             childColumn, parentColumn, parentID):
         """
-        Return a list of property stores for all objects in a parent collection
+        Load all property stores for all objects in a collection.  This is used
+        to optimize Depth:1 operations on that collection, by loading all
+        relevant properties in a single query.
+
+        @param defaultUser: the UID of the user who owns / is requesting the
+            property stores; the ones whose per-user properties will be exposed.
+
+        @type defaultUser: C{str}
+
+        @param txn: the transaction within which to fetch the rows.
+
+        @type txn: L{IAsyncTransaction}
+
+        @param childColumn: The resource ID column for the child resources, i.e.
+            the resources of the type for which this method will loading the
+            property stores.
+
+        @param parentColumn: The resource ID column for the parent resources.
+            e.g. if childColumn is addressbook object's resource ID, then this
+            should be addressbook's resource ID.
+
+        @return: a L{Deferred} that fires with a C{dict} mapping resource ID (a
+            value taken from C{childColumn}) to a L{PropertyStore} for that ID.
         """
-        rows = yield txn.execSQL(
-            """
-            select
-              %s,
-              RESOURCE_PROPERTY.RESOURCE_ID,
-              RESOURCE_PROPERTY.NAME,
-              RESOURCE_PROPERTY.VIEWER_UID,
-              RESOURCE_PROPERTY.VALUE
-            from RESOURCE_PROPERTY
-            right join %s on (RESOURCE_PROPERTY.RESOURCE_ID = %s) 
-            where %s = %%s
-            """ % (joinColumn, joinTable, joinColumn, parentIDColumn),
-            [parentID]
+        childTable = TableSyntax(childColumn.model.table)
+        query = Select([
+            childColumn,
+            # XXX is that column necessary?  as per the 'on' clause it has to be
+            # the same as prop.RESOURCE_ID anyway.
+            prop.RESOURCE_ID, prop.NAME, prop.VIEWER_UID, prop.VALUE],
+            From=prop.join(childTable, prop.RESOURCE_ID == childColumn,
+                           'right'),
+            Where=parentColumn == parentID
         )
-        
+        rows = yield query.on(txn)
+
         createdStores = {}
         for object_resource_id, resource_id, name, view_uid, value in rows:
             if resource_id:
                 if resource_id not in createdStores:
                     store = cls.__new__(cls)
-                    super(PropertyStore, store).__init__(defaultuser)
+                    super(PropertyStore, store).__init__(defaultUser)
                     store._txn = txn
                     store._resourceID = resource_id
                     store._cached = {}
@@ -106,12 +131,12 @@ class PropertyStore(AbstractPropertyStore):
                 createdStores[resource_id]._cached[(name, view_uid)] = value
             else:
                 store = cls.__new__(cls)
-                super(PropertyStore, store).__init__(defaultuser)
+                super(PropertyStore, store).__init__(defaultUser)
                 store._txn = txn
                 store._resourceID = object_resource_id
                 store._cached = {}
                 createdStores[object_resource_id] = store
-                
+
         returnValue(createdStores)
 
 
@@ -126,6 +151,19 @@ class PropertyStore(AbstractPropertyStore):
         return WebDAVDocument.fromString(value).root_element
 
 
+    _updateQuery = Update({prop.VALUE: Parameter("value")},
+                          Where=(
+                              prop.RESOURCE_ID == Parameter("resourceID")).And(
+                              prop.NAME == Parameter("name")).And(
+                              prop.VIEWER_UID == Parameter("uid")))
+
+
+    _insertQuery = Insert({prop.VALUE: Parameter("value"),
+                           prop.RESOURCE_ID: Parameter("resourceID"),
+                           prop.NAME: Parameter("name"),
+                           prop.VIEWER_UID: Parameter("uid")})
+
+
     def _setitem_uid(self, key, value, uid):
         validKey(key)
 
@@ -133,44 +171,37 @@ class PropertyStore(AbstractPropertyStore):
         value_str = value.toxml()
 
         if (key_str, uid) in self._cached:
-            self._txn.execSQL(
-                """
-                update RESOURCE_PROPERTY
-                set VALUE = %s
-                where RESOURCE_ID = %s and NAME = %s and VIEWER_UID = %s
-                """,
-                [value_str, self._resourceID, key_str, uid]
-            )
-        else:        
-            self._txn.execSQL(
-                """
-                insert into RESOURCE_PROPERTY
-                (RESOURCE_ID, NAME, VALUE, VIEWER_UID)
-                values (%s, %s, %s, %s)
-                """,
-                [self._resourceID, key_str, value_str, uid]
-            )
+            self._updateQuery.on(self._txn, resourceID=self._resourceID,
+                                 value=value_str, name=key_str, uid=uid)
+        else:
+            self._insertQuery.on(self._txn, resourceID=self._resourceID,
+                                 value=value_str, name=key_str, uid=uid)
         self._cached[(key_str, uid)] = value_str
         self._cacher.delete(str(self._resourceID))
+
+
+    _deleteQuery = Delete(
+        prop, Where=(prop.RESOURCE_ID == Parameter("resourceID")).And(
+            prop.NAME == Parameter("name")).And(
+                prop.VIEWER_UID == Parameter("uid"))
+    )
+
 
     def _delitem_uid(self, key, uid):
         validKey(key)
 
         key_str = key.toString()
         del self._cached[(key_str, uid)]
-        self._txn.execSQL(
-            """
-            delete from RESOURCE_PROPERTY
-            where RESOURCE_ID = %s and NAME = %s and VIEWER_UID = %s
-            """,
-            [self._resourceID, key_str, uid],
-            raiseOnZeroRowCount=lambda:KeyError(key)
-        )
+        self._deleteQuery.on(self._txn, lambda:KeyError(key),
+                             resourceID=self._resourceID,
+                             name=key_str, uid=uid
+                            )
         self._cacher.delete(str(self._resourceID))
-            
+
 
     def _keys_uid(self, uid):
-
         for cachedKey, cachedUID in self._cached.keys():
             if cachedUID == uid:
                 yield PropertyName.fromString(cachedKey)
+
+

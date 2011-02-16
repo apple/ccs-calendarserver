@@ -112,6 +112,7 @@ class NO_DEFAULT(object):
     """
 
 
+
 def _checkstr(x):
     """
     Verify that C{x} is a C{str}.  Raise a L{ValueError} if not.  This is to
@@ -119,6 +120,7 @@ def _checkstr(x):
     """
     if not isinstance(x, str):
         raise ValueError("%r is not a str." % (x,))
+
 
 
 class Column(object):
@@ -184,7 +186,8 @@ class Column(object):
 
         @rtype: C{bool}
         """
-        return self.canBeNull() or (self.default is not None)
+        return not (self.canBeNull() or
+                    (self.default not in (None, NO_DEFAULT)))
 
 
     def doesReferenceName(self, name):

@@ -416,7 +416,7 @@ create table CALENDAR_OBJECT_REVISIONS (
   CALENDAR_RESOURCE_ID      integer      references CALENDAR,
   CALENDAR_NAME             varchar(255) default null,
   RESOURCE_NAME             varchar(255),
-  REVISION                  integer      not null,
+  REVISION                  integer      default nextval('REVISION_SEQ') not null,
   DELETED                   boolean      not null,
 
   unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME)
@@ -439,7 +439,7 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK,
   ADDRESSBOOK_NAME             varchar(255) default null,
   RESOURCE_NAME                varchar(255),
-  REVISION                     integer      not null,
+  REVISION                     integer      default nextval('REVISION_SEQ') not null,
   DELETED                      boolean      not null,
 
   unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME)
@@ -458,7 +458,7 @@ create index ADDRESSBOOK_OBJECT_REVISIONS_RESOURCE_ID
 create table NOTIFICATION_OBJECT_REVISIONS (
   NOTIFICATION_HOME_RESOURCE_ID integer      not null references NOTIFICATION_HOME on delete cascade,
   RESOURCE_NAME                 varchar(255),
-  REVISION                      integer      not null,
+  REVISION                      integer      default nextval('REVISION_SEQ') not null,
   DELETED                       boolean      not null,
 
   unique(NOTIFICATION_HOME_RESOURCE_ID, RESOURCE_NAME)

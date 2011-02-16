@@ -19,7 +19,7 @@
 Syntax wrappers and generators for SQL.
 """
 
-from twext.enterprise.dal.model import Schema, Table, Column
+from twext.enterprise.dal.model import Schema, Table, Column, Sequence
 
 
 class TableMismatch(Exception):
@@ -92,7 +92,7 @@ def comparison(comparator):
         if isinstance(other, ColumnSyntax):
             return ColumnComparison(self, comparator, other)
         else:
-            return ConstantComparison(self, comparator, other)
+            return CompoundComparison(self, comparator, Constant(other))
     return __
 
 
@@ -123,21 +123,56 @@ class ExpressionSyntax(Syntax):
 
 
 class FunctionInvocation(ExpressionSyntax):
-    def __init__(self, name, arg):
+    def __init__(self, name, *args):
         self.name = name
-        self.arg = arg
+        self.args = args
 
 
     def allColumns(self):
-        return self.arg.allColumns()
+        """
+        All of the columns in all of the arguments' columns.
+        """
+        def ac():
+            for arg in self.args:
+                for column in arg.allColumns():
+                    yield column
+        return list(ac())
 
 
     def subSQL(self, placeholder, quote, allTables):
         result = SQLFragment(self.name)
-        result.text += "("
-        result.append(self.arg.subSQL(placeholder, quote, allTables))
-        result.text += ")"
+        result.append(_inParens(
+            _commaJoined(_convert(arg).subSQL(placeholder, quote, allTables)
+                         for arg in self.args)))
         return result
+
+
+
+class Constant(ExpressionSyntax):
+    def __init__(self, value):
+        self.value = value
+
+
+    def allColumns(self):
+        return []
+
+
+    def subSQL(self, placeholder, quote, allTables):
+        return SQLFragment(placeholder, [self.value])
+
+
+
+class NamedValue(ExpressionSyntax):
+    """
+    A constant within the database; something pre-defined, such as
+    CURRENT_TIMESTAMP.
+    """
+    def __init__(self, name):
+        self.name = name
+
+
+    def subSQL(self, placeholder, quote, allTables):
+        return SQLFragment(self.name)
 
 
 
@@ -150,11 +185,12 @@ class Function(object):
         self.name = name
 
 
-    def __call__(self, arg):
+    def __call__(self, *args):
         """
         Produce an L{FunctionInvocation}
         """
-        return FunctionInvocation(self.name, arg)
+        return FunctionInvocation(self.name, *args)
+
 
 Max = Function("max")
 Len = Function("character_length")
@@ -172,16 +208,37 @@ class SchemaSyntax(Syntax):
         try:
             tableModel = self.model.tableNamed(attr)
         except KeyError:
-            raise AttributeError("schema has no table %r" % (attr,))
-        syntax = TableSyntax(tableModel)
-        # Needs to be preserved here so that aliasing will work.
-        setattr(self, attr, syntax)
-        return syntax
+            try:
+                seqModel = self.model.sequenceNamed(attr)
+            except KeyError:
+                raise AttributeError("schema has no table or sequence %r" % (attr,))
+            else:
+                return SequenceSyntax(seqModel)
+        else:
+            syntax = TableSyntax(tableModel)
+            # Needs to be preserved here so that aliasing will work.
+            setattr(self, attr, syntax)
+            return syntax
 
 
     def __iter__(self):
         for table in self.model.tables:
             yield TableSyntax(table)
+
+
+
+class SequenceSyntax(ExpressionSyntax):
+    """
+    Syntactic convenience for L{Sequence}.
+    """
+
+    modelType = Sequence
+
+    def subSQL(self, placeholder, quote, allTables):
+        """
+        Convert to an SQL fragment.
+        """
+        return SQLFragment("nextval('%s')" % (self.model.name,))
 
 
 
@@ -334,21 +391,6 @@ class NullComparison(Comparison):
 
 
 
-class ConstantComparison(Comparison):
-
-    def allColumns(self):
-        return self.a.allColumns()
-
-
-    def subSQL(self, placeholder, quote, allTables):
-        sqls = SQLFragment()
-        sqls.append(self._subexpression(self.a, placeholder, quote, allTables))
-        sqls.append(SQLFragment(' ' + ' '.join([self.op, placeholder]),
-                                 [self.b]))
-        return sqls
-
-
-
 class CompoundComparison(Comparison):
     """
     A compound comparison; two or more constraints, joined by an operation
@@ -422,7 +464,7 @@ class Select(_Statement):
     """
 
     def __init__(self, columns=None, Where=None, From=None, OrderBy=None,
-                 GroupBy=None, Limit=None):
+                 GroupBy=None, Limit=None, ForUpdate=False):
         self.From = From
         self.Where = Where
         if not isinstance(OrderBy, (list, tuple, type(None))):
@@ -440,6 +482,7 @@ class Select(_Statement):
 
             columns = _SomeColumns(columns)
         self.columns = columns
+        self.ForUpdate = ForUpdate
 
 
     def toSQL(self, placeholder="?", quote=lambda x: x):
@@ -470,8 +513,10 @@ class Select(_Statement):
 
         if self.Limit is not None:
             stmt.text += quote(" limit ")
-            stmt.text += placeholder
-            stmt.parameters.append(self.Limit)
+            stmt.append(Constant(self.Limit).subSQL(placeholder, quote,
+                                                    allTables))
+        if self.ForUpdate:
+            stmt.text += quote(" for update")
         return stmt
 
 
@@ -525,13 +570,26 @@ def _modelsFromMap(columnMap):
 
 
 
-class Insert(object):
+class _CommaList(object):
+    def __init__(self, subfragments):
+        self.subfragments = subfragments
+
+
+    def subSQL(self, placeholder, quote, allTables):
+        return _commaJoined(f.subSQL(placeholder, quote, allTables)
+                            for f in self.subfragments)
+
+
+
+class Insert(_Statement):
     """
     'insert' statement.
     """
 
     def __init__(self, columnMap, Return=None):
         self.columnMap = columnMap
+        if isinstance(Return, (tuple, list)):
+            Return = _CommaList(Return)
         self.Return = Return
         columns = _modelsFromMap(columnMap)
         table = _fromSameTable(columns)
@@ -563,7 +621,8 @@ class Insert(object):
              sortedColumns])))
         stmt.append(SQLFragment(" values "))
         stmt.append(_inParens(_commaJoined(
-            [SQLFragment(placeholder, [v]) for (c, v) in sortedColumns])))
+            [_convert(v).subSQL(placeholder, quote, allTables)
+             for (c, v) in sortedColumns])))
         if self.Return is not None:
             stmt.text += ' returning '
             stmt.append(self.Return.subSQL(placeholder, quote, allTables))
@@ -571,7 +630,19 @@ class Insert(object):
 
 
 
-class Update(object):
+def _convert(x):
+    """
+    Convert a value to an appropriate SQL AST node.  (Currently a simple
+    isinstance, could be promoted to use adaptation if we want to get fancy.)
+    """
+    if isinstance(x, ExpressionSyntax):
+        return x
+    else:
+        return Constant(x)
+
+
+
+class Update(_Statement):
     """
     'update' statement
     """
@@ -581,6 +652,8 @@ class Update(object):
         _fromSameTable(_modelsFromMap(columnMap))
         self.columnMap = columnMap
         self.Where = Where
+        if isinstance(Return, (tuple, list)):
+            Return = _CommaList(Return)
         self.Return = Return
 
 
@@ -602,7 +675,8 @@ class Update(object):
         result.append(
             _commaJoined(
                 [c.subSQL(placeholder, quote, allTables).append(
-                    SQLFragment(" = " + placeholder, [v]))
+                    SQLFragment(" = ").subSQL(placeholder, quote, allTables)
+                ).append(_convert(v).subSQL(placeholder, quote, allTables))
                     for (c, v) in sortedColumns]
             )
         )
@@ -615,7 +689,7 @@ class Update(object):
 
 
 
-class Delete(object):
+class Delete(_Statement):
     """
     'delete' statement.
     """
@@ -640,7 +714,7 @@ class Delete(object):
 
 
 
-class Lock(object):
+class Lock(_Statement):
     """
     An SQL 'lock' statement.
     """
@@ -722,4 +796,16 @@ class Parameter(object):
         return 'Parameter(%r)' % (self.name,)
 
 
+# Common helpers:
+
+# current timestamp in UTC format.
+utcNowSQL = Function('timezone')('UTC', NamedValue('CURRENT_TIMESTAMP'))
+
+# You can't insert a column with no rows.  In SQL that just isn't valid syntax,
+# and in this DAL you need at least one key or we can't tell what table you're
+# talking about.  Luckily there's the 'default' keyword to the rescue, which, in
+# the context of an INSERT statement means 'use the default value explicitly'.
+# (Although this is a special keyword in a CREATE statement, in an INSERT it
+# behaves like an expression to the best of my knowledge.)
+default = NamedValue('default')
 

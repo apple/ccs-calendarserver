@@ -495,3 +495,20 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         (yield self.homeUnderTest())._path.child(".foo").createDirectory()
         yield self.test_calendarObjects()
 
+
+    def test_simpleHomeSyncToken(self):
+        """
+        File store doesn't have a functioning C{resourceNamesSinceToken} for
+        L{CalendarHome}.
+        """
+
+    test_simpleHomeSyncToken.skip = "Not in file store."
+
+
+    def test_notificationSyncToken(self):
+        """
+        File store doesn't have a functioning C{resourceNamesSinceToken} for
+        L{Notifications}.
+        """
+
+    test_notificationSyncToken.skip = "Not in file store."

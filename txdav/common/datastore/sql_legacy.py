@@ -70,7 +70,7 @@ class PostgresLegacyNotificationsEmulator(object):
                 NotificationRecord(
                     notificationObject.uid(),
                     notificationObject.name(),
-                    (yield notificationObject._fieldQuery("XML_TYPE"))
+                    (yield notificationObject.xmlType().toxml())
                 )
             )
         else:

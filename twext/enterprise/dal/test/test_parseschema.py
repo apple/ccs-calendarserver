@@ -101,6 +101,23 @@ class ParsingExampleTests(TestCase):
                           [s.tables[0].columns[0]])
 
 
+    def test_sequenceDefault(self):
+        """
+        Default sequence column.
+        """
+        s = Schema()
+        addSQLToSchema(s,
+                   """
+                   create sequence alpha;
+                   create table foo (
+                      bar integer default nextval('alpha') not null,
+                      qux integer not null
+                   );
+                   """)
+        self.assertEquals(s.tableNamed("foo").columnNamed("bar").needsValue(),
+                          False)
+
+
     def test_defaultConstantColumns(self):
         """
         Parsing a 'default' column with an appropriate type in it will return
@@ -123,6 +140,32 @@ class ParsingExampleTests(TestCase):
         self.assertEquals(table.columnNamed("d").default, True)
         self.assertEquals(table.columnNamed("e").default, 'sample value')
         self.assertEquals(table.columnNamed("f").default, None)
+
+
+    def test_needsValue(self):
+        """
+        Columns with defaults, or with a 'not null' constraint don't need a
+        value; columns without one don't.
+        """
+        s = Schema()
+        addSQLToSchema(s,
+                       """
+                       create table a (
+                        b integer default 4321 not null,
+                        c boolean default false,
+                        d integer not null,
+                        e integer
+                       )
+                       """)
+        table = s.tableNamed("a")
+        # Has a default, NOT NULL.
+        self.assertEquals(table.columnNamed("b").needsValue(), False)
+        # Has a default _and_ nullable.
+        self.assertEquals(table.columnNamed("c").needsValue(), False)
+        # No default, not nullable.
+        self.assertEquals(table.columnNamed("d").needsValue(), True)
+        # Just nullable.
+        self.assertEquals(table.columnNamed("e").needsValue(), False)
 
 
     def test_notNull(self):

@@ -26,9 +26,8 @@ C{proxyForInterface} can be used to implement features such as implicit
 scheduling or data caching as middleware in the data-store layer.
 """
 
-from twisted.trial.unittest import TestCase
-from txdav.caldav.datastore.test.common import CommonTests
-from txdav.caldav.datastore.test.test_file import setUpCalendarStore
+from twisted.trial.unittest import TestCase, SkipTest
+from txdav.caldav.datastore.test.test_file import FileStorageTests
 from txdav.caldav.datastore.scheduling import ImplicitStore
 
 simpleEvent = """BEGIN:VCALENDAR
@@ -45,7 +44,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-class ImplicitStoreTests(CommonTests, TestCase):
+class ImplicitStoreTests(FileStorageTests, TestCase):
     """
     Tests for L{ImplicitSchedulingStore}.
     """
@@ -54,6 +53,12 @@ class ImplicitStoreTests(CommonTests, TestCase):
 
     def storeUnderTest(self):
         if self.implicitStore is None:
-            setUpCalendarStore(self)
-            self.implicitStore = ImplicitStore(self.calendarStore)
+            sut = FileStorageTests.storeUnderTest(self)
+            self.implicitStore = ImplicitStore(sut)
         return self.implicitStore
+
+    def skipit(self):
+        raise SkipTest("No private attribute tests.")
+
+    test_calendarObjectsWithDotFile = skipit
+    test_init = skipit

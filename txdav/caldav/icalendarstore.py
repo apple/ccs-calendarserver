@@ -162,6 +162,30 @@ class ICalendarHome(INotifier, IDataStoreResource):
         """
 
 
+    def getAllDropboxIDs():
+        """
+        Retrieve all of the dropbox IDs of events in this home for calendar
+        objects which either allow attendee write access to their dropboxes,
+        have attachments to read, or both.
+
+        @return: a L{Deferred} which fires with a C{list} of all dropbox IDs (as
+            unicode strings)
+        """
+
+
+    def quotaUsedBytes():
+        """
+        The number of bytes counted towards the user's quota.
+        """
+
+
+    def adjustQuotaUsedBytes(delta):
+        """
+        Increase the number of bytes that count towards the user's quota.
+        """
+
+
+
 class ICalendar(INotifier, IShareableCollection, IDataStoreResource):
     """
     Calendar
@@ -280,6 +304,13 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreResource):
             L{ICalendarObject}s that have changed, an iterable of uids
             that have been removed, and the current sync token.
         """
+
+
+    def resourceNamesSinceToken(revision):
+        """
+        Low-level query to gather names for calendarObjectsSinceToken.
+        """
+
 
 
 class ICalendarObject(IDataStoreResource):

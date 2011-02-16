@@ -279,6 +279,30 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_notificationSyncToken(self):
+        """
+        L{ICalendar.resourceNamesSinceToken} will return the names of calendar
+        objects changed or deleted since 
+        """
+        txn = self.transactionUnderTest()
+        coll = yield txn.notificationsWithUID("home1")
+        invite1 = InviteNotification()
+        yield coll.writeNotificationObject("1", invite1, invite1.toxml())
+        st = yield coll.syncToken()
+        yield coll.writeNotificationObject("2", invite1, invite1.toxml())
+        rev = self.token2revision(st)
+        yield coll.removeNotificationObjectWithUID("1")
+        st2 = yield coll.syncToken()
+        rev2 = self.token2revision(st2)
+        changed, deleted = yield coll.resourceNamesSinceToken(rev)
+        self.assertEquals(set(changed), set(["2.xml"]))
+        self.assertEquals(set(deleted), set(["1.xml"]))
+        changed, deleted = yield coll.resourceNamesSinceToken(rev2)
+        self.assertEquals(set(changed), set([]))
+        self.assertEquals(set(deleted), set([]))
+
+
+    @inlineCallbacks
     def test_replaceNotification(self):
         """
         L{INotificationCollection.writeNotificationObject} will silently
@@ -811,6 +835,24 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_usedQuotaAdjustment(self):
+        """
+        Adjust used quota on the calendar home and then verify that it's used.
+        """
+        home = yield self.homeUnderTest()
+        initialQuota = yield home.quotaUsedBytes()
+        yield home.adjustQuotaUsedBytes(30)
+        yield self.commit()
+        home2 = yield self.homeUnderTest()
+        afterQuota = yield home2.quotaUsedBytes()
+        self.assertEqual(afterQuota - initialQuota, 30)
+        yield home2.adjustQuotaUsedBytes(-100000)
+        yield self.commit()
+        home3 = yield self.homeUnderTest()
+        self.assertEqual((yield home3.quotaUsedBytes()), 0)
+
+
+    @inlineCallbacks
     def test_component(self):
         """
         L{ICalendarObject.component} returns a L{VComponent} describing the
@@ -1226,6 +1268,96 @@ END:VCALENDAR
         )
         obj = yield cal.calendarObjectWithName("drop.ics")
         self.assertEquals((yield obj.dropboxID()), "some-dropbox-id")
+
+
+    def token2revision(self, token):
+        """
+        FIXME: the API names for L{syncToken}() and L{resourceNamesSinceToken}()
+        are slightly inaccurate; one doesn't produce input for the other.
+        Actually it should be resource names since I{revision} and you need to
+        understand the structure of the tokens to extract the revision.  Right
+        now that logic lives in the protocol layer, so this testing method
+        replicates it.
+        """
+        uuid, rev = token.split("#", 1)
+        rev = int(rev)
+        return rev
+
+
+    @inlineCallbacks
+    def test_simpleHomeSyncToken(self):
+        """
+        L{ICalendarHome.resourceNamesSinceToken} will return the names of
+        calendar objects created since L{ICalendarHome.syncToken} last returned
+        a particular value.
+        """
+        home = yield self.homeUnderTest()
+        cal = yield self.calendarUnderTest()
+        st = yield home.syncToken()
+        yield cal.createCalendarObjectWithName("new.ics", VComponent.fromString(
+                self.eventWithDropbox
+            )
+        )
+
+        yield cal.removeCalendarObjectWithName("2.ics")
+        yield home.createCalendarWithName("other-calendar")
+        st2 = yield home.syncToken()
+        self.failIfEquals(st, st2)
+
+        home = yield self.homeUnderTest()
+
+        changed, deleted = yield home.resourceNamesSinceToken(
+            self.token2revision(st), "depth_is_ignored")
+
+        self.assertEquals(set(changed), set(["calendar_1/new.ics",
+                                             "calendar_1/2.ics",
+                                             "other-calendar/"]))
+        self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
+
+        changed, deleted = yield home.resourceNamesSinceToken(
+            self.token2revision(st2), "depth_is_ignored")
+        self.assertEquals(changed, [])
+        self.assertEquals(deleted, [])
+
+
+    @inlineCallbacks
+    def test_collectionSyncToken(self):
+        """
+        L{ICalendar.resourceNamesSinceToken} will return the names of calendar
+        objects changed or deleted since 
+        """
+        cal = yield self.calendarUnderTest()
+        st = yield cal.syncToken()
+        rev = self.token2revision(st)
+        yield cal.createCalendarObjectWithName("new.ics", VComponent.fromString(
+                self.eventWithDropbox
+            )
+        )
+        yield cal.removeCalendarObjectWithName("2.ics")
+        st2 = yield cal.syncToken()
+        rev2 = self.token2revision(st2)
+        changed, deleted = yield cal.resourceNamesSinceToken(rev)
+        self.assertEquals(set(changed), set(["new.ics"]))
+        self.assertEquals(set(deleted), set(["2.ics"]))
+        changed, deleted = yield cal.resourceNamesSinceToken(rev2)
+        self.assertEquals(set(changed), set([]))
+        self.assertEquals(set(deleted), set([]))
+
+
+    @inlineCallbacks
+    def test_dropboxIDs(self):
+        """
+        L{ICalendarObject.getAllDropboxIDs} returns a L{Deferred} that fires
+        with a C{list} of all Dropbox IDs.
+        """
+        home = yield self.homeUnderTest()
+        # The only item in the home which has an ATTACH or X-APPLE-DROPBOX
+        # property.
+        allDropboxIDs = set([
+            u'FE5CDC6F-7776-4607-83A9-B90FF7ACC8D0.dropbox',
+        ])
+        self.assertEquals(set((yield home.getAllDropboxIDs())),
+                          allDropboxIDs)
 
 
     @inlineCallbacks

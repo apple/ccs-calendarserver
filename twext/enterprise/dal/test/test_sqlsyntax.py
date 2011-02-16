@@ -25,6 +25,7 @@ from twext.enterprise.dal.syntax import (
     TableMismatch, Parameter, Max, Len, NotEnoughValues
 )
 
+from twext.enterprise.dal.syntax import FunctionInvocation
 from twisted.trial.unittest import TestCase
 
 class GenerationTests(TestCase):
@@ -35,6 +36,7 @@ class GenerationTests(TestCase):
     def setUp(self):
         s = Schema(self.id())
         addSQLToSchema(schema=s, schemaData="""
+                       create sequence A_SEQ;
                        create table FOO (BAR integer, BAZ integer);
                        create table BOZ (QUX integer);
                        create table OTHER (BAR integer,
@@ -134,6 +136,17 @@ class GenerationTests(TestCase):
             Select(From=self.schema.FOO,
                    OrderBy=self.schema.FOO.BAR).toSQL(),
             SQLFragment("select * from FOO order by BAR")
+        )
+
+
+    def test_forUpdate(self):
+        """
+        L{Select}'s L{ForUpdate} parameter generates a 'for update' clause at
+        the end of the query.
+        """
+        self.assertEquals(
+            Select(From=self.schema.FOO, ForUpdate=True).toSQL(),
+            SQLFragment("select * from FOO for update")
         )
 
 
@@ -367,6 +380,21 @@ class GenerationTests(TestCase):
         )
 
 
+    def test_insertMultiReturn(self):
+        """
+        L{Insert}'s C{Return} argument can also be a C{tuple}, which will insert
+        an SQL 'returning' clause with multiple columns.
+        """
+        self.assertEquals(
+            Insert({self.schema.FOO.BAR: 23,
+                    self.schema.FOO.BAZ: 9},
+                   Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ)).toSQL(),
+            SQLFragment(
+                "insert into FOO (BAR, BAZ) values (?, ?) returning BAR, BAZ",
+                [23, 9])
+        )
+
+
     def test_insertMismatch(self):
         """
         L{Insert} raises L{TableMismatch} if the columns specified aren't all
@@ -405,6 +433,37 @@ class GenerationTests(TestCase):
                      self.schema.FOO.BAZ: 9,
                      self.schema.TEXTUAL.MYTEXT: 'hello'},
             Where=self.schema.FOO.BAZ == 9
+        )
+
+
+    def test_updateFunction(self):
+        """
+        L{Update} values may be L{FunctionInvocation}s, to update to computed
+        values in the database.
+        """
+        self.assertEquals(
+            Update(
+                {self.schema.FOO.BAR: 23,
+                 self.schema.FOO.BAZ: FunctionInvocation("hello")},
+                Where=self.schema.FOO.BAZ == 9
+            ).toSQL(),
+            SQLFragment("update FOO set BAR = ?, BAZ = hello() "
+                        "where BAZ = ?", [23, 9])
+        )
+
+
+    def test_insertFunction(self):
+        """
+        L{Update} values may be L{FunctionInvocation}s, to update to computed
+        values in the database.
+        """
+        self.assertEquals(
+            Insert(
+                {self.schema.FOO.BAR: 23,
+                 self.schema.FOO.BAZ: FunctionInvocation("hello")},
+            ).toSQL(),
+            SQLFragment("insert into FOO (BAR, BAZ) "
+                        "values (?, hello())", [23])
         )
 
 
@@ -462,6 +521,18 @@ class GenerationTests(TestCase):
                    From=self.schema.FOO,
                    Limit=123).toSQL(),
             SQLFragment(
-                "select BAR from FOO limit ?", [123])
-        )
+                "select BAR from FOO limit ?", [123]))
+
+
+    def test_nextSequenceValue(self):
+        """
+        When a sequence is used as a value in an expression, it renders as the
+        call to 'nextval' that will produce its next value.
+        """
+        self.assertEquals(
+            Insert({self.schema.BOZ.QUX:
+                    self.schema.A_SEQ}).toSQL(),
+            SQLFragment("insert into BOZ (QUX) values (nextval('A_SEQ'))", []))
+
+
 

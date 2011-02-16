@@ -25,7 +25,6 @@ __all__ = [
     "CommonHome",
 ]
 
-import datetime
 
 from zope.interface import implements, directlyProvides
 
@@ -50,7 +49,7 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 
 from txdav.common.datastore.sql_tables import schema
-from txdav.common.datastore.sql_tables import NOTIFICATION_HOME_TABLE, _BIND_MODE_OWN, \
+from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_STATUS_ACCEPTED, NOTIFICATION_OBJECT_REVISIONS_TABLE
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
@@ -62,6 +61,13 @@ from txdav.common.inotifications import INotificationCollection, \
 from twext.enterprise.dal.syntax import Parameter
 from twext.python.clsprop import classproperty
 from twext.enterprise.dal.syntax import Select
+from twext.enterprise.dal.syntax import Lock
+from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.dal.syntax import Max
+from twext.enterprise.dal.syntax import default
+from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import Len
+from twext.enterprise.dal.syntax import Update
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -399,20 +405,31 @@ class CommonHome(LoggingMixIn):
         for key, value in self._bindTable.iteritems():
             self._revisionBindJoinTable["BIND:%s" % (key,)] = value
 
+
+    @classproperty
+    def _resourceIDFromOwnerQuery(cls):
+        home = cls._homeSchema
+        return Select([home.RESOURCE_ID],
+                      From=home, Where=home.OWNER_UID == Parameter("ownerUID"))
+
+    @classproperty
+    def _ownerFromFromResourceID(cls):
+        home = cls._homeSchema
+        return Select([home.OWNER_UID],
+                      From=home,
+                      Where=home.RESOURCE_ID == Parameter("resourceID"))
+
     @inlineCallbacks
     def initFromStore(self, no_cache=False):
         """
-        Initialize this object from the store. We read in and cache all the extra meta-data
-        from the DB to avoid having to do DB queries for those individually later.
+        Initialize this object from the store. We read in and cache all the
+        extra meta-data from the DB to avoid having to do DB queries for those
+        individually later.
         """
-
         result = yield self._cacher.get(self._ownerUID)
         if result is None:
-            result = yield self._txn.execSQL(
-                "select %(column_RESOURCE_ID)s from %(name)s"
-                " where %(column_OWNER_UID)s = %%s" % self._homeTable,
-                [self._ownerUID]
-            )
+            result = yield self._resourceIDFromOwnerQuery.on(
+                self._txn, ownerUID=self._ownerUID)
             if result and not no_cache:
                 yield self._cacher.set(self._ownerUID, result)
 
@@ -423,10 +440,10 @@ class CommonHome(LoggingMixIn):
         else:
             returnValue(None)
 
+
     @classmethod
     @inlineCallbacks
     def homeWithUID(cls, txn, uid, create=False):
-
         if txn._notifierFactory:
             notifiers = (txn._notifierFactory.newNotifier(
                 id=uid, prefix=cls._notifierPrefix
@@ -443,55 +460,43 @@ class CommonHome(LoggingMixIn):
             # Need to lock to prevent race condition
 
             # FIXME: this is an entire table lock - ideally we want a row lock
-            # but the row does not exist yet. However, the "exclusive" mode
-            # does allow concurrent reads so the only thing we block is other
+            # but the row does not exist yet. However, the "exclusive" mode does
+            # allow concurrent reads so the only thing we block is other
             # attempts to provision a home, which is not too bad
-            
-            # Also note that we must not cache the owner_uid->resource_id mapping in _cacher
-            # when creating as we don't want that to appear until AFTER the commit
 
-            yield txn.execSQL(
-                "lock %(name)s in exclusive mode" % cls._homeTable,
-            )
+            # Also note that we must not cache the owner_uid->resource_id
+            # mapping in _cacher when creating as we don't want that to appear
+            # until AFTER the commit
+
+            yield Lock(cls._homeSchema, 'exclusive').on(txn)
             # Now test again
-            exists = yield txn.execSQL(
-                "select %(column_RESOURCE_ID)s from %(name)s"
-                " where %(column_OWNER_UID)s = %%s" % cls._homeTable,
-                [uid]
-            )
+            exists = yield cls._resourceIDFromOwnerQuery.on(txn, ownerUID=uid)
             if not exists:
-                resourceid = (yield txn.execSQL("""
-                    insert into %(name)s (%(column_OWNER_UID)s) values (%%s)
-                    returning %(column_RESOURCE_ID)s
-                    """ % cls._homeTable,
-                    [uid]
-                ))[0][0]
-                yield txn.execSQL(
-                    "insert into %(name)s (%(column_RESOURCE_ID)s) values (%%s)" % cls._homeMetaDataTable,
-                    [resourceid]
-                )
+                resourceid = (yield Insert(
+                    {cls._homeSchema.OWNER_UID: uid},
+                    Return=cls._homeSchema.RESOURCE_ID).on(txn))[0][0]
+                yield Insert(
+                    {cls._homeMetaDataSchema.RESOURCE_ID: resourceid}).on(txn)
             home = cls(txn, uid, notifiers)
             home = (yield home.initFromStore(no_cache=not exists))
             if not exists:
                 yield home.createdHome()
             returnValue(home)
 
+
     @classmethod
     @inlineCallbacks
     def homeUIDWithResourceID(cls, txn, rid):
-
-        rows = (yield txn.execSQL(
-            "select %(column_OWNER_UID)s from %(name)s"
-            " where %(column_RESOURCE_ID)s = %%s" % cls._homeTable,
-            [rid]
-        ))
+        rows = (yield cls._ownerFromFromResourceID.on(txn, resourceID=rid))
         if rows:
             returnValue(rows[0][0])
         else:
             returnValue(None)
 
+
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
+
 
     def uid(self):
         """
@@ -635,22 +640,47 @@ class CommonHome(LoggingMixIn):
             self._children.pop(name, None)
 
 
+    @classproperty
+    def _syncTokenQuery(cls):
+        """
+        DAL Select statement to find the sync token.
+        """
+        rev = cls._revisionsSchema
+        bind = cls._bindSchema
+        return Select(
+            [Max(rev.REVISION)],
+            From=rev, Where=(
+                rev.RESOURCE_ID.In(Select(
+                    [bind.RESOURCE_ID], From=bind,
+                    Where=bind.HOME_RESOURCE_ID == Parameter("resourceID")))
+            ).Or((rev.HOME_RESOURCE_ID == Parameter("resourceID")).And(
+                rev.RESOURCE_ID == None))
+        )
+
+
     @inlineCallbacks
     def syncToken(self):
-        revision = (yield self._txn.execSQL(
-            """
-            select max(%(REV:column_REVISION)s) from %(REV:name)s
-            where %(REV:column_RESOURCE_ID)s in (
-              select %(BIND:column_RESOURCE_ID)s from %(BIND:name)s
-              where %(BIND:column_HOME_RESOURCE_ID)s = %%s
-            ) or (
-              %(REV:column_HOME_RESOURCE_ID)s = %%s and
-              %(REV:column_RESOURCE_ID)s is null
-            )
-            """ % self._revisionBindJoinTable,
-            [self._resourceID, self._resourceID,]
-        ))[0][0]
+        revision = (yield self._syncTokenQuery.on(
+            self._txn, resourceID=self._resourceID))[0][0]
         returnValue("%s#%s" % (self._resourceID, revision))
+
+
+    @classproperty
+    def _changesQuery(cls):
+        bind = cls._bindSchema
+        rev = cls._revisionsSchema
+        return Select([bind.RESOURCE_NAME, rev.COLLECTION_NAME,
+                       rev.RESOURCE_NAME, rev.DELETED],
+                      From=rev.join(
+                          bind,
+                          (bind.HOME_RESOURCE_ID ==
+                           Parameter("resourceID")).And(
+                               rev.RESOURCE_ID ==
+                               bind.RESOURCE_ID),
+                          'left outer'),
+                      Where=(rev.REVISION > Parameter("token")).And(
+                          rev.HOME_RESOURCE_ID ==
+                          Parameter("resourceID")))
 
 
     @inlineCallbacks
@@ -663,19 +693,9 @@ class CommonHome(LoggingMixIn):
                 wasdeleted
             )
             for path, collection, name, wasdeleted in
-            (yield self._txn.execSQL("""
-                select %(BIND:column_RESOURCE_NAME)s, %(REV:column_COLLECTION_NAME)s, %(REV:column_RESOURCE_NAME)s, %(REV:column_DELETED)s
-                from %(REV:name)s
-                left outer join %(BIND:name)s on (
-                  %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s and
-                  %(REV:name)s.%(REV:column_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
-                )
-                where
-                  %(REV:column_REVISION)s > %%s and
-                  %(REV:name)s.%(REV:column_HOME_RESOURCE_ID)s = %%s
-                """ % self._revisionBindJoinTable,
-                [self._resourceID, token, self._resourceID],
-            ))
+            (yield self._changesQuery.on(self._txn,
+                                         resourceID=self._resourceID,
+                                         token=token))
         ]
 
         deleted = []
@@ -696,22 +716,17 @@ class CommonHome(LoggingMixIn):
                     changed_collections.add(path)
 
         # Now deal with shared collections
+        bind = self._bindSchema
+        rev = self._revisionsSchema
         shares = yield self.listSharedChildren()
         for sharename in shares:
             sharetoken = 0 if sharename in changed_collections else token
-            shareID = (yield self._txn.execSQL("""
-                select %(column_RESOURCE_ID)s from %(name)s
-                where
-                  %(column_RESOURCE_NAME)s = %%s and
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s != %%s
-                """ % self._bindTable,
-                [
-                    sharename,
-                    self._resourceID,
-                    _BIND_MODE_OWN
-                ]
-            ))[0][0]
+            shareID = (yield Select(
+                [bind.RESOURCE_ID], From=bind,
+                Where=(bind.RESOURCE_NAME == sharename).And(
+                    bind.HOME_RESOURCE_ID == self._resourceID).And(
+                        bind.BIND_MODE != _BIND_MODE_OWN)
+            ).on(self._txn))[0][0]
             results = [
                 (
                     sharename,
@@ -719,13 +734,11 @@ class CommonHome(LoggingMixIn):
                     wasdeleted
                 )
                 for name, wasdeleted in
-                (yield self._txn.execSQL("""
-                    select %(column_RESOURCE_NAME)s, %(column_DELETED)s
-                    from %(name)s
-                    where %(column_REVISION)s > %%s and %(column_RESOURCE_ID)s = %%s
-                    """ % self._revisionsTable,
-                    [sharetoken, shareID],
-                )) if name
+                (yield Select([rev.RESOURCE_NAME, rev.DELETED],
+                                 From=rev,
+                                Where=(rev.REVISION > sharetoken).And(
+                                rev.RESOURCE_ID == shareID)).on(self._txn))
+                if name
             ]
 
             for path, name, wasdeleted in results:
@@ -735,7 +748,6 @@ class CommonHome(LoggingMixIn):
 
             for path, name, wasdeleted in results:
                 changed.append("%s/%s" % (path, name,))
-
 
         changed.sort()
         deleted.sort()
@@ -780,83 +792,98 @@ class CommonHome(LoggingMixIn):
         return None
 
 
+    @classproperty
+    def _resourceByUIDQuery(cls):
+        obj = cls._objectSchema
+        bind = cls._bindSchema
+        return Select([obj.PARENT_RESOURCE_ID, obj.RESOURCE_ID],
+                     From=obj.join(bind, obj.PARENT_RESOURCE_ID ==
+                                   bind.RESOURCE_ID),
+                     Where=(obj.UID == Parameter("uid")).And(
+                            bind.HOME_RESOURCE_ID == Parameter("resourceID")))
+
+
     @inlineCallbacks
     def objectResourcesWithUID(self, uid, ignore_children=()):
         """
-        Return all child object resources with the specified UID, ignoring any in the
-        named child collections. The file implementation just iterates all child collections.
+        Return all child object resources with the specified UID, ignoring any
+        in the named child collections.
         """
-        
         results = []
-        rows = (yield self._txn.execSQL("""
-            select %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s, %(OBJECT:column_RESOURCE_ID)s
-            from %(OBJECT:name)s
-            left outer join %(BIND:name)s on (
-              %(OBJECT:name)s.%(OBJECT:column_PARENT_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s
-            )
-            where
-             %(OBJECT:column_UID)s = %%s and
-             %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s
-            """ % self._objectBindTable,
-            [uid, self._resourceID,]
-        ))
-
+        rows = (yield self._resourceByUIDQuery.on(self._txn, uid=uid,
+                                                  resourceID=self._resourceID))
         if rows:
             for childID, objectID in rows:
                 child = (yield self.childWithID(childID))
                 if child and child.name() not in ignore_children:
                     objectResource = (yield child.objectResourceWithID(objectID))
                     results.append(objectResource)
-        
+
         returnValue(results)
+
+
+    @classproperty
+    def _quotaQuery(cls):
+        meta = cls._homeMetaDataSchema
+        return Select(
+            [meta.QUOTA_USED_BYTES], From=meta,
+            Where=meta.RESOURCE_ID == Parameter("resourceID")
+        )
+
 
     @inlineCallbacks
     def quotaUsedBytes(self):
-        
         if self._quotaUsedBytes is None:
-            self._quotaUsedBytes = (yield self._txn.execSQL(
-                "select %(column_QUOTA_USED_BYTES)s from %(name)s"
-                " where %(column_RESOURCE_ID)s = %%s" % self._homeMetaDataTable,
-                [self._resourceID]
-            ))[0][0]
-        
+            self._quotaUsedBytes = (yield self._quotaQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
         returnValue(self._quotaUsedBytes)
+
+
+    @classproperty
+    def _preLockResourceIDQuery(cls):
+        meta = cls._homeMetaDataSchema
+        return Select(From=meta,
+                      Where=meta.RESOURCE_ID==Parameter("resourceID"),
+                      ForUpdate=True)
+
+
+    @classproperty
+    def _increaseQuotaQuery(cls):
+        meta = cls._homeMetaDataSchema
+        return Update({meta.QUOTA_USED_BYTES: meta.QUOTA_USED_BYTES +
+                       Parameter("delta")},
+                      Where=meta.RESOURCE_ID == Parameter("resourceID"),
+                      Return=meta.QUOTA_USED_BYTES)
+
+
+    @classproperty
+    def _resetQuotaQuery(cls):
+        meta = cls._homeMetaDataSchema
+        return Update({meta.QUOTA_USED_BYTES: 0},
+                      Where=meta.RESOURCE_ID == Parameter("resourceID"))
 
 
     @inlineCallbacks
     def adjustQuotaUsedBytes(self, delta):
         """
-        Adjust quota used. We need to get a lock on the row first so that the adjustment
-        is done atomically. It is import to do the 'select ... for update' because a race also
-        exists in the 'update ... x = x + 1' case as seen via unit tests.
+        Adjust quota used. We need to get a lock on the row first so that the
+        adjustment is done atomically. It is import to do the 'select ... for
+        update' because a race also exists in the 'update ... x = x + 1' case as
+        seen via unit tests.
         """
-        yield self._txn.execSQL("""
-            select * from %(name)s
-            where %(column_RESOURCE_ID)s = %%s
-            for update
-            """ % self._homeMetaDataTable,
-            [self._resourceID]
-        )
+        yield self._preLockResourceIDQuery.on(self._txn,
+                                              resourceID=self._resourceID)
 
-        self._quotaUsedBytes = (yield self._txn.execSQL("""
-            update %(name)s
-            set %(column_QUOTA_USED_BYTES)s = %(column_QUOTA_USED_BYTES)s + %%s
-            where %(column_RESOURCE_ID)s = %%s
-            returning %(column_QUOTA_USED_BYTES)s
-            """ % self._homeMetaDataTable,
-            [delta, self._resourceID]
-        ))[0][0]
+        self._quotaUsedBytes = (yield self._increaseQuotaQuery.on(
+            self._txn, delta=delta, resourceID=self._resourceID))[0][0]
 
         # Double check integrity
         if self._quotaUsedBytes < 0:
-            log.error("Fixing quota adjusted below zero to %s by change amount %s" % (self._quotaUsedBytes, delta,))
-            yield self._txn.execSQL("""
-                update %(name)s
-                set %(column_QUOTA_USED_BYTES)s = 0
-                where %(column_RESOURCE_ID)s = %%s
-                """ % self._homeMetaDataTable,
-                [self._resourceID]
-            )
+            log.error(
+                "Fixing quota adjusted below zero to %s by change amount %s" %
+                (self._quotaUsedBytes, delta,))
+            yield self._resetQuotaQuery.on(self._txn,
+                                           resourceID=self._resourceID)
             self._quotaUsedBytes = 0
 
 
@@ -864,12 +891,14 @@ class CommonHome(LoggingMixIn):
         if self._notifiers is None:
             self._notifiers = ()
         self._notifiers += (notifier,)
- 
+
+
     def notifierID(self, label="default"):
         if self._notifiers:
             return self._notifiers[0].getID(label)
         else:
             return None
+
 
     @inlineCallbacks
     def nodeName(self, label="default"):
@@ -890,7 +919,290 @@ class CommonHome(LoggingMixIn):
                 self._txn.postCommit(notifier.notify)
 
 
-class CommonHomeChild(LoggingMixIn, FancyEqMixin):
+
+class _SharedSyncLogic(object):
+    """
+    Logic for maintaining sync-token shared between notification collections and
+    shared collections.
+    """
+
+    @classproperty
+    def _childSyncTokenQuery(cls):
+        """
+        DAL query for retrieving the sync token of a L{CommonHomeChild} based on
+        its resource ID.
+        """
+        rev = cls._revisionsSchema
+        return Select([Max(rev.REVISION)], From=rev,
+                      Where=rev.RESOURCE_ID == Parameter("resourceID"))
+
+
+    @inlineCallbacks
+    def syncToken(self):
+        if self._syncTokenRevision is None:
+            self._syncTokenRevision = (yield self._childSyncTokenQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
+        returnValue(("%s#%s" % (self._resourceID, self._syncTokenRevision,)))
+
+
+    def objectResourcesSinceToken(self, token):
+        raise NotImplementedError()
+
+
+    @classproperty
+    def _objectNamesSinceRevisionQuery(cls):
+        """
+        DAL query for (resource, deleted-flag)
+        """
+        rev = cls._revisionsSchema
+        return Select([rev.RESOURCE_NAME, rev.DELETED],
+                      From=rev,
+                      Where=(rev.REVISION > Parameter("revision")).And(
+                          rev.RESOURCE_ID == Parameter("resourceID")))
+
+
+    @inlineCallbacks
+    def resourceNamesSinceToken(self, token):
+        results = [
+            (name if name else "", deleted)
+            for name, deleted in
+            (yield self._objectNamesSinceRevisionQuery.on(
+                self._txn, revision=token, resourceID=self._resourceID))
+        ]
+        results.sort(key=lambda x:x[1])
+
+        changed = []
+        deleted = []
+        for name, wasdeleted in results:
+            if name:
+                if wasdeleted:
+                    if token:
+                        deleted.append(name)
+                else:
+                    changed.append(name)
+
+        returnValue((changed, deleted))
+
+
+    @classproperty
+    def _removeDeletedRevision(cls):
+        rev = cls._revisionsSchema
+        return Delete(From=rev,
+                      Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                          rev.COLLECTION_NAME == Parameter("collectionName")))
+
+
+    @classproperty
+    def _addNewRevision(cls):
+        rev = cls._revisionsSchema
+        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
+                       rev.RESOURCE_ID: Parameter("resourceID"),
+                       rev.COLLECTION_NAME: Parameter("collectionName"),
+                       rev.RESOURCE_NAME: None,
+                       # Always starts false; may be updated to be a tombstone
+                       # later.
+                       rev.DELETED: False},
+                     Return=[rev.REVISION])
+
+
+    @inlineCallbacks
+    def _initSyncToken(self):
+        yield self._removeDeletedRevision.on(
+            self._txn, homeID=self._home._resourceID, collectionName=self._name
+        )
+        self._syncTokenRevision = (yield (
+            self._addNewRevision.on(self._txn, homeID=self._home._resourceID,
+                                    resourceID=self._resourceID,
+                                    collectionName=self._name)))[0][0]
+
+
+    @classproperty
+    def _renameSyncTokenQuery(cls):
+        """
+        DAL query to change sync token for a rename (increment and adjust
+        resource name).
+        """
+        rev = cls._revisionsSchema
+        return Update({
+            rev.REVISION: schema.REVISION_SEQ,
+            rev.COLLECTION_NAME: Parameter("name")},
+            Where=(rev.RESOURCE_ID == Parameter("resourceID")
+                  ).And(rev.RESOURCE_NAME == None),
+            Return=rev.REVISION
+        )
+
+
+    @inlineCallbacks
+    def _renameSyncToken(self):
+        self._syncTokenRevision = (yield self._renameSyncTokenQuery.on(
+            self._txn, name=self._name, resourceID=self._resourceID))[0][0]
+
+
+    @classproperty
+    def _deleteSyncTokenQuery(cls):
+        """
+        DAL query to update a sync revision to be a tombstone instead.
+        """
+        rev = cls._revisionsSchema
+        return Delete(From=rev, Where=(
+            rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                rev.RESOURCE_ID == Parameter("resourceID")).And(
+                rev.COLLECTION_NAME == None))
+
+
+    @classproperty
+    def _sharedRemovalQuery(cls):
+        """
+        DAL query to update the sync token for a shared collection.
+        """
+        rev = cls._revisionsSchema
+        return Update({rev.RESOURCE_ID: None,
+                       rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: True},
+                      Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                          rev.RESOURCE_ID == Parameter("resourceID")).And(
+                              rev.RESOURCE_NAME == None),
+                     #Return=rev.REVISION
+                     )
+
+
+    @classproperty
+    def _unsharedRemovalQuery(cls):
+        """
+        DAL query to update the sync token for an owned collection.
+        """
+        rev = cls._revisionsSchema
+        return Update({rev.RESOURCE_ID: None,
+                       rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: True},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                          rev.RESOURCE_NAME == None),
+                      # Return=rev.REVISION,
+                     )
+
+
+    @inlineCallbacks
+    def _deletedSyncToken(self, sharedRemoval=False):
+        # Remove all child entries
+        yield self._deleteSyncTokenQuery.on(self._txn,
+                                            homeID=self._home._resourceID,
+                                            resourceID=self._resourceID)
+
+        # If this is a share being removed then we only mark this one specific
+        # home/resource-id as being deleted.  On the other hand, if it is a
+        # non-shared collection, then we need to mark all collections
+        # with the resource-id as being deleted to account for direct shares.
+        if sharedRemoval:
+            yield self._sharedRemovalQuery.on(self._txn,
+                                              homeID=self._home._resourceID,
+                                              resourceID=self._resourceID)
+        else:
+            yield self._unsharedRemovalQuery.on(self._txn,
+                                                resourceID=self._resourceID)
+        self._syncTokenRevision = None
+
+
+    def _insertRevision(self, name):
+        return self._changeRevision("insert", name)
+
+
+    def _updateRevision(self, name):
+        return self._changeRevision("update", name)
+
+
+    def _deleteRevision(self, name):
+        return self._changeRevision("delete", name)
+
+
+    @classproperty
+    def _deleteBumpTokenQuery(cls):
+        rev = cls._revisionsSchema
+        return Update({rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: True},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")),
+                      Return=rev.REVISION)
+
+
+    @classproperty
+    def _updateBumpTokenQuery(cls):
+        rev = cls._revisionsSchema
+        return Update({rev.REVISION: schema.REVISION_SEQ},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")),
+                      Return=rev.REVISION)
+
+
+    @classproperty
+    def _insertFindPreviouslyNamedQuery(cls):
+        rev = cls._revisionsSchema
+        return Select([rev.RESOURCE_ID], From=rev,
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")))
+
+
+    @classproperty
+    def _updatePreviouslyNamedQuery(cls):
+        rev = cls._revisionsSchema
+        return Update({rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: False},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")),
+                      Return=rev.REVISION)
+
+
+    @classproperty
+    def _completelyNewRevisionQuery(cls):
+        rev = cls._revisionsSchema
+        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
+                       rev.RESOURCE_ID: Parameter("resourceID"),
+                       rev.RESOURCE_NAME: Parameter("name"),
+                       rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: False},
+                      Return=rev.REVISION)
+
+
+    @inlineCallbacks
+    def _changeRevision(self, action, name):
+        if action == "delete":
+            self._syncTokenRevision = (
+                yield self._deleteBumpTokenQuery.on(
+                    self._txn, resourceID=self._resourceID, name=name))[0][0]
+        elif action == "update":
+            self._syncTokenRevision = (
+                yield self._updateBumpTokenQuery.on(
+                    self._txn, resourceID=self._resourceID, name=name))[0][0]
+        elif action == "insert":
+            # Note that an "insert" may happen for a resource that previously
+            # existed and then was deleted. In that case an entry in the
+            # REVISIONS table still exists so we have to detect that and do db
+            # INSERT or UPDATE as appropriate
+
+            found = bool( (
+                yield self._insertFindPreviouslyNamedQuery.on(
+                    self._txn, resourceID=self._resourceID, name=name)) )
+            if found:
+                self._syncTokenRevision = (
+                    yield self._updatePreviouslyNamedQuery.on(
+                        self._txn, resourceID=self._resourceID, name=name)
+                )[0][0]
+            else:
+                self._syncTokenRevision = (
+                    yield self._completelyNewRevisionQuery.on(
+                        self._txn, homeID=self._home._resourceID,
+                        resourceID=self._resourceID, name=name)
+                )[0][0]
+        self._maybeNotify()
+
+
+    def _maybeNotify(self):
+        """
+        Maybe notify changed.  (Overridden in NotificationCollection.)
+        """
+
+
+
+class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
     """
     Common ancestor class of AddressBooks and Calendars.
     """
@@ -902,136 +1214,168 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     )
 
     _objectResourceClass = None
-    _bindTable = None
-    _homeChildTable = None
-    _homeChildBindTable = None
-    _revisionsTable = None
-    _revisionsBindTable = None
-    _objectTable = None
+
+    _bindSchema           = None
+    _homeChildSchema      = None
+    _revisionsSchema      = None
+    _objectSchema         = None
+
+    _bindTable           = None
+    _homeChildTable      = None
+    _homeChildBindTable  = None
+    _revisionsTable      = None
+    _revisionsBindTable  = None
+    _objectTable         = None
+
 
     def __init__(self, home, name, resourceID, owned):
-        self._home = home
-        self._name = name
-        self._resourceID = resourceID
-        self._owned = owned
-        self._created = None
-        self._modified = None
-        self._objects = {}
-        self._objectNames = None
-        self._syncTokenRevision = None
 
         if home._notifiers:
             childID = "%s/%s" % (home.uid(), name)
-            notifiers = [notifier.clone(label="collection", id=childID) for notifier in home._notifiers]
+            notifiers = [notifier.clone(label="collection", id=childID)
+                         for notifier in home._notifiers]
         else:
             notifiers = None
-        self._notifiers = notifiers
 
-        self._index = None  # Derived classes need to set this
-        self._invites = None # Derived classes need to set this
+        self._home              = home
+        self._name              = name
+        self._resourceID        = resourceID
+        self._owned             = owned
+        self._created           = None
+        self._modified          = None
+        self._objects           = {}
+        self._objectNames       = None
+        self._syncTokenRevision = None
+        self._notifiers         = notifiers
+        self._index             = None  # Derived classes need to set this
+        self._invites           = None  # Derived classes need to set this
+
+
+    @classproperty
+    def _ownedChildListQuery(cls):
+        bind = cls._bindSchema
+        return Select([bind.RESOURCE_NAME], From=bind,
+                      Where=(bind.HOME_RESOURCE_ID ==
+                             Parameter("resourceID")).And(
+                                 bind.BIND_MODE == _BIND_MODE_OWN))
+
+
+    @classproperty
+    def _sharedChildListQuery(cls):
+        bind = cls._bindSchema
+        return Select([bind.RESOURCE_NAME], From=bind,
+                      Where=(bind.HOME_RESOURCE_ID ==
+                             Parameter("resourceID")).And(
+                                 bind.BIND_MODE != _BIND_MODE_OWN).And(
+                                 bind.RESOURCE_NAME != None))
+
 
     @classmethod
     @inlineCallbacks
     def listObjects(cls, home, owned):
         """
-        Retrieve the names of the children that exist in this home.
+        Retrieve the names of the children that exist in the given home.
 
         @return: an iterable of C{str}s.
         """
-        # FIXME: not specified on the interface or exercised by the tests, but
-        # required by clients of the implementation!
+        # FIXME: tests don't cover this as directly as they should.
         if owned:
-            rows = yield home._txn.execSQL("""
-                select %(column_RESOURCE_NAME)s from %(name)s
-                where
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s = %%s
-                """ % cls._bindTable,
-                [home._resourceID, _BIND_MODE_OWN]
-            )
+            rows = yield cls._ownedChildListQuery.on(
+                home._txn, resourceID=home._resourceID)
         else:
-            rows = yield home._txn.execSQL("""
-                select %(column_RESOURCE_NAME)s from %(name)s
-                where
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s != %%s and
-                  %(column_RESOURCE_NAME)s is not null
-                """ % cls._bindTable,
-                [home._resourceID, _BIND_MODE_OWN]
-            )
-
+            rows = yield cls._sharedChildListQuery.on(
+                home._txn, resourceID=home._resourceID)
         names = [row[0] for row in rows]
         returnValue(names)
+
+
+    @classmethod
+    def _allHomeChildrenQuery(cls, owned):
+        bind = cls._bindSchema
+        child = cls._homeChildSchema
+        if owned:
+            ownedPiece = bind.BIND_MODE == _BIND_MODE_OWN
+        else:
+            ownedPiece = (bind.BIND_MODE != _BIND_MODE_OWN).And(
+                bind.RESOURCE_NAME != None)
+        return Select([child.RESOURCE_ID,
+                       bind.RESOURCE_NAME,
+                       child.CREATED,
+                       child.MODIFIED],
+                     From=child.join(
+                         bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                         'left outer'),
+                     Where=(bind.HOME_RESOURCE_ID == Parameter("resourceID")
+                           ).And(ownedPiece))
+
+
+    @classproperty
+    def _ownedHomeChildrenQuery(cls):
+        return cls._allHomeChildrenQuery(True)
+
+
+    @classproperty
+    def _sharedHomeChildrenQuery(cls):
+        return cls._allHomeChildrenQuery(False)
+
 
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, home, owned):
         """
-        Load all child objects and return a list of them. This must create the child classes
-        and initialize them using "batched" SQL operations to keep this constant wrt the number of
-        children. This is an optimization for Depth:1 operations on the home.
+        Load all child objects and return a list of them. This must create the
+        child classes and initialize them using "batched" SQL operations to keep
+        this constant wrt the number of children. This is an optimization for
+        Depth:1 operations on the home.
         """
-        
         results = []
 
         # Load from the main table first
         if owned:
-            ownedPiece = "%(BIND:column_BIND_MODE)s = %%s"
+            query = cls._ownedHomeChildrenQuery
         else:
-            ownedPiece = "%(BIND:column_BIND_MODE)s != %%s and %(BIND:column_RESOURCE_NAME)s is not null"
-        dataRows = (yield home._txn.execSQL(("""
-            select %(CHILD:column_RESOURCE_ID)s, %(BIND:column_RESOURCE_NAME)s, %(CHILD:column_CREATED)s, %(CHILD:column_MODIFIED)s
-            from %(CHILD:name)s
-            left outer join %(BIND:name)s on (%(CHILD:column_RESOURCE_ID)s = %(BIND:column_RESOURCE_ID)s)
-            where
-              %(BIND:column_HOME_RESOURCE_ID)s = %%s and """ + ownedPiece
-            ) % cls._homeChildBindTable,
-            [
-                home._resourceID,
-                _BIND_MODE_OWN,
-            ]
-        ))
-        
+            query = cls._sharedHomeChildrenQuery
+        dataRows = (yield query.on(home._txn, resourceID=home._resourceID))
+
         if dataRows:
             # Get property stores for all these child resources (if any found)
-            propertyStores =(yield PropertyStore.loadAll(
-                home.uid(),
-                home._txn,
-                cls._bindTable["name"],
-                cls._bindTable["column_RESOURCE_ID"],
-                cls._bindTable["column_HOME_RESOURCE_ID"],
-                home._resourceID,
+            propertyStores = (yield PropertyStore.forMultipleResources(
+                home.uid(), home._txn,
+                cls._bindSchema.RESOURCE_ID, cls._bindSchema.HOME_RESOURCE_ID,
+                home._resourceID
             ))
 
-            revisions = (yield home._txn.execSQL(("""
-                select %(REV:name)s.%(REV:column_RESOURCE_ID)s, max(%(REV:column_REVISION)s) from %(REV:name)s
-                left join %(BIND:name)s on (%(REV:name)s.%(REV:column_RESOURCE_ID)s = %(BIND:name)s.%(BIND:column_RESOURCE_ID)s)
-                where
-                  %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = %%s and
-                  %(BIND:column_BIND_MODE)s """ + ("=" if owned else "!=") + """ %%s and
-                  (%(REV:column_RESOURCE_NAME)s is not null or %(REV:column_DELETED)s = FALSE)
-                group by %(REV:name)s.%(REV:column_RESOURCE_ID)s
-                """) % cls._revisionsBindTable,
-                [
-                    home._resourceID,
-                    _BIND_MODE_OWN,
-                ]
-            ))
+            bind = cls._bindSchema
+            rev = cls._revisionsSchema
+            if owned:
+                ownedCond = bind.BIND_MODE == _BIND_MODE_OWN
+            else:
+                ownedCond = bind.BIND_MODE != _BIND_MODE_OWN
+            revisions = (yield Select(
+                [rev.RESOURCE_ID, Max(rev.REVISION)],
+                From=rev.join(bind, rev.RESOURCE_ID == bind.RESOURCE_ID,
+                              'left'),
+                Where=(bind.HOME_RESOURCE_ID == home._resourceID).And(
+                    ownedCond).And(
+                        (rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
+                GroupBy=rev.RESOURCE_ID
+            ).on(home._txn))
             revisions = dict(revisions)
 
         # Create the actual objects merging in properties
-        for resource_id, resource_name, created, modified in dataRows:
-            child = cls(home, resource_name, resource_id, owned)
+        for resourceID, resource_name, created, modified in dataRows:
+            child = cls(home, resource_name, resourceID, owned)
             child._created = created
             child._modified = modified
-            child._syncTokenRevision = revisions[resource_id]
-            yield child._loadPropertyStore(propertyStores.get(resource_id, None))
+            child._syncTokenRevision = revisions[resourceID]
+            propstore = propertyStores.get(resourceID, None)
+            yield child._loadPropertyStore(propstore)
             results.append(child)
         returnValue(results)
 
 
     @classmethod
-    def _objectResourceLookup(cls, ownedPart):
+    def _homeChildLookup(cls, ownedPart):
         """
         Common portions of C{_ownedResourceIDByName}
         C{_resourceIDSharedToHomeByName}, except for the 'owned' fragment of the
@@ -1053,7 +1397,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         resource name (C{objectName}), and a home resource ID
         (C{homeID}).
         """
-        return cls._objectResourceLookup(
+        return cls._homeChildLookup(
             cls._bindSchema.BIND_MODE == _BIND_MODE_OWN)
 
 
@@ -1064,7 +1408,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         resource name (C{objectName}), and a home resource ID
         (C{homeID}).
         """
-        return cls._objectResourceLookup(
+        return cls._homeChildLookup(
             cls._bindSchema.BIND_MODE != _BIND_MODE_OWN)
 
 
@@ -1072,11 +1416,13 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def objectWithName(cls, home, name, owned):
         """
-        Retrieve the child with the given C{name} contained in this
+        Retrieve the child with the given C{name} contained in the given
         C{home}.
 
         @param home: a L{CommonHome}.
-        @param name: a string.
+
+        @param name: a string; the name of the L{CommonHomeChild} to retrieve.
+
         @param owned: a boolean - whether or not to get a shared child
         @return: an L{CommonHomeChild} or C{None} if no such child
             exists.
@@ -1095,31 +1441,33 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         returnValue(child)
 
 
+    @classproperty
+    def _homeChildByIDQuery(cls):
+        """
+        DAL query that looks up home child names / bind modes by home child
+        resouce ID and home resource ID.
+        """
+        bind = cls._bindSchema
+        return Select([bind.RESOURCE_NAME, bind.BIND_MODE],
+                      From=bind,
+                      Where=(bind.RESOURCE_ID == Parameter("resourceID")
+                            ).And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
+
+
     @classmethod
     @inlineCallbacks
     def objectWithID(cls, home, resourceID):
         """
-        Retrieve the child with the given C{resourceID} contained in this
+        Retrieve the child with the given C{resourceID} contained in the given
         C{home}.
 
         @param home: a L{CommonHome}.
         @param resourceID: a string.
-        @return: an L{CommonHomChild} or C{None} if no such child
+        @return: an L{CommonHomeChild} or C{None} if no such child
             exists.
         """
-
-        data = yield home._txn.execSQL("""
-            select %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s from %(name)s
-            where
-              %(column_RESOURCE_ID)s = %%s and
-              %(column_HOME_RESOURCE_ID)s = %%s
-            """ % cls._bindTable,
-            [
-                resourceID,
-                home._resourceID,
-            ]
-        )
-
+        data = yield cls._homeChildByIDQuery.on(
+            home._txn, resourceID=resourceID, homeID=home._resourceID)
         if not data:
             returnValue(None)
         name, mode = data[0]
@@ -1127,39 +1475,49 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         yield child.initFromStore()
         returnValue(child)
 
+
+    @classproperty
+    def _insertDefaultHomeChild(cls):
+        """
+        DAL statement to create a home child with all default values.
+        """
+        child = cls._homeChildSchema
+        return Insert({child.RESOURCE_ID: default},
+                      Return=(child.RESOURCE_ID, child.CREATED, child.MODIFIED))
+
+
+    @classproperty
+    def _initialOwnerBind(cls):
+        """
+        DAL statement to create a bind entry for a particular home value.
+        """
+        bind = cls._bindSchema
+        return Insert({bind.HOME_RESOURCE_ID: Parameter("homeID"),
+                       bind.RESOURCE_ID: Parameter("resourceID"),
+                       bind.RESOURCE_NAME: Parameter("name"),
+                       bind.BIND_MODE: _BIND_MODE_OWN,
+                       bind.SEEN_BY_OWNER: True,
+                       bind.SEEN_BY_SHAREE: True,
+                       bind.BIND_STATUS: _BIND_STATUS_ACCEPTED})
+
+
     @classmethod
     @inlineCallbacks
     def create(cls, home, name):
-        
         child = (yield cls.objectWithName(home, name, owned=True))
-        if child:
+        if child is not None:
             raise HomeChildNameAlreadyExistsError(name)
 
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
-        
-        # Create and initialize (in a similar manner to initFromStore) this object
-        rows = yield home._txn.execSQL("select nextval('RESOURCE_ID_SEQ')")
-        resourceID = rows[0][0]
-        _created, _modified = (yield home._txn.execSQL("""
-            insert into %(name)s (%(column_RESOURCE_ID)s)
-            values (%%s)
-            returning %(column_CREATED)s, %(column_MODIFIED)s
-            """ % cls._homeChildTable,
-            [resourceID]
-        ))[0]
-        
+
+        # Create and initialize this object, similar to initFromStore
+        resourceID, _created, _modified = (
+            yield cls._insertDefaultHomeChild.on(home._txn))[0]
+
         # Bind table needs entry
-        yield home._txn.execSQL("""
-            insert into %(name)s (
-                %(column_HOME_RESOURCE_ID)s,
-                %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s,
-                %(column_SEEN_BY_OWNER)s, %(column_SEEN_BY_SHAREE)s, %(column_BIND_STATUS)s) values (
-            %%s, %%s, %%s, %%s, %%s, %%s, %%s)
-            """ % cls._bindTable,
-            [home._resourceID, resourceID, name, _BIND_MODE_OWN, True, True,
-             _BIND_STATUS_ACCEPTED]
-        )
+        yield cls._initialOwnerBind.on(home._txn, homeID=home._resourceID,
+                                       resourceID=resourceID, name=name)
 
         # Initialize other state
         child = cls(home, name, resourceID, True)
@@ -1177,20 +1535,30 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         home.notifyChanged()
         returnValue(child)
 
+
+    @classproperty
+    def _datesByIDQuery(cls):
+        """
+        DAL query to retrieve created/modified dates based on a resource ID.
+        """
+        child = cls._homeChildSchema
+        return Select([child.CREATED, child.MODIFIED],
+                      From=child,
+                      Where=child.RESOURCE_ID == Parameter("resourceID"))
+
+
     @inlineCallbacks
     def initFromStore(self):
         """
-        Initialise this object from the store. We read in and cache all the extra metadata
-        from the DB to avoid having to do DB queries for those individually later.
+        Initialise this object from the store, based on its already-populated
+        resource ID. We read in and cache all the extra metadata from the DB to
+        avoid having to do DB queries for those individually later.
         """
-
-        self._created, self._modified = (yield self._txn.execSQL(
-            "select %(column_CREATED)s, %(column_MODIFIED)s from %(name)s "
-            "where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
-            [self._resourceID]
-        ))[0]
-
+        self._created, self._modified = (
+            yield self._datesByIDQuery.on(self._txn,
+                                          resourceID=self._resourceID))[0]
         yield self._loadPropertyStore()
+
 
     @property
     def _txn(self):
@@ -1219,19 +1587,34 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         """
         return self._resourceID is not None
 
+
     def name(self):
         return self._name
 
 
+    @classproperty
+    def _renameQuery(cls):
+        """
+        DAL statement to rename a L{CommonHomeChild}
+        """
+        bind = cls._bindSchema
+        return Update({bind.RESOURCE_NAME: Parameter("name")},
+                      Where=(bind.RESOURCE_ID == Parameter("resourceID")).And(
+                          bind.HOME_RESOURCE_ID == Parameter("homeID")))
+
+
     @inlineCallbacks
     def rename(self, name):
+        """
+        Change the name of this L{CommonHomeChild} and update its sync token to
+        reflect that change.
+
+        @return: a L{Deferred} which fires when the modification is complete.
+        """
         oldName = self._name
-        yield self._txn.execSQL(
-            "update %(name)s set %(column_RESOURCE_NAME)s = %%s "
-            "where %(column_RESOURCE_ID)s = %%s AND "
-            "%(column_HOME_RESOURCE_ID)s = %%s" % self._bindTable,
-            [name, self._resourceID, self._home._resourceID]
-        )
+        yield self._renameQuery.on(self._txn, name=name,
+                                   resourceID=self._resourceID,
+                                   homeID=self._home._resourceID)
         self._name = name
         # update memos
         del self._home._children[oldName]
@@ -1241,44 +1624,59 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self.notifyChanged()
 
 
+
+    @classproperty
+    def _deleteQuery(cls):
+        """
+        DAL statement to delete a L{CommonHomeChild} by its resource ID.
+        """
+        child = cls._homeChildSchema
+        return Delete(child, Where=child.RESOURCE_ID == Parameter("resourceID"))
+
+
     @inlineCallbacks
     def remove(self):
-
         yield self._deletedSyncToken()
-
-        yield self._txn.execSQL(
-            "delete from %(name)s where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
-            [self._resourceID],
-            raiseOnZeroRowCount=NoSuchHomeChildError
-        )
-
+        yield self._deleteQuery.on(self._txn, NoSuchHomeChildError,
+                                   resourceID=self._resourceID)
         # Set to non-existent state
         self._resourceID = None
-        self._created = None
-        self._modified = None
-        self._objects = {}
+        self._created    = None
+        self._modified   = None
+        self._objects    = {}
 
         self.notifyChanged()
+
 
     def ownerHome(self):
         return self._home
 
+
+    @classproperty
+    def _ownerHomeFromResourceQuery(cls):
+        """
+        DAL query to retrieve the home resource ID of the owner from the bound
+        home-child ID.
+        """
+        bind = cls._bindSchema
+        return Select([bind.HOME_RESOURCE_ID],
+                     From=bind,
+                     Where=(bind.RESOURCE_ID ==
+                            Parameter("resourceID")).And(
+                                bind.BIND_MODE == _BIND_MODE_OWN))
+
+
     @inlineCallbacks
     def sharerHomeID(self):
-        
-        # If this is not shared then our home is what we want
         if self._owned:
+            # If this was loaded by its owner then we can skip the query, since
+            # we already know who the owner is.
             returnValue(self._home._resourceID)
         else:
-            rid = (yield self._txn.execSQL("""
-                select %(column_HOME_RESOURCE_ID)s from %(name)s
-                where
-                  %(column_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s = %%s
-                """ % self._bindTable,
-                [self._resourceID, _BIND_MODE_OWN]
-            ))[0][0]
+            rid = (yield self._ownerHomeFromResourceQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
             returnValue(rid)
+
 
     def setSharingUID(self, uid):
         self.properties()._setPerUserUID(uid)
@@ -1297,15 +1695,22 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         returnValue(results)
 
 
+    @classproperty
+    def _objectResourceNamesQuery(cls):
+        """
+        DAL query to load all object resource names for a home child.
+        """
+        obj = cls._objectSchema
+        return Select([obj.RESOURCE_NAME], From=obj,
+                      Where=obj.PARENT_RESOURCE_ID == Parameter('resourceID'))
+
+
     @inlineCallbacks
     def listObjectResources(self):
         if self._objectNames is None:
-            rows = yield self._txn.execSQL(
-                "select %(column_RESOURCE_NAME)s from %(name)s "
-                "where %(column_PARENT_RESOURCE_ID)s = %%s" % self._objectTable,
-                [self._resourceID])
+            rows = yield self._objectResourceNamesQuery.on(
+                self._txn, resourceID=self._resourceID)
             self._objectNames = sorted([row[0] for row in rows])
-
         returnValue(self._objectNames)
 
 
@@ -1329,16 +1734,21 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         else:
             return self._makeObjectResource(resourceID=resourceID)
 
+
     @inlineCallbacks
     def _makeObjectResource(self, name=None, uid=None, resourceID=None):
         """
-        We create the empty object first then have it initialize itself from the store
+        We create the empty object first then have it initialize itself from the
+        store.
         """
-        
         if resourceID:
-            objectResource = (yield self._objectResourceClass.objectWithID(self, resourceID))
+            objectResource = (
+                yield self._objectResourceClass.objectWithID(self, resourceID)
+            )
         else:
-            objectResource = (yield self._objectResourceClass.objectWithName(self, name, uid))
+            objectResource = (
+                yield self._objectResourceClass.objectWithName(self, name, uid)
+            )
         if objectResource:
             self._objects[objectResource.name()] = objectResource
             self._objects[objectResource.uid()] = objectResource
@@ -1351,6 +1761,19 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         returnValue(objectResource)
 
 
+    @classproperty
+    def _resourceNameForUIDQuery(cls):
+        """
+        DAL query to retrieve the resource name for an object resource based on
+        its UID column.
+        """
+        obj = cls._objectSchema
+        return Select(
+            [obj.RESOURCE_NAME], From=obj,
+            Where=(obj.UID == Parameter("uid")
+                  ).And(obj.PARENT_RESOURCE_ID == Parameter("resourceID")))
+
+
     @inlineCallbacks
     def resourceNameForUID(self, uid):
         try:
@@ -1358,19 +1781,27 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             returnValue(resource.name() if resource else None)
         except KeyError:
             pass
-
-        rows = yield self._txn.execSQL("""
-            select %(column_RESOURCE_NAME)s
-            from %(name)s
-            where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-            """ % self._objectTable,
-            [uid, self._resourceID]
-        )
+        rows = yield self._resourceNameForUIDQuery.on(
+            self._txn, uid=uid, resourceID=self._resourceID)
         if rows:
             returnValue(rows[0][0])
         else:
             self._objects[uid] = None
             returnValue(None)
+
+
+    @classproperty
+    def _resourceUIDForNameQuery(cls):
+        """
+        DAL query to retrieve the UID for an object resource based on its
+        resource name column.
+        """
+        obj = cls._objectSchema
+        return Select(
+            [obj.UID], From=obj,
+            Where=(obj.UID == Parameter("name")
+                  ).And(obj.PARENT_RESOURCE_ID == Parameter("resourceID")))
+
 
     @inlineCallbacks
     def resourceUIDForName(self, name):
@@ -1379,65 +1810,80 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             returnValue(resource.uid() if resource else None)
         except KeyError:
             pass
-
-        rows = yield self._txn.execSQL("""
-            select %(column_UID)s
-            from %(name)s
-            where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-            """ % self._objectTable,
-            [name, self._resourceID]
-        )
+        rows = yield self._resourceUIDForNameQuery.on(
+            self._txn, name=name, resourceID=self._resourceID)
         if rows:
             returnValue(rows[0][0])
         else:
             self._objects[name] = None
             returnValue(None)
 
+
     @inlineCallbacks
     def createObjectResourceWithName(self, name, component, metadata=None):
         """
-        Create a new resource with component data and optional metadata. We create the
-        python object using the metadata then create the actual store object with setComponent. 
+        Create a new resource with component data and optional metadata. We
+        create the python object using the metadata then create the actual store
+        object with setComponent.
         """
         if name in self._objects:
             if self._objects[name]:
                 raise ObjectResourceNameAlreadyExistsError()
 
-        objectResource = (yield self._objectResourceClass.create(self, name, component, metadata))
+        objectResource = (
+            yield self._objectResourceClass.create(self, name, component,
+                                                   metadata)
+        )
         self._objects[objectResource.name()] = objectResource
         self._objects[objectResource.uid()] = objectResource
 
-        # Note: create triggers a notification when the component is set, so we don't need to
-        # call notify( ) here like we do for object removal.
-
+        # Note: create triggers a notification when the component is set, so we
+        # don't need to call notify() here like we do for object removal.
         returnValue(objectResource)
+
+
+    @classproperty
+    def _removeObjectResourceByNameQuery(cls):
+        """
+        DAL query to remove an object resource from this collection by name,
+        returning the UID of the resource it deleted.
+        """
+        obj = cls._objectSchema
+        return Delete(From=obj,
+                      Where=(obj.RESOURCE_NAME == Parameter("name")).And(
+                          obj.PARENT_RESOURCE_ID == Parameter("resourceID")),
+                     Return=obj.UID)
+
 
     @inlineCallbacks
     def removeObjectResourceWithName(self, name):
-
-        uid = (yield self._txn.execSQL(
-            "delete from %(name)s "
-            "where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "
-            "returning %(column_UID)s" % self._objectTable,
-            [name, self._resourceID],
-            raiseOnZeroRowCount=lambda:NoSuchObjectResourceError()
-        ))[0][0]
+        uid = (yield self._removeObjectResourceByNameQuery.on(
+            self._txn, NoSuchObjectResourceError,
+            name=name, resourceID=self._resourceID))[0][0]
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
         yield self._deleteRevision(name)
-
         self.notifyChanged()
+
+
+    @classproperty
+    def _removeObjectResourceByUIDQuery(cls):
+        """
+        DAL query to remove an object resource from this collection by UID,
+        returning the name of the resource it deleted.
+        """
+        obj = cls._objectSchema
+        return Delete(From=obj,
+                      Where=(obj.UID == Parameter("uid")).And(
+                          obj.PARENT_RESOURCE_ID == Parameter("resourceID")),
+                     Return=obj.RESOURCE_NAME)
 
 
     @inlineCallbacks
     def removeObjectResourceWithUID(self, uid):
-
-        name = (yield self._txn.execSQL(
-            "delete from %(name)s "
-            "where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s "
-            "returning %(column_RESOURCE_NAME)s" % self._objectTable,
-            [uid, self._resourceID],
-            raiseOnZeroRowCount=lambda:NoSuchObjectResourceError()
+        name = (yield self._removeObjectResourceByUIDQuery.on(
+            self._txn, NoSuchObjectResourceError,
+            uid=uid, resourceID=self._resourceID
         ))[0][0]
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
@@ -1446,198 +1892,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         self.notifyChanged()
 
 
-    @inlineCallbacks
-    def syncToken(self):
-        if self._syncTokenRevision is None:
-            self._syncTokenRevision = (yield self._txn.execSQL(
-                """
-                select max(%(column_REVISION)s) from %(name)s
-                where %(column_RESOURCE_ID)s = %%s
-                """ % self._revisionsTable,
-                [self._resourceID,]
-            ))[0][0]
-        returnValue(("%s#%s" % (self._resourceID, self._syncTokenRevision,)))
-
-
-    def objectResourcesSinceToken(self, token):
-        raise NotImplementedError()
-
-
-    @inlineCallbacks
-    def resourceNamesSinceToken(self, token):
-        results = [
-            (name if name else "", deleted)
-            for name, deleted in
-            (yield self._txn.execSQL("""
-                select %(column_RESOURCE_NAME)s, %(column_DELETED)s from %(name)s
-                where %(column_REVISION)s > %%s and %(column_RESOURCE_ID)s = %%s
-                """ % self._revisionsTable,
-                [token, self._resourceID],
-            ))
-        ]
-        results.sort(key=lambda x:x[1])
-
-        changed = []
-        deleted = []
-        for name, wasdeleted in results:
-            if name:
-                if wasdeleted:
-                    if token:
-                        deleted.append(name)
-                else:
-                    changed.append(name)
-
-        returnValue((changed, deleted))
-
-
-    @inlineCallbacks
-    def _initSyncToken(self):
-
-        # Remove any deleted revision entry that uses the same name
-        yield self._txn.execSQL("""
-            delete from %(name)s
-            where %(column_HOME_RESOURCE_ID)s = %%s and %(column_COLLECTION_NAME)s = %%s
-            """ % self._revisionsTable,
-            [self._home._resourceID, self._name]
-        )
-
-        # Insert new entry
-        self._syncTokenRevision = (yield self._txn.execSQL("""
-            insert into %(name)s
-            (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_ID)s, %(column_COLLECTION_NAME)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
-            values (%%s, %%s, %%s, null, nextval('%(sequence)s'), FALSE)
-            returning %(column_REVISION)s
-            """ % self._revisionsTable,
-            [self._home._resourceID, self._resourceID, self._name]
-        ))[0][0]
-
-
-    @inlineCallbacks
-    def _updateSyncToken(self):
-
-        self._syncTokenRevision = (yield self._txn.execSQL("""
-            update %(name)s
-            set (%(column_REVISION)s) = (nextval('%(sequence)s'))
-            where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-            returning %(column_REVISION)s
-            """ % self._revisionsTable,
-            [self._resourceID,]
-        ))[0][0]
-
-
-    @inlineCallbacks
-    def _renameSyncToken(self):
-
-        self._syncTokenRevision = (yield self._txn.execSQL("""
-            update %(name)s
-            set (%(column_REVISION)s, %(column_COLLECTION_NAME)s) = (nextval('%(sequence)s'), %%s)
-            where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-            returning %(column_REVISION)s
-            """ % self._revisionsTable,
-            [self._name, self._resourceID,]
-        ))[0][0]
-
-
-    @inlineCallbacks
-    def _deletedSyncToken(self, sharedRemoval=False):
-
-        # Remove all child entries
-        yield self._txn.execSQL("""
-            delete from %(name)s
-            where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_ID)s = %%s and %(column_COLLECTION_NAME)s is null
-            """ % self._revisionsTable,
-            [self._home._resourceID, self._resourceID,]
-        )
-
-        # If this is a share being removed then we only mark this one specific home/resource-id as being deleted.
-        # On the other hand, if it is a non-shared collection, then we need to mark all collections
-        # with the resource-id as being deleted to account for direct shares.
-        if sharedRemoval:
-            yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_RESOURCE_ID)s, %(column_REVISION)s, %(column_DELETED)s)
-                 = (null, nextval('%(sequence)s'), TRUE)
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._home._resourceID, self._resourceID,]
-            )
-        else:
-            yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_RESOURCE_ID)s, %(column_REVISION)s, %(column_DELETED)s)
-                 = (null, nextval('%(sequence)s'), TRUE)
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._resourceID,]
-            )
-        self._syncTokenRevision = None
-
-
-    def _insertRevision(self, name):
-        return self._changeRevision("insert", name)
-
-    def _updateRevision(self, name):
-        return self._changeRevision("update", name)
-
-    def _deleteRevision(self, name):
-        return self._changeRevision("delete", name)
-
-
-    @inlineCallbacks
-    def _changeRevision(self, action, name):
-
-        if action == "delete":
-            self._syncTokenRevision = (yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), TRUE)
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._resourceID, name]
-            ))[0][0]
-        elif action == "update":
-            self._syncTokenRevision = (yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s) = (nextval('%(sequence)s'))
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._resourceID, name]
-            ))[0][0]
-        elif action == "insert":
-            # Note that an "insert" may happen for a resource that previously existed and then
-            # was deleted. In that case an entry in the REVISIONS table still exists so we have to
-            # detect that and do db INSERT or UPDATE as appropriate
-
-            found = bool( (yield self._txn.execSQL("""
-                select %(column_RESOURCE_ID)s from %(name)s
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                """ % self._revisionsTable,
-                [self._resourceID, name, ]
-            )) )
-            if found:
-                self._syncTokenRevision = (yield self._txn.execSQL("""
-                    update %(name)s
-                    set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), FALSE)
-                    where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                    returning %(column_REVISION)s
-                    """ % self._revisionsTable,
-                    [self._resourceID, name]
-                ))[0][0]
-            else:
-                self._syncTokenRevision = (yield self._txn.execSQL("""
-                    insert into %(name)s
-                    (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
-                    values (%%s, %%s, %%s, nextval('%(sequence)s'), FALSE)
-                    returning %(column_REVISION)s
-                    """ % self._revisionsTable,
-                    [self._home._resourceID, self._resourceID, name]
-                ))[0][0]
-
     def objectResourcesHaveProperties(self):
         return False
+
 
     @inlineCallbacks
     def _loadPropertyStore(self, props=None):
@@ -1734,6 +1991,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     _objectTable = None
 
+    _objectSchema = None
+
     def __init__(self, parent, name, uid, resourceID=None, metadata=None):
         self._parentCollection = parent
         self._resourceID = resourceID
@@ -1746,47 +2005,54 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         self._objectText = None
 
 
+
+    @classproperty
+    def _allColumnsWithParent(cls):
+        obj = cls._objectSchema
+        return Select(cls._allColumns, From=obj,
+                      Where=obj.PARENT_RESOURCE_ID == Parameter("parentID"))
+
+
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, parent):
         """
-        Load all child objects and return a list of them. This must create the child classes
-        and initialize them using "batched" SQL operations to keep this constant wrt the number of
-        children. This is an optimization for Depth:1 operations on the collection.
+        Load all child objects and return a list of them. This must create the
+        child classes and initialize them using "batched" SQL operations to keep
+        this constant wrt the number of children. This is an optimization for
+        Depth:1 operations on the collection.
         """
-        
+
         results = []
 
         # Load from the main table first
-        dataRows = yield parent._txn.execSQL(cls._selectAllColumns() + """
-            from %(name)s
-            where %(column_PARENT_RESOURCE_ID)s = %%s
-            """ % cls._objectTable,
-            [parent._resourceID,]
-        )
-        
+        dataRows = yield cls._allColumnsWithParent.on(
+            parent._txn, parentID=parent._resourceID)
+
         if dataRows:
             # Get property stores for all these child resources (if any found)
             if parent.objectResourcesHaveProperties():
-                propertyStores =(yield PropertyStore.loadAll(
+                propertyStores =(yield PropertyStore.forMultipleResources(
                     parent._home.uid(),
                     parent._txn,
-                    cls._objectTable["name"],
-                    "%s.%s" % (cls._objectTable["name"], cls._objectTable["column_RESOURCE_ID"],),
-                    "%s.%s" % (cls._objectTable["name"], cls._objectTable["column_PARENT_RESOURCE_ID"]),
-                    parent._resourceID,
+                    cls._objectSchema.RESOURCE_ID,
+                    cls._objectSchema.PARENT_RESOURCE_ID,
+                    parent._resourceID
                 ))
             else:
                 propertyStores = {}
-        
+
         # Create the actual objects merging in properties
         for row in dataRows:
             child = cls(parent, "", None)
             child._initFromRow(tuple(row))
-            yield child._loadPropertyStore(props=propertyStores.get(child._resourceID, None))
+            yield child._loadPropertyStore(
+                props=propertyStores.get(child._resourceID, None)
+            )
             results.append(child)
-        
+
         returnValue(results)
+
 
     @classmethod
     def objectWithName(cls, parent, name, uid):
@@ -1818,37 +2084,59 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         
         returnValue(objectResource)
 
+
+    @classmethod
+    def _allWithParentAnd(cls, column, paramName):
+        """
+        DAL query for all columns where PARENT_RESOURCE_ID matches a parentID
+        parameter and a given instance column matches a given parameter name.
+        """
+        return Select(
+            cls._allColumns, From=cls._objectSchema,
+            Where=(column == Parameter(paramName)).And(
+                cls._objectSchema.PARENT_RESOURCE_ID == Parameter("parentID"))
+        )
+
+
+    @classproperty
+    def _allWithParentAndName(cls):
+        return cls._allWithParentAnd(cls._objectSchema.RESOURCE_NAME, "name")
+
+
+    @classproperty
+    def _allWithParentAndUID(cls):
+        return cls._allWithParentAnd(cls._objectSchema.UID, "uid")
+
+
+    @classproperty
+    def _allWithParentAndID(cls):
+        return cls._allWithParentAnd(cls._objectSchema.RESOURCE_ID,
+                                     "resourceID")
+
+
     @inlineCallbacks
     def initFromStore(self):
         """
-        Initialise this object from the store. We read in and cache all the extra metadata
-        from the DB to avoid having to do DB queries for those individually later. Either the
-        name or uid is present, so we have to tweak the query accordingly.
+        Initialise this object from the store. We read in and cache all the
+        extra metadata from the DB to avoid having to do DB queries for those
+        individually later. Either the name or uid is present, so we have to
+        tweak the query accordingly.
 
         @return: L{self} if object exists in the DB, else C{None}
         """
 
         if self._name:
-            rows = yield self._txn.execSQL(self._selectAllColumns() + """
-                from %(name)s
-                where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-                """ % self._objectTable,
-                [self._name, self._parentCollection._resourceID]
-            )
+            rows = yield self._allWithParentAndName.on(
+                self._txn, name=self._name,
+                parentID=self._parentCollection._resourceID)
         elif self._uid:
-            rows = yield self._txn.execSQL(self._selectAllColumns() + """
-                from %(name)s
-                where %(column_UID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-                """ % self._objectTable,
-                [self._uid, self._parentCollection._resourceID]
-            )
+            rows = yield self._allWithParentAndUID.on(
+                self._txn, uid=self._uid,
+                parentID=self._parentCollection._resourceID)
         elif self._resourceID:
-            rows = yield self._txn.execSQL(self._selectAllColumns() + """
-                from %(name)s
-                where %(column_RESOURCE_ID)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-                """ % self._objectTable,
-                [self._resourceID, self._parentCollection._resourceID]
-            )
+            rows = yield self._allWithParentAndID.on(
+                self._txn, resourceID=self._resourceID,
+                parentID=self._parentCollection._resourceID)
         if rows:
             self._initFromRow(tuple(rows[0]))
             yield self._loadPropertyStore()
@@ -1856,11 +2144,13 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         else:
             returnValue(None)
 
+
     @classmethod
     def _selectAllColumns(cls):
         """
         Full set of columns in the object table that need to be loaded to
-        initialize the object resource state.
+        initialize the object resource state.  (XXX: remove me, old string-based
+        version, see _allColumns)
         """
         return """
             select
@@ -1873,9 +2163,28 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
               %(column_MODIFIED)s
         """ % cls._objectTable
 
+
+    @classproperty
+    def _allColumns(cls):
+        """
+        Full set of columns in the object table that need to be loaded to
+        initialize the object resource state.
+        """
+        obj = cls._objectSchema
+        return [
+            obj.RESOURCE_ID,
+            obj.RESOURCE_NAME,
+            obj.UID,
+            obj.MD5,
+            Len(obj.TEXT),
+            obj.CREATED,
+            obj.MODIFIED
+        ]
+
+
     def _initFromRow(self, row):
         """
-        Given a select result using the columns from L{_selectAllColumns}, initialize
+        Given a select result using the columns from L{_allColumns}, initialize
         the object resource state.
         """
         (self._resourceID,
@@ -1885,6 +2194,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
          self._size,
          self._created,
          self._modified,) = tuple(row)
+
 
     @inlineCallbacks
     def _loadPropertyStore(self, props=None, created=False):
@@ -1966,14 +2276,23 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         return datetimeMktime(parseSQLTimestamp(self._modified))
 
 
+    @classproperty
+    def _textByIDQuery(cls):
+        """
+        DAL query to load iCalendar/vCard text via an object's resource ID.
+        """
+        obj = cls._objectSchema
+        return Select([obj.TEXT], From=obj,
+                      Where=obj.RESOURCE_ID == Parameter("resourceID"))
+
+
     @inlineCallbacks
     def text(self):
         if self._objectText is None:
-            text = (yield self._txn.execSQL(
-                "select %(column_TEXT)s from %(name)s where "
-                "%(column_RESOURCE_ID)s = %%s" % self._objectTable,
-                [self._resourceID]
-            ))[0][0]
+            text = (
+                yield self._textByIDQuery.on(self._txn,
+                                             resourceID=self._resourceID)
+            )[0][0]
             self._objectText = text
             returnValue(text)
         else:
@@ -1981,7 +2300,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
 
-class NotificationCollection(LoggingMixIn, FancyEqMixin):
+class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     implements(INotificationCollection)
 
@@ -1991,6 +2310,9 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     )
 
     _revisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
+    _revisionsSchema = schema.NOTIFICATION_OBJECT_REVISIONS
+    _homeSchema = schema.NOTIFICATION_HOME
+
 
     def __init__(self, txn, uid, resourceID):
 
@@ -2016,32 +2338,46 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
             notifiers = None
         self._notifiers = notifiers
 
+
+    _resourceIDFromUIDQuery = Select(
+        [_homeSchema.RESOURCE_ID], From=_homeSchema,
+        Where=_homeSchema.OWNER_UID == Parameter("uid"))
+
+
+    _provisionNewNotificationsQuery = Insert(
+        {_homeSchema.OWNER_UID: Parameter("uid")},
+        Return=_homeSchema.RESOURCE_ID
+    )
+
+
+    @property
+    def _home(self):
+        """
+        L{NotificationCollection} serves as its own C{_home} for the purposes of
+        working with L{_SharedSyncLogic}.
+        """
+        return self
+
+
     @classmethod
     @inlineCallbacks
     def notificationsWithUID(cls, txn, uid):
-        """
-        Implement notificationsWithUID.
-        """
-        rows = yield txn.execSQL(
-            """
-            select %(column_RESOURCE_ID)s from %(name)s where
-            %(column_OWNER_UID)s = %%s
-            """ % NOTIFICATION_HOME_TABLE, [uid]
-        )
+        rows = yield cls._resourceIDFromUIDQuery.on(txn, uid=uid)
+
         if rows:
             resourceID = rows[0][0]
             created = False
         else:
-            resourceID = str((yield txn.execSQL(
-                "insert into %(name)s (%(column_OWNER_UID)s) values (%%s) returning %(column_RESOURCE_ID)s" % NOTIFICATION_HOME_TABLE,
-                [uid]
-            ))[0][0])
+            resourceID = str((
+                yield cls._provisionNewNotificationsQuery.on(txn, uid=uid)
+            )[0][0])
             created = True
         collection = cls(txn, uid, resourceID)
         yield collection._loadPropertyStore()
         if created:
             yield collection._initSyncToken()
         returnValue(collection)
+
 
     @inlineCallbacks
     def _loadPropertyStore(self):
@@ -2055,14 +2391,18 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     def resourceType(self):
         return ResourceType.notification #@UndefinedVariable
 
+
     def retrieveOldIndex(self):
         return PostgresLegacyNotificationsEmulator(self)
+
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
+
     def name(self):
         return "notification"
+
 
     def uid(self):
         return self._uid
@@ -2077,13 +2417,17 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         returnValue(results)
 
 
+    _notificationUIDsForHomeQuery = Select(
+        [schema.NOTIFICATION.NOTIFICATION_UID], From=schema.NOTIFICATION,
+        Where=schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID ==
+        Parameter("resourceID"))
+
+
     @inlineCallbacks
     def listNotificationObjects(self):
         if self._notificationNames is None:
-            rows = yield self._txn.execSQL(
-                "select (NOTIFICATION_UID) from NOTIFICATION "
-                "where NOTIFICATION_HOME_RESOURCE_ID = %s",
-                [self._resourceID])
+            rows = yield self._notificationUIDsForHomeQuery.on(
+                self._txn, resourceID=self._resourceID)
             self._notificationNames = sorted([row[0] for row in rows])
         returnValue(self._notificationNames)
 
@@ -2104,9 +2448,9 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def notificationObjectWithUID(self, uid):
         """
-        We create the empty object first then have it initialize itself from the store
+        Create an empty notification object first then have it initialize itself
+        from the store.
         """
-
         no = NotificationObject(self, uid)
         no = (yield no.initFromStore())
         returnValue(no)
@@ -2131,148 +2475,51 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         return self.removeNotificationObjectWithUID(self._nameToUID(name))
 
 
+    _removeByUIDQuery = Delete(
+        From=schema.NOTIFICATION,
+        Where=(schema.NOTIFICATION.NOTIFICATION_UID == Parameter("uid")).And(
+            schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID
+            == Parameter("resourceID")))
+
+
     @inlineCallbacks
     def removeNotificationObjectWithUID(self, uid):
-        yield self._txn.execSQL(
-            "delete from NOTIFICATION "
-            "where NOTIFICATION_UID = %s and NOTIFICATION_HOME_RESOURCE_ID = %s",
-            [uid, self._resourceID]
-        )
+        yield self._removeByUIDQuery.on(
+            self._txn, uid=uid, resourceID=self._resourceID)
         self._notifications.pop(uid, None)
         yield self._deleteRevision("%s.xml" % (uid,))
 
 
+    _initSyncTokenQuery = Insert(
+        {
+            _revisionsSchema.HOME_RESOURCE_ID : Parameter("resourceID"),
+            _revisionsSchema.RESOURCE_NAME    : None,
+            _revisionsSchema.REVISION         : schema.REVISION_SEQ,
+            _revisionsSchema.DELETED          : False
+        }, Return=_revisionsSchema.REVISION
+    )
+
+
     @inlineCallbacks
     def _initSyncToken(self):
-        self._syncTokenRevision = (yield self._txn.execSQL("""
-            insert into %(name)s
-            (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
-            values (%%s, null, nextval('%(sequence)s'), FALSE)
-            returning %(column_REVISION)s
-            """ % self._revisionsTable,
-            [self._resourceID,]
-        ))[0][0]
+        self._syncTokenRevision = (yield self._initSyncTokenQuery.on(
+            self._txn, resourceID=self._resourceID))[0][0]
+
+
+    _syncTokenQuery = Select(
+        [Max(_revisionsSchema.REVISION)], From=_revisionsSchema,
+        Where=_revisionsSchema.HOME_RESOURCE_ID == Parameter("resourceID")
+    )
 
 
     @inlineCallbacks
     def syncToken(self):
         if self._syncTokenRevision is None:
-            self._syncTokenRevision = (yield self._txn.execSQL(
-                """
-                select max(%(column_REVISION)s) from %(name)s
-                where %(column_HOME_RESOURCE_ID)s = %%s
-                """ % self._revisionsTable,
-                [self._resourceID,]
-            ))[0][0]
-        returnValue("%s#%s" % (self._resourceID, self._syncTokenRevision,))
-
-
-    def objectResourcesSinceToken(self, token):
-        raise NotImplementedError()
-
-
-    @inlineCallbacks
-    def resourceNamesSinceToken(self, token):
-        results = [
-            (name if name else "", deleted)
-            for name, deleted in
-            (yield self._txn.execSQL("""
-                select %(column_RESOURCE_NAME)s, %(column_DELETED)s from %(name)s
-                where %(column_REVISION)s > %%s and %(column_HOME_RESOURCE_ID)s = %%s
-                """ % self._revisionsTable,
-                [token, self._resourceID],
-            ))
-        ]
-        results.sort(key=lambda x:x[1])
-
-        changed = []
-        deleted = []
-        for name, wasdeleted in results:
-            if name:
-                if wasdeleted:
-                    if token:
-                        deleted.append(name)
-                else:
-                    changed.append(name)
-
-        returnValue((changed, deleted))
-
-
-    def _updateSyncToken(self):
-        self._syncTokenRevision =  self._txn.execSQL("""
-            update %(name)s
-            set (%(column_REVISION)s) = (nextval('%(sequence)s'))
-            where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-            returning %(column_REVISION)s
-            """ % self._revisionsTable,
-            [self._resourceID,]
-        )[0][0]
-
-
-    def _insertRevision(self, name):
-        return self._changeRevision("insert", name)
-
-
-    def _updateRevision(self, name):
-        return self._changeRevision("update", name)
-
-
-    def _deleteRevision(self, name):
-        return self._changeRevision("delete", name)
-
-
-    @inlineCallbacks
-    def _changeRevision(self, action, name):
-
-        if action == "delete":
-            self._syncTokenRevision = (yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), TRUE)
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._resourceID, name]
-            ))[0][0]
-        elif action == "update":
-            self._syncTokenRevision = (yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s) = (nextval('%(sequence)s'))
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._resourceID, name]
-            ))[0][0]
-        elif action == "insert":
-            # Note that an "insert" may happen for a resource that previously existed and then
-            # was deleted. In that case an entry in the REVISIONS table still exists so we have to
-            # detect that and do db INSERT or UPDATE as appropriate
-
-            found = bool( (yield self._txn.execSQL("""
-                select %(column_HOME_RESOURCE_ID)s from %(name)s
-                where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                """ % self._revisionsTable,
-                [self._resourceID, name, ]
-            )))
-            if found:
-                self._syncTokenRevision = (yield self._txn.execSQL("""
-                    update %(name)s
-                    set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), FALSE)
-                    where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                    returning %(column_REVISION)s
-                    """ % self._revisionsTable,
-                    [self._resourceID, name]
-                ))[0][0]
-            else:
-                self._syncTokenRevision = (yield self._txn.execSQL("""
-                    insert into %(name)s
-                    (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
-                    values (%%s, %%s, nextval('%(sequence)s'), FALSE)
-                    returning %(column_REVISION)s
-                    """ % self._revisionsTable,
-                    [self._resourceID, name,]
-                ))[0][0]
-
-        self.notifyChanged()
+            self._syncTokenRevision = (
+                yield self._syncTokenQuery.on(
+                    self._txn, resourceID=self._resourceID)
+            )[0][0]
+        returnValue("%s#%s" % (self._resourceID, self._syncTokenRevision))
 
 
     def properties(self):
@@ -2285,6 +2532,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         else:
             return None
 
+
     @inlineCallbacks
     def nodeName(self, label="default"):
         if self._notifiers:
@@ -2295,6 +2543,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         else:
             returnValue(None)
 
+
     def notifyChanged(self):
         """
         Trigger a notification of a change
@@ -2302,6 +2551,25 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         if self._notifiers:
             for notifier in self._notifiers:
                 self._txn.postCommit(notifier.notify)
+
+
+    @classproperty
+    def _completelyNewRevisionQuery(cls):
+        rev = cls._revisionsSchema
+        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
+                       # rev.RESOURCE_ID: Parameter("resourceID"),
+                       rev.RESOURCE_NAME: Parameter("name"),
+                       rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: False},
+                      Return=rev.REVISION)
+
+
+    def _maybeNotify(self):
+        """
+        Emit a push notification after C{_changeRevision}.
+        """
+        self.notifyChanged()
+
 
 
 class NotificationObject(LoggingMixIn, FancyEqMixin):
@@ -2312,6 +2580,8 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         "_resourceID",
         "_home",
     )
+
+    _objectSchema = schema.NOTIFICATION
 
     def __init__(self, home, uid):
         self._home = home
@@ -2324,47 +2594,52 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         self._xmlType = None
         self._objectText = None
 
+
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
+
+
+    @classproperty
+    def _allColumnsByHomeIDQuery(cls):
+        """
+        DAL query to load all columns by home ID.
+        """
+        obj = cls._objectSchema
+        return Select([obj.RESOURCE_ID, obj.NOTIFICATION_UID, obj.MD5,
+                       Len(obj.XML_DATA), obj.XML_TYPE, obj.CREATED,
+                       obj.MODIFIED],
+                      From=obj,
+                      Where=(obj.NOTIFICATION_HOME_RESOURCE_ID == Parameter(
+                          "homeID")))
+
 
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, parent):
         """
-        Load all child objects and return a list of them. This must create the child classes
-        and initialize them using "batched" SQL operations to keep this constant wrt the number of
-        children. This is an optimization for Depth:1 operations on the collection.
+        Load all child objects and return a list of them. This must create the
+        child classes and initialize them using "batched" SQL operations to keep
+        this constant wrt the number of children. This is an optimization for
+        Depth:1 operations on the collection.
         """
-        
+
         results = []
 
         # Load from the main table first
-        dataRows = (yield parent._txn.execSQL("""
-            select
-                RESOURCE_ID,
-                NOTIFICATION_UID,
-                MD5,
-                character_length(XML_DATA),
-                XML_TYPE,
-                CREATED,
-                MODIFIED
-            from NOTIFICATION
-            where NOTIFICATION_HOME_RESOURCE_ID = %s
-            """,
-            [parent._resourceID]
-        ))
-        
+        dataRows = (
+            yield cls._allColumnsByHomeIDQuery.on(parent._txn,
+                                                  homeID=parent._resourceID))
+
         if dataRows:
             # Get property stores for all these child resources (if any found)
-            propertyStores =(yield PropertyStore.loadAll(
+            propertyStores =(yield PropertyStore.forMultipleResources(
                 parent.uid(),
                 parent._txn,
-                "NOTIFICATION",
-                "NOTIFICATION.RESOURCE_ID",
-                "NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID",
+                schema.NOTIFICATION.RESOURCE_ID,
+                schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID,
                 parent._resourceID,
             ))
-        
+
         # Create the actual objects merging in properties
         for row in dataRows:
             child = cls(parent, None)
@@ -2375,31 +2650,43 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
              child._xmlType,
              child._created,
              child._modified,) = tuple(row)
-            child._loadPropertyStore(props=propertyStores.get(child._resourceID, None))
+            child._loadPropertyStore(
+                props=propertyStores.get(child._resourceID, None)
+            )
             results.append(child)
-        
+
         returnValue(results)
+
+
+    @classproperty
+    def _oneNotificationQuery(cls):
+        no = cls._objectSchema
+        return Select(
+            [
+                no.RESOURCE_ID,
+                no.MD5,
+                Len(no.XML_DATA),
+                no.XML_TYPE,
+                no.CREATED,
+                no.MODIFIED
+            ],
+            From=no,
+            Where=(no.NOTIFICATION_UID ==
+                   Parameter("uid")).And(no.NOTIFICATION_HOME_RESOURCE_ID ==
+                                         Parameter("homeID")))
+
 
     @inlineCallbacks
     def initFromStore(self):
         """
-        Initialise this object from the store. We read in and cache all the extra metadata
-        from the DB to avoid having to do DB queries for those individually later.
+        Initialise this object from the store, based on its UID and home
+        resource ID. We read in and cache all the extra metadata from the DB to
+        avoid having to do DB queries for those individually later.
 
         @return: L{self} if object exists in the DB, else C{None}
         """
-        rows = (yield self._txn.execSQL("""
-            select
-                RESOURCE_ID,
-                MD5,
-                character_length(XML_DATA),
-                XML_TYPE,
-                CREATED,
-                MODIFIED
-            from NOTIFICATION
-            where NOTIFICATION_UID = %s and NOTIFICATION_HOME_RESOURCE_ID = %s
-            """,
-            [self._uid, self._home._resourceID]))
+        rows = (yield self._oneNotificationQuery.on(
+            self._txn, uid=self._uid, homeID=self._home._resourceID))
         if rows:
             (self._resourceID,
              self._md5,
@@ -2411,6 +2698,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
             returnValue(self)
         else:
             returnValue(None)
+
 
     def _loadPropertyStore(self, props=None, created=False):
         if props is None:
@@ -2439,6 +2727,36 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         return self.uid() + ".xml"
 
 
+    @classproperty
+    def _newNotificationQuery(cls):
+        no = cls._objectSchema
+        return Insert(
+            {
+                no.NOTIFICATION_HOME_RESOURCE_ID: Parameter("homeID"),
+                no.NOTIFICATION_UID: Parameter("uid"),
+                no.XML_TYPE: Parameter("xmlType"),
+                no.XML_DATA: Parameter("xmlData"),
+                no.MD5: Parameter("md5"),
+            },
+            Return=[no.RESOURCE_ID, no.CREATED, no.MODIFIED]
+        )
+
+
+    @classproperty
+    def _updateNotificationQuery(cls):
+        no = cls._objectSchema
+        return Update(
+            {
+                no.XML_TYPE: Parameter("xmlType"),
+                no.XML_DATA: Parameter("xmlData"),
+                no.MD5: Parameter("md5"),
+            },
+            Where=(no.NOTIFICATION_HOME_RESOURCE_ID == Parameter("homeID")).And(
+                no.NOTIFICATION_UID == Parameter("uid")),
+            Return=no.MODIFIED
+        )
+
+
     @inlineCallbacks
     def setData(self, uid, xmltype, xmldata, inserting=False):
         """
@@ -2449,48 +2767,32 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         self._md5 = hashlib.md5(xmldata).hexdigest()
         self._size = len(xmldata)
         if inserting:
-            rows = yield self._txn.execSQL("""
-                insert into NOTIFICATION
-                  (NOTIFICATION_HOME_RESOURCE_ID, NOTIFICATION_UID, XML_TYPE, XML_DATA, MD5)
-                values
-                  (%s, %s, %s, %s, %s)
-                returning
-                  RESOURCE_ID,
-                  CREATED,
-                  MODIFIED
-                """,
-                [self._home._resourceID, uid, self._xmlType.toxml(), xmldata, self._md5]
+            rows = yield self._newNotificationQuery.on(
+                self._txn, homeID=self._home._resourceID, uid=uid,
+                xmlType=self._xmlType.toxml(), xmlData=xmldata, md5=self._md5
             )
             self._resourceID, self._created, self._modified = rows[0]
             self._loadPropertyStore()
         else:
-            rows = yield self._txn.execSQL("""
-                update NOTIFICATION
-                set XML_TYPE = %s, XML_DATA = %s, MD5 = %s
-                where NOTIFICATION_HOME_RESOURCE_ID = %s and NOTIFICATION_UID = %s
-                returning MODIFIED
-                """,
-                [self._xmlType.toxml(), xmldata, self._md5, self._home._resourceID, uid])
+            rows = yield self._updateNotificationQuery.on(
+                self._txn, homeID=self._home._resourceID, uid=uid,
+                xmlType=self._xmlType.toxml(), xmlData=xmldata, md5=self._md5
+            )
             self._modified = rows[0][0]
-        
         self._objectText = xmldata
 
 
-    @inlineCallbacks
-    def _fieldQuery(self, field):
-        data = yield self._txn.execSQL(
-            "select " + field + " from NOTIFICATION "
-            "where RESOURCE_ID = %s",
-            [self._resourceID]
-        )
-        returnValue(data[0][0])
+    _xmlDataFromID = Select(
+        [_objectSchema.XML_DATA], From=_objectSchema,
+        Where=_objectSchema.RESOURCE_ID == Parameter("resourceID"))
 
 
     @inlineCallbacks
     def xmldata(self):
-        
         if self._objectText is None:
-            self._objectText = (yield self._fieldQuery("XML_DATA"))
+            self._objectText = (
+                yield self._xmlDataFromID.on(
+                    self._txn, resourceID=self._resourceID))[0][0]
         returnValue(self._objectText)
 
 
