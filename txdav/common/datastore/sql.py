@@ -935,26 +935,29 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
     _revisionsBindTable = None
     _objectTable = None
 
+
     def __init__(self, home, name, resourceID, owned):
-        self._home = home
-        self._name = name
-        self._resourceID = resourceID
-        self._owned = owned
-        self._created = None
-        self._modified = None
-        self._objects = {}
-        self._objectNames = None
-        self._syncTokenRevision = None
 
         if home._notifiers:
             childID = "%s/%s" % (home.uid(), name)
-            notifiers = [notifier.clone(label="collection", id=childID) for notifier in home._notifiers]
+            notifiers = [notifier.clone(label="collection", id=childID)
+                         for notifier in home._notifiers]
         else:
             notifiers = None
-        self._notifiers = notifiers
 
-        self._index = None  # Derived classes need to set this
-        self._invites = None # Derived classes need to set this
+        self._home              = home
+        self._name              = name
+        self._resourceID        = resourceID
+        self._owned             = owned
+        self._created           = None
+        self._modified          = None
+        self._objects           = {}
+        self._objectNames       = None
+        self._syncTokenRevision = None
+        self._notifiers         = notifiers
+        self._index             = None  # Derived classes need to set this
+        self._invites           = None  # Derived classes need to set this
+
 
     @classmethod
     @inlineCallbacks
