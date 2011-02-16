@@ -101,6 +101,23 @@ class ParsingExampleTests(TestCase):
                           [s.tables[0].columns[0]])
 
 
+    def test_sequenceDefault(self):
+        """
+        Default sequence column.
+        """
+        s = Schema()
+        addSQLToSchema(s,
+                   """
+                   create sequence alpha;
+                   create table foo (
+                      bar integer default nextval('alpha') not null,
+                      qux integer not null
+                   );
+                   """)
+        self.assertEquals(s.tableNamed("foo").columnNamed("bar").needsValue(),
+                          False)
+
+
     def test_defaultConstantColumns(self):
         """
         Parsing a 'default' column with an appropriate type in it will return
