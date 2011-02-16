@@ -279,6 +279,30 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_notificationSyncToken(self):
+        """
+        L{ICalendar.resourceNamesSinceToken} will return the names of calendar
+        objects changed or deleted since 
+        """
+        txn = self.transactionUnderTest()
+        coll = yield txn.notificationsWithUID("home1")
+        invite1 = InviteNotification()
+        yield coll.writeNotificationObject("1", invite1, invite1.toxml())
+        st = yield coll.syncToken()
+        yield coll.writeNotificationObject("2", invite1, invite1.toxml())
+        rev = self.token2revision(st)
+        yield coll.removeNotificationObjectWithUID("1")
+        st2 = yield coll.syncToken()
+        rev2 = self.token2revision(st2)
+        changed, deleted = yield coll.resourceNamesSinceToken(rev)
+        self.assertEquals(set(changed), set(["2.xml"]))
+        self.assertEquals(set(deleted), set(["1.xml"]))
+        changed, deleted = yield coll.resourceNamesSinceToken(rev2)
+        self.assertEquals(set(changed), set([]))
+        self.assertEquals(set(deleted), set([]))
+
+
+    @inlineCallbacks
     def test_replaceNotification(self):
         """
         L{INotificationCollection.writeNotificationObject} will silently

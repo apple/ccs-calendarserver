@@ -504,3 +504,11 @@ class FileStorageTests(CommonTests, unittest.TestCase):
 
     test_simpleHomeSyncToken.skip = "Not in file store."
 
+
+    def test_notificationSyncToken(self):
+        """
+        File store doesn't have a functioning C{resourceNamesSinceToken} for
+        L{Notifications}.
+        """
+
+    test_notificationSyncToken.skip = "Not in file store."
