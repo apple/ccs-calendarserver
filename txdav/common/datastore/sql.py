@@ -2345,6 +2345,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         [_homeSchema.RESOURCE_ID], From=_homeSchema,
         Where=_homeSchema.OWNER_UID == Parameter("uid"))
 
+
     _provisionNewNotificationsQuery = Insert(
         {_homeSchema.OWNER_UID: Parameter("uid")},
         Return=_homeSchema.RESOURCE_ID
@@ -2383,14 +2384,18 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     def resourceType(self):
         return ResourceType.notification #@UndefinedVariable
 
+
     def retrieveOldIndex(self):
         return PostgresLegacyNotificationsEmulator(self)
+
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
+
     def name(self):
         return "notification"
+
 
     def uid(self):
         return self._uid
