@@ -61,6 +61,8 @@ from txdav.common.inotifications import INotificationCollection, \
 from twext.enterprise.dal.syntax import Parameter
 from twext.python.clsprop import classproperty
 from twext.enterprise.dal.syntax import Select
+from twext.enterprise.dal.syntax import Lock
+from twext.enterprise.dal.syntax import Insert
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -405,6 +407,12 @@ class CommonHome(LoggingMixIn):
         return Select([home.RESOURCE_ID],
                       From=home, Where=home.OWNER_UID == Parameter("ownerUID"))
 
+    @classproperty
+    def _ownerFromFromResourceID(cls):
+        home = cls._homeSchema
+        return Select([home.OWNER_UID],
+                      From=home,
+                      Where=home.RESOURCE_ID == Parameter("resourceID"))
 
     @inlineCallbacks
     def initFromStore(self, no_cache=False):
@@ -431,7 +439,6 @@ class CommonHome(LoggingMixIn):
     @classmethod
     @inlineCallbacks
     def homeWithUID(cls, txn, uid, create=False):
-
         if txn._notifierFactory:
             notifiers = (txn._notifierFactory.newNotifier(
                 id=uid, prefix=cls._notifierPrefix
@@ -448,55 +455,43 @@ class CommonHome(LoggingMixIn):
             # Need to lock to prevent race condition
 
             # FIXME: this is an entire table lock - ideally we want a row lock
-            # but the row does not exist yet. However, the "exclusive" mode
-            # does allow concurrent reads so the only thing we block is other
+            # but the row does not exist yet. However, the "exclusive" mode does
+            # allow concurrent reads so the only thing we block is other
             # attempts to provision a home, which is not too bad
-            
-            # Also note that we must not cache the owner_uid->resource_id mapping in _cacher
-            # when creating as we don't want that to appear until AFTER the commit
 
-            yield txn.execSQL(
-                "lock %(name)s in exclusive mode" % cls._homeTable,
-            )
+            # Also note that we must not cache the owner_uid->resource_id
+            # mapping in _cacher when creating as we don't want that to appear
+            # until AFTER the commit
+
+            yield Lock(cls._homeSchema, 'exclusive').on(txn)
             # Now test again
-            exists = yield txn.execSQL(
-                "select %(column_RESOURCE_ID)s from %(name)s"
-                " where %(column_OWNER_UID)s = %%s" % cls._homeTable,
-                [uid]
-            )
+            exists = yield cls._resourceIDFromOwnerQuery.on(txn, ownerUID=uid)
             if not exists:
-                resourceid = (yield txn.execSQL("""
-                    insert into %(name)s (%(column_OWNER_UID)s) values (%%s)
-                    returning %(column_RESOURCE_ID)s
-                    """ % cls._homeTable,
-                    [uid]
-                ))[0][0]
-                yield txn.execSQL(
-                    "insert into %(name)s (%(column_RESOURCE_ID)s) values (%%s)" % cls._homeMetaDataTable,
-                    [resourceid]
-                )
+                resourceid = (yield Insert(
+                    {cls._homeSchema.OWNER_UID: uid},
+                    Return=cls._homeSchema.RESOURCE_ID).on(txn))[0][0]
+                yield Insert(
+                    {cls._homeMetaDataSchema.RESOURCE_ID: resourceid}).on(txn)
             home = cls(txn, uid, notifiers)
             home = (yield home.initFromStore(no_cache=not exists))
             if not exists:
                 yield home.createdHome()
             returnValue(home)
 
+
     @classmethod
     @inlineCallbacks
     def homeUIDWithResourceID(cls, txn, rid):
-
-        rows = (yield txn.execSQL(
-            "select %(column_OWNER_UID)s from %(name)s"
-            " where %(column_RESOURCE_ID)s = %%s" % cls._homeTable,
-            [rid]
-        ))
+        rows = (yield cls._ownerFromFromResourceID.on(txn, resourceID=rid))
         if rows:
             returnValue(rows[0][0])
         else:
             returnValue(None)
 
+
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
+
 
     def uid(self):
         """

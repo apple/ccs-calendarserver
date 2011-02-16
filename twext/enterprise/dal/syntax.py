@@ -690,7 +690,7 @@ class Delete(_Statement):
 
 
 
-class Lock(object):
+class Lock(_Statement):
     """
     An SQL 'lock' statement.
     """
