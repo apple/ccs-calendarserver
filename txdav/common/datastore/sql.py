@@ -2441,9 +2441,9 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def notificationObjectWithUID(self, uid):
         """
-        We create the empty object first then have it initialize itself from the store
+        Create an empty notification object first then have it initialize itself
+        from the store.
         """
-
         no = NotificationObject(self, uid)
         no = (yield no.initFromStore())
         returnValue(no)
@@ -2468,13 +2468,17 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
         return self.removeNotificationObjectWithUID(self._nameToUID(name))
 
 
+    _removeByUIDQuery = Delete(
+        From=schema.NOTIFICATION,
+        Where=(schema.NOTIFICATION.NOTIFICATION_UID == Parameter("uid")).And(
+            schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID
+            == Parameter("resourceID")))
+
+
     @inlineCallbacks
     def removeNotificationObjectWithUID(self, uid):
-        yield self._txn.execSQL(
-            "delete from NOTIFICATION "
-            "where NOTIFICATION_UID = %s and NOTIFICATION_HOME_RESOURCE_ID = %s",
-            [uid, self._resourceID]
-        )
+        yield self._removeByUIDQuery.on(
+            self._txn, uid=uid, resourceID=self._resourceID)
         self._notifications.pop(uid, None)
         yield self._deleteRevision("%s.xml" % (uid,))
 
