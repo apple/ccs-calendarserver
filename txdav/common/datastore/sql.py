@@ -1055,13 +1055,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
         if dataRows:
             # Get property stores for all these child resources (if any found)
-            propertyStores =(yield PropertyStore.loadAll(
-                home.uid(),
-                home._txn,
-                cls._bindTable["name"],
-                cls._bindTable["column_RESOURCE_ID"],
-                cls._bindTable["column_HOME_RESOURCE_ID"],
-                home._resourceID,
+            propertyStores = (yield PropertyStore.forMultipleResources(
+                home.uid(), home._txn,
+                cls._bindSchema.RESOURCE_ID, cls._bindSchema.HOME_RESOURCE_ID,
+                home._resourceID
             ))
 
             bind = cls._bindSchema
@@ -1905,6 +1902,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     _objectTable = None
 
+    _objectSchema = None
+
     def __init__(self, parent, name, uid, resourceID=None, metadata=None):
         self._parentCollection = parent
         self._resourceID = resourceID
@@ -1921,11 +1920,12 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def loadAllObjects(cls, parent):
         """
-        Load all child objects and return a list of them. This must create the child classes
-        and initialize them using "batched" SQL operations to keep this constant wrt the number of
-        children. This is an optimization for Depth:1 operations on the collection.
+        Load all child objects and return a list of them. This must create the
+        child classes and initialize them using "batched" SQL operations to keep
+        this constant wrt the number of children. This is an optimization for
+        Depth:1 operations on the collection.
         """
-        
+
         results = []
 
         # Load from the main table first
@@ -1935,29 +1935,31 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
             """ % cls._objectTable,
             [parent._resourceID,]
         )
-        
+
         if dataRows:
             # Get property stores for all these child resources (if any found)
             if parent.objectResourcesHaveProperties():
-                propertyStores =(yield PropertyStore.loadAll(
+                propertyStores =(yield PropertyStore.forMultipleResources(
                     parent._home.uid(),
                     parent._txn,
-                    cls._objectTable["name"],
-                    "%s.%s" % (cls._objectTable["name"], cls._objectTable["column_RESOURCE_ID"],),
-                    "%s.%s" % (cls._objectTable["name"], cls._objectTable["column_PARENT_RESOURCE_ID"]),
-                    parent._resourceID,
+                    cls._objectSchema.RESOURCE_ID,
+                    cls._objectSchema.PARENT_RESOURCE_ID,
+                    parent._resourceID
                 ))
             else:
                 propertyStores = {}
-        
+
         # Create the actual objects merging in properties
         for row in dataRows:
             child = cls(parent, "", None)
             child._initFromRow(tuple(row))
-            yield child._loadPropertyStore(props=propertyStores.get(child._resourceID, None))
+            yield child._loadPropertyStore(
+                props=propertyStores.get(child._resourceID, None)
+            )
             results.append(child)
-        
+
         returnValue(results)
+
 
     @classmethod
     def objectWithName(cls, parent, name, uid):
@@ -2498,15 +2500,17 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
+
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, parent):
         """
-        Load all child objects and return a list of them. This must create the child classes
-        and initialize them using "batched" SQL operations to keep this constant wrt the number of
-        children. This is an optimization for Depth:1 operations on the collection.
+        Load all child objects and return a list of them. This must create the
+        child classes and initialize them using "batched" SQL operations to keep
+        this constant wrt the number of children. This is an optimization for
+        Depth:1 operations on the collection.
         """
-        
+
         results = []
 
         # Load from the main table first
@@ -2524,18 +2528,17 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
             """,
             [parent._resourceID]
         ))
-        
+
         if dataRows:
             # Get property stores for all these child resources (if any found)
-            propertyStores =(yield PropertyStore.loadAll(
+            propertyStores =(yield PropertyStore.forMultipleResources(
                 parent.uid(),
                 parent._txn,
-                "NOTIFICATION",
-                "NOTIFICATION.RESOURCE_ID",
-                "NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID",
+                schema.NOTIFICATION.RESOURCE_ID,
+                schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID,
                 parent._resourceID,
             ))
-        
+
         # Create the actual objects merging in properties
         for row in dataRows:
             child = cls(parent, None)
@@ -2546,10 +2549,13 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
              child._xmlType,
              child._created,
              child._modified,) = tuple(row)
-            child._loadPropertyStore(props=propertyStores.get(child._resourceID, None))
+            child._loadPropertyStore(
+                props=propertyStores.get(child._resourceID, None)
+            )
             results.append(child)
-        
+
         returnValue(results)
+
 
     @inlineCallbacks
     def initFromStore(self):

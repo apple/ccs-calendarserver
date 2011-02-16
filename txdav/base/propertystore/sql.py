@@ -29,6 +29,7 @@ from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.dal.syntax import TableSyntax
 
 from txdav.common.datastore.sql_tables import schema
 
@@ -81,31 +82,49 @@ class PropertyStore(AbstractPropertyStore):
 
     @classmethod
     @inlineCallbacks
-    def loadAll(cls, defaultuser, txn, joinTable, joinColumn, parentIDColumn, parentID):
+    def forMultipleResources(cls, defaultUser, txn,
+                             childColumn, parentColumn, parentID):
         """
-        Return a list of property stores for all objects in a parent collection
+        Return a list of property stores for all objects in a collection.  This
+        is used to optimize Depth:1 operations on that collection, by loading
+        all relevant properties in a single query.
+
+        @param defaultUser: the UID of the user who owns / is requesting the
+            property stores; the ones whose per-user properties will be exposed.
+
+        @type defaultUser: C{str}
+
+        @param txn: the transaction within which to fetch the rows.
+
+        @type txn: L{IAsyncTransaction}
+
+        @param childColumn: The resource ID column for the child resources, i.e.
+            the resources of the type for which this method will loading the
+            property stores.
+
+        @param parentColumn: The resource ID column for the parent resources.
+            e.g. if childColumn is addressbook object's resource ID, then this
+            should be addressbook's resource ID.
+
         """
-        rows = yield txn.execSQL(
-            """
-            select
-              %s,
-              RESOURCE_PROPERTY.RESOURCE_ID,
-              RESOURCE_PROPERTY.NAME,
-              RESOURCE_PROPERTY.VIEWER_UID,
-              RESOURCE_PROPERTY.VALUE
-            from RESOURCE_PROPERTY
-            right join %s on (RESOURCE_PROPERTY.RESOURCE_ID = %s) 
-            where %s = %%s
-            """ % (joinColumn, joinTable, joinColumn, parentIDColumn),
-            [parentID]
+        childTable = TableSyntax(childColumn.model.table)
+        query = Select([
+            childColumn,
+            # XXX is that column necessary?  as per the 'on' clause it has to be
+            # the same as prop.RESOURCE_ID anyway.
+            prop.RESOURCE_ID, prop.NAME, prop.VIEWER_UID, prop.VALUE],
+            From=prop.join(childTable, prop.RESOURCE_ID == childColumn,
+                           'right'),
+            Where=parentColumn == parentID
         )
-        
+        rows = yield query.on(txn)
+
         createdStores = {}
         for object_resource_id, resource_id, name, view_uid, value in rows:
             if resource_id:
                 if resource_id not in createdStores:
                     store = cls.__new__(cls)
-                    super(PropertyStore, store).__init__(defaultuser)
+                    super(PropertyStore, store).__init__(defaultUser)
                     store._txn = txn
                     store._resourceID = resource_id
                     store._cached = {}
@@ -113,12 +132,12 @@ class PropertyStore(AbstractPropertyStore):
                 createdStores[resource_id]._cached[(name, view_uid)] = value
             else:
                 store = cls.__new__(cls)
-                super(PropertyStore, store).__init__(defaultuser)
+                super(PropertyStore, store).__init__(defaultUser)
                 store._txn = txn
                 store._resourceID = object_resource_id
                 store._cached = {}
                 createdStores[object_resource_id] = store
-                
+
         returnValue(createdStores)
 
 
