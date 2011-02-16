@@ -2490,7 +2490,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin):
     def syncToken(self):
         if self._syncTokenRevision is None:
             self._syncTokenRevision = (
-                yield self._syncTokenRevision.on(
+                yield self._syncTokenQuery.on(
                     self._txn, resourceID=self._resourceID)
             )[0][0]
         returnValue("%s#%s" % (self._resourceID, self._syncTokenRevision))
