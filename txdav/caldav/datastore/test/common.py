@@ -811,6 +811,20 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_usedQuotaAdjustment(self):
+        """
+        Adjust used quota on the calendar home and then verify that it's used.
+        """
+        home = yield self.homeUnderTest()
+        initialQuota = yield home.quotaUsedBytes()
+        yield home.adjustQuotaUsedBytes(30)
+        yield self.commit()
+        home2 = yield self.homeUnderTest()
+        afterQuota = yield home2.quotaUsedBytes()
+        self.assertEqual(afterQuota - initialQuota, 30)
+
+
+    @inlineCallbacks
     def test_component(self):
         """
         L{ICalendarObject.component} returns a L{VComponent} describing the

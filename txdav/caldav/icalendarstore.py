@@ -173,6 +173,18 @@ class ICalendarHome(INotifier, IDataStoreResource):
         """
 
 
+    def quotaUsedBytes():
+        """
+        The number of bytes counted towards the user's quota.
+        """
+
+
+    def adjustQuotaUsedBytes(delta):
+        """
+        Increase the number of bytes that count towards the user's quota.
+        """
+
+
 
 class ICalendar(INotifier, IShareableCollection, IDataStoreResource):
     """
