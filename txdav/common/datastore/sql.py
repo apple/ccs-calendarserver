@@ -25,7 +25,6 @@ __all__ = [
     "CommonHome",
 ]
 
-import datetime
 
 from zope.interface import implements, directlyProvides
 
@@ -399,20 +398,25 @@ class CommonHome(LoggingMixIn):
         for key, value in self._bindTable.iteritems():
             self._revisionBindJoinTable["BIND:%s" % (key,)] = value
 
+
+    @classproperty
+    def _resourceIDFromOwnerQuery(cls):
+        home = cls._homeSchema
+        return Select([home.RESOURCE_ID],
+                      From=home, Where=home.OWNER_UID == Parameter("ownerUID"))
+
+
     @inlineCallbacks
     def initFromStore(self, no_cache=False):
         """
-        Initialize this object from the store. We read in and cache all the extra meta-data
-        from the DB to avoid having to do DB queries for those individually later.
+        Initialize this object from the store. We read in and cache all the
+        extra meta-data from the DB to avoid having to do DB queries for those
+        individually later.
         """
-
         result = yield self._cacher.get(self._ownerUID)
         if result is None:
-            result = yield self._txn.execSQL(
-                "select %(column_RESOURCE_ID)s from %(name)s"
-                " where %(column_OWNER_UID)s = %%s" % self._homeTable,
-                [self._ownerUID]
-            )
+            result = yield self._resourceIDFromOwnerQuery.on(
+                self._txn, ownerUID=self._ownerUID)
             if result and not no_cache:
                 yield self._cacher.set(self._ownerUID, result)
 
@@ -422,6 +426,7 @@ class CommonHome(LoggingMixIn):
             returnValue(self)
         else:
             returnValue(None)
+
 
     @classmethod
     @inlineCallbacks

@@ -64,6 +64,10 @@ class AddressBookHome(CommonHome):
 
     implements(IAddressBookHome)
 
+    # structured tables.  (new, preferred)
+    _homeSchema = schema.ADDRESSBOOK_HOME
+
+    # string mappings (old, removing)
     _homeTable = ADDRESSBOOK_HOME_TABLE
     _homeMetaDataTable = ADDRESSBOOK_HOME_METADATA_TABLE
     _childTable = ADDRESSBOOK_TABLE
@@ -100,7 +104,10 @@ class AddressBook(CommonHomeChild):
     """
     implements(IAddressBook)
 
+    # structured tables.  (new, preferred)
     _bindSchema = schema.ADDRESSBOOK_BIND
+
+    # string mappings (old, removing)
     _bindTable = ADDRESSBOOK_BIND_TABLE
     _homeChildTable = ADDRESSBOOK_TABLE
     _homeChildBindTable = ADDRESSBOOK_AND_ADDRESSBOOK_BIND

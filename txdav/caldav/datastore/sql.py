@@ -77,6 +77,10 @@ class CalendarHome(CommonHome):
 
     implements(ICalendarHome)
 
+    # structured tables.  (new, preferred)
+    _homeSchema = schema.CALENDAR_HOME
+
+    # string mappings (old, removing)
     _homeTable = CALENDAR_HOME_TABLE
     _homeMetaDataTable = CALENDAR_HOME_METADATA_TABLE
     _childTable = CALENDAR_TABLE
@@ -181,7 +185,10 @@ class Calendar(CommonHomeChild):
     """
     implements(ICalendar)
 
+    # structured tables.  (new, preferred)
     _bindSchema = schema.CALENDAR_BIND
+
+    # string mappings (old, removing)
     _bindTable = CALENDAR_BIND_TABLE
     _homeChildTable = CALENDAR_TABLE
     _homeChildBindTable = CALENDAR_AND_CALENDAR_BIND
