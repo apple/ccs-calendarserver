@@ -1488,8 +1488,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         """
         obj = cls._objectSchema
         return Select(
-            [obj.RESOURCE_NAME],
-            From=obj,
+            [obj.RESOURCE_NAME], From=obj,
             Where=(obj.UID == Parameter("uid")
                   ).And(obj.PARENT_RESOURCE_ID == Parameter("resourceID")))
 
@@ -1510,6 +1509,19 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             returnValue(None)
 
 
+    @classproperty
+    def _resourceUIDForNameQuery(cls):
+        """
+        DAL query to retrieve the UID for an object resource based on its
+        resource name column.
+        """
+        obj = cls._objectSchema
+        return Select(
+            [obj.UID], From=obj,
+            Where=(obj.UID == Parameter("name")
+                  ).And(obj.PARENT_RESOURCE_ID == Parameter("resourceID")))
+
+
     @inlineCallbacks
     def resourceUIDForName(self, name):
         try:
@@ -1517,19 +1529,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
             returnValue(resource.uid() if resource else None)
         except KeyError:
             pass
-
-        rows = yield self._txn.execSQL("""
-            select %(column_UID)s
-            from %(name)s
-            where %(column_RESOURCE_NAME)s = %%s and %(column_PARENT_RESOURCE_ID)s = %%s
-            """ % self._objectTable,
-            [name, self._resourceID]
-        )
+        rows = yield self._resourceUIDForNameQuery.on(
+            self._txn, name=name, resourceID=self._resourceID)
         if rows:
             returnValue(rows[0][0])
         else:
             self._objects[name] = None
             returnValue(None)
+
 
     @inlineCallbacks
     def createObjectResourceWithName(self, name, component, metadata=None):
