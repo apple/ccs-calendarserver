@@ -2581,6 +2581,8 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         "_home",
     )
 
+    _objectSchema = schema.NOTIFICATION
+
     def __init__(self, home, uid):
         self._home = home
         self._resourceID = None
@@ -2592,8 +2594,23 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         self._xmlType = None
         self._objectText = None
 
+
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
+
+
+    @classproperty
+    def _allColumnsByHomeIDQuery(cls):
+        """
+        DAL query to load all columns by home ID.
+        """
+        obj = cls._objectSchema
+        return Select([obj.RESOURCE_ID, obj.NOTIFICATION_UID, obj.MD5,
+                       Len(obj.XML_DATA), obj.XML_TYPE, obj.CREATED,
+                       obj.MODIFIED],
+                      From=obj,
+                      Where=(obj.NOTIFICATION_HOME_RESOURCE_ID == Parameter(
+                          "homeID")))
 
 
     @classmethod
@@ -2609,20 +2626,9 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
         results = []
 
         # Load from the main table first
-        dataRows = (yield parent._txn.execSQL("""
-            select
-                RESOURCE_ID,
-                NOTIFICATION_UID,
-                MD5,
-                character_length(XML_DATA),
-                XML_TYPE,
-                CREATED,
-                MODIFIED
-            from NOTIFICATION
-            where NOTIFICATION_HOME_RESOURCE_ID = %s
-            """,
-            [parent._resourceID]
-        ))
+        dataRows = (
+            yield cls._allColumnsByHomeIDQuery.on(parent._txn,
+                                                  homeID=parent._resourceID))
 
         if dataRows:
             # Get property stores for all these child resources (if any found)
