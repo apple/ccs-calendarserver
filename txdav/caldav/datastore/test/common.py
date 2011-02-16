@@ -1229,6 +1229,49 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_simpleHomeSyncToken(self):
+        """
+        L{ICalendarHome.resourceNamesSinceToken} will return the names of
+        calenars created since L{ICalendarHome.syncToken} last returned a
+        particular value.
+        """
+        home = yield self.homeUnderTest()
+        cal = yield self.calendarUnderTest()
+        st = yield home.syncToken()
+        yield cal.createCalendarObjectWithName("new.ics", VComponent.fromString(
+                self.eventWithDropbox
+            )
+        )
+
+        yield cal.removeCalendarObjectWithName("2.ics")
+        st2 = yield home.syncToken()
+        self.failIfEquals(st, st2)
+
+        def token2revision(token):
+            # FIXME: the API name is a misnomer; there's syncToken() and
+            # resourceNamesSinceToken(), but actually it is resource names since
+            # *revision* and you need to understand the structure of the tokens
+            # to extract the revision.
+            uuid, rev = token.split("#", 1)
+            rev = int(rev)
+            return rev
+
+        home = yield self.homeUnderTest()
+
+        changed, deleted = yield home.resourceNamesSinceToken(
+            token2revision(st), "depth_is_ignored")
+
+        self.assertEquals(set(changed), set(["calendar_1/new.ics",
+                                             "calendar_1/2.ics"]))
+        self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
+
+        changed, deleted = yield home.resourceNamesSinceToken(
+            token2revision(st2), "depth_is_ignored")
+        self.assertEquals(changed, [])
+        self.assertEquals(deleted, [])
+
+
+    @inlineCallbacks
     def test_dropboxIDs(self):
         """
         L{ICalendarObject.getAllDropboxIDs} returns a L{Deferred} that fires

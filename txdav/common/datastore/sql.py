@@ -646,9 +646,9 @@ class CommonHome(LoggingMixIn):
         return Select(
             [Max(rev.REVISION)],
             From=rev, Where=(
-                rev.RESOURCE_ID in Select(
+                rev.RESOURCE_ID.In(Select(
                     [bind.RESOURCE_ID], From=bind,
-                    Where=bind.HOME_RESOURCE_ID == Parameter("resourceID"))
+                    Where=bind.HOME_RESOURCE_ID == Parameter("resourceID")))
             ).Or((rev.HOME_RESOURCE_ID == Parameter("resourceID")).And(
                 rev.RESOURCE_ID == None))
         )
