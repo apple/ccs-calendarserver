@@ -1158,37 +1158,40 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         returnValue(child)
 
 
+    @classproperty
+    def _homeChildByIDQuery(cls):
+        """
+        DAL query that looks up home child names / bind modes by home child
+        resouce ID and home resource ID.
+        """
+        bind = cls._bindSchema
+        return Select([bind.RESOURCE_NAME, bind.BIND_MODE],
+                      From=bind,
+                      Where=(bind.RESOURCE_ID == Parameter("resourceID")
+                            ).And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
+
+
     @classmethod
     @inlineCallbacks
     def objectWithID(cls, home, resourceID):
         """
-        Retrieve the child with the given C{resourceID} contained in this
+        Retrieve the child with the given C{resourceID} contained in the given
         C{home}.
 
         @param home: a L{CommonHome}.
         @param resourceID: a string.
-        @return: an L{CommonHomChild} or C{None} if no such child
+        @return: an L{CommonHomeChild} or C{None} if no such child
             exists.
         """
-
-        data = yield home._txn.execSQL("""
-            select %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s from %(name)s
-            where
-              %(column_RESOURCE_ID)s = %%s and
-              %(column_HOME_RESOURCE_ID)s = %%s
-            """ % cls._bindTable,
-            [
-                resourceID,
-                home._resourceID,
-            ]
-        )
-
+        data = yield cls._homeChildByIDQuery.on(
+            home._txn, resourceID=resourceID, homeID=home._resourceID)
         if not data:
             returnValue(None)
         name, mode = data[0]
         child = cls(home, name, resourceID, mode == _BIND_MODE_OWN)
         yield child.initFromStore()
         returnValue(child)
+
 
     @classmethod
     @inlineCallbacks
