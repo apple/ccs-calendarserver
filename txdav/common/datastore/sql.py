@@ -1254,20 +1254,29 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         returnValue(child)
 
 
+    @classproperty
+    def _datesByIDQuery(cls):
+        """
+        DAL query to retrieve created/modified dates based on a resource ID.
+        """
+        child = cls._homeChildSchema
+        return Select([child.CREATED, child.MODIFIED],
+                      From=child,
+                      Where=child.RESOURCE_ID == Parameter("resourceID"))
+
+
     @inlineCallbacks
     def initFromStore(self):
         """
-        Initialise this object from the store. We read in and cache all the extra metadata
-        from the DB to avoid having to do DB queries for those individually later.
+        Initialise this object from the store, based on its already-populated
+        resource ID. We read in and cache all the extra metadata from the DB to
+        avoid having to do DB queries for those individually later.
         """
-
-        self._created, self._modified = (yield self._txn.execSQL(
-            "select %(column_CREATED)s, %(column_MODIFIED)s from %(name)s "
-            "where %(column_RESOURCE_ID)s = %%s" % self._homeChildTable,
-            [self._resourceID]
-        ))[0]
-
+        self._created, self._modified = (
+            yield self._datesByIDQuery.on(self._txn,
+                                          resourceID=self._resourceID))[0]
         yield self._loadPropertyStore()
+
 
     @property
     def _txn(self):
@@ -1295,6 +1304,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         An empty resource-id means this object does not yet exist in the DB.
         """
         return self._resourceID is not None
+
 
     def name(self):
         return self._name
