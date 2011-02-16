@@ -789,14 +789,12 @@ class Attachment(object):
 
         @return: C{True} if this attachment exists, C{False} otherwise.
         """
-        rows = yield self._txn.execSQL(
-            """
-            select CALENDAR_HOME_RESOURCE_ID, CONTENT_TYPE, SIZE, MD5, CREATED, MODIFIED
-             from ATTACHMENT
-             where DROPBOX_ID = %s and PATH = %s
-            """,
-            [self._dropboxID, self._name]
-        )
+        att = schema.ATTACHMENT
+        rows = (yield Select([att.CALENDAR_HOME_RESOURCE_ID, att.CONTENT_TYPE,
+                              att.SIZE, att.MD5, att.CREATED, att.MODIFIED],
+                             From=att,
+                             Where=(att.DROPBOX_ID == self._dropboxID).And(
+                                 att.PATH == self._name)).on(self._txn))
         if not rows:
             returnValue(None)
         self._ownerHomeID = rows[0][0]
@@ -811,13 +809,15 @@ class Attachment(object):
     def name(self):
         return self._name
 
+
     @property
     def _path(self):
         attachmentRoot = self._txn._store.attachmentsPath
-        
         # Use directory hashing scheme based on MD5 of dropboxID
         hasheduid = hashlib.md5(self._dropboxID).hexdigest()
-        return attachmentRoot.child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid).child(self.name())
+        return attachmentRoot.child(hasheduid[0:2]).child(
+            hasheduid[2:4]).child(hasheduid).child(self.name())
+
 
     def properties(self):
         pass # stub
