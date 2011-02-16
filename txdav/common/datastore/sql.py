@@ -1697,45 +1697,69 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
                                     collectionName=self._name)))[0][0]
 
 
+    @classproperty
+    def _incrementSyncTokenQuery(cls):
+        """
+        DAL query to increment the sync token to the most recent sequence value.
+        """
+        rev = cls._revisionsSchema
+        return Update({rev.REVISION: schema.REVISION_SEQ},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                          rev.RESOURCE_NAME == None),
+                      Return=rev.REVISION)
+
+
     @inlineCallbacks
     def _updateSyncToken(self):
+        self._syncTokenRevision = (
+            yield self._incrementSyncTokenQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
 
-        self._syncTokenRevision = (yield self._txn.execSQL("""
-            update %(name)s
-            set (%(column_REVISION)s) = (nextval('%(sequence)s'))
-            where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-            returning %(column_REVISION)s
-            """ % self._revisionsTable,
-            [self._resourceID,]
-        ))[0][0]
+
+    @classproperty
+    def _renameSyncTokenQuery(cls):
+        """
+        DAL query to change sync token for a rename (increment and adjust
+        resource name).
+        """
+        rev = cls._revisionsSchema
+        return Update({
+            rev.REVISION: schema.REVISION_SEQ,
+            rev.COLLECTION_NAME: Parameter("name")},
+            Where=(rev.RESOURCE_ID == Parameter("resourceID")
+                  ).And(rev.RESOURCE_NAME == None),
+            Return=rev.REVISION
+        )
 
 
     @inlineCallbacks
     def _renameSyncToken(self):
+        self._syncTokenRevision = (yield self._renameSyncTokenQuery.on(
+            self._txn, name=self._name, resourceID=self._resourceID))[0][0]
 
-        self._syncTokenRevision = (yield self._txn.execSQL("""
-            update %(name)s
-            set (%(column_REVISION)s, %(column_COLLECTION_NAME)s) = (nextval('%(sequence)s'), %%s)
-            where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s is null
-            returning %(column_REVISION)s
-            """ % self._revisionsTable,
-            [self._name, self._resourceID,]
-        ))[0][0]
+
+    @classproperty
+    def _deleteSyncTokenQuery(cls):
+        """
+        DAL query to update a sync revision to be a tombstone instead.
+        """
+        rev = cls._revisionsSchema
+        return Delete(From=rev, Where=(
+            rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                rev.RESOURCE_ID == Parameter("resourceID")).And(
+                rev.COLLECTION_NAME == None))
 
 
     @inlineCallbacks
     def _deletedSyncToken(self, sharedRemoval=False):
-
         # Remove all child entries
-        yield self._txn.execSQL("""
-            delete from %(name)s
-            where %(column_HOME_RESOURCE_ID)s = %%s and %(column_RESOURCE_ID)s = %%s and %(column_COLLECTION_NAME)s is null
-            """ % self._revisionsTable,
-            [self._home._resourceID, self._resourceID,]
-        )
+        yield self._deleteSyncTokenQuery.on(self._txn,
+                                            homeID=self._home._resourceID,
+                                            resourceID=self._resourceID)
 
-        # If this is a share being removed then we only mark this one specific home/resource-id as being deleted.
-        # On the other hand, if it is a non-shared collection, then we need to mark all collections
+        # If this is a share being removed then we only mark this one specific
+        # home/resource-id as being deleted.  On the other hand, if it is a
+        # non-shared collection, then we need to mark all collections
         # with the resource-id as being deleted to account for direct shares.
         if sharedRemoval:
             yield self._txn.execSQL("""
