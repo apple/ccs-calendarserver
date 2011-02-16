@@ -1812,59 +1812,90 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
         return self._changeRevision("delete", name)
 
 
+    @classproperty
+    def _deleteBumpTokenQuery(cls):
+        rev = cls._revisionsSchema
+        return Update({rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: True},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")),
+                      Return=rev.REVISION)
+
+
+    @classproperty
+    def _updateBumpTokenQuery(cls):
+        rev = cls._revisionsSchema
+        return Update({rev.REVISION: schema.REVISION_SEQ},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")),
+                      Return=rev.REVISION)
+
+
+    @classproperty
+    def _insertFindPreviouslyNamedQuery(cls):
+        rev = cls._revisionsSchema
+        return Select([rev.RESOURCE_ID], From=rev,
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")))
+
+
+    @classproperty
+    def _updatePreviouslyNamedQuery(cls):
+        rev = cls._revisionsSchema
+        return Update({rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: False},
+                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                           rev.RESOURCE_NAME == Parameter("name")),
+                      Return=rev.REVISION)
+
+
+    @classproperty
+    def _completelyNewRevisionQuery(cls):
+        rev = cls._revisionsSchema
+        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
+                       rev.RESOURCE_ID: Parameter("resourceID"),
+                       rev.RESOURCE_NAME: Parameter("name"),
+                       rev.REVISION: schema.REVISION_SEQ,
+                       rev.DELETED: False},
+                      Return=rev.REVISION)
+
+
     @inlineCallbacks
     def _changeRevision(self, action, name):
 
         if action == "delete":
-            self._syncTokenRevision = (yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), TRUE)
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._resourceID, name]
-            ))[0][0]
+            self._syncTokenRevision = (
+                yield self._deleteBumpTokenQuery.on(
+                    self._txn, resourceID=self._resourceID, name=name))[0][0]
         elif action == "update":
-            self._syncTokenRevision = (yield self._txn.execSQL("""
-                update %(name)s
-                set (%(column_REVISION)s) = (nextval('%(sequence)s'))
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                returning %(column_REVISION)s
-                """ % self._revisionsTable,
-                [self._resourceID, name]
-            ))[0][0]
+            self._syncTokenRevision = (
+                yield self._updateBumpTokenQuery.on(
+                    self._txn, resourceID=self._resourceID, name=name))[0][0]
         elif action == "insert":
-            # Note that an "insert" may happen for a resource that previously existed and then
-            # was deleted. In that case an entry in the REVISIONS table still exists so we have to
-            # detect that and do db INSERT or UPDATE as appropriate
+            # Note that an "insert" may happen for a resource that previously
+            # existed and then was deleted. In that case an entry in the
+            # REVISIONS table still exists so we have to detect that and do db
+            # INSERT or UPDATE as appropriate
 
-            found = bool( (yield self._txn.execSQL("""
-                select %(column_RESOURCE_ID)s from %(name)s
-                where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                """ % self._revisionsTable,
-                [self._resourceID, name, ]
-            )) )
+            found = bool( (
+                yield self._insertFindPreviouslyNamedQuery.on(
+                    self._txn, resourceID=self._resourceID, name=name)) )
             if found:
-                self._syncTokenRevision = (yield self._txn.execSQL("""
-                    update %(name)s
-                    set (%(column_REVISION)s, %(column_DELETED)s) = (nextval('%(sequence)s'), FALSE)
-                    where %(column_RESOURCE_ID)s = %%s and %(column_RESOURCE_NAME)s = %%s
-                    returning %(column_REVISION)s
-                    """ % self._revisionsTable,
-                    [self._resourceID, name]
-                ))[0][0]
+                self._syncTokenRevision = (
+                    yield self._updatePreviouslyNamedQuery.on(
+                        self._txn, resourceID=self._resourceID, name=name)
+                )[0][0]
             else:
-                self._syncTokenRevision = (yield self._txn.execSQL("""
-                    insert into %(name)s
-                    (%(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_REVISION)s, %(column_DELETED)s)
-                    values (%%s, %%s, %%s, nextval('%(sequence)s'), FALSE)
-                    returning %(column_REVISION)s
-                    """ % self._revisionsTable,
-                    [self._home._resourceID, self._resourceID, name]
-                ))[0][0]
+                self._syncTokenRevision = (
+                    yield self._completelyNewRevisionQuery.on(
+                        self._txn, homeID=self._home._resourceID,
+                        resourceID=self._resourceID, name=name)
+                )[0][0]
+
 
     def objectResourcesHaveProperties(self):
         return False
+
 
     @inlineCallbacks
     def _loadPropertyStore(self, props=None):
