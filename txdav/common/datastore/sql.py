@@ -835,20 +835,24 @@ class CommonHome(LoggingMixIn):
         returnValue(self._quotaUsedBytes)
 
 
+    @classproperty
+    def _preLockResourceIDQuery(self):
+        meta = self._homeMetaDataSchema
+        return Select(From=meta,
+                      Where=meta.RESOURCE_ID==Parameter("resourceID"),
+                      ForUpdate=True)
+
+
     @inlineCallbacks
     def adjustQuotaUsedBytes(self, delta):
         """
-        Adjust quota used. We need to get a lock on the row first so that the adjustment
-        is done atomically. It is import to do the 'select ... for update' because a race also
-        exists in the 'update ... x = x + 1' case as seen via unit tests.
+        Adjust quota used. We need to get a lock on the row first so that the
+        adjustment is done atomically. It is import to do the 'select ... for
+        update' because a race also exists in the 'update ... x = x + 1' case as
+        seen via unit tests.
         """
-        yield self._txn.execSQL("""
-            select * from %(name)s
-            where %(column_RESOURCE_ID)s = %%s
-            for update
-            """ % self._homeMetaDataTable,
-            [self._resourceID]
-        )
+        yield self._preLockResourceIDQuery.on(self._txn,
+                                              resourceID=self._resourceID)
 
         self._quotaUsedBytes = (yield self._txn.execSQL("""
             update %(name)s
