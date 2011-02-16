@@ -397,7 +397,8 @@ class CalendarObject(CommonObjectResource):
 
 
     @inlineCallbacks
-    def updateDatabase(self, component, expand_until=None, reCreate=False, inserting=False):
+    def updateDatabase(self, component,
+                       expand_until=None, reCreate=False, inserting=False):
         """
         Update the database tables for the new data being written.
 
@@ -407,8 +408,10 @@ class CalendarObject(CommonObjectResource):
 
         # Decide how far to expand based on the component
         master = component.masterComponent()
-        if master is None or not component.isRecurring() and not component.isRecurringUnbounded():
-            # When there is no master we have a set of overridden components - index them all.
+        if ( master is None or not component.isRecurring()
+             and not component.isRecurringUnbounded() ):
+            # When there is no master we have a set of overridden components -
+            #   index them all.
             # When there is one instance - index it.
             # When bounded - index all.
             expand = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
@@ -416,19 +419,22 @@ class CalendarObject(CommonObjectResource):
             if expand_until:
                 expand = expand_until
             else:
-                expand = datetime.date.today() + default_future_expansion_duration
-
-            if expand > (datetime.date.today() + maximum_future_expansion_duration):
+                expand = (datetime.date.today() +
+                          default_future_expansion_duration)
+            if expand > (datetime.date.today() +
+                         maximum_future_expansion_duration):
                 raise IndexedSearchException
-
         try:
-            instances = component.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
+            instances = component.expandTimeRanges(
+                expand, ignoreInvalidInstances=reCreate)
         except InvalidOverriddenInstanceError, e:
-            self.log_error("Invalid instance %s when indexing %s in %s" % (e.rid, self._name, self._calendar,))
-            
+            self.log_error("Invalid instance %s when indexing %s in %s" %
+                           (e.rid, self._name, self._calendar,))
+
             if self._txn._migrating:
                 # TODO: fix the data here by re-writing component then re-index
-                instances = component.expandTimeRanges(expand, ignoreInvalidInstances=True)
+                instances = component.expandTimeRanges(
+                    expand, ignoreInvalidInstances=True)
             else:
                 raise
 
@@ -452,12 +458,13 @@ class CalendarObject(CommonObjectResource):
                 self._attachment = _ATTACHMENTS_MODE_WRITE
                 self._dropboxID = (yield self.dropboxID())
             elif component.hasPropertyInAnyComponent("ATTACH"):
-                # FIXME: really we ought to check to see if the ATTACH properties have URI values
-                # and if those are pointing to our server dropbox collections and only then set
-                # the read mode
+                # FIXME: really we ought to check to see if the ATTACH
+                # properties have URI values and if those are pointing to our
+                # server dropbox collections and only then set the read mode
                 self._attachment = _ATTACHMENTS_MODE_READ
                 self._dropboxID = (yield self.dropboxID())
 
+        tr = schema.TIME_RANGE
         co = schema.CALENDAR_OBJECT
         values = {
             co.CALENDAR_RESOURCE_ID            : self._calendar._resourceID,
@@ -489,9 +496,9 @@ class CalendarObject(CommonObjectResource):
                             ).on(self._txn))[0][0]
             # Need to wipe the existing time-range for this and rebuild
             yield Delete(
-                From=schema.TIME_RANGE,
-                Where=schema.TIME_RANGE.CALENDAR_OBJECT_RESOURCE_ID ==
-                self._resourceID).on(self._txn)
+                From=tr,
+                Where=tr.CALENDAR_OBJECT_RESOURCE_ID == self._resourceID
+            ).on(self._txn)
 
         # CALENDAR_OBJECT table update
         for key in instances:
@@ -500,25 +507,18 @@ class CalendarObject(CommonObjectResource):
             end = instance.end.replace(tzinfo=utc)
             float = instance.start.tzinfo is None
             transp = instance.component.propertyValue("TRANSP") == "TRANSPARENT"
-            instanceid = (yield self._txn.execSQL(
-                """
-                insert into TIME_RANGE
-                (CALENDAR_RESOURCE_ID, CALENDAR_OBJECT_RESOURCE_ID, FLOATING, START_DATE, END_DATE, FBTYPE, TRANSPARENT)
-                 values
-                (%s, %s, %s, %s, %s, %s, %s)
-                 returning
-                INSTANCE_ID
-                """,
-                [
-                    self._calendar._resourceID,
-                    self._resourceID,
-                    float,
-                    start,
-                    end,
-                    icalfbtype_to_indexfbtype.get(instance.component.getFBType(), icalfbtype_to_indexfbtype["FREE"]),
-                    transp,
-                ],
-            ))[0][0]
+            instanceid = (yield Insert({
+                tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
+                tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
+                tr.FLOATING                    : float,
+                tr.START_DATE                  : start,
+                tr.END_DATE                    : end,
+                tr.FBTYPE                      :
+                    icalfbtype_to_indexfbtype.get(
+                        instance.component.getFBType(),
+                        icalfbtype_to_indexfbtype["FREE"]),
+                tr.TRANSPARENT                 : transp,
+            }, Return=tr.INSTANCE_ID).on(self._txn))[0][0]
             peruserdata = component.perUserTransparency(instance.rid)
             for useruid, transp in peruserdata:
                 yield self._txn.execSQL(
