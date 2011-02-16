@@ -931,9 +931,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
     _bindSchema           = None
     _homeChildSchema      = None
-    _homeChildBindSchema  = None
     _revisionsSchema      = None
-    _revisionsBindSchema  = None
     _objectSchema         = None
 
     _bindTable           = None
@@ -1006,34 +1004,54 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin):
 
 
     @classmethod
+    def _allHomeChildrenQuery(cls, owned):
+        bind = cls._bindSchema
+        child = cls._homeChildSchema
+        if owned:
+            ownedPiece = bind.BIND_MODE == _BIND_MODE_OWN
+        else:
+            ownedPiece = (bind.BIND_MODE != _BIND_MODE_OWN).And(
+                bind.RESOURCE_NAME != None)
+        return Select([child.RESOURCE_ID,
+                       bind.RESOURCE_NAME,
+                       child.CREATED,
+                       child.MODIFIED],
+                     From=child.join(
+                         bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                         'left outer'),
+                     Where=(bind.HOME_RESOURCE_ID == Parameter("resourceID")
+                           ).And(ownedPiece))
+
+
+    @classproperty
+    def _ownedHomeChildrenQuery(cls):
+        return cls._allHomeChildrenQuery(True)
+
+
+    @classproperty
+    def _sharedHomeChildrenQuery(cls):
+        return cls._allHomeChildrenQuery(False)
+
+
+    @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, home, owned):
         """
-        Load all child objects and return a list of them. This must create the child classes
-        and initialize them using "batched" SQL operations to keep this constant wrt the number of
-        children. This is an optimization for Depth:1 operations on the home.
+        Load all child objects and return a list of them. This must create the
+        child classes and initialize them using "batched" SQL operations to keep
+        this constant wrt the number of children. This is an optimization for
+        Depth:1 operations on the home.
         """
-        
+
         results = []
 
         # Load from the main table first
         if owned:
-            ownedPiece = "%(BIND:column_BIND_MODE)s = %%s"
+            query = cls._ownedHomeChildrenQuery
         else:
-            ownedPiece = "%(BIND:column_BIND_MODE)s != %%s and %(BIND:column_RESOURCE_NAME)s is not null"
-        dataRows = (yield home._txn.execSQL(("""
-            select %(CHILD:column_RESOURCE_ID)s, %(BIND:column_RESOURCE_NAME)s, %(CHILD:column_CREATED)s, %(CHILD:column_MODIFIED)s
-            from %(CHILD:name)s
-            left outer join %(BIND:name)s on (%(CHILD:column_RESOURCE_ID)s = %(BIND:column_RESOURCE_ID)s)
-            where
-              %(BIND:column_HOME_RESOURCE_ID)s = %%s and """ + ownedPiece
-            ) % cls._homeChildBindTable,
-            [
-                home._resourceID,
-                _BIND_MODE_OWN,
-            ]
-        ))
-        
+            query = cls._sharedHomeChildrenQuery
+        dataRows = (yield query.on(home._txn, resourceID=home._resourceID))
+
         if dataRows:
             # Get property stores for all these child resources (if any found)
             propertyStores =(yield PropertyStore.loadAll(

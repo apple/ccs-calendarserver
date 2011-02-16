@@ -110,6 +110,7 @@ class AddressBook(CommonHomeChild):
 
     # structured tables.  (new, preferred)
     _bindSchema = schema.ADDRESSBOOK_BIND
+    _homeChildSchema = schema.ADDRESSBOOK
 
     # string mappings (old, removing)
     _bindTable = ADDRESSBOOK_BIND_TABLE

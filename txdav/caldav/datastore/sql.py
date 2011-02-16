@@ -191,6 +191,7 @@ class Calendar(CommonHomeChild):
 
     # structured tables.  (new, preferred)
     _bindSchema = schema.CALENDAR_BIND
+    _homeChildSchema = schema.CALENDAR
 
     # string mappings (old, removing)
     _bindTable = CALENDAR_BIND_TABLE
