@@ -85,9 +85,9 @@ class PropertyStore(AbstractPropertyStore):
     def forMultipleResources(cls, defaultUser, txn,
                              childColumn, parentColumn, parentID):
         """
-        Return a list of property stores for all objects in a collection.  This
-        is used to optimize Depth:1 operations on that collection, by loading
-        all relevant properties in a single query.
+        Load all property stores for all objects in a collection.  This is used
+        to optimize Depth:1 operations on that collection, by loading all
+        relevant properties in a single query.
 
         @param defaultUser: the UID of the user who owns / is requesting the
             property stores; the ones whose per-user properties will be exposed.
@@ -106,6 +106,8 @@ class PropertyStore(AbstractPropertyStore):
             e.g. if childColumn is addressbook object's resource ID, then this
             should be addressbook's resource ID.
 
+        @return: a L{Deferred} that fires with a C{dict} mapping resource ID (a
+            value taken from C{childColumn}) to a L{PropertyStore} for that ID.
         """
         childTable = TableSyntax(childColumn.model.table)
         query = Select([
