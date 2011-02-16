@@ -64,6 +64,7 @@ from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Lock
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Max
+from twext.enterprise.dal.syntax import Update
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -836,11 +837,20 @@ class CommonHome(LoggingMixIn):
 
 
     @classproperty
-    def _preLockResourceIDQuery(self):
-        meta = self._homeMetaDataSchema
+    def _preLockResourceIDQuery(cls):
+        meta = cls._homeMetaDataSchema
         return Select(From=meta,
                       Where=meta.RESOURCE_ID==Parameter("resourceID"),
                       ForUpdate=True)
+
+
+    @classproperty
+    def _increaseQuotaQuery(cls):
+        meta = cls._homeMetaDataSchema
+        return Update({meta.QUOTA_USED_BYTES: meta.QUOTA_USED_BYTES +
+                       Parameter("delta")},
+                      Where=meta.RESOURCE_ID == Parameter("resourceID"),
+                      Return=meta.QUOTA_USED_BYTES)
 
 
     @inlineCallbacks
@@ -854,14 +864,8 @@ class CommonHome(LoggingMixIn):
         yield self._preLockResourceIDQuery.on(self._txn,
                                               resourceID=self._resourceID)
 
-        self._quotaUsedBytes = (yield self._txn.execSQL("""
-            update %(name)s
-            set %(column_QUOTA_USED_BYTES)s = %(column_QUOTA_USED_BYTES)s + %%s
-            where %(column_RESOURCE_ID)s = %%s
-            returning %(column_QUOTA_USED_BYTES)s
-            """ % self._homeMetaDataTable,
-            [delta, self._resourceID]
-        ))[0][0]
+        self._quotaUsedBytes = (yield self._increaseQuotaQuery.on(
+            self._txn, delta=delta, resourceID=self._resourceID))[0][0]
 
         # Double check integrity
         if self._quotaUsedBytes < 0:
