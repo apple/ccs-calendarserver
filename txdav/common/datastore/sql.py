@@ -712,22 +712,17 @@ class CommonHome(LoggingMixIn):
                     changed_collections.add(path)
 
         # Now deal with shared collections
+        bind = self._bindSchema
+        rev = self._revisionsSchema
         shares = yield self.listSharedChildren()
         for sharename in shares:
             sharetoken = 0 if sharename in changed_collections else token
-            shareID = (yield self._txn.execSQL("""
-                select %(column_RESOURCE_ID)s from %(name)s
-                where
-                  %(column_RESOURCE_NAME)s = %%s and
-                  %(column_HOME_RESOURCE_ID)s = %%s and
-                  %(column_BIND_MODE)s != %%s
-                """ % self._bindTable,
-                [
-                    sharename,
-                    self._resourceID,
-                    _BIND_MODE_OWN
-                ]
-            ))[0][0]
+            shareID = (yield Select(
+                [bind.RESOURCE_ID], From=bind,
+                Where=(bind.RESOURCE_NAME == sharename).And(
+                    bind.HOME_RESOURCE_ID == self._resourceID).And(
+                        bind.BIND_MODE == _BIND_MODE_OWN)
+            ).on(self._txn))[0][0]
             results = [
                 (
                     sharename,
@@ -735,13 +730,11 @@ class CommonHome(LoggingMixIn):
                     wasdeleted
                 )
                 for name, wasdeleted in
-                (yield self._txn.execSQL("""
-                    select %(column_RESOURCE_NAME)s, %(column_DELETED)s
-                    from %(name)s
-                    where %(column_REVISION)s > %%s and %(column_RESOURCE_ID)s = %%s
-                    """ % self._revisionsTable,
-                    [sharetoken, shareID],
-                )) if name
+                (yield Select([rev.RESOURCE_NAME, rev.DELETED],
+                                 From=rev,
+                                Where=(rev.REVISION > sharetoken).And(
+                                rev.RESOURCE_ID == shareID)).on(self._txn))
+                if name
             ]
 
             for path, name, wasdeleted in results:
@@ -751,7 +744,6 @@ class CommonHome(LoggingMixIn):
 
             for path, name, wasdeleted in results:
                 changed.append("%s/%s" % (path, name,))
-
 
         changed.sort()
         deleted.sort()
