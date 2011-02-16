@@ -25,6 +25,7 @@ from twext.enterprise.dal.syntax import (
     TableMismatch, Parameter, Max, Len, NotEnoughValues
 )
 
+from twext.enterprise.dal.syntax import FunctionInvocation
 from twisted.trial.unittest import TestCase
 
 class GenerationTests(TestCase):
@@ -367,6 +368,21 @@ class GenerationTests(TestCase):
         )
 
 
+    def test_insertMultiReturn(self):
+        """
+        L{Insert}'s C{Return} argument can also be a C{tuple}, which will insert
+        an SQL 'returning' clause with multiple columns.
+        """
+        self.assertEquals(
+            Insert({self.schema.FOO.BAR: 23,
+                    self.schema.FOO.BAZ: 9},
+                   Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ)).toSQL(),
+            SQLFragment(
+                "insert into FOO (BAR, BAZ) values (?, ?) returning BAR, BAZ",
+                [23, 9])
+        )
+
+
     def test_insertMismatch(self):
         """
         L{Insert} raises L{TableMismatch} if the columns specified aren't all
@@ -405,6 +421,37 @@ class GenerationTests(TestCase):
                      self.schema.FOO.BAZ: 9,
                      self.schema.TEXTUAL.MYTEXT: 'hello'},
             Where=self.schema.FOO.BAZ == 9
+        )
+
+
+    def test_updateFunction(self):
+        """
+        L{Update} values may be L{FunctionInvocation}s, to update to computed
+        values in the database.
+        """
+        self.assertEquals(
+            Update(
+                {self.schema.FOO.BAR: 23,
+                 self.schema.FOO.BAZ: FunctionInvocation("hello")},
+                Where=self.schema.FOO.BAZ == 9
+            ).toSQL(),
+            SQLFragment("update FOO set BAR = ?, BAZ = hello() "
+                        "where BAZ = ?", [23, 9])
+        )
+
+
+    def test_insertFunction(self):
+        """
+        L{Update} values may be L{FunctionInvocation}s, to update to computed
+        values in the database.
+        """
+        self.assertEquals(
+            Insert(
+                {self.schema.FOO.BAR: 23,
+                 self.schema.FOO.BAZ: FunctionInvocation("hello")},
+            ).toSQL(),
+            SQLFragment("insert into FOO (BAR, BAZ) "
+                        "values (?, hello())", [23])
         )
 
 

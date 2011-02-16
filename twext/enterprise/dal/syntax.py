@@ -92,7 +92,7 @@ def comparison(comparator):
         if isinstance(other, ColumnSyntax):
             return ColumnComparison(self, comparator, other)
         else:
-            return ConstantComparison(self, comparator, other)
+            return CompoundComparison(self, comparator, Constant(other))
     return __
 
 
@@ -123,21 +123,56 @@ class ExpressionSyntax(Syntax):
 
 
 class FunctionInvocation(ExpressionSyntax):
-    def __init__(self, name, arg):
+    def __init__(self, name, *args):
         self.name = name
-        self.arg = arg
+        self.args = args
 
 
     def allColumns(self):
-        return self.arg.allColumns()
+        """
+        All of the columns in all of the arguments' columns.
+        """
+        def ac():
+            for arg in self.args:
+                for column in arg.allColumns():
+                    yield column
+        return list(ac())
 
 
     def subSQL(self, placeholder, quote, allTables):
         result = SQLFragment(self.name)
-        result.text += "("
-        result.append(self.arg.subSQL(placeholder, quote, allTables))
-        result.text += ")"
+        result.append(_inParens(
+            _commaJoined(_convert(arg).subSQL(placeholder, quote, allTables)
+                         for arg in self.args)))
         return result
+
+
+
+class Constant(ExpressionSyntax):
+    def __init__(self, value):
+        self.value = value
+
+
+    def allColumns(self):
+        return []
+
+
+    def subSQL(self, placeholder, quote, allTables):
+        return SQLFragment(placeholder, [self.value])
+
+
+
+class NamedValue(ExpressionSyntax):
+    """
+    A constant within the database; something pre-defined, such as
+    CURRENT_TIMESTAMP.
+    """
+    def __init__(self, name):
+        self.name = name
+
+
+    def subSQL(self, placeholder, quote, allTables):
+        return SQLFragment(self.name)
 
 
 
@@ -150,11 +185,12 @@ class Function(object):
         self.name = name
 
 
-    def __call__(self, arg):
+    def __call__(self, *args):
         """
         Produce an L{FunctionInvocation}
         """
-        return FunctionInvocation(self.name, arg)
+        return FunctionInvocation(self.name, *args)
+
 
 Max = Function("max")
 Len = Function("character_length")
@@ -334,21 +370,6 @@ class NullComparison(Comparison):
 
 
 
-class ConstantComparison(Comparison):
-
-    def allColumns(self):
-        return self.a.allColumns()
-
-
-    def subSQL(self, placeholder, quote, allTables):
-        sqls = SQLFragment()
-        sqls.append(self._subexpression(self.a, placeholder, quote, allTables))
-        sqls.append(SQLFragment(' ' + ' '.join([self.op, placeholder]),
-                                 [self.b]))
-        return sqls
-
-
-
 class CompoundComparison(Comparison):
     """
     A compound comparison; two or more constraints, joined by an operation
@@ -470,8 +491,8 @@ class Select(_Statement):
 
         if self.Limit is not None:
             stmt.text += quote(" limit ")
-            stmt.text += placeholder
-            stmt.parameters.append(self.Limit)
+            stmt.append(Constant(self.Limit).subSQL(placeholder, quote,
+                                                    allTables))
         return stmt
 
 
@@ -525,13 +546,26 @@ def _modelsFromMap(columnMap):
 
 
 
-class Insert(object):
+class _CommaList(object):
+    def __init__(self, subfragments):
+        self.subfragments = subfragments
+
+
+    def subSQL(self, placeholder, quote, allTables):
+        return _commaJoined(f.subSQL(placeholder, quote, allTables)
+                            for f in self.subfragments)
+
+
+
+class Insert(_Statement):
     """
     'insert' statement.
     """
 
     def __init__(self, columnMap, Return=None):
         self.columnMap = columnMap
+        if isinstance(Return, (tuple, list)):
+            Return = _CommaList(Return)
         self.Return = Return
         columns = _modelsFromMap(columnMap)
         table = _fromSameTable(columns)
@@ -563,7 +597,8 @@ class Insert(object):
              sortedColumns])))
         stmt.append(SQLFragment(" values "))
         stmt.append(_inParens(_commaJoined(
-            [SQLFragment(placeholder, [v]) for (c, v) in sortedColumns])))
+            [_convert(v).subSQL(placeholder, quote, allTables)
+             for (c, v) in sortedColumns])))
         if self.Return is not None:
             stmt.text += ' returning '
             stmt.append(self.Return.subSQL(placeholder, quote, allTables))
@@ -571,7 +606,19 @@ class Insert(object):
 
 
 
-class Update(object):
+def _convert(x):
+    """
+    Convert a value to an appropriate SQL AST node.  (Currently a simple
+    isinstance, could be promoted to use adaptation if we want to get fancy.)
+    """
+    if isinstance(x, ExpressionSyntax):
+        return x
+    else:
+        return Constant(x)
+
+
+
+class Update(_Statement):
     """
     'update' statement
     """
@@ -602,7 +649,8 @@ class Update(object):
         result.append(
             _commaJoined(
                 [c.subSQL(placeholder, quote, allTables).append(
-                    SQLFragment(" = " + placeholder, [v]))
+                    SQLFragment(" = ").subSQL(placeholder, quote, allTables)
+                ).append(_convert(v).subSQL(placeholder, quote, allTables))
                     for (c, v) in sortedColumns]
             )
         )

@@ -47,6 +47,10 @@ from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook,\
 
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
     CommonObjectResource
+from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import NamedValue
+from twext.enterprise.dal.syntax import Function
 from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
     ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE,\
     ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE,\
@@ -55,6 +59,7 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
     ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, schema
 from txdav.base.propertystore.base import PropertyName
 
+dbCurrentTime = Function('timezone')('UTC', NamedValue('CURRENT_TIMESTAMP'))
 
 
 class AddressBookHome(CommonHome):
@@ -207,13 +212,16 @@ class AddressBookObject(CommonObjectResource):
 
 
     @inlineCallbacks
-    def updateDatabase(self, component, expand_until=None, reCreate=False, inserting=False):
+    def updateDatabase(self, component, expand_until=None, reCreate=False,
+                       inserting=False):
         """
         Update the database tables for the new data being written.
 
         @param component: addressbook data to store
         @type component: L{Component}
         """
+
+        ao = schema.ADDRESSBOOK_OBJECT
 
         componentText = str(component)
         self._objectText = componentText
@@ -223,42 +231,24 @@ class AddressBookObject(CommonObjectResource):
         self._size = len(componentText)
         if inserting:
             self._resourceID, self._created, self._modified = (
-                yield self._txn.execSQL(
-                """
-                insert into ADDRESSBOOK_OBJECT
-                (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME, VCARD_TEXT, VCARD_UID, MD5)
-                 values
-                (%s, %s, %s, %s, %s)
-                returning
-                 RESOURCE_ID,
-                 CREATED,
-                 MODIFIED
-                """,
-                [
-                    self._addressbook._resourceID,
-                    self._name,
-                    componentText,
-                    component.resourceUID(),
-                    self._md5,
-                ]
-            ))[0]
+                yield Insert(
+                    {ao.ADDRESSBOOK_RESOURCE_ID: self._addressbook._resourceID,
+                     ao.RESOURCE_NAME: self._name,
+                     ao.VCARD_TEXT: componentText,
+                     ao.VCARD_UID: component.resourceUID(),
+                     ao.MD5: self._md5},
+                    Return=(ao.RESOURCE_ID,
+                            ao.CREATED,
+                            ao.MODIFIED)
+                ).on(self._txn))[0]
         else:
-            yield self._txn.execSQL(
-                """
-                update ADDRESSBOOK_OBJECT set
-                (VCARD_TEXT, VCARD_UID, MD5, MODIFIED)
-                 =
-                (%s, %s, %s, timezone('UTC', CURRENT_TIMESTAMP))
-                where RESOURCE_ID = %s
-                returning MODIFIED
-                """,
-                [
-                    componentText,
-                    component.resourceUID(),
-                    self._md5,
-                    self._resourceID,
-                ]
-            )
+            self._modified = (yield Update(
+                {ao.VCARD_TEXT: componentText,
+                 ao.VCARD_UID: component.resourceUID(),
+                 ao.MD5: self._md5,
+                 ao.MODIFIED: dbCurrentTime},
+                Where=ao.RESOURCE_ID == self._resourceID,
+                Return=ao.MODIFIED).on(self._txn))[0][0]
 
 
     @inlineCallbacks
@@ -275,3 +265,6 @@ class AddressBookObject(CommonObjectResource):
         The content type of Addressbook objects is text/x-vcard.
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
+
+
+
