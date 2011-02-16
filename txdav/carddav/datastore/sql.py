@@ -194,6 +194,7 @@ class AddressBookObject(CommonObjectResource):
     implements(IAddressBookObject)
 
     _objectTable = ADDRESSBOOK_OBJECT_TABLE
+    _objectSchema = schema.ADDRESSBOOK_OBJECT
 
     def __init__(self, addressbook, name, uid, resourceID=None, metadata=None):
 

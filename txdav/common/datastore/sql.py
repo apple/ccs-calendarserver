@@ -66,6 +66,7 @@ from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Max
 from twext.enterprise.dal.syntax import default
 from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import Len
 from twext.enterprise.dal.syntax import Update
 
 from txdav.base.propertystore.base import PropertyName
@@ -2006,6 +2007,14 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         self._objectText = None
 
 
+
+    @classproperty
+    def _allColumnsWithParent(cls):
+        obj = cls._objectSchema
+        return Select(cls._allColumns, From=obj,
+                      Where=obj.PARENT_RESOURCE_ID == Parameter("parentID"))
+
+
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, parent):
@@ -2019,12 +2028,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         results = []
 
         # Load from the main table first
-        dataRows = yield parent._txn.execSQL(cls._selectAllColumns() + """
-            from %(name)s
-            where %(column_PARENT_RESOURCE_ID)s = %%s
-            """ % cls._objectTable,
-            [parent._resourceID,]
-        )
+        dataRows = yield cls._allColumnsWithParent.on(
+            parent._txn, parentID=parent._resourceID)
 
         if dataRows:
             # Get property stores for all these child resources (if any found)
@@ -2123,7 +2128,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     def _selectAllColumns(cls):
         """
         Full set of columns in the object table that need to be loaded to
-        initialize the object resource state.
+        initialize the object resource state.  (XXX: remove me, old string-based
+        version, see _allColumns)
         """
         return """
             select
@@ -2136,9 +2142,28 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
               %(column_MODIFIED)s
         """ % cls._objectTable
 
+
+    @classproperty
+    def _allColumns(cls):
+        """
+        Full set of columns in the object table that need to be loaded to
+        initialize the object resource state.
+        """
+        obj = cls._objectSchema
+        return [
+            obj.RESOURCE_ID,
+            obj.RESOURCE_NAME,
+            obj.UID,
+            obj.MD5,
+            Len(obj.TEXT),
+            obj.CREATED,
+            obj.MODIFIED
+        ]
+
+
     def _initFromRow(self, row):
         """
-        Given a select result using the columns from L{_selectAllColumns}, initialize
+        Given a select result using the columns from L{_allColumns}, initialize
         the object resource state.
         """
         (self._resourceID,
@@ -2148,6 +2173,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
          self._size,
          self._created,
          self._modified,) = tuple(row)
+
 
     @inlineCallbacks
     def _loadPropertyStore(self, props=None, created=False):

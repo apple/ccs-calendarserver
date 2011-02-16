@@ -65,6 +65,7 @@ from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import utcNowSQL
+from twext.enterprise.dal.syntax import Len
 from txdav.common.icommondatastore import IndexedSearchException
 
 from vobject.icalendar import utc
@@ -331,6 +332,7 @@ class CalendarObject(CommonObjectResource):
     implements(ICalendarObject)
 
     _objectTable = CALENDAR_OBJECT_TABLE
+    _objectSchema = schema.CALENDAR_OBJECT
 
     def __init__(self, calendar, name, uid, resourceID=None, metadata=None):
 
@@ -347,10 +349,6 @@ class CalendarObject(CommonObjectResource):
 
     @classmethod
     def _selectAllColumns(cls):
-        """
-        Full set of columns in the object table that need to be loaded to
-        initialize the object resource state.
-        """
         return """
             select 
               %(column_RESOURCE_ID)s,
@@ -369,10 +367,29 @@ class CalendarObject(CommonObjectResource):
               %(column_MODIFIED)s
         """ % cls._objectTable
 
+
+    _allColumns = [
+        _objectSchema.RESOURCE_ID,
+        _objectSchema.RESOURCE_NAME,
+        _objectSchema.UID,
+        _objectSchema.MD5,
+        Len(_objectSchema.TEXT),
+        _objectSchema.ATTACHMENTS_MODE,
+        _objectSchema.DROPBOX_ID,
+        _objectSchema.ACCESS,
+        _objectSchema.SCHEDULE_OBJECT,
+        _objectSchema.SCHEDULE_TAG,
+        _objectSchema.SCHEDULE_ETAGS,
+        _objectSchema.PRIVATE_COMMENTS,
+        _objectSchema.CREATED,
+        _objectSchema.MODIFIED
+    ]
+
+
     def _initFromRow(self, row):
         """
-        Given a select result using the columns from L{_selectAllColumns}, initialize
-        the object resource state.
+        Given a select result using the columns from L{_allColumns}, initialize
+        the calendar object resource state.
         """
         (self._resourceID,
          self._name,
@@ -388,6 +405,7 @@ class CalendarObject(CommonObjectResource):
          self._private_comments,
          self._created,
          self._modified,) = tuple(row)
+
 
     @property
     def _calendar(self):
