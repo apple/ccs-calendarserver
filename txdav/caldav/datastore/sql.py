@@ -743,10 +743,11 @@ class Attachment(object):
     @classmethod
     def _attachmentPathRoot(cls, txn, dropboxID):
         attachmentRoot = txn._store.attachmentsPath
-        
+
         # Use directory hashing scheme based on MD5 of dropboxID
         hasheduid = hashlib.md5(dropboxID).hexdigest()
-        return attachmentRoot.child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
+        return attachmentRoot.child(hasheduid[0:2]).child(
+            hasheduid[2:4]).child(hasheduid)
 
 
     @classmethod
@@ -761,23 +762,17 @@ class Attachment(object):
 
         # Now create the DB entry
         attachment = cls(txn, dropboxID, name, ownerHomeID)
-        yield txn.execSQL(
-            """
-            insert into ATTACHMENT
-              (CALENDAR_HOME_RESOURCE_ID, DROPBOX_ID, CONTENT_TYPE, SIZE, MD5, PATH)
-             values
-              (%s, %s, %s, %s, %s, %s)
-            """,
-            [
-                ownerHomeID,
-                dropboxID,
-                "",
-                0,
-                "",
-                name,
-            ]
-        )
+        att = schema.ATTACHMENT
+        yield Insert({
+            att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
+            att.DROPBOX_ID                : dropboxID,
+            att.CONTENT_TYPE              : "",
+            att.SIZE                      : 0,
+            att.MD5                       : "",
+            att.PATH                      : name
+        }).on(txn)
         returnValue(attachment)
+
 
     @classmethod
     @inlineCallbacks
@@ -785,6 +780,7 @@ class Attachment(object):
         attachment = Attachment(txn, dropboxID, name)
         attachment = (yield attachment.initFromStore())
         returnValue(attachment)
+
 
     @inlineCallbacks
     def initFromStore(self):
