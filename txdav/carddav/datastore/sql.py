@@ -112,6 +112,7 @@ class AddressBook(CommonHomeChild):
     _bindSchema = schema.ADDRESSBOOK_BIND
     _homeChildSchema = schema.ADDRESSBOOK
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
+    _objectSchema = schema.ADDRESSBOOK_OBJECT
 
     # string mappings (old, removing)
     _bindTable = ADDRESSBOOK_BIND_TABLE
