@@ -15,15 +15,6 @@
 # limitations under the License.
 ##
 
-from twext.web2.dav.element.parser import WebDAVDocument
-from twext.web2.dav.resource import TwistedQuotaUsedProperty
-from twistedcaldav.caldavxml import ScheduleTag
-from twistedcaldav.customxml import TwistedCalendarHasPrivateCommentsProperty,\
-    TwistedCalendarAccessProperty, TwistedSchedulingObjectResource,\
-    TwistedScheduleMatchETags
-from twistedcaldav.ical import Component
-from txdav.base.propertystore.base import PropertyName
-import sys
 
 """
 Tool to manage schema upgrade of SQL database during internal development phase as we don't have
@@ -33,8 +24,17 @@ To run: first start the postgres server by hand pointing at the appropriate data
 run this script - no arguments needed.
 """
 
+from twext.web2.dav.element.parser import WebDAVDocument
+from twext.web2.dav.resource import TwistedQuotaUsedProperty
+from twistedcaldav.caldavxml import ScheduleTag
+from twistedcaldav.customxml import TwistedCalendarHasPrivateCommentsProperty,\
+    TwistedCalendarAccessProperty, TwistedSchedulingObjectResource,\
+    TwistedScheduleMatchETags
+from twistedcaldav.ical import Component
+from txdav.base.propertystore.base import PropertyName
 import pg
 import pgdb
+import sys
 
 def query(db, sql, params=()):
     
@@ -42,6 +42,25 @@ def query(db, sql, params=()):
     cursor.execute(sql, params)
     return cursor
 
+def queryIgnoreAlreadyExists(db, sql, params=()):
+    
+    try:
+        query(db, sql, params)
+    except pg.DatabaseError, e:
+        if str(e).find("already exists") == -1:
+            print "Fatal SQL error: %s" % (e,)
+            sys.exit(1)
+    db.commit()
+    
+def queryExit(db, sql, params=()):
+    
+    try:
+        query(db, sql, params)
+    except pg.DatabaseError, e:
+        print "Fatal SQL error: %s" % (e,)
+        sys.exit(1)
+    db.commit()
+    
 def rowsForProperty(propelement):
     pname = PropertyName.fromElement(propelement)
     return query(db, """
@@ -63,11 +82,83 @@ if __name__ == "__main__":
 
     db = pgdb.connect(database='caldav', host='localhost')
 
+    # Add CALENDAR_HOME index
+    print "Create the CALENDAR_HOME_OWNER_UID index"
+    queryIgnoreAlreadyExists(db, "create index CALENDAR_HOME_OWNER_UID on CALENDAR_HOME(OWNER_UID)")
+    
+    # Create the CALENDAR_HOME_METADATA table and provision with empty data
+    print "Create the CALENDAR_HOME_METADATA table"
+    queryIgnoreAlreadyExists(db, """
+        ----------------------------
+        -- Calendar Home Metadata --
+        ----------------------------
+        
+        create table CALENDAR_HOME_METADATA (
+          RESOURCE_ID      integer      not null references CALENDAR_HOME on delete cascade,
+          QUOTA_USED_BYTES integer      default 0 not null
+        );
+
+        create index CALENDAR_HOME_METADATA_RESOURCE_ID
+            on CALENDAR_HOME_METADATA(RESOURCE_ID);
+
+        insert into CALENDAR_HOME_METADATA
+          select RESOURCE_ID from CALENDAR_HOME
+    """)
+
+    # Add INVITE index
+    print "Create indexes for INVITE table"
+    queryIgnoreAlreadyExists(db, """
+        create index INVITE_INVITE_UID on INVITE(INVITE_UID);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index INVITE_RESOURCE_ID on INVITE(INVITE_UID);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index INVITE_HOME_RESOURCE_ID on INVITE(INVITE_UID);
+    """)
+    
+    # Add NOTIFICATION_HOME index
+    print "Create the NOTIFICATION_HOME_OWNER_UID index"
+    queryIgnoreAlreadyExists(db, "create index NOTIFICATION_HOME_OWNER_UID on NOTIFICATION_HOME(OWNER_UID)")
+
+    # Alter the NOTIFICATION table
+    print "Alter the NOTIFICATION table and add indexes"
+    queryIgnoreAlreadyExists(db, """
+        alter table NOTIFICATION
+        alter column
+          XML_TYPE         TYPE varchar(255),
+        alter column
+          XML_DATA         TYPE text;
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
+          NOTIFICATION(NOTIFICATION_HOME_RESOURCE_ID);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index NOTIFICATION_NOTIFICATION_UID on NOTIFICATION(NOTIFICATION_UID);
+    """)
+    
+    # Add CALENDAR_BIND index
+    print "Create indexes for CALENDAR_BIND table"
+    queryIgnoreAlreadyExists(db, """
+        create index CALENDAR_BIND_HOME_RESOURCE_ID on
+          CALENDAR_BIND(CALENDAR_HOME_RESOURCE_ID);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index CALENDAR_BIND_RESOURCE_ID on
+          CALENDAR_BIND(CALENDAR_RESOURCE_ID);
+    """)
+    
     # Alter the CALENDAR_OBJECT table and add columns
     print "Alter the CALENDAR_OBJECT table"
-    try:
-        query(db, """
-            alter table CALENDAR_OBJECT
+    queryIgnoreAlreadyExists(db, """
+        alter table CALENDAR_OBJECT
+            alter column
+              ATTACHMENTS_MODE TYPE integer,
+            alter column
+              ATTACHMENTS_MODE set default 0,
+            add column
+              DROPBOX_ID       varchar(255),
             add column
               ACCESS           integer default 0 not null,
             add column
@@ -78,26 +169,196 @@ if __name__ == "__main__":
               SCHEDULE_ETAGS   text    default null,
             add column
               PRIVATE_COMMENTS boolean default false not null;
-
-            -- Enumeration of calendar access types
-            
-            create table CALENDAR_ACCESS_TYPE (
-              ID          integer     primary key,
-              DESCRIPTION varchar(32) not null unique
-            );
-            
-            insert into CALENDAR_ACCESS_TYPE values (0, ''             );
-            insert into CALENDAR_ACCESS_TYPE values (1, 'public'       );
-            insert into CALENDAR_ACCESS_TYPE values (2, 'private'      );
-            insert into CALENDAR_ACCESS_TYPE values (3, 'confidential' );
-            insert into CALENDAR_ACCESS_TYPE values (4, 'restricted'   );
-        """)
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID on
+          CALENDAR_OBJECT(CALENDAR_RESOURCE_ID);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_AND_ICALENDAR_UID on
+          CALENDAR_OBJECT(CALENDAR_RESOURCE_ID, ICALENDAR_UID);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_RECURRANCE_MAX on
+          CALENDAR_OBJECT(CALENDAR_RESOURCE_ID, RECURRANCE_MAX);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index CALENDAR_OBJECT_ORGANIZER_OBJECT on
+          CALENDAR_OBJECT(ORGANIZER_OBJECT);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index CALENDAR_OBJECT_DROPBOX_ID on
+          CALENDAR_OBJECT(DROPBOX_ID);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        delete from CALENDAR_OBJECT_ATTACHMENTS_MODE;
+        insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (0, 'none' );
+        insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (1, 'read' );
+        insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (2, 'write');
+    """)
+    queryIgnoreAlreadyExists(db, """
+        -- Enumeration of calendar access types
         
-    except pg.DatabaseError, e:
-        if str(e).find("already exists") == -1:
-            print "Fatal SQL error: %s" % (e,)
-            sys.exit(1)
-    db.commit()
+        create table CALENDAR_ACCESS_TYPE (
+          ID          integer     primary key,
+          DESCRIPTION varchar(32) not null unique
+        );
+        
+        insert into CALENDAR_ACCESS_TYPE values (0, ''             );
+        insert into CALENDAR_ACCESS_TYPE values (1, 'public'       );
+        insert into CALENDAR_ACCESS_TYPE values (2, 'private'      );
+        insert into CALENDAR_ACCESS_TYPE values (3, 'confidential' );
+        insert into CALENDAR_ACCESS_TYPE values (4, 'restricted'   );
+    """)
+    
+    # Add TIME_RANGE index
+    print "Create indexes for TIME_RANGE table"
+    queryIgnoreAlreadyExists(db, """
+        create index TIME_RANGE_CALENDAR_RESOURCE_ID on
+          TIME_RANGE(CALENDAR_RESOURCE_ID);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index TIME_RANGE_CALENDAR_OBJECT_RESOURCE_ID on
+          TIME_RANGE(CALENDAR_OBJECT_RESOURCE_ID);
+    """)
+    
+    # Add TRANSPARENCY index
+    print "Create indexes for TRANSPARENCY table"
+    queryIgnoreAlreadyExists(db, """
+        create index TRANSPARENCY_TIME_RANGE_INSTANCE_ID on
+          TRANSPARENCY(TIME_RANGE_INSTANCE_ID);
+    """)
+    
+    # Alter the ATTACHMENT table
+    print "Alter the ATTACHMENT table"
+    queryExit(db, """
+        delete from ATTACHMENT;
+    """)
+    queryIgnoreAlreadyExists(db, """
+        alter table ATTACHMENT
+            drop column if exists
+              CALENDAR_OBJECT_RESOURCE_ID,
+            add column
+              CALENDAR_HOME_RESOURCE_ID   integer       not null references CALENDAR_HOME,
+            add column
+              DROPBOX_ID                  varchar(255)  not null,
+            add
+              unique(DROPBOX_ID, PATH);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index ATTACHMENT_DROPBOX_ID on ATTACHMENT(DROPBOX_ID);
+    """)
+    
+    # Drop the ITIP_MESSAGE table
+    print "Drop the ITIP_MESSAGE table"
+    queryExit(db, """
+        drop table if exists ITIP_MESSAGE;
+    """)
+    
+    # Add ADDRESSBOOK_HOME index
+    print "Create the ADDRESSBOOK_HOME_OWNER_UID index"
+    queryIgnoreAlreadyExists(db, "create index ADDRESSBOOK_HOME_OWNER_UID on ADDRESSBOOK_HOME(OWNER_UID)")
+    
+    # Create the ADDRESSBOOK_HOME_METADATA table and provision with empty data
+    print "Create the ADDRESSBOOK_HOME_METADATA table"
+    queryIgnoreAlreadyExists(db, """
+        --------------------------------
+        -- AddressBook Home Meta-data --
+        --------------------------------
+        
+        create table ADDRESSBOOK_HOME_METADATA (
+          RESOURCE_ID      integer      not null references ADDRESSBOOK_HOME on delete cascade,
+          QUOTA_USED_BYTES integer      default 0 not null
+        );
+
+        create index ADDRESSBOOK_HOME_METADATA_RESOURCE_ID
+            on ADDRESSBOOK_HOME_METADATA(RESOURCE_ID);
+
+        insert into ADDRESSBOOK_HOME_METADATA
+            select RESOURCE_ID from ADDRESSBOOK_HOME
+    """)
+    
+    # Add ADDRESSBOOK_BIND index
+    print "Create indexes for ADDRESSBOOK_BIND table"
+    queryIgnoreAlreadyExists(db, """
+        create index ADDRESSBOOK_BIND_HOME_RESOURCE_ID on
+          ADDRESSBOOK_BIND(ADDRESSBOOK_HOME_RESOURCE_ID);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index ADDRESSBOOK_BIND_RESOURCE_ID on
+          ADDRESSBOOK_BIND(ADDRESSBOOK_RESOURCE_ID);
+    """)
+    
+    # Add ADDRESSBOOK_OBJECT index
+    print "Create indexes for ADDRESSBOOK_OBJECT table"
+    queryIgnoreAlreadyExists(db, """
+        create index ADDRESSBOOK_OBJECT_ADDRESSBOOK_RESOURCE_ID on
+          ADDRESSBOOK_OBJECT(ADDRESSBOOK_RESOURCE_ID);
+    """)
+    
+    # Alter the CALENDAR_OBJECT_REVISIONS table
+    print "Alter the CALENDAR_OBJECT_REVISIONS table"
+    queryExit(db, """
+        alter table CALENDAR_OBJECT_REVISIONS
+            alter column
+              REVISION   set default nextval('REVISION_SEQ');
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index CALENDAR_OBJECT_REVISIONS_HOME_RESOURCE_ID
+          on CALENDAR_OBJECT_REVISIONS(CALENDAR_HOME_RESOURCE_ID);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID
+          on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID);
+    """)
+    
+    # Alter the ADDRESSBOOK_OBJECT_REVISIONS table
+    print "Alter the ADDRESSBOOK_OBJECT_REVISIONS table"
+    queryExit(db, """
+        alter table ADDRESSBOOK_OBJECT_REVISIONS
+            alter column
+              REVISION   set default nextval('REVISION_SEQ');
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID
+          on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID);
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index ADDRESSBOOK_OBJECT_REVISIONS_RESOURCE_ID
+          on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_RESOURCE_ID);
+    """)
+    
+    # Alter the NOTIFICATION_OBJECT_REVISIONS table
+    print "Alter the NOTIFICATION_OBJECT_REVISIONS table"
+    queryExit(db, """
+        alter table NOTIFICATION_OBJECT_REVISIONS
+            alter column
+              REVISION   set default nextval('REVISION_SEQ');
+    """)
+    queryIgnoreAlreadyExists(db, """
+        create index NOTIFICATION_OBJECT_REVISIONS_HOME_RESOURCE_ID
+          on NOTIFICATION_OBJECT_REVISIONS(NOTIFICATION_HOME_RESOURCE_ID);
+    """)
+    
+    # Add CALENDARSERVER table
+    print "Add the CALENDARSERVER table"
+    queryIgnoreAlreadyExists(db, """
+        --------------------
+        -- Schema Version --
+        --------------------
+        
+        create table CALENDARSERVER (
+          NAME                          varchar(255),
+          VALUE                         varchar(255),
+          unique(NAME)
+        );
+        
+        insert into CALENDARSERVER values ('VERSION', '3');
+    """)
+    
+
+    
+    
     
     # Copy and remove each dead property
     
@@ -127,11 +388,16 @@ if __name__ == "__main__":
     for row in rowsForProperty(TwistedSchedulingObjectResource):
         resource_id, value = row
         prop = WebDAVDocument.fromString(value).root_element
+        mapped = {
+            "":      "true",
+            "true":  "true",
+            "false": "false",
+        }[str(prop)]
         query(db, """
             update CALENDAR_OBJECT
             set SCHEDULE_OBJECT = %s
             where RESOURCE_ID = %s
-        """, (str(prop), resource_id,)
+        """, (mapped, resource_id,)
         )
     removeProperty(TwistedSchedulingObjectResource)
     db.commit()
@@ -178,82 +444,10 @@ if __name__ == "__main__":
     removeProperty(TwistedCalendarHasPrivateCommentsProperty)
     db.commit()
     
-    # Create the CALENDAR_HOME_METADATA table
-    print "Create the CALENDAR_HOME_METADATA table"
-    try:
-        query(db, """
-            ----------------------------
-            -- Calendar Home Metadata --
-            ----------------------------
-            
-            create table CALENDAR_HOME_METADATA (
-              RESOURCE_ID      integer      not null references CALENDAR_HOME on delete cascade,
-              QUOTA_USED_BYTES integer      default 0 not null
-            );
-        """)
-        
-        # Provision with empty data
-        query(db, """
-            insert into CALENDAR_HOME_METADATA
-            select RESOURCE_ID from CALENDAR_HOME
-        """, ()
-        )
-        
-    except pg.DatabaseError, e:
-        if str(e).find("already exists") == -1:
-            print "Fatal SQL error: %s" % (e,)
-            sys.exit(1)
-    db.commit()
-    
-    # Alter the ADDRESSBOOK_HOME_METADATA table
-    print "Create the ADDRESSBOOK_HOME_METADATA table"
-    try:
-        query(db, """
-            --------------------------------
-            -- AddressBook Home Meta-data --
-            --------------------------------
-            
-            create table ADDRESSBOOK_HOME_METADATA (
-              RESOURCE_ID      integer      not null references ADDRESSBOOK_HOME on delete cascade,
-              QUOTA_USED_BYTES integer      default 0 not null
-            );
-        """)
-        
-        # Provision with empty data
-        query(db, """
-            insert into ADDRESSBOOK_HOME_METADATA
-            select RESOURCE_ID from ADDRESSBOOK_HOME
-        """, ()
-        )
-        
-    except pg.DatabaseError, e:
-        if str(e).find("already exists") == -1:
-            print "Fatal SQL error: %s" % (e,)
-            sys.exit(1)
-    db.commit()
-    
-    # Copy and remove each dead property
+    # Quota is now only calculated on attachments and we are removing attachments in this upgrade
     
     # TwistedQuotaUsedProperty - copy string value into column.
-    print "Move TwistedQuotaUsedProperty"
-    for row in rowsForProperty(TwistedQuotaUsedProperty):
-        resource_id, value = row
-        prop = WebDAVDocument.fromString(value).root_element
-        
-        # Since we don't know whether the resource-id is a calendar home or addressbook home
-        # just try updating both tables - the one that does not match will simply be ignored.
-        query(db, """
-            update CALENDAR_HOME_METADATA
-            set QUOTA_USED_BYTES = %s
-            where RESOURCE_ID = %s
-        """, (int(str(prop)), resource_id,)
-        )
-        query(db, """
-            update ADDRESSBOOK_HOME_METADATA
-            set QUOTA_USED_BYTES = %s
-            where RESOURCE_ID = %s
-        """, (int(str(prop)), resource_id,)
-        )
+    print "Remove TwistedQuotaUsedProperty"
     removeProperty(TwistedQuotaUsedProperty)
     db.commit()
     
