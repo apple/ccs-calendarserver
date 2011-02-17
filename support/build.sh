@@ -2,7 +2,7 @@
 # -*- sh-basic-offset: 2 -*-
 
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -183,21 +183,76 @@ www_get () {
 
       cache_file="${cache_deps}/${name}-$(echo "${url}" | hash)-$(basename "${url}")";
 
+      check_hash () {
+        local file="$1"; shift;
+
+        if [ "${hash}" == "md5" ]; then
+          local sum="$(hash "${file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
+          if [ -n "${md5}" ]; then
+            echo "Checking MD5 sum for ${name}...";
+            if [ "${md5}" != "${sum}" ]; then
+              echo "ERROR: MD5 sum for downloaded file is wrong: ${sum} != ${md5}";
+              return 1;
+            fi;
+          else
+            echo "MD5 sum for ${name} is ${sum}";
+          fi;
+        fi;
+      }
+
       if [ ! -f "${cache_file}" ]; then
         echo "Downloading ${name}...";
-        curl -L "${url}" -o "${cache_file}";
-      fi;
 
-      if [ "${hash}" == "md5" ]; then
-        local sum="$(hash "${cache_file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
-        if [ -n "${md5}" ]; then
-          echo "Checking MD5 sum for ${name}...";
-          if [ "${md5}" != "${sum}" ]; then
-            echo "ERROR: MD5 sum for cache file ${cache_file} ${sum} != ${md5}. Corrupt file?";
+        #
+        # Try getting a copy from calendarserver.org.
+        #
+        local tmp="$(mktemp -t cache)";
+        curl -L "http://static.calendarserver.org/pkg/$(basename "${cache_file}")" -o "${tmp}";
+        echo "";
+        if [ ! -s "${tmp}" ] || grep '<title>404 Not Found</title>' "${tmp}" > /dev/null; then
+          rm -f "${tmp}";
+          echo "${name} is not available from calendarserver.org; trying upstream source.";
+        elif ! check_hash "${tmp}"; then
+          rm -f "${tmp}";
+          echo "${name} from calendarserver.org is invalid; trying upstream source.";
+        fi;
+
+        #
+        # That didn't work. Try getting a copy from the upstream source.
+        #
+        if [ ! -f "${tmp}" ]; then
+          curl -L "${url}" -o "${tmp}";
+          echo "";
+
+          if [ ! -s "${tmp}" ] || grep '<title>404 Not Found</title>' "${tmp}" > /dev/null; then
+            rm -f "${tmp}";
+            echo "${name} is not available from upstream source: ${url}";
+            exit 1;
+          elif ! check_hash "${tmp}"; then
+            rm -f "${tmp}";
+            echo "${name} from upstream source is invalid: ${url}";
             exit 1;
           fi;
-        else
-          echo "MD5 sum for ${name} is ${sum}";
+
+          if egrep '^static.calendarserver.org ' "${HOME}/.ssh/known_hosts" > /dev/null 2>&1; then
+            echo "Copying cache file up to static.calendarserver.org.";
+            if ! scp "${tmp}" "static.calendarserver.org:/www/hosts/static.calendarserver.org/pkg/$(basename "${cache_file}")"; then
+              echo "Failed to copy cache file up to static.calendarserver.org.";
+            fi;
+            echo ""
+          fi;
+        fi;
+
+        #
+        # OK, we should be good
+        #
+        mv "${tmp}" "${cache_file}";
+      else
+        #
+        # We have the file cached, just verify hash
+        #
+        if ! check_hash "${cache_file}"; then
+          exit 1;
         fi;
       fi;
 
@@ -515,10 +570,11 @@ dependencies () {
     "Zope Interface" "zope.interface" "${zi}" \
     "http://www.zope.org/Products/ZopeInterface/3.3.0/zope.interface-3.3.0.tar.gz";
 
-  local px="PyXML-0.8.4";
-  py_dependency -m "1f7655050cebbb664db976405fdba209" \
+  local pv="0.8.4";
+  local px="PyXML-${pv}";
+  py_dependency -v "${pv}" -m "1f7655050cebbb664db976405fdba209" \
     "PyXML" "xml.dom.ext" "${px}" \
-    "http://static.calendarserver.org/${px}.tar.gz";
+    "http://superb-sea2.dl.sourceforge.net/project/pyxml/pyxml/${pv}/${px}.tar.gz";
 
   local po="pyOpenSSL-0.10";
   py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
