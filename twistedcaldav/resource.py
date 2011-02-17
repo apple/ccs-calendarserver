@@ -2103,14 +2103,16 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             self.putChild(name, child)
             returnValue(child)
 
-        # Try shares next
-        if self.canShare():
-            child = yield self.provisionShare(name)
-            if child:
-                returnValue(child)
+        # Try normal child type
+        child = (yield self.makeRegularChild(name))
 
-        # Do normal child types
-        returnValue((yield self.makeRegularChild(name)))
+        # Try shares next if child does not exist
+        if not child.exists() and self.canShare():
+            sharedchild = yield self.provisionShare(name)
+            if sharedchild:
+                returnValue(sharedchild)
+
+        returnValue(child)
 
 
     @inlineCallbacks
