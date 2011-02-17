@@ -181,7 +181,8 @@ www_get () {
     if [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
       mkdir -p "${cache_deps}";
 
-      cache_file="${cache_deps}/${name}-$(echo "${url}" | hash)-$(basename "${url}")";
+      local cache_basename="$(echo "${url}" | hash)-$(basename "${url}")";
+      local cache_file="${cache_deps}/${name}-${cache_basename}";
 
       check_hash () {
         local file="$1"; shift;
@@ -203,11 +204,14 @@ www_get () {
       if [ ! -f "${cache_file}" ]; then
         echo "Downloading ${name}...";
 
+        local pkg_host="static.calendarserver.org";
+        local pkg_path="/pkg";
+
         #
         # Try getting a copy from calendarserver.org.
         #
-        local tmp="$(mktemp -t cache)";
-        curl -L "http://static.calendarserver.org/pkg/$(basename "${cache_file}")" -o "${tmp}";
+        local tmp="$(mktemp -t "${cache_basename}")";
+        curl -L "http://${pkg_host}${pkg_path}/${cache_basename}" -o "${tmp}";
         echo "";
         if [ ! -s "${tmp}" ] || grep '<title>404 Not Found</title>' "${tmp}" > /dev/null; then
           rm -f "${tmp}";
@@ -234,10 +238,10 @@ www_get () {
             exit 1;
           fi;
 
-          if egrep '^static.calendarserver.org ' "${HOME}/.ssh/known_hosts" > /dev/null 2>&1; then
-            echo "Copying cache file up to static.calendarserver.org.";
-            if ! scp "${tmp}" "static.calendarserver.org:/www/hosts/static.calendarserver.org/pkg/$(basename "${cache_file}")"; then
-              echo "Failed to copy cache file up to static.calendarserver.org.";
+          if egrep '^${pkg_host} ' "${HOME}/.ssh/known_hosts" > /dev/null 2>&1; then
+            echo "Copying cache file up to ${pkg_host}.";
+            if ! scp "${tmp}" "${pkg_host}:/www/hosts/${pkg_host}${pkg_path}/${cache_basename}"; then
+              echo "Failed to copy cache file up to ${pkg_host}.";
             fi;
             echo ""
           fi;
