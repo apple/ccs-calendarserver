@@ -439,10 +439,6 @@ class SnowLeopard(BaseClient):
         pollCalendarHome.start(self.CALENDAR_HOME_POLL_INTERVAL)
 
 
-    def _eventChangeLoop(self):
-        pass
-
-
     @inlineCallbacks
     def run(self):
         """
@@ -452,7 +448,6 @@ class SnowLeopard(BaseClient):
         hrefs = principal.getHrefProperties()
 
         self._calendarCheckLoop(hrefs[caldavxml.calendar_home_set].toString())
-        self._eventChangeLoop()
 
         yield Deferred()
 
