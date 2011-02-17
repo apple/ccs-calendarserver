@@ -22,7 +22,7 @@ Common utility functions for a file based datastore.
 
 from twext.python.log import LoggingMixIn
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from txdav.idav import IDataStoreResource
+from txdav.idav import IDataStoreObject
 from txdav.base.propertystore.base import PropertyName
 
 from twext.web2.dav.element.rfc2518 import GETContentType
@@ -191,7 +191,7 @@ class DataStoreTransaction(LoggingMixIn):
 
 class FileMetaDataMixin(object):
     
-    implements(IDataStoreResource)
+    implements(IDataStoreObject)
     
     def name(self):
         """

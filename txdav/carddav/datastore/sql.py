@@ -272,7 +272,7 @@ class AddressBookObject(CommonObjectResource):
     vCardText = CommonObjectResource.text
 
 
-    # IDataStoreResource
+    # IDataStoreObject
     def contentType(self):
         """
         The content type of Addressbook objects is text/x-vcard.

@@ -695,7 +695,7 @@ class CalendarObject(CommonObjectResource):
             ),
         )
 
-    # IDataStoreResource
+    # IDataStoreObject
     def contentType(self):
         """
         The content type of Calendar objects is text/calendar.
@@ -887,7 +887,7 @@ class Attachment(object):
             yield home.notifyChanged()
 
 
-    # IDataStoreResource
+    # IDataStoreObject
     def contentType(self):
         return self._contentType
 

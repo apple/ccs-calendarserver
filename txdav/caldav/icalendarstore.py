@@ -21,7 +21,7 @@ Calendar store interfaces
 
 from txdav.common.icommondatastore import ICommonTransaction, \
     IShareableCollection
-from txdav.idav import IDataStoreResource, IDataStore
+from txdav.idav import IDataStoreObject, IDataStore
 
 from txdav.idav import INotifier
 
@@ -83,7 +83,7 @@ class ICalendarStore(IDataStore):
 # Interfaces
 #
 
-class ICalendarHome(INotifier, IDataStoreResource):
+class ICalendarHome(INotifier, IDataStoreObject):
     """
     An L{ICalendarHome} is a collection of calendars which belongs to a
     specific principal and contains the calendars which that principal has
@@ -186,7 +186,7 @@ class ICalendarHome(INotifier, IDataStoreResource):
 
 
 
-class ICalendar(INotifier, IShareableCollection, IDataStoreResource):
+class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
     """
     Calendar
 
@@ -313,7 +313,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreResource):
 
 
 
-class ICalendarObject(IDataStoreResource):
+class ICalendarObject(IDataStoreObject):
     """
     Calendar object
 
@@ -442,7 +442,7 @@ class ICalendarObject(IDataStoreResource):
 
 
 
-class IAttachment(IDataStoreResource):
+class IAttachment(IDataStoreObject):
     """
     Information associated with an attachment to a calendar object.
     """

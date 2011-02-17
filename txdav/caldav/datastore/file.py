@@ -562,7 +562,7 @@ class CalendarObject(CommonObjectResource):
             ),
         )
 
-    # IDataStoreResource
+    # IDataStoreObject
     def contentType(self):
         """
         The content type of Calendar objects is text/calendar.

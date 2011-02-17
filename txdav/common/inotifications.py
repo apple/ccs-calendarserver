@@ -19,7 +19,7 @@ Common notification interfaces
 """
 
 from zope.interface.interface import Interface
-from txdav.idav import IDataStoreResource
+from txdav.idav import IDataStoreObject
 
 
 __all__ = [
@@ -134,7 +134,7 @@ class INotificationCollection(Interface):
         """
 
 
-class INotificationObject(IDataStoreResource):
+class INotificationObject(IDataStoreObject):
     """
     Notification object
 

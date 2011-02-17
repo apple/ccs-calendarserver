@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,9 @@ __all__ = [
     "IPropertyName",
     "IPropertyStore",
     "IDataStore",
-    "IDataStoreResource",
+    "IDataStoreObject",
+    "ITransaction",
+    "INotifier",
 ]
 
 from zope.interface import Attribute, Interface
@@ -39,8 +41,6 @@ class PropertyStoreError(RuntimeError):
     Property store error.
     """
 
-
-
 class PropertyChangeNotAllowedError(PropertyStoreError):
     """
     Property cannot be edited.
@@ -48,7 +48,6 @@ class PropertyChangeNotAllowedError(PropertyStoreError):
     def __init__(self, message, keys):
         PropertyStoreError.__init__(self, message)
         self.keys = keys
-
 
 
 
@@ -118,9 +117,9 @@ class IDataStore(Interface):
         """
 
 
-class IDataStoreResource(Interface):
+class IDataStoreObject(Interface):
     """
-    An L{IDataStoreResource} are the objects stored in an L{IDataStore}.
+    An L{IDataStoreObject} are the objects stored in an L{IDataStore}.
     """
 
     def name():
@@ -137,7 +136,6 @@ class IDataStoreResource(Interface):
 
         @rtype: L{MimeType}
         """
-
 
     def md5():
         """

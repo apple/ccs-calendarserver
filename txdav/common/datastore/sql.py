@@ -517,7 +517,7 @@ class CommonHome(LoggingMixIn):
 
     def name(self):
         """
-        Implement L{IDataStoreResource.name} to return the uid.
+        Implement L{IDataStoreObject.name} to return the uid.
         """
         return self.uid()
 
@@ -768,7 +768,7 @@ class CommonHome(LoggingMixIn):
         return self._propertyStore
 
 
-    # IDataStoreResource
+    # IDataStoreObject
     def contentType(self):
         """
         The content type of objects
@@ -1925,7 +1925,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         raise NotImplementedError
 
 
-    # IDataStoreResource
+    # IDataStoreObject
     def contentType(self):
         raise NotImplementedError()
 
@@ -2255,7 +2255,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
 
-    # IDataStoreResource
+    # IDataStoreObject
     def contentType(self):
         raise NotImplementedError()
 

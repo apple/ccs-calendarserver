@@ -268,7 +268,7 @@ class AddressBookObject(CommonObjectResource):
             self._uid = self.component().resourceUID()
         return self._uid
 
-    # IDataStoreResource
+    # IDataStoreObject
     def contentType(self):
         """
         The content type of Addressbook objects is text/x-vcard.
