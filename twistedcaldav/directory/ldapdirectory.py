@@ -96,24 +96,28 @@ class LdapDirectoryService(CachingDirectoryService):
                     "attr": "uid", # used only to synthesize email address
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
+                    "recordName": "uid", # uniquely identifies user records
                 },
                 "groups": {
                     "rdn": "ou=Group",
                     "attr": "cn", # used only to synthesize email address
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
+                    "recordName": "cn", # uniquely identifies group records
                 },
                 "locations": {
                     "rdn": "ou=Locations",
                     "attr": "cn", # used only to synthesize email address
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
+                    "recordName": "cn", # uniquely identifies location records
                 },
                 "resources": {
                     "rdn": "ou=Resources",
                     "attr": "cn", # used only to synthesize email address
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
+                    "recordName": "cn", # uniquely identifies resource records
                 },
             },
             "groupSchema": {
@@ -401,8 +405,8 @@ class LdapDirectoryService(CachingDirectoryService):
             emailAddresses.add(emailPrefix + emailSuffix)
 
         # LDAP attribute -> principal matchings
+        shortNames = (self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["recordName"]),)
         if recordType == self.recordType_users:
-            shortNames = (self._getUniqueLdapAttribute(attrs, "uid", "userid"),)
             fullName = self._getUniqueLdapAttribute(attrs, "cn", "commonName",
                 "displayName", "gecos")
             firstName = self._getUniqueLdapAttribute(attrs, "givenName")
@@ -410,12 +414,10 @@ class LdapDirectoryService(CachingDirectoryService):
             calendarUserAddresses = emailAddresses
             enabledForCalendaring = True
         elif recordType == self.recordType_groups:
-            shortNames = (self._getUniqueLdapAttribute(attrs, "cn"),)
             fullName = self._getUniqueLdapAttribute(attrs, "cn")
             enabledForCalendaring = False
         elif recordType in (self.recordType_resources,
             self.recordType_locations):
-            shortNames = (self._getUniqueLdapAttribute(attrs, "cn"),)
             fullName = self._getUniqueLdapAttribute(attrs, "cn")
             calendarUserAddresses = emailAddresses
             enabledForCalendaring = True
@@ -482,12 +484,11 @@ class LdapDirectoryService(CachingDirectoryService):
                 filter = "(&%s(%s=%s))" % (filter, guidAttr, indexKey)
 
             elif indexType == self.INDEX_TYPE_SHORTNAME:
-                if recordType == self.recordType_users:
-                    filter = "(&%s(|(uid=%s)(userid=%s)))" % (
-                        filter, indexKey, indexKey)
-                elif recordType in (self.recordType_groups,
-                    self.recordType_resources, self.recordType_locations):
-                    filter = "(&%s(cn=%s))" % (filter, indexKey)
+                filter = "(&%s(%s=%s))" % (
+                    filter,
+                    self.rdnSchema[recordType]["recordName"],
+                    indexKey
+                )
 
             elif indexType == self.INDEX_TYPE_CUA:
                 # indexKey is of the form "mailto:test@example.net"
@@ -740,15 +741,19 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
                 ),
             )
         self.log_debug("Finding groups containing %s" % (self._memberId,))
-        results = self.service.ldap.search_s(ldap.dn.dn2str(base),
-            ldap.SCOPE_SUBTREE, filter, self.service.attrList)
-
         groups = []
-        for dn, attrs in results:
-            shortName = self.service._getUniqueLdapAttribute(attrs, "cn")
-            self.log_debug("%s is a member of %s" % (self._memberId, shortName))
-            groups.append(self.service.recordWithShortName(recordType,
-                shortName))
+
+        try:
+            results = self.service.ldap.search_s(ldap.dn.dn2str(base),
+                ldap.SCOPE_SUBTREE, filter, self.service.attrList)
+
+            for dn, attrs in results:
+                shortName = self.service._getUniqueLdapAttribute(attrs, "cn")
+                self.log_debug("%s is a member of %s" % (self._memberId, shortName))
+                groups.append(self.service.recordWithShortName(recordType,
+                    shortName))
+        except ldap.PROTOCOL_ERROR, e:
+            self.log_warn(str(e))
 
         return groups
 

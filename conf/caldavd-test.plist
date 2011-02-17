@@ -249,6 +249,8 @@
             <string></string>
             <key>filter</key>
             <string></string>
+            <key>recordName</key>
+            <string>uid</string>
           </dict>
           <key>groups</key>
           <dict>
@@ -260,6 +262,8 @@
             <string></string>
             <key>filter</key>
             <string></string>
+            <key>recordName</key>
+            <string>cn</string>
           </dict>
           <key>attributeMapping</key>
           <dict>

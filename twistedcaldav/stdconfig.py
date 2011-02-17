@@ -75,24 +75,28 @@ DEFAULT_SERVICE_PARAMS = {
                 "attr": "uid", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
+                "recordName": "userid", # uniquely identifies user records
             },
             "groups": {
                 "rdn": "ou=Group",
                 "attr": "cn", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
+                "recordName": "cn", # uniquely identifies group records
             },
             "locations": {
                 "rdn": "ou=Locations",
                 "attr": "cn", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
+                "recordName": "cn", # uniquely identifies location records
             },
             "resources": {
                 "rdn": "ou=Resources",
                 "attr": "cn", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
+                "recordName": "cn", # uniquely identifies resource records
             },
         },
         "groupSchema": {
