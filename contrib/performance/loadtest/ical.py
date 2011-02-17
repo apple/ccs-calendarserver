@@ -584,6 +584,21 @@ class SnowLeopard(BaseClient):
         return d
 
 
+    def deleteEvent(self, href):
+        """
+        Issue a DELETE for the given URL and remove local state
+        associated with that event.
+        """
+        d = self._request(
+            NO_CONTENT, 'DELETE', self.root + href[1:].encode('utf-8'))
+
+        calendar, uid = href.rsplit('/', 1)
+        del self._events[href]
+        del self._calendars[calendar + u'/'].events[uid]
+
+        return d
+
+
     def addEvent(self, href, vcalendar):
         headers = Headers({
                 'content-type': ['text/calendar'],

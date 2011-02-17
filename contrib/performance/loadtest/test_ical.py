@@ -26,7 +26,7 @@ from protocol.webdav.definitions import davxml
 from protocol.caldav.definitions import caldavxml
 from protocol.caldav.definitions import csxml
 
-from loadtest.ical import Event, SnowLeopard
+from loadtest.ical import Event, Calendar, SnowLeopard
 from httpclient import MemoryConsumer
 
 EVENT_UID = 'D94F247D-7433-43AF-B84B-ADD684D023B0'
@@ -945,6 +945,37 @@ class SnowLeopardTests(TestCase):
                 vcalendar)
         finished.addCallback(cbFinished)
         return finished
+
+
+    def test_deleteEvent(self):
+        """
+        L{SnowLeopard.deleteEvent} DELETEs the event at the relative
+        URL passed to it and updates local state to reflect its
+        removal.
+        """
+        requests = []
+        def request(*args):
+            result = Deferred()
+            requests.append((result, args))
+            return result
+        self.client._request = request
+
+        calendar = Calendar(caldavxml.calendar, u'calendar', u'/foo/', None)
+        event = Event(calendar.url + u'bar.ics', None)
+        self.client._calendars[calendar.url] = calendar
+        self.client._setEvent(event.url, event)
+
+        d = self.client.deleteEvent(event.url)
+
+        result, req = requests.pop()
+
+        expectedResponseCode, method, url = req
+        self.assertEquals(method, 'DELETE')
+        self.assertEquals(url, 'http://127.0.0.1:80' + event.url)
+        self.assertIsInstance(url, str)
+
+        self.assertNotIn(event.url, self.client._events)
+        self.assertNotIn(u'bar.ics', calendar.events)
 
 
     def assertComponentsEqual(self, first, second):
