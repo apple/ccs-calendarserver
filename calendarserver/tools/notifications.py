@@ -469,8 +469,8 @@ class PushMonitorService(Service):
                 <A:prop>
                     <A:displayname/>
                     <A:resourcetype/>
-                    <C:xmpp-server xmlns:C="http://calendarserver.org/ns/"/>
                     <C:pushkey xmlns:C="http://calendarserver.org/ns/"/>
+                    <C:push-transports xmlns:C="http://calendarserver.org/ns/"/>
                 </A:prop>
             </A:propfind>
         """
@@ -508,16 +508,22 @@ class PushMonitorService(Service):
                                     if pushKey:
                                         key = pushKey
 
-                                xmppServer = prop.find("{http://calendarserver.org/ns/}xmpp-server")
-                                if xmppServer is not None:
-                                    xmppServer = xmppServer.text
-                                    if xmppServer:
-                                        if ":" in xmppServer:
-                                            host, port = xmppServer.split(":")
-                                            port = int(port)
-                                        else:
-                                            host = xmppServer
-                                            port = 5222
+                                pushTransports = prop.find("{http://calendarserver.org/ns/}push-transports")
+                                if pushTransports is not None:
+                                    if self.verbose:
+                                        print "push-transports:\n\n", ElementTree.tostring(pushTransports)
+                                    for transport in pushTransports.findall("{http://calendarserver.org/ns/}transport"):
+                                        if transport.attrib["type"] == "XMPP":
+                                            xmppServer = transport.find("{http://calendarserver.org/ns/}xmpp-server")
+                                            if xmppServer is not None:
+                                                xmppServer = xmppServer.text
+                                                if xmppServer:
+                                                    if ":" in xmppServer:
+                                                        host, port = xmppServer.split(":")
+                                                        port = int(port)
+                                                    else:
+                                                        host = xmppServer
+                                                        port = 5222
 
                     if key and not nodes.has_key(key):
                         nodes[key] = (href.text, name, kind)
@@ -530,6 +536,11 @@ class PushMonitorService(Service):
         except Exception, e:
             print "Unable to look up who %s is a proxy for" % (self.username,)
             raise
+
+        if host is None:
+            raise Exception("Unable to determine xmpp server name")
+        if port is None:
+            raise Exception("Unable to determine xmpp server port")
 
         returnValue( (host, port, nodes) )
 
