@@ -124,8 +124,7 @@ class LoadSimulator(object):
 
 
     def createArrivalPolicy(self):
-        return SmoothRampUp(
-            self.reactor, groups=10, groupSize=1, interval=3)
+        return self.arrival.factory(self.reactor, **self.arrival.parameters)
 
 
     def run(self):

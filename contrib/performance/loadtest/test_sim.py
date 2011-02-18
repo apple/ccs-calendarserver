@@ -163,10 +163,19 @@ class LoadSimulatorTests(TestCase):
     def test_createArrivalPolicy(self):
         """
         L{LoadSimulator.createArrivalPolicy} creates an arrival
-        policy.
+        policy based on the L{Arrival} passed to its initializer.
         """
+        class FakeArrival(object):
+            def __init__(self, reactor, x, y):
+                self.reactor = reactor
+                self.x = x
+                self.y = y
+
         reactor = object()
-        sim = LoadSimulator(None, None, reactor)
+        sim = LoadSimulator(
+            None, Arrival(FakeArrival, {'x': 3, 'y': 2}), reactor)
         arrival = sim.createArrivalPolicy()
-        self.assertIsInstance(arrival, SmoothRampUp)
+        self.assertIsInstance(arrival, FakeArrival)
         self.assertIdentical(arrival.reactor, reactor)
+        self.assertEquals(arrival.x, 3)
+        self.assertEquals(arrival.y, 2)
