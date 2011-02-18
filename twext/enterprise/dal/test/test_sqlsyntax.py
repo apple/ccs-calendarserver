@@ -596,6 +596,19 @@ class GenerationTests(TestCase):
                 "select BAR from FOO limit ?", [123]))
 
 
+    def test_having(self):
+        """
+        A L{Select} object with a 'Having' keyword parameter will generate
+        a SQL statement with a 'having' expression.
+        """
+        self.assertEquals(
+            Select([self.schema.FOO.BAR],
+                   From=self.schema.FOO,
+                   Having=Max(self.schema.FOO.BAZ) < 7).toSQL(),
+            SQLFragment("select BAR from FOO having max(BAZ) < ?", [7])
+        )
+
+
     def test_nextSequenceValue(self):
         """
         When a sequence is used as a value in an expression, it renders as the
@@ -605,6 +618,3 @@ class GenerationTests(TestCase):
             Insert({self.schema.BOZ.QUX:
                     self.schema.A_SEQ}).toSQL(),
             SQLFragment("insert into BOZ (QUX) values (nextval('A_SEQ'))", []))
-
-
-

@@ -58,7 +58,7 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 
-from twext.enterprise.dal.syntax import Parameter
+from twext.enterprise.dal.syntax import Parameter, Max
 from twext.python.clsprop import classproperty
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Lock
@@ -263,6 +263,43 @@ class CommonStoreTransaction(object):
         return self._sqlTxn.abort()
 
 
+    def _oldEventsBase(limited):
+        ch = schema.CALENDAR_HOME
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        tr = schema.TIME_RANGE
+        kwds = { }
+        if limited:
+            kwds["Limit"] = Parameter("batchSize")
+        return Select(
+            [
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_NAME,
+                Max(tr.END_DATE)
+            ],
+            From=ch.join(co).join(cb).join(tr),
+            Where=(
+                ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID     ).And(
+                tr.CALENDAR_OBJECT_RESOURCE_ID == co.RESOURCE_ID   ).And(
+                cb.CALENDAR_RESOURCE_ID == tr.CALENDAR_RESOURCE_ID ).And(
+                cb.BIND_MODE == _BIND_MODE_OWN
+            ),
+            GroupBy=(
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_NAME
+            ),
+            Having=Max(tr.END_DATE) < Parameter("CutOff"),
+            OrderBy=Max(tr.END_DATE),
+            **kwds
+        )
+
+    _oldEventsLimited = _oldEventsBase(True)
+    _oldEventsUnlimited = _oldEventsBase(False)
+    del _oldEventsBase
+
+
     def eventsOlderThan(self, cutoff, batchSize=None):
         """
         Return up to the oldest batchSize events which exist completely earlier
@@ -271,37 +308,13 @@ class CommonStoreTransaction(object):
         Returns a deferred to a list of (uid, calendarName, eventName, maxDate)
         tuples.
         """
-
-        query = """
-            select
-                ch.OWNER_UID,
-                cb.CALENDAR_RESOURCE_NAME,
-                co.RESOURCE_NAME,
-                max(tr.END_DATE)
-            from
-                TIME_RANGE tr,
-                CALENDAR_BIND cb,
-                CALENDAR_OBJECT co,
-                CALENDAR_HOME ch
-            where
-                cb.BIND_MODE=%s AND
-                cb.CALENDAR_RESOURCE_ID=tr.CALENDAR_RESOURCE_ID AND
-                tr.CALENDAR_OBJECT_RESOURCE_ID=co.RESOURCE_ID AND
-                ch.RESOURCE_ID=cb.CALENDAR_HOME_RESOURCE_ID
-            group by
-                ch.OWNER_UID,
-                cb.CALENDAR_RESOURCE_NAME,
-                co.RESOURCE_NAME
-            having
-                max(tr.END_DATE) < %s
-            order by max(tr.END_DATE)
-            """
-        args = [_BIND_MODE_OWN, cutoff]
+        kwds = { "CutOff" : cutoff }
         if batchSize is not None:
-            query += "limit %s"
-            args.append(batchSize)
-
-        return self.execSQL(query, args)
+            kwds["batchSize"] = batchSize
+            query = self._oldEventsLimited
+        else:
+            query = self._oldEventsUnlimited
+        return query.on(self, **kwds)
 
 
     @inlineCallbacks

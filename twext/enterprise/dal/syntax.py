@@ -490,7 +490,8 @@ class Select(_Statement):
     """
 
     def __init__(self, columns=None, Where=None, From=None, OrderBy=None,
-                 GroupBy=None, Limit=None, ForUpdate=False, Ascending=None):
+                 GroupBy=None, Limit=None, ForUpdate=False, Ascending=None,
+                 Having=None):
         self.From = From
         self.Where = Where
         if not isinstance(OrderBy, (list, tuple, type(None))):
@@ -500,6 +501,7 @@ class Select(_Statement):
             GroupBy = [GroupBy]
         self.GroupBy = GroupBy
         self.Limit = Limit
+        self.Having = Having
         if columns is None:
             columns = ALL_COLUMNS
         else:
@@ -527,31 +529,40 @@ class Select(_Statement):
             wherestmt = self.Where.subSQL(placeholder, quote, allTables)
             stmt.text += quote(" where ")
             stmt.append(wherestmt)
-        for bywhat, expr in [('group', self.GroupBy),
-                             ('order', self.OrderBy)]:
-            if expr is not None:
-                stmt.text += quote(" " + bywhat + " by ")
-                fst = True
-                for subthing in expr:
-                    if fst:
-                        fst = False
-                    else:
-                        stmt.text += ', '
-                    stmt.append(subthing.subSQL(placeholder, quote, allTables))
-                if bywhat == 'order':
-                    if self.Ascending is not None:
-                        if self.Ascending:
-                            kw = " asc"
-                        else:
-                            kw = " desc"
-                        stmt.append(SQLFragment(kw))
-
+        if self.GroupBy is not None:
+            stmt.text += quote(" group by ")
+            fst = True
+            for subthing in self.GroupBy:
+                if fst:
+                    fst = False
+                else:
+                    stmt.text += ', '
+                stmt.append(subthing.subSQL(placeholder, quote, allTables))
+        if self.Having is not None:
+            havingstmt = self.Having.subSQL(placeholder, quote, allTables)
+            stmt.text += quote(" having ")
+            stmt.append(havingstmt)
+        if self.OrderBy is not None:
+            stmt.text += quote(" order by ")
+            fst = True
+            for subthing in self.OrderBy:
+                if fst:
+                    fst = False
+                else:
+                    stmt.text += ', '
+                stmt.append(subthing.subSQL(placeholder, quote, allTables))
+            if self.Ascending is not None:
+                if self.Ascending:
+                    kw = " asc"
+                else:
+                    kw = " desc"
+                stmt.append(SQLFragment(kw))
+        if self.ForUpdate:
+            stmt.text += quote(" for update")
         if self.Limit is not None:
             stmt.text += quote(" limit ")
             stmt.append(Constant(self.Limit).subSQL(placeholder, quote,
                                                     allTables))
-        if self.ForUpdate:
-            stmt.text += quote(" for update")
         return stmt
 
 
