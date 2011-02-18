@@ -336,6 +336,24 @@ class InviterTests(TestCase):
                 u'RSVP': [u'TRUE']})
 
 
+    def test_everybodyInvitedAlready(self):
+        """
+        If the first so-many randomly selected users we come across
+        are already attendees on the event, the invitation attempt is
+        abandoned.
+        """
+        selfNumber = 1
+        vevent, event, calendar, client = self._simpleAccount(
+            selfNumber, INVITED_EVENT)
+        inviter = Inviter(None, client, selfNumber)
+        inviter.random = Deterministic()
+        # Always return a user number which has already been invited.
+        inviter.random.gauss = lambda mu, sigma: 2
+        inviter._invite()
+        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        self.assertEquals(len(attendees), 2)
+
+
 
 class AccepterTests(TestCase):
     """

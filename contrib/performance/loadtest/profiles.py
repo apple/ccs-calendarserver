@@ -31,7 +31,7 @@ from vobject.icalendar import VEvent
 from protocol.caldav.definitions import caldavxml
 
 from twisted.python.log import msg
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, fail
 from twisted.internet.task import LoopingCall
 
 
@@ -56,6 +56,12 @@ class ProfileBase(object):
             if cal.resourceType == calendarType]
 
 
+class CannotAddAttendee(Exception):
+    """
+    Indicates no new attendees can be invited to a particular event.
+    """
+
+
 
 class Inviter(ProfileBase):
     """
@@ -77,11 +83,13 @@ class Inviter(ProfileBase):
         for att in attendees:
             invitees.add(att.value)
 
-        while True:
+        for i in range(10):
             invitee = max(1, int(self.random.gauss(self._number, 3)))
             uuid = u'urn:uuid:user%02d' % (invitee,)
             if uuid not in invitees:
                 break
+        else:
+            return fail(CannotAddAttendee("Can't find uninvited user to invite."))
 
         user = u'User %02d' % (invitee,)
         email = u'user%02d@example.com' % (invitee,)
@@ -138,10 +146,11 @@ class Inviter(ProfileBase):
                 attendees = event.contents['vevent'][0].contents.get('attendee', [])
 
                 d = self._addAttendee(event, attendees)
-                d.addCallback(
+                d.addCallbacks(
                     lambda attendee:
                         self._client.addEventAttendee(
-                            href, attendee))
+                            href, attendee),
+                    lambda reason: reason.trap(CannotAddAttendee))
                 return d
 
 
