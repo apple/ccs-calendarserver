@@ -186,6 +186,51 @@ class GenerationTests(TestCase):
         )
 
 
+    def test_crossJoin(self):
+        """
+        A join with no clause specified will generate a cross join.  (This is an
+        explicit synonym for an implicit join: i.e. 'select * from FOO, BAR'.)
+        """
+        self.assertEquals(
+            Select(From=self.schema.FOO.join(self.schema.BOZ)).toSQL(),
+            SQLFragment("select * from FOO cross join BOZ")
+        )
+
+
+    def test_joinJoin(self):
+        """
+        L{Join.join} will result in a multi-table join.
+        """
+        self.assertEquals(
+            Select([self.schema.FOO.BAR,
+                    self.schema.BOZ.QUX],
+                   From=self.schema.FOO
+                   .join(self.schema.BOZ).join(self.schema.OTHER)).toSQL(),
+            SQLFragment(
+                "select FOO.BAR, QUX from FOO "
+                "cross join BOZ cross join OTHER")
+        )
+
+
+    def test_multiJoin(self):
+        """
+        L{Join.join} has the same signature as L{TableSyntax.join} and supports
+        the same 'on' and 'type' arguments.
+        """
+
+        self.assertEquals(
+            Select([self.schema.FOO.BAR],
+                   From=self.schema.FOO.join(
+                       self.schema.BOZ).join(
+                           self.schema.OTHER,
+                           self.schema.OTHER.BAR == self.schema.FOO.BAR,
+                           'left outer')).toSQL(),
+            SQLFragment(
+                "select FOO.BAR from FOO cross join BOZ left outer join OTHER "
+                "on OTHER.BAR = FOO.BAR")
+        )
+
+
     def test_columnSelection(self):
         """
         If a column is specified by the argument to L{Select}, those will be

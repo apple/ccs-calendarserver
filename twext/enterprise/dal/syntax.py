@@ -249,7 +249,9 @@ class TableSyntax(Syntax):
 
     modelType = Table
 
-    def join(self, otherTableSyntax, on, type=''):
+    def join(self, otherTableSyntax, on=None, type=''):
+        if on is None:
+            type = 'cross'
         return Join(self, type, otherTableSyntax, on)
 
 
@@ -291,30 +293,54 @@ class TableSyntax(Syntax):
 
 
 class Join(object):
+    """
+    A DAL object representing an SQL 'join' statement.
 
-    def __init__(self, firstTable, type, secondTableOrJoin, on):
-        self.firstTable = firstTable
+    @ivar leftSide: a L{Join} or L{TableSyntax} representing the left side of
+        this join.
+
+    @ivar rightSide: a L{TableSyntax} representing the right side of this join.
+
+    @ivar type: the type of join this is.  For example, for a left outer join,
+        this would be C{'left outer'}.
+    @type type: C{str}
+
+    @ivar on: the 'on' clause of this table.
+
+    @type on: L{ExpressionSyntax}
+    """
+
+    def __init__(self, leftSide, type, rightSide, on):
+        self.leftSide = leftSide
         self.type = type
-        self.secondTableOrJoin = secondTableOrJoin
+        self.rightSide = rightSide
         self.on = on
 
 
     def subSQL(self, placeholder, quote, allTables):
         stmt = SQLFragment()
-        stmt.append(self.firstTable.subSQL(placeholder, quote, allTables))
+        stmt.append(self.leftSide.subSQL(placeholder, quote, allTables))
         stmt.text += ' '
         if self.type:
             stmt.text += self.type
             stmt.text += ' '
         stmt.text += 'join '
-        stmt.append(self.secondTableOrJoin.subSQL(placeholder, quote, allTables))
-        stmt.text += ' on '
-        stmt.append(self.on.subSQL(placeholder, quote, allTables))
+        stmt.append(self.rightSide.subSQL(placeholder, quote, allTables))
+        if self.type != 'cross':
+            stmt.text += ' on '
+            stmt.append(self.on.subSQL(placeholder, quote, allTables))
         return stmt
 
 
     def tables(self):
-        return self.firstTable.tables() + self.secondTableOrJoin.tables()
+        return self.leftSide.tables() + self.rightSide.tables()
+
+
+    def join(self, otherTable, on=None, type=None):
+        if on is None:
+            type = 'cross'
+        return Join(self, type, otherTable, on)
+
 
 
 
