@@ -51,6 +51,30 @@ class SimOptions(Options):
                 "--config %s: %s" % (path, str(e)))
 
 
+    def opt_debug(self):
+        """
+        Enable Deferred and Failure debugging.
+        """
+        self.opt_debug_deferred()
+        self.opt_debug_failure()
+
+
+    def opt_debug_deferred(self):
+        """
+        Enable Deferred debugging.
+        """
+        from twisted.internet.defer import setDebugging
+        setDebugging(True)
+
+
+    def opt_debug_failure(self):
+        """
+        Enable Failure debugging.
+        """
+        from twisted.python.failure import startDebugMode
+        startDebugMode()
+
+
     def postOptions(self):
         if self.config is None:
             raise UsageError("Specify a configuration file using --config <path>")
