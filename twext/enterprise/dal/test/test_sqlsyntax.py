@@ -139,6 +139,33 @@ class GenerationTests(TestCase):
         )
 
 
+    def test_orderByOrder(self):
+        """
+        L{Select}'s L{Ascending} parameter specifies an ascending/descending
+        order for query results with an OrderBy clause.
+        """
+        self.assertEquals(
+            Select(From=self.schema.FOO,
+                   OrderBy=self.schema.FOO.BAR,
+                   Ascending=False).toSQL(),
+            SQLFragment("select * from FOO order by BAR desc")
+        )
+
+        self.assertEquals(
+            Select(From=self.schema.FOO,
+                   OrderBy=self.schema.FOO.BAR,
+                   Ascending=True).toSQL(),
+            SQLFragment("select * from FOO order by BAR asc")
+        )
+
+        self.assertEquals(
+            Select(From=self.schema.FOO,
+                   OrderBy=[self.schema.FOO.BAR, self.schema.FOO.BAZ],
+                   Ascending=True).toSQL(),
+            SQLFragment("select * from FOO order by BAR, BAZ asc")
+        )
+
+
     def test_forUpdate(self):
         """
         L{Select}'s L{ForUpdate} parameter generates a 'for update' clause at

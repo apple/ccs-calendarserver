@@ -490,7 +490,7 @@ class Select(_Statement):
     """
 
     def __init__(self, columns=None, Where=None, From=None, OrderBy=None,
-                 GroupBy=None, Limit=None, ForUpdate=False):
+                 GroupBy=None, Limit=None, ForUpdate=False, Ascending=None):
         self.From = From
         self.Where = Where
         if not isinstance(OrderBy, (list, tuple, type(None))):
@@ -509,6 +509,7 @@ class Select(_Statement):
             columns = _SomeColumns(columns)
         self.columns = columns
         self.ForUpdate = ForUpdate
+        self.Ascending = Ascending
 
 
     def toSQL(self, placeholder="?", quote=lambda x: x):
@@ -526,7 +527,8 @@ class Select(_Statement):
             wherestmt = self.Where.subSQL(placeholder, quote, allTables)
             stmt.text += quote(" where ")
             stmt.append(wherestmt)
-        for bywhat, expr in [('group', self.GroupBy), ('order', self.OrderBy)]:
+        for bywhat, expr in [('group', self.GroupBy),
+                             ('order', self.OrderBy)]:
             if expr is not None:
                 stmt.text += quote(" " + bywhat + " by ")
                 fst = True
@@ -536,6 +538,13 @@ class Select(_Statement):
                     else:
                         stmt.text += ', '
                     stmt.append(subthing.subSQL(placeholder, quote, allTables))
+                if bywhat == 'order':
+                    if self.Ascending is not None:
+                        if self.Ascending:
+                            kw = " asc"
+                        else:
+                            kw = " desc"
+                        stmt.append(SQLFragment(kw))
 
         if self.Limit is not None:
             stmt.text += quote(" limit ")
