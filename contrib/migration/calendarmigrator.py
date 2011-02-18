@@ -208,12 +208,6 @@ def main():
             migrateConfiguration(options, newServerRootValue, enableCalDAV,
                 enableCardDAV)
 
-            # FIXME: For now, disable service because postgres isn't
-            # automatically starting (since launchd is directly starting
-            # calendar service)
-            enableCalDAV = False
-            enableCardDAV = False
-
             setRunState(options, enableCalDAV, enableCardDAV)
             triggerResourceMigration(newServerRootValue)
 
