@@ -127,8 +127,7 @@ class CalendarClientSimulator(object):
 
             for profileType in clientType.profileTypes:
                 profileType(self.reactor, client, number).run()
-
-        print 'Now running', self._user - 1, 'clients.'
+        msg(type="status", clientCount=self._user - 1)
 
 
 
