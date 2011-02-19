@@ -743,6 +743,8 @@ class OpenDirectoryService(CachingDirectoryService):
                 record.enabledForCalendaring = False
                 record.enabledForAddressBooks = False
 
+            record.applySACLs()
+
             if record.enabledForCalendaring:
                 enabledRecords.append(record)
             else:

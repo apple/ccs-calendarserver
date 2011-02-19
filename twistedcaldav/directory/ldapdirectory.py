@@ -535,6 +535,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     record.enabledForCalendaring = False
                     record.enabledForAddressBooks = False
 
+                record.applySACLs()
 
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         """

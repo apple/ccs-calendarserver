@@ -450,6 +450,20 @@ class DirectoryRecord(LoggingMixIn):
             self.hostedAt = ""
             self.enabledForCalendaring = False
 
+
+    def applySACLs(self):
+        """
+        Disable calendaring and addressbooks as dictated by SACLs
+        """
+
+        if config.EnableSACLs and self.CheckSACL:
+            username = self.shortNames[0]
+            if self.CheckSACL(username, "calendar") != 0:
+                self.enabledForCalendaring = False
+            if self.CheckSACL(username, "addressbook") != 0:
+                self.enabledForAddressBooks = False
+
+
     def members(self):
         return ()
 
@@ -500,3 +514,13 @@ class UnknownRecordTypeError(DirectoryError):
     def __init__(self, recordType):
         DirectoryError.__init__(self, "Invalid record type: %s" % (recordType,))
         self.recordType = recordType
+
+
+# So CheckSACL will be parameterized
+# We do this after DirectoryRecord is defined
+try:
+    from calendarserver.platform.darwin._sacl import CheckSACL
+    DirectoryRecord.CheckSACL = CheckSACL
+except ImportError:
+    DirectoryRecord.CheckSACL = None
+
