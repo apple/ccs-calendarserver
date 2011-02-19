@@ -435,13 +435,14 @@ class DirectoryRecord(LoggingMixIn):
             self.enabledForAddressBooks = augment.enabledForAddressBooks
             self.autoSchedule = augment.autoSchedule
 
-            if self.enabledForCalendaring and self.recordType == self.service.recordType_groups:
+            if (self.enabledForCalendaring or self.enabledForAddressBooks) and self.recordType == self.service.recordType_groups:
                 self.enabledForCalendaring = False
+                self.enabledForAddressBooks = False
 
                 # For augment records cloned from the Default augment record,
                 # don't emit this message:
                 if not augment.clonedFromDefault:
-                    self.log_error("Group '%s(%s)' cannot be enabled for calendaring" % (self.guid, self.shortNames[0],))
+                    self.log_error("Group '%s(%s)' cannot be enabled for calendaring or address books" % (self.guid, self.shortNames[0],))
 
         else:
             # Groups are by default always enabled

@@ -76,10 +76,14 @@ limitations under the License.
   <record>
     <uid>right_coast</uid>
     <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>left_coast</uid>
     <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>both_coasts</uid>
