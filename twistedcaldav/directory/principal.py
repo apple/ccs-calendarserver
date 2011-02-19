@@ -839,6 +839,11 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
     ##
 
     def calendarUserAddresses(self):
+
+        # No CUAs if not enabledForCalendaring.
+        if not self.record.enabledForCalendaring:
+            return set()
+
         # Get any CUAs defined by the directory implementation.
         addresses = set(self.record.calendarUserAddresses)
 
@@ -887,7 +892,10 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         returnValue(notification)
 
     def calendarHomeURLs(self):
-        homeURL = self._homeChildURL(None)
+        if self.record.enabledForCalendaring:
+            homeURL = self._homeChildURL(None)
+        else:
+            homeURL = ""
         return (homeURL,) if homeURL else ()
 
     def scheduleInboxURL(self):
@@ -909,7 +917,10 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return None
 
     def addressBookHomeURLs(self):
-        homeURL = self._addressBookHomeChildURL(None)
+        if self.record.enabledForAddressBooks:
+            homeURL = self._addressBookHomeChildURL(None)
+        else:
+            homeURL = ""
         return (homeURL,) if homeURL else ()
 
     def _homeChildURL(self, name):

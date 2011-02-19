@@ -26,6 +26,7 @@ from twext.web2.test.test_server import SimpleRequest
 from twistedcaldav.cache import DisabledCacheNotifier
 from twistedcaldav.config import config
 from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
@@ -340,6 +341,57 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     ).issubset(set(recordResource.calendarUserAddresses()))
                 )
 
+                # Verify that if not enabled for calendaring, no CUAs:
+                record.enabledForCalendaring = False
+                self.failIf(recordResource.calendarUserAddresses())
+
+    def test_addressBookHomeURLs(self):
+        """
+        DirectoryPrincipalResource.addressBookHomeURLs(),
+        """
+        # No addressbook home provisioner should result in no addressbook homes.
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            if record.enabledForAddressBooks:
+                self.failIf(tuple(recordResource.addressBookHomeURLs()))
+
+        # Need to create a addressbook home provisioner for each service.
+        addressBookRootResources = {}
+
+        for directory in self.directoryServices:
+            path = os.path.join(self.docroot, directory.__class__.__name__)
+
+            if os.path.exists(path):
+                rmdir(path)
+            os.mkdir(path)
+
+            # Need a data store
+            _newStore = CommonDataStore(path, None, True, False)
+
+            provisioningResource = DirectoryAddressBookHomeProvisioningResource(
+                directory,
+                "/addressbooks/",
+                _newStore
+            )
+
+            addressBookRootResources[directory.__class__.__name__] = provisioningResource
+
+        # AddressBook home provisioners should result in addressBook homes.
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            if record.enabledForAddressBooks:
+                homeURLs = tuple(recordResource.addressBookHomeURLs())
+                self.failUnless(homeURLs)
+
+                # Turn off enabledForAddressBooks and addressBookHomeURLs should
+                # be empty
+                record.enabledForAddressBooks = False
+                self.failIf(tuple(recordResource.addressBookHomeURLs()))
+                record.enabledForAddressBooks = True
+
+                addressBookRootURL = addressBookRootResources[record.service.__class__.__name__].url()
+
+                for homeURL in homeURLs:
+                    self.failUnless(homeURL.startswith(addressBookRootURL))
+
     def test_calendarHomeURLs(self):
         """
         DirectoryPrincipalResource.calendarHomeURLs(),
@@ -379,6 +431,12 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             if record.enabledForCalendaring:
                 homeURLs = tuple(recordResource.calendarHomeURLs())
                 self.failUnless(homeURLs)
+
+                # Turn off enabledForCalendaring and calendarHomeURLs should
+                # be empty
+                record.enabledForCalendaring = False
+                self.failIf(tuple(recordResource.calendarHomeURLs()))
+                record.enabledForCalendaring = True
 
                 calendarRootURL = calendarRootResources[record.service.__class__.__name__].url()
 
