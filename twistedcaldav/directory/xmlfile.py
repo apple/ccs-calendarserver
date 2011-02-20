@@ -397,6 +397,24 @@ class XMLDirectoryService(DirectoryService):
 
         self.xmlFile.setContent(elementToXML(element))
 
+        # Fix up the file ownership because setContent doesn't maintain it
+        uid = -1
+        if config.UserName:
+            try:
+                uid = pwd.getpwnam(config.UserName).pw_uid
+            except KeyError:
+                self.log_error("User not found: %s" % (config.UserName,))
+
+        gid = -1
+        if config.GroupName:
+            try:
+                gid = grp.getgrnam(config.GroupName).gr_gid
+            except KeyError:
+                self.log_error("Group not found: %s" % (config.GroupName,))
+
+        if uid != -1 and gid != -1:
+            os.chown(self.xmlFile.path, uid, gid)
+
 
     def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
