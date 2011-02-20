@@ -21,10 +21,13 @@ from twisted.internet.defer import inlineCallbacks
 from twext.web2.dav import davxml
 from twext.web2.dav.fileop import rmdir
 from twext.web2.dav.resource import AccessDeniedError
+from twext.web2.http import HTTPError
 from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.cache import DisabledCacheNotifier
+from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
@@ -35,8 +38,9 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 from twistedcaldav.directory.principal import DirectoryPrincipalTypeProvisioningResource
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
-
+from twistedcaldav import carddavxml
 import twistedcaldav.test.util
+
 from txdav.common.datastore.file import CommonDataStore
 
 
@@ -236,7 +240,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             None
         )
 
-
+    @inlineCallbacks
     def test_enabledForCalendaring(self):
         """
         DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
@@ -248,7 +252,51 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 self.assertTrue(isinstance(principal, DirectoryCalendarPrincipalResource))
             else:
                 self.assertTrue(isinstance(principal, DirectoryPrincipalResource))
-                self.assertFalse(isinstance(principal, DirectoryCalendarPrincipalResource))
+                if record.enabledForAddressBooks:
+                    self.assertTrue(isinstance(principal, DirectoryCalendarPrincipalResource))
+                else:
+                    self.assertFalse(isinstance(principal, DirectoryCalendarPrincipalResource))
+
+            @inlineCallbacks
+            def hasProperty(property):
+                self.assertTrue(property in principal.liveProperties())
+                yield principal.readProperty(property, None)
+                
+            @inlineCallbacks
+            def doesNotHaveProperty(property):
+                self.assertTrue(property not in principal.liveProperties())
+                try:
+                    yield principal.readProperty(property, None)
+                except HTTPError:
+                    pass
+                except:
+                    self.fail("Wrong exception type")
+                else:
+                    self.fail("No exception principal: %s, property %s" % (principal, property,))
+                
+            if record.enabledForCalendaring:
+                yield hasProperty((caldav_namespace, "calendar-home-set"))
+                yield hasProperty((caldav_namespace, "calendar-user-address-set"))
+                yield hasProperty((caldav_namespace, "schedule-inbox-URL"))
+                yield hasProperty((caldav_namespace, "schedule-outbox-URL"))
+                yield hasProperty((caldav_namespace, "calendar-user-type"))
+                yield hasProperty((calendarserver_namespace, "calendar-proxy-read-for"))
+                yield hasProperty((calendarserver_namespace, "calendar-proxy-write-for"))
+                yield hasProperty((calendarserver_namespace, "auto-schedule"))
+            else:
+                yield doesNotHaveProperty((caldav_namespace, "calendar-home-set"))
+                yield doesNotHaveProperty((caldav_namespace, "calendar-user-address-set"))
+                yield doesNotHaveProperty((caldav_namespace, "schedule-inbox-URL"))
+                yield doesNotHaveProperty((caldav_namespace, "schedule-outbox-URL"))
+                yield doesNotHaveProperty((caldav_namespace, "calendar-user-type"))
+                yield doesNotHaveProperty((calendarserver_namespace, "calendar-proxy-read-for"))
+                yield doesNotHaveProperty((calendarserver_namespace, "calendar-proxy-write-for"))
+                yield doesNotHaveProperty((calendarserver_namespace, "auto-schedule"))
+
+            if record.enabledForAddressBooks:
+                yield hasProperty(carddavxml.AddressBookHomeSet.qname())
+            else:
+                yield doesNotHaveProperty(carddavxml.AddressBookHomeSet.qname())
 
     def test_enabledAsOrganizer(self):
         """

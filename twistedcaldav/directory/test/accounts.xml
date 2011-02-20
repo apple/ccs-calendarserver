@@ -81,6 +81,20 @@ limitations under the License.
     <name>c</name>
     <email-address>c@example.com</email-address>
   </user>
+  <user>
+    <uid>usercalonly</uid>
+    <guid>9E1FFAC4-3CCD-45A1-8272-D161C92D2EEE</guid>
+    <password>a</password>
+    <name>a calonly</name>
+    <email-address>a-calonly@example.com</email-address>
+  </user>
+  <user>
+    <uid>useradbkonly</uid>
+    <guid>7678EC8A-A069-4E82-9066-7279C6718507</guid>
+    <password>a</password>
+    <name>a adbkonly</name>
+    <email-address>a-adbkonly@example.com</email-address>
+  </user>
   <user repeat="2">
     <uid>user%02d</uid>
     <guid>user%02d</guid>

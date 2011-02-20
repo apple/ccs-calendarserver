@@ -315,12 +315,12 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         # First see if the address is a principal URI
         principal = self._principalForURI(address)
         if principal:
-            if isinstance(principal, DirectoryCalendarPrincipalResource):
+            if isinstance(principal, DirectoryCalendarPrincipalResource) and principal.record.enabledForCalendaring:
                 return principal
         else:
             # Next try looking it up in the directory
             record = self.directory.recordWithCalendarUserAddress(address)
-            if record is not None and record.enabled:
+            if record is not None and record.enabled and record.enabledForCalendaring:
                 return self.principalForRecord(record)
 
         log.debug("No principal for calendar user address: %r" % (address,))
@@ -819,6 +819,12 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
     def liveProperties(self):
         return DirectoryPrincipalResource.liveProperties(self) + CalendarPrincipalResource.liveProperties(self)
 
+    def calendarsEnabled(self):
+        return config.EnableCalDAV and self.record.enabledForCalendaring
+    
+    def addressBooksEnabled(self):
+        return config.EnableCardDAV and self.record.enabledForAddressBooks
+    
     @inlineCallbacks
     def readProperty(self, property, request):
         # Ouch, multiple inheritance.
@@ -828,11 +834,17 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         returnValue(result)
 
     def extraDirectoryBodyItems(self, request):
-        return "".join((
-            """\nCalendar homes:\n"""          , format_list(format_link(u) for u in self.calendarHomeURLs()),
-            """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
-            """\nAddress Book homes:\n"""       , format_list(format_link(u) for u in self.addressBookHomeURLs()),
-        ))
+        extra = ""
+        if self.record.enabledForCalendaring:
+            extra += "".join((
+                """\nCalendar homes:\n"""          , format_list(format_link(u) for u in self.calendarHomeURLs()),
+                """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
+            ))
+        if self.record.enabledForAddressBooks:
+            extra += "".join((
+                """\nAddress Book homes:\n"""       , format_list(format_link(u) for u in self.addressBookHomeURLs()),
+            ))
+        return extra
 
     ##
     # CalDAV

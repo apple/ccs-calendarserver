@@ -1774,7 +1774,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         
         baseProperties = ()
         
-        if config.EnableCalDAV:
+        if self.calendarsEnabled():
             baseProperties += (
                 (caldav_namespace, "calendar-home-set"        ),
                 (caldav_namespace, "calendar-user-address-set"),
@@ -1786,7 +1786,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 (calendarserver_namespace, "auto-schedule" ),
             )
         
-        if config.EnableCardDAV:
+        if self.addressBooksEnabled():
             baseProperties += (carddavxml.AddressBookHomeSet.qname(),)
             if config.DirectoryAddressBook.Enabled:
                 baseProperties += (carddavxml.DirectoryGateway.qname(),)
@@ -1802,6 +1802,12 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
     def isCollection(self):
         return True
 
+    def calendarsEnabled(self):
+        return config.EnableCalDAV
+    
+    def addressBooksEnabled(self):
+        return config.EnableCardDAV
+    
     @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
@@ -1811,7 +1817,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
 
         namespace, name = qname
 
-        if namespace == caldav_namespace:
+        if namespace == caldav_namespace and self.calendarsEnabled():
             if name == "calendar-home-set":
                 returnValue(caldavxml.CalendarHomeSet(
                     *[davxml.HRef(url) for url in self.calendarHomeURLs()]
@@ -1854,23 +1860,23 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 else:
                     returnValue(customxml.NotificationURL(davxml.HRef(url)))
 
-            elif name == "calendar-proxy-read-for":
+            elif name == "calendar-proxy-read-for" and self.calendarsEnabled():
                 results = (yield self.proxyFor(False))
                 returnValue(customxml.CalendarProxyReadFor(
                     *[davxml.HRef(principal.principalURL()) for principal in results]
                 ))
 
-            elif name == "calendar-proxy-write-for":
+            elif name == "calendar-proxy-write-for" and self.calendarsEnabled():
                 results = (yield self.proxyFor(True))
                 returnValue(customxml.CalendarProxyWriteFor(
                     *[davxml.HRef(principal.principalURL()) for principal in results]
                 ))
 
-            elif name == "auto-schedule":
+            elif name == "auto-schedule" and self.calendarsEnabled():
                 autoSchedule = self.getAutoSchedule()
                 returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
 
-        elif config.EnableCardDAV and namespace == carddav_namespace:
+        elif namespace == carddav_namespace and self.addressBooksEnabled():
             if name == "addressbook-home-set":
                 returnValue(carddavxml.AddressBookHomeSet(
                     *[davxml.HRef(url) for url in self.addressBookHomeURLs()]
