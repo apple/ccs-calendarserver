@@ -86,9 +86,11 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
     
             # Only the owner's properties are migrated, since previous releases of
             # addressbook server didn't have per-user properties.
-            (yield outAddressbook.addressbookObjectWithName(
-                addressbookObject.name())).properties().update(
-                    addressbookObject.properties())
+            outObject = yield outAddressbook.addressbookObjectWithName(
+                addressbookObject.name())
+            if outAddressbook.objectResourcesHaveProperties():
+                outObject.properties().update(addressbookObject.properties())
+
 
         except InternalDataStoreError:
             log.error("  Failed to migrate adress book object: %s/%s/%s" % (
