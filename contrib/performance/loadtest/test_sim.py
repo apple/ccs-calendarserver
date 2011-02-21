@@ -23,8 +23,11 @@ from twisted.trial.unittest import TestCase
 from twisted.internet.defer import succeed
 from twisted.internet.task import Clock
 
+from loadtest.ical import SnowLeopard
+from loadtest.profiles import Eventer, Inviter, Accepter
+from loadtest.population import (
+    SmoothRampUp, ClientType, PopulationParameters, CalendarClientSimulator)
 from loadtest.sim import Server, Arrival, SimOptions, LoadSimulator, main
-from loadtest.population import SmoothRampUp, CalendarClientSimulator
 
 VALID_CONFIG = {
     'server': {
@@ -104,7 +107,7 @@ class LoadSimulatorTests(TestCase):
 
         exc = self.assertRaises(
             SystemExit, StubSimulator.main, ['--config', config.path])
-        self.assertEquals(exc.args, (StubSimulator(None, None).run(),))
+        self.assertEquals(exc.args, (StubSimulator(None, None, None).run(),))
 
 
     def test_createSimulator(self):
@@ -116,7 +119,7 @@ class LoadSimulatorTests(TestCase):
         host = '127.0.0.7'
         port = 1243
         reactor = object()
-        sim = LoadSimulator(Server(host, port), None, reactor)
+        sim = LoadSimulator(Server(host, port), None, None, reactor)
         calsim = sim.createSimulator()
         self.assertIsInstance(calsim, CalendarClientSimulator)
         self.assertIdentical(calsim.reactor, reactor)
@@ -173,9 +176,42 @@ class LoadSimulatorTests(TestCase):
 
         reactor = object()
         sim = LoadSimulator(
-            None, Arrival(FakeArrival, {'x': 3, 'y': 2}), reactor)
+            None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor)
         arrival = sim.createArrivalPolicy()
         self.assertIsInstance(arrival, FakeArrival)
         self.assertIdentical(arrival.reactor, reactor)
         self.assertEquals(arrival.x, 3)
         self.assertEquals(arrival.y, 2)
+
+
+    def test_loadPopulationParameters(self):
+        """
+        Client weights and profiles are loaded from the [clients]
+        section of the configuration file specified.
+        """
+        config = FilePath(self.mktemp())
+        config.setContent(writePlistToString({
+                    "clients": [{
+                            "software": "loadtest.ical.SnowLeopard",
+                            "profiles": ["loadtest.profiles.Eventer"],
+                            "weight": 3,
+                            }]}))
+        sim = LoadSimulator.fromCommandLine(['--config', config.path])
+        expectedParameters = PopulationParameters()
+        expectedParameters.addClient(3, ClientType(SnowLeopard, [Eventer]))
+        self.assertEquals(sim.parameters, expectedParameters)
+
+        
+    def test_requireClient(self):
+        """
+        At least one client is required, so if a configuration with an
+        empty clients array is specified, a single default client type
+        is used.
+        """
+        config = FilePath(self.mktemp())
+        config.setContent(writePlistToString({"clients": []}))
+        sim = LoadSimulator.fromCommandLine(['--config', config.path])
+        expectedParameters = PopulationParameters()
+        expectedParameters.addClient(
+            1, ClientType(SnowLeopard, [Eventer, Inviter, Accepter]))
+        self.assertEquals(sim.parameters, expectedParameters)

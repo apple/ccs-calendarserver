@@ -22,34 +22,58 @@ certain usage parameters.
 
 from itertools import izip
 
+from twisted.python.util import FancyEqMixin
+from twisted.python.log import msg
+
 from stats import mean, median, stddev, mad
 from loadtest.ical import SnowLeopard, RequestLogger
 from loadtest.profiles import Eventer, Inviter, Accepter
 
 
-class ClientType(object):
+class ClientType(object, FancyEqMixin):
     """
     @ivar clientType: An L{ICalendarClient} implementation
     @ivar profileTypes: A list of L{ICalendarUserProfile} implementations
     """
+    compareAttributes = ("clientType", "profileTypes")
+
     def __init__(self, clientType, profileTypes):
         self.clientType = clientType
         self.profileTypes = profileTypes
 
 
 
-class PopulationParameters(object):
+class PopulationParameters(object, FancyEqMixin):
     """
     Descriptive statistics about a population of Calendar Server users.
     """
+    compareAttributes = ("clients",)
+
+    def __init__(self):
+        self.clients = []
+
+
+    def addClient(self, weight, clientType):
+        """
+        Add another type of client to these parameters.
+
+        @param weight: A C{int} giving the weight of this client type.
+            The higher the weight, the more frequently a client of
+            this type will show up in the population described by
+            these parameters.
+
+        @param clientType: A L{ClientType} instance describing the
+            type of client to add.
+        """
+        self.clients.append((weight, clientType))
+
+
     def clientTypes(self):
         """
         Return a list of two-tuples giving the weights and types of
         clients in the population.
         """
-        return [
-            (1, ClientType(SnowLeopard, [Eventer, Inviter, Accepter])),
-            ]
+        return self.clients
 
 
 
@@ -242,6 +266,8 @@ def main():
     r.seed(100)
     populator = Populator(r)
     parameters = PopulationParameters()
+    parameters.addClient(
+        1, ClientType(SnowLeopard, [Eventer, Inviter, Accepter]))
     simulator = CalendarClientSimulator(
         populator, parameters, reactor, '127.0.0.1', 8008)
 

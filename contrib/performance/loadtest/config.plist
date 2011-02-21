@@ -35,14 +35,33 @@
       <string>loadtest.population.SmoothRampUp</string>
 
       <key>groups</key>
-      <integer>10</integer>
+      <integer>60</integer>
 
       <key>groupSize</key>
       <integer>1</integer>
 
       <key>interval</key>
-      <integer>5</integer>
+      <integer>13</integer>
 
     </dict>
+
+    <key>clients</key>
+    <array>
+      <dict>
+	<key>software</key>
+	<string>loadtest.ical.SnowLeopard</string>
+
+	<key>profiles</key>
+	<array>
+	  <string>loadtest.profiles.Eventer</string>
+	  <string>loadtest.profiles.Inviter</string>
+	  <string>loadtest.profiles.Accepter</string>
+	</array>
+
+	<key>weight</key>
+	<integer>1</integer>
+      </dict>
+    </array>
+
   </dict>
 </plist>

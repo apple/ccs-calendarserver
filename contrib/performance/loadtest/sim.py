@@ -24,8 +24,10 @@ from twisted.python.filepath import FilePath
 from twisted.python.usage import UsageError, Options
 from twisted.python.reflect import namedAny
 
+from loadtest.ical import SnowLeopard
+from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.population import (
-    Populator, PopulationParameters, SmoothRampUp,
+    Populator, ClientType, PopulationParameters, SmoothRampUp,
     CalendarClientSimulator)
 
 
@@ -90,12 +92,15 @@ class LoadSimulator(object):
     clients.
 
     @type server: L{Server}
+    @type arrival: L{Arrival}
+    @type parameters: L{PopulationParameters}
     """
-    def __init__(self, server, arrival, reactor=None):
+    def __init__(self, server, arrival, parameters, reactor=None):
         if reactor is None:
             from twisted.internet import reactor
         self.server = server
         self.arrival = arrival
+        self.parameters = parameters
         self.reactor = reactor
 
 
@@ -125,7 +130,21 @@ class LoadSimulator(object):
             arrival = Arrival(
                 SmoothRampUp, dict(groups=10, groupSize=1, interval=3))
 
-        return cls(server, arrival)
+
+        parameters = PopulationParameters()
+        if 'clients' in options.config:
+            for clientConfig in options.config['clients']:
+                parameters.addClient(
+                    clientConfig["weight"],
+                    ClientType(
+                        namedAny(clientConfig["software"]),
+                        [namedAny(profile)
+                         for profile in clientConfig["profiles"]]))
+        if not parameters.clients:
+            parameters.addClient(
+                1, ClientType(SnowLeopard, [Eventer, Inviter, Accepter]))
+
+        return cls(server, arrival, parameters)
 
 
     @classmethod
@@ -134,17 +153,12 @@ class LoadSimulator(object):
         raise SystemExit(simulator.run())
 
 
-    def createPopulationParameters(self):
-        return PopulationParameters()
-
-
     def createSimulator(self):
         host = self.server.host
         port = self.server.port
         populator = Populator(Random())
-        parameters = self.createPopulationParameters()
         return CalendarClientSimulator(
-            populator, parameters, self.reactor, host, port)
+            populator, self.parameters, self.reactor, host, port)
 
 
     def createArrivalPolicy(self):
