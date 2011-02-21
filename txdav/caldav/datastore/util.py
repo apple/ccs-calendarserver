@@ -136,6 +136,10 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
             if outCalendar.objectResourcesHaveProperties():
                 outObject.properties().update(calendarObject.properties())
     
+            if inCalendar.name() == "inbox":
+                # Because of 9023803, skip attachment processing within inboxes
+                continue
+
             # Migrate attachments.
             for attachment in (yield calendarObject.attachments()):
                 name = attachment.name()
