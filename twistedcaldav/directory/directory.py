@@ -459,8 +459,12 @@ class DirectoryRecord(LoggingMixIn):
         if config.EnableSACLs and self.CheckSACL:
             username = self.shortNames[0]
             if self.CheckSACL(username, "calendar") != 0:
+                self.log_debug("%s is not enabled for calendaring due to SACL"
+                               % (username,))
                 self.enabledForCalendaring = False
             if self.CheckSACL(username, "addressbook") != 0:
+                self.log_debug("%s is not enabled for addressbooks due to SACL"
+                               % (username,))
                 self.enabledForAddressBooks = False
 
 
