@@ -405,6 +405,15 @@ class CalendarObject(CommonObjectResource):
     def organizer(self):
         return self.component().getOrganizer()
 
+    def getMetadata(self):
+        metadata = {}
+        metadata["accessMode"] = self.accessMode 
+        metadata["isScheduleObject"] = self.isScheduleObject
+        metadata["scheduleTag"] = self.scheduleTag
+        metadata["scheduleEtags"] = self.scheduleEtags
+        metadata["hasPrivateComment"] = self.hasPrivateComment
+        return metadata
+
     def _get_accessMode(self):
         return str(self.properties().get(PropertyName.fromElement(customxml.TwistedCalendarAccessProperty), ""))
 

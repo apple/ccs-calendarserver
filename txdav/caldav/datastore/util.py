@@ -127,7 +127,9 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
         try:
             yield outCalendar.createCalendarObjectWithName(
                 calendarObject.name(),
-                (yield calendarObject.component())) # XXX WRONG SHOULD CALL getComponent
+                (yield calendarObject.component()), # XXX WRONG SHOULD CALL getComponent
+                metadata=calendarObject.getMetadata(),
+            )
 
             # Only the owner's properties are migrated, since previous releases of
             # calendar server didn't have per-user properties.

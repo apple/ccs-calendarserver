@@ -603,6 +603,15 @@ class CalendarObject(CommonObjectResource):
         returnValue((yield self.component()).getOrganizer())
 
 
+    def getMetadata(self):
+        metadata = {}
+        metadata["accessMode"] = self.accessMode 
+        metadata["isScheduleObject"] = self.isScheduleObject
+        metadata["scheduleTag"] = self.scheduleTag
+        metadata["scheduleEtags"] = self.scheduleEtags
+        metadata["hasPrivateComment"] = self.hasPrivateComment
+        return metadata
+
     def _get_accessMode(self):
         return accesstype_to_accessMode[self._access]
 
