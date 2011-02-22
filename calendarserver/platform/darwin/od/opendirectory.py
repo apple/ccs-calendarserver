@@ -138,6 +138,7 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
     @return: C{list} containing a C{list} of C{str} (record name) and C{dict} attributes
         for each record found, or C{None} otherwise.
     """
+    results = []
     query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         directory.node,
         recordType,
@@ -155,7 +156,9 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
         log.error(error)
         raise ODError(error)
     for record in records:
-        yield recordToResult(record)
+        results.append(recordToResult(record))
+    return results
+
 
 def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, recordType, attributes, count=0):
     """
@@ -175,6 +178,7 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
         for each record found, or C{None} otherwise.
     """
 
+    results = []
     query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         directory.node,
         recordType,
@@ -192,7 +196,8 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
         log.error(error)
         raise ODError(error)
     for record in records:
-        yield recordToResult(record)
+        results.append(recordToResult(record))
+    return results
 
 
 def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attributes, count=0):
@@ -210,6 +215,7 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
     @return: C{list} containing a C{list} of C{str} (record name) and C{dict} attributes
         for each record found, or C{None} otherwise.
     """
+    results = []
     query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         directory.node,
         recordType,
@@ -227,7 +233,8 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
         log.error(error)
         raise ODError(error)
     for record in records:
-        yield recordToResult(record)
+        results.append(recordToResult(record))
+    return results
 
 
 def getUserRecord(directory, user):
