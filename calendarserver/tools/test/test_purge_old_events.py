@@ -319,21 +319,29 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
     Tests for deleting events older than a given date
     """
 
+    metadata = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": True,
+        "scheduleTag": "abc",
+        "scheduleEtags": (),
+        "hasPrivateComment": False,
+    }
+
     requirements = {
         "home1" : {
             "calendar1" : {
-                "old.ics" : OLD_ICS,
-                "endless.ics" : ENDLESS_ICS,
-                "oldattachment.ics" : OLD_ATTACHMENT_ICS,
+                "old.ics" : (OLD_ICS, metadata,),
+                "endless.ics" : (ENDLESS_ICS, metadata,),
+                "oldattachment.ics" : (OLD_ATTACHMENT_ICS, metadata,),
             }
         },
         "home2" : {
             "calendar2" : {
-                "straddling.ics" : STRADDLING_ICS,
-                "recent.ics" : RECENT_ICS,
+                "straddling.ics" : (STRADDLING_ICS, metadata,),
+                "recent.ics" : (RECENT_ICS, metadata,),
             },
             "calendar3" : {
-                "repeating_awhile.ics" : REPEATING_AWHILE_ICS,
+                "repeating_awhile.ics" : (REPEATING_AWHILE_ICS, metadata,),
             }
         }
     }

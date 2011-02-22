@@ -18,19 +18,22 @@
 Tests for L{txdav.common.datastore.util}.
 """
 
-from twisted.internet.protocol import Protocol
-from twisted.trial.unittest import TestCase
 from twext.python.filepath import CachingFilePath
 from twext.web2.http_headers import MimeType
 
 from twisted.application.service import Service, MultiService
-from txdav.common.datastore.util import UpgradeToDatabaseService
+from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
+from twisted.internet.protocol import Protocol
+from twisted.trial.unittest import TestCase
+
+from twistedcaldav.config import config
+from twistedcaldav.memcacher import Memcacher
+
+from txdav.caldav.datastore.test.common import CommonTests
 from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import theStoreBuilder, \
     populateCalendarsFrom, StubNotifierFactory
-from txdav.caldav.datastore.test.common import CommonTests
-from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
-
+from txdav.common.datastore.util import UpgradeToDatabaseService
 
 class HomeMigrationTests(TestCase):
     """
@@ -43,6 +46,9 @@ class HomeMigrationTests(TestCase):
         Set up two stores to migrate between.
         """
         # Add some files to the file store.
+        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
+        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
+        self.patch(Memcacher, "allowTestCache", True)
         self.filesPath = CachingFilePath(self.mktemp())
         self.filesPath.createDirectory()
         fileStore = self.fileStore = CommonDataStore(
@@ -91,6 +97,17 @@ class HomeMigrationTests(TestCase):
                 ".some-extra-data").getContent(),
                 "some extra data"
         )
+        
+        # Want metadata preserved
+        home = (yield txn.calendarHomeWithUID("home1"))
+        calendar = (yield home.calendarWithName("calendar_1"))
+        for name, metadata in (
+            ("1.ics", CommonTests.metadata1),
+            ("2.ics", CommonTests.metadata2),
+            ("3.ics", CommonTests.metadata3),
+        ):
+            object = (yield calendar.calendarObjectWithName(name))
+            self.assertEquals(object.getMetadata(), metadata)
 
 
     @inlineCallbacks

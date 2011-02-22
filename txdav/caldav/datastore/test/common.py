@@ -152,12 +152,34 @@ class CommonTests(CommonCommonTests):
     L{txdav.caldav.icalendarstore}.
     """
 
+    metadata1 = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": True,
+        "scheduleTag": "abc",
+        "scheduleEtags": (),
+        "hasPrivateComment": False,
+    }
+    metadata2 = {
+        "accessMode": "PRIVATE",
+        "isScheduleObject": False,
+        "scheduleTag": "",
+        "scheduleEtags": (),
+        "hasPrivateComment": False,
+    }
+    metadata3 = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": True,
+        "scheduleTag": "abc",
+        "scheduleEtags": (),
+        "hasPrivateComment": True,
+    }
+
     requirements = {
         "home1": {
             "calendar_1": {
-                "1.ics": cal1Root.child("1.ics").getContent(),
-                "2.ics": cal1Root.child("2.ics").getContent(),
-                "3.ics": cal1Root.child("3.ics").getContent()
+                "1.ics": (cal1Root.child("1.ics").getContent(), metadata1,),
+                "2.ics": (cal1Root.child("2.ics").getContent(), metadata2,),
+                "3.ics": (cal1Root.child("3.ics").getContent(), metadata3,),
             },
             "calendar_2": {},
             "calendar_empty": {},
@@ -165,6 +187,7 @@ class CommonTests(CommonCommonTests):
         },
         "not_a_home": None
     }
+
 
     def storeUnderTest(self):
         """
@@ -818,10 +841,10 @@ class CommonTests(CommonCommonTests):
         self.assertIsInstance(calendar.created(), int)
         self.assertIsInstance(calendar.modified(), int)
 
-        self.assertEqual(calendar.accessMode, "")
-        self.assertEqual(calendar.isScheduleObject, False)
-        self.assertEqual(calendar.scheduleEtags, ())
-        self.assertEqual(calendar.hasPrivateComment, False)
+        self.assertEqual(calendar.accessMode, CommonTests.metadata1["accessMode"])
+        self.assertEqual(calendar.isScheduleObject, CommonTests.metadata1["isScheduleObject"])
+        self.assertEqual(calendar.scheduleEtags, CommonTests.metadata1["scheduleEtags"])
+        self.assertEqual(calendar.hasPrivateComment, CommonTests.metadata1["hasPrivateComment"])
 
         calendar.accessMode = Component.ACCESS_PRIVATE
         calendar.isScheduleObject = True
@@ -992,10 +1015,18 @@ class CommonTests(CommonCommonTests):
             (yield calendar1.calendarObjectWithName(name)), None
         )
         component = VComponent.fromString(event4_text)
-        yield calendar1.createCalendarObjectWithName(name, component)
+        metadata = {
+            "accessMode": "PUBLIC",
+            "isScheduleObject": True,
+            "scheduleTag": "abc",
+            "scheduleEtags": (),
+            "hasPrivateComment": False,
+        }
+        yield calendar1.createCalendarObjectWithName(name, component, metadata=metadata)
 
         calendarObject = yield calendar1.calendarObjectWithName(name)
         self.assertEquals((yield calendarObject.component()), component)
+        self.assertEquals((yield calendarObject.getMetadata()), metadata)
 
         yield self.commit()
 

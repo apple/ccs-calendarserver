@@ -504,6 +504,9 @@ class FileStorageTests(CommonTests, unittest.TestCase):
 
     test_simpleHomeSyncToken.skip = "Not in file store."
 
+    def test_calendarObjectMetaData(self):
+        pass
+    test_calendarObjectMetaData.skip = "Example file data has no xattrs"
 
     def test_notificationSyncToken(self):
         """

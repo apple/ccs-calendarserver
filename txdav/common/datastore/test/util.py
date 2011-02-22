@@ -208,9 +208,11 @@ def populateCalendarsFrom(requirements, store):
                     yield home.createCalendarWithName(calendarName)
                     calendar = yield home.calendarWithName(calendarName)
                     for objectName in calendarObjNames:
-                        objData = calendarObjNames[objectName]
+                        objData, metadata = calendarObjNames[objectName]
                         yield calendar.createCalendarObjectWithName(
-                            objectName, VComponent.fromString(objData)
+                            objectName,
+                            VComponent.fromString(objData),
+                            metadata = metadata,
                         )
     yield populateTxn.commit()
 
