@@ -64,7 +64,7 @@ class SQLStoreBuilder(object):
     sharedService = None
     currentTestID = None
 
-    SHARED_DB_PATH = "../_test_sql_db"
+    SHARED_DB_PATH = "_test_sql_db"
 
     def buildStore(self, testCase, notifierFactory):
         """
