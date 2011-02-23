@@ -18,7 +18,7 @@
 from operator import setitem
 from plistlib import writePlistToString
 
-from twisted.python.log import LogPublisher, theLogPublisher
+from twisted.python.log import LogPublisher, theLogPublisher, msg
 from twisted.python.usage import UsageError
 from twisted.python.filepath import FilePath
 from twisted.trial.unittest import TestCase
@@ -94,8 +94,11 @@ class SimOptionsTests(TestCase):
 
 
 class Reactor(object):
+    message = "some event to be observed"
+
     def run(self):
-        pass
+        msg(self.message)
+
 
 
 class Observer(object):
@@ -259,18 +262,11 @@ class LoadSimulatorTests(TestCase):
         self.assertEquals(len(sim.observers), 1)
         self.assertIsInstance(sim.observers[0], SimpleStatistics)
 
-    def test_observeBeforeRun(self):
+    def test_observeRunReport(self):
         """
         Each log observer is added to the log publisher before the
-        simulation run is started.
-        """
-        self.fail("implement me")
-
-
-    def test_reportAfterRun(self):
-        """
-        Each log observer also has its C{report} method called after
-        the simulation run completes.
+        simulation run is started and has its C{report} method called
+        after the simulation run completes.
         """
         observers = [Observer()]
         sim = LoadSimulator(
@@ -279,4 +275,5 @@ class LoadSimulatorTests(TestCase):
             None, observers, Reactor())
         sim.run()
         self.assertTrue(observers[0].reported)
-
+        self.assertEquals(
+            observers[0].events[0]['message'], (Reactor.message,))

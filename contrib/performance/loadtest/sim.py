@@ -172,6 +172,8 @@ class LoadSimulator(object):
 
 
     def run(self):
+        for obs in self.observers:
+            addObserver(obs.observe)
         sim = self.createSimulator()
         arrivalPolicy = self.createArrivalPolicy()
         arrivalPolicy.run(sim)
