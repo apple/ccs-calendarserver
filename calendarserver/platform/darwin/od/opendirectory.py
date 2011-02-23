@@ -308,5 +308,4 @@ class ODError(Exception):
     """
     Exceptions from DirectoryServices errors.
     """
-    def __init__(self, error):
-        self.message = (str(error), error.code())
+    pass

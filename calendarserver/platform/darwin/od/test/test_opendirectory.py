@@ -768,6 +768,38 @@ if runTests:
                 user, challenge, response, method)
             self.assertTrue(result)
 
+        def test_digestAuth_master_wrong_password(self):
+            directory = opendirectory.odInit("/Search")
+
+            user = "odtestamanda"
+            password = "wrong"
+            node = "/LDAPv3/127.0.0.1"
+            uri = "principals/users/odtestamanda"
+            method = "PROPFIND"
+
+            challenge, response = getChallengeResponse(user, password, node,
+                uri, method)
+
+            self.assertRaises(opendirectory.ODError,
+                opendirectory.authenticateUserDigest,
+                directory, node, user, challenge, response, method)
+
+        def test_digestAuth_master_missing_record(self):
+            directory = opendirectory.odInit("/Search")
+
+            user = "missingperson"
+            password = "wrong"
+            node = "/LDAPv3/127.0.0.1"
+            uri = "principals/users/odtestamanda"
+            method = "PROPFIND"
+
+            challenge, response = getChallengeResponse(user, password, node,
+                uri, method)
+
+            self.assertRaises(opendirectory.ODError,
+                opendirectory.authenticateUserDigest,
+                directory, node, user, challenge, response, method)
+
         def test_digestAuth_local(self):
             directory = opendirectory.odInit("/Search")
 
