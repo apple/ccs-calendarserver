@@ -51,6 +51,21 @@ def loadRequestBody(label):
 
 SUPPORTED_REPORT_SET = '{DAV:}supported-report-set'
 
+class IncorrectResponseCode(Exception):
+    """
+    Raised when a response has a code other than the one expected.
+
+    @ivar expected: The response code which was expected.
+    @type expected: C{int}
+
+    @ivar response: The response which was received
+    @type response: L{twisted.web.client.Response}
+    """
+    def __init__(self, expected, response):
+        self.expected = expected
+        self.response = response
+
+
 
 class Event(object):
     def __init__(self, url, etag, vevent=None):
@@ -123,7 +138,10 @@ class SnowLeopard(BaseClient):
 
     USER_AGENT = "DAVKit/4.0.3 (732); CalendarStore/4.0.3 (991); iCal/4.0.3 (1388); Mac OS X/10.6.4 (10F569)"
 
-    CALENDAR_HOME_POLL_INTERVAL = 60 * 3
+    # The default interval, used if none is specified in external
+    # configuration.  This is also the actual value used by Snow
+    # Leopard iCal.
+    CALENDAR_HOME_POLL_INTERVAL = 60 * 15
 
     _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody('sl_startup_principal_propfind')
     _STARTUP_PRINCIPALS_REPORT = loadRequestBody('sl_startup_principals_report')
@@ -139,11 +157,15 @@ class SnowLeopard(BaseClient):
 
     email = None
 
-    def __init__(self, reactor, host, port, user, auth):
+    def __init__(self, reactor, host, port, user, auth, calendarHomePollInterval=None):
         self.reactor = reactor
         self.agent = AuthHandlerAgent(Agent(self.reactor), auth)
         self.root = 'http://%s:%d/' % (host, port)
         self.user = user
+
+        if calendarHomePollInterval is None:
+            calendarHomePollInterval = self.CALENDAR_HOME_POLL_INTERVAL
+        self.calendarHomePollInterval = calendarHomePollInterval
 
         # Keep track of the calendars on this account, keys are
         # Calendar URIs, values are Calendar instances.
@@ -169,18 +191,26 @@ class SnowLeopard(BaseClient):
         d = self.agent.request(method, url, headers, body)
         before = self.reactor.seconds()
         def report(response):
-            success = response.code == expectedResponseCode
-            # if not success:
-            #     import pdb; pdb.set_trace()
-            after = self.reactor.seconds()
             # XXX This is time to receive response headers, not time
             # to receive full response.  Should measure the latter, if
             # not both.
+            after = self.reactor.seconds()
+
+            # XXX If the response code is wrong, there's probably not
+            # point passing the response down the callback chain.
+            # errback?
+            success = response.code == expectedResponseCode
+
+            # if not success:
+            #     import pdb; pdb.set_trace()
             msg(
                 type="response", success=success, method=method,
                 headers=headers, body=body,
                 duration=(after - before), url=url)
-            return response
+
+            if success:
+                return response
+            raise IncorrectResponseCode(expectedResponseCode, response)
         d.addCallback(report)
         return d
 
@@ -357,7 +387,11 @@ class SnowLeopard(BaseClient):
             for cal in calendars:
                 if self._calendars.setdefault(cal.url, cal).ctag != cal.ctag or True:
                     self._updateCalendar(cal)
-        d.addCallback(cbCalendars)
+        def ebCalendars(reason):
+            reason.trap(IncorrectResponseCode)
+            msg(type="aggregate", operation="poll", success=False)
+        d.addCallbacks(cbCalendars, ebCalendars)
+        d.addErrback(err, "Unexpected failure during calendar home poll")
         return d
 
 
@@ -395,11 +429,7 @@ class SnowLeopard(BaseClient):
     @inlineCallbacks
     def startup(self):
         # Orient ourselves, or something
-        try:
-            principal = yield self._principalPropfind(self.user)
-        except:
-            err(None, "Startup principal PROPFIND failed")
-            return
+        principal = yield self._principalPropfind(self.user)
 
         hrefs = principal.getHrefProperties()
 
@@ -431,12 +461,11 @@ class SnowLeopard(BaseClient):
 
     def _calendarCheckLoop(self, calendarHome):
         """
-        Poll Calendar Home (and notifications?) every 15 (or whatever)
-        minutes
+        Periodically check the calendar home for changes to calendars.
         """
         pollCalendarHome = LoopingCall(
             self._checkCalendarsForEvents, calendarHome)
-        pollCalendarHome.start(self.CALENDAR_HOME_POLL_INTERVAL)
+        pollCalendarHome.start(self.calendarHomePollInterval)
 
 
     @inlineCallbacks
@@ -446,9 +475,9 @@ class SnowLeopard(BaseClient):
         """
         principal = yield self.startup()
         hrefs = principal.getHrefProperties()
-
         self._calendarCheckLoop(hrefs[caldavxml.calendar_home_set].toString())
 
+        # XXX Oops, should probably stop sometime.
         yield Deferred()
 
 

@@ -23,7 +23,7 @@ certain usage parameters.
 from itertools import izip
 
 from twisted.python.util import FancyEqMixin
-from twisted.python.log import msg
+from twisted.python.log import msg, err
 
 from stats import mean, median, stddev, mad
 from loadtest.ical import SnowLeopard, RequestLogger
@@ -147,11 +147,20 @@ class CalendarClientSimulator(object):
             clientType = self._pop.next()
             client = clientType.clientType(
                 self.reactor, self.host, self.port, user, auth)
-            client.run()
+            d = client.run()
+            d.addCallbacks(self._clientSuccess, self._clientFailure)
 
             for profileType in clientType.profileTypes:
                 profileType(self.reactor, client, number).run()
         msg(type="status", clientCount=self._user - 1)
+
+
+    def _clientSuccess(self, result):
+        pass
+
+
+    def _clientFailure(self, reason):
+        err(reason, "Client stopped with error")
 
 
 

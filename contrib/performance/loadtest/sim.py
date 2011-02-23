@@ -21,6 +21,7 @@ from plistlib import readPlist
 from collections import namedtuple
 
 from twisted.python.filepath import FilePath
+from twisted.python.log import addObserver
 from twisted.python.usage import UsageError, Options
 from twisted.python.reflect import namedAny
 
@@ -95,12 +96,13 @@ class LoadSimulator(object):
     @type arrival: L{Arrival}
     @type parameters: L{PopulationParameters}
     """
-    def __init__(self, server, arrival, parameters, reactor=None):
+    def __init__(self, server, arrival, parameters, observers=None, reactor=None):
         if reactor is None:
             from twisted.internet import reactor
         self.server = server
         self.arrival = arrival
         self.parameters = parameters
+        self.observers = observers
         self.reactor = reactor
 
 
@@ -130,7 +132,6 @@ class LoadSimulator(object):
             arrival = Arrival(
                 SmoothRampUp, dict(groups=10, groupSize=1, interval=3))
 
-
         parameters = PopulationParameters()
         if 'clients' in options.config:
             for clientConfig in options.config['clients']:
@@ -144,7 +145,12 @@ class LoadSimulator(object):
             parameters.addClient(
                 1, ClientType(SnowLeopard, [Eventer, Inviter, Accepter]))
 
-        return cls(server, arrival, parameters)
+        observers = []
+        if 'observers' in options.config:
+            for observerName in options.config['observers']:
+                observers.append(namedAny(observerName)())
+
+        return cls(server, arrival, parameters, observers)
 
 
     @classmethod
@@ -170,6 +176,7 @@ class LoadSimulator(object):
         arrivalPolicy = self.createArrivalPolicy()
         arrivalPolicy.run(sim)
         self.reactor.run()
-
+        for obs in self.observers:
+            obs.report()
 
 main = LoadSimulator.main

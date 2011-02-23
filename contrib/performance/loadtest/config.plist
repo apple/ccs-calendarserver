@@ -63,5 +63,10 @@
       </dict>
     </array>
 
+    <key>observers</key>
+    <array>
+      <string>loadtest.population.ReportStatistics</string>
+    </array>
+
   </dict>
 </plist>

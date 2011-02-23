@@ -15,8 +15,10 @@
 #
 ##
 
+from operator import setitem
 from plistlib import writePlistToString
 
+from twisted.python.log import LogPublisher, theLogPublisher
 from twisted.python.usage import UsageError
 from twisted.python.filepath import FilePath
 from twisted.trial.unittest import TestCase
@@ -26,7 +28,8 @@ from twisted.internet.task import Clock
 from loadtest.ical import SnowLeopard
 from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.population import (
-    SmoothRampUp, ClientType, PopulationParameters, CalendarClientSimulator)
+    SmoothRampUp, ClientType, PopulationParameters, CalendarClientSimulator,
+    SimpleStatistics)
 from loadtest.sim import Server, Arrival, SimOptions, LoadSimulator, main
 
 VALID_CONFIG = {
@@ -90,6 +93,32 @@ class SimOptionsTests(TestCase):
 
 
 
+class Reactor(object):
+    def run(self):
+        pass
+
+
+class Observer(object):
+    def __init__(self):
+        self.reported = False
+        self.events = []
+
+
+    def observe(self, event):
+        self.events.append(event)
+
+
+    def report(self):
+        self.reported = True
+
+
+
+class NullArrival(object):
+    def run(self, sim):
+        pass
+
+
+
 class StubSimulator(LoadSimulator):
     def run(self):
         return 3
@@ -107,7 +136,8 @@ class LoadSimulatorTests(TestCase):
 
         exc = self.assertRaises(
             SystemExit, StubSimulator.main, ['--config', config.path])
-        self.assertEquals(exc.args, (StubSimulator(None, None, None).run(),))
+        self.assertEquals(
+            exc.args, (StubSimulator(None, None, None).run(),))
 
 
     def test_createSimulator(self):
@@ -119,7 +149,7 @@ class LoadSimulatorTests(TestCase):
         host = '127.0.0.7'
         port = 1243
         reactor = object()
-        sim = LoadSimulator(Server(host, port), None, None, reactor)
+        sim = LoadSimulator(Server(host, port), None, None, reactor=reactor)
         calsim = sim.createSimulator()
         self.assertIsInstance(calsim, CalendarClientSimulator)
         self.assertIdentical(calsim.reactor, reactor)
@@ -176,7 +206,7 @@ class LoadSimulatorTests(TestCase):
 
         reactor = object()
         sim = LoadSimulator(
-            None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor)
+            None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor=reactor)
         arrival = sim.createArrivalPolicy()
         self.assertIsInstance(arrival, FakeArrival)
         self.assertIdentical(arrival.reactor, reactor)
@@ -215,3 +245,38 @@ class LoadSimulatorTests(TestCase):
         expectedParameters.addClient(
             1, ClientType(SnowLeopard, [Eventer, Inviter, Accepter]))
         self.assertEquals(sim.parameters, expectedParameters)
+
+
+    def test_loadLogObservers(self):
+        """
+        Log observers specified in the [observers] section of the
+        configuration file are added to the logging system.
+        """
+        config = FilePath(self.mktemp())
+        config.setContent(writePlistToString({
+                    "observers": ["loadtest.population.SimpleStatistics"]}))
+        sim = LoadSimulator.fromCommandLine(['--config', config.path])
+        self.assertEquals(len(sim.observers), 1)
+        self.assertIsInstance(sim.observers[0], SimpleStatistics)
+
+    def test_observeBeforeRun(self):
+        """
+        Each log observer is added to the log publisher before the
+        simulation run is started.
+        """
+        self.fail("implement me")
+
+
+    def test_reportAfterRun(self):
+        """
+        Each log observer also has its C{report} method called after
+        the simulation run completes.
+        """
+        observers = [Observer()]
+        sim = LoadSimulator(
+            Server('example.com', 123), 
+            Arrival(lambda reactor: NullArrival(), {}),
+            None, observers, Reactor())
+        sim.run()
+        self.assertTrue(observers[0].reported)
+
