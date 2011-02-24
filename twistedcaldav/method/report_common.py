@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -385,8 +385,6 @@ fbcacher = Memcacher("FBCache", pickle=True)
 class FBCacheEntry(object):
     
     CACHE_DAYS_FLOATING_ADJUST = 1
-    CACHE_DAYS_BACK = 7             # Must be greater than CACHE_DAYS_FLOATING_ADJUST
-    CACHE_DAYS_FORWARD = 12 * 7     # 12 weeks must be greater than CACHE_DAYS_FLOATING_ADJUST
     
     def __init__(self, key, token, timerange, fbresults):
         self.key = key
@@ -483,8 +481,8 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
             request.extendedLogItems["fb-uncached"] = request.extendedLogItems.get("fb-uncached", 0) + 1
 
             # We want to cache a large range of time based on the current date
-            cache_start = normalizeToUTC(datetime.date.today() - datetime.timedelta(days=FBCacheEntry.CACHE_DAYS_BACK))
-            cache_end = normalizeToUTC(datetime.date.today() + datetime.timedelta(days=FBCacheEntry.CACHE_DAYS_FORWARD))
+            cache_start = normalizeToUTC(datetime.date.today() - datetime.timedelta(days=config.FreeBusyCacheDaysBack))
+            cache_end = normalizeToUTC(datetime.date.today() + datetime.timedelta(days=config.FreeBusyCacheDaysForward))
             
             # If the requested timerange would fit in our allowed cache range, trigger the cache creation
             if compareDateTime(timerange.start, cache_start) >= 0 and compareDateTime(timerange.end, cache_end) <= 0:

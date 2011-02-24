@@ -701,7 +701,13 @@ DEFAULT_CONFIG = {
     "EnableResponseCache":  True,
     "ResponseCacheTimeout": 30, # Minutes
 
-    "EnableFreeBusyCache":  True,
+    "EnableFreeBusyCache":          True,
+    "FreeBusyCacheDaysBack":        7,
+    "FreeBusyCacheDaysForward":     12 * 7,
+
+    "FreeBusyIndexExpandAheadDays": 365,
+    "FreeBusyIndexExpandMaxDays":   5 * 365,
+    "FreeBusyIndexDelayedExpand":   True,
 
     # Specify which opendirectory module to use:
     # "opendirectory" is PyOpenDirectory (the old one which uses

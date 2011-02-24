@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@ from twisted.internet import reactor
 from twisted.internet.task import deferLater
 
 from txdav.caldav.datastore.index_file import Index, MemcachedUIDReserver
-from txdav.common.icommondatastore import ReservationError
+from txdav.common.icommondatastore import ReservationError,\
+    InternalDataStoreError
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, InvalidICalendarDataError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
@@ -31,6 +32,30 @@ import twistedcaldav.test.util
 import datetime
 import os
 from twisted.internet.defer import inlineCallbacks
+
+
+class MinimalCalendarObjectReplacement(object):
+    """
+    Provide the minimal set of attributes and methods from CalDAVFile required
+    by L{Index}.
+    """
+
+    def __init__(self, filePath):
+        self.fp = filePath
+
+
+    def iCalendar(self):
+        text = self.fp.open().read()
+        try:
+            component = Component.fromString(text)
+            # Fix any bogus data we can
+            component.validateComponentsForCalDAV(False, fix=True)
+        except InvalidICalendarDataError, e:
+            raise InternalDataStoreError(
+                "File corruption detected (%s) in file: %s"
+                % (e, self._path.path)
+            )
+        return component
 
 
 class MinimalResourceReplacement(object):
@@ -49,7 +74,7 @@ class MinimalResourceReplacement(object):
 
     def getChild(self, name):
         # FIXME: this should really return something with a child method
-        return self.fp.child(name)
+        return MinimalCalendarObjectReplacement(self.fp.child(name))
 
 
     def initSyncToken(self):

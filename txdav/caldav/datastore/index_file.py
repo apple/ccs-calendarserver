@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_index -*-
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,30 +69,6 @@ icalfbtype_to_indexfbtype = {
     "BUSY-TENTATIVE"  : 'T',
 }
 indexfbtype_to_icalfbtype = dict([(v, k) for k,v in icalfbtype_to_indexfbtype.iteritems()])
-
-#
-# Duration into the future through which recurrences are expanded in the index
-# by default.  This is a caching parameter which affects the size of the index;
-# it does not affect search results beyond this period, but it may affect
-# performance of such a search.
-#
-default_future_expansion_duration = datetime.timedelta(days=365*1)
-
-#
-# Maximum duration into the future through which recurrences are expanded in the
-# index.  This is a caching parameter which affects the size of the index; it
-# does not affect search results beyond this period, but it may affect
-# performance of such a search.
-#
-# When a search is performed on a time span that goes beyond that which is
-# expanded in the index, we have to open each resource which may have data in
-# that time period.  In order to avoid doing that multiple times, we want to
-# cache those results.  However, we don't necessarily want to cache all
-# occurrences into some obscenely far-in-the-future date, so we cap the caching
-# period.  Searches beyond this period will always be relatively expensive for
-# resources with occurrences beyond this period.
-#
-maximum_future_expansion_duration = datetime.timedelta(days=365*5)
 
 
 class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
@@ -657,27 +633,59 @@ class CalendarIndex (AbstractCalendarIndex):
             organizer = ""
 
         # Decide how far to expand based on the component
+        doInstanceIndexing = False
         master = calendar.masterComponent()
         if master is None or not calendar.isRecurring() and not calendar.isRecurringUnbounded():
             # When there is no master we have a set of overridden components - index them all.
             # When there is one instance - index it.
             # When bounded - index all.
             expand = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+            doInstanceIndexing = True
         else:
-            if expand_until:
+            # If migrating or re-creating or config option for delayed indexing is off, always index
+            if reCreate or not config.FreeBusyIndexDelayedExpand:
+                doInstanceIndexing = True
+
+            # Duration into the future through which recurrences are expanded in the index
+            # by default.  This is a caching parameter which affects the size of the index;
+            # it does not affect search results beyond this period, but it may affect
+            # performance of such a search.
+            expand = (datetime.date.today() +
+                      datetime.timedelta(days=config.FreeBusyIndexExpandAheadDays))
+
+            if expand_until and expand_until > expand:
                 expand = expand_until
-            else:
-                expand = datetime.date.today() + default_future_expansion_duration
-    
-            if expand > (datetime.date.today() + maximum_future_expansion_duration):
+
+            # Maximum duration into the future through which recurrences are expanded in the
+            # index.  This is a caching parameter which affects the size of the index; it
+            # does not affect search results beyond this period, but it may affect
+            # performance of such a search.
+            #
+            # When a search is performed on a time span that goes beyond that which is
+            # expanded in the index, we have to open each resource which may have data in
+            # that time period.  In order to avoid doing that multiple times, we want to
+            # cache those results.  However, we don't necessarily want to cache all
+            # occurrences into some obscenely far-in-the-future date, so we cap the caching
+            # period.  Searches beyond this period will always be relatively expensive for
+            # resources with occurrences beyond this period.
+            if expand > (datetime.date.today() +
+                         datetime.timedelta(days=config.FreeBusyIndexExpandMaxDays)):
                 raise IndexedSearchException()
 
+        # Always do recurrence expansion even if we do not intend to index - we need this to double-check the
+        # validity of the iCalendar recurrence data.
         try:
             instances = calendar.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
+            recurrenceLimit = instances.limit
         except InvalidOverriddenInstanceError, e:
             log.err("Invalid instance %s when indexing %s in %s" % (e.rid, name, self.resource,))
             raise
 
+        # Now coerce indexing to off if needed 
+        if not doInstanceIndexing:
+            instances = None
+            recurrenceLimit = datetime.datetime(1900, 1, 1, 0, 0, 0, tzinfo=utc)
+            
         self._delete_from_db(name, uid, False)
 
         # Add RESOURCE item
@@ -685,7 +693,7 @@ class CalendarIndex (AbstractCalendarIndex):
             """
             insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX, ORGANIZER)
             values (:1, :2, :3, :4, :5)
-            """, name, uid, calendar.resourceType(), instances.limit, organizer
+            """, name, uid, calendar.resourceType(), recurrenceLimit, organizer
         )
         resourceid = self.lastrowid
 
@@ -709,58 +717,59 @@ class CalendarIndex (AbstractCalendarIndex):
                 peruserid = self.lastrowid
             useruidmap[useruid] = peruserid
             
-        for key in instances:
-            instance = instances[key]
-            start = instance.start.replace(tzinfo=utc)
-            end = instance.end.replace(tzinfo=utc)
-            float = 'Y' if instance.start.tzinfo is None else 'N'
-            transp = 'T' if instance.component.propertyValue("TRANSP") == "TRANSPARENT" else 'F'
-            self._db_execute(
-                """
-                insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE, TRANSPARENT)
-                values (:1, :2, :3, :4, :5, :6)
-                """,
-                resourceid,
-                float,
-                start,
-                end,
-                icalfbtype_to_indexfbtype.get(instance.component.getFBType(), 'F'),
-                transp
-            )
-            instanceid = self.lastrowid
-            peruserdata = calendar.perUserTransparency(instance.rid)
-            for useruid, transp in peruserdata:
-                peruserid = useruidmap[useruid]
+        if doInstanceIndexing:
+            for key in instances:
+                instance = instances[key]
+                start = instance.start.replace(tzinfo=utc)
+                end = instance.end.replace(tzinfo=utc)
+                float = 'Y' if instance.start.tzinfo is None else 'N'
+                transp = 'T' if instance.component.propertyValue("TRANSP") == "TRANSPARENT" else 'F'
                 self._db_execute(
                     """
-                    insert into TRANSPARENCY (PERUSERID, INSTANCEID, TRANSPARENT)
-                    values (:1, :2, :3)
-                    """, peruserid, instanceid, 'T' if transp else 'F'
+                    insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE, TRANSPARENT)
+                    values (:1, :2, :3, :4, :5, :6)
+                    """,
+                    resourceid,
+                    float,
+                    start,
+                    end,
+                    icalfbtype_to_indexfbtype.get(instance.component.getFBType(), 'F'),
+                    transp
                 )
-                    
-
-        # Special - for unbounded recurrence we insert a value for "infinity"
-        # that will allow an open-ended time-range to always match it.
-        if calendar.isRecurringUnbounded():
-            start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
-            end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
-            float = 'N'
-            self._db_execute(
-                """
-                insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE, TRANSPARENT)
-                values (:1, :2, :3, :4, :5, :6)
-                """, resourceid, float, start, end, '?', '?'
-            )
-            instanceid = self.lastrowid
-            peruserdata = calendar.perUserTransparency(None)
-            for useruid, transp in peruserdata:
-                peruserid = useruidmap[useruid]
+                instanceid = self.lastrowid
+                peruserdata = calendar.perUserTransparency(instance.rid)
+                for useruid, transp in peruserdata:
+                    peruserid = useruidmap[useruid]
+                    self._db_execute(
+                        """
+                        insert into TRANSPARENCY (PERUSERID, INSTANCEID, TRANSPARENT)
+                        values (:1, :2, :3)
+                        """, peruserid, instanceid, 'T' if transp else 'F'
+                    )
+                        
+    
+            # Special - for unbounded recurrence we insert a value for "infinity"
+            # that will allow an open-ended time-range to always match it.
+            if calendar.isRecurringUnbounded():
+                start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+                end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
+                float = 'N'
                 self._db_execute(
                     """
-                    insert into TRANSPARENCY (PERUSERID, INSTANCEID, TRANSPARENT)
-                    values (:1, :2, :3)
-                    """, peruserid, instanceid, 'T' if transp else 'F'
+                    insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE, TRANSPARENT)
+                    values (:1, :2, :3, :4, :5, :6)
+                    """, resourceid, float, start, end, '?', '?'
                 )
+                instanceid = self.lastrowid
+                peruserdata = calendar.perUserTransparency(None)
+                for useruid, transp in peruserdata:
+                    peruserid = useruidmap[useruid]
+                    self._db_execute(
+                        """
+                        insert into TRANSPARENCY (PERUSERID, INSTANCEID, TRANSPARENT)
+                        values (:1, :2, :3)
+                        """, peruserid, instanceid, 'T' if transp else 'F'
+                    )
             
         self._db_execute(
             """

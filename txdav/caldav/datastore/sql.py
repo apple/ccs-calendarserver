@@ -37,6 +37,7 @@ from twisted.python.failure import Failure
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
+from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime,\
     parseSQLTimestamp
 from twistedcaldav.ical import Component
@@ -274,30 +275,6 @@ class Calendar(CommonHomeChild):
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
 
-#
-# Duration into the future through which recurrences are expanded in the index
-# by default.  This is a caching parameter which affects the size of the index;
-# it does not affect search results beyond this period, but it may affect
-# performance of such a search.
-#
-default_future_expansion_duration = datetime.timedelta(days=365 * 1)
-
-#
-# Maximum duration into the future through which recurrences are expanded in the
-# index.  This is a caching parameter which affects the size of the index; it
-# does not affect search results beyond this period, but it may affect
-# performance of such a search.
-#
-# When a search is performed on a time span that goes beyond that which is
-# expanded in the index, we have to open each resource which may have data in
-# that time period.  In order to avoid doing that multiple times, we want to
-# cache those results.  However, we don't necessarily want to cache all
-# occurrences into some obscenely far-in-the-future date, so we cap the caching
-# period.  Searches beyond this period will always be relatively expensive for
-# resources with occurrences beyond this period.
-#
-maximum_future_expansion_duration = datetime.timedelta(days=365 * 5)
-
 icalfbtype_to_indexfbtype = {
     "UNKNOWN"         : 0,
     "FREE"            : 1,
@@ -441,6 +418,7 @@ class CalendarObject(CommonObjectResource):
         """
 
         # Decide how far to expand based on the component
+        doInstanceIndexing = False
         master = component.masterComponent()
         if ( master is None or not component.isRecurring()
              and not component.isRecurringUnbounded() ):
@@ -449,145 +427,201 @@ class CalendarObject(CommonObjectResource):
             # When there is one instance - index it.
             # When bounded - index all.
             expand = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+            doInstanceIndexing = True
         else:
-            if expand_until:
+            
+            # If migrating or re-creating or config option for delayed indexing is off, always index
+            if reCreate or self._txn._migrating or not config.FreeBusyIndexDelayedExpand:
+                doInstanceIndexing = True
+
+            # Duration into the future through which recurrences are expanded in the index
+            # by default.  This is a caching parameter which affects the size of the index;
+            # it does not affect search results beyond this period, but it may affect
+            # performance of such a search.
+            expand = (datetime.date.today() +
+                      datetime.timedelta(days=config.FreeBusyIndexExpandAheadDays))
+
+            if expand_until and expand_until > expand:
                 expand = expand_until
-            else:
-                expand = (datetime.date.today() +
-                          default_future_expansion_duration)
+
+            # Maximum duration into the future through which recurrences are expanded in the
+            # index.  This is a caching parameter which affects the size of the index; it
+            # does not affect search results beyond this period, but it may affect
+            # performance of such a search.
+            #
+            # When a search is performed on a time span that goes beyond that which is
+            # expanded in the index, we have to open each resource which may have data in
+            # that time period.  In order to avoid doing that multiple times, we want to
+            # cache those results.  However, we don't necessarily want to cache all
+            # occurrences into some obscenely far-in-the-future date, so we cap the caching
+            # period.  Searches beyond this period will always be relatively expensive for
+            # resources with occurrences beyond this period.
             if expand > (datetime.date.today() +
-                         maximum_future_expansion_duration):
+                         datetime.timedelta(days=config.FreeBusyIndexExpandMaxDays)):
                 raise IndexedSearchException
+
+        # Always do recurrence expansion even if we do not intend to index - we need this to double-check the
+        # validity of the iCalendar recurrence data.
         try:
-            instances = component.expandTimeRanges(
-                expand, ignoreInvalidInstances=reCreate)
+            instances = component.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
+            recurrenceLimit = instances.limit
         except InvalidOverriddenInstanceError, e:
             self.log_error("Invalid instance %s when indexing %s in %s" %
                            (e.rid, self._name, self._calendar,))
 
             if self._txn._migrating:
                 # TODO: fix the data here by re-writing component then re-index
-                instances = component.expandTimeRanges(
-                    expand, ignoreInvalidInstances=True)
+                instances = component.expandTimeRanges(expand, ignoreInvalidInstances=True)
+                recurrenceLimit = instances.limit
             else:
                 raise
 
-        componentText = str(component)
-        self._objectText = componentText
-        organizer = component.getOrganizer()
-        if not organizer:
-            organizer = ""
-
-        # CALENDAR_OBJECT table update
-        self._uid = component.resourceUID()
-        self._md5 = hashlib.md5(componentText).hexdigest()
-        self._size = len(componentText)
-
-        # Determine attachment mode (ignore inbox's) - NB we have to do this
-        # after setting up other properties as UID at least is needed
-        self._attachment = _ATTACHMENTS_MODE_NONE
-        self._dropboxID = None
-        if self._parentCollection.name() != "inbox":
-            if component.hasPropertyInAnyComponent("X-APPLE-DROPBOX"):
-                self._attachment = _ATTACHMENTS_MODE_WRITE
-                self._dropboxID = (yield self.dropboxID())
-            elif component.hasPropertyInAnyComponent("ATTACH"):
-                # FIXME: really we ought to check to see if the ATTACH
-                # properties have URI values and if those are pointing to our
-                # server dropbox collections and only then set the read mode
-                self._attachment = _ATTACHMENTS_MODE_READ
-                self._dropboxID = (yield self.dropboxID())
-
-        tr = schema.TIME_RANGE
+        # Now coerce indexing to off if needed 
+        if not doInstanceIndexing:
+            instances = None
+            recurrenceLimit = datetime.datetime(1900, 1, 1, 0, 0, 0, tzinfo=utc)
+            
         co = schema.CALENDAR_OBJECT
+        tr = schema.TIME_RANGE
         tpy = schema.TRANSPARENCY
 
-        values = {
-            co.CALENDAR_RESOURCE_ID            : self._calendar._resourceID,
-            co.RESOURCE_NAME                   : self._name,
-            co.ICALENDAR_TEXT                  : componentText,
-            co.ICALENDAR_UID                   : self._uid,
-            co.ICALENDAR_TYPE                  : component.resourceType(),
-            co.ATTACHMENTS_MODE                : self._attachment,
-            co.DROPBOX_ID                      : self._dropboxID,
-            co.ORGANIZER                       : organizer,
-            co.RECURRANCE_MAX                  :
-                normalizeForIndex(instances.limit) if instances.limit else None,
-            co.ACCESS                          : self._access,
-            co.SCHEDULE_OBJECT                 : self._schedule_object,
-            co.SCHEDULE_TAG                    : self._schedule_tag,
-            co.SCHEDULE_ETAGS                  : self._schedule_etags,
-            co.PRIVATE_COMMENTS                : self._private_comments,
-            co.MD5                             : self._md5
-        }
-
-        if inserting:
-            self._resourceID, self._created, self._modified = (
-                yield Insert(values, Return=(
-                    co.RESOURCE_ID, co.CREATED, co.MODIFIED)).on(self._txn))[0]
+        # Do not update if reCreate (re-indexing - we don't want to re-write data
+        # or cause modified to change)
+        if not reCreate:
+            componentText = str(component)
+            self._objectText = componentText
+            organizer = component.getOrganizer()
+            if not organizer:
+                organizer = ""
+    
+            # CALENDAR_OBJECT table update
+            self._uid = component.resourceUID()
+            self._md5 = hashlib.md5(componentText).hexdigest()
+            self._size = len(componentText)
+    
+            # Determine attachment mode (ignore inbox's) - NB we have to do this
+            # after setting up other properties as UID at least is needed
+            self._attachment = _ATTACHMENTS_MODE_NONE
+            self._dropboxID = None
+            if self._parentCollection.name() != "inbox":
+                if component.hasPropertyInAnyComponent("X-APPLE-DROPBOX"):
+                    self._attachment = _ATTACHMENTS_MODE_WRITE
+                    self._dropboxID = (yield self.dropboxID())
+                elif component.hasPropertyInAnyComponent("ATTACH"):
+                    # FIXME: really we ought to check to see if the ATTACH
+                    # properties have URI values and if those are pointing to our
+                    # server dropbox collections and only then set the read mode
+                    self._attachment = _ATTACHMENTS_MODE_READ
+                    self._dropboxID = (yield self.dropboxID())
+    
+            values = {
+                co.CALENDAR_RESOURCE_ID            : self._calendar._resourceID,
+                co.RESOURCE_NAME                   : self._name,
+                co.ICALENDAR_TEXT                  : componentText,
+                co.ICALENDAR_UID                   : self._uid,
+                co.ICALENDAR_TYPE                  : component.resourceType(),
+                co.ATTACHMENTS_MODE                : self._attachment,
+                co.DROPBOX_ID                      : self._dropboxID,
+                co.ORGANIZER                       : organizer,
+                co.RECURRANCE_MAX                  :
+                    normalizeForIndex(recurrenceLimit) if recurrenceLimit else None,
+                co.ACCESS                          : self._access,
+                co.SCHEDULE_OBJECT                 : self._schedule_object,
+                co.SCHEDULE_TAG                    : self._schedule_tag,
+                co.SCHEDULE_ETAGS                  : self._schedule_etags,
+                co.PRIVATE_COMMENTS                : self._private_comments,
+                co.MD5                             : self._md5
+            }
+    
+            if inserting:
+                self._resourceID, self._created, self._modified = (
+                    yield Insert(
+                        values,
+                        Return=(co.RESOURCE_ID, co.CREATED, co.MODIFIED)
+                    ).on(self._txn)
+                )[0]
+            else:
+                values[co.MODIFIED] = utcNowSQL
+                self._modified = (
+                    yield Update(
+                        values, Return=co.MODIFIED,
+                        Where=co.RESOURCE_ID == self._resourceID
+                    ).on(self._txn)
+                )[0][0]
+                # Need to wipe the existing time-range for this and rebuild
+                yield Delete(
+                    From=tr,
+                    Where=tr.CALENDAR_OBJECT_RESOURCE_ID == self._resourceID
+                ).on(self._txn)
         else:
-            values[co.MODIFIED] = utcNowSQL
-            self._modified = (
-                yield Update(values, Return=co.MODIFIED,
-                             Where=co.RESOURCE_ID == self._resourceID
-                            ).on(self._txn))[0][0]
+            values = {
+                co.RECURRANCE_MAX :
+                    normalizeForIndex(recurrenceLimit) if recurrenceLimit else None,
+            }
+    
+            yield Update(
+                values,
+                Where=co.RESOURCE_ID == self._resourceID
+            ).on(self._txn)
+            
             # Need to wipe the existing time-range for this and rebuild
             yield Delete(
                 From=tr,
                 Where=tr.CALENDAR_OBJECT_RESOURCE_ID == self._resourceID
             ).on(self._txn)
 
-        # CALENDAR_OBJECT table update
-        for key in instances:
-            instance = instances[key]
-            start = instance.start.replace(tzinfo=utc)
-            end = instance.end.replace(tzinfo=utc)
-            float = instance.start.tzinfo is None
-            transp = instance.component.propertyValue("TRANSP") == "TRANSPARENT"
-            instanceid = (yield Insert({
-                tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
-                tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
-                tr.FLOATING                    : float,
-                tr.START_DATE                  : start,
-                tr.END_DATE                    : end,
-                tr.FBTYPE                      :
-                    icalfbtype_to_indexfbtype.get(
-                        instance.component.getFBType(),
-                        icalfbtype_to_indexfbtype["FREE"]),
-                tr.TRANSPARENT                 : transp,
-            }, Return=tr.INSTANCE_ID).on(self._txn))[0][0]
-            peruserdata = component.perUserTransparency(instance.rid)
-            for useruid, transp in peruserdata:
-                (yield Insert({
-                    tpy.TIME_RANGE_INSTANCE_ID : instanceid,
-                    tpy.USER_ID                : useruid,
-                    tpy.TRANSPARENT            : transp,
-                }).on(self._txn))
-
-        # Special - for unbounded recurrence we insert a value for "infinity"
-        # that will allow an open-ended time-range to always match it.
-        if component.isRecurringUnbounded():
-            start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
-            end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
-            float = False
-            transp = True
-            instanceid = (yield Insert({
-                tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
-                tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
-                tr.FLOATING                    : float,
-                tr.START_DATE                  : start,
-                tr.END_DATE                    : end,
-                tr.FBTYPE                      :
-                    icalfbtype_to_indexfbtype["UNKNOWN"],
-                tr.TRANSPARENT                 : transp,
-            }, Return=tr.INSTANCE_ID).on(self._txn))[0][0]
-            peruserdata = component.perUserTransparency(None)
-            for useruid, transp in peruserdata:
-                (yield Insert({
-                    tpy.TIME_RANGE_INSTANCE_ID : instanceid,
-                    tpy.USER_ID                : useruid,
-                    tpy.TRANSPARENT            : transp,
-                }).on(self._txn))
+        if doInstanceIndexing:
+            # TIME_RANGE table update
+            for key in instances:
+                instance = instances[key]
+                start = instance.start.replace(tzinfo=utc)
+                end = instance.end.replace(tzinfo=utc)
+                float = instance.start.tzinfo is None
+                transp = instance.component.propertyValue("TRANSP") == "TRANSPARENT"
+                instanceid = (yield Insert({
+                    tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
+                    tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
+                    tr.FLOATING                    : float,
+                    tr.START_DATE                  : start,
+                    tr.END_DATE                    : end,
+                    tr.FBTYPE                      :
+                        icalfbtype_to_indexfbtype.get(
+                            instance.component.getFBType(),
+                            icalfbtype_to_indexfbtype["FREE"]),
+                    tr.TRANSPARENT                 : transp,
+                }, Return=tr.INSTANCE_ID).on(self._txn))[0][0]
+                peruserdata = component.perUserTransparency(instance.rid)
+                for useruid, transp in peruserdata:
+                    (yield Insert({
+                        tpy.TIME_RANGE_INSTANCE_ID : instanceid,
+                        tpy.USER_ID                : useruid,
+                        tpy.TRANSPARENT            : transp,
+                    }).on(self._txn))
+    
+            # Special - for unbounded recurrence we insert a value for "infinity"
+            # that will allow an open-ended time-range to always match it.
+            if component.isRecurringUnbounded():
+                start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+                end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
+                float = False
+                transp = True
+                instanceid = (yield Insert({
+                    tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
+                    tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
+                    tr.FLOATING                    : float,
+                    tr.START_DATE                  : start,
+                    tr.END_DATE                    : end,
+                    tr.FBTYPE                      :
+                        icalfbtype_to_indexfbtype["UNKNOWN"],
+                    tr.TRANSPARENT                 : transp,
+                }, Return=tr.INSTANCE_ID).on(self._txn))[0][0]
+                peruserdata = component.perUserTransparency(None)
+                for useruid, transp in peruserdata:
+                    (yield Insert({
+                        tpy.TIME_RANGE_INSTANCE_ID : instanceid,
+                        tpy.USER_ID                : useruid,
+                        tpy.TRANSPARENT            : transp,
+                    }).on(self._txn))
 
 
     @inlineCallbacks
@@ -684,12 +718,15 @@ class CalendarObject(CommonObjectResource):
 
     @inlineCallbacks
     def attachments(self):
-        rows = yield self._attachmentsQuery.on(self._txn,
-                                               dropboxID=self._dropboxID)
-        result = []
-        for row in rows:
-            result.append((yield self.attachmentWithName(row[0])))
-        returnValue(result)
+        if self._dropboxID:
+            rows = yield self._attachmentsQuery.on(self._txn,
+                                                   dropboxID=self._dropboxID)
+            result = []
+            for row in rows:
+                result.append((yield self.attachmentWithName(row[0])))
+            returnValue(result)
+        else:
+            returnValue(())
 
 
     def initPropertyStore(self, props):
