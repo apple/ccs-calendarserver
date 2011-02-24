@@ -780,6 +780,44 @@ class Lock(_Statement):
             self.table.subSQL(placeholder, quote, [self.table])).append(
             SQLFragment(' in %s mode' % (self.mode,)))
 
+class Savepoint(_Statement):
+    """
+    An SQL 'savepoint' statement.
+    """
+
+    def __init__(self, name):
+        self.name = name
+
+
+    def toSQL(self, placeholder="?", quote=lambda x: x):
+        return SQLFragment('savepoint %s' % (self.name,))
+
+
+class RollbackToSavepoint(_Statement):
+    """
+    An SQL 'rollback to savepoint' statement.
+    """
+
+    def __init__(self, name):
+        self.name = name
+
+
+    def toSQL(self, placeholder="?", quote=lambda x: x):
+        return SQLFragment('rollback to savepoint %s' % (self.name,))
+
+
+class ReleaseSavepoint(_Statement):
+    """
+    An SQL 'release savepoint' statement.
+    """
+
+    def __init__(self, name):
+        self.name = name
+
+
+    def toSQL(self, placeholder="?", quote=lambda x: x):
+        return SQLFragment('release savepoint %s' % (self.name,))
+
 
 
 class SQLFragment(object):

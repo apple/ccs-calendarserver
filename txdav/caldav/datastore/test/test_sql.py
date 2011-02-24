@@ -393,4 +393,45 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         obj._modified = "2011-02-08 11:22:47"
         self.assertEqual(obj.created(), datetimeMktime(datetime.datetime(2011, 2, 7, 11, 22, 47)))
         self.assertEqual(obj.modified(), datetimeMktime(datetime.datetime(2011, 2, 8, 11, 22, 47)))
+
+    @inlineCallbacks
+    def test_notificationsProvisioningConcurrency(self):
+        """
+        Test that two concurrent attempts to provision a notifications collection do not
+        cause a race-condition whereby the second commit results in a second
+        C{INSERT} that violates a unique constraint.
+        """
+
+        calendarStore = self._sqlCalendarStore
+
+        txn1 = calendarStore.newTransaction()
+        txn2 = calendarStore.newTransaction()
+
+        notification_uid1_1 = yield txn1.notificationsWithUID(
+           "uid1",
+        )
+
+        @inlineCallbacks
+        def _defer_notification_uid1_2():
+            notification_uid1_2 = yield txn2.notificationsWithUID(
+                "uid1",
+            )
+            yield txn2.commit()
+            returnValue(notification_uid1_2)
+        d1 = _defer_notification_uid1_2()
+
+        @inlineCallbacks
+        def _pause_notification_uid1_1():
+            yield deferLater(reactor, 1.0, lambda : None)
+            yield txn1.commit()
+        d2 = _pause_notification_uid1_1()
+
+        # Now do the concurrent provision attempt
+        yield d2
+        notification_uid1_2 = yield d1
+
+        self.assertNotEqual(notification_uid1_1, None)
+        self.assertNotEqual(notification_uid1_2, None)
+
+
         
