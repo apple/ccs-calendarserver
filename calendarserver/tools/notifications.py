@@ -344,7 +344,7 @@ class PushMonitorService(Service):
     def getPrincipalDetails(self, path):
         """
         Given a principal path, retrieve and return the corresponding
-        displayname and set of calendar homes.
+        displayname and set of calendar/addressbook homes.
         """
 
         name = ""
@@ -355,9 +355,11 @@ class PushMonitorService(Service):
         }
         body = """<?xml version="1.0" encoding="UTF-8"?>
             <A:propfind xmlns:A="DAV:"
-                        xmlns:C="urn:ietf:params:xml:ns:caldav">
+                        xmlns:CARD="urn:ietf:params:xml:ns:carddav"
+                        xmlns:CAL="urn:ietf:params:xml:ns:caldav">
                 <A:prop>
-                    <C:calendar-home-set/>
+                    <CAL:calendar-home-set/>
+                    <CARD:addressbook-home-set/>
                     <A:displayname/>
                 </A:prop>
             </A:propfind>
@@ -377,6 +379,12 @@ class PushMonitorService(Service):
                                 calendarHomeSet = prop.find("{urn:ietf:params:xml:ns:caldav}calendar-home-set")
                                 if calendarHomeSet is not None:
                                     for href in calendarHomeSet.findall("{DAV:}href"):
+                                        href = href.text
+                                        if href:
+                                            homes.append(href)
+                                addressbookHomeSet = prop.find("{urn:ietf:params:xml:ns:carddav}addressbook-home-set")
+                                if addressbookHomeSet is not None:
+                                    for href in addressbookHomeSet.findall("{DAV:}href"):
                                         href = href.text
                                         if href:
                                             homes.append(href)
@@ -487,7 +495,10 @@ class PushMonitorService(Service):
                     href = response.find("{DAV:}href")
                     key = None
                     name = None
-                    kind = "home"
+                    if path.startswith("/calendars"):
+                        kind = "Calendar home"
+                    else:
+                        kind = "AddressBook home"
                     for propstat in response.findall("{DAV:}propstat"):
                         status = propstat.find("{DAV:}status")
                         if "200 OK" in status.text:
@@ -501,7 +512,7 @@ class PushMonitorService(Service):
                                 if resourceType is not None:
                                     shared = resourceType.find("{http://calendarserver.org/ns/}shared")
                                     if shared is not None:
-                                        kind = "shared collection"
+                                        kind = "Shared calendar"
                                 pushKey = prop.find("{http://calendarserver.org/ns/}pushkey")
                                 if pushKey is not None:
                                     pushKey = pushKey.text
