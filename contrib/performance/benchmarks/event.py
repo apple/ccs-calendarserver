@@ -19,19 +19,10 @@ Benchmark a server's handling of event creation.
 """
 
 from itertools import count
-from urllib2 import HTTPDigestAuthHandler
 from uuid import uuid4
 from datetime import datetime, timedelta
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet import reactor
-from twisted.web.client import Agent
-from twisted.web.http_headers import Headers
-from twisted.web.http import CREATED
-
-from httpauth import AuthHandlerAgent
-from httpclient import StringProducer
-from benchlib import initialize, sample
+from _event_create import formatDate, measure as _measure
 
 # XXX Represent these as vobjects?  Would make it easier to add more vevents.
 event = """\
@@ -79,10 +70,6 @@ def makeAttendees(count):
             attendee % {'SEQUENCE': n} for n in range(2, count + 2)])
 
 
-def formatDate(d):
-    return ''.join(filter(str.isalnum, d.isoformat()))
-
-
 SUMMARY = "STUFF IS THINGS"
 
 def makeEvent(i, organizerSequence, attendeeCount):
@@ -115,39 +102,13 @@ END:VEVENT
         }
 
 
-@inlineCallbacks
 def measure(host, port, dtrace, attendeeCount, samples):
-    organizerSequence = 1
-    user = password = "user%02d" % (organizerSequence,)
-    root = "/"
-    principal = "/"
     calendar = "event-creation-benchmark"
-
-    authinfo = HTTPDigestAuthHandler()
-    authinfo.add_password(
-        realm="Test Realm",
-        uri="http://%s:%d/" % (host, port),
-        user=user,
-        passwd=password)
-    agent = AuthHandlerAgent(Agent(reactor), authinfo)
-
-    # First set things up
-    yield initialize(agent, host, port, user, password, root, principal, calendar)
-
-    method = 'PUT'
-    uri = 'http://%s:%d/calendars/__uids__/%s/%s/foo-%%d.ics' % (
-        host, port, user, calendar)
-    headers = Headers({"content-type": ["text/calendar"]})
+    organizerSequence = 1
 
     # An infinite stream of VEVENTs to PUT to the server.
     events = ((i, makeEvent(i, organizerSequence, attendeeCount)) for i in count(2))
 
-    # Sample it a bunch of times
-    samples = yield sample(
-        dtrace, samples, 
-        agent, ((method, uri % (i,), headers, StringProducer(body))
-                for (i, body)
-                in events).next,
-        CREATED)
-    returnValue(samples)
-
+    return _measure(
+        calendar, organizerSequence, events,
+        host, port, dtrace, samples)

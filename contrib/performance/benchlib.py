@@ -18,8 +18,7 @@ import pickle
 from time import time
 
 from twisted.internet.defer import (
-    DeferredSemaphore, DeferredList, inlineCallbacks, returnValue,
-    gatherResults)
+    FirstError, DeferredList, inlineCallbacks, returnValue)
 # from twisted.internet.task import deferLater
 from twisted.web.http_headers import Headers
 # from twisted.internet import reactor
