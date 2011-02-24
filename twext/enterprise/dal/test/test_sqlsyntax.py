@@ -23,7 +23,7 @@ from twext.enterprise.dal.parseschema import addSQLToSchema
 from twext.enterprise.dal.syntax import (
     SchemaSyntax, Select, Insert, Update, Delete, Lock, SQLFragment,
     TableMismatch, Parameter, Max, Len, NotEnoughValues
-)
+, Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction)
 
 from twext.enterprise.dal.syntax import FunctionInvocation
 from twisted.trial.unittest import TestCase
@@ -582,6 +582,33 @@ class GenerationTests(TestCase):
         self.assertEquals(Lock.exclusive(self.schema.FOO).toSQL(),
                           SQLFragment("lock table FOO in exclusive mode"))
 
+
+    def test_savepoint(self):
+        """
+        L{Savepoint} generates a ('savepoint') statement.
+        """
+        self.assertEquals(Savepoint("test").toSQL(),
+                          SQLFragment("savepoint test"))
+
+    def test_rollbacktosavepoint(self):
+        """
+        L{RollbackToSavepoint} generates a ('rollback to savepoint') statement.
+        """
+        self.assertEquals(RollbackToSavepoint("test").toSQL(),
+                          SQLFragment("rollback to savepoint test"))
+
+    def test_releasesavepoint(self):
+        """
+        L{ReleaseSavepoint} generates a ('release savepoint') statement.
+        """
+        self.assertEquals(ReleaseSavepoint("test").toSQL(),
+                          SQLFragment("release savepoint test"))
+
+    def test_savepointaction(self):
+        """
+        L{SavepointAction} generates a ('savepoint') statement.
+        """
+        self.assertEquals(SavepointAction("test")._name, "test")
 
     def test_limit(self):
         """

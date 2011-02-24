@@ -819,6 +819,19 @@ class ReleaseSavepoint(_Statement):
         return SQLFragment('release savepoint %s' % (self.name,))
 
 
+class SavepointAction(object):
+    
+    def __init__(self, name):
+        self._name = name
+    
+    def acquire(self, txn):
+        return Savepoint(self._name).on(txn)
+
+    def rollback(self, txn):
+        return RollbackToSavepoint(self._name).on(txn)
+
+    def release(self, txn):
+        return ReleaseSavepoint(self._name).on(txn)
 
 class SQLFragment(object):
     """

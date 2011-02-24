@@ -58,17 +58,17 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 
-from twext.enterprise.dal.syntax import Parameter, Max, Savepoint,\
-    RollbackToSavepoint, ReleaseSavepoint
 from twext.python.clsprop import classproperty
-from twext.enterprise.dal.syntax import Select
-from twext.enterprise.dal.syntax import Lock
-from twext.enterprise.dal.syntax import Insert
-from twext.enterprise.dal.syntax import Max
-from twext.enterprise.dal.syntax import default
 from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Len
+from twext.enterprise.dal.syntax import Lock
+from twext.enterprise.dal.syntax import Max
+from twext.enterprise.dal.syntax import Parameter
+from twext.enterprise.dal.syntax import SavepointAction
+from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import default
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -76,8 +76,6 @@ from txdav.base.propertystore.sql import PropertyStore
 
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp
-
-import pg
 
 v1_schema = getModule(__name__).filePath.sibling("sql_schema_v1.sql").getContent()
 
@@ -2364,10 +2362,6 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         Return=_homeSchema.RESOURCE_ID
     )
 
-    _savePointNotificationsWithUID = Savepoint("notificationsWithUID")
-    _rollbackNotificationsWithUID = RollbackToSavepoint("notificationsWithUID")
-    _releaseNotificationsWithUID = ReleaseSavepoint("notificationsWithUID")
-
     @property
     def _home(self):
         """
@@ -2388,14 +2382,15 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         else:
             # Use savepoint so we can do a partial rollback if there is a race condition
             # where this row has already been inserted
-            yield cls._savePointNotificationsWithUID.on(txn)
+            savepoint = SavepointAction("notificationsWithUID")
+            yield savepoint.acquire(txn)
 
             try:
                 resourceID = str((
                     yield cls._provisionNewNotificationsQuery.on(txn, uid=uid)
                 )[0][0])
             except Exception: # FIXME: Really want to trap the pg.DatabaseError but in a non-DB specific manner
-                yield cls._rollbackNotificationsWithUID.on(txn)
+                yield savepoint.rollback(txn)
                 
                 # Retry the query - row may exist now, if not re-raise
                 rows = yield cls._resourceIDFromUIDQuery.on(txn, uid=uid)
@@ -2406,7 +2401,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                     raise
             else:
                 created = True
-                yield cls._releaseNotificationsWithUID.on(txn)
+                yield savepoint.release(txn)
                 
         collection = cls(txn, uid, resourceID)
         yield collection._loadPropertyStore()
