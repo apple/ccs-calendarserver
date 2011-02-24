@@ -65,12 +65,14 @@ class OpenDirectoryService(CachingDirectoryService):
             restrictToGroup: C{str} guid or name of group used to
               restrict enabled users.
             cacheTimeout: C{int} number of minutes before cache is invalidated.
+            negativeCache: C{False} cache the fact that a record wasn't found
         """
         defaults = {
             'node' : '/Search',
             'restrictEnabledRecords' : False,
             'restrictToGroup' : '',
-            'cacheTimeout' : 30,
+            'cacheTimeout' : 1,
+            'negativeCaching' : False,
             'recordTypes' : (
                 self.recordType_users,
                 self.recordType_groups,
@@ -81,7 +83,8 @@ class OpenDirectoryService(CachingDirectoryService):
 
         self._recordTypes = params['recordTypes']
 
-        super(OpenDirectoryService, self).__init__(params['cacheTimeout'])
+        super(OpenDirectoryService, self).__init__(params['cacheTimeout'],
+                                                   params['negativeCaching'])
 
         self.odModule = namedModule(config.OpenDirectoryModule)
 

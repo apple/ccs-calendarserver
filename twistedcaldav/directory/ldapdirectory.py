@@ -74,7 +74,8 @@ class LdapDirectoryService(CachingDirectoryService):
         """
 
         defaults = {
-            "cacheTimeout": 30,
+            "cacheTimeout": 1,
+            "negativeCaching": False,
             "restrictEnabledRecords": False,
             "restrictToGroup": "",
             "recordTypes": ("users", "groups"),
@@ -137,7 +138,8 @@ class LdapDirectoryService(CachingDirectoryService):
 
         self._recordTypes = params["recordTypes"]
 
-        super(LdapDirectoryService, self).__init__(params["cacheTimeout"])
+        super(LdapDirectoryService, self).__init__(params["cacheTimeout"],
+                                                   params["negativeCaching"])
 
         self.realmName = params["uri"]
         self.uri = params["uri"]

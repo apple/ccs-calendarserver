@@ -252,3 +252,39 @@ class GUIDLookups(CachingDirectoryTest):
             "Kerberos:user03@example.com"
         ) is not None)
         self.assertFalse(self.service.queried)
+
+    def test_negativeCaching(self):
+        self.dummyRecords()
+
+        # If negativeCaching is off, each miss will result in a call to
+        # queryDirectory( )
+        self.service.negativeCaching = False
+
+        self.service.queried = False
+        self.assertEquals(self.service.recordWithGUID(self.guidForShortName("missing")), None)
+        self.assertTrue(self.service.queried)
+
+        self.service.queried = False
+        self.assertEquals(self.service.recordWithGUID(self.guidForShortName("missing")), None)
+        self.assertTrue(self.service.queried)
+
+
+        # However, if negativeCaching is on, a miss is recorded as such,
+        # preventing a similar queryDirectory( ) until cacheTimeout passes
+        self.service.negativeCaching = True
+
+        self.service.queried = False
+        self.assertEquals(self.service.recordWithGUID(self.guidForShortName("missing")), None)
+        self.assertTrue(self.service.queried)
+
+        self.service.queried = False
+        self.assertEquals(self.service.recordWithGUID(self.guidForShortName("missing")), None)
+        self.assertFalse(self.service.queried)
+
+        # Simulate time passing by clearing the negative timestamp for this
+        # entry, then try again, this time queryDirectory( ) is called
+        self.service._disabledKeys[self.service.INDEX_TYPE_GUID][self.guidForShortName("missing")] = 0
+
+        self.service.queried = False
+        self.assertEquals(self.service.recordWithGUID(self.guidForShortName("missing")), None)
+        self.assertTrue(self.service.queried)

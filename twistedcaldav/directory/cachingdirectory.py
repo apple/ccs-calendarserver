@@ -144,7 +144,8 @@ class CachingDirectoryService(DirectoryService):
 
     def __init__(
         self,
-        cacheTimeout=30,
+        cacheTimeout=1,
+        negativeCaching=False,
         cacheClass=DictRecordTypeCache,
     ):
         """
@@ -152,6 +153,7 @@ class CachingDirectoryService(DirectoryService):
         """
         
         self.cacheTimeout = cacheTimeout * 60
+        self.negativeCaching = negativeCaching
 
         self.cacheClass = cacheClass
         self._initCaches()
@@ -254,7 +256,7 @@ class CachingDirectoryService(DirectoryService):
 
     recordWithUID = recordWithGUID
 
-    def _lookupRecord(self, recordTypes, indexType, indexKey, cacheOnMiss=True):
+    def _lookupRecord(self, recordTypes, indexType, indexKey):
 
         if recordTypes is None:
             recordTypes = self.recordTypes()
@@ -285,8 +287,8 @@ class CachingDirectoryService(DirectoryService):
         if record:
             return record
 
-        if cacheOnMiss:
-            
+        if self.negativeCaching:
+
             # Check negative cache (take cache entry timeout into account)
             try:
                 disabledTime = self._disabledKeys[indexType][indexKey]
@@ -294,25 +296,27 @@ class CachingDirectoryService(DirectoryService):
                     return None
             except KeyError:
                 pass
-            
-            # Check memcache
-            if config.Memcached.Pools.Default.ClientEnabled:
-                key = "dir|%s|%s|%s|%s" % (self.baseGUID, indexType, indexKey,
-                    "|".join(self.recordTypes()))
-                self.log_debug("Memcache: checking %s" % (key,))
 
-                try:
-                    record = self.memcacheGet(key)
-                except DirectoryMemcacheError:
-                    self.log_error("Memcache: failed to get %s" % (key,))
-                    record = None
+        # Check memcache
+        if config.Memcached.Pools.Default.ClientEnabled:
+            key = "dir|%s|%s|%s|%s" % (self.baseGUID, indexType, indexKey,
+                "|".join(self.recordTypes()))
+            self.log_debug("Memcache: checking %s" % (key,))
 
-                if record is None:
-                    self.log_debug("Memcache: miss %s" % (key,))
-                else:
-                    self.log_debug("Memcache: hit %s" % (key,))
-                    self.recordCacheForType(record.recordType).addRecord(record, indexType, indexKey, useMemcache=False)
-                    return record
+            try:
+                record = self.memcacheGet(key)
+            except DirectoryMemcacheError:
+                self.log_error("Memcache: failed to get %s" % (key,))
+                record = None
+
+            if record is None:
+                self.log_debug("Memcache: miss %s" % (key,))
+            else:
+                self.log_debug("Memcache: hit %s" % (key,))
+                self.recordCacheForType(record.recordType).addRecord(record, indexType, indexKey, useMemcache=False)
+                return record
+
+            if self.negativeCaching:
 
                 # Check negative memcache
                 try:
@@ -325,15 +329,17 @@ class CachingDirectoryService(DirectoryService):
                     self._disabledKeys[indexType][indexKey] = time.time()
                     return None
 
-            # Try query
-            self.log_debug("Faulting record for attribute '%s' with value '%s'" % (indexType, indexKey,))
-            self.queryDirectory(recordTypes, indexType, indexKey)
-            
-            # Now try again from cache
-            record = lookup()
-            if record:
-                self.log_debug("Found record for attribute '%s' with value '%s'" % (indexType, indexKey,))
-                return record
+        # Try query
+        self.log_debug("Faulting record for attribute '%s' with value '%s'" % (indexType, indexKey,))
+        self.queryDirectory(recordTypes, indexType, indexKey)
+        
+        # Now try again from cache
+        record = lookup()
+        if record:
+            self.log_debug("Found record for attribute '%s' with value '%s'" % (indexType, indexKey,))
+            return record
+
+        if self.negativeCaching:
 
             # Add to negative cache with timestamp
             self.log_debug("Failed to fault record for attribute '%s' with value '%s'" % (indexType, indexKey,))
