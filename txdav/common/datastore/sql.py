@@ -470,31 +470,38 @@ class CommonHome(LoggingMixIn):
         else:
             if not create:
                 returnValue(None)
-            # Need to lock to prevent race condition
 
-            # FIXME: this is an entire table lock - ideally we want a row lock
-            # but the row does not exist yet. However, the "exclusive" mode does
-            # allow concurrent reads so the only thing we block is other
-            # attempts to provision a home, which is not too bad
+            # Use savepoint so we can do a partial rollback if there is a race condition
+            # where this row has already been inserted
+            savepoint = SavepointAction("homeWithUID")
+            yield savepoint.acquire(txn)
 
-            # Also note that we must not cache the owner_uid->resource_id
-            # mapping in _cacher when creating as we don't want that to appear
-            # until AFTER the commit
-
-            yield Lock(cls._homeSchema, 'exclusive').on(txn)
-            # Now test again
-            exists = yield cls._resourceIDFromOwnerQuery.on(txn, ownerUID=uid)
-            if not exists:
+            try:
                 resourceid = (yield Insert(
                     {cls._homeSchema.OWNER_UID: uid},
                     Return=cls._homeSchema.RESOURCE_ID).on(txn))[0][0]
                 yield Insert(
                     {cls._homeMetaDataSchema.RESOURCE_ID: resourceid}).on(txn)
-            home = cls(txn, uid, notifiers)
-            home = (yield home.initFromStore(no_cache=not exists))
-            if not exists:
+            except Exception: # FIXME: Really want to trap the pg.DatabaseError but in a non-DB specific manner
+                yield savepoint.rollback(txn)
+                
+                # Retry the query - row may exist now, if not re-raise
+                homeObject = cls(txn, uid, notifiers)
+                homeObject = (yield homeObject.initFromStore())
+                if homeObject:
+                    returnValue(homeObject)
+                else:
+                    raise
+            else:
+                yield savepoint.release(txn)
+
+                # Note that we must not cache the owner_uid->resource_id
+                # mapping in _cacher when creating as we don't want that to appear
+                # until AFTER the commit
+                home = cls(txn, uid, notifiers)
+                home = (yield home.initFromStore(no_cache=True))
                 yield home.createdHome()
-            returnValue(home)
+                returnValue(home)
 
 
     @classmethod
