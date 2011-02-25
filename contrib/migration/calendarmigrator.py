@@ -152,6 +152,7 @@ ErrorLogFile
 MaxAddressBookMultigetHrefs
 MaxAddressBookQueryResults
 RedirectHTTPToHTTPS
+SSLPort
 """.split()
 
 ignoredKkeys = """
@@ -163,7 +164,6 @@ PIDFile
 PythonDirector
 ResponseCacheTimeout
 SSLPassPhraseDialog
-SSLPort
 ServerStatsFile
 Verbose
 """.split()
@@ -383,30 +383,62 @@ def migrateConfiguration(options, newServerRootValue, enableCalDAV, enableCardDA
     writePlist(newCalDAVDPlist, newCalDAVDPlistPath)
 
 
-def mergePlist(oldCalDAVDPlist, oldCardDAVDPlist, newCalDAVDPlist):
+def mergePlist(caldav, carddav, combined):
 
     # These keys are copied verbatim:
     for key in verbatimKeys:
-        if key in oldCardDAVDPlist:
-            newCalDAVDPlist[key] = oldCardDAVDPlist[key]
-        if key in oldCalDAVDPlist:
-            newCalDAVDPlist[key] = oldCalDAVDPlist[key]
+        if key in carddav:
+            combined[key] = carddav[key]
+        if key in caldav:
+            combined[key] = caldav[key]
 
     # "Wiki" is a new authentication in v2.x; copy all "Authentication" sub-keys    # over, and "Wiki" will be picked up from the new plist:
-    if "Authentication" in oldCalDAVDPlist:
-        for key in oldCalDAVDPlist["Authentication"]:
-            newCalDAVDPlist["Authentication"][key] = oldCalDAVDPlist["Authentication"][key]
+    if "Authentication" in caldav:
+        for key in caldav["Authentication"]:
+            combined["Authentication"][key] = caldav["Authentication"][key]
 
     # Strip out any unknown params from the DirectoryService:
-    if "DirectoryService" in oldCalDAVDPlist:
-        newCalDAVDPlist["DirectoryService"] = oldCalDAVDPlist["DirectoryService"]
-        for key in newCalDAVDPlist["DirectoryService"]["params"].keys():
+    if "DirectoryService" in caldav:
+        combined["DirectoryService"] = caldav["DirectoryService"]
+        for key in combined["DirectoryService"]["params"].keys():
             if key not in ("node", "cacheTimeout", "xmlFile"):
-                del newCalDAVDPlist["DirectoryService"]["params"][key]
+                del combined["DirectoryService"]["params"][key]
+
+    # Merge ports
+    if not caldav["SSLPort"]:
+        caldav["SSLPort"] = 8443
+    if not carddav["SSLPort"]:
+        carddav["SSLPort"] = 8843
+    for portType in ["HTTPPort", "SSLPort"]:
+        bindPorts = list(set(caldav["Bind%ss" % (portType,)]).union(set(carddav["Bind%ss" % (portType,)])))
+        if caldav[portType] and caldav[portType] not in bindPorts:
+            bindPorts.append(caldav[portType])
+        if carddav[portType] and carddav[portType] not in bindPorts:
+            bindPorts.append(carddav[portType])
+        bindPorts.sort()
+        combined["Bind%ss" % (portType,)] = bindPorts
+    combined["HTTPPort"] = caldav["HTTPPort"]
+    combined["SSLPort"] = caldav["SSLPort"]
+
+    # Was SSL enabled?
+    sslAuthorityChain = ""
+    sslCertificate = ""
+    sslPrivateKey = ""
+    enableSSL = False
+    for prev in (carddav, caldav):
+        if (prev["SSLPort"] and prev["SSLCertificate"]):
+            sslAuthorityChain = prev["SSLAuthorityChain"]
+            sslCertificate = prev["SSLCertificate"]
+            sslPrivateKey = prev["SSLPrivateKey"]
+            enableSSL = True
+
+    combined["SSLAuthorityChain"] = sslAuthorityChain
+    combined["SSLCertificate"] = sslCertificate
+    combined["SSLPrivateKey"] = sslPrivateKey
+    combined["EnableSSL"] = enableSSL
 
     # If SSL is enabled, redirect HTTP to HTTPS.
-    enableSSL = newCalDAVDPlist.get("EnableSSL", False)
-    newCalDAVDPlist["RedirectHTTPToHTTPS"] = enableSSL
+    combined["RedirectHTTPToHTTPS"] = enableSSL
 
 
 def isServiceDisabled(source, service):
