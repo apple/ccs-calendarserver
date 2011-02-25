@@ -429,9 +429,17 @@ class CompoundComparison(Comparison):
 
     def subSQL(self, placeholder, quote, allTables):
         stmt = SQLFragment()
-        stmt.append(self._subexpression(self.a, placeholder, quote, allTables))
+        result = self._subexpression(self.a, placeholder, quote, allTables)
+        if isinstance(self.a, CompoundComparison) and self.a.op == 'or' and self.op == 'and':
+            result = _inParens(result)
+        stmt.append(result)
+
         stmt.text += ' %s ' % (self.op,)
-        stmt.append(self._subexpression(self.b, placeholder, quote, allTables))
+
+        result = self._subexpression(self.b, placeholder, quote, allTables)
+        if isinstance(self.b, CompoundComparison) and self.b.op == 'or' and self.op == 'and':
+            result = _inParens(result)
+        stmt.append(result)
         return stmt
 
 

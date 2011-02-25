@@ -645,3 +645,35 @@ class GenerationTests(TestCase):
             Insert({self.schema.BOZ.QUX:
                     self.schema.A_SEQ}).toSQL(),
             SQLFragment("insert into BOZ (QUX) values (nextval('A_SEQ'))", []))
+
+    def test_nestedLogicalExpressions(self):
+        """
+        When a sequence is used as a value in an expression, it renders as the
+        call to 'nextval' that will produce its next value.
+        """
+        self.assertEquals(
+            Select(
+                From=self.schema.FOO,
+                Where=(self.schema.FOO.BAR != 7).
+                    And(self.schema.FOO.BAZ != 8).
+                    And((self.schema.FOO.BAR == 8).Or(self.schema.FOO.BAZ == 0))
+            ).toSQL(),
+            SQLFragment("select * from FOO where BAR != ? and BAZ != ? and (BAR = ? or BAZ = ?)", [7, 8, 8, 0]))
+
+        self.assertEquals(
+            Select(
+                From=self.schema.FOO,
+                Where=(self.schema.FOO.BAR != 7).
+                    Or(self.schema.FOO.BAZ != 8).
+                    Or((self.schema.FOO.BAR == 8).And(self.schema.FOO.BAZ == 0))
+            ).toSQL(),
+            SQLFragment("select * from FOO where BAR != ? or BAZ != ? or BAR = ? and BAZ = ?", [7, 8, 8, 0]))
+
+        self.assertEquals(
+            Select(
+                From=self.schema.FOO,
+                Where=(self.schema.FOO.BAR != 7).
+                    Or(self.schema.FOO.BAZ != 8).
+                    And((self.schema.FOO.BAR == 8).Or(self.schema.FOO.BAZ == 0))
+            ).toSQL(),
+            SQLFragment("select * from FOO where (BAR != ? or BAZ != ?) and (BAR = ? or BAZ = ?)", [7, 8, 8, 0]))

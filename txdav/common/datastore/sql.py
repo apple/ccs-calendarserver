@@ -1373,11 +1373,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                 ownedCond = bind.BIND_MODE != _BIND_MODE_OWN
             revisions = (yield Select(
                 [rev.RESOURCE_ID, Max(rev.REVISION)],
-                From=rev.join(bind, rev.RESOURCE_ID == bind.RESOURCE_ID,
-                              'left'),
-                Where=(bind.HOME_RESOURCE_ID == home._resourceID).And(
-                    ownedCond).And(
-                        (rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
+                From=rev.join(bind, rev.RESOURCE_ID == bind.RESOURCE_ID, 'left'),
+                Where=(bind.HOME_RESOURCE_ID == home._resourceID).
+                    And(ownedCond).
+                    And((rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
                 GroupBy=rev.RESOURCE_ID
             ).on(home._txn))
             revisions = dict(revisions)
