@@ -44,6 +44,7 @@ CARDDAVD_PLIST = "carddavd.plist"
 NEW_SERVER_ROOT = "/Library/Server/Calendar and Contacts"
 RESOURCE_MIGRATION_TRIGGER = "trigger_resource_migration"
 SERVER_ADMIN = "/usr/sbin/serveradmin"
+LAUNCHCTL = "/bin/launchctl"
 
 
 verbatimKeys = """
@@ -203,8 +204,16 @@ def main():
     if options.sourceRoot:
 
         if os.path.exists(options.sourceRoot):
-            newServerRootValue = migrateData(options)
+
+            # If calendar service was running on previous system
+            # turn it off while we process configuration.  There
+            # is no need to turn off addressbook because it no longer
+            # has its own launchd plist.
             enableCalDAV, enableCardDAV = examineRunState(options)
+            if enableCalDAV:
+                unloadService(options, CALDAV_LAUNCHD_KEY)
+
+            newServerRootValue = migrateData(options)
             migrateConfiguration(options, newServerRootValue, enableCalDAV,
                 enableCardDAV)
 
@@ -258,6 +267,17 @@ def setRunState(options, enableCalDAV, enableCardDAV):
         log("Starting service via serveradmin")
         ret = subprocess.call([SERVER_ADMIN, "start", "calendar"])
         log("serveradmin exited with %d" % (ret,))
+
+
+def unloadService(options, service):
+    """
+    Use launchctl to unload a service
+    """
+    path = os.path.join(options.targetRoot, LAUNCHD_PREFS_DIR,
+                        "%s.plist" % (service,))
+    log("Unloading %s via launchctl" % (path,))
+    ret = subprocess.call([LAUNCHCTL, "unload", "-w", path])
+    log("launchctl exited with %d" % (ret,))
 
 
 def triggerResourceMigration(newServerRootValue):
@@ -417,7 +437,6 @@ def isServiceDisabled(source, service):
 
     raise ServiceStateError("Neither %s nor %s exist" %
         (overridesPath, prefsPath))
-
 
 def setServiceStateDisabled(target, service, disabled):
     """
