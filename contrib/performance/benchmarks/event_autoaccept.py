@@ -15,36 +15,40 @@
 ##
 
 """
-Benchmark a server's handling of events with a bounded recurrence.
+Benchmark a server's handling of event creation involving an
+auto-accept resource.
 """
 
-from uuid import uuid4
 from itertools import count
+from uuid import uuid4
 from datetime import datetime, timedelta
 
 from _event_create import (
     makeAttendees, makeVCalendar, formatDate, measure as _measure)
 
+
 def makeEvent(i, organizerSequence, attendeeCount):
-    """
-    Create a new half-hour long event that starts soon and recurs
-    daily for the next five days.
-    """
-    now = datetime.now()
-    start = now.replace(minute=15, second=0, microsecond=0) + timedelta(hours=i)
-    end = start + timedelta(minutes=30)
-    until = start + timedelta(days=5)
-    rrule = "RRULE:FREQ=DAILY;INTERVAL=1;UNTIL=" + formatDate(until)
+    base = datetime(2010, 7, 30, 11, 15, 00)
+    interval = timedelta(0, 5)
+    duration = timedelta(0, 3)
+    attendees = makeAttendees(attendeeCount)
+    attendees.append(
+        'ATTENDEE;CN="Resource 01";CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=T\n'
+        ' RUE;SCHEDULE-STATUS="1.2":urn:uuid:resource01\n')
     return makeVCalendar(
-        uuid4(), start, end, rrule, organizerSequence,
-        makeAttendees(attendeeCount))
+        uuid4(), 
+        base + i * interval,
+        base + i * interval + duration,
+        None,
+        organizerSequence,
+        attendees)
 
 
 def measure(host, port, dtrace, attendeeCount, samples):
-    calendar = "bounded-recurrence"
+    calendar = "event-autoaccept-creation-benchmark"
     organizerSequence = 1
 
-    # An infinite stream of recurring VEVENTS to PUT to the server.
+    # An infinite stream of VEVENTs to PUT to the server.
     events = ((i, makeEvent(i, organizerSequence, attendeeCount)) for i in count(2))
 
     return _measure(

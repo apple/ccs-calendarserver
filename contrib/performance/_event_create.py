@@ -30,6 +30,88 @@ from httpauth import AuthHandlerAgent
 from benchlib import initialize, sample
 from httpclient import StringProducer
 
+
+# XXX Represent these as vobjects?  Would make it easier to add more vevents.
+event = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+END:VTIMEZONE
+%(VEVENTS)s\
+END:VCALENDAR
+"""
+
+vevent = """\
+BEGIN:VEVENT
+UID:%(UID)s
+DTSTART;TZID=America/Los_Angeles:%(START)s
+DTEND;TZID=America/Los_Angeles:%(END)s
+%(RRULE)s\
+CREATED:20100729T193912Z
+DTSTAMP:20100729T195557Z
+%(ORGANIZER)s\
+%(ATTENDEES)s\
+SEQUENCE:0
+SUMMARY:Some random thing
+TRANSP:OPAQUE
+END:VEVENT
+"""
+
+attendee = """\
+ATTENDEE;CN=User %(SEQUENCE)02d;CUTYPE=INDIVIDUAL;EMAIL=user%(SEQUENCE)02d@example.com;PARTSTAT=NE
+ EDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:urn:uuid:user%(SEQUENCE)02d
+"""
+
+organizer = """\
+ORGANIZER;CN=User %(SEQUENCE)02d;EMAIL=user%(SEQUENCE)02d@example.com:urn:uuid:user%(SEQUENCE)02d
+ATTENDEE;CN=User %(SEQUENCE)02d;EMAIL=user%(SEQUENCE)02d@example.com;PARTSTAT=ACCEPTE
+ D:urn:uuid:user%(SEQUENCE)02d
+"""
+
+def makeOrganizer(sequence):
+    return organizer % {'SEQUENCE': sequence}
+
+
+def makeAttendees(count):
+    return [
+        attendee % {'SEQUENCE': n} for n in range(2, count + 2)]
+
+
+def makeVCalendar(uid, start, end, recurrence, organizerSequence, attendees):
+    if recurrence is None:
+        rrule = ""
+    else:
+        rrule = recurrence + "\n"
+    return event % {
+        'VEVENTS': vevent % {
+            'UID': uid,
+            'START': formatDate(start),
+            'END': formatDate(end),
+            'ORGANIZER': makeOrganizer(organizerSequence),
+            'ATTENDEES': ''.join(attendees),
+            'RRULE': rrule,
+            },
+        }
+
+
+
 def formatDate(d):
     return ''.join(filter(str.isalnum, d.isoformat()))
 
