@@ -648,8 +648,8 @@ class GenerationTests(TestCase):
 
     def test_nestedLogicalExpressions(self):
         """
-        When a sequence is used as a value in an expression, it renders as the
-        call to 'nextval' that will produce its next value.
+        Make sure that logical operator precedence inserts proper parenthesis when needed.
+        e.g. 'a.And(b.Or(c))' needs to be 'a and (b or c)' not 'a and b or c'.
         """
         self.assertEquals(
             Select(
