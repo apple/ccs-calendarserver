@@ -36,7 +36,7 @@ from vobject.icalendar import utc
 from vobject.icalendar import dateTimeToString
 
 from twext.python.log import Logger
-from twext.python.datetime import asUTC, iCalendarString
+#from twext.python.datetime import asUTC, iCalendarString
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property, iCalendarProductID, Component

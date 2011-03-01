@@ -24,7 +24,6 @@ __all__ = [
     "dateordatetime",
     "timerange",
     "asTimeZone",
-    "asUTC",
     "iCalendarString",
 ]
 
@@ -32,7 +31,7 @@ date     = __import__("datetime").date
 datetime = __import__("datetime").datetime
 
 from vobject.icalendar import dateTimeToString, dateToString
-from vobject.icalendar import utc, getTzid as tzWithID
+from vobject.icalendar import utc
 
 
 # FIXME, add constants for begining/end of time
@@ -297,21 +296,17 @@ class timerange(object):
 # Convenience functions
 ##
 
-def asTimeZone(dateOrDatetime, tzinfo):
+def asTimeZone(pydt, pytz):
     """
-    Convert a L{date} or L{datetime} to the given time zone.
+    Convert a L{PyCalendarDateTime} to the given time zone.
     """
-    return dateordatetime(dateOrDatetime).asTimeZone(tzinfo).dateOrDatetime()
+    dup = pydt.duplicate()
+    dup.adjustTimezone(pytz)
+    return dup
 
-def asUTC(dateOrDatetime):
+def iCalendarString(pydt):
     """
-    Convert a L{date} or L{datetime} to UTC.
-    """
-    return dateordatetime(dateOrDatetime).asUTC().dateOrDatetime()
-
-def iCalendarString(dateOrDatetime):
-    """
-    Convert a L{date} or L{datetime} to a string appropriate for use
+    Convert a L{PyCalendarDateTime} to a string appropriate for use
     in an iCalendar property.
     """
-    return dateordatetime(dateOrDatetime).iCalendarString()
+    return pydt.getText()

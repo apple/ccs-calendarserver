@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from pycalendar.datetime import PyCalendarDateTime
 
 """
 Object model of CALDAV:filter element used in a calendar-query.
@@ -26,7 +27,7 @@ from twext.python.log import Logger
 
 from twistedcaldav.caldavxml import caldav_namespace, CalDAVTimeZoneElement
 from twistedcaldav.dateops import timeRangesOverlap
-from twistedcaldav.ical import Component, Property, parse_date_or_datetime
+from twistedcaldav.ical import Component, Property
 from vobject.icalendar import utc
 import datetime
 
@@ -552,8 +553,8 @@ class TimeRange (FilterBase):
         if "start" not in xml_element.attributes and "end" not in xml_element.attributes:
             raise ValueError("One of 'start' or 'end' must be present in CALDAV:time-range")
         
-        self.start = parse_date_or_datetime(xml_element.attributes["start"]) if "start" in xml_element.attributes else None
-        self.end = parse_date_or_datetime(xml_element.attributes["end"]) if "end" in xml_element.attributes else None
+        self.start = PyCalendarDateTime.parseText(xml_element.attributes["start"]) if "start" in xml_element.attributes else None
+        self.end = PyCalendarDateTime.parseText(xml_element.attributes["end"]) if "end" in xml_element.attributes else None
         self.tzinfo = None
 
     def settzinfo(self, tzinfo):

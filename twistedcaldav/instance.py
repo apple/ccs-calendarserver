@@ -13,18 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.duration import PyCalendarDuration
+from pycalendar.period import PyCalendarPeriod
+from pycalendar.timezone import PyCalendarTimezone
 
 """
 iCalendar Recurrence Expansion Utilities
 """
 
-import datetime
-
-from vobject.icalendar import utc
-
-from twext.python.datetime import dateordatetime
-
-from twistedcaldav.dateops import normalizeForIndex, differenceDateTime, periodEnd
+from twistedcaldav.dateops import normalizeForIndex, differenceDateTime
 
 # The maximum number of instances we will expand out to.
 # Raise a TooManyInstancesError exception if we exceed this.
@@ -48,22 +46,11 @@ class InvalidOverriddenInstanceError(Exception):
 
 class Instance(object):
     
-    __slots__ = ["component", "start", "end", "rid", "overridden", "future"]
-    
     def __init__(self, component, start = None, end = None, rid = None, overridden = False, future = False):
         self.component = component
-        if start is None:
-            self.start = component.getStartDateUTC()
-        else:
-            self.start = start
-        if end is None:
-            self.end = component.getEndDateUTC()
-        else:
-            self.end = end
-        if rid is None:
-            self.rid = self.start
-        else:
-            self.rid = rid
+        self.start = component.getStartDateUTC() if start is None else start
+        self.end = component.getEndDateUTC() if end is None else end
+        self.rid = self.start if rid is None else rid
         self.overridden = overridden
         self.future = future
         
@@ -78,15 +65,12 @@ class Instance(object):
             (trigger, related, repeat, duration)  = alarm.getTriggerDetails()
             
             # Handle relative vs absolute triggers
-            if isinstance(trigger, datetime.date):
+            if isinstance(trigger, PyCalendarDateTime):
                 # Absolute trigger
                 start = trigger
             else:
                 # Relative trigger
-                if related:
-                    start = self.start + trigger
-                else:
-                    start = self.end + trigger
+                start = (self.start if related else self.end) + trigger
             triggers.add(start)
             
             # Handle repeats
@@ -97,8 +81,6 @@ class Instance(object):
         return triggers
     
 class InstanceList(object):
-    
-    __slots__ = ["instances", "limit", "ignoreInvalidInstances",]
     
     def __init__(self, ignoreInvalidInstances=False):
         self.instances = {}
@@ -194,12 +176,12 @@ class InstanceList(object):
         end = component.getEndDateUTC()
         duration = None
         if end is None:
-            if isinstance(start, datetime.datetime):
+            if not start.isDateOnly():
                 # Timed event with zero duration
-                duration = datetime.timedelta(days=0)
+                duration = PyCalendarDuration(days=0)
             else:
                 # All day event default duration is one day
-                duration = datetime.timedelta(days=1)
+                duration = PyCalendarDuration(days=1)
             end = start + duration
         else:
             duration = differenceDateTime(start, end)
@@ -223,15 +205,13 @@ class InstanceList(object):
         end = component.getEndDateUTC()
         duration = None
         if end is None:
-            if isinstance(start, datetime.datetime):
+            if not start.isDateOnly():
                 # Timed event with zero duration
-                duration = datetime.timedelta(days=0)
+                duration = PyCalendarDuration(days=0)
             else:
                 # All day event default duration is one day
-                duration = datetime.timedelta(days=1)
+                duration = PyCalendarDuration(days=1)
             end = start + duration
-        else:
-            duration = differenceDateTime(start, end)
 
         self._addOverrideComponent(component, limit, start, end, got_master)
 
@@ -280,34 +260,26 @@ class InstanceList(object):
         self._addOverrideComponent(component, limit, start, due, got_master)
 
     def _addMasterComponent(self, component, limit, start, end, duration):
-        # Always add first instance if included in range.
-        if dateordatetime(start) < limit:
-            # dateutils does not do all-day - so convert to datetime.datetime
-            start = normalizeForIndex(start)
-            end = normalizeForIndex(end)
-            
-            # Do not add if in EXDATEs
-            exdates = []
-            for prop in component.properties("EXDATE"):
-                exdates.extend(prop.value())
-            exdates = [normalizeForIndex(exdate) for exdate in exdates]
-            if start not in exdates:
-                self.addInstance(Instance(component, start, end))
-        else:
-            self.limit = limit
         
-        # Now expand recurrence
-        # FIXME: Current Python implementation fails when RDATEs are PERIODs
-        recur = component.getRRuleSet(True)
-        if recur is not None:
-            for startDate in recur:
-                if dateordatetime(startDate) >= limit:
-                    self.limit = limit
-                    break
-                endDate = startDate + duration
+        rrules = component.getRecurrenceSet()
+        if rrules is not None:
+            # Do recurrence set expansion
+            expanded = []
+            limited = rrules.expand(start, PyCalendarPeriod(start, limit), expanded)
+            for startDate in expanded:
                 startDate = normalizeForIndex(startDate)
-                endDate = normalizeForIndex(endDate)
+                endDate = startDate + duration
                 self.addInstance(Instance(component, startDate, endDate))
+            if limited:
+                self.limit = limit
+        else:
+            # Always add main instance if included in range.
+            if start < limit:
+                start = normalizeForIndex(start)
+                end = normalizeForIndex(end)
+                self.addInstance(Instance(component, start, end))
+            else:
+                self.limit = limit
     
     def _addOverrideComponent(self, component, limit, start, end, got_master):
 
@@ -321,12 +293,12 @@ class InstanceList(object):
         rid = normalizeForIndex(rid)
 
         # Make sure start is within the limit
-        if dateordatetime(start) > limit and dateordatetime(rid) > limit:
+        if start > limit and rid > limit:
             return
 
         # Make sure override RECURRENCE-ID is a valid instance of the master
         if got_master:
-            if str(rid) not in self.instances and dateordatetime(rid) < limit:
+            if str(rid) not in self.instances and rid < limit:
                 if self.ignoreInvalidInstances:
                     return
                 else:
@@ -375,7 +347,7 @@ class InstanceList(object):
         """
 
         start = component.getStartDateUTC()
-        if start is not None and dateordatetime(start) >= limit:
+        if start is not None and start >= limit:
             # If the free busy is beyond the end of the range we want, ignore it
             return
 
@@ -389,10 +361,10 @@ class InstanceList(object):
             assert isinstance(fb.value(), list), "FREEBUSY property does not contain a list of values: %r" % (fb,)
             for period in fb.value():
                 # Ignore if period starts after limit
-                if dateordatetime(period[0]) >= limit:
+                if period.getStart() >= limit:
                     continue
-                start = normalizeForIndex(period[0])
-                end = normalizeForIndex(periodEnd(period))
+                start = normalizeForIndex(period.getStart())
+                end = normalizeForIndex(period.getEnd())
                 self.addInstance(Instance(component, start, end))
 
     def _addAvailabilityComponent(self, component, limit):
@@ -407,16 +379,16 @@ class InstanceList(object):
         """
 
         start = component.getStartDateUTC()
-        if start is not None and dateordatetime(start) >= limit:
+        if start is not None and start >= limit:
             # If the free busy is beyond the end of the range we want, ignore it
             return
         if start is None:
-            start = datetime.datetime(1900, 1, 1, 0, 0, 0, tzinfo=utc)
+            start = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
         start = normalizeForIndex(start)
 
         end = component.getEndDateUTC()
         if end is None:
-            end = datetime.datetime(3000, 1, 1, 0, 0, 0, tzinfo=utc)
+            end = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
         end = normalizeForIndex(end)
 
         self.addInstance(Instance(component, start, end))

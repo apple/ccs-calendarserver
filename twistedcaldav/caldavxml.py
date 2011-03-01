@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from pycalendar.datetime import PyCalendarDateTime
 
 """
 CalDAV XML Support.
@@ -34,7 +35,6 @@ from twext.web2.dav import davxml
 from twext.python.log import Logger
 
 from twistedcaldav.ical import Component as iComponent
-from twistedcaldav.ical import parse_date_or_datetime
 
 log = Logger()
 
@@ -93,8 +93,8 @@ class CalDAVTimeRangeElement (CalDAVEmptyElement):
         if "start" not in attributes and "end" not in attributes:
             raise ValueError("One of 'start' or 'end' must be present in CALDAV:time-range")
         
-        self.start = parse_date_or_datetime(attributes["start"]) if "start" in attributes else None
-        self.end = parse_date_or_datetime(attributes["end"]) if "end" in attributes else None
+        self.start = PyCalendarDateTime.parseText(attributes["start"]) if "start" in attributes else None
+        self.end = PyCalendarDateTime.parseText(attributes["end"]) if "end" in attributes else None
 
     def valid(self, level=0):
         """
