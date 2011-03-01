@@ -405,12 +405,12 @@ def mergePlist(caldav, carddav, combined):
                 del combined["DirectoryService"]["params"][key]
 
     # Merge ports
-    if not caldav["SSLPort"]:
+    if not caldav.get("SSLPort", 0):
         caldav["SSLPort"] = 8443
-    if not carddav["SSLPort"]:
+    if not carddav.get("SSLPort", 0):
         carddav["SSLPort"] = 8843
     for portType in ["HTTPPort", "SSLPort"]:
-        bindPorts = list(set(caldav["Bind%ss" % (portType,)]).union(set(carddav["Bind%ss" % (portType,)])))
+        bindPorts = list(set(caldav.get("Bind%ss" % (portType,), [])).union(set(carddav.get("Bind%ss" % (portType,), []))))
         if caldav[portType] and caldav[portType] not in bindPorts:
             bindPorts.append(caldav[portType])
         if carddav[portType] and carddav[portType] not in bindPorts:
