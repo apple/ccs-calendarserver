@@ -83,7 +83,7 @@ def dropboxIDFromCalendarObject(calendarObject):
     dropboxProperty = (yield calendarObject.component(
         )).getFirstPropertyInAnyComponent("X-APPLE-DROPBOX")
     if dropboxProperty is not None:
-        componentDropboxID = dropboxProperty.value().split("/")[-1]
+        componentDropboxID = dropboxProperty.value().rstrip("/").split("/")[-1]
         returnValue(componentDropboxID)
 
     # Now look at each ATTACH property and see if it might be a dropbox item
