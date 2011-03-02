@@ -19,10 +19,9 @@ from time import time
 
 from twisted.internet.defer import (
     FirstError, DeferredList, inlineCallbacks, returnValue)
-# from twisted.internet.task import deferLater
 from twisted.web.http_headers import Headers
-# from twisted.internet import reactor
 from twisted.python.log import msg
+from twisted.web.http import NO_CONTENT, NOT_FOUND
 
 from stats import Duration
 from httpclient import StringProducer, readBody
@@ -45,7 +44,15 @@ class CalDAVAccount(object):
 
 
     def deleteResource(self, path):
-        return self.agent.request('DELETE', self._makeURL(path))
+        url = self._makeURL(path)
+        d = self.agent.request('DELETE', url)
+        def deleted(response):
+            if response.code not in (NO_CONTENT, NOT_FOUND):
+                raise Exception(
+                    "Unexpected response to DELETE %s: %d" % (
+                        url, response.code))
+        d.addCallback(deleted)
+        return d
 
 
     def makeCalendar(self, path):

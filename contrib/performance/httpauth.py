@@ -16,7 +16,9 @@
 
 import urlparse, urllib2
 
+from twisted.python.log import msg
 from twisted.web.http_headers import Headers
+from twisted.web.http import UNAUTHORIZED
 
 # CalDAVClientLibrary
 from protocol.http.authentication.digest import Digest
@@ -107,11 +109,18 @@ class AuthHandlerAgent(object):
 
 
     def _authenticate(self, response, method, uri, headers, bodyProducer):
-        if response.code == 401:
+        if response.code == UNAUTHORIZED:
+            if headers is None:
+                authorization = None
+            else:
+                authorization = headers.getRawHeaders('authorization')
+            msg("UNAUTHORIZED response to %s %s (Authorization=%r)" % (
+                    method, uri, authorization))
             # Look for a challenge
             authorization = response.headers.getRawHeaders('www-authenticate')
             if authorization is None:
-                raise Exception("401 response with no WWW-Authenticate header")
+                raise Exception(
+                    "UNAUTHORIZED response with no WWW-Authenticate header")
 
             for auth in authorization:
                 challenge = self._parse(auth)
