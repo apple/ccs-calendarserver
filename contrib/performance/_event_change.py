@@ -32,7 +32,8 @@ from httpauth import AuthHandlerAgent
 from httpclient import StringProducer
 
 from benchlib import initialize, sample
-from event import makeEvent
+
+from _event_create import makeEvent
 
 @inlineCallbacks
 def measure(host, port, dtrace, attendeeCount, samples, fieldName,

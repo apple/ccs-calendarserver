@@ -24,7 +24,7 @@ from uuid import uuid4
 from datetime import datetime, timedelta
 
 from _event_create import (
-    makeAttendees, makeVCalendar, formatDate, measure as _measure)
+    makeAttendees, makeVCalendar, measure as _measure)
 
 
 def makeEvent(i, organizerSequence, attendeeCount):

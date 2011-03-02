@@ -19,25 +19,8 @@ Benchmark a server's handling of event creation.
 """
 
 from itertools import count
-from uuid import uuid4
-from datetime import datetime, timedelta
 
-from _event_create import (
-    makeAttendees, makeVCalendar, formatDate, measure as _measure)
-
-
-def makeEvent(i, organizerSequence, attendeeCount):
-    base = datetime(2010, 7, 30, 11, 15, 00)
-    interval = timedelta(0, 5)
-    duration = timedelta(0, 3)
-    return makeVCalendar(
-        uuid4(), 
-        base + i * interval,
-        base + i * interval + duration,
-        None,
-        organizerSequence,
-        makeAttendees(attendeeCount))
-
+from _event_create import makeEvent, measure as _measure
 
 def measure(host, port, dtrace, attendeeCount, samples):
     calendar = "event-creation-benchmark"

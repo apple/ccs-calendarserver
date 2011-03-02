@@ -18,7 +18,9 @@
 Various helpers for event-creation benchmarks.
 """
 
+from uuid import uuid4
 from urllib2 import HTTPDigestAuthHandler
+from datetime import datetime, timedelta
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.http_headers import Headers
@@ -58,6 +60,8 @@ END:VTIMEZONE
 END:VCALENDAR
 """
 
+SUMMARY = "Some random thing"
+
 vevent = """\
 BEGIN:VEVENT
 UID:%(UID)s
@@ -69,7 +73,7 @@ DTSTAMP:20100729T195557Z
 %(ORGANIZER)s\
 %(ATTENDEES)s\
 SEQUENCE:0
-SUMMARY:Some random thing
+SUMMARY:%(SUMMARY)s
 TRANSP:OPAQUE
 END:VEVENT
 """
@@ -84,6 +88,10 @@ ORGANIZER;CN=User %(SEQUENCE)02d;EMAIL=user%(SEQUENCE)02d@example.com:urn:uuid:u
 ATTENDEE;CN=User %(SEQUENCE)02d;EMAIL=user%(SEQUENCE)02d@example.com;PARTSTAT=ACCEPTE
  D:urn:uuid:user%(SEQUENCE)02d
 """
+
+def formatDate(d):
+    return ''.join(filter(str.isalnum, d.isoformat()))
+
 
 def makeOrganizer(sequence):
     return organizer % {'SEQUENCE': sequence}
@@ -104,6 +112,7 @@ def makeVCalendar(uid, start, end, recurrence, organizerSequence, attendees):
             'UID': uid,
             'START': formatDate(start),
             'END': formatDate(end),
+            'SUMMARY': SUMMARY,
             'ORGANIZER': makeOrganizer(organizerSequence),
             'ATTENDEES': ''.join(attendees),
             'RRULE': rrule,
@@ -111,9 +120,17 @@ def makeVCalendar(uid, start, end, recurrence, organizerSequence, attendees):
         }
 
 
-
-def formatDate(d):
-    return ''.join(filter(str.isalnum, d.isoformat()))
+def makeEvent(i, organizerSequence, attendeeCount):
+    base = datetime(2010, 7, 30, 11, 15, 00)
+    interval = timedelta(0, 5)
+    duration = timedelta(0, 3)
+    return makeVCalendar(
+        uuid4(), 
+        base + i * interval,
+        base + i * interval + duration,
+        None,
+        organizerSequence,
+        makeAttendees(attendeeCount))
 
 
 @inlineCallbacks
