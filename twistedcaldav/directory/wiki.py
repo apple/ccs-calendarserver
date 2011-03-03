@@ -28,6 +28,7 @@ from twext.web2.dav import davxml
 from twisted.web.xmlrpc import Proxy, Fault
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.auth.wrapper import UnauthorizedResponse
+from twext.web2 import responsecode
 
 from twext.python.log import Logger
 
@@ -240,7 +241,7 @@ def getWikiACL(resource, request):
 
             raise HTTPError(
                 StatusResponse(
-                    403,
+                    responsecode.FORBIDDEN,
                     "You are not allowed to access this wiki"
                 )
             )
@@ -252,8 +253,15 @@ def getWikiACL(resource, request):
             wikiID, fault))
 
         if fault.faultCode == 2: # non-existent user
-            raise HTTPError(StatusResponse(403, fault.faultString))
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, fault.faultString))
 
         else: # fault.faultCode == 12, non-existent wiki
-            raise HTTPError(StatusResponse(404, fault.faultString))
+            raise HTTPError(StatusResponse(responsecode.NOT_FOUND, fault.faultString))
 
+    except HTTPError:
+        # pass through the HTTPError we might have raised above
+        raise
+
+    except Exception, e:
+        log.error("Wiki ACL RPC failed: %s" % (e,))
+        raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Wiki ACL RPC failed"))
