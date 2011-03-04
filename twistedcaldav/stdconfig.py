@@ -356,7 +356,7 @@ DEFAULT_CONFIG = {
         },
         "Wiki": {
             "Enabled": False,
-            "Cookie": "_authserver_session",
+            "Cookie": "apple_webauth_token",
             "URL": "http://127.0.0.1:8089/RPC2",
             "UserMethod": "userForSession",
             "WikiMethod": "accessLevelForUserWikiCalendar",
