@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 ##
 # Copyright (c) 2011 Apple Inc. All rights reserved.
@@ -22,7 +22,7 @@ if [ "`svn diff -rBASE:HEAD`" = "" ]; then
     exit
 else
     svn up
-    REV="`./contrib/performance/svn-revno .`"
+    REV="$(./contrib/performance/svn-revno .)"
     cd ~codespeed/performance
     ./sample.sh "$REV" ~codespeed/Projects/CalendarServer/trunk "$1"
 fi
