@@ -239,3 +239,20 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
 
 
 
+        # All settings missing!
+        oldCalDAV = { }
+        oldCardDAV = { }
+        expected = {
+            "BindHTTPPorts": [8008, 8800],
+            "BindSSLPorts": [8443, 8843],
+            "EnableSSL" : False,
+            "HTTPPort": 8008,
+            "RedirectHTTPToHTTPS": False,
+            "SSLAuthorityChain": "",
+            "SSLCertificate": "",
+            "SSLPort": 8443,
+            "SSLPrivateKey": "",
+        }
+        newCombined = { }
+        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(newCombined, expected)

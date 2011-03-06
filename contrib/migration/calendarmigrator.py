@@ -405,18 +405,24 @@ def mergePlist(caldav, carddav, combined):
                 del combined["DirectoryService"]["params"][key]
 
     # Merge ports
+    if not caldav.get("HTTPPort", 0):
+        caldav["HTTPPort"] = 8008
+    if not carddav.get("HTTPPort", 0):
+        carddav["HTTPPort"] = 8800
     if not caldav.get("SSLPort", 0):
         caldav["SSLPort"] = 8443
     if not carddav.get("SSLPort", 0):
         carddav["SSLPort"] = 8843
+
     for portType in ["HTTPPort", "SSLPort"]:
         bindPorts = list(set(caldav.get("Bind%ss" % (portType,), [])).union(set(carddav.get("Bind%ss" % (portType,), []))))
-        if caldav[portType] and caldav[portType] not in bindPorts:
-            bindPorts.append(caldav[portType])
-        if carddav[portType] and carddav[portType] not in bindPorts:
-            bindPorts.append(carddav[portType])
+        for prev in (carddav, caldav):
+            port = prev.get(portType, 0)
+            if port and port not in bindPorts:
+                bindPorts.append(port)
         bindPorts.sort()
         combined["Bind%ss" % (portType,)] = bindPorts
+
     combined["HTTPPort"] = caldav["HTTPPort"]
     combined["SSLPort"] = caldav["SSLPort"]
 
@@ -426,10 +432,10 @@ def mergePlist(caldav, carddav, combined):
     sslPrivateKey = ""
     enableSSL = False
     for prev in (carddav, caldav):
-        if (prev["SSLPort"] and prev["SSLCertificate"]):
-            sslAuthorityChain = prev["SSLAuthorityChain"]
-            sslCertificate = prev["SSLCertificate"]
-            sslPrivateKey = prev["SSLPrivateKey"]
+        if (prev["SSLPort"] and prev.get("SSLCertificate", "")):
+            sslAuthorityChain = prev.get("SSLAuthorityChain", "")
+            sslCertificate = prev.get("SSLCertificate", "")
+            sslPrivateKey = prev.get("SSLPrivateKey", "")
             enableSSL = True
 
     combined["SSLAuthorityChain"] = sslAuthorityChain
