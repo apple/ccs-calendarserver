@@ -26,7 +26,7 @@ RESULTS="$2"
 NOW="$(date +%s)"
 
 WHEN=($((60*60*24*7)) $((60*60*24*31)) $((60*60*24*31*3)))
-for when in $WHEN; do
+for when in ${WHEN[*]}; do
     THEN=$(($NOW-$when))
     REV_SPEC="{$(date -r "$THEN" +"%Y-%m-%d")}"
     ./sample.sh "$REV_SPEC" "$SOURCE_DIR" "$RESULTS"
