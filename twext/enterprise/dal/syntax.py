@@ -730,6 +730,31 @@ class _CommaList(object):
                             for f in self.subfragments)
 
 
+def _returningClause(metadata, stmt, retclause, allTables):
+    """
+    Add a dialect-appropriate 'returning' clause to the end of the given SQL
+    statement.
+
+    @param metadata: describes the database we are generating the statement for.
+    @type metadata: L{ConnectionMetadata}
+
+    @param stmt: the SQL fragment generated without the 'returning' clause
+    @type stmt: L{SQLFragment}
+
+    @param retclause: the C{Return} argument from the current statement.
+    @type retclause: an object with a C{subSQL} method, or a C{tuple} or C{list}
+        of same.
+
+    @return: the C{stmt} parameter.
+    """
+    if isinstance(retclause, (tuple, list)):
+        retclause = _CommaList(retclause)
+    if retclause is not None:
+        stmt.text += ' returning '
+        stmt.append(retclause.subSQL(metadata, allTables))
+    return stmt
+
+
 
 class Insert(_Statement):
     """
@@ -738,8 +763,6 @@ class Insert(_Statement):
 
     def __init__(self, columnMap, Return=None):
         self.columnMap = columnMap
-        if isinstance(Return, (tuple, list)):
-            Return = _CommaList(Return)
         self.Return = Return
         columns = _modelsFromMap(columnMap)
         table = _fromSameTable(columns)
@@ -782,10 +805,7 @@ class Insert(_Statement):
         stmt.append(_inParens(_commaJoined(
             [_convert(v).subSQL(metadata, allTables)
              for (c, v) in sortedColumns])))
-        if self.Return is not None:
-            stmt.text += ' returning '
-            stmt.append(self.Return.subSQL(metadata, allTables))
-        return stmt
+        return _returningClause(metadata, stmt, self.Return, allTables)
 
 
 
@@ -811,8 +831,6 @@ class Update(_Statement):
         _fromSameTable(_modelsFromMap(columnMap))
         self.columnMap = columnMap
         self.Where = Where
-        if isinstance(Return, (tuple, list)):
-            Return = _CommaList(Return)
         self.Return = Return
 
 
@@ -841,10 +859,7 @@ class Update(_Statement):
         )
         result.append(SQLFragment( ' where '))
         result.append(self.Where.subSQL(metadata, allTables))
-        if self.Return is not None:
-            result.append(SQLFragment(' returning '))
-            result.append(self.Return.subSQL(metadata, allTables))
-        return result
+        return _returningClause(metadata, result, self.Return, allTables)
 
 
 
@@ -866,10 +881,7 @@ class Delete(_Statement):
         result.append(self.From.subSQL(metadata, allTables))
         result.text += ' where '
         result.append(self.Where.subSQL(metadata, allTables))
-        if self.Return is not None:
-            result.append(SQLFragment(' returning '))
-            result.append(self.Return.subSQL(metadata, allTables))
-        return result
+        return _returningClause(metadata, result, self.Return, allTables)
 
 
 
