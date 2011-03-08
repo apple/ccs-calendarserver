@@ -112,13 +112,14 @@ class _ConnectedTxn(object):
         if args is None:
             args = []
         derived = None
-        for arg in args:
+        for n, arg in enumerate(args):
             if IDerivedParameter.providedBy(arg):
                 if derived is None:
-                    # Be sparing with allocations, as this usually isn't needed.
+                    # Be sparing with extra allocations, as this usually isn't
+                    # needed, and we're doing a ton of extra work to support it.
                     derived = []
                 derived.append(arg)
-                arg.preQuery(self._cursor)
+                args[n] = arg.preQuery(self._cursor)
         self._cursor.execute(sql, args)
         if derived is not None:
             for arg in derived:
