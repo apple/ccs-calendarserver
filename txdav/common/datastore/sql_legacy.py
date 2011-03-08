@@ -1001,17 +1001,28 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         returnValue(name)
 
 
+    @classproperty
+    def _notExpandedBeyondQuery(self):
+        """
+        DAL query to satisfy L{PostgresLegacyIndexEmulator.notExpandedBeyond}.
+        """
+        co = schema.CALENDAR_OBJECT
+        return Select([co.RESOURCE_NAME], From=co,
+                      Where=(co.RECURRANCE_MAX < Parameter("minDate"))
+                      .And(co.CALENDAR_RESOURCE_ID == Parameter("resourceID")))
+
+
     @inlineCallbacks
     def notExpandedBeyond(self, minDate):
         """
         Gives all resources which have not been expanded beyond a given date
         in the database.  (Unused; see above L{postgresqlgenerator}.
         """
-        returnValue([row[0] for row in (yield self._txn.execSQL(
-            "select RESOURCE_NAME from CALENDAR_OBJECT "
-            "where RECURRANCE_MAX < %s and CALENDAR_RESOURCE_ID = %s",
-            [normalizeForIndex(minDate), self.calendar._resourceID]
-        ))])
+        returnValue([row[0] for row in (
+            yield self._notExpandedBeyondQuery.on(
+                self._txn, minDate=normalizeForIndex(minDate),
+                resourceID=self.calendar._resourceID))]
+        )
 
 
     @inlineCallbacks
