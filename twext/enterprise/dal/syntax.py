@@ -758,6 +758,19 @@ class _DMLStatement(_Statement):
         if retclause is not None:
             stmt.text += ' returning '
             stmt.append(retclause.subSQL(metadata, allTables))
+            if metadata.dialect == ORACLE_DIALECT:
+                stmt.text += ' into '
+                if not isinstance(self.Return, (tuple, list)):
+                    retvals = [self.Return]
+                else:
+                    retvals = self.Return
+                params = []
+                for n, v in enumerate(retvals):
+                    params.append(
+                        Constant(Parameter("oracle_out_" + str(n)))
+                        .subSQL(metadata, allTables)
+                    )
+                stmt.append(_commaJoined(params))
         return stmt
 
 
@@ -1026,6 +1039,18 @@ class Parameter(object):
 
     def __init__(self, name):
         self.name = name
+
+
+    def __eq__(self, param):
+        if not isinstance(param, Parameter):
+            return NotImplemented
+        return self.name == param.name
+
+
+    def __ne__(self, param):
+        if not isinstance(param, Parameter):
+            return NotImplemented
+        return not self.__eq__(param)
 
 
     def __repr__(self):

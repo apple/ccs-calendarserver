@@ -27,7 +27,7 @@ from twext.enterprise.dal.syntax import (
 
 from twext.enterprise.dal.syntax import FunctionInvocation
 
-from twext.enterprise.dal.syntax import FixedPlaceholder
+from twext.enterprise.dal.syntax import FixedPlaceholder, NumericPlaceholder
 from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
 from twisted.trial.unittest import TestCase
 
@@ -480,6 +480,27 @@ class GenerationTests(TestCase):
             SQLFragment(
                 "insert into FOO (BAR, BAZ) values (?, ?) returning BAR, BAZ",
                 [23, 9])
+        )
+
+
+    def test_insertMultiReturnOracle(self):
+        """
+        In Oracle's SQL dialect, the 'returning' clause requires an 'into'
+        clause indicating where to put the results, as they can't be simply
+        relayed to the cursor.  Further, additional bound variables are required
+        to capture the output parameters.
+        """
+        self.assertEquals(
+            Insert({self.schema.FOO.BAR: 40,
+                    self.schema.FOO.BAZ: 50},
+                   Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ)).toSQL(
+                       NumericPlaceholder(ORACLE_DIALECT)
+                   ),
+            SQLFragment(
+                "insert into FOO (BAR, BAZ) values (:1, :2) returning BAR, BAZ"
+                " into :3, :4",
+                [40, 50, Parameter("oracle_out_0"), Parameter("oracle_out_1")]
+            )
         )
 
 
