@@ -792,6 +792,15 @@ class GenerationTests(TestCase):
             SQLFragment("insert into DFLTR (a, b) values "
                         "(?, A_SEQ.nextval)", ['hello']),
         )
+        # Should be the same if it's explicitly specified.
+        self.assertEquals(
+            Insert({self.schema.DFLTR.a: 'hello',
+                    self.schema.DFLTR.b: self.schema.A_SEQ}).toSQL(
+                FixedPlaceholder(ORACLE_DIALECT, "?")
+            ),
+            SQLFragment("insert into DFLTR (a, b) values "
+                        "(?, A_SEQ.nextval)", ['hello']),
+        )
 
 
     def test_numericParams(self):
