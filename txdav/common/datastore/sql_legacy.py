@@ -1044,7 +1044,8 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
 
         # Actually expand recurrence max
         for name in names:
-            self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
+            self.log_info("Search falls outside range of index for %s %s" %
+                          (name, minDate))
             yield self.reExpandResource(name, minDate)
 
 
@@ -1052,13 +1053,13 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
     def indexedSearch(self, filter, useruid='', fbtype=False):
         """
         Finds resources matching the given qualifiers.
+
         @param filter: the L{Filter} for the calendar-query to execute.
 
         @return: a L{Deferred} which fires with an iterable of tuples for each
             resource matching the given C{qualifiers}. The tuples are C{(name,
             uid, type)}, where C{name} is the resource name, C{uid} is the
-            resource UID, and C{type} is the resource iCalendar component
-            type.
+            resource UID, and C{type} is the resource iCalendar component type.
         """
         # Make sure we have a proper Filter element and get the partial SQL
         # statement to use.
