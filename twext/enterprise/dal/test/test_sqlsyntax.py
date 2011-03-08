@@ -258,6 +258,24 @@ class GenerationTests(TestCase):
         )
 
 
+    def test_deleteUsing(self):
+        """
+        L{Delete}'s C{Using} parameter works similarly to the C{From} parameter
+        to L{Select}.
+        """
+        f = self.schema.FOO
+        o = self.schema.OTHER
+        self.assertEquals(
+            Delete(From=f, Using=o,
+                   Where=(f.BAR == o.BAR).And(o.FOO_BAR == 7)).toSQL(),
+            SQLFragment(
+                "delete from FOO using OTHER where FOO.BAR = OTHER.BAR and "
+                "FOO_BAR = ?",
+                [7]
+            )
+        )
+
+
     def test_columnSelection(self):
         """
         If a column is specified by the argument to L{Select}, those will be
