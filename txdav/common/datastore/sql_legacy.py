@@ -44,6 +44,8 @@ from twistedcaldav.sharing import Invite
 from txdav.common.icommondatastore import (
     IndexedSearchException, ReservationError)
 
+from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Parameter
 from txdav.common.datastore.sql_tables import (
@@ -144,32 +146,36 @@ class SQLLegacyInvites(object):
         "No-op, because the index implicitly always exists in the database."
 
 
+    @classmethod
+    def _allColumnsQuery(cls, condition):
+        inv = schema.INVITE
+        home = cls._homeSchema
+        bind = cls._bindSchema
+        return Select(
+            [inv.INVITE_UID,
+             inv.NAME,
+             inv.RECIPIENT_ADDRESS,
+             home.OWNER_UID,
+             bind.BIND_MODE,
+             bind.BIND_STATUS,
+             bind.MESSAGE],
+            From=inv.join(home).join(bind),
+            Where=(
+                condition
+                .And(inv.RESOURCE_ID == bind.RESOURCE_ID)
+                .And(inv.HOME_RESOURCE_ID == home.RESOURCE_ID)
+                .And(inv.HOME_RESOURCE_ID == bind.HOME_RESOURCE_ID)),
+            OrderBy=inv.NAME, Ascending=True
+        )
+
+
     @classproperty
     def _allRecordsQuery(cls):
         """
         DAL query for all invite records with a given resource ID.
         """
         inv = schema.INVITE
-        home = cls._homeSchema
-        bind = cls._bindSchema
-        return Select(
-            [
-                inv.INVITE_UID,
-                inv.NAME,
-                inv.RECIPIENT_ADDRESS,
-                home.OWNER_UID,
-                bind.BIND_MODE,
-                bind.BIND_STATUS,
-                bind.MESSAGE
-            ],
-            From=inv.join(home).join(bind),
-            Where=(
-                (inv.RESOURCE_ID == Parameter("resourceID"))
-                .And(inv.RESOURCE_ID == bind.RESOURCE_ID)
-                .And(inv.HOME_RESOURCE_ID == home.RESOURCE_ID)
-                .And(inv.HOME_RESOURCE_ID == bind.HOME_RESOURCE_ID)),
-            OrderBy=inv.NAME, Ascending=True
-        )
+        return cls._allColumnsQuery(inv.RESOURCE_ID == Parameter("resourceID"))
 
 
     @inlineCallbacks
@@ -183,27 +189,20 @@ class SQLLegacyInvites(object):
         returnValue(values)
 
 
+    @classproperty
+    def _inviteForRecipientQuery(cls):
+        """
+        DAL query to retrieve an invite record for a given recipient address.
+        """
+        inv = schema.INVITE
+        return cls._allColumnsQuery(
+            inv.RECIPIENT_ADDRESS == Parameter("recipient"))
+
+
     @inlineCallbacks
     def recordForUserID(self, userid):
-        rows = yield self._txn.execSQL(
-            """
-            select
-                INVITE.INVITE_UID,
-                INVITE.NAME,
-                INVITE.RECIPIENT_ADDRESS,
-                %(HOME:name)s.%(HOME:column_OWNER_UID)s,
-                %(BIND:name)s.%(BIND:column_BIND_MODE)s,
-                %(BIND:name)s.%(BIND:column_BIND_STATUS)s,
-                %(BIND:name)s.%(BIND:column_MESSAGE)s
-            from
-                INVITE, %(HOME:name)s, %(BIND:name)s
-            where INVITE.RECIPIENT_ADDRESS = %%s
-             and INVITE.HOME_RESOURCE_ID = %(HOME:name)s.%(HOME:column_RESOURCE_ID)s
-             and %(BIND:name)s.%(BIND:column_RESOURCE_ID)s = INVITE.RESOURCE_ID
-             and %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = INVITE.HOME_RESOURCE_ID
-            """ % self._combinedTable,
-            [userid]
-        )
+        rows = yield self._inviteForRecipientQuery.on(self._txn,
+                                                      recipient=userid)
         returnValue(self._makeInvite(rows[0]) if rows else None)
 
 
@@ -214,27 +213,18 @@ class SQLLegacyInvites(object):
                 returnValue(record)
 
 
+    @classproperty
+    def _inviteForUIDQuery(cls):
+        """
+        DAL query to retrieve an invite record for a given recipient address.
+        """
+        inv = schema.INVITE
+        return cls._allColumnsQuery(inv.INVITE_UID == Parameter("uid"))
+
+
     @inlineCallbacks
     def recordForInviteUID(self, inviteUID):
-        rows = yield self._txn.execSQL(
-            """
-            select
-                INVITE.INVITE_UID,
-                INVITE.NAME,
-                INVITE.RECIPIENT_ADDRESS,
-                %(HOME:name)s.%(HOME:column_OWNER_UID)s,
-                %(BIND:name)s.%(BIND:column_BIND_MODE)s,
-                %(BIND:name)s.%(BIND:column_BIND_STATUS)s,
-                %(BIND:name)s.%(BIND:column_MESSAGE)s
-            from
-                INVITE, %(HOME:name)s, %(BIND:name)s
-            where INVITE.INVITE_UID = %%s
-             and INVITE.HOME_RESOURCE_ID = %(HOME:name)s.%(HOME:column_RESOURCE_ID)s
-             and %(BIND:name)s.%(BIND:column_RESOURCE_ID)s = INVITE.RESOURCE_ID
-             and %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = INVITE.HOME_RESOURCE_ID
-            """ % self._combinedTable,
-            [inviteUID]
-        )
+        rows = yield self._inviteForUIDQuery.on(self._txn, uid=inviteUID)
         returnValue(self._makeInvite(rows[0]) if rows else None)
 
 
@@ -260,6 +250,71 @@ class SQLLegacyInvites(object):
         )
 
 
+    @classproperty
+    def _updateBindQuery(cls):
+        bind = cls._bindSchema
+
+        return Update({bind.BIND_MODE: Parameter("mode"),
+                       bind.BIND_STATUS: Parameter("status"),
+                       bind.MESSAGE: Parameter("message")},
+                      Where=
+                      (bind.RESOURCE_ID == Parameter("resourceID"))
+                      .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
+
+
+    @classproperty
+    def _idsForRecipient(cls):
+        inv = schema.INVITE
+        return Select([inv.RESOURCE_ID, inv.HOME_RESOURCE_ID],
+                      From=inv,
+                      Where=inv.RECIPIENT_ADDRESS == Parameter("recipient"))
+
+
+    @classproperty
+    def _updateInviteQuery(cls):
+        """
+        DAL query to update an invitation for a given recipient.
+        """
+        inv = schema.INVITE
+        return Update({inv.NAME: Parameter("name"),
+                       inv.INVITE_UID: Parameter("uid")},
+                      Where=inv.RECIPIENT_ADDRESS == Parameter("recipient"))
+
+
+    @classproperty
+    def _insertBindQuery(cls):
+        bind = cls._bindSchema
+        return Insert(
+            {
+                bind.HOME_RESOURCE_ID: Parameter("homeID"),
+                bind.RESOURCE_ID: Parameter("resourceID"),
+                bind.BIND_MODE: Parameter("mode"),
+                bind.BIND_STATUS: Parameter("status"),
+                bind.MESSAGE: Parameter("message"),
+
+                # name is NULL because the resource is not bound yet, just
+                # invited; let's be explicit about that.
+                bind.RESOURCE_NAME: None,
+                bind.SEEN_BY_OWNER: False,
+                bind.SEEN_BY_SHAREE: False,
+            }
+        )
+
+
+    @classproperty
+    def _insertInviteQuery(cls):
+        inv = schema.INVITE
+        return Insert(
+            {
+                inv.INVITE_UID: Parameter("uid"),
+                inv.NAME: Parameter("name"),
+                inv.HOME_RESOURCE_ID: Parameter("homeID"),
+                inv.RESOURCE_ID: Parameter("resourceID"),
+                inv.RECIPIENT_ADDRESS: Parameter("recipient")
+            }
+        )
+
+
     @inlineCallbacks
     def addOrUpdateRecord(self, record):
         bindMode = {'read-only': _BIND_MODE_READ,
@@ -275,73 +330,32 @@ class SQLLegacyInvites(object):
         # (and may contain a trailing slash).
         principalUID = record.principalURL.split("/")[3]
         shareeHome = yield self._getHomeWithUID(principalUID)
-        rows = yield self._txn.execSQL(
-            "select RESOURCE_ID, HOME_RESOURCE_ID from INVITE where RECIPIENT_ADDRESS = %s",
-            [record.userid]
-        )
+        rows = yield self._idsForRecipient.on(self._txn,
+                                              recipient=record.userid)
         if rows:
             [[resourceID, homeResourceID]] = rows
-            # Invite(inviteuid, userid, principalURL, common_name, access, state, summary)
-            yield self._txn.execSQL(
-                """
-                update %(BIND:name)s
-                set %(BIND:column_BIND_MODE)s = %%s,
-                    %(BIND:column_BIND_STATUS)s = %%s,
-                    %(BIND:column_MESSAGE)s = %%s
-                where %(BIND:column_RESOURCE_ID)s = %%s
-                 and %(BIND:column_HOME_RESOURCE_ID)s = %%s
-                """ % self._combinedTable,
-                [bindMode, bindStatus, record.summary, resourceID, homeResourceID]
+            yield self._updateBindQuery.on(
+                self._txn,
+                mode=bindMode, status=bindStatus, message=record.summary,
+                resourceID=resourceID, homeID=homeResourceID
             )
-            yield self._txn.execSQL("""
-                update INVITE
-                set NAME = %s, INVITE_UID = %s
-                where RECIPIENT_ADDRESS = %s
-                """,
-                [record.name, record.inviteuid, record.userid]
+            yield self._updateInviteQuery.on(
+                self._txn, name=record.name, uid=record.inviteuid,
+                recipient=record.userid
             )
         else:
-            yield self._txn.execSQL(
-                """
-                insert into INVITE
-                (
-                    INVITE_UID, NAME,
-                    HOME_RESOURCE_ID, RESOURCE_ID,
-                    RECIPIENT_ADDRESS
-                )
-                values (%s, %s, %s, %s, %s)
-                """,
-                [
-                    record.inviteuid, record.name,
-                    shareeHome._resourceID, self._collection._resourceID,
-                    record.userid
-                ])
-            yield self._txn.execSQL(
-                """
-                insert into %(BIND:name)s
-                (
-                    %(BIND:column_HOME_RESOURCE_ID)s,
-                    %(BIND:column_RESOURCE_ID)s, 
-                    %(BIND:column_RESOURCE_NAME)s,
-                    %(BIND:column_BIND_MODE)s,
-                    %(BIND:column_BIND_STATUS)s,
-                    %(BIND:column_SEEN_BY_OWNER)s,
-                    %(BIND:column_SEEN_BY_SHAREE)s,
-                    %(BIND:column_MESSAGE)s
-                )
-                values (%%s, %%s, %%s, %%s, %%s, %%s, %%s, %%s)
-                """ % self._combinedTable,
-                [
-                    shareeHome._resourceID,
-                    self._collection._resourceID,
-                    None, # this is NULL because it is not bound yet, let's be
-                          # explicit about that.
-                    bindMode,
-                    bindStatus,
-                    False,
-                    False,
-                    record.summary
-                ]
+            yield self._insertInviteQuery.on(
+                self._txn, uid=record.inviteuid, name=record.name,
+                homeID=shareeHome._resourceID,
+                resourceID=self._collection._resourceID, recipient=record.userid
+            )
+            yield self._insertBindQuery.on(
+                self._txn,
+                homeID=shareeHome._resourceID,
+                resourceID=self._collection._resourceID,
+                mode=bindMode,
+                status=bindStatus,
+                message=record.summary
             )
 
 
