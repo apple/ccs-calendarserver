@@ -215,3 +215,16 @@ class ParsingExampleTests(TestCase):
                           [set([b, c]), set([c])])
 
 
+    def test_multiPrimaryKey(self):
+        """
+        A table with a multi-column PRIMARY KEY clause will be parsed as a tuple
+        primaryKey attribute on the Table object.
+        """
+        s = Schema()
+        addSQLToSchema(
+            s, "create table a (b integer, c integer, primary key(b, c))")
+        a = s.tableNamed("a")
+        self.assertEquals(a.primaryKey,
+                          (a.columnNamed("b"), a.columnNamed("c")))
+
+
