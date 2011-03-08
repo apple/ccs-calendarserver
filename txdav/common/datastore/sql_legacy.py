@@ -842,10 +842,14 @@ class DummyUIDReserver(LoggingMixIn):
         key = self._key(uid)
         return succeed(key in self.reservations)
 
-class postgresqlgenerator(sqlgenerator):
+
+
+class RealSQLBehaviorMixin(object):
     """
-    Query generator for postgreSQL indexed searches.  (Currently unused: work
-    in progress.)
+    Class attributes for 'real' SQL behavior; avoid idiosyncracies of SQLite,
+    use standard SQL constructions, and depend on the full schema in
+    sql_schema_vX.sql rather than the partial one in twistedcaldav which depends
+    on the placement of the database in the filesystem for some information.
     """
 
     ISOP = " = "
@@ -855,24 +859,20 @@ class postgresqlgenerator(sqlgenerator):
         "TYPE": "CALENDAR_OBJECT.ICALENDAR_TYPE",
         "UID":  "CALENDAR_OBJECT.ICALENDAR_UID",
     }
+    RESOURCEDB = "CALENDAR_OBJECT"
+    TIMESPANDB = "TIME_RANGE"
 
-    def __init__(self, expr, calendarid, userid):
-        self.RESOURCEDB = "CALENDAR_OBJECT"
-        self.TIMESPANDB = "TIME_RANGE"
-        self.TIMESPANTEST = "((TIME_RANGE.FLOATING = FALSE AND TIME_RANGE.START_DATE < %s AND TIME_RANGE.END_DATE > %s) OR (TIME_RANGE.FLOATING = TRUE AND TIME_RANGE.START_DATE < %s AND TIME_RANGE.END_DATE > %s))"
-        self.TIMESPANTEST_NOEND = "((TIME_RANGE.FLOATING = FALSE AND TIME_RANGE.END_DATE > %s) OR (TIME_RANGE.FLOATING = TRUE AND TIME_RANGE.END_DATE > %s))"
-        self.TIMESPANTEST_NOSTART = "((TIME_RANGE.FLOATING = FALSE AND TIME_RANGE.START_DATE < %s) OR (TIME_RANGE.FLOATING = TRUE AND TIME_RANGE.START_DATE < %s))"
-        self.TIMESPANTEST_TAIL_PIECE = " AND TIME_RANGE.CALENDAR_OBJECT_RESOURCE_ID = CALENDAR_OBJECT.RESOURCE_ID AND TIME_RANGE.CALENDAR_RESOURCE_ID = %s"
-        self.TIMESPANTEST_JOIN_ON_PIECE = "TIME_RANGE.INSTANCE_ID = TRANSPARENCY.TIME_RANGE_INSTANCE_ID AND TRANSPARENCY.USER_ID = %s"
-
-        super(postgresqlgenerator, self).__init__(expr, calendarid, userid)
-
+    TIMESPANTEST = "((TIME_RANGE.FLOATING = FALSE AND TIME_RANGE.START_DATE < %s AND TIME_RANGE.END_DATE > %s) OR (TIME_RANGE.FLOATING = TRUE AND TIME_RANGE.START_DATE < %s AND TIME_RANGE.END_DATE > %s))"
+    TIMESPANTEST_NOEND = "((TIME_RANGE.FLOATING = FALSE AND TIME_RANGE.END_DATE > %s) OR (TIME_RANGE.FLOATING = TRUE AND TIME_RANGE.END_DATE > %s))"
+    TIMESPANTEST_NOSTART = "((TIME_RANGE.FLOATING = FALSE AND TIME_RANGE.START_DATE < %s) OR (TIME_RANGE.FLOATING = TRUE AND TIME_RANGE.START_DATE < %s))"
+    TIMESPANTEST_TAIL_PIECE = " AND TIME_RANGE.CALENDAR_OBJECT_RESOURCE_ID = CALENDAR_OBJECT.RESOURCE_ID AND TIME_RANGE.CALENDAR_RESOURCE_ID = %s"
+    TIMESPANTEST_JOIN_ON_PIECE = "TIME_RANGE.INSTANCE_ID = TRANSPARENCY.TIME_RANGE_INSTANCE_ID AND TRANSPARENCY.USER_ID = %s"
 
     def generate(self):
         """
         Generate the actual SQL 'where ...' expression from the passed in
         expression tree.
-        
+
         @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the
             partial SQL statement, and the C{list} is the list of argument
             substitutions to use with the SQL API execute method.
@@ -904,21 +904,48 @@ class postgresqlgenerator(sqlgenerator):
         return select, self.arguments
 
 
+    def containsArgument(self, arg):
+        return "%%%s%%" % (arg,)
+
+
+
+class FormatParamStyleMixin(object):
+    """
+    Mixin for overriding methods on sqlgenerator that generate arguments
+    according to format/pyformat rules rather than the base class's 'numeric'
+    rules.
+    """
+
     def addArgument(self, arg):
         self.arguments.append(arg)
         self.substitutions.append("%s")
         self.sout.write("%s")
 
+
     def setArgument(self, arg):
         self.arguments.append(arg)
         self.substitutions.append("%s")
+
 
     def frontArgument(self, arg):
         self.arguments.insert(0, arg)
         self.substitutions.insert(0, "%s")
 
-    def containsArgument(self, arg):
-        return "%%%s%%" % (arg,)
+
+
+class postgresqlgenerator(FormatParamStyleMixin, RealSQLBehaviorMixin,
+                          sqlgenerator):
+    """
+    Query generator for PostgreSQL indexed searches.
+    """
+
+
+
+class oraclesqlgenerator(RealSQLBehaviorMixin, sqlgenerator):
+    """
+    Query generator for Oracle indexed searches.
+    """
+
 
 
 class LegacyIndexHelper(LoggingMixIn, object):
@@ -1064,6 +1091,15 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
             uid, type)}, where C{name} is the resource name, C{uid} is the
             resource UID, and C{type} is the resource iCalendar component type.
         """
+        # Detect which style of parameter-generation we're using.  Naming is a
+        # little off here, because the reason we're using the numeric one is
+        # that it happens to be used by the oracle binding that we're using,
+        # whereas the postgres binding happens to use the 'pyformat' (e.g. %s)
+        # parameter style.
+#        if self.calendar._txn.paramstyle == 'numeric':
+#            generator = oraclesqlgenerator
+#        else:
+#            generator = postgresqlgenerator
         # Make sure we have a proper Filter element and get the partial SQL
         # statement to use.
         if isinstance(filter, calendarqueryfilter.Filter):
@@ -1204,10 +1240,9 @@ class PostgresLegacyInboxIndexEmulator(PostgresLegacyIndexEmulator):
 
 # CARDDAV
 
-class postgresqladbkgenerator(sqlgenerator):
+class oracleadbkgenerator(sqlgenerator):
     """
-    Query generator for postgreSQL indexed searches.  (Currently unused: work
-    in progress.)
+    Query generator for Oracle indexed searches.
     """
 
     ISOP = " = "
@@ -1216,18 +1251,17 @@ class postgresqladbkgenerator(sqlgenerator):
     FIELDS = {
         "UID":  "ADDRESSBOOK_OBJECT.VCARD_UID",
     }
+    RESOURCEDB = "ADDRESSBOOK_OBJECT"
 
-    def __init__(self, expr, addressbookid):
-        self.RESOURCEDB = "ADDRESSBOOK_OBJECT"
-
-        super(postgresqladbkgenerator, self).__init__(expr, addressbookid)
+    def containsArgument(self, arg):
+        return "%%%s%%" % (arg,)
 
 
     def generate(self):
         """
         Generate the actual SQL 'where ...' expression from the passed in
         expression tree.
-        
+
         @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the
             partial SQL statement, and the C{list} is the list of argument
             substitutions to use with the SQL API execute method.
@@ -1251,21 +1285,13 @@ class postgresqladbkgenerator(sqlgenerator):
         return select, self.arguments
 
 
-    def addArgument(self, arg):
-        self.arguments.append(arg)
-        self.substitutions.append("%s")
-        self.sout.write("%s")
 
-    def setArgument(self, arg):
-        self.arguments.append(arg)
-        self.substitutions.append("%s")
-
-    def frontArgument(self, arg):
-        self.arguments.insert(0, arg)
-        self.substitutions.insert(0, "%s")
-
-    def containsArgument(self, arg):
-        return "%%%s%%" % (arg,)
+class postgresqladbkgenerator(FormatParamStyleMixin, oracleadbkgenerator):
+    """
+    Query generator for PostgreSQL indexed searches.  Inherit 'real' database
+    behavior from L{oracleadbkgenerator}, and %s-style formatting from
+    L{FormatParamStyleMixin}.
+    """
 
 
 
