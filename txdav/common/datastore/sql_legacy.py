@@ -1,4 +1,4 @@
-# -*- test-case-name: txdav.caldav.datastore.test.test_sql -*-
+# -*- test-case-name: twistedcaldav.test.test_sharing,twistedcaldav.test.test_calendarquery -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -28,6 +28,7 @@ from twistedcaldav.sharing import SharedCollectionRecord
 from twisted.python import hashlib
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
+from twext.python.clsprop import classproperty
 from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav import carddavxml
@@ -35,18 +36,22 @@ from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
-from twistedcaldav.query import calendarqueryfilter, calendarquery, \
-    addressbookquery
+from twistedcaldav.query import (
+    calendarqueryfilter, calendarquery, addressbookquery)
 from twistedcaldav.query.sqlgenerator import sqlgenerator
 from twistedcaldav.sharing import Invite
 
-from txdav.common.icommondatastore import IndexedSearchException, \
-    ReservationError
-from txdav.common.datastore.sql_tables import \
-    _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_DIRECT, \
-    _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID, \
-    CALENDAR_BIND_TABLE, CALENDAR_HOME_TABLE, ADDRESSBOOK_HOME_TABLE, \
-    ADDRESSBOOK_BIND_TABLE
+from txdav.common.icommondatastore import (
+    IndexedSearchException, ReservationError)
+
+from twext.enterprise.dal.syntax import Select
+from twext.enterprise.dal.syntax import Parameter
+from txdav.common.datastore.sql_tables import (
+    _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_DIRECT,
+    _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED,
+    _BIND_STATUS_INVALID, CALENDAR_BIND_TABLE, CALENDAR_HOME_TABLE,
+    ADDRESSBOOK_HOME_TABLE, ADDRESSBOOK_BIND_TABLE, schema)
+
 
 log = Logger()
 
@@ -108,6 +113,9 @@ class SQLLegacyInvites(object):
     _homeTable = None
     _bindTable = None
 
+    _homeSchema = None
+    _bindSchema = None
+
     def __init__(self, collection):
         self._collection = collection
 
@@ -136,31 +144,41 @@ class SQLLegacyInvites(object):
         "No-op, because the index implicitly always exists in the database."
 
 
+    @classproperty
+    def _allRecordsQuery(cls):
+        """
+        DAL query for all invite records with a given resource ID.
+        """
+        inv = schema.INVITE
+        home = cls._homeSchema
+        bind = cls._bindSchema
+        return Select(
+            [
+                inv.INVITE_UID,
+                inv.NAME,
+                inv.RECIPIENT_ADDRESS,
+                home.OWNER_UID,
+                bind.BIND_MODE,
+                bind.BIND_STATUS,
+                bind.MESSAGE
+            ],
+            From=inv.join(home).join(bind),
+            Where=(
+                (inv.RESOURCE_ID == Parameter("resourceID"))
+                .And(inv.RESOURCE_ID == bind.RESOURCE_ID)
+                .And(inv.HOME_RESOURCE_ID == home.RESOURCE_ID)
+                .And(inv.HOME_RESOURCE_ID == bind.HOME_RESOURCE_ID)),
+            OrderBy=inv.NAME, Ascending=True
+        )
+
+
     @inlineCallbacks
     def allRecords(self):
         values = []
-        for row in (yield self._txn.execSQL(
-            """
-            select
-                INVITE.INVITE_UID,
-                INVITE.NAME,
-                INVITE.RECIPIENT_ADDRESS,
-                %(HOME:name)s.%(HOME:column_OWNER_UID)s,
-                %(BIND:name)s.%(BIND:column_BIND_MODE)s,
-                %(BIND:name)s.%(BIND:column_BIND_STATUS)s,
-                %(BIND:name)s.%(BIND:column_MESSAGE)s
-            from
-                INVITE, %(HOME:name)s, %(BIND:name)s
-            where
-                INVITE.RESOURCE_ID = %%s
-                and INVITE.HOME_RESOURCE_ID = %(HOME:name)s.%(HOME:column_RESOURCE_ID)s
-                and %(BIND:name)s.%(BIND:column_RESOURCE_ID)s = INVITE.RESOURCE_ID
-                and %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = INVITE.HOME_RESOURCE_ID
-            order by
-                INVITE.NAME asc
-            """ % self._combinedTable,
-            [self._collection._resourceID]
-        )):
+        rows = yield self._allRecordsQuery.on(
+            self._txn, resourceID=self._collection._resourceID
+        )
+        for row in rows:
             values.append(self._makeInvite(row))
         returnValue(values)
 
@@ -368,11 +386,11 @@ class SQLLegacyCalendarInvites(SQLLegacyInvites):
     L{twistedcaldav.sharing.InvitesDatabase}.
     """
 
-    def __init__(self, calendar):
-        self._homeTable = CALENDAR_HOME_TABLE
-        self._bindTable = CALENDAR_BIND_TABLE
-        super(SQLLegacyCalendarInvites, self).__init__(calendar)
+    _homeTable = CALENDAR_HOME_TABLE
+    _bindTable = CALENDAR_BIND_TABLE
 
+    _homeSchema = schema.CALENDAR_HOME
+    _bindSchema = schema.CALENDAR_BIND
 
     def _getHomeWithUID(self, uid):
         return self._txn.calendarHomeWithUID(uid, create=True)
@@ -385,11 +403,11 @@ class SQLLegacyAddressBookInvites(SQLLegacyInvites):
     L{twistedcaldav.sharing.InvitesDatabase}.
     """
 
-    def __init__(self, addressbook):
-        self._homeTable = ADDRESSBOOK_HOME_TABLE
-        self._bindTable = ADDRESSBOOK_BIND_TABLE
-        super(SQLLegacyAddressBookInvites, self).__init__(addressbook)
+    _homeTable = ADDRESSBOOK_HOME_TABLE
+    _bindTable = ADDRESSBOOK_BIND_TABLE
 
+    _homeSchema = schema.ADDRESSBOOK_HOME
+    _bindSchema = schema.ADDRESSBOOK_BIND
 
     def _getHomeWithUID(self, uid):
         return self._txn.addressbookHomeWithUID(uid, create=True)
