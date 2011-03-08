@@ -178,6 +178,7 @@ class CommonStoreTransaction(object):
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
         self._sqlTxn = sqlTxn
         self.paramstyle = sqlTxn.paramstyle
+        self.dialect = sqlTxn.dialect
 
 
     def store(self):
