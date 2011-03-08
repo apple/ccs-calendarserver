@@ -47,6 +47,7 @@ from txdav.common.icommondatastore import (
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Select
+from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Parameter
 from txdav.common.datastore.sql_tables import (
     _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_DIRECT,
@@ -359,38 +360,57 @@ class SQLLegacyInvites(object):
             )
 
 
+    @classmethod
+    def _deleteOneBindQuery(cls, constraint):
+        inv = schema.INVITE
+        bind = cls._bindSchema
+        return Delete(From=bind, Using=inv, Where=constraint
+                      .And(bind.HOME_RESOURCE_ID == inv.HOME_RESOURCE_ID)
+                      .And(bind.RESOURCE_ID == inv.RESOURCE_ID))
+
+
+    @classmethod
+    def _deleteOneInviteQuery(cls, constraint):
+        inv = schema.INVITE
+        return Delete(From=inv, Where=constraint)
+
+
+    @classproperty
+    def _deleteBindByRecipient(cls):
+        inv = schema.INVITE
+        return cls._deleteOneBindQuery(
+            inv.RECIPIENT_ADDRESS == Parameter("recipient"))
+
+
+    @classproperty
+    def _deleteInviteByRecipient(cls):
+        inv = schema.INVITE
+        return cls._deleteOneInviteQuery(
+            inv.RECIPIENT_ADDRESS == Parameter("recipient"))
+
+
+    @classproperty
+    def _deleteBindByUID(cls):
+        inv = schema.INVITE
+        return cls._deleteOneBindQuery(inv.INVITE_UID == Parameter("uid"))
+
+
+    @classproperty
+    def _deleteInviteByUID(cls):
+        inv = schema.INVITE
+        return cls._deleteOneInviteQuery(inv.INVITE_UID == Parameter("uid"))
+
+
     @inlineCallbacks
     def removeRecordForUserID(self, userid):
-        yield self._txn.execSQL(
-            """
-            delete from %(BIND:name)s using INVITE
-            where INVITE.RECIPIENT_ADDRESS = %%s
-             and %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = INVITE.HOME_RESOURCE_ID
-             and %(BIND:name)s.%(BIND:column_RESOURCE_ID)s = INVITE.RESOURCE_ID
-            """ % self._combinedTable,
-            [userid]
-        )
-        yield self._txn.execSQL(
-            "delete from INVITE where RECIPIENT_ADDRESS = %s",
-            [userid]
-        )
+        yield self._deleteBindByRecipient.on(self._txn, recipient=userid)
+        yield self._deleteInviteByRecipient.on(self._txn, recipient=userid)
 
 
     @inlineCallbacks
     def removeRecordForInviteUID(self, inviteUID):
-        yield self._txn.execSQL(
-            """
-            delete from %(BIND:name)s using INVITE
-            where INVITE.INVITE_UID = %s
-             and %(BIND:name)s.%(BIND:column_HOME_RESOURCE_ID)s = INVITE.HOME_RESOURCE_ID
-             and %(BIND:name)s.%(BIND:column_RESOURCE_ID)s = INVITE.RESOURCE_ID
-            """ % self._combinedTable,
-            [inviteUID]
-        )
-        yield self._txn.execSQL(
-            "delete from INVITE where INVITE_UID = %s",
-            [inviteUID]
-        )
+        yield self._deleteBindByUID.on(self._txn, uid=inviteUID)
+        yield self._deleteInviteByUID.on(self._txn, uid=inviteUID)
 
 
 
