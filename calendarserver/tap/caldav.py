@@ -953,9 +953,9 @@ class CalDAVServiceMaker (LoggingMixIn):
             elif config.DBType == 'oracle':
                 # Connect to an Oracle database that is already running.
                 return self.subServiceFactoryFactory(createMainService,
-                    uid=overrideUID, gid=overrideGID)(
-                            oracleConnectorFromConfig(config),
-                            dialect=ORACLE_DIALECT, paramstyle='numeric')
+                    uid=overrideUID, gid=overrideGID,
+                    dialect=ORACLE_DIALECT, paramstyle='numeric')(
+                            oracleConnectorFromConfig(config))
             else:
                 raise UsageError("Unknown database type %r" (config.DBType,))
         else:
