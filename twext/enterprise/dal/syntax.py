@@ -853,23 +853,17 @@ class Delete(_Statement):
     'delete' statement.
     """
 
-    def __init__(self, From, Where, Return=None, Using=None):
+    def __init__(self, From, Where, Return=None):
         self.From = From
         self.Where = Where
         self.Return = Return
-        self.Using = Using
 
 
     def _toSQL(self, metadata):
         result = SQLFragment()
         allTables = self.From.tables()
-        if self.Using is not None:
-            allTables += self.Using.tables()
         result.text += 'delete from '
         result.append(self.From.subSQL(metadata, allTables))
-        if self.Using is not None:
-            result.text += ' using '
-            result.append(self.Using.subSQL(metadata, allTables))
         result.text += ' where '
         result.append(self.Where.subSQL(metadata, allTables))
         if self.Return is not None:

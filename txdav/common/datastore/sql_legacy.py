@@ -365,9 +365,10 @@ class SQLLegacyInvites(object):
     def _deleteOneBindQuery(cls, constraint):
         inv = schema.INVITE
         bind = cls._bindSchema
-        return Delete(From=bind, Using=inv, Where=constraint
-                      .And(bind.HOME_RESOURCE_ID == inv.HOME_RESOURCE_ID)
-                      .And(bind.RESOURCE_ID == inv.RESOURCE_ID))
+        return Delete(
+            From=bind, Where=(bind.HOME_RESOURCE_ID, bind.RESOURCE_ID) ==
+            Select([inv.HOME_RESOURCE_ID, inv.RESOURCE_ID],
+                   From=inv, Where=constraint))
 
 
     @classmethod
