@@ -40,6 +40,10 @@ class ConnectionError(Exception):
 
 
 
+POSTGRES_DIALECT = 'postgres-dialect'
+
+
+
 class IAsyncTransaction(Interface):
     """
     Asynchronous execution of SQL.
@@ -51,6 +55,13 @@ class IAsyncTransaction(Interface):
     paramstyle = Attribute(
         """
         A copy of the 'paramstyle' attribute from a DB-API 2.0 module.
+        """)
+
+
+    dialect = Attribute(
+        """
+        A copy of the 'dialect' attribute from the connection pool.  One of the
+        C{*_DIALECT} constants in this module, such as C{POSTGRES_DIALECT}.
         """)
 
 

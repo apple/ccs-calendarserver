@@ -53,15 +53,30 @@ from twext.internet.threadutils import ThreadHolder
 from twisted.internet.defer import succeed
 from twext.enterprise.ienterprise import ConnectionError
 from twisted.internet.defer import fail
-from twext.enterprise.ienterprise import AlreadyFinishedError, IAsyncTransaction
+from twext.enterprise.ienterprise import (
+    AlreadyFinishedError, IAsyncTransaction, POSTGRES_DIALECT
+)
 
 
-# FIXME: there should be no default for DEFAULT_PARAM_STYLE, it should be
+# FIXME: there should be no defaults for connection metadata, it should be
 # discovered dynamically everywhere.  Right now it's specified as an explicit
 # argument to the ConnectionPool but it should probably be determined
 # automatically from the database binding.
 
 DEFAULT_PARAM_STYLE = 'pyformat'
+DEFAULT_DIALECT = POSTGRES_DIALECT
+
+
+def _forward(thunk):
+    """
+    Forward an attribute to the connection pool.
+    """
+    @property
+    def getter(self):
+        return getattr(self._pool, thunk.func_name)
+    return getter
+
+
 
 class _ConnectedTxn(object):
     """
@@ -78,12 +93,17 @@ class _ConnectedTxn(object):
         self._holder     = threadHolder
 
 
-    @property
+    @_forward
     def paramstyle(self):
         """
         The paramstyle attribute is mirrored from the connection pool.
         """
-        return self._pool.paramstyle
+
+    @_forward
+    def dialect(self):
+        """
+        The dialect attribute is mirrored from the connection pool.
+        """
 
 
     def _reallyExecSQL(self, sql, args=None, raiseOnZeroRowCount=None):
@@ -188,12 +208,15 @@ class _NoTxn(object):
 
     def __init__(self, pool):
         self.paramstyle = pool.paramstyle
+        self.dialect = pool.dialect
+
 
     def _everything(self, *a, **kw):
         """
         Everything fails with a L{ConnectionError}.
         """
         return fail(ConnectionError())
+
 
     execSQL = _everything
     commit  = _everything
@@ -327,7 +350,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         Stop waiting for a free transaction and fail.
         """
         self._pool._waiting.remove(self)
-        self._unspoolOnto(_NoTxn(self))
+        self._unspoolOnto(_NoTxn(self._pool))
 
 
     def _checkComplete(self):
@@ -433,6 +456,7 @@ class ConnectionPool(Service, object):
         self.connectionFactory = connectionFactory
         self.maxConnections = maxConnections
         self.paramstyle = DEFAULT_PARAM_STYLE
+        self.dialect = DEFAULT_DIALECT
 
         self._free       = []
         self._busy       = []

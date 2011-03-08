@@ -671,3 +671,16 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(notxn.paramstyle, TEST_PARAMSTYLE)
 
 
+    def test_propagateDialect(self):
+        """
+        Each different type of L{IAsyncTransaction} relays the C{dialect}
+        attribute from the L{ConnectionPool}.
+        """
+        TEST_DIALECT = "otherdialect"
+        self.pool.dialect = TEST_DIALECT
+        waittxn = self.pool.connection()
+        self.assertEquals(waittxn.dialect, TEST_DIALECT)
+        self.pool.stopService()
+        notxn = self.pool.connection()
+        self.assertEquals(notxn.dialect, TEST_DIALECT)
+
