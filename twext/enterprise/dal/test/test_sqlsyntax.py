@@ -38,7 +38,7 @@ class GenerationTests(TestCase):
         addSQLToSchema(schema=s, schemaData="""
                        create sequence A_SEQ;
                        create table FOO (BAR integer, BAZ integer);
-                       create table BOZ (QUX integer);
+                       create table BOZ (QUX integer, QUUX integer);
                        create table OTHER (BAR integer,
                                            FOO_BAR integer not null);
                        create table TEXTUAL (MYTEXT varchar(255));
@@ -664,10 +664,12 @@ class GenerationTests(TestCase):
                     self.schema.A_SEQ}).toSQL(),
             SQLFragment("insert into BOZ (QUX) values (nextval('A_SEQ'))", []))
 
+
     def test_nestedLogicalExpressions(self):
         """
-        Make sure that logical operator precedence inserts proper parenthesis when needed.
-        e.g. 'a.And(b.Or(c))' needs to be 'a and (b or c)' not 'a and b or c'.
+        Make sure that logical operator precedence inserts proper parenthesis
+        when needed.  e.g. 'a.And(b.Or(c))' needs to be 'a and (b or c)' not 'a
+        and b or c'.
         """
         self.assertEquals(
             Select(
@@ -676,7 +678,8 @@ class GenerationTests(TestCase):
                     And(self.schema.FOO.BAZ != 8).
                     And((self.schema.FOO.BAR == 8).Or(self.schema.FOO.BAZ == 0))
             ).toSQL(),
-            SQLFragment("select * from FOO where BAR != ? and BAZ != ? and (BAR = ? or BAZ = ?)", [7, 8, 8, 0]))
+            SQLFragment("select * from FOO where BAR != ? and BAZ != ? and "
+                        "(BAR = ? or BAZ = ?)", [7, 8, 8, 0]))
 
         self.assertEquals(
             Select(
@@ -685,7 +688,8 @@ class GenerationTests(TestCase):
                     Or(self.schema.FOO.BAZ != 8).
                     Or((self.schema.FOO.BAR == 8).And(self.schema.FOO.BAZ == 0))
             ).toSQL(),
-            SQLFragment("select * from FOO where BAR != ? or BAZ != ? or BAR = ? and BAZ = ?", [7, 8, 8, 0]))
+            SQLFragment("select * from FOO where BAR != ? or BAZ != ? or "
+                        "BAR = ? and BAZ = ?", [7, 8, 8, 0]))
 
         self.assertEquals(
             Select(
@@ -694,4 +698,53 @@ class GenerationTests(TestCase):
                     Or(self.schema.FOO.BAZ != 8).
                     And((self.schema.FOO.BAR == 8).Or(self.schema.FOO.BAZ == 0))
             ).toSQL(),
-            SQLFragment("select * from FOO where (BAR != ? or BAZ != ?) and (BAR = ? or BAZ = ?)", [7, 8, 8, 0]))
+            SQLFragment("select * from FOO where (BAR != ? or BAZ != ?) and "
+                        "(BAR = ? or BAZ = ?)", [7, 8, 8, 0]))
+
+
+    def test_subSelectComparison(self):
+        """
+        A comparison of a column to a sub-select in a where clause will result
+        in a parenthetical 'Where' clause.
+        """
+        self.assertEquals(
+            Update(
+                {self.schema.BOZ.QUX: 9},
+                Where=self.schema.BOZ.QUX ==
+                Select([self.schema.FOO.BAR], From=self.schema.FOO,
+                       Where=self.schema.FOO.BAZ == 12)).toSQL(),
+            SQLFragment(
+                # NOTE: it's very important that the comparison _always_ go in
+                # this order (column from the UPDATE first, inner SELECT second)
+                # as the other order will be considered a syntax error.
+                "update BOZ set QUX = ? where QUX = ("
+                "select BAR from FOO where BAZ = ?)", [9, 12]
+            )
+        )
+
+
+    def test_tupleComparison(self):
+        """
+        A L{Tuple} allows for simultaneous comparison of multiple values in a
+        C{Where} clause.  This feature is particularly useful when issuing an
+        L{Update} or L{Delete}, where the comparison is with values from a
+        subselect.  (A L{Tuple} will be automatically generated upon comparison
+        to a C{tuple} or C{list}.)
+        """
+        self.assertEquals(
+            Update(
+                {self.schema.BOZ.QUX: 1},
+                Where=(self.schema.BOZ.QUX, self.schema.BOZ.QUUX) ==
+                Select([self.schema.FOO.BAR, self.schema.FOO.BAZ],
+                       From=self.schema.FOO,
+                       Where=self.schema.FOO.BAZ == 2)).toSQL(),
+            SQLFragment(
+                # NOTE: it's very important that the comparison _always_ go in
+                # this order (tuple of columns from the UPDATE first, inner
+                # SELECT second) as the other order will be considered a syntax
+                # error.
+                "update BOZ set QUX = ? where (QUX, QUUX) = ("
+                "select BAR, BAZ from FOO where BAZ = ?)", [1, 2]
+            )
+        )
+

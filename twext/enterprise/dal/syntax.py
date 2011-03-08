@@ -89,6 +89,8 @@ def comparison(comparator):
     def __(self, other):
         if other is None:
             return NullComparison(self, comparator)
+        if isinstance(other, Select):
+            return NotImplemented
         if isinstance(other, ColumnSyntax):
             return ColumnComparison(self, comparator, other)
         else:
@@ -491,6 +493,22 @@ def _columnsMatchTables(columns, tables):
     return True
 
 
+class Tuple(object):
+
+    def __init__(self, columns):
+        self.columns = columns
+
+
+    def subSQL(self, placeholder, quote, allTables):
+        return _inParens(_commaJoined(c.subSQL(placeholder, quote, allTables)
+                                      for c in self.columns))
+
+
+    def allColumns(self):
+        return self.columns
+
+
+
 
 class Select(_Statement):
     """
@@ -520,6 +538,15 @@ class Select(_Statement):
         self.columns = columns
         self.ForUpdate = ForUpdate
         self.Ascending = Ascending
+
+
+    def __eq__(self, other):
+        """
+        Create a comparison.
+        """
+        if isinstance(other, (list, tuple)):
+            other = Tuple(other)
+        return CompoundComparison(other, '=', self)
 
 
     def toSQL(self, placeholder="?", quote=lambda x: x):
