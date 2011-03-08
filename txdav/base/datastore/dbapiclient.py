@@ -63,6 +63,40 @@ class DiagnosticCursorWrapper(object):
         return results
 
 
+try:
+    import cx_Oracle
+except ImportError:
+    pass
+
+
+class OracleCursorWrapper(DiagnosticCursorWrapper):
+    """
+    Wrapper for cx_Oracle DB-API connections which implements fetchall() to read
+    all CLOB objects into strings.
+    """
+
+    def fetchall(self):
+        accum = []
+        for row in self.realCursor:
+            newRow = []
+            for column in row:
+                if hasattr(column, 'read'):
+                    newRow.append(column.read())
+                else:
+                    newRow.append(column.read())
+        return accum
+
+
+    def execute(self, sql, args=()):
+        realArgs = []
+        for arg in args:
+            if isinstance(arg, (str, unicode)) and len(arg) > 1024:
+                v = self.realCursor.var(cx_Oracle.CLOB, len(arg) + 1)
+                v.setvalue(0, arg)
+            realArgs.append(v)
+        return super(OracleCursorWrapper, self).execute(sql, realArgs)
+
+
 
 class DiagnosticConnectionWrapper(object):
     """
