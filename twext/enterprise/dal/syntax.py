@@ -430,6 +430,7 @@ class Join(object):
         return Join(self, type, otherTable, on)
 
 
+_KEYWORDS = ["access"]
 
 
 class ColumnSyntax(ExpressionSyntax):
@@ -447,13 +448,16 @@ class ColumnSyntax(ExpressionSyntax):
     def subSQL(self, metadata, allTables):
         # XXX This, and 'model', could in principle conflict with column names.
         # Maybe do something about that.
+        name = self.model.name
+        if name.lower() in _KEYWORDS:
+            name = '"%s"' % (name,)
+
         for tableSyntax in allTables:
             if self.model.table is not tableSyntax.model:
                 if self.model.name in (c.name for c in
                                                tableSyntax.model.columns):
-                    return SQLFragment((self.model.table.name + '.' +
-                                         self.model.name))
-        return SQLFragment(self.model.name)
+                    return SQLFragment((self.model.table.name + '.' + name))
+        return SQLFragment(name)
 
 
 

@@ -63,6 +63,7 @@ class GenerationTests(TestCase):
                        create table OTHER (BAR integer,
                                            FOO_BAR integer not null);
                        create table TEXTUAL (MYTEXT varchar(255));
+                       create table LEVELS (ACCESS integer, USERNAME varchar(255));
                        """)
         self.schema = SchemaSyntax(s)
 
@@ -552,6 +553,20 @@ class GenerationTests(TestCase):
             Insert, {self.schema.FOO.BAR: 23,
                      self.schema.FOO.BAZ: 9,
                      self.schema.TEXTUAL.MYTEXT: 'hello'}
+        )
+
+
+    def test_quotingOnKeywordConflict(self):
+        """
+        'access' is a keyword, so although our schema parser will leniently
+        accept it, it must be quoted in any outgoing SQL.
+        """
+        self.assertEquals(
+            Insert({self.schema.LEVELS.ACCESS: 1,
+                    self.schema.LEVELS.USERNAME: "hi"}).toSQL(),
+            SQLFragment(
+                'insert into LEVELS ("ACCESS", USERNAME) values (?, ?)',
+                [1, "hi"])
         )
 
 
