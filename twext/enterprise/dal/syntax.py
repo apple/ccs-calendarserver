@@ -61,7 +61,7 @@ class NumericPlaceholder(ConnectionMetadata):
 
     def __init__(self, dialect):
         super(NumericPlaceholder, self).__init__(dialect)
-        self._next = itertools.count().next
+        self._next = itertools.count(1).next
 
 
     def placeholder(self):
@@ -99,7 +99,7 @@ class _Statement(object):
 
     _paramstyles = {
         'pyformat': lambda dialect: FixedPlaceholder(dialect, "%s"),
-        #'numeric': NumericPlaceholder
+        'numeric': NumericPlaceholder
     }
 
 

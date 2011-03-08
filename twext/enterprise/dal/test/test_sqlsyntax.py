@@ -727,6 +727,29 @@ class GenerationTests(TestCase):
         )
 
 
+    def test_numericParams(self):
+        """
+        An L{IAsyncTransaction} with the 'numeric' paramstyle attribute will
+        cause statements to be generated with parameters in the style of :1 :2
+        :3, as per the DB-API.
+        """
+        stmts = []
+        class FakeOracleTxn(object):
+            def execSQL(self, text, params, exc):
+                stmts.append((text, params))
+            dialect = ORACLE_DIALECT
+            paramstyle = 'numeric'
+        Select([self.schema.FOO.BAR],
+               From=self.schema.FOO,
+               Where=(self.schema.FOO.BAR == 7).And(
+                   self.schema.FOO.BAZ == 9)
+              ).on(FakeOracleTxn())
+        self.assertEquals(
+            stmts, [("select BAR from FOO where BAR = :1 and BAZ = :2",
+                     [7, 9])]
+        )
+
+
     def test_nestedLogicalExpressions(self):
         """
         Make sure that logical operator precedence inserts proper parenthesis
