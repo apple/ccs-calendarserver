@@ -324,27 +324,6 @@ class CalendarObject(CommonObjectResource):
         self.hasPrivateComment = metadata.get("hasPrivateComment", False)
 
 
-    @classmethod
-    def _selectAllColumns(cls):
-        return """
-            select 
-              %(column_RESOURCE_ID)s,
-              %(column_RESOURCE_NAME)s,
-              %(column_UID)s,
-              %(column_MD5)s,
-              character_length(%(column_TEXT)s),
-              %(column_ATTACHMENTS_MODE)s,
-              %(column_DROPBOX_ID)s,
-              %(column_ACCESS)s,
-              %(column_SCHEDULE_OBJECT)s,
-              %(column_SCHEDULE_TAG)s,
-              %(column_SCHEDULE_ETAGS)s,
-              %(column_PRIVATE_COMMENTS)s,
-              %(column_CREATED)s,
-              %(column_MODIFIED)s
-        """ % cls._objectTable
-
-
     _allColumns = [
         _objectSchema.RESOURCE_ID,
         _objectSchema.RESOURCE_NAME,

@@ -62,7 +62,6 @@ from twext.python.clsprop import classproperty
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Len
-from twext.enterprise.dal.syntax import Lock
 from twext.enterprise.dal.syntax import Max
 from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import SavepointAction
@@ -2162,25 +2161,6 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
             returnValue(self)
         else:
             returnValue(None)
-
-
-    @classmethod
-    def _selectAllColumns(cls):
-        """
-        Full set of columns in the object table that need to be loaded to
-        initialize the object resource state.  (XXX: remove me, old string-based
-        version, see _allColumns)
-        """
-        return """
-            select
-              %(column_RESOURCE_ID)s,
-              %(column_RESOURCE_NAME)s,
-              %(column_UID)s,
-              %(column_MD5)s,
-              character_length(%(column_TEXT)s),
-              %(column_CREATED)s,
-              %(column_MODIFIED)s
-        """ % cls._objectTable
 
 
     @classproperty
