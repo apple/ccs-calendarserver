@@ -26,7 +26,7 @@ from twext.enterprise.dal.syntax import (
     TableMismatch, Parameter, Max, Len, NotEnoughValues
 , Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction)
 
-from twext.enterprise.dal.syntax import FunctionInvocation
+from twext.enterprise.dal.syntax import Function
 
 from twext.enterprise.dal.syntax import FixedPlaceholder, NumericPlaceholder
 from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
@@ -614,10 +614,11 @@ class GenerationTests(TestCase):
         L{Update} values may be L{FunctionInvocation}s, to update to computed
         values in the database.
         """
+        sqlfunc = Function("hello")
         self.assertEquals(
             Update(
                 {self.schema.FOO.BAR: 23,
-                 self.schema.FOO.BAZ: FunctionInvocation("hello")},
+                 self.schema.FOO.BAZ: sqlfunc()},
                 Where=self.schema.FOO.BAZ == 9
             ).toSQL(),
             SQLFragment("update FOO set BAR = ?, BAZ = hello() "
@@ -630,10 +631,11 @@ class GenerationTests(TestCase):
         L{Update} values may be L{FunctionInvocation}s, to update to computed
         values in the database.
         """
+        sqlfunc = Function("hello")
         self.assertEquals(
             Insert(
                 {self.schema.FOO.BAR: 23,
-                 self.schema.FOO.BAZ: FunctionInvocation("hello")},
+                 self.schema.FOO.BAZ: sqlfunc()},
             ).toSQL(),
             SQLFragment("insert into FOO (BAR, BAZ) "
                         "values (?, hello())", [23])
