@@ -26,7 +26,23 @@ from twext.enterprise.dal.syntax import (
 , Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction)
 
 from twext.enterprise.dal.syntax import FunctionInvocation
+
+from twext.enterprise.dal.syntax import FixedPlaceholder
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twisted.trial.unittest import TestCase
+
+
+
+class _FakeTransaction(object):
+    """
+    An L{IAsyncTransaction} that provides the relevant metadata for SQL
+    generation.
+    """
+
+    def __init__(self, paramstyle):
+        self.paramstyle = 'qmark'
+
+
 
 class GenerationTests(TestCase):
     """
@@ -65,16 +81,16 @@ class GenerationTests(TestCase):
                           SQLFragment("select * from FOO where BAR = ?", [1]))
 
 
-    def test_quotingAndPlaceholder(self):
+    def test_alternateMetadata(self):
         """
         L{Select} generates a 'select' statement with the specified placeholder
-        syntax and quoting function.
+        syntax when explicitly given L{ConnectionMetadata} which specifies a
+        placeholder.
         """
         self.assertEquals(Select(From=self.schema.FOO,
                                  Where=self.schema.FOO.BAR == 1).toSQL(
-                                 placeholder="*",
-                                 quote=lambda partial: partial.replace("*", "**")),
-                          SQLFragment("select ** from FOO where BAR = *", [1]))
+                                 FixedPlaceholder(POSTGRES_DIALECT, "$$")),
+                          SQLFragment("select * from FOO where BAR = $$", [1]))
 
 
     def test_columnComparison(self):
