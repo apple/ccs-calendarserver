@@ -228,3 +228,19 @@ class ParsingExampleTests(TestCase):
                           (a.columnNamed("b"), a.columnNamed("c")))
 
 
+    def test_cascade(self):
+        """
+        A column with an 'on delete cascade' constraint will have its C{cascade}
+        attribute set to True.
+        """
+        s = Schema()
+        addSQLToSchema(
+            s,
+            """
+            create table a (b integer primary key);
+            create table c (d integer references a on delete cascade);
+            """)
+        self.assertEquals(s.tableNamed("a").columnNamed("b").cascade, False)
+        self.assertEquals(s.tableNamed("c").columnNamed("d").cascade, True)
+
+

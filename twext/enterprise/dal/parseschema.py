@@ -353,6 +353,7 @@ class _ColumnParser(object):
                 elif val.match(Keyword, 'ON'):
                     expect(self, ttype=Keyword.DML, value='DELETE')
                     expect(self, ttype=Keyword, value='CASCADE')
+                    theColumn.cascade = True
                 else:
                     expected = False
                 if not expected:
