@@ -968,6 +968,8 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
             # This is only used with unit tests
             self.reserver = DummyUIDReserver(self)
 
+    _objectSchema = schema.CALENDAR_OBJECT
+
     @property
     def _txn(self):
         return self.calendar._txn
