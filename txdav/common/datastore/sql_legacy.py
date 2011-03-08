@@ -940,11 +940,22 @@ class postgresqlgenerator(FormatParamStyleMixin, RealSQLBehaviorMixin,
     """
 
 
+def fixbools(sqltext):
+    return sqltext.replace("TRUE", "1").replace("FALSE", "0")
+
+
 
 class oraclesqlgenerator(RealSQLBehaviorMixin, sqlgenerator):
     """
     Query generator for Oracle indexed searches.
     """
+    TIMESPANTEST = fixbools(RealSQLBehaviorMixin.TIMESPANTEST)
+    TIMESPANTEST_NOEND = fixbools(RealSQLBehaviorMixin.TIMESPANTEST_NOEND)
+    TIMESPANTEST_NOSTART = fixbools(RealSQLBehaviorMixin.TIMESPANTEST_NOSTART)
+    TIMESPANTEST_TAIL_PIECE = fixbools(
+        RealSQLBehaviorMixin.TIMESPANTEST_TAIL_PIECE)
+    TIMESPANTEST_JOIN_ON_PIECE = fixbools(
+        RealSQLBehaviorMixin.TIMESPANTEST_JOIN_ON_PIECE)
 
 
 
@@ -1096,16 +1107,16 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         # that it happens to be used by the oracle binding that we're using,
         # whereas the postgres binding happens to use the 'pyformat' (e.g. %s)
         # parameter style.
-#        if self.calendar._txn.paramstyle == 'numeric':
-#            generator = oraclesqlgenerator
-#        else:
-#            generator = postgresqlgenerator
+        if self.calendar._txn.paramstyle == 'numeric':
+            generator = oraclesqlgenerator
+        else:
+            generator = postgresqlgenerator
         # Make sure we have a proper Filter element and get the partial SQL
         # statement to use.
         if isinstance(filter, calendarqueryfilter.Filter):
             qualifiers = calendarquery.sqlcalendarquery(
                 filter, self.calendar._resourceID, useruid,
-                generator=postgresqlgenerator
+                generator=generator
             )
             if qualifiers is not None:
                 # Determine how far we need to extend the current expansion of
@@ -1240,7 +1251,7 @@ class PostgresLegacyInboxIndexEmulator(PostgresLegacyIndexEmulator):
 
 # CARDDAV
 
-class oracleadbkgenerator(sqlgenerator):
+class oraclesqladbkgenerator(sqlgenerator):
     """
     Query generator for Oracle indexed searches.
     """
@@ -1286,7 +1297,7 @@ class oracleadbkgenerator(sqlgenerator):
 
 
 
-class postgresqladbkgenerator(FormatParamStyleMixin, oracleadbkgenerator):
+class postgresqladbkgenerator(FormatParamStyleMixin, oraclesqladbkgenerator):
     """
     Query generator for PostgreSQL indexed searches.  Inherit 'real' database
     behavior from L{oracleadbkgenerator}, and %s-style formatting from
@@ -1355,10 +1366,14 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
             C{name} is the resource name, C{uid} is the resource UID, and
             C{type} is the resource iCalendar component type.x
         """
-
+        if self.addressbook._txn.paramstyle == 'numeric':
+            generator = oraclesqladbkgenerator
+        else:
+            generator = postgresqladbkgenerator
         # Make sure we have a proper Filter element and get the partial SQL statement to use.
         if isinstance(filter, carddavxml.Filter):
-            qualifiers = addressbookquery.sqladdressbookquery(filter, self.addressbook._resourceID, generator=postgresqladbkgenerator)
+            qualifiers = addressbookquery.sqladdressbookquery(
+                filter, self.addressbook._resourceID, generator=generator)
         else:
             qualifiers = None
         if qualifiers is not None:
@@ -1368,10 +1383,13 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
                 qualifiers[1]
             )
         else:
-            rowiter = yield self._txn.execSQL(
-                "select RESOURCE_NAME, VCARD_UID from ADDRESSBOOK_OBJECT where ADDRESSBOOK_RESOURCE_ID = %s",
-                [self.addressbook._resourceID, ],
-            )
+            rowiter = yield Select(
+                [schema.ADDRESSBOOK_OBJECT.RESOURCE_NAME,
+                 schema.ADDRESSBOOK_OBJECT.VCARD_UID],
+                From=schema.ADDRESSBOOK_OBJECT,
+                Where=schema.ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID ==
+                self.addressbook._resourceID
+            ).on(self.addressbook._txn)
 
         returnValue(list(rowiter))
 
