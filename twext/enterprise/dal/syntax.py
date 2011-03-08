@@ -730,33 +730,39 @@ class _CommaList(object):
                             for f in self.subfragments)
 
 
-def _returningClause(metadata, stmt, retclause, allTables):
+
+class _DMLStatement(_Statement):
     """
-    Add a dialect-appropriate 'returning' clause to the end of the given SQL
-    statement.
-
-    @param metadata: describes the database we are generating the statement for.
-    @type metadata: L{ConnectionMetadata}
-
-    @param stmt: the SQL fragment generated without the 'returning' clause
-    @type stmt: L{SQLFragment}
-
-    @param retclause: the C{Return} argument from the current statement.
-    @type retclause: an object with a C{subSQL} method, or a C{tuple} or C{list}
-        of same.
-
-    @return: the C{stmt} parameter.
+    Common functionality of Insert/Update/Delete statements.
     """
-    if isinstance(retclause, (tuple, list)):
-        retclause = _CommaList(retclause)
-    if retclause is not None:
-        stmt.text += ' returning '
-        stmt.append(retclause.subSQL(metadata, allTables))
-    return stmt
+
+    def _returningClause(self, metadata, stmt, allTables):
+        """
+        Add a dialect-appropriate 'returning' clause to the end of the given SQL
+        statement.
+
+        @param metadata: describes the database we are generating the statement for.
+        @type metadata: L{ConnectionMetadata}
+
+        @param stmt: the SQL fragment generated without the 'returning' clause
+        @type stmt: L{SQLFragment}
+
+        @param allTables: all tables involved in the query; see any C{subSQL}
+            method.
+
+        @return: the C{stmt} parameter.
+        """
+        retclause = self.Return
+        if isinstance(retclause, (tuple, list)):
+            retclause = _CommaList(retclause)
+        if retclause is not None:
+            stmt.text += ' returning '
+            stmt.append(retclause.subSQL(metadata, allTables))
+        return stmt
 
 
 
-class Insert(_Statement):
+class Insert(_DMLStatement):
     """
     'insert' statement.
     """
@@ -805,7 +811,7 @@ class Insert(_Statement):
         stmt.append(_inParens(_commaJoined(
             [_convert(v).subSQL(metadata, allTables)
              for (c, v) in sortedColumns])))
-        return _returningClause(metadata, stmt, self.Return, allTables)
+        return self._returningClause(metadata, stmt, allTables)
 
 
 
@@ -821,7 +827,7 @@ def _convert(x):
 
 
 
-class Update(_Statement):
+class Update(_DMLStatement):
     """
     'update' statement
     """
@@ -859,11 +865,11 @@ class Update(_Statement):
         )
         result.append(SQLFragment( ' where '))
         result.append(self.Where.subSQL(metadata, allTables))
-        return _returningClause(metadata, result, self.Return, allTables)
+        return self._returningClause(metadata, result, allTables)
 
 
 
-class Delete(_Statement):
+class Delete(_DMLStatement):
     """
     'delete' statement.
     """
@@ -881,7 +887,7 @@ class Delete(_Statement):
         result.append(self.From.subSQL(metadata, allTables))
         result.text += ' where '
         result.append(self.Where.subSQL(metadata, allTables))
-        return _returningClause(metadata, result, self.Return, allTables)
+        return self._returningClause(metadata, result, allTables)
 
 
 
