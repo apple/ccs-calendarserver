@@ -559,13 +559,24 @@ class GenerationTests(TestCase):
     def test_quotingOnKeywordConflict(self):
         """
         'access' is a keyword, so although our schema parser will leniently
-        accept it, it must be quoted in any outgoing SQL.
+        accept it, it must be quoted in any outgoing SQL.  (This is only done in
+        the Oracle dialect, because it isn't necessary in postgres, and
+        idiosyncratic case-folding rules make it challenging to do it in both.)
         """
         self.assertEquals(
             Insert({self.schema.LEVELS.ACCESS: 1,
-                    self.schema.LEVELS.USERNAME: "hi"}).toSQL(),
+                    self.schema.LEVELS.USERNAME:
+                    "hi"}).toSQL(FixedPlaceholder(ORACLE_DIALECT, "?")),
             SQLFragment(
                 'insert into LEVELS ("ACCESS", USERNAME) values (?, ?)',
+                [1, "hi"])
+        )
+        self.assertEquals(
+            Insert({self.schema.LEVELS.ACCESS: 1,
+                    self.schema.LEVELS.USERNAME:
+                    "hi"}).toSQL(FixedPlaceholder(POSTGRES_DIALECT, "?")),
+            SQLFragment(
+                'insert into LEVELS (ACCESS, USERNAME) values (?, ?)',
                 [1, "hi"])
         )
 

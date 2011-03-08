@@ -449,7 +449,7 @@ class ColumnSyntax(ExpressionSyntax):
         # XXX This, and 'model', could in principle conflict with column names.
         # Maybe do something about that.
         name = self.model.name
-        if name.lower() in _KEYWORDS:
+        if metadata.dialect == ORACLE_DIALECT and name.lower() in _KEYWORDS:
             name = '"%s"' % (name,)
 
         for tableSyntax in allTables:
