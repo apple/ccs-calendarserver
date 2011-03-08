@@ -1,3 +1,4 @@
+from twext.enterprise.ienterprise import IDerivedParameter
 # -*- test-case-name: twext.enterprise.test.test_adbapi2 -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
@@ -53,14 +54,30 @@ from twext.internet.threadutils import ThreadHolder
 from twisted.internet.defer import succeed
 from twext.enterprise.ienterprise import ConnectionError
 from twisted.internet.defer import fail
-from twext.enterprise.ienterprise import AlreadyFinishedError, IAsyncTransaction
+from twext.enterprise.ienterprise import (
+    AlreadyFinishedError, IAsyncTransaction, POSTGRES_DIALECT
+)
 
 
-# FIXME: there should be no default for DEFAULT_PARAM_STYLE, it should be
-# discovered dynamically everywhere.  Right now we're only using pgdb so we only
-# support that.
+# FIXME: there should be no defaults for connection metadata, it should be
+# discovered dynamically everywhere.  Right now it's specified as an explicit
+# argument to the ConnectionPool but it should probably be determined
+# automatically from the database binding.
 
 DEFAULT_PARAM_STYLE = 'pyformat'
+DEFAULT_DIALECT = POSTGRES_DIALECT
+
+
+def _forward(thunk):
+    """
+    Forward an attribute to the connection pool.
+    """
+    @property
+    def getter(self):
+        return getattr(self._pool, thunk.func_name)
+    return getter
+
+
 
 class _ConnectedTxn(object):
     """
@@ -68,9 +85,6 @@ class _ConnectedTxn(object):
     current process.
     """
     implements(IAsyncTransaction)
-
-    # See DEFAULT_PARAM_STYLE FIXME above.
-    paramstyle = DEFAULT_PARAM_STYLE
 
     def __init__(self, pool, threadHolder, connection, cursor):
         self._pool       = pool
@@ -80,10 +94,36 @@ class _ConnectedTxn(object):
         self._holder     = threadHolder
 
 
+    @_forward
+    def paramstyle(self):
+        """
+        The paramstyle attribute is mirrored from the connection pool.
+        """
+
+
+    @_forward
+    def dialect(self):
+        """
+        The dialect attribute is mirrored from the connection pool.
+        """
+
+
     def _reallyExecSQL(self, sql, args=None, raiseOnZeroRowCount=None):
         if args is None:
             args = []
+        derived = None
+        for n, arg in enumerate(args):
+            if IDerivedParameter.providedBy(arg):
+                if derived is None:
+                    # Be sparing with extra allocations, as this usually isn't
+                    # needed, and we're doing a ton of extra work to support it.
+                    derived = []
+                derived.append(arg)
+                args[n] = arg.preQuery(self._cursor)
         self._cursor.execute(sql, args)
+        if derived is not None:
+            for arg in derived:
+                arg.postQuery(self._cursor)
         if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
             raise raiseOnZeroRowCount()
         if self._cursor.description:
@@ -171,6 +211,7 @@ class _ConnectedTxn(object):
         return holder.stop()
 
 
+
 class _NoTxn(object):
     """
     An L{IAsyncTransaction} that indicates a local failure before we could even
@@ -179,11 +220,17 @@ class _NoTxn(object):
     """
     implements(IAsyncTransaction)
 
+    def __init__(self, pool):
+        self.paramstyle = pool.paramstyle
+        self.dialect = pool.dialect
+
+
     def _everything(self, *a, **kw):
         """
         Everything fails with a L{ConnectionError}.
         """
         return fail(ConnectionError())
+
 
     execSQL = _everything
     commit  = _everything
@@ -201,11 +248,10 @@ class _WaitingTxn(object):
 
     implements(IAsyncTransaction)
 
-    # See DEFAULT_PARAM_STYLE FIXME above.
-    paramstyle = DEFAULT_PARAM_STYLE
-
-    def __init__(self):
+    def __init__(self, pool):
         self._spool = []
+        self.paramstyle = pool.paramstyle
+        self.dialect = pool.dialect
 
 
     def _enspool(self, cmd, a=(), kw={}):
@@ -257,7 +303,7 @@ class _WaitingTxn(object):
 
 
 class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
-                                     originalAttribute='_baseTxn')):
+                                   originalAttribute='_baseTxn')):
     """
     A L{_SingleTxn} is a single-use wrapper for the longer-lived
     L{_ConnectedTxn}, so that if a badly-behaved API client accidentally hangs
@@ -320,7 +366,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         Stop waiting for a free transaction and fail.
         """
         self._pool._waiting.remove(self)
-        self._unspoolOnto(_NoTxn())
+        self._unspoolOnto(_NoTxn(self._pool))
 
 
     def _checkComplete(self):
@@ -420,11 +466,14 @@ class ConnectionPool(Service, object):
     RETRY_TIMEOUT = 10.0
 
 
-    def __init__(self, connectionFactory, maxConnections=10):
+    def __init__(self, connectionFactory, maxConnections=10,
+                 paramstyle=DEFAULT_PARAM_STYLE, dialect=DEFAULT_DIALECT):
 
         super(ConnectionPool, self).__init__()
         self.connectionFactory = connectionFactory
         self.maxConnections = maxConnections
+        self.paramstyle = paramstyle
+        self.dialect = dialect
 
         self._free       = []
         self._busy       = []
@@ -495,13 +544,13 @@ class ConnectionPool(Service, object):
         @return: an L{IAsyncTransaction}
         """
         if self._stopping:
-            return _NoTxn()
+            return _NoTxn(self)
         if self._free:
             basetxn = self._free.pop(0)
             self._busy.append(basetxn)
             txn = _SingleTxn(self, basetxn)
         else:
-            txn = _SingleTxn(self, _WaitingTxn())
+            txn = _SingleTxn(self, _WaitingTxn(self))
             self._waiting.append(txn)
             # FIXME/TESTME: should be len(self._busy) + len(self._finishing)
             # (free doesn't need to be considered, as it's tested above)

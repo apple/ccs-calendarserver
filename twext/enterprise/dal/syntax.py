@@ -19,7 +19,73 @@
 Syntax wrappers and generators for SQL.
 """
 
+import itertools
+
+from zope.interface import implements
+
+from twisted.internet.defer import succeed
+
+from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
+from twext.enterprise.ienterprise import IDerivedParameter
+
+from twext.enterprise.util import mapOracleOutputType
 from twext.enterprise.dal.model import Schema, Table, Column, Sequence
+
+try:
+    import cx_Oracle
+    cx_Oracle
+except ImportError:
+    cx_Oracle = None
+
+class ConnectionMetadata(object):
+    """
+    Representation of the metadata about the database connection required to
+    generate some SQL, for a single statement.  Contains information necessary
+    to generate placeholder strings and determine the database dialect.
+    """
+
+    def __init__(self, dialect):
+        self.dialect = dialect
+
+
+    def placeholder(self):
+        raise NotImplementedError("See subclasses.")
+
+
+
+class FixedPlaceholder(ConnectionMetadata):
+    """
+    Metadata about a connection which uses a fixed string as its placeholder.
+    """
+
+    def __init__(self, dialect, placeholder):
+        super(FixedPlaceholder, self).__init__(dialect)
+        self._placeholder = placeholder
+
+
+    def placeholder(self):
+        return self._placeholder
+
+
+
+class NumericPlaceholder(ConnectionMetadata):
+
+    def __init__(self, dialect):
+        super(NumericPlaceholder, self).__init__(dialect)
+        self._next = itertools.count(1).next
+
+
+    def placeholder(self):
+        return ':' + str(self._next())
+
+
+
+def defaultMetadata():
+    """
+    Generate a default L{ConnectionMetadata}
+    """
+    return FixedPlaceholder(POSTGRES_DIALECT, '?')
+
 
 
 class TableMismatch(Exception):
@@ -43,18 +109,37 @@ class _Statement(object):
     """
 
     _paramstyles = {
-        'pyformat': ('%s', lambda s: s.replace("%", "%%"))
+        'pyformat': lambda dialect: FixedPlaceholder(dialect, "%s"),
+        'numeric': NumericPlaceholder
     }
+
+
+    def toSQL(self, metadata=None):
+        if metadata is None:
+            metadata = defaultMetadata()
+        return self._toSQL(metadata)
+
+
+    def _extraVars(self, txn, metadata):
+        return {}
+
+
+    def _extraResult(self, result, outvars, metadata):
+        return result
+
 
     def on(self, txn, raiseOnZeroRowCount=None, **kw):
         """
         Execute this statement on a given L{IAsyncTransaction} and return the
         resulting L{Deferred}.
         """
-        placeholder, quote = self._paramstyles[txn.paramstyle]
-        fragment = self.toSQL(placeholder, quote).bind(**kw)
-        return txn.execSQL(fragment.text, fragment.parameters,
-                           raiseOnZeroRowCount)
+        metadata = self._paramstyles[txn.paramstyle](txn.dialect)
+        outvars = self._extraVars(txn, metadata)
+        kw.update(outvars)
+        fragment = self.toSQL(metadata).bind(**kw)
+        result = txn.execSQL(fragment.text, fragment.parameters,
+                             raiseOnZeroRowCount)
+        return self._extraResult(result, outvars, metadata)
 
 
 
@@ -89,6 +174,8 @@ def comparison(comparator):
     def __(self, other):
         if other is None:
             return NullComparison(self, comparator)
+        if isinstance(other, Select):
+            return NotImplemented
         if isinstance(other, ColumnSyntax):
             return ColumnComparison(self, comparator, other)
         else:
@@ -123,8 +210,8 @@ class ExpressionSyntax(Syntax):
 
 
 class FunctionInvocation(ExpressionSyntax):
-    def __init__(self, name, *args):
-        self.name = name
+    def __init__(self, function, *args):
+        self.function = function
         self.args = args
 
 
@@ -139,10 +226,10 @@ class FunctionInvocation(ExpressionSyntax):
         return list(ac())
 
 
-    def subSQL(self, placeholder, quote, allTables):
-        result = SQLFragment(self.name)
+    def subSQL(self, metadata, allTables):
+        result = SQLFragment(self.function.nameFor(metadata))
         result.append(_inParens(
-            _commaJoined(_convert(arg).subSQL(placeholder, quote, allTables)
+            _commaJoined(_convert(arg).subSQL(metadata, allTables)
                          for arg in self.args)))
         return result
 
@@ -157,8 +244,8 @@ class Constant(ExpressionSyntax):
         return []
 
 
-    def subSQL(self, placeholder, quote, allTables):
-        return SQLFragment(placeholder, [self.value])
+    def subSQL(self, metadata, allTables):
+        return SQLFragment(metadata.placeholder(), [self.value])
 
 
 
@@ -171,7 +258,7 @@ class NamedValue(ExpressionSyntax):
         self.name = name
 
 
-    def subSQL(self, placeholder, quote, allTables):
+    def subSQL(self, metadata, allTables):
         return SQLFragment(self.name)
 
 
@@ -181,19 +268,27 @@ class Function(object):
     An L{Function} is a representation of an SQL Function function.
     """
 
-    def __init__(self, name):
+    def __init__(self, name, oracleName=None):
         self.name = name
+        self.oracleName = oracleName
+
+
+    def nameFor(self, metadata):
+        if metadata.dialect == ORACLE_DIALECT and self.oracleName is not None:
+            return self.oracleName
+        return self.name
 
 
     def __call__(self, *args):
         """
         Produce an L{FunctionInvocation}
         """
-        return FunctionInvocation(self.name, *args)
+        return FunctionInvocation(self, *args)
+
 
 
 Max = Function("max")
-Len = Function("character_length")
+Len = Function("character_length", "length")
 
 
 
@@ -234,11 +329,15 @@ class SequenceSyntax(ExpressionSyntax):
 
     modelType = Sequence
 
-    def subSQL(self, placeholder, quote, allTables):
+    def subSQL(self, metadata, allTables):
         """
         Convert to an SQL fragment.
         """
-        return SQLFragment("nextval('%s')" % (self.model.name,))
+        if metadata.dialect == ORACLE_DIALECT:
+            fmt = "%s.nextval"
+        else:
+            fmt = "nextval('%s')"
+        return SQLFragment(fmt % (self.model.name,))
 
 
 
@@ -255,7 +354,7 @@ class TableSyntax(Syntax):
         return Join(self, type, otherTableSyntax, on)
 
 
-    def subSQL(self, placeholder, quote, allTables):
+    def subSQL(self, metadata, allTables):
         """
         For use in a 'from' clause.
         """
@@ -317,18 +416,18 @@ class Join(object):
         self.on = on
 
 
-    def subSQL(self, placeholder, quote, allTables):
+    def subSQL(self, metadata, allTables):
         stmt = SQLFragment()
-        stmt.append(self.leftSide.subSQL(placeholder, quote, allTables))
+        stmt.append(self.leftSide.subSQL(metadata, allTables))
         stmt.text += ' '
         if self.type:
             stmt.text += self.type
             stmt.text += ' '
         stmt.text += 'join '
-        stmt.append(self.rightSide.subSQL(placeholder, quote, allTables))
+        stmt.append(self.rightSide.subSQL(metadata, allTables))
         if self.type != 'cross':
             stmt.text += ' on '
-            stmt.append(self.on.subSQL(placeholder, quote, allTables))
+            stmt.append(self.on.subSQL(metadata, allTables))
         return stmt
 
 
@@ -342,6 +441,15 @@ class Join(object):
         return Join(self, type, otherTable, on)
 
 
+_KEYWORDS = ["access",
+             # SQL keyword, but we have a column with this name
+             "path",
+             # Not actually a standard keyword, but a function in oracle, and we
+             # have a column with this name.
+             "size",
+             # not actually sure what this is; only experimentally determined
+             # that not quoting it causes an issue.
+            ]
 
 
 class ColumnSyntax(ExpressionSyntax):
@@ -356,16 +464,19 @@ class ColumnSyntax(ExpressionSyntax):
         return [self]
 
 
-    def subSQL(self, placeholder, quote, allTables):
+    def subSQL(self, metadata, allTables):
         # XXX This, and 'model', could in principle conflict with column names.
         # Maybe do something about that.
+        name = self.model.name
+        if metadata.dialect == ORACLE_DIALECT and name.lower() in _KEYWORDS:
+            name = '"%s"' % (name,)
+
         for tableSyntax in allTables:
             if self.model.table is not tableSyntax.model:
                 if self.model.name in (c.name for c in
                                                tableSyntax.model.columns):
-                    return SQLFragment((self.model.table.name + '.' +
-                                         self.model.name))
-        return SQLFragment(self.model.name)
+                    return SQLFragment((self.model.table.name + '.' + name))
+        return SQLFragment(name)
 
 
 
@@ -377,8 +488,8 @@ class Comparison(ExpressionSyntax):
         self.b = b
 
 
-    def _subexpression(self, expr, placeholder, quote, allTables):
-        result = expr.subSQL(placeholder, quote, allTables)
+    def _subexpression(self, expr, metadata, allTables):
+        result = expr.subSQL(metadata, allTables)
         if self.op not in ('and', 'or') and isinstance(expr, Comparison):
             result = _inParens(result)
         return result
@@ -406,9 +517,9 @@ class NullComparison(Comparison):
         super(NullComparison, self).__init__(a, op, None)
 
 
-    def subSQL(self, placeholder, quote, allTables):
+    def subSQL(self, metadata, allTables):
         sqls = SQLFragment()
-        sqls.append(self.a.subSQL(placeholder, quote, allTables))
+        sqls.append(self.a.subSQL(metadata, allTables))
         sqls.text += " is "
         if self.op != "=":
             sqls.text += "not "
@@ -427,16 +538,16 @@ class CompoundComparison(Comparison):
         return self.a.allColumns() + self.b.allColumns()
 
 
-    def subSQL(self, placeholder, quote, allTables):
+    def subSQL(self, metadata, allTables):
         stmt = SQLFragment()
-        result = self._subexpression(self.a, placeholder, quote, allTables)
+        result = self._subexpression(self.a, metadata, allTables)
         if isinstance(self.a, CompoundComparison) and self.a.op == 'or' and self.op == 'and':
             result = _inParens(result)
         stmt.append(result)
 
         stmt.text += ' %s ' % (self.op,)
 
-        result = self._subexpression(self.b, placeholder, quote, allTables)
+        result = self._subexpression(self.b, metadata, allTables)
         if isinstance(self.b, CompoundComparison) and self.b.op == 'or' and self.op == 'and':
             result = _inParens(result)
         stmt.append(result)
@@ -454,8 +565,8 @@ class ColumnComparison(CompoundComparison):
 
 class _AllColumns(object):
 
-    def subSQL(self, placeholder, quote, allTables):
-        return SQLFragment(quote('*'))
+    def subSQL(self, metadata, allTables):
+        return SQLFragment('*')
 
 ALL_COLUMNS = _AllColumns()
 
@@ -467,7 +578,7 @@ class _SomeColumns(object):
         self.columns = columns
 
 
-    def subSQL(self, placeholder, quote, allTables):
+    def subSQL(self, metadata, allTables):
         first = True
         cstatement = SQLFragment()
         for column in self.columns:
@@ -475,7 +586,7 @@ class _SomeColumns(object):
                 first = False
             else:
                 cstatement.append(SQLFragment(", "))
-            cstatement.append(column.subSQL(placeholder, quote, allTables))
+            cstatement.append(column.subSQL(metadata, allTables))
         return cstatement
 
 
@@ -491,6 +602,22 @@ def _columnsMatchTables(columns, tables):
     return True
 
 
+class Tuple(object):
+
+    def __init__(self, columns):
+        self.columns = columns
+
+
+    def subSQL(self, metadata, allTables):
+        return _inParens(_commaJoined(c.subSQL(metadata, allTables)
+                                      for c in self.columns))
+
+
+    def allColumns(self):
+        return self.columns
+
+
+
 
 class Select(_Statement):
     """
@@ -499,9 +626,10 @@ class Select(_Statement):
 
     def __init__(self, columns=None, Where=None, From=None, OrderBy=None,
                  GroupBy=None, Limit=None, ForUpdate=False, Ascending=None,
-                 Having=None):
+                 Having=None, Distinct=False):
         self.From = From
         self.Where = Where
+        self.Distinct = Distinct
         if not isinstance(OrderBy, (list, tuple, type(None))):
             OrderBy = [OrderBy]
         self.OrderBy = OrderBy
@@ -522,43 +650,54 @@ class Select(_Statement):
         self.Ascending = Ascending
 
 
-    def toSQL(self, placeholder="?", quote=lambda x: x):
+    def __eq__(self, other):
+        """
+        Create a comparison.
+        """
+        if isinstance(other, (list, tuple)):
+            other = Tuple(other)
+        return CompoundComparison(other, '=', self)
+
+
+    def _toSQL(self, metadata):
         """
         @return: a 'select' statement with placeholders and arguments
 
         @rtype: L{SQLFragment}
         """
-        stmt = SQLFragment(quote("select "))
+        stmt = SQLFragment("select ")
+        if self.Distinct:
+            stmt.text += "distinct "
         allTables = self.From.tables()
-        stmt.append(self.columns.subSQL(placeholder, quote, allTables))
-        stmt.text += quote(" from ")
-        stmt.append(self.From.subSQL(placeholder, quote, allTables))
+        stmt.append(self.columns.subSQL(metadata, allTables))
+        stmt.text += " from "
+        stmt.append(self.From.subSQL(metadata, allTables))
         if self.Where is not None:
-            wherestmt = self.Where.subSQL(placeholder, quote, allTables)
-            stmt.text += quote(" where ")
+            wherestmt = self.Where.subSQL(metadata, allTables)
+            stmt.text += " where "
             stmt.append(wherestmt)
         if self.GroupBy is not None:
-            stmt.text += quote(" group by ")
+            stmt.text += " group by "
             fst = True
             for subthing in self.GroupBy:
                 if fst:
                     fst = False
                 else:
                     stmt.text += ', '
-                stmt.append(subthing.subSQL(placeholder, quote, allTables))
+                stmt.append(subthing.subSQL(metadata, allTables))
         if self.Having is not None:
-            havingstmt = self.Having.subSQL(placeholder, quote, allTables)
-            stmt.text += quote(" having ")
+            havingstmt = self.Having.subSQL(metadata, allTables)
+            stmt.text += " having "
             stmt.append(havingstmt)
         if self.OrderBy is not None:
-            stmt.text += quote(" order by ")
+            stmt.text += " order by "
             fst = True
             for subthing in self.OrderBy:
                 if fst:
                     fst = False
                 else:
                     stmt.text += ', '
-                stmt.append(subthing.subSQL(placeholder, quote, allTables))
+                stmt.append(subthing.subSQL(metadata, allTables))
             if self.Ascending is not None:
                 if self.Ascending:
                     kw = " asc"
@@ -566,17 +705,16 @@ class Select(_Statement):
                     kw = " desc"
                 stmt.append(SQLFragment(kw))
         if self.ForUpdate:
-            stmt.text += quote(" for update")
+            stmt.text += " for update"
         if self.Limit is not None:
-            stmt.text += quote(" limit ")
-            stmt.append(Constant(self.Limit).subSQL(placeholder, quote,
-                                                    allTables))
+            stmt.text += " limit "
+            stmt.append(Constant(self.Limit).subSQL(metadata, allTables))
         return stmt
 
 
-    def subSQL(self, placeholder, quote, allTables):
+    def subSQL(self, metadata, allTables):
         result = SQLFragment("(")
-        result.append(self.toSQL(placeholder, quote))
+        result.append(self.toSQL(metadata))
         result.append(SQLFragment(")"))
         return result
 
@@ -629,21 +767,109 @@ class _CommaList(object):
         self.subfragments = subfragments
 
 
-    def subSQL(self, placeholder, quote, allTables):
-        return _commaJoined(f.subSQL(placeholder, quote, allTables)
+    def subSQL(self, metadata, allTables):
+        return _commaJoined(f.subSQL(metadata, allTables)
                             for f in self.subfragments)
 
 
 
-class Insert(_Statement):
+class _DMLStatement(_Statement):
+    """
+    Common functionality of Insert/Update/Delete statements.
+    """
+
+    def _returningClause(self, metadata, stmt, allTables):
+        """
+        Add a dialect-appropriate 'returning' clause to the end of the given SQL
+        statement.
+
+        @param metadata: describes the database we are generating the statement for.
+        @type metadata: L{ConnectionMetadata}
+
+        @param stmt: the SQL fragment generated without the 'returning' clause
+        @type stmt: L{SQLFragment}
+
+        @param allTables: all tables involved in the query; see any C{subSQL}
+            method.
+
+        @return: the C{stmt} parameter.
+        """
+        retclause = self.Return
+        if isinstance(retclause, (tuple, list)):
+            retclause = _CommaList(retclause)
+        if retclause is not None:
+            stmt.text += ' returning '
+            stmt.append(retclause.subSQL(metadata, allTables))
+            if metadata.dialect == ORACLE_DIALECT:
+                stmt.text += ' into '
+                params = []
+                retvals = self._returnAsList()
+                for n, v in enumerate(retvals):
+                    params.append(
+                        Constant(Parameter("oracle_out_" + str(n)))
+                        .subSQL(metadata, allTables)
+                    )
+                stmt.append(_commaJoined(params))
+        return stmt
+
+
+    def _returnAsList(self):
+        if not isinstance(self.Return, (tuple, list)):
+            return [self.Return]
+        else:
+            return self.Return
+
+
+    def _extraVars(self, txn, metadata):
+        result = []
+        rvars = self._returnAsList()
+        if metadata.dialect == ORACLE_DIALECT:
+            for n, v in enumerate(rvars):
+                result.append(("oracle_out_" + str(n), _OracleOutParam(v)))
+        return result
+
+
+    def _extraResult(self, result, outvars, metadata):
+        if metadata.dialect == ORACLE_DIALECT and self.Return is not None:
+            def processIt(shouldBeNone):
+                result = [[v.value for k, v in outvars]]
+                return result
+            return result.addCallback(processIt)
+        else:
+            return result
+
+
+
+class _OracleOutParam(object):
+    implements(IDerivedParameter)
+
+    def __init__(self, columnSyntax):
+        self.columnSyntax = columnSyntax
+
+
+    def preQuery(self, cursor):
+        self.columnSyntax
+        typeMap = {'integer': cx_Oracle.NUMBER,
+                   'text': cx_Oracle.CLOB,
+                   'varchar': cx_Oracle.STRING,
+                   'timestamp': cx_Oracle.TIMESTAMP}
+        typeID = self.columnSyntax.model.type.name.lower()
+        self.var = cursor.var(typeMap[typeID])
+        return self.var
+
+
+    def postQuery(self, cursor):
+        self.value = mapOracleOutputType(self.var.getvalue())
+
+
+
+class Insert(_DMLStatement):
     """
     'insert' statement.
     """
 
     def __init__(self, columnMap, Return=None):
         self.columnMap = columnMap
-        if isinstance(Return, (tuple, list)):
-            Return = _CommaList(Return)
         self.Return = Return
         columns = _modelsFromMap(columnMap)
         table = _fromSameTable(columns)
@@ -656,31 +882,38 @@ class Insert(_Statement):
                     (', '.join([c.name for c in unspecified])))
 
 
-    def toSQL(self, placeholder="?", quote=lambda x: x):
+    def _toSQL(self, metadata):
         """
         @return: a 'insert' statement with placeholders and arguments
 
         @rtype: L{SQLFragment}
         """
-        sortedColumns = sorted(self.columnMap.items(),
+        columnsAndValues = self.columnMap.items()
+        tableModel = columnsAndValues[0][0].model.table
+        specifiedColumnModels = [x.model for x in self.columnMap.keys()]
+        if metadata.dialect == ORACLE_DIALECT:
+            # See test_nextSequenceDefaultImplicitExplicitOracle.
+            for column in tableModel.columns:
+                if isinstance(column.default, Sequence):
+                    columnSyntax = ColumnSyntax(column)
+                    if column not in specifiedColumnModels:
+                        columnsAndValues.append(
+                            (columnSyntax, SequenceSyntax(column.default))
+                        )
+        sortedColumns = sorted(columnsAndValues,
                                key=lambda (c, v): c.model.name)
         allTables = []
         stmt = SQLFragment('insert into ')
-        stmt.append(
-            TableSyntax(sortedColumns[0][0].model.table)
-            .subSQL(placeholder, quote, allTables))
+        stmt.append(TableSyntax(tableModel).subSQL(metadata, allTables))
         stmt.append(SQLFragment(" "))
         stmt.append(_inParens(_commaJoined(
-            [c.subSQL(placeholder, quote, allTables) for (c, v) in
+            [c.subSQL(metadata, allTables) for (c, v) in
              sortedColumns])))
         stmt.append(SQLFragment(" values "))
         stmt.append(_inParens(_commaJoined(
-            [_convert(v).subSQL(placeholder, quote, allTables)
+            [_convert(v).subSQL(metadata, allTables)
              for (c, v) in sortedColumns])))
-        if self.Return is not None:
-            stmt.text += ' returning '
-            stmt.append(self.Return.subSQL(placeholder, quote, allTables))
-        return stmt
+        return self._returningClause(metadata, stmt, allTables)
 
 
 
@@ -696,7 +929,7 @@ def _convert(x):
 
 
 
-class Update(_Statement):
+class Update(_DMLStatement):
     """
     'update' statement
     """
@@ -706,12 +939,10 @@ class Update(_Statement):
         _fromSameTable(_modelsFromMap(columnMap))
         self.columnMap = columnMap
         self.Where = Where
-        if isinstance(Return, (tuple, list)):
-            Return = _CommaList(Return)
         self.Return = Return
 
 
-    def toSQL(self, placeholder="?", quote=lambda x: x):
+    def _toSQL(self, metadata):
         """
         @return: a 'insert' statement with placeholders and arguments
 
@@ -723,27 +954,24 @@ class Update(_Statement):
         result = SQLFragment('update ')
         result.append(
             TableSyntax(sortedColumns[0][0].model.table).subSQL(
-                placeholder, quote, allTables)
+                metadata, allTables)
         )
         result.text += ' set '
         result.append(
             _commaJoined(
-                [c.subSQL(placeholder, quote, allTables).append(
-                    SQLFragment(" = ").subSQL(placeholder, quote, allTables)
-                ).append(_convert(v).subSQL(placeholder, quote, allTables))
+                [c.subSQL(metadata, allTables).append(
+                    SQLFragment(" = ").subSQL(metadata, allTables)
+                ).append(_convert(v).subSQL(metadata, allTables))
                     for (c, v) in sortedColumns]
             )
         )
         result.append(SQLFragment( ' where '))
-        result.append(self.Where.subSQL(placeholder, quote, allTables))
-        if self.Return is not None:
-            result.append(SQLFragment(' returning '))
-            result.append(self.Return.subSQL(placeholder, quote, allTables))
-        return result
+        result.append(self.Where.subSQL(metadata, allTables))
+        return self._returningClause(metadata, result, allTables)
 
 
 
-class Delete(_Statement):
+class Delete(_DMLStatement):
     """
     'delete' statement.
     """
@@ -754,17 +982,14 @@ class Delete(_Statement):
         self.Return = Return
 
 
-    def toSQL(self, placeholder="?", quote=lambda x: x):
+    def _toSQL(self, metadata):
         result = SQLFragment()
         allTables = self.From.tables()
-        result.text += quote('delete from ')
-        result.append(self.From.subSQL(placeholder, quote, allTables))
-        result.text += quote(' where ')
-        result.append(self.Where.subSQL(placeholder, quote, allTables))
-        if self.Return is not None:
-            result.append(SQLFragment(' returning '))
-            result.append(self.Return.subSQL(placeholder, quote, allTables))
-        return result
+        result.text += 'delete from '
+        result.append(self.From.subSQL(metadata, allTables))
+        result.text += ' where '
+        result.append(self.Where.subSQL(metadata, allTables))
+        return self._returningClause(metadata, result, allTables)
 
 
 
@@ -783,10 +1008,12 @@ class Lock(_Statement):
         return cls(table, 'exclusive')
 
 
-    def toSQL(self, placeholder="?", quote=lambda x: x):
+    def _toSQL(self, metadata):
         return SQLFragment('lock table ').append(
-            self.table.subSQL(placeholder, quote, [self.table])).append(
+            self.table.subSQL(metadata, [self.table])).append(
             SQLFragment(' in %s mode' % (self.mode,)))
+
+
 
 class Savepoint(_Statement):
     """
@@ -797,7 +1024,7 @@ class Savepoint(_Statement):
         self.name = name
 
 
-    def toSQL(self, placeholder="?", quote=lambda x: x):
+    def _toSQL(self, metadata):
         return SQLFragment('savepoint %s' % (self.name,))
 
 
@@ -810,7 +1037,7 @@ class RollbackToSavepoint(_Statement):
         self.name = name
 
 
-    def toSQL(self, placeholder="?", quote=lambda x: x):
+    def _toSQL(self, metadata):
         return SQLFragment('rollback to savepoint %s' % (self.name,))
 
 
@@ -823,23 +1050,41 @@ class ReleaseSavepoint(_Statement):
         self.name = name
 
 
-    def toSQL(self, placeholder="?", quote=lambda x: x):
+    def _toSQL(self, metadata):
         return SQLFragment('release savepoint %s' % (self.name,))
 
 
+
 class SavepointAction(object):
-    
+
     def __init__(self, name):
         self._name = name
-    
+
+
     def acquire(self, txn):
         return Savepoint(self._name).on(txn)
+
 
     def rollback(self, txn):
         return RollbackToSavepoint(self._name).on(txn)
 
+
     def release(self, txn):
-        return ReleaseSavepoint(self._name).on(txn)
+        if txn.dialect == ORACLE_DIALECT:
+            # There is no 'release savepoint' statement in oracle, but then, we
+            # don't need it because there's no resource to manage.  Just don't
+            # do anything.
+            return NoOp()
+        else:
+            return ReleaseSavepoint(self._name).on(txn)
+
+
+
+class NoOp(object):
+    def on(self, *a, **kw):
+        return succeed(None)
+
+
 
 class SQLFragment(object):
     """
@@ -886,7 +1131,7 @@ class SQLFragment(object):
         return self.__class__.__name__ + repr((self.text, self.parameters))
 
 
-    def subSQL(self, placeholder, quote, allTables):
+    def subSQL(self, metadata, allTables):
         return self
 
 
@@ -897,14 +1142,27 @@ class Parameter(object):
         self.name = name
 
 
+    def __eq__(self, param):
+        if not isinstance(param, Parameter):
+            return NotImplemented
+        return self.name == param.name
+
+
+    def __ne__(self, param):
+        if not isinstance(param, Parameter):
+            return NotImplemented
+        return not self.__eq__(param)
+
+
     def __repr__(self):
         return 'Parameter(%r)' % (self.name,)
 
 
 # Common helpers:
 
-# current timestamp in UTC format.
-utcNowSQL = Function('timezone')('UTC', NamedValue('CURRENT_TIMESTAMP'))
+# current timestamp in UTC format.  Hack to support standard syntax for this,
+# rather than the compatibility procedure found in various databases.
+utcNowSQL = NamedValue("CURRENT_TIMESTAMP at time zone 'UTC'")
 
 # You can't insert a column with no rows.  In SQL that just isn't valid syntax,
 # and in this DAL you need at least one key or we can't tell what table you're

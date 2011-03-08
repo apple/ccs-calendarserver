@@ -62,13 +62,11 @@ from twext.python.clsprop import classproperty
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Len
-from twext.enterprise.dal.syntax import Lock
 from twext.enterprise.dal.syntax import Max
 from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import SavepointAction
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Update
-from twext.enterprise.dal.syntax import default
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -179,6 +177,7 @@ class CommonStoreTransaction(object):
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
         self._sqlTxn = sqlTxn
         self.paramstyle = sqlTxn.paramstyle
+        self.dialect = sqlTxn.dialect
 
 
     def store(self):
@@ -484,7 +483,7 @@ class CommonHome(LoggingMixIn):
                     {cls._homeMetaDataSchema.RESOURCE_ID: resourceid}).on(txn)
             except Exception: # FIXME: Really want to trap the pg.DatabaseError but in a non-DB specific manner
                 yield savepoint.rollback(txn)
-                
+
                 # Retry the query - row may exist now, if not re-raise
                 homeObject = cls(txn, uid, notifiers)
                 homeObject = (yield homeObject.initFromStore())
@@ -1081,8 +1080,7 @@ class _SharedSyncLogic(object):
                        rev.DELETED: True},
                       Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
                           rev.RESOURCE_ID == Parameter("resourceID")).And(
-                              rev.RESOURCE_NAME == None),
-                     #Return=rev.REVISION
+                              rev.RESOURCE_NAME == None)
                      )
 
 
@@ -1097,7 +1095,6 @@ class _SharedSyncLogic(object):
                        rev.DELETED: True},
                       Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
                           rev.RESOURCE_NAME == None),
-                      # Return=rev.REVISION,
                      )
 
 
@@ -1501,7 +1498,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         DAL statement to create a home child with all default values.
         """
         child = cls._homeChildSchema
-        return Insert({child.RESOURCE_ID: default},
+        return Insert({child.RESOURCE_ID: schema.RESOURCE_ID_SEQ},
                       Return=(child.RESOURCE_ID, child.CREATED, child.MODIFIED))
 
 
@@ -2162,25 +2159,6 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
             returnValue(self)
         else:
             returnValue(None)
-
-
-    @classmethod
-    def _selectAllColumns(cls):
-        """
-        Full set of columns in the object table that need to be loaded to
-        initialize the object resource state.  (XXX: remove me, old string-based
-        version, see _allColumns)
-        """
-        return """
-            select
-              %(column_RESOURCE_ID)s,
-              %(column_RESOURCE_NAME)s,
-              %(column_UID)s,
-              %(column_MD5)s,
-              character_length(%(column_TEXT)s),
-              %(column_CREATED)s,
-              %(column_MODIFIED)s
-        """ % cls._objectTable
 
 
     @classproperty

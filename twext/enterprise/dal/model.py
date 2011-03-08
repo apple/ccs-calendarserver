@@ -18,6 +18,7 @@
 """
 Model classes for SQL.
 """
+from twisted.python.util import FancyEqMixin
 
 class SQLType(object):
     """
@@ -123,7 +124,7 @@ def _checkstr(x):
 
 
 
-class Column(object):
+class Column(FancyEqMixin, object):
     """
     A column from a table.
 
@@ -140,7 +141,14 @@ class Column(object):
     @ivar references: If this column references a foreign key on another table,
         this will be a reference to that table; otherwise (normally) C{None}.
     @type references: L{Table} or C{NoneType}
+
+    @ivar cascade: If this column references another table, will this column's
+        row be deleted when the matching row in that other table is deleted?
+        (In other words, the SQL feature 'on delete cascade'.)
+    @type cascade: C{bool}
     """
+
+    compareAttributes = 'table name'.split()
 
     def __init__(self, table, name, type):
         _checkstr(name)
@@ -149,6 +157,7 @@ class Column(object):
         self.type = type
         self.default = NO_DEFAULT
         self.references = None
+        self.cascade = False
 
 
     def __repr__(self):
@@ -204,7 +213,7 @@ class Column(object):
 
 
 
-class Table(object):
+class Table(FancyEqMixin, object):
     """
     A set of columns.
 
@@ -215,6 +224,8 @@ class Table(object):
 
     @ivar schema: a reference to the L{Schema} to which this table belongs.
     """
+
+    compareAttributes = 'schema name'.split()
 
     def __init__(self, schema, name):
         _checkstr(name)
@@ -318,10 +329,12 @@ class Table(object):
 
 
 
-class Sequence(object):
+class Sequence(FancyEqMixin, object):
     """
     A sequence object.
     """
+
+    compareAttributes = 'name'.split()
 
     def __init__(self, name):
         _checkstr(name)

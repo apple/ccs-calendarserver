@@ -73,6 +73,8 @@ from twistedcaldav.upgrade import upgradeData
 
 from calendarserver.tap.util import pgServiceFromConfig
 
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.adbapi2 import ConnectionPoolConnection
 
@@ -90,6 +92,7 @@ from calendarserver.tap.util import ConnectionWithPeer
 from calendarserver.tap.util import storeFromConfig
 from calendarserver.tap.util import transactionFactoryFromFD
 from calendarserver.tap.util import pgConnectorFromConfig
+from calendarserver.tap.util import oracleConnectorFromConfig
 from calendarserver.tools.util import checkDirectory
 
 try:
@@ -641,6 +644,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         elif not config.UseDatabase:
             txnFactory = None
         elif not config.SharedConnectionPool:
+            dialect = POSTGRES_DIALECT
+            paramstyle = 'pyformat'
             if config.DBType == '':
                 # get a PostgresService to tell us what the local connection
                 # info is, but *don't* start it (that would start one postgres
@@ -649,9 +654,14 @@ class CalDAVServiceMaker (LoggingMixIn):
                     config, None).produceConnection
             elif config.DBType == 'postgres':
                 connectionFactory = pgConnectorFromConfig(config)
+            elif config.DBType == 'oracle':
+                dialect = ORACLE_DIALECT
+                paramstyle = 'numeric'
+                connectionFactory = oracleConnectorFromConfig(config)
             else:
                 raise UsageError("unknown DB type: %r" % (config.DBType,))
-            pool = ConnectionPool(connectionFactory)
+            pool = ConnectionPool(connectionFactory, dialect=dialect,
+                                  paramstyle=paramstyle)
             txnFactory = pool.connection
         else:
             raise UsageError(
@@ -885,6 +895,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         return self.storageService(toolServiceCreator)
 
+
     def storageService(self, createMainService, uid=None, gid=None):
         """
         If necessary, create a service to be started used for storage; for
@@ -939,6 +950,12 @@ class CalDAVServiceMaker (LoggingMixIn):
                 return self.subServiceFactoryFactory(createMainService,
                     uid=overrideUID, gid=overrideGID)(
                             pgConnectorFromConfig(config))
+            elif config.DBType == 'oracle':
+                # Connect to an Oracle database that is already running.
+                return self.subServiceFactoryFactory(createMainService,
+                    uid=overrideUID, gid=overrideGID,
+                    dialect=ORACLE_DIALECT, paramstyle='numeric')(
+                            oracleConnectorFromConfig(config))
             else:
                 raise UsageError("Unknown database type %r" (config.DBType,))
         else:
@@ -946,11 +963,13 @@ class CalDAVServiceMaker (LoggingMixIn):
             return createMainService(None, store)
 
 
-    def subServiceFactoryFactory(self, createMainService,
-                                 uid=None, gid=None):
+    def subServiceFactoryFactory(self, createMainService, uid=None, gid=None,
+                                 dialect=POSTGRES_DIALECT,
+                                 paramstyle='pyformat'):
         def subServiceFactory(connectionFactory):
             ms = MultiService()
-            cp = ConnectionPool(connectionFactory)
+            cp = ConnectionPool(connectionFactory, dialect=dialect,
+                                paramstyle=paramstyle)
             cp.setServiceParent(ms)
             store = storeFromConfig(config, cp.connection)
             mainService = createMainService(cp, store)

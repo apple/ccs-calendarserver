@@ -20,13 +20,34 @@ Tests for L{twext.enterprise.dal.syntax}
 
 from twext.enterprise.dal.model import Schema
 from twext.enterprise.dal.parseschema import addSQLToSchema
+from twext.enterprise.dal import syntax
 from twext.enterprise.dal.syntax import (
     SchemaSyntax, Select, Insert, Update, Delete, Lock, SQLFragment,
     TableMismatch, Parameter, Max, Len, NotEnoughValues
 , Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction)
 
-from twext.enterprise.dal.syntax import FunctionInvocation
+from twext.enterprise.dal.syntax import Function
+
+from twext.enterprise.dal.syntax import FixedPlaceholder, NumericPlaceholder
+from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
+from twext.enterprise.test.test_adbapi2 import ConnectionFactory
+from twext.enterprise.adbapi2 import ConnectionPool
+from twext.enterprise.test.test_adbapi2 import resultOf
+from twext.enterprise.test.test_adbapi2 import FakeThreadHolder
 from twisted.trial.unittest import TestCase
+
+
+
+class _FakeTransaction(object):
+    """
+    An L{IAsyncTransaction} that provides the relevant metadata for SQL
+    generation.
+    """
+
+    def __init__(self, paramstyle):
+        self.paramstyle = 'qmark'
+
+
 
 class GenerationTests(TestCase):
     """
@@ -37,11 +58,12 @@ class GenerationTests(TestCase):
         s = Schema(self.id())
         addSQLToSchema(schema=s, schemaData="""
                        create sequence A_SEQ;
-                       create table FOO (BAR integer, BAZ integer);
-                       create table BOZ (QUX integer);
+                       create table FOO (BAR integer, BAZ varchar(255));
+                       create table BOZ (QUX integer, QUUX integer);
                        create table OTHER (BAR integer,
                                            FOO_BAR integer not null);
                        create table TEXTUAL (MYTEXT varchar(255));
+                       create table LEVELS (ACCESS integer, USERNAME varchar(255));
                        """)
         self.schema = SchemaSyntax(s)
 
@@ -65,16 +87,16 @@ class GenerationTests(TestCase):
                           SQLFragment("select * from FOO where BAR = ?", [1]))
 
 
-    def test_quotingAndPlaceholder(self):
+    def test_alternateMetadata(self):
         """
         L{Select} generates a 'select' statement with the specified placeholder
-        syntax and quoting function.
+        syntax when explicitly given L{ConnectionMetadata} which specifies a
+        placeholder.
         """
         self.assertEquals(Select(From=self.schema.FOO,
                                  Where=self.schema.FOO.BAR == 1).toSQL(
-                                 placeholder="*",
-                                 quote=lambda partial: partial.replace("*", "**")),
-                          SQLFragment("select ** from FOO where BAR = *", [1]))
+                                 FixedPlaceholder(POSTGRES_DIALECT, "$$")),
+                          SQLFragment("select * from FOO where BAR = $$", [1]))
 
 
     def test_columnComparison(self):
@@ -467,6 +489,60 @@ class GenerationTests(TestCase):
         )
 
 
+    def test_insertMultiReturnOracle(self):
+        """
+        In Oracle's SQL dialect, the 'returning' clause requires an 'into'
+        clause indicating where to put the results, as they can't be simply
+        relayed to the cursor.  Further, additional bound variables are required
+        to capture the output parameters.
+        """
+        self.assertEquals(
+            Insert({self.schema.FOO.BAR: 40,
+                    self.schema.FOO.BAZ: 50},
+                   Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ)).toSQL(
+                       NumericPlaceholder(ORACLE_DIALECT)
+                   ),
+            SQLFragment(
+                "insert into FOO (BAR, BAZ) values (:1, :2) returning BAR, BAZ"
+                " into :3, :4",
+                [40, 50, Parameter("oracle_out_0"), Parameter("oracle_out_1")]
+            )
+        )
+
+
+    def test_insertMultiReturnOnOracleTxn(self):
+        """
+        As described in L{test_insertMultiReturnOracle}, Oracle deals with
+        'returning' clauses by using out parameters.  However, this is not quite
+        enough, as the code needs to actually retrieve the values from the out
+        parameters.
+        """
+        class FakeCXOracleModule(object):
+            NUMBER = 'the NUMBER type'
+            STRING = 'a string type (for varchars)'
+            CLOB = 'the clob type. (for text)'
+            TIMESTAMP = 'for timestamps!'
+        self.patch(syntax, 'cx_Oracle', FakeCXOracleModule)
+        factory    = ConnectionFactory()
+        pool       = ConnectionPool(factory.connect, maxConnections=2,
+                                    dialect=ORACLE_DIALECT,
+                                    paramstyle='numeric')
+        self.paused = False
+        pool._createHolder = lambda : FakeThreadHolder(self)
+        pool.startService()
+        conn = pool.connection()
+        i = Insert({self.schema.FOO.BAR: 40,
+                    self.schema.FOO.BAZ: 50},
+                   Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ))
+        # See fake result generation in test_adbapi2.py.
+        result = resultOf(i.on(conn))
+        self.assertEquals(result, [[[300, 301]]])
+        curvars = factory.connections[0].cursors[0].variables
+        self.assertEquals(len(curvars), 2)
+        self.assertEquals(curvars[0].type, FakeCXOracleModule.NUMBER)
+        self.assertEquals(curvars[1].type, FakeCXOracleModule.STRING)
+
+
     def test_insertMismatch(self):
         """
         L{Insert} raises L{TableMismatch} if the columns specified aren't all
@@ -477,6 +553,31 @@ class GenerationTests(TestCase):
             Insert, {self.schema.FOO.BAR: 23,
                      self.schema.FOO.BAZ: 9,
                      self.schema.TEXTUAL.MYTEXT: 'hello'}
+        )
+
+
+    def test_quotingOnKeywordConflict(self):
+        """
+        'access' is a keyword, so although our schema parser will leniently
+        accept it, it must be quoted in any outgoing SQL.  (This is only done in
+        the Oracle dialect, because it isn't necessary in postgres, and
+        idiosyncratic case-folding rules make it challenging to do it in both.)
+        """
+        self.assertEquals(
+            Insert({self.schema.LEVELS.ACCESS: 1,
+                    self.schema.LEVELS.USERNAME:
+                    "hi"}).toSQL(FixedPlaceholder(ORACLE_DIALECT, "?")),
+            SQLFragment(
+                'insert into LEVELS ("ACCESS", USERNAME) values (?, ?)',
+                [1, "hi"])
+        )
+        self.assertEquals(
+            Insert({self.schema.LEVELS.ACCESS: 1,
+                    self.schema.LEVELS.USERNAME:
+                    "hi"}).toSQL(FixedPlaceholder(POSTGRES_DIALECT, "?")),
+            SQLFragment(
+                'insert into LEVELS (ACCESS, USERNAME) values (?, ?)',
+                [1, "hi"])
         )
 
 
@@ -513,10 +614,11 @@ class GenerationTests(TestCase):
         L{Update} values may be L{FunctionInvocation}s, to update to computed
         values in the database.
         """
+        sqlfunc = Function("hello")
         self.assertEquals(
             Update(
                 {self.schema.FOO.BAR: 23,
-                 self.schema.FOO.BAZ: FunctionInvocation("hello")},
+                 self.schema.FOO.BAZ: sqlfunc()},
                 Where=self.schema.FOO.BAZ == 9
             ).toSQL(),
             SQLFragment("update FOO set BAR = ?, BAZ = hello() "
@@ -529,10 +631,11 @@ class GenerationTests(TestCase):
         L{Update} values may be L{FunctionInvocation}s, to update to computed
         values in the database.
         """
+        sqlfunc = Function("hello")
         self.assertEquals(
             Insert(
                 {self.schema.FOO.BAR: 23,
-                 self.schema.FOO.BAZ: FunctionInvocation("hello")},
+                 self.schema.FOO.BAZ: sqlfunc()},
             ).toSQL(),
             SQLFragment("insert into FOO (BAR, BAZ) "
                         "values (?, hello())", [23])
@@ -636,6 +739,19 @@ class GenerationTests(TestCase):
         )
 
 
+    def test_distinct(self):
+        """
+        A L{Select} object with a 'Disinct' keyword parameter with a value of
+        C{True} will generate a SQL statement with a 'distinct' keyword
+        preceding its list of columns.
+        """
+        self.assertEquals(
+            Select([self.schema.FOO.BAR], From=self.schema.FOO,
+                   Distinct=True).toSQL(),
+            SQLFragment("select distinct BAR from FOO")
+        )
+
+
     def test_nextSequenceValue(self):
         """
         When a sequence is used as a value in an expression, it renders as the
@@ -646,10 +762,77 @@ class GenerationTests(TestCase):
                     self.schema.A_SEQ}).toSQL(),
             SQLFragment("insert into BOZ (QUX) values (nextval('A_SEQ'))", []))
 
+
+    def test_nextSequenceValueOracle(self):
+        """
+        When a sequence is used as a value in an expression in the Oracle
+        dialect, it renders as the 'nextval' attribute of the appropriate
+        sequence.
+        """
+        self.assertEquals(
+            Insert({self.schema.BOZ.QUX:
+                    self.schema.A_SEQ}).toSQL(
+                        FixedPlaceholder(ORACLE_DIALECT, "?")),
+            SQLFragment("insert into BOZ (QUX) values (A_SEQ.nextval)", []))
+
+
+    def test_nextSequenceDefaultImplicitExplicitOracle(self):
+        """
+        In Oracle's dialect, sequence defaults can't be implemented without
+        using triggers, so instead we just explicitly always include the
+        sequence default value.
+        """
+        addSQLToSchema(
+            schema=self.schema.model, schemaData=
+            "create table DFLTR (a varchar(255), "
+            "b integer default nextval('A_SEQ'));"
+        )
+        self.assertEquals(
+            Insert({self.schema.DFLTR.a: 'hello'}).toSQL(
+                FixedPlaceholder(ORACLE_DIALECT, "?")
+            ),
+            SQLFragment("insert into DFLTR (a, b) values "
+                        "(?, A_SEQ.nextval)", ['hello']),
+        )
+        # Should be the same if it's explicitly specified.
+        self.assertEquals(
+            Insert({self.schema.DFLTR.a: 'hello',
+                    self.schema.DFLTR.b: self.schema.A_SEQ}).toSQL(
+                FixedPlaceholder(ORACLE_DIALECT, "?")
+            ),
+            SQLFragment("insert into DFLTR (a, b) values "
+                        "(?, A_SEQ.nextval)", ['hello']),
+        )
+
+
+    def test_numericParams(self):
+        """
+        An L{IAsyncTransaction} with the 'numeric' paramstyle attribute will
+        cause statements to be generated with parameters in the style of :1 :2
+        :3, as per the DB-API.
+        """
+        stmts = []
+        class FakeOracleTxn(object):
+            def execSQL(self, text, params, exc):
+                stmts.append((text, params))
+            dialect = ORACLE_DIALECT
+            paramstyle = 'numeric'
+        Select([self.schema.FOO.BAR],
+               From=self.schema.FOO,
+               Where=(self.schema.FOO.BAR == 7).And(
+                   self.schema.FOO.BAZ == 9)
+              ).on(FakeOracleTxn())
+        self.assertEquals(
+            stmts, [("select BAR from FOO where BAR = :1 and BAZ = :2",
+                     [7, 9])]
+        )
+
+
     def test_nestedLogicalExpressions(self):
         """
-        Make sure that logical operator precedence inserts proper parenthesis when needed.
-        e.g. 'a.And(b.Or(c))' needs to be 'a and (b or c)' not 'a and b or c'.
+        Make sure that logical operator precedence inserts proper parenthesis
+        when needed.  e.g. 'a.And(b.Or(c))' needs to be 'a and (b or c)' not 'a
+        and b or c'.
         """
         self.assertEquals(
             Select(
@@ -658,7 +841,8 @@ class GenerationTests(TestCase):
                     And(self.schema.FOO.BAZ != 8).
                     And((self.schema.FOO.BAR == 8).Or(self.schema.FOO.BAZ == 0))
             ).toSQL(),
-            SQLFragment("select * from FOO where BAR != ? and BAZ != ? and (BAR = ? or BAZ = ?)", [7, 8, 8, 0]))
+            SQLFragment("select * from FOO where BAR != ? and BAZ != ? and "
+                        "(BAR = ? or BAZ = ?)", [7, 8, 8, 0]))
 
         self.assertEquals(
             Select(
@@ -667,7 +851,8 @@ class GenerationTests(TestCase):
                     Or(self.schema.FOO.BAZ != 8).
                     Or((self.schema.FOO.BAR == 8).And(self.schema.FOO.BAZ == 0))
             ).toSQL(),
-            SQLFragment("select * from FOO where BAR != ? or BAZ != ? or BAR = ? and BAZ = ?", [7, 8, 8, 0]))
+            SQLFragment("select * from FOO where BAR != ? or BAZ != ? or "
+                        "BAR = ? and BAZ = ?", [7, 8, 8, 0]))
 
         self.assertEquals(
             Select(
@@ -676,4 +861,67 @@ class GenerationTests(TestCase):
                     Or(self.schema.FOO.BAZ != 8).
                     And((self.schema.FOO.BAR == 8).Or(self.schema.FOO.BAZ == 0))
             ).toSQL(),
-            SQLFragment("select * from FOO where (BAR != ? or BAZ != ?) and (BAR = ? or BAZ = ?)", [7, 8, 8, 0]))
+            SQLFragment("select * from FOO where (BAR != ? or BAZ != ?) and "
+                        "(BAR = ? or BAZ = ?)", [7, 8, 8, 0]))
+
+
+    def test_updateWithNULL(self):
+        """
+        As per the DB-API specification, "SQL NULL values are represented by the
+        Python None singleton on input and output."  When a C{None} is provided
+        as a value to an L{Update}, it will be relayed to the database as a
+        parameter.
+        """
+        self.assertEquals(
+            Update({self.schema.BOZ.QUX: None},
+                   Where=self.schema.BOZ.QUX == 7).toSQL(),
+            SQLFragment("update BOZ set QUX = ? where QUX = ?", [None, 7])
+        )
+
+
+    def test_subSelectComparison(self):
+        """
+        A comparison of a column to a sub-select in a where clause will result
+        in a parenthetical 'Where' clause.
+        """
+        self.assertEquals(
+            Update(
+                {self.schema.BOZ.QUX: 9},
+                Where=self.schema.BOZ.QUX ==
+                Select([self.schema.FOO.BAR], From=self.schema.FOO,
+                       Where=self.schema.FOO.BAZ == 12)).toSQL(),
+            SQLFragment(
+                # NOTE: it's very important that the comparison _always_ go in
+                # this order (column from the UPDATE first, inner SELECT second)
+                # as the other order will be considered a syntax error.
+                "update BOZ set QUX = ? where QUX = ("
+                "select BAR from FOO where BAZ = ?)", [9, 12]
+            )
+        )
+
+
+    def test_tupleComparison(self):
+        """
+        A L{Tuple} allows for simultaneous comparison of multiple values in a
+        C{Where} clause.  This feature is particularly useful when issuing an
+        L{Update} or L{Delete}, where the comparison is with values from a
+        subselect.  (A L{Tuple} will be automatically generated upon comparison
+        to a C{tuple} or C{list}.)
+        """
+        self.assertEquals(
+            Update(
+                {self.schema.BOZ.QUX: 1},
+                Where=(self.schema.BOZ.QUX, self.schema.BOZ.QUUX) ==
+                Select([self.schema.FOO.BAR, self.schema.FOO.BAZ],
+                       From=self.schema.FOO,
+                       Where=self.schema.FOO.BAZ == 2)).toSQL(),
+            SQLFragment(
+                # NOTE: it's very important that the comparison _always_ go in
+                # this order (tuple of columns from the UPDATE first, inner
+                # SELECT second) as the other order will be considered a syntax
+                # error.
+                "update BOZ set QUX = ? where (QUX, QUUX) = ("
+                "select BAR, BAZ from FOO where BAZ = ?)", [1, 2]
+            )
+        )
+

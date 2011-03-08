@@ -131,6 +131,7 @@ class FakeCursor(Child):
         self.rowcount = 0
         # not entirely correct, but all we care about is its truth value.
         self.description = False
+        self.variables = []
 
 
     @property
@@ -146,11 +147,32 @@ class FakeCursor(Child):
         return
 
 
+    def var(self, type, *args):
+        """
+        Return a database variable in the style of the cx_Oracle bindings.
+        """
+        v = FakeVariable(self, type, args)
+        self.variables.append(v)
+        return v
+
+
     def fetchall(self):
         """
         Just echo the SQL that was executed in the last query.
         """
         return [[self.connection.id, self.sql]]
+
+
+
+class FakeVariable(object):
+    def __init__(self, cursor, type, args):
+        self.cursor = cursor
+        self.type = type
+        self.args = args
+
+
+    def getvalue(self):
+        return self.cursor.variables.index(self) + 300
 
 
 
@@ -657,4 +679,42 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(len(self.factory.connections), 2)
 
 
+    def test_propagateParamstyle(self):
+        """
+        Each different type of L{IAsyncTransaction} relays the C{paramstyle}
+        attribute from the L{ConnectionPool}.
+        """
+        TEST_PARAMSTYLE = "justtesting"
+        self.pool.paramstyle = TEST_PARAMSTYLE
+        normaltxn = self.pool.connection()
+        self.assertEquals(normaltxn.paramstyle, TEST_PARAMSTYLE)
+        self.pauseHolders()
+        extra = []
+        extra.append(self.pool.connection())
+        waitingtxn = self.pool.connection()
+        self.assertEquals(waitingtxn.paramstyle, TEST_PARAMSTYLE)
+        self.flushHolders()
+        self.pool.stopService()
+        notxn = self.pool.connection()
+        self.assertEquals(notxn.paramstyle, TEST_PARAMSTYLE)
+
+
+    def test_propagateDialect(self):
+        """
+        Each different type of L{IAsyncTransaction} relays the C{dialect}
+        attribute from the L{ConnectionPool}.
+        """
+        TEST_DIALECT = "otherdialect"
+        self.pool.dialect = TEST_DIALECT
+        normaltxn = self.pool.connection()
+        self.assertEquals(normaltxn.dialect, TEST_DIALECT)
+        self.pauseHolders()
+        extra = []
+        extra.append(self.pool.connection())
+        waitingtxn = self.pool.connection()
+        self.assertEquals(waitingtxn.dialect, TEST_DIALECT)
+        self.flushHolders()
+        self.pool.stopService()
+        notxn = self.pool.connection()
+        self.assertEquals(notxn.dialect, TEST_DIALECT)
 

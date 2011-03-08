@@ -239,18 +239,19 @@ def clipPeriod(period, clipPeriod):
         else:
             return (start, end)
 
+SQL_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
+
 def parseSQLTimestamp(ts):
-    
     # Handle case where fraction seconds may not be present
     if len(ts) < 20:
         ts += ".0"
-    return datetime.datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f")
+    return datetime.datetime.strptime(ts, SQL_TIMESTAMP_FORMAT)
 
 def datetimeMktime(dt):
 
     assert isinstance(dt, datetime.date)
-    
+
     if dt.tzinfo is None:
         dt.replace(tzinfo=utc)
     return calendar.timegm(dt.utctimetuple())
-    
+

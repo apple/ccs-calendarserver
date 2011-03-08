@@ -215,3 +215,32 @@ class ParsingExampleTests(TestCase):
                           [set([b, c]), set([c])])
 
 
+    def test_multiPrimaryKey(self):
+        """
+        A table with a multi-column PRIMARY KEY clause will be parsed as a tuple
+        primaryKey attribute on the Table object.
+        """
+        s = Schema()
+        addSQLToSchema(
+            s, "create table a (b integer, c integer, primary key(b, c))")
+        a = s.tableNamed("a")
+        self.assertEquals(a.primaryKey,
+                          (a.columnNamed("b"), a.columnNamed("c")))
+
+
+    def test_cascade(self):
+        """
+        A column with an 'on delete cascade' constraint will have its C{cascade}
+        attribute set to True.
+        """
+        s = Schema()
+        addSQLToSchema(
+            s,
+            """
+            create table a (b integer primary key);
+            create table c (d integer references a on delete cascade);
+            """)
+        self.assertEquals(s.tableNamed("a").columnNamed("b").cascade, False)
+        self.assertEquals(s.tableNamed("c").columnNamed("d").cascade, True)
+
+

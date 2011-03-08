@@ -69,7 +69,7 @@ except ImportError:
     NegotiateCredentialFactory = None
 
 from twext.enterprise.adbapi2 import ConnectionPoolClient
-from txdav.base.datastore.dbapiclient import DBAPIConnector
+from txdav.base.datastore.dbapiclient import DBAPIConnector, OracleConnector
 from txdav.base.datastore.dbapiclient import postgresPreflight
 from txdav.base.datastore.subpostgres import PostgresService
 
@@ -132,6 +132,14 @@ def pgConnectorFromConfig(config):
 
 
 
+def oracleConnectorFromConfig(config):
+    """
+    Create a postgres DB-API connector from the given configuration.
+    """
+    return OracleConnector(config.DSN).connect
+
+
+
 class ConnectionWithPeer(Connection):
 
     connected = True
@@ -139,8 +147,10 @@ class ConnectionWithPeer(Connection):
     def getPeer(self):
         return "<peer: %r %r>" % (self.socket.fileno(), id(self))
 
+
     def getHost(self):
         return "<host: %r %r>" % (self.socket.fileno(), id(self))
+
 
 
 def transactionFactoryFromFD(dbampfd):
