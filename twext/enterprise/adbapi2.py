@@ -234,8 +234,10 @@ class _WaitingTxn(object):
 
     implements(IAsyncTransaction)
 
-    def __init__(self):
+    def __init__(self, pool):
         self._spool = []
+        self.paramstyle = pool.paramstyle
+        self.dialect = pool.dialect
 
 
     def _enspool(self, cmd, a=(), kw={}):
@@ -533,7 +535,7 @@ class ConnectionPool(Service, object):
             self._busy.append(basetxn)
             txn = _SingleTxn(self, basetxn)
         else:
-            txn = _SingleTxn(self, _WaitingTxn())
+            txn = _SingleTxn(self, _WaitingTxn(self))
             self._waiting.append(txn)
             # FIXME/TESTME: should be len(self._busy) + len(self._finishing)
             # (free doesn't need to be considered, as it's tested above)

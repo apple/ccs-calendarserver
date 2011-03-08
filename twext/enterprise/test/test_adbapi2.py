@@ -664,8 +664,14 @@ class ConnectionPoolTests(TestCase):
         """
         TEST_PARAMSTYLE = "justtesting"
         self.pool.paramstyle = TEST_PARAMSTYLE
-        waittxn = self.pool.connection()
-        self.assertEquals(waittxn.paramstyle, TEST_PARAMSTYLE)
+        normaltxn = self.pool.connection()
+        self.assertEquals(normaltxn.paramstyle, TEST_PARAMSTYLE)
+        self.pauseHolders()
+        extra = []
+        extra.append(self.pool.connection())
+        waitingtxn = self.pool.connection()
+        self.assertEquals(waitingtxn.paramstyle, TEST_PARAMSTYLE)
+        self.flushHolders()
         self.pool.stopService()
         notxn = self.pool.connection()
         self.assertEquals(notxn.paramstyle, TEST_PARAMSTYLE)
@@ -678,8 +684,14 @@ class ConnectionPoolTests(TestCase):
         """
         TEST_DIALECT = "otherdialect"
         self.pool.dialect = TEST_DIALECT
-        waittxn = self.pool.connection()
-        self.assertEquals(waittxn.dialect, TEST_DIALECT)
+        normaltxn = self.pool.connection()
+        self.assertEquals(normaltxn.dialect, TEST_DIALECT)
+        self.pauseHolders()
+        extra = []
+        extra.append(self.pool.connection())
+        waitingtxn = self.pool.connection()
+        self.assertEquals(waitingtxn.dialect, TEST_DIALECT)
+        self.flushHolders()
         self.pool.stopService()
         notxn = self.pool.connection()
         self.assertEquals(notxn.dialect, TEST_DIALECT)
