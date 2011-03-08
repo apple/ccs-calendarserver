@@ -197,10 +197,10 @@ def getTimerangeArguments(timerange):
     endfloat = floatoffset(end, tzinfo) if end else None
 
     return (
-        str(start) if start else None,
-        str(end) if end else None,
-        str(startfloat) if startfloat else None,
-        str(endfloat) if endfloat else None,
+        (start) if start else None,
+        (end) if end else None,
+        (startfloat) if startfloat else None,
+        (endfloat) if endfloat else None,
     )
 
 def sqlcalendarquery(filter, calendarid=None, userid=None, generator=sqlgenerator.sqlgenerator):
