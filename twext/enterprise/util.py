@@ -49,7 +49,13 @@ def mapOracleOutputType(column):
         # just detect the datetimes and stringify them, for now
         # we'll do that.
         return column.strftime(SQL_TIMESTAMP_FORMAT)
+    elif isinstance(column, float):
+        if int(column) == column:
+            return int(column)
+        else:
+            return column
     else:
         return column
+
 
 
