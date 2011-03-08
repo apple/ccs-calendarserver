@@ -570,15 +570,39 @@ class SQLLegacyShares(object):
         return self._search(shareuid=shareUID)
 
 
+    @classproperty
+    def _updateBindName(cls):
+        bind = cls._bindSchema
+        return Update({bind.RESOURCE_NAME: Parameter("localname")},
+                      Where=(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                      .And(bind.RESOURCE_ID == Parameter('resourceID')))
+
+
+    @classproperty
+    def _acceptDirectShareQuery(cls):
+        bind = cls._bindSchema
+        return Insert({
+            bind.HOME_RESOURCE_ID: Parameter("homeID"),
+            bind.RESOURCE_ID: Parameter("resourceID"), 
+            bind.RESOURCE_NAME: Parameter("name"),
+            bind.MESSAGE: Parameter("message"),
+            bind.BIND_MODE: _BIND_MODE_DIRECT,
+            bind.BIND_STATUS: _BIND_STATUS_ACCEPTED,
+            bind.SEEN_BY_OWNER: True,
+            bind.SEEN_BY_SHAREE: True,
+        })
+
+
     @inlineCallbacks
     def addOrUpdateRecord(self, record):
         # record.hosturl -> /.../__uids__/<uid>/<name>
         splithost = record.hosturl.split('/')
-        
+
         # Double-check the path
         if splithost[2] != "__uids__":
-            raise ValueError("Sharing URL must be a __uids__ path: %s" % (record.hosturl,))
-            
+            raise ValueError(
+                "Sharing URL must be a __uids__ path: %s" % (record.hosturl,))
+
         ownerUID = splithost[3]
         ownerCollectionName = splithost[4]
         ownerHome = yield self._getHomeWithUID(ownerUID)
@@ -586,52 +610,35 @@ class SQLLegacyShares(object):
         collectionResourceID = ownerCollection._resourceID
 
         if record.sharetype == 'I':
-
             # There needs to be a bind already, one that corresponds to the
             # invitation.  The invitation's UID is the same as the share UID.  I
             # just need to update its 'localname', i.e.
             # XXX_BIND.XXX_RESOURCE_NAME.
 
-            yield self._txn.execSQL(
-                """
-                update %(name)s
-                set %(column_RESOURCE_NAME)s = %%s
-                where %(column_HOME_RESOURCE_ID)s = %%s
-                 and %(column_RESOURCE_ID)s = %%s
-                """ % self._bindTable,
-                [record.localname, self._home._resourceID, collectionResourceID]
+            yield self._updateBindName.on(
+                self._txn, localname=record.localname,
+                homeID=self._home._resourceID, resourceID=collectionResourceID
             )
         elif record.sharetype == 'D':
             # There is no bind entry already so add one.
+            yield self._acceptDirectShareQuery.on(
+                self._txn, homeID=self._home._resourceID,
+                resourceID=collectionResourceID, name=record.localname,
+                message=record.summary
+            )
 
-            yield self._txn.execSQL(
-                """
-                insert into %(name)s
-                (
-                    %(column_HOME_RESOURCE_ID)s,
-                    %(column_RESOURCE_ID)s, 
-                    %(column_RESOURCE_NAME)s,
-                    %(column_BIND_MODE)s,
-                    %(column_BIND_STATUS)s,
-                    %(column_SEEN_BY_OWNER)s,
-                    %(column_SEEN_BY_SHAREE)s,
-                    %(column_MESSAGE)s
-                )
-                values (%%s, %%s, %%s, %%s, %%s, %%s, %%s, %%s)
-                """ % self._bindTable,
-                [
-                    self._home._resourceID,
-                    collectionResourceID,
-                    record.localname,
-                    _BIND_MODE_DIRECT,
-                    _BIND_STATUS_ACCEPTED,
-                    True,
-                    True,
-                    record.summary,
-                ])
-
-        shareeCollection = yield self._home.sharedChildWithName(record.localname)
+        shareeCollection = yield self._home.sharedChildWithName(
+            record.localname)
         yield shareeCollection._initSyncToken()
+
+
+    @classproperty
+    def _unbindShareQuery(cls):
+        bind = cls._bindSchema
+        return Update({
+            bind.RESOURCE_NAME: None
+        }, Where=(bind.RESOURCE_NAME == Parameter("name"))
+        .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
 
 
     @inlineCallbacks
@@ -640,15 +647,9 @@ class SQLLegacyShares(object):
         shareeCollection = yield self._home.sharedChildWithName(record.localname)
         yield shareeCollection._deletedSyncToken(sharedRemoval=True)
 
-        returnValue((yield self._txn.execSQL(
-            """
-            update %(name)s
-            set %(column_RESOURCE_NAME)s = NULL
-            where %(column_RESOURCE_NAME)s = %%s
-             and %(column_HOME_RESOURCE_ID)s = %%s
-            """ % self._bindTable,
-            [localname, self._home._resourceID]
-        )))
+        result = yield self._unbindShareQuery.on(self._txn, name=localname,
+                                                 homeID=self._home._resourceID)
+        returnValue(result)
 
 
     @inlineCallbacks
