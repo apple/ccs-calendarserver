@@ -82,6 +82,7 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
             newRow = []
             for column in row:
                 newRow.append(mapOracleOutputType(column))
+            accum.append(newRow)
         return accum
 
 
@@ -108,6 +109,8 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
                 # it is:
                 v = self.var(cx_Oracle.CLOB, len(arg) + 1)
                 v.setvalue(0, arg)
+            else:
+                v = arg
             realArgs.append(v)
         return super(OracleCursorWrapper, self).execute(sql, realArgs)
 
@@ -171,7 +174,7 @@ class DBAPIConnector(object):
 
 
 
-class OracleConnectionWrapper(DBAPIConnector):
+class OracleConnectionWrapper(DiagnosticConnectionWrapper):
 
     wrapper = OracleCursorWrapper
 
@@ -190,8 +193,26 @@ class OracleConnector(DBAPIConnector):
 
     def __init__(self, dsn):
         super(OracleConnector, self).__init__(
-            cx_Oracle, lambda whatever: None, dsn, threaded=True)
+            cx_Oracle, oraclePreflight, dsn, threaded=True)
 
+
+
+def oraclePreflight(connection):
+    """
+    Pre-flight function for Oracle connections: set the timestamp format to be
+    something closely resembling our default assumption from Postgres.
+    """
+    c = connection.cursor()
+    c.execute(
+        "alter session set NLS_TIMESTAMP_FORMAT = "
+        "'YYYY-MM-DD HH24:MI:SS.FF'"
+    )
+    c.execute(
+        "alter session set NLS_TIMESTAMP_TZ_FORMAT = "
+        "'YYYY-MM-DD HH:MI:SS.FF+TZH:TZM'"
+    )
+    connection.commit()
+    c.close()
 
 
 def postgresPreflight(connection):
