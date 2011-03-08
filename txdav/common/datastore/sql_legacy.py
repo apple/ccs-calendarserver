@@ -348,7 +348,8 @@ class SQLLegacyInvites(object):
             yield self._insertInviteQuery.on(
                 self._txn, uid=record.inviteuid, name=record.name,
                 homeID=shareeHome._resourceID,
-                resourceID=self._collection._resourceID, recipient=record.userid
+                resourceID=self._collection._resourceID,
+                recipient=record.userid
             )
             yield self._insertBindQuery.on(
                 self._txn,
@@ -454,8 +455,12 @@ class SQLLegacyShares(object):
     _bindTable = None
     _urlTopSegment = None
 
+    _homeSchema = None
+    _bindSchema = None
+
     def __init__(self, home):
         self._home = home
+
 
     @property
     def _txn(self):
@@ -474,6 +479,50 @@ class SQLLegacyShares(object):
         pass
 
 
+    @classproperty
+    def _allSharedToQuery(cls):
+        bind = cls._bindSchema
+        return Select(
+            [bind.RESOURCE_ID, bind.RESOURCE_NAME,
+             bind.BIND_MODE, bind.MESSAGE],
+            From=bind,
+            Where=(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+            .And(bind.BIND_MODE != _BIND_MODE_OWN)
+            .And(bind.RESOURCE_NAME != None)
+        )
+
+
+    @classproperty
+    def _inviteUIDByResourceIDsQuery(cls):
+        inv = schema.INVITE
+        return Select(
+            [inv.INVITE_UID], From=inv, Where=
+            (inv.RESOURCE_ID == Parameter("resourceID"))
+            .And(inv.HOME_RESOURCE_ID == Parameter("homeID"))
+        )
+
+
+    @classproperty
+    def _ownerHomeIDAndName(cls):
+        bind = cls._bindSchema
+        return Select(
+            [bind.HOME_RESOURCE_ID, bind.RESOURCE_NAME], From=bind, Where=
+            (bind.RESOURCE_ID == Parameter("resourceID"))
+            .And(bind.BIND_MODE == _BIND_MODE_OWN)
+        )
+
+
+    @classproperty
+    def _ownerUIDFromHomeID(cls):
+        home = cls._homeSchema
+        return Select(
+            [home.OWNER_UID], From=home,
+            Where=home.RESOURCE_ID == Parameter("homeID")
+        )
+
+
+
+
     @inlineCallbacks
     def allRecords(self):
         # This should have been a smart join that got all these columns at
@@ -481,78 +530,31 @@ class SQLLegacyShares(object):
         # _want_ to do (just look for binds in a particular homes) is
         # much simpler anyway; we should just do that.
         all = []
-        shareRows = yield self._txn.execSQL(
-            """
-            select %(column_RESOURCE_ID)s, %(column_RESOURCE_NAME)s, %(column_BIND_MODE)s, %(column_MESSAGE)s
-            from %(name)s
-            where %(column_HOME_RESOURCE_ID)s = %%s
-             and %(column_BIND_MODE)s != %%s
-             and %(column_RESOURCE_NAME)s is not null
-            """ % self._bindTable,
-            [self._home._resourceID, _BIND_MODE_OWN]
-        )
+        shareRows = yield self._allSharedToQuery.on(
+            self._txn, homeID=self._home._resourceID)
         for resourceID, resourceName, bindMode, summary in shareRows:
+            [[ownerHomeID, ownerResourceName]] = yield (
+                self._ownerHomeIDAndName.on(self._txn,
+                                            resourceID=resourceID))
+            [[ownerUID]] = yield self._ownerUIDFromHomeID.on(
+                self._txn, homeID=ownerHomeID)
+            hosturl = '/%s/__uids__/%s/%s' % (
+                self._urlTopSegment, ownerUID, ownerResourceName
+            )
+            localname = resourceName
             if bindMode != _BIND_MODE_DIRECT:
-                [[shareuid]] = yield self._txn.execSQL(
-                    """
-                    select INVITE_UID
-                    from INVITE
-                    where RESOURCE_ID = %s and HOME_RESOURCE_ID = %s
-                    """,
-                    [resourceID, self._home._resourceID]
-                )
                 sharetype = 'I'
-                [[ownerHomeID, ownerResourceName]] = yield self._txn.execSQL(
-                    """
-                    select %(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s
-                    from %(name)s
-                    where %(column_RESOURCE_ID)s = %%s
-                     and %(column_BIND_MODE)s = %%s
-                    """ % self._bindTable,
-                    [resourceID, _BIND_MODE_OWN]
+                [[shareuid]] = yield self._inviteUIDByResourceIDsQuery.on(
+                    self._txn, resourceID=resourceID,
+                    homeID=self._home._resourceID
                 )
-                [[ownerUID]] = yield self._txn.execSQL(
-                    """
-                    select %(column_OWNER_UID)s from %(name)s
-                    where %(column_RESOURCE_ID)s = %%s
-                    """ % self._homeTable,
-                    [ownerHomeID]
-                )
-                hosturl = '/%s/__uids__/%s/%s' % (
-                    self._urlTopSegment, ownerUID, ownerResourceName
-                )
-                localname = resourceName
-                record = SharedCollectionRecord(
-                    shareuid, sharetype, hosturl, localname, summary
-                )
-                all.append(record)
             else:
                 sharetype = 'D'
-                [[ownerHomeID, ownerResourceName]] = yield self._txn.execSQL(
-                    """
-                    select %(column_HOME_RESOURCE_ID)s, %(column_RESOURCE_NAME)s
-                    from %(name)s
-                    where %(column_RESOURCE_ID)s = %%s
-                     and %(column_BIND_MODE)s = %%s
-                    """ % self._bindTable,
-                    [resourceID, _BIND_MODE_OWN]
-                )
-                [[ownerUID]] = yield self._txn.execSQL(
-                    """
-                    select %(column_OWNER_UID)s from %(name)s
-                    where %(column_RESOURCE_ID)s = %%s
-                    """ % self._homeTable,
-                    [ownerHomeID]
-                )
-                hosturl = '/%s/__uids__/%s/%s' % (
-                    self._urlTopSegment, ownerUID, ownerResourceName
-                )
-                localname = resourceName
-                synthesisedUID = "Direct-%s-%s" % (self._home._resourceID, resourceID,)
-                record = SharedCollectionRecord(
-                    synthesisedUID, sharetype, hosturl, localname, summary
-                )
-                all.append(record)
+                shareuid = "Direct-%s-%s" % (self._home._resourceID, resourceID,)
+            record = SharedCollectionRecord(
+                shareuid, sharetype, hosturl, localname, summary
+            )
+            all.append(record)
         returnValue(all)
 
 
@@ -690,12 +692,11 @@ class SQLLegacyCalendarShares(SQLLegacyShares):
     L{twistedcaldav.sharing.InvitesDatabase}.
     """
 
-    def __init__(self, home):
-        self._homeTable = CALENDAR_HOME_TABLE
-        self._bindTable = CALENDAR_BIND_TABLE
-        self._urlTopSegment = "calendars"
-
-        super(SQLLegacyCalendarShares, self).__init__(home)
+    _homeTable = CALENDAR_HOME_TABLE
+    _bindTable = CALENDAR_BIND_TABLE
+    _homeSchema = schema.CALENDAR_HOME
+    _bindSchema = schema.CALENDAR_BIND
+    _urlTopSegment = "calendars"
 
 
     def _getHomeWithUID(self, uid):
@@ -709,15 +710,16 @@ class SQLLegacyAddressBookShares(SQLLegacyShares):
     L{twistedcaldav.sharing.InvitesDatabase}.
     """
 
-    def __init__(self, home):
-        self._homeTable = ADDRESSBOOK_HOME_TABLE
-        self._bindTable = ADDRESSBOOK_BIND_TABLE
-        self._urlTopSegment = "addressbooks"
+    _homeTable = ADDRESSBOOK_HOME_TABLE
+    _bindTable = ADDRESSBOOK_BIND_TABLE
+    _homeSchema = schema.ADDRESSBOOK_HOME
+    _bindSchema = schema.ADDRESSBOOK_BIND
+    _urlTopSegment = "addressbooks"
 
-        super(SQLLegacyAddressBookShares, self).__init__(home)
 
     def _getHomeWithUID(self, uid):
         return self._txn.addressbookHomeWithUID(uid, create=True)
+
 
 
 class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
