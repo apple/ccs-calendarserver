@@ -1088,13 +1088,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
 
         # Perform the search
         if qualifiers is None:
-            rowiter = yield self._txn.execSQL(
-                """
-                select RESOURCE_NAME, ICALENDAR_UID, ICALENDAR_TYPE
-                from CALENDAR_OBJECT where CALENDAR_RESOURCE_ID = %s
-                """,
-                [self.calendar._resourceID],
-            )
+            rowiter = yield self.bruteForceSearch()
         else:
             if fbtype:
                 # For a free-busy time-range query we return all instances
@@ -1138,12 +1132,22 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         returnValue(results)
 
 
-    def bruteForceSearch(self):
-        return self._txn.execSQL(
-            "select RESOURCE_NAME, ICALENDAR_UID, ICALENDAR_TYPE from "
-            "CALENDAR_OBJECT where CALENDAR_RESOURCE_ID = %s",
-            [self.calendar._resourceID]
+    @classproperty
+    def _bruteForceQuery(cls):
+        """
+        DAL query for all C{CALENDAR_OBJECT} rows in the calendar represented by
+        this index.
+        """
+        obj = cls._objectSchema
+        return Select(
+            [obj.RESOURCE_NAME, obj.ICALENDAR_UID, obj.ICALENDAR_TYPE],
+            From=obj, Where=obj.PARENT_RESOURCE_ID == Parameter("resourceID")
         )
+
+
+    def bruteForceSearch(self):
+        return self._bruteForceQuery.on(
+            self._txn, resourceID=self.resource._resourceID)
 
 
     @inlineCallbacks
@@ -1152,14 +1156,25 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
             set((yield self.calendar.listCalendarObjects())))))
 
 
+    @classproperty
+    def _resourceExistsQuery(cls):
+        """
+        DAL query to determine whether a calendar object exists in the
+        collection represented by this index.
+        """
+        obj = cls._objectSchema
+        return Select(
+            [obj.RESOURCE_NAME], From=obj,
+            Where=(obj.RESOURCE_NAME == Parameter("name"))
+            .And(obj.PARENT_RESOURCE_ID == Parameter("resourceID"))
+        )
+
+
     @inlineCallbacks
     def resourceExists(self, name):
         returnValue((bool(
-            (yield self._txn.execSQL(
-                "select RESOURCE_NAME from CALENDAR_OBJECT where "
-                "RESOURCE_NAME = %s and CALENDAR_RESOURCE_ID = %s",
-                [name, self.calendar._resourceID]
-            ))
+            (yield self._resourceExistsQuery.on(
+                self._txn, name=name, resourceID=self.resource._resourceID))
         )))
 
 
@@ -1250,11 +1265,14 @@ class postgresqladbkgenerator(sqlgenerator):
         return "%%%s%%" % (arg,)
 
 
+
 class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
     """
     Emulator for L{twistedcaldv.index.Index} and
     L{twistedcaldv.index.IndexSchedule}.
     """
+
+    _objectSchema = schema.ADDRESSBOOK_OBJECT
 
     def __init__(self, addressbook):
         self.resource = self.addressbook = addressbook
@@ -1337,26 +1355,8 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
         raise IndexedSearchException()
 
 
-    def bruteForceSearch(self):
-        return self._txn.execSQL(
-            "select RESOURCE_NAME, VCARD_UID from "
-            "ADDRESSBOOK_OBJECT where ADDRESSBOOK_RESOURCE_ID = %s",
-            [self.addressbook._resourceID]
-        )
-
-
     @inlineCallbacks
     def resourcesExist(self, names):
         returnValue(list(set(names).intersection(
             set((yield self.addressbook.listAddressbookObjects())))))
 
-
-    @inlineCallbacks
-    def resourceExists(self, name):
-        returnValue(bool(
-            (yield self._txn.execSQL(
-                "select RESOURCE_NAME from ADDRESSBOOK_OBJECT where "
-                "RESOURCE_NAME = %s and ADDRESSBOOK_RESOURCE_ID = %s",
-                [name, self.addressbook._resourceID]
-            ))
-        ))
