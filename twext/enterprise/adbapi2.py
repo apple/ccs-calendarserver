@@ -452,13 +452,14 @@ class ConnectionPool(Service, object):
     RETRY_TIMEOUT = 10.0
 
 
-    def __init__(self, connectionFactory, maxConnections=10):
+    def __init__(self, connectionFactory, maxConnections=10,
+                 paramstyle=DEFAULT_PARAM_STYLE, dialect=DEFAULT_DIALECT):
 
         super(ConnectionPool, self).__init__()
         self.connectionFactory = connectionFactory
         self.maxConnections = maxConnections
-        self.paramstyle = DEFAULT_PARAM_STYLE
-        self.dialect = DEFAULT_DIALECT
+        self.paramstyle = paramstyle
+        self.dialect = dialect
 
         self._free       = []
         self._busy       = []

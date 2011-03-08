@@ -1081,8 +1081,7 @@ class _SharedSyncLogic(object):
                        rev.DELETED: True},
                       Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
                           rev.RESOURCE_ID == Parameter("resourceID")).And(
-                              rev.RESOURCE_NAME == None),
-                     #Return=rev.REVISION
+                              rev.RESOURCE_NAME == None)
                      )
 
 
@@ -1097,7 +1096,6 @@ class _SharedSyncLogic(object):
                        rev.DELETED: True},
                       Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
                           rev.RESOURCE_NAME == None),
-                      # Return=rev.REVISION,
                      )
 
 

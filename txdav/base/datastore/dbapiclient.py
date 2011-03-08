@@ -17,6 +17,13 @@
 """
 General utility client code for interfacing with DB-API 2.0 modules.
 """
+from twext.enterprise.util import mapOracleOutputType
+
+try:
+    import cx_Oracle
+except ImportError:
+    cx_Oracle = None
+
 
 class DiagnosticCursorWrapper(object):
     """
@@ -41,11 +48,11 @@ class DiagnosticCursorWrapper(object):
 
     def execute(self, sql, args=()):
         self.connectionWrapper.state = 'executing %r' % (sql,)
-# Use log.debug
-#        sys.stdout.write(
-#            "Really executing SQL %r in thread %r\n" %
-#            ((sql % tuple(args)), thread.get_ident())
-#        )
+        # Use log.debug
+        #        sys.stdout.write(
+        #            "Really executing SQL %r in thread %r\n" %
+        #            ((sql % tuple(args)), thread.get_ident())
+        #        )
         self.realCursor.execute(sql, args)
 
 
@@ -55,18 +62,12 @@ class DiagnosticCursorWrapper(object):
 
     def fetchall(self):
         results = self.realCursor.fetchall()
-# Use log.debug
-#        sys.stdout.write(
-#            "Really fetching results %r thread %r\n" %
-#            (results, thread.get_ident())
-#        )
+        # Use log.debug
+        #        sys.stdout.write(
+        #            "Really fetching results %r thread %r\n" %
+        #            (results, thread.get_ident())
+        #        )
         return results
-
-
-try:
-    import cx_Oracle
-except ImportError:
-    pass
 
 
 class OracleCursorWrapper(DiagnosticCursorWrapper):
@@ -80,10 +81,7 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
         for row in self.realCursor:
             newRow = []
             for column in row:
-                if hasattr(column, 'read'):
-                    newRow.append(column.read())
-                else:
-                    newRow.append(column.read())
+                newRow.append(mapOracleOutputType(column))
         return accum
 
 
@@ -91,6 +89,13 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
         realArgs = []
         for arg in args:
             if isinstance(arg, (str, unicode)) and len(arg) > 1024:
+                # This *may* cause a type mismatch, but none of the non-CLOB
+                # strings that we're passing would allow a value this large
+                # anyway.  Smaller strings will be automatically converted by
+                # the bindings; larger ones will generate an error.  I'm not
+                # sure why cx_Oracle itself doesn't just do the following hack
+                # automatically and internally for larger values too, but, here
+                # it is:
                 v = self.realCursor.var(cx_Oracle.CLOB, len(arg) + 1)
                 v.setvalue(0, arg)
             realArgs.append(v)
@@ -104,6 +109,8 @@ class DiagnosticConnectionWrapper(object):
     status.
     """
 
+    wrapper = DiagnosticCursorWrapper
+
     def __init__(self, realConnection, label):
         self.realConnection = realConnection
         self.label = label
@@ -111,7 +118,7 @@ class DiagnosticConnectionWrapper(object):
 
 
     def cursor(self):
-        return DiagnosticCursorWrapper(self.realConnection.cursor(), self)
+        return self.wrapper(self.realConnection.cursor(), self)
 
 
     def close(self):
@@ -137,6 +144,8 @@ class DBAPIConnector(object):
     @ivar dbModule: the DB-API module to use.
     """
 
+    wrapper = DiagnosticConnectionWrapper
+
     def __init__(self, dbModule, preflight, *connectArgs, **connectKw):
         self.dbModule = dbModule
         self.connectArgs = connectArgs
@@ -146,9 +155,32 @@ class DBAPIConnector(object):
 
     def connect(self, label="<unlabeled>"):
         connection = self.dbModule.connect(*self.connectArgs, **self.connectKw)
-        w = DiagnosticConnectionWrapper(connection, label)
+        w = self.wrapper(connection, label)
         self.preflight(w)
         return w
+
+
+
+class OracleConnectionWrapper(DBAPIConnector):
+
+    wrapper = OracleCursorWrapper
+
+
+
+class OracleConnector(DBAPIConnector):
+    """
+    A connector for cx_Oracle connections, with some special-cased behavior to
+    make it work more like other DB-API bindings.
+
+    Note: this is currently necessary to make our usage of twext.enterprise.dal
+    work with cx_Oracle, and should be factored somewhere higher-level.
+    """
+
+    wrapper = OracleConnectionWrapper
+
+    def __init__(self, dsn):
+        super(OracleConnector, self).__init__(
+            cx_Oracle, lambda whatever: None, dsn)
 
 
 
