@@ -702,6 +702,20 @@ class GenerationTests(TestCase):
                         "(BAR = ? or BAZ = ?)", [7, 8, 8, 0]))
 
 
+    def test_updateWithNULL(self):
+        """
+        As per the DB-API specification, "SQL NULL values are represented by the
+        Python None singleton on input and output."  When a C{None} is provided
+        as a value to an L{Update}, it will be relayed to the database as a
+        parameter.
+        """
+        self.assertEquals(
+            Update({self.schema.BOZ.QUX: None},
+                   Where=self.schema.BOZ.QUX == 7).toSQL(),
+            SQLFragment("update BOZ set QUX = ? where QUX = ?", [None, 7])
+        )
+
+
     def test_subSelectComparison(self):
         """
         A comparison of a column to a sub-select in a where clause will result
