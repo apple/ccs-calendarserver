@@ -21,10 +21,18 @@ Syntax wrappers and generators for SQL.
 
 import itertools
 
+from zope.interface import implements
+
 from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
 
+from twext.enterprise.ienterprise import IDerivedParameter
+from twext.enterprise.util import mapOracleOutputType
 from twext.enterprise.dal.model import Schema, Table, Column, Sequence
 
+try:
+    import cx_Oracle
+except ImportError:
+    cx_Oracle = None
 
 class ConnectionMetadata(object):
     """
@@ -109,15 +117,26 @@ class _Statement(object):
         return self._toSQL(metadata)
 
 
+    def _extraVars(self, txn, metadata):
+        return {}
+
+
+    def _extraResult(self, result, outvars):
+        return result
+
+
     def on(self, txn, raiseOnZeroRowCount=None, **kw):
         """
         Execute this statement on a given L{IAsyncTransaction} and return the
         resulting L{Deferred}.
         """
         metadata = self._paramstyles[txn.paramstyle](txn.dialect)
+        outvars = self._extraVars(txn, metadata)
+        kw.update(outvars)
         fragment = self.toSQL(metadata).bind(**kw)
-        return txn.execSQL(fragment.text, fragment.parameters,
-                           raiseOnZeroRowCount)
+        result = txn.execSQL(fragment.text, fragment.parameters,
+                             raiseOnZeroRowCount)
+        return self._extraResult(result, outvars)
 
 
 
@@ -760,11 +779,8 @@ class _DMLStatement(_Statement):
             stmt.append(retclause.subSQL(metadata, allTables))
             if metadata.dialect == ORACLE_DIALECT:
                 stmt.text += ' into '
-                if not isinstance(self.Return, (tuple, list)):
-                    retvals = [self.Return]
-                else:
-                    retvals = self.Return
                 params = []
+                retvals = self._returnAsList()
                 for n, v in enumerate(retvals):
                     params.append(
                         Constant(Parameter("oracle_out_" + str(n)))
@@ -772,6 +788,50 @@ class _DMLStatement(_Statement):
                     )
                 stmt.append(_commaJoined(params))
         return stmt
+
+
+    def _returnAsList(self):
+        if not isinstance(self.Return, (tuple, list)):
+            return [self.Return]
+        else:
+            return self.Return
+
+
+    def _extraVars(self, txn, metadata):
+        result = []
+        rvars = self._returnAsList()
+        if metadata.dialect == ORACLE_DIALECT:
+            for n, v in enumerate(rvars):
+                result.append(("oracle_out_" + str(n), _OracleOutParam(v)))
+        return result
+
+
+    def _extraResult(self, result, outvars):
+        def processIt(shouldBeNone):
+            return [[v.value for k, v in outvars]]
+        return result.addCallback(processIt)
+
+
+
+class _OracleOutParam(object):
+    implements(IDerivedParameter)
+
+    def __init__(self, columnSyntax):
+        self.columnSyntax = columnSyntax
+
+
+    def preQuery(self, cursor):
+        self.columnSyntax
+        typeMap = {'integer': cx_Oracle.NUMBER,
+                   'text': cx_Oracle.CLOB,
+                   'varchar': cx_Oracle.STRING,
+                   'timestamp': cx_Oracle.TIMESTAMP}
+        typeID = self.columnSyntax.model.type.name.lower()
+        self.var = cursor.var(typeMap[typeID])
+
+
+    def postQuery(self, cursor):
+        self.value = mapOracleOutputType(self.var.getvalue())
 
 
 

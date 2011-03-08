@@ -85,6 +85,16 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
         return accum
 
 
+    def var(self, *args):
+        """
+        Create a cx_Oracle variable bound to this cursor.  (Forwarded in
+        addition to the standard methods so that implementors of
+        L{IDerivedParameter} do not need to be specifically aware of this
+        layer.)
+        """
+        return self.realCursor.var(*args)
+
+
     def execute(self, sql, args=()):
         realArgs = []
         for arg in args:
@@ -96,7 +106,7 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
                 # sure why cx_Oracle itself doesn't just do the following hack
                 # automatically and internally for larger values too, but, here
                 # it is:
-                v = self.realCursor.var(cx_Oracle.CLOB, len(arg) + 1)
+                v = self.var(cx_Oracle.CLOB, len(arg) + 1)
                 v.setvalue(0, arg)
             realArgs.append(v)
         return super(OracleCursorWrapper, self).execute(sql, realArgs)
@@ -180,7 +190,7 @@ class OracleConnector(DBAPIConnector):
 
     def __init__(self, dsn):
         super(OracleConnector, self).__init__(
-            cx_Oracle, lambda whatever: None, dsn)
+            cx_Oracle, lambda whatever: None, dsn, threaded=True)
 
 
 

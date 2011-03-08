@@ -1,3 +1,4 @@
+from twext.enterprise.ienterprise import IDerivedParameter
 # -*- test-case-name: twext.enterprise.test.test_adbapi2 -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
@@ -99,6 +100,7 @@ class _ConnectedTxn(object):
         The paramstyle attribute is mirrored from the connection pool.
         """
 
+
     @_forward
     def dialect(self):
         """
@@ -109,7 +111,18 @@ class _ConnectedTxn(object):
     def _reallyExecSQL(self, sql, args=None, raiseOnZeroRowCount=None):
         if args is None:
             args = []
+        derived = None
+        for arg in args:
+            if IDerivedParameter.providedBy(arg):
+                if derived is None:
+                    # Be sparing with allocations, as this usually isn't needed.
+                    derived = []
+                derived.append(arg)
+                arg.preQuery(self._cursor)
         self._cursor.execute(sql, args)
+        if derived is not None:
+            for arg in derived:
+                arg.postQuery(self._cursor)
         if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
             raise raiseOnZeroRowCount()
         if self._cursor.description:

@@ -103,3 +103,40 @@ class IAsyncTransaction(Interface):
             rollback of this transaction.
         """
 
+
+
+class IDerivedParameter(Interface):
+    """
+    A parameter which needs to be derived from the underlying DB-API cursor;
+    implicitly, meaning that this must also interact with the actual thread
+    manipulating said cursor.  If a provider of this interface is passed in the
+    C{args} argument to L{IAsyncTransaction.execSQL}, it will have its
+    C{prequery} and C{postquery} methods invoked on it before and after
+    executing the SQL query in question, respectively.
+    """
+
+    def preQuery(cursor):
+        """
+        Before running a query, invoke this method with the cursor that the
+        query will be run on.
+
+        (This can be used, for example, to allocate a special database-specific
+        variable based on the cursor, like an out parameter.)
+
+        @param cursor: the DB-API cursor.
+
+        @return: the concrete value which should be passed to the DB-API layer.
+        """
+
+
+    def postQuery(cursor):
+        """
+        After running a query, invoke this method in the DB-API thread.
+
+        (This can be used, for example, to manipulate any state created in the
+        preQuery method.)
+
+        @param cursor: the DB-API cursor.
+
+        @return: C{None}
+        """

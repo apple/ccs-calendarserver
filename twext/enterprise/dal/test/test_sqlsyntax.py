@@ -20,6 +20,7 @@ Tests for L{twext.enterprise.dal.syntax}
 
 from twext.enterprise.dal.model import Schema
 from twext.enterprise.dal.parseschema import addSQLToSchema
+from twext.enterprise.dal import syntax
 from twext.enterprise.dal.syntax import (
     SchemaSyntax, Select, Insert, Update, Delete, Lock, SQLFragment,
     TableMismatch, Parameter, Max, Len, NotEnoughValues
@@ -29,6 +30,10 @@ from twext.enterprise.dal.syntax import FunctionInvocation
 
 from twext.enterprise.dal.syntax import FixedPlaceholder, NumericPlaceholder
 from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
+from twext.enterprise.test.test_adbapi2 import ConnectionFactory
+from twext.enterprise.adbapi2 import ConnectionPool
+from twext.enterprise.test.test_adbapi2 import resultOf
+from twext.enterprise.test.test_adbapi2 import FakeThreadHolder
 from twisted.trial.unittest import TestCase
 
 
@@ -53,7 +58,7 @@ class GenerationTests(TestCase):
         s = Schema(self.id())
         addSQLToSchema(schema=s, schemaData="""
                        create sequence A_SEQ;
-                       create table FOO (BAR integer, BAZ integer);
+                       create table FOO (BAR integer, BAZ varchar(255));
                        create table BOZ (QUX integer, QUUX integer);
                        create table OTHER (BAR integer,
                                            FOO_BAR integer not null);
@@ -502,6 +507,39 @@ class GenerationTests(TestCase):
                 [40, 50, Parameter("oracle_out_0"), Parameter("oracle_out_1")]
             )
         )
+
+
+    def test_insertMultiReturnOnOracleTxn(self):
+        """
+        As described in L{test_insertMultiReturnOracle}, Oracle deals with
+        'returning' clauses by using out parameters.  However, this is not quite
+        enough, as the code needs to actually retrieve the values from the out
+        parameters.
+        """
+        class FakeCXOracleModule(object):
+            NUMBER = 'the NUMBER type'
+            STRING = 'a string type (for varchars)'
+            CLOB = 'the clob type. (for text)'
+            TIMESTAMP = 'for timestamps!'
+        self.patch(syntax, 'cx_Oracle', FakeCXOracleModule)
+        factory    = ConnectionFactory()
+        pool       = ConnectionPool(factory.connect, maxConnections=2,
+                                    dialect=ORACLE_DIALECT,
+                                    paramstyle='numeric')
+        self.paused = False
+        pool._createHolder = lambda : FakeThreadHolder(self)
+        pool.startService()
+        conn = pool.connection()
+        i = Insert({self.schema.FOO.BAR: 40,
+                    self.schema.FOO.BAZ: 50},
+                   Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ))
+        # See fake result generation in test_adbapi2.py.
+        result = resultOf(i.on(conn))
+        self.assertEquals(result, [[[300, 301]]])
+        curvars = factory.connections[0].cursors[0].variables
+        self.assertEquals(len(curvars), 2)
+        self.assertEquals(curvars[0].type, FakeCXOracleModule.NUMBER)
+        self.assertEquals(curvars[1].type, FakeCXOracleModule.STRING)
 
 
     def test_insertMismatch(self):
