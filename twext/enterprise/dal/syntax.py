@@ -121,7 +121,7 @@ class _Statement(object):
         return {}
 
 
-    def _extraResult(self, result, outvars):
+    def _extraResult(self, result, outvars, metadata):
         return result
 
 
@@ -136,7 +136,7 @@ class _Statement(object):
         fragment = self.toSQL(metadata).bind(**kw)
         result = txn.execSQL(fragment.text, fragment.parameters,
                              raiseOnZeroRowCount)
-        return self._extraResult(result, outvars)
+        return self._extraResult(result, outvars, metadata)
 
 
 
@@ -810,10 +810,13 @@ class _DMLStatement(_Statement):
         return result
 
 
-    def _extraResult(self, result, outvars):
-        def processIt(shouldBeNone):
-            return [[v.value for k, v in outvars]]
-        return result.addCallback(processIt)
+    def _extraResult(self, result, outvars, metadata):
+        if metadata.dialect == ORACLE_DIALECT and self.Return is not None:
+            def processIt(shouldBeNone):
+                return [[v.value for k, v in outvars]]
+            return result.addCallback(processIt)
+        else:
+            return result
 
 
 
