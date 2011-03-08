@@ -517,9 +517,10 @@ class Select(_Statement):
 
     def __init__(self, columns=None, Where=None, From=None, OrderBy=None,
                  GroupBy=None, Limit=None, ForUpdate=False, Ascending=None,
-                 Having=None):
+                 Having=None, Distinct=False):
         self.From = From
         self.Where = Where
+        self.Distinct = Distinct
         if not isinstance(OrderBy, (list, tuple, type(None))):
             OrderBy = [OrderBy]
         self.OrderBy = OrderBy
@@ -556,6 +557,8 @@ class Select(_Statement):
         @rtype: L{SQLFragment}
         """
         stmt = SQLFragment(quote("select "))
+        if self.Distinct:
+            stmt.text += "distinct "
         allTables = self.From.tables()
         stmt.append(self.columns.subSQL(placeholder, quote, allTables))
         stmt.text += quote(" from ")

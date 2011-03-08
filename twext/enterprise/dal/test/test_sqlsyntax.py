@@ -654,6 +654,19 @@ class GenerationTests(TestCase):
         )
 
 
+    def test_distinct(self):
+        """
+        A L{Select} object with a 'Disinct' keyword parameter with a value of
+        C{True} will generate a SQL statement with a 'distinct' keyword
+        preceding its list of columns.
+        """
+        self.assertEquals(
+            Select([self.schema.FOO.BAR], From=self.schema.FOO,
+                   Distinct=True).toSQL(),
+            SQLFragment("select distinct BAR from FOO")
+        )
+
+
     def test_nextSequenceValue(self):
         """
         When a sequence is used as a value in an expression, it renders as the
