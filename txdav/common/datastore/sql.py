@@ -67,7 +67,6 @@ from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import SavepointAction
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Update
-from twext.enterprise.dal.syntax import default
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -484,7 +483,7 @@ class CommonHome(LoggingMixIn):
                     {cls._homeMetaDataSchema.RESOURCE_ID: resourceid}).on(txn)
             except Exception: # FIXME: Really want to trap the pg.DatabaseError but in a non-DB specific manner
                 yield savepoint.rollback(txn)
-                
+
                 # Retry the query - row may exist now, if not re-raise
                 homeObject = cls(txn, uid, notifiers)
                 homeObject = (yield homeObject.initFromStore())
@@ -1499,7 +1498,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         DAL statement to create a home child with all default values.
         """
         child = cls._homeChildSchema
-        return Insert({child.RESOURCE_ID: default},
+        return Insert({child.RESOURCE_ID: schema.RESOURCE_ID_SEQ},
                       Return=(child.RESOURCE_ID, child.CREATED, child.MODIFIED))
 
 
