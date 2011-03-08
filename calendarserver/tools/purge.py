@@ -48,6 +48,9 @@ from calendarserver.tools.util import loadConfig
 
 log = Logger()
 
+DEFAULT_BATCH_SIZE = 100
+DEFAULT_RETAIN_DAYS = 365
+
 def usage_purge_events(e=None):
 
     name = os.path.basename(sys.argv[0])
@@ -56,11 +59,11 @@ def usage_purge_events(e=None):
     print "  Remove old events from the calendar server"
     print ""
     print "options:"
-    print "  -d --days <number>: specify how many days in the past to retain (default=365)"
-    print "  -b --batch <number>: number of events to remove in each transaction (default=100)"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -h --help: print this help and exit"
-    print "  -n --dry-run: only calculate how many events to purge"
+    print "  -d --days <number>: specify how many days in the past to retain (default=%d)" % (DEFAULT_RETAIN_DAYS,)
+    print "  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
+    print "  -f --config <path>: Specify caldavd.plist configuration path"
+    print "  -n --dry-run: calculate how many events to purge, but do not purge data"
     print "  -v --verbose: print progress information"
     print ""
 
@@ -78,10 +81,10 @@ def usage_purge_orphaned_attachments(e=None):
     print "  Remove orphaned attachments from the calendar server"
     print ""
     print "options:"
-    print "  -b --batch <number>: number of attachments to remove in each transaction (default=100)"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -h --help: print this help and exit"
-    print "  -n --dry-run: only calculate how many attachments to purge"
+    print "  -b --batch <number>: number of attachments to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
+    print "  -f --config <path>: Specify caldavd.plist configuration path"
+    print "  -n --dry-run: calculate how many attachments to purge, but do not purge data"
     print "  -v --verbose: print progress information"
     print ""
 
@@ -99,9 +102,9 @@ def usage_purge_principal(e=None):
     print "  Remove a principal's events and contacts from the calendar server"
     print ""
     print "options:"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -h --help: print this help and exit"
-    print "  -n --dry-run: only calculate how many events and contacts to purge"
+    print "  -f --config <path>: Specify caldavd.plist configuration path"
+    print "  -n --dry-run: calculate how many events and contacts to purge, but do not purge data"
     print "  -v --verbose: print progress information"
     print ""
 
@@ -245,8 +248,8 @@ def main_purge_events():
     # Get configuration
     #
     configFileName = None
-    days = 365
-    batchSize = 100
+    days = DEFAULT_RETAIN_DAYS
+    batchSize = DEFAULT_BATCH_SIZE
     dryrun = False
     verbose = False
 
@@ -317,7 +320,7 @@ def main_purge_orphaned_attachments():
     # Get configuration
     #
     configFileName = None
-    batchSize = 100
+    batchSize = DEFAULT_BATCH_SIZE
     dryrun = False
     verbose = False
 
