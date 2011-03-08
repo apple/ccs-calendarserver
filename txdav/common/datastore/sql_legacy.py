@@ -652,6 +652,31 @@ class SQLLegacyShares(object):
         returnValue(result)
 
 
+    @classproperty
+    def _removeInviteShareQuery(cls):
+        """
+        DAL query to remove a non-direct share by invite UID.
+        """
+        bind = cls._bindSchema
+        inv = schema.INVITE
+        return Update(
+            {bind.RESOURCE_NAME: None},
+            Where=(bind.HOME_RESOURCE_ID, bind.RESOURCE_ID) ==
+            Select([inv.HOME_RESOURCE_ID, inv.RESOURCE_ID],
+                   From=inv, Where=inv.INVITE_UID == Parameter("uid")))
+
+
+    @classproperty
+    def _removeDirectShareQuery(cls):
+        """
+        DAL query to remove a direct share by its homeID and resourceID.
+        """
+        bind = cls._bindSchema
+        return Delete(From=bind,
+                      Where=(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                      .And(bind.RESOURCE_ID == Parameter("resourceID")))
+
+
     @inlineCallbacks
     def removeRecordForShareUID(self, shareUID):
 
@@ -660,31 +685,13 @@ class SQLLegacyShares(object):
         yield shareeCollection._deletedSyncToken(sharedRemoval=True)
 
         if not shareUID.startswith("Direct"):
-            yield self._txn.execSQL(
-                """
-                update %(name)s
-                set %(column_RESOURCE_NAME)s = NULL
-                from INVITE
-                where INVITE.INVITE_UID = %%s
-                 and %(name)s.%(column_HOME_RESOURCE_ID)s = INVITE.HOME_RESOURCE_ID
-                 and %(name)s.%(column_RESOURCE_ID)s = INVITE.RESOURCE_ID
-                """ % self._bindTable,
-                [shareUID, ]
-            )
+            yield self._removeInviteShareQuery.on(self._txn, uid=shareUID)
         else:
             # Extract pieces from synthesised UID
             homeID, resourceID = shareUID[len("Direct-"):].split("-")
-
             # Now remove the binding for the direct share
-            yield self._txn.execSQL(
-                """
-                delete from %(name)s
-                where %(column_HOME_RESOURCE_ID)s = %%s
-                 and %(column_RESOURCE_ID)s = %%s
-                """ % self._bindTable,
-                [homeID, resourceID, ]
-            )
-
+            yield self._removeDirectShareQuery.on(
+                self._txn, homeID=homeID, resourceID=resourceID)
 
 
 class SQLLegacyCalendarShares(SQLLegacyShares):
