@@ -18,6 +18,7 @@
 """
 Model classes for SQL.
 """
+from twisted.python.util import FancyEqMixin
 
 class SQLType(object):
     """
@@ -123,7 +124,7 @@ def _checkstr(x):
 
 
 
-class Column(object):
+class Column(FancyEqMixin, object):
     """
     A column from a table.
 
@@ -146,6 +147,8 @@ class Column(object):
         (In other words, the SQL feature 'on delete cascade'.)
     @type cascade: C{bool}
     """
+
+    compareAttributes = 'table name'.split()
 
     def __init__(self, table, name, type):
         _checkstr(name)
@@ -210,7 +213,7 @@ class Column(object):
 
 
 
-class Table(object):
+class Table(FancyEqMixin, object):
     """
     A set of columns.
 
@@ -221,6 +224,8 @@ class Table(object):
 
     @ivar schema: a reference to the L{Schema} to which this table belongs.
     """
+
+    compareAttributes = 'schema name'.split()
 
     def __init__(self, schema, name):
         _checkstr(name)
@@ -324,10 +329,12 @@ class Table(object):
 
 
 
-class Sequence(object):
+class Sequence(FancyEqMixin, object):
     """
     A sequence object.
     """
+
+    compareAttributes = 'name'.split()
 
     def __init__(self, name):
         _checkstr(name)
