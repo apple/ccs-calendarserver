@@ -23,14 +23,17 @@ import itertools
 
 from zope.interface import implements
 
-from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
+from twisted.internet.defer import succeed
 
+from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
 from twext.enterprise.ienterprise import IDerivedParameter
+
 from twext.enterprise.util import mapOracleOutputType
 from twext.enterprise.dal.model import Schema, Table, Column, Sequence
 
 try:
     import cx_Oracle
+    cx_Oracle
 except ImportError:
     cx_Oracle = None
 
@@ -207,8 +210,8 @@ class ExpressionSyntax(Syntax):
 
 
 class FunctionInvocation(ExpressionSyntax):
-    def __init__(self, name, *args):
-        self.name = name
+    def __init__(self, function, *args):
+        self.function = function
         self.args = args
 
 
@@ -224,7 +227,7 @@ class FunctionInvocation(ExpressionSyntax):
 
 
     def subSQL(self, metadata, allTables):
-        result = SQLFragment(self.name)
+        result = SQLFragment(self.function.nameFor(metadata))
         result.append(_inParens(
             _commaJoined(_convert(arg).subSQL(metadata, allTables)
                          for arg in self.args)))
@@ -265,19 +268,27 @@ class Function(object):
     An L{Function} is a representation of an SQL Function function.
     """
 
-    def __init__(self, name):
+    def __init__(self, name, oracleName=None):
         self.name = name
+        self.oracleName = oracleName
+
+
+    def nameFor(self, metadata):
+        if metadata.dialect == ORACLE_DIALECT and self.oracleName is not None:
+            return self.oracleName
+        return self.name
 
 
     def __call__(self, *args):
         """
         Produce an L{FunctionInvocation}
         """
-        return FunctionInvocation(self.name, *args)
+        return FunctionInvocation(self, *args)
+
 
 
 Max = Function("max")
-Len = Function("character_length")
+Len = Function("character_length", "length")
 
 
 
@@ -430,7 +441,15 @@ class Join(object):
         return Join(self, type, otherTable, on)
 
 
-_KEYWORDS = ["access"]
+_KEYWORDS = ["access",
+             # SQL keyword, but we have a column with this name
+             "path",
+             # Not actually a standard keyword, but a function in oracle, and we
+             # have a column with this name.
+             "size",
+             # not actually sure what this is; only experimentally determined
+             # that not quoting it causes an issue.
+            ]
 
 
 class ColumnSyntax(ExpressionSyntax):
@@ -813,7 +832,8 @@ class _DMLStatement(_Statement):
     def _extraResult(self, result, outvars, metadata):
         if metadata.dialect == ORACLE_DIALECT and self.Return is not None:
             def processIt(shouldBeNone):
-                return [[v.value for k, v in outvars]]
+                result = [[v.value for k, v in outvars]]
+                return result
             return result.addCallback(processIt)
         else:
             return result
@@ -835,6 +855,7 @@ class _OracleOutParam(object):
                    'timestamp': cx_Oracle.TIMESTAMP}
         typeID = self.columnSyntax.model.type.name.lower()
         self.var = cursor.var(typeMap[typeID])
+        return self.var
 
 
     def postQuery(self, cursor):
@@ -869,12 +890,13 @@ class Insert(_DMLStatement):
         """
         columnsAndValues = self.columnMap.items()
         tableModel = columnsAndValues[0][0].model.table
+        specifiedColumnModels = [x.model for x in self.columnMap.keys()]
         if metadata.dialect == ORACLE_DIALECT:
             # See test_nextSequenceDefaultImplicitExplicitOracle.
             for column in tableModel.columns:
                 if isinstance(column.default, Sequence):
                     columnSyntax = ColumnSyntax(column)
-                    if columnSyntax not in self.columnMap:
+                    if column not in specifiedColumnModels:
                         columnsAndValues.append(
                             (columnSyntax, SequenceSyntax(column.default))
                         )
@@ -1048,7 +1070,19 @@ class SavepointAction(object):
 
 
     def release(self, txn):
-        return ReleaseSavepoint(self._name).on(txn)
+        if txn.dialect == ORACLE_DIALECT:
+            # There is no 'release savepoint' statement in oracle, but then, we
+            # don't need it because there's no resource to manage.  Just don't
+            # do anything.
+            return NoOp()
+        else:
+            return ReleaseSavepoint(self._name).on(txn)
+
+
+
+class NoOp(object):
+    def on(self, *a, **kw):
+        return succeed(None)
 
 
 
@@ -1126,8 +1160,9 @@ class Parameter(object):
 
 # Common helpers:
 
-# current timestamp in UTC format.
-utcNowSQL = Function('timezone')('UTC', NamedValue('CURRENT_TIMESTAMP'))
+# current timestamp in UTC format.  Hack to support standard syntax for this,
+# rather than the compatibility procedure found in various databases.
+utcNowSQL = NamedValue("CURRENT_TIMESTAMP at time zone 'UTC'")
 
 # You can't insert a column with no rows.  In SQL that just isn't valid syntax,
 # and in this DAL you need at least one key or we can't tell what table you're
