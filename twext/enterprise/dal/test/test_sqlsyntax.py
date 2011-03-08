@@ -28,7 +28,7 @@ from twext.enterprise.dal.syntax import (
 from twext.enterprise.dal.syntax import FunctionInvocation
 
 from twext.enterprise.dal.syntax import FixedPlaceholder
-from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
 from twisted.trial.unittest import TestCase
 
 
@@ -692,6 +692,19 @@ class GenerationTests(TestCase):
             Insert({self.schema.BOZ.QUX:
                     self.schema.A_SEQ}).toSQL(),
             SQLFragment("insert into BOZ (QUX) values (nextval('A_SEQ'))", []))
+
+
+    def test_nextSequenceValueOracle(self):
+        """
+        When a sequence is used as a value in an expression in the Oracle
+        dialect, it renders as the 'nextval' attribute of the appropriate
+        sequence.
+        """
+        self.assertEquals(
+            Insert({self.schema.BOZ.QUX:
+                    self.schema.A_SEQ}).toSQL(
+                        FixedPlaceholder(ORACLE_DIALECT, "?")),
+            SQLFragment("insert into BOZ (QUX) values (A_SEQ.nextval)", []))
 
 
     def test_nestedLogicalExpressions(self):

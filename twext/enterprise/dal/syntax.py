@@ -23,6 +23,7 @@ import itertools
 
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 
+from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.dal.model import Schema, Table, Column, Sequence
 
 
@@ -303,7 +304,11 @@ class SequenceSyntax(ExpressionSyntax):
         """
         Convert to an SQL fragment.
         """
-        return SQLFragment("nextval('%s')" % (self.model.name,))
+        if metadata.dialect == ORACLE_DIALECT:
+            fmt = "%s.nextval"
+        else:
+            fmt = "nextval('%s')"
+        return SQLFragment(fmt % (self.model.name,))
 
 
 
