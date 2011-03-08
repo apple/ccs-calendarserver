@@ -57,8 +57,9 @@ from twext.enterprise.ienterprise import AlreadyFinishedError, IAsyncTransaction
 
 
 # FIXME: there should be no default for DEFAULT_PARAM_STYLE, it should be
-# discovered dynamically everywhere.  Right now we're only using pgdb so we only
-# support that.
+# discovered dynamically everywhere.  Right now it's specified as an explicit
+# argument to the ConnectionPool but it should probably be determined
+# automatically from the database binding.
 
 DEFAULT_PARAM_STYLE = 'pyformat'
 
@@ -69,15 +70,20 @@ class _ConnectedTxn(object):
     """
     implements(IAsyncTransaction)
 
-    # See DEFAULT_PARAM_STYLE FIXME above.
-    paramstyle = DEFAULT_PARAM_STYLE
-
     def __init__(self, pool, threadHolder, connection, cursor):
         self._pool       = pool
         self._completed  = True
         self._cursor     = cursor
         self._connection = connection
         self._holder     = threadHolder
+
+
+    @property
+    def paramstyle(self):
+        """
+        The paramstyle attribute is mirrored from the connection pool.
+        """
+        return self._pool.paramstyle
 
 
     def _reallyExecSQL(self, sql, args=None, raiseOnZeroRowCount=None):
@@ -171,6 +177,7 @@ class _ConnectedTxn(object):
         return holder.stop()
 
 
+
 class _NoTxn(object):
     """
     An L{IAsyncTransaction} that indicates a local failure before we could even
@@ -178,6 +185,9 @@ class _NoTxn(object):
     server.
     """
     implements(IAsyncTransaction)
+
+    def __init__(self, pool):
+        self.paramstyle = pool.paramstyle
 
     def _everything(self, *a, **kw):
         """
@@ -200,9 +210,6 @@ class _WaitingTxn(object):
     """
 
     implements(IAsyncTransaction)
-
-    # See DEFAULT_PARAM_STYLE FIXME above.
-    paramstyle = DEFAULT_PARAM_STYLE
 
     def __init__(self):
         self._spool = []
@@ -257,7 +264,7 @@ class _WaitingTxn(object):
 
 
 class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
-                                     originalAttribute='_baseTxn')):
+                                   originalAttribute='_baseTxn')):
     """
     A L{_SingleTxn} is a single-use wrapper for the longer-lived
     L{_ConnectedTxn}, so that if a badly-behaved API client accidentally hangs
@@ -320,7 +327,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         Stop waiting for a free transaction and fail.
         """
         self._pool._waiting.remove(self)
-        self._unspoolOnto(_NoTxn())
+        self._unspoolOnto(_NoTxn(self))
 
 
     def _checkComplete(self):
@@ -425,6 +432,7 @@ class ConnectionPool(Service, object):
         super(ConnectionPool, self).__init__()
         self.connectionFactory = connectionFactory
         self.maxConnections = maxConnections
+        self.paramstyle = DEFAULT_PARAM_STYLE
 
         self._free       = []
         self._busy       = []
@@ -495,7 +503,7 @@ class ConnectionPool(Service, object):
         @return: an L{IAsyncTransaction}
         """
         if self._stopping:
-            return _NoTxn()
+            return _NoTxn(self)
         if self._free:
             basetxn = self._free.pop(0)
             self._busy.append(basetxn)

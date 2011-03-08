@@ -657,4 +657,17 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(len(self.factory.connections), 2)
 
 
+    def test_propagateParamstyle(self):
+        """
+        Each different type of L{IAsyncTransaction} relays the C{paramstyle}
+        attribute from the L{ConnectionPool}.
+        """
+        TEST_PARAMSTYLE = "justtesting"
+        self.pool.paramstyle = TEST_PARAMSTYLE
+        waittxn = self.pool.connection()
+        self.assertEquals(waittxn.paramstyle, TEST_PARAMSTYLE)
+        self.pool.stopService()
+        notxn = self.pool.connection()
+        self.assertEquals(notxn.paramstyle, TEST_PARAMSTYLE)
+
 
