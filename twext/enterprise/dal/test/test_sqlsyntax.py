@@ -707,6 +707,26 @@ class GenerationTests(TestCase):
             SQLFragment("insert into BOZ (QUX) values (A_SEQ.nextval)", []))
 
 
+    def test_nextSequenceDefaultImplicitExplicitOracle(self):
+        """
+        In Oracle's dialect, sequence defaults can't be implemented without
+        using triggers, so instead we just explicitly always include the
+        sequence default value.
+        """
+        addSQLToSchema(
+            schema=self.schema.model, schemaData=
+            "create table DFLTR (a varchar(255), "
+            "b integer default nextval('A_SEQ'));"
+        )
+        self.assertEquals(
+            Insert({self.schema.DFLTR.a: 'hello'}).toSQL(
+                FixedPlaceholder(ORACLE_DIALECT, "?")
+            ),
+            SQLFragment("insert into DFLTR (a, b) values "
+                        "(?, A_SEQ.nextval)", ['hello']),
+        )
+
+
     def test_nestedLogicalExpressions(self):
         """
         Make sure that logical operator precedence inserts proper parenthesis

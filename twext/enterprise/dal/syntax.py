@@ -21,9 +21,8 @@ Syntax wrappers and generators for SQL.
 
 import itertools
 
-from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
 
-from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.dal.model import Schema, Table, Column, Sequence
 
 
@@ -759,13 +758,22 @@ class Insert(_Statement):
 
         @rtype: L{SQLFragment}
         """
-        sortedColumns = sorted(self.columnMap.items(),
+        columnsAndValues = self.columnMap.items()
+        tableModel = columnsAndValues[0][0].model.table
+        if metadata.dialect == ORACLE_DIALECT:
+            # See test_nextSequenceDefaultImplicitExplicitOracle.
+            for column in tableModel.columns:
+                if isinstance(column.default, Sequence):
+                    columnSyntax = ColumnSyntax(column)
+                    if columnSyntax not in self.columnMap:
+                        columnsAndValues.append(
+                            (columnSyntax, SequenceSyntax(column.default))
+                        )
+        sortedColumns = sorted(columnsAndValues,
                                key=lambda (c, v): c.model.name)
         allTables = []
         stmt = SQLFragment('insert into ')
-        stmt.append(
-            TableSyntax(sortedColumns[0][0].model.table)
-            .subSQL(metadata, allTables))
+        stmt.append(TableSyntax(tableModel).subSQL(metadata, allTables))
         stmt.append(SQLFragment(" "))
         stmt.append(_inParens(_commaJoined(
             [c.subSQL(metadata, allTables) for (c, v) in
