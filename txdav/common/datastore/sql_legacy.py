@@ -20,7 +20,6 @@
 PostgreSQL data store.
 """
 
-import datetime
 import StringIO
 
 from twistedcaldav.sharing import SharedCollectionRecord
@@ -32,7 +31,7 @@ from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav import carddavxml
 from twistedcaldav.config import config
-from twistedcaldav.dateops import normalizeForIndex
+from twistedcaldav.dateops import normalizeForIndex, pyCalendarTodatetime
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.query import calendarqueryfilter, calendarquery, \
@@ -47,6 +46,8 @@ from txdav.common.datastore.sql_tables import \
     _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID, \
     CALENDAR_BIND_TABLE, CALENDAR_HOME_TABLE, ADDRESSBOOK_HOME_TABLE, \
     ADDRESSBOOK_BIND_TABLE
+
+from pycalendar.duration import PyCalendarDuration
 
 log = Logger()
 
@@ -948,7 +949,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         returnValue([row[0] for row in (yield self._txn.execSQL(
             "select RESOURCE_NAME from CALENDAR_OBJECT "
             "where RECURRANCE_MAX < %s and CALENDAR_RESOURCE_ID = %s",
-            [normalizeForIndex(minDate), self.calendar._resourceID]
+            [pyCalendarTodatetime(normalizeForIndex(minDate)), self.calendar._resourceID]
         ))])
 
 
@@ -1002,9 +1003,9 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                 # "infinite" value always included.
                 maxDate, isStartDate = filter.getmaxtimerange()
                 if maxDate:
-                    maxDate = maxDate.date()
+                    maxDate.setDateOnly(True)
                     if isStartDate:
-                        maxDate += datetime.timedelta(days=365)
+                        maxDate += PyCalendarDuration(days=365)
                     yield self.testAndUpdateIndex(maxDate)
             else:
                 # We cannot handler this filter in an indexed search

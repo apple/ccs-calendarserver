@@ -35,16 +35,6 @@ __all__ = [
 ]
 
 
-# The following imports are used by the L{} links below, but shouldn't actually
-# be imported.as they're not really needed.
-
-# from datetime import datetime, date, tzinfo
-
-# from twext.python.vcomponent import VComponent
-
-# from txdav.idav import IPropertyStore
-# from txdav.idav import ITransaction
-
 class ICalendarTransaction(ICommonTransaction):
     """
     Transaction functionality required to be implemented by calendar stores.
@@ -288,9 +278,9 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         instances that occur within the time range that begins at
         C{start} and ends at C{end}.
 
-        @param start: a L{datetime} or L{date}.
-        @param end: a L{datetime} or L{date}.
-        @param timeZone: a L{tzinfo}.
+        @param start: a L{PyCalendarDateTime}.
+        @param end: a L{PyCalendarDateTime}.
+        @param timeZone: a L{PyCalendarTimezone}.
         @return: an iterable of L{ICalendarObject}s.
         """
 

@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from pycalendar.datetime import PyCalendarDateTime
 
 """
 CalDAV XML Support.
@@ -26,9 +25,7 @@ change.
 See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
 
-import datetime
-
-from vobject.icalendar import utc, TimezoneComponent
+from pycalendar.datetime import PyCalendarDateTime
 
 from twext.web2.dav import davxml
 
@@ -103,16 +100,16 @@ class CalDAVTimeRangeElement (CalDAVEmptyElement):
         @return:      True if valid, False otherwise
         """
         
-        if self.start is not None and not isinstance(self.start, datetime.datetime):
+        if self.start is not None and self.start.isDateOnly():
             log.msg("start attribute in <time-range> is not a date-time: %s" % (self.start,))
             return False
-        if self.end is not None and not isinstance(self.end, datetime.datetime):
+        if self.end is not None and self.end.isDateOnly():
             log.msg("end attribute in <time-range> is not a date-time: %s" % (self.end,))
             return False
-        if self.start is not None and self.start.tzinfo != utc:
+        if self.start is not None and not self.start.utc():
             log.msg("start attribute in <time-range> is not UTC: %s" % (self.start,))
             return False
-        if self.end is not None and self.end.tzinfo != utc:
+        if self.end is not None and not self.end.utc():
             log.msg("end attribute in <time-range> is not UTC: %s" % (self.end,))
             return False
 
@@ -148,10 +145,7 @@ class CalDAVTimeZoneElement (CalDAVTextElement):
         found = False
 
         for subcomponent in calendar.subcomponents():
-            if (
-                subcomponent.name() == "VTIMEZONE" and
-                isinstance(subcomponent._vobject, TimezoneComponent)
-            ):
+            if (subcomponent.name() == "VTIMEZONE"):
                 if found:
                     return False
                 else:

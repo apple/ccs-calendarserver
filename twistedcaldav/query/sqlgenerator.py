@@ -266,13 +266,13 @@ if __name__ == "__main__":
     e3 = expression.notcontainsExpression("SUMMARY", "help", True)
     e5 = expression.andExpression([e1, e2, e3])
     print e5
-    sql = sqlgenerator(e5)
+    sql = sqlgenerator(e5, None, None)
     print sql.generate()
     e6 = expression.inExpression("TYPE", ("VEVENT", "VTODO",), False)
     print e6
-    sql = sqlgenerator(e6)
+    sql = sqlgenerator(e6, None, None)
     print sql.generate()
     e7 = expression.notinExpression("TYPE", ("VEVENT", "VTODO",), False)
     print e7
-    sql = sqlgenerator(e7)
+    sql = sqlgenerator(e7, None, None)
     print sql.generate()

@@ -17,23 +17,23 @@
 """
 Tests for calendarserver.tools.purge
 """
+from calendarserver.tap.util import getRootResource
+from calendarserver.tools.purge import purgeOldEvents, purgeGUID, purgeOrphanedAttachments
 
-from twisted.trial import unittest
-from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2.http_headers import MimeType
+
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.trial import unittest
+
+from twistedcaldav.config import config
+from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.vcard import Component as VCardComponent
-
-
 
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
 
-from calendarserver.tap.util import getRootResource
-from calendarserver.tools.purge import purgeOldEvents, purgeGUID, purgeOrphanedAttachments
-from twistedcaldav.config import config
-from twistedcaldav.memcacher import Memcacher
-from vobject.icalendar import utc
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
 
-import datetime
 import os
 
 
@@ -384,7 +384,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def test_eventsOlderThan(self):
-        cutoff = datetime.datetime(2010, 4, 1)
+        cutoff = PyCalendarDateTime(2010, 4, 1, 0, 0, 0)
         txn = self._sqlCalendarStore.newTransaction()
 
         # Query for all old events
@@ -410,7 +410,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def test_removeOldEvents(self):
-        cutoff = datetime.datetime(2010, 4, 1)
+        cutoff = PyCalendarDateTime(2010, 4, 1, 0, 0, 0)
         txn = self._sqlCalendarStore.newTransaction()
 
         # Remove oldest event
@@ -473,7 +473,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         self.assertTrue(os.path.exists(attachmentPath))
 
         # Delete all old events (including the event containing the attachment)
-        cutoff = datetime.datetime(2010, 4, 1)
+        cutoff = PyCalendarDateTime(2010, 4, 1, 0, 0, 0)
         count = (yield txn.removeOldEvents(cutoff))
 
         # Just look for orphaned attachments but don't delete
@@ -499,18 +499,18 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         # Dry run
         total = (yield purgeOldEvents(self._sqlCalendarStore, self.directory,
-            self.rootResource, datetime.datetime(2010, 4, 1), 2, dryrun=True,
+            self.rootResource, PyCalendarDateTime(2010, 4, 1, 0, 0, 0), 2, dryrun=True,
             verbose=False))
         self.assertEquals(total, 4)
 
         # Actually remove
         total = (yield purgeOldEvents(self._sqlCalendarStore, self.directory,
-            self.rootResource, datetime.datetime(2010, 4, 1), 2, verbose=False))
+            self.rootResource, PyCalendarDateTime(2010, 4, 1, 0, 0, 0), 2, verbose=False))
         self.assertEquals(total, 4)
 
         # There should be no more left
         total = (yield purgeOldEvents(self._sqlCalendarStore, self.directory,
-            self.rootResource, datetime.datetime(2010, 4, 1), 2, verbose=False))
+            self.rootResource, PyCalendarDateTime(2010, 4, 1, 0, 0, 0), 2, verbose=False))
         self.assertEquals(total, 0)
 
     test_purgeOldEvents.todo = "New lazy indexing broke this"
@@ -537,7 +537,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         # Purge home1
         total, ignored = (yield purgeGUID("home1", self.directory,
             self.rootResource, verbose=False, proxies=False,
-            when=datetime.datetime(2010, 4, 1, 12, 0, 0, 0, utc)))
+            when=PyCalendarDateTime(2010, 4, 1, 12, 0, 0, 0, PyCalendarTimezone(utc=True))))
 
         # 2 items deleted: 1 event and 1 vcard
         self.assertEquals(total, 2)
@@ -555,7 +555,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         # Remove old events first
         total = (yield purgeOldEvents(self._sqlCalendarStore, self.directory,
-            self.rootResource, datetime.datetime(2010, 4, 1), 2, verbose=False))
+            self.rootResource, PyCalendarDateTime(2010, 4, 1, 0, 0, 0), 2, verbose=False))
         self.assertEquals(total, 4)
 
         # Dry run

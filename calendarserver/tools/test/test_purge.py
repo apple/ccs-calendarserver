@@ -15,19 +15,25 @@
 ##
 
 
-from twistedcaldav.ical import Component
 from calendarserver.tools.purge import cancelEvent
 from calendarserver.tools.purge import CANCELEVENT_MODIFIED, CANCELEVENT_SHOULD_DELETE
-from vobject.icalendar import utc
 
-from datetime import datetime, timedelta
+from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
 
 
 
-future = (datetime.utcnow() + timedelta(days=1)).strftime("%Y%m%dT%H%M%SZ")
-past = (datetime.utcnow() - timedelta(days=1)).strftime("%Y%m%dT%H%M%SZ")
+
+future = PyCalendarDateTime.getNowUTC()
+future.offsetDay(1)
+future = future.getText()
+
+past = PyCalendarDateTime.getNowUTC()
+past.offsetDay(-1)
+past = past.getText()
 
 # For test_purgeExistingGUID
 
@@ -218,7 +224,7 @@ class CancelEventTestCase(TestCase):
     def test_cancelRepeating(self):
         # A repeating event where purged CUA is organizer
         event = Component.fromString(REPEATING_1_ICS_BEFORE)
-        action = cancelEvent(event, datetime(2010, 12, 6, 12, 0, 0, 0, utc),
+        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
         self.assertEquals(action, CANCELEVENT_MODIFIED)
         self.assertEquals(str(event), REPEATING_1_ICS_AFTER)
@@ -226,7 +232,7 @@ class CancelEventTestCase(TestCase):
     def test_cancelAllDayRepeating(self):
         # A repeating All Day event where purged CUA is organizer
         event = Component.fromString(REPEATING_2_ICS_BEFORE)
-        action = cancelEvent(event, datetime(2010, 12, 6, 12, 0, 0, 0, utc),
+        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
         self.assertEquals(action, CANCELEVENT_MODIFIED)
         self.assertEquals(str(event), REPEATING_2_ICS_AFTER)
@@ -234,21 +240,21 @@ class CancelEventTestCase(TestCase):
     def test_cancelFutureEvent(self):
         # A future event
         event = Component.fromString(FUTURE_EVENT_ICS)
-        action = cancelEvent(event, datetime(2010, 12, 6, 12, 0, 0, 0, utc),
+        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
         self.assertEquals(action, CANCELEVENT_SHOULD_DELETE)
 
     def test_cancelNonMeeting(self):
         # A repeating non-meeting event
         event = Component.fromString(REPEATING_NON_MEETING_ICS)
-        action = cancelEvent(event, datetime(2010, 12, 6, 12, 0, 0, 0, utc),
+        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
         self.assertEquals(action, CANCELEVENT_SHOULD_DELETE)
 
     def test_cancelAsAttendee(self):
         # A repeating meeting event where purged CUA is an attendee
         event = Component.fromString(REPEATING_ATTENDEE_MEETING_ICS)
-        action = cancelEvent(event, datetime(2010, 12, 6, 12, 0, 0, 0, utc),
+        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
         self.assertEquals(action, CANCELEVENT_SHOULD_DELETE)
 
@@ -263,20 +269,20 @@ CALSCALE:GREGORIAN
 PRODID:-//Apple Inc.//iCal 4.0.4//EN
 BEGIN:VTIMEZONE
 TZID:US/Pacific
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
 BEGIN:DAYLIGHT
 DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
 TZNAME:PDT
 TZOFFSETFROM:-0800
 TZOFFSETTO:-0700
 END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
 END:VTIMEZONE
 BEGIN:VEVENT
 UID:59E260E3-1644-4BDF-BBC6-6130B0C3A520
@@ -337,20 +343,20 @@ CALSCALE:GREGORIAN
 PRODID:-//Apple Inc.//iCal 4.0.4//EN
 BEGIN:VTIMEZONE
 TZID:US/Pacific
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
 BEGIN:DAYLIGHT
 DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
 TZNAME:PDT
 TZOFFSETFROM:-0800
 TZOFFSETTO:-0700
 END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
 END:VTIMEZONE
 BEGIN:VEVENT
 UID:59E260E3-1644-4BDF-BBC6-6130B0C3A520
@@ -498,20 +504,20 @@ CALSCALE:GREGORIAN
 PRODID:-//Apple Inc.//iCal 4.0.4//EN
 BEGIN:VTIMEZONE
 TZID:US/Pacific
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
 BEGIN:DAYLIGHT
 DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
 TZNAME:PDT
 TZOFFSETFROM:-0800
 TZOFFSETTO:-0700
 END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
 END:VTIMEZONE
 BEGIN:VEVENT
 UID:97B243D3-D252-4034-AA6D-9AE34E063991
@@ -532,20 +538,20 @@ CALSCALE:GREGORIAN
 PRODID:-//Apple Inc.//iCal 4.0.4//EN
 BEGIN:VTIMEZONE
 TZID:US/Pacific
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
 BEGIN:DAYLIGHT
 DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
 TZNAME:PDT
 TZOFFSETFROM:-0800
 TZOFFSETTO:-0700
 END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
 END:VTIMEZONE
 BEGIN:VEVENT
 UID:4E4D0C8C-6546-4777-9BF5-AD629C05E7D5
@@ -567,20 +573,20 @@ CALSCALE:GREGORIAN
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VTIMEZONE
 TZID:US/Pacific
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
 BEGIN:DAYLIGHT
 DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
 TZNAME:PDT
 TZOFFSETFROM:-0800
 TZOFFSETTO:-0700
 END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
 END:VTIMEZONE
 BEGIN:VEVENT
 UID:111A679F-EF8E-4CA5-9262-7C805E2C184D

@@ -89,16 +89,15 @@ def dropboxIDFromCalendarObject(calendarObject):
     # Now look at each ATTACH property and see if it might be a dropbox item
     # and if so extract the id from that
 
-    attachments = (yield calendarObject.component()
-        ).getAllPropertiesInAnyComponent(
+    attachments = (yield calendarObject.component()).getAllPropertiesInAnyComponent(
         "ATTACH",
         depth=1,
     )
     for attachment in attachments:
 
         # Make sure the value type is URI and http(s) and it is in a dropbox
-        valueType = attachment.params().get("VALUE", ("TEXT",))
-        if valueType[0] == "URI" and attachment.value().startswith("http"):
+        valueType = attachment.parameterValue("VALUE", "URI")
+        if valueType == "URI" and attachment.value().startswith("http"):
             segments = attachment.value().split("/")
             try:
                 if segments[-3] == "dropbox":

@@ -29,15 +29,12 @@ __all__ = [
     "buildFreeBusyResult",
 ]
 
-import datetime
 import time
 
 try:
     from hashlib import md5
 except ImportError:
     from md5 import new as md5
-
-from vobject.icalendar import utc, dateTimeToString
 
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
@@ -62,7 +59,7 @@ from twistedcaldav.datafilters.calendardata import CalendarDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.datafilters.addressdata import AddressDataFilter
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap,\
-    compareDateTime, normalizeToUTC
+    compareDateTime, normalizeToUTC, parseSQLTimestampToPyCalendar
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.memcacher import Memcacher
@@ -70,6 +67,11 @@ from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.query import calendarqueryfilter
 
 from txdav.common.icommondatastore import IndexedSearchException
+
+from pycalendar.duration import PyCalendarDuration
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.period import PyCalendarPeriod
 
 log = Logger()
 
@@ -403,8 +405,8 @@ class FBCacheEntry(object):
         if entry:
     
             # Offset one day at either end to account for floating
-            cached_start = entry.timerange.start + datetime.timedelta(days=FBCacheEntry.CACHE_DAYS_FLOATING_ADJUST)
-            cached_end = entry.timerange.end - datetime.timedelta(days=FBCacheEntry.CACHE_DAYS_FLOATING_ADJUST)
+            cached_start = entry.timerange.start + PyCalendarDuration(days=FBCacheEntry.CACHE_DAYS_FLOATING_ADJUST)
+            cached_end = entry.timerange.end - PyCalendarDuration(days=FBCacheEntry.CACHE_DAYS_FLOATING_ADJUST)
 
             # Verify that the requested timerange lies within the cache timerange
             if compareDateTime(timerange.end, cached_end) <= 0 and compareDateTime(timerange.start, cached_start) >= 0:
@@ -481,12 +483,12 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
             request.extendedLogItems["fb-uncached"] = request.extendedLogItems.get("fb-uncached", 0) + 1
 
             # We want to cache a large range of time based on the current date
-            cache_start = normalizeToUTC(datetime.date.today() - datetime.timedelta(days=config.FreeBusyCacheDaysBack))
-            cache_end = normalizeToUTC(datetime.date.today() + datetime.timedelta(days=config.FreeBusyCacheDaysForward))
+            cache_start = normalizeToUTC(PyCalendarDateTime.getToday() + PyCalendarDuration(days=-config.FreeBusyCacheDaysBack))
+            cache_end = normalizeToUTC(PyCalendarDateTime.getToday() + PyCalendarDuration(days=config.FreeBusyCacheDaysForward))
             
             # If the requested timerange would fit in our allowed cache range, trigger the cache creation
             if compareDateTime(timerange.start, cache_start) >= 0 and compareDateTime(timerange.end, cache_end) <= 0:
-                cache_timerange = TimeRange(start=dateTimeToString(cache_start), end=dateTimeToString(cache_end))
+                cache_timerange = TimeRange(start=cache_start.getText(), end=cache_end.getText())
                 caching = True
  
         #
@@ -568,19 +570,19 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                             continue
                         
                 # Apply a timezone to any floating times
-                fbstart = datetime.datetime.strptime(start[:19], "%Y-%m-%d %H:%M:%S")
+                fbstart = parseSQLTimestampToPyCalendar(start)
                 if float == 'Y':
-                    fbstart = fbstart.replace(tzinfo=tzinfo)
+                    fbstart.setTimezone(tzinfo)
                 else:
-                    fbstart = fbstart.replace(tzinfo=utc)
-                fbend =datetime.datetime.strptime(end[:19], "%Y-%m-%d %H:%M:%S")
+                    fbstart.setTimezone(PyCalendarTimezone(utc=True))
+                fbend = parseSQLTimestampToPyCalendar(end)
                 if float == 'Y':
-                    fbend = fbend.replace(tzinfo=tzinfo)
+                    fbend.setTimezone(tzinfo)
                 else:
-                    fbend = fbend.replace(tzinfo=utc)
+                    fbend.setTimezone(PyCalendarTimezone(utc=True))
                 
-                # Click instance to time range
-                clipped = clipPeriod((fbstart, fbend - fbstart), (timerange.start, timerange.end))
+                # Clip instance to time range
+                clipped = clipPeriod(PyCalendarPeriod(fbstart, duration=fbend-fbstart), PyCalendarPeriod(timerange.start, timerange.end))
 
                 # Double check for overlap
                 if clipped:
@@ -642,7 +644,7 @@ def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
     @param calendar: the L{Component} that is the VCALENDAR containing the VEVENT's.
     @param fbinfo: the tuple used to store the three types of fb data.
     @param timerange: the time range to restrict free busy data to.
-    @param tzinfo: the L{datetime.tzinfo} for the timezone to use for floating/all-day events.
+    @param tzinfo: the L{PyCalendarTimezone} for the timezone to use for floating/all-day events.
     """
     
     # Expand out the set of instances for the event with in the required range
@@ -651,7 +653,7 @@ def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
     # Can only do timed events
     for key in instances:
         instance = instances[key]
-        if not isinstance(instance.start, datetime.datetime):
+        if instance.start.isDateOnly():
             return
         break
     else:
@@ -662,11 +664,11 @@ def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
 
         # Apply a timezone to any floating times
         fbstart = instance.start
-        if fbstart.tzinfo is None:
-            fbstart = fbstart.replace(tzinfo=tzinfo)
+        if fbstart.floating():
+            fbstart.setTimezone(tzinfo)
         fbend = instance.end
-        if fbend.tzinfo is None:
-            fbend = fbend.replace(tzinfo=tzinfo)
+        if fbend.floating():
+            fbend.setTimezone(tzinfo)
         
         # Check TRANSP property of underlying component
         if instance.component.hasProperty("TRANSP"):
@@ -687,10 +689,10 @@ def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
         # Clip period for this instance - use duration for period end if that
         # is what original component used
         if instance.component.hasProperty("DURATION"):
-            period = (fbstart, fbend - fbstart)
+            period = PyCalendarPeriod(fbstart, duration=fbend-fbstart)
         else:
-            period = (fbstart, fbend)
-        clipped = clipPeriod(period, (timerange.start, timerange.end))
+            period = PyCalendarPeriod(fbstart, fbend)
+        clipped = clipPeriod(period, PyCalendarPeriod(timerange.start, timerange.end))
         
         # Double check for overlap
         if clipped:
@@ -706,7 +708,7 @@ def processFreeBusyFreeBusy(calendar, fbinfo, timerange):
     @param fbinfo: the tuple used to store the three types of fb data.
     @param timerange: the time range to restrict free busy data to.
     """
-    
+
     for vfb in [x for x in calendar.subcomponents() if x.name() == "VFREEBUSY"]:
         # First check any start/end in the actual component
         start = vfb.getStartDateUTC()
@@ -718,10 +720,7 @@ def processFreeBusyFreeBusy(calendar, fbinfo, timerange):
         # Now look at each FREEBUSY property
         for fb in vfb.properties("FREEBUSY"):
             # Check the type
-            if "FBTYPE" in fb.params():
-                fbtype = fb.params()["FBTYPE"][0]
-            else:
-                fbtype = "BUSY"
+            fbtype = fb.parameterValue("FBTYPE", default="BUSY")
             if fbtype == "FREE":
                 continue
             
@@ -729,7 +728,7 @@ def processFreeBusyFreeBusy(calendar, fbinfo, timerange):
             assert isinstance(fb.value(), list), "FREEBUSY property does not contain a list of values: %r" % (fb,)
             for period in fb.value():
                 # Clip period for this instance
-                clipped = clipPeriod(period, (timerange.start, timerange.end))
+                clipped = clipPeriod(period.getValue(), PyCalendarPeriod(timerange.start, timerange.end))
                 if clipped:
                     fbinfo[fbtype_mapper.get(fbtype, 0)].append(clipped)
 
@@ -746,12 +745,12 @@ def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
         # Get overall start/end
         start = vav.getStartDateUTC()
         if start is None:
-            start = datetime.datetime(1900, 1, 1, 0, 0, 0, tzinfo=utc)
+            start = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
         end = vav.getEndDateUTC()
         if end is None:
-            end = datetime.datetime(3000, 1, 1, 0, 0, 0, tzinfo=utc)
-        period = (start, end)
-        overall = clipPeriod(period, (timerange.start, timerange.end))
+            end = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        period = PyCalendarPeriod(start, end)
+        overall = clipPeriod(period, PyCalendarPeriod(timerange.start, timerange.end))
         if overall is None:
             continue
         
@@ -762,11 +761,11 @@ def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
         busyperiods = []
         last_end = timerange.start
         for period in periods:
-            if last_end < period[0]:
-                busyperiods.append((last_end, period[0]))
-            last_end = period[1]
+            if last_end < period.getStart():
+                busyperiods.append(PyCalendarPeriod(last_end, period.getStart()))
+            last_end = period.getEnd()
         if last_end < timerange.end:
-            busyperiods.append((last_end, timerange.end))
+            busyperiods.append(PyCalendarPeriod(last_end, timerange.end))
 
         # Add to actual results mapped by busy type
         fbtype = vav.propertyValue("BUSYTYPE")
@@ -803,19 +802,19 @@ def processAvailablePeriods(calendar, timerange):
             # Ignore any with floating times (which should not happen as the spec requires UTC or local
             # but we will try and be safe here).
             start = instance.start
-            if start.tzinfo is None:
+            if start.floating():
                 continue
             end = instance.end
-            if end.tzinfo is None:
+            if end.floating():
                 continue
 
             # Clip period for this instance - use duration for period end if that
             # is what original component used
             if instance.component.hasProperty("DURATION"):
-                period = (start, end - start)
+                period = PyCalendarPeriod(start, duration=end-start)
             else:
-                period = (start, end)
-            clipped = clipPeriod(period, (timerange.start, timerange.end))
+                period = PyCalendarPeriod(start, end)
+            clipped = clipPeriod(period, PyCalendarPeriod(timerange.start, timerange.end))
             if clipped:
                 periods.append(clipped)
             
@@ -842,6 +841,7 @@ def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=No
     
     # Now build a new calendar object with the free busy info we have
     fbcalendar = Component("VCALENDAR")
+    fbcalendar.addProperty(Property("VERSION", "2.0"))
     fbcalendar.addProperty(Property("PRODID", iCalendarProductID))
     if method:
         fbcalendar.addProperty(Property("METHOD", method))
@@ -853,13 +853,13 @@ def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=No
         fb.addProperty(attendee)
     fb.addProperty(Property("DTSTART", timerange.start))
     fb.addProperty(Property("DTEND", timerange.end))
-    fb.addProperty(Property("DTSTAMP", datetime.datetime.now(tz=utc)))
+    fb.addProperty(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
     if len(fbinfo[0]) != 0:
-        fb.addProperty(Property("FREEBUSY", fbinfo[0], {"FBTYPE": ["BUSY"]}))
+        fb.addProperty(Property("FREEBUSY", fbinfo[0], {"FBTYPE": "BUSY"}))
     if len(fbinfo[1]) != 0:
-        fb.addProperty(Property("FREEBUSY", fbinfo[1], {"FBTYPE": ["BUSY-TENTATIVE"]}))
+        fb.addProperty(Property("FREEBUSY", fbinfo[1], {"FBTYPE": "BUSY-TENTATIVE"}))
     if len(fbinfo[2]) != 0:
-        fb.addProperty(Property("FREEBUSY", fbinfo[2], {"FBTYPE": ["BUSY-UNAVAILABLE"]}))
+        fb.addProperty(Property("FREEBUSY", fbinfo[2], {"FBTYPE": "BUSY-UNAVAILABLE"}))
     if uid is not None:
         fb.addProperty(Property("UID", uid))
     else:

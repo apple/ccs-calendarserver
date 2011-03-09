@@ -14,11 +14,8 @@
 # limitations under the License.
 ##
 
-import datetime
 import time
 from hashlib import md5
-
-from vobject.icalendar import dateTimeToString, utc
 
 from twisted.python.log import err as log_traceback
 from twext.python.log import Logger
@@ -37,6 +34,9 @@ from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipProcessing, iTIPRequestStatus
 from twistedcaldav.scheduling.utils import getCalendarObjectForPrincipals
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
+from pycalendar.duration import PyCalendarDuration
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
 
 __all__ = [
     "ImplicitProcessor",
@@ -480,8 +480,8 @@ class ImplicitProcessor(object):
         log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - checking for auto-reply" % (self.recipient.cuaddr, self.uid))
 
         # First expand current one to get instances (only go 1 year into the future)
-        default_future_expansion_duration = datetime.timedelta(days=356*1)
-        expand_max = datetime.date.today() + default_future_expansion_duration
+        default_future_expansion_duration = PyCalendarDuration(days=356*1)
+        expand_max = PyCalendarDateTime.getToday() + default_future_expansion_duration
         instances = calendar.expandTimeRanges(expand_max, ignoreInvalidInstances=True)
         instance_states = dict([(instance, True) for instance in instances.instances.itervalues()])
         
@@ -501,9 +501,9 @@ class ImplicitProcessor(object):
             has_prop = (yield testcal.hasProperty((caldav_namespace, "calendar-timezone"), self.request))
             if has_prop:
                 tz = (yield testcal.readProperty((caldav_namespace, "calendar-timezone"), self.request))
-                tzinfo = tz.calendar().gettzinfo()
+                tzinfo = tz.calendar().gettimezone()
             else:
-                tzinfo = utc
+                tzinfo = PyCalendarTimezone(utc=True)
 
             # Now do search for overlapping time-range
             for instance in instances.instances.itervalues():
@@ -513,15 +513,18 @@ class ImplicitProcessor(object):
                         fbinfo = ([], [], [])
                         
                         def makeTimedUTC(dt):
-                            if isinstance(dt, datetime.date) and not isinstance(dt, datetime.datetime):
-                                dt = datetime.datetime.fromordinal(dt.toordinal())
-                            if dt.tzinfo is None:
-                                dt = dt.replace(tzinfo=tzinfo).astimezone(utc)
+                            dt = dt.duplicate()
+                            if dt.isDateOnly():
+                                dt.setDateOnly(False)
+                                dt.setHHMMSS(0, 0, 0)
+                            if dt.floating():
+                                dt.setTimezone(tzinfo)
+                                dt.adjustToUTC()
                             return dt
                         
                         tr = caldavxml.TimeRange(
-                            start=dateTimeToString(makeTimedUTC(instance.start)),
-                            end=dateTimeToString(makeTimedUTC(instance.end)),
+                            start=str(makeTimedUTC(instance.start)),
+                            end=str(makeTimedUTC(instance.end)),
                         )
 
                         yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid, servertoserver=True)
@@ -692,14 +695,14 @@ class ImplicitProcessor(object):
 
         madeChanges = False
         for attendee in attendees:
-            if attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != partstat:
-                attendee.params()["PARTSTAT"] = [partstat]
+            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != partstat:
+                attendee.setParameter("PARTSTAT", partstat)
                 madeChanges = True
 
             # Always remove RSVP - this is only an attendee change so madeChanges
             # does not need to be changed
             try:
-                del attendee.params()["RSVP"]
+                attendee.removeParameter("RSVP")
             except KeyError:
                 pass
 

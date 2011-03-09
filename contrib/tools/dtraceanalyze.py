@@ -31,8 +31,10 @@ class Dtrace(object):
         
         prefix_maps = {
             "/usr/share/caldavd/lib/python/": "{caldavd}/",
+            "/System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.6": "{Python}",
             "/System/Library/Frameworks/Python.framework/Versions/2.6/lib/python2.6": "{Python}",
             "/System/Library/Frameworks/Python.framework/Versions/2.5/lib/python2.5": "{Python}",
+            "/System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python": "{Extras}",
             "/System/Library/Frameworks/Python.framework/Versions/2.6/Extras/lib/python": "{Extras}",
             "/System/Library/Frameworks/Python.framework/Versions/2.5/Extras/lib/python": "{Extras}",
         }

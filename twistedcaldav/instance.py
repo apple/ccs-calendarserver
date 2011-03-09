@@ -13,16 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
-from pycalendar.period import PyCalendarPeriod
-from pycalendar.timezone import PyCalendarTimezone
 
 """
 iCalendar Recurrence Expansion Utilities
 """
 
 from twistedcaldav.dateops import normalizeForIndex, differenceDateTime
+
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.duration import PyCalendarDuration
+from pycalendar.period import PyCalendarPeriod
+from pycalendar.timezone import PyCalendarTimezone
 
 # The maximum number of instances we will expand out to.
 # Raise a TooManyInstancesError exception if we exceed this.
@@ -75,8 +76,10 @@ class Instance(object):
             
             # Handle repeats
             if repeat > 0:
-                for i in xrange(1, repeat+1):
-                    triggers.add(start + (duration * i))
+                tstart = start.duplicate()
+                for _ignore in xrange(1, repeat+1):
+                    tstart += duration
+                    triggers.add(tstart)
         
         return triggers
     
@@ -104,7 +107,7 @@ class InstanceList(object):
         @param componentSet: the set of components that are to make up the
                 recurrence set. These MUST all be components with the same UID
                 and type, forming a proper recurring set.
-        @param limit: datetime.date value representing the end of the expansion.
+        @param limit: L{PyCalendarDateTime} value representing the end of the expansion.
         """
         
         # Look at each component type
@@ -167,11 +170,12 @@ class InstanceList(object):
         Add the specified master VEVENT Component to the instance list, expanding it
         within the supplied time range.
         @param component: the Component to expand
-        @param limit: the end datetime.datetime for expansion
+        @param limit: the end L{PyCalendarDateTime} for expansion
         """
         start = component.getStartDateUTC()
         if start is None:
             return
+        rulestart = component.propertyValue("DTSTART")
 
         end = component.getEndDateUTC()
         duration = None
@@ -186,7 +190,7 @@ class InstanceList(object):
         else:
             duration = differenceDateTime(start, end)
 
-        self._addMasterComponent(component, limit, start, end, duration)
+        self._addMasterComponent(component, limit, rulestart, start, end, duration)
 
     def _addOverrideEventComponent(self, component, limit, got_master):
         """
@@ -220,7 +224,7 @@ class InstanceList(object):
         Add the specified master VTODO Component to the instance list, expanding it
         within the supplied time range.
         @param component: the Component to expand
-        @param limit: the end datetime.datetime for expansion
+        @param limit: the end L{PyCalendarDateTime} for expansion
         """
         start = component.getStartDateUTC()
         due = component.getDueDateUTC()
@@ -228,13 +232,15 @@ class InstanceList(object):
         if start is None and due is None:
             return
 
+        rulestart = component.propertyValue("DTSTART")
         if start is None:
             start = due
+            rulestart = component.propertyValue("DUE")
         elif due is None:
             due = start
         duration = differenceDateTime(start, due)
 
-        self._addMasterComponent(component, limit, start, due, duration)
+        self._addMasterComponent(component, limit, rulestart, start, due, duration)
 
     def _addOverrideToDoComponent(self, component, limit, got_master):
         """
@@ -259,13 +265,13 @@ class InstanceList(object):
 
         self._addOverrideComponent(component, limit, start, due, got_master)
 
-    def _addMasterComponent(self, component, limit, start, end, duration):
+    def _addMasterComponent(self, component, limit, rulestart, start, end, duration):
         
         rrules = component.getRecurrenceSet()
         if rrules is not None:
             # Do recurrence set expansion
             expanded = []
-            limited = rrules.expand(start, PyCalendarPeriod(start, limit), expanded)
+            limited = rrules.expand(rulestart, PyCalendarPeriod(start, limit), expanded)
             for startDate in expanded:
                 startDate = normalizeForIndex(startDate)
                 endDate = startDate + duration
@@ -343,7 +349,7 @@ class InstanceList(object):
         Add the specified master VFREEBUSY Component to the instance list, expanding it
         within the supplied time range.
         @param component: the Component to expand
-        @param limit: the end datetime.datetime for expansion
+        @param limit: the end L{PyCalendarDateTime} for expansion
         """
 
         start = component.getStartDateUTC()
@@ -361,6 +367,7 @@ class InstanceList(object):
             assert isinstance(fb.value(), list), "FREEBUSY property does not contain a list of values: %r" % (fb,)
             for period in fb.value():
                 # Ignore if period starts after limit
+                period = period.getValue()
                 if period.getStart() >= limit:
                     continue
                 start = normalizeForIndex(period.getStart())
@@ -375,7 +382,7 @@ class InstanceList(object):
         depending on the presence of the properties. If unbounded at one or both ends, we will
         set the time to 1/1/1900 in the past and 1/1/3000 in the future.
         @param component: the Component to expand
-        @param limit: the end datetime.datetime for expansion
+        @param limit: the end L{PyCalendarDateTime} for expansion
         """
 
         start = component.getStartDateUTC()

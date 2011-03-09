@@ -781,7 +781,7 @@ class MailHandler(LoggingMixIn):
             # The organizer will then see that the reply was not successful.
             attendeeProp = Property("ATTENDEE", attendee,
                 params = {
-                    "SCHEDULE-STATUS": [iTIPRequestStatus.SERVICE_UNAVAILABLE],
+                    "SCHEDULE-STATUS": iTIPRequestStatus.SERVICE_UNAVAILABLE,
                 }
             )
             event.addProperty(attendeeProp)
@@ -833,17 +833,16 @@ class MailHandler(LoggingMixIn):
         # readable email message (not modifying the calendar body)
         attendees = []
         for attendeeProp in calendar.getAllAttendeeProperties():
-            params = attendeeProp.params()
-            cutype = params.get('CUTYPE', (None,))[0]
+            cutype = attendeeProp.parameterValue('CUTYPE', None)
             if cutype == "INDIVIDUAL":
-                cn = params.get("CN", (None,))[0]
+                cn = attendeeProp.parameterValue("CN", None)
                 cuaddr = normalizeCUAddr(attendeeProp.value())
                 if cuaddr.startswith("mailto:"):
                     mailto = cuaddr[7:]
                     if not cn:
                         cn = mailto
                 else:
-                    emailAddress = params.get("EMAIL", (None,))[0]
+                    emailAddress = attendeeProp.parameterValue("EMAIL", None)
                     if emailAddress:
                         mailto = emailAddress
                     else:
@@ -898,7 +897,7 @@ class MailHandler(LoggingMixIn):
             else:
                 fromAddr = serverAddress
                 orgEmail = None
-            cn = calendar.getOrganizerProperty().params().get('CN', (None,))[0]
+            cn = calendar.getOrganizerProperty().parameterValue('CN', None)
             if cn is None:
                 cn = 'Calendar Server'
                 orgCN = orgEmail
@@ -920,19 +919,18 @@ class MailHandler(LoggingMixIn):
                 raise ValueError("ORGANIZER address '%s' must be mailto: for REPLY." % (organizerMailto,))
             orgEmail = organizerMailto[7:]
 
-            orgCN = calendar.getOrganizerProperty().params().get('CN', (None,))[0]
+            orgCN = calendar.getOrganizerProperty().parameterValue('CN', None)
             addressWithToken = formattedFrom
 
 
         # Now prevent any "internal" CUAs from being exposed by converting
         # to mailto: if we have one
         for attendeeProp in calendar.getAllAttendeeProperties():
-            params = attendeeProp.params()
-            cutype = params.get('CUTYPE', (None,))[0]
+            cutype = attendeeProp.parameterValue('CUTYPE', None)
             if cutype == "INDIVIDUAL":
                 cuaddr = normalizeCUAddr(attendeeProp.value())
                 if not cuaddr.startswith("mailto:"):
-                    emailAddress = params.get("EMAIL", (None,))[0]
+                    emailAddress = attendeeProp.parameterValue("EMAIL", None)
                     if emailAddress:
                         attendeeProp.setValue("mailto:%s" % (emailAddress,))
 
@@ -1221,9 +1219,9 @@ class MailHandler(LoggingMixIn):
 
         results = { }
 
-        dtStart = component.propertyNativeValue("DTSTART")
-        results['month'] = dtStart.month
-        results['day'] = dtStart.day
+        dtStart = component.propertyValue("DTSTART")
+        results['month'] = dtStart.getMonth()
+        results['day'] = dtStart.getDay()
 
         summary = component.propertyValue("SUMMARY")
         if summary is None:

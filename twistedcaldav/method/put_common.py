@@ -620,7 +620,7 @@ class StoreCalendarObjectResource(object):
             )
             attachments = [
                 attachment for attachment in attachments
-                if attachment.params().get("VALUE", ("TEXT",))[0] == "URI" and attachment.value().startswith("http")
+                if attachment.paramsValue("VALUE", "TEXT") == "URI" and attachment.value().startswith("http")
             ]
 
             if len(xdropboxes) or len(attachments):

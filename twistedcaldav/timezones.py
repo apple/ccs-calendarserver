@@ -16,13 +16,9 @@
 
 import os
 
-import vobject
-from vobject.icalendar import getTzid
-from vobject.icalendar import registerTzid
-
 from twext.python.log import Logger
 
-from twistedcaldav.ical import Component
+from pycalendar.timezonedb import PyCalendarTimezoneDatabase
 
 log = Logger()
 
@@ -51,114 +47,55 @@ class TimezoneException(Exception):
 
 class TimezoneCache(object):
     
-    activeCache = None
+    dirName = None
 
     @staticmethod
-    def create():
-        if TimezoneCache.activeCache is None:
-            TimezoneCache.activeCache = TimezoneCache()
-            TimezoneCache.activeCache.register()
-        
-    def __init__(self):
-        self._caching = False
-
-    def register(self):
-        self.vobjectRegisterTzid = registerTzid
-        vobject.icalendar.registerTzid = self.registerTzidFromCache
-    
-    def unregister(self):
-        vobject.icalendar.registerTzid = self.vobjectRegisterTzid
-
-    def loadTimezone(self, tzid):
-        # Make sure it is not already loaded
-        if getTzid(tzid) != None:
-            return False
-
-        tzData = readTZ(tzid)
-        calendar = Component.fromString(tzData)
-
-        if calendar.name() != "VCALENDAR":
-            raise TimezoneException("%s does not contain valid iCalendar data." % (tzid,))
-
-        # Check that we now have it cached
-        if getTzid(tzid) == None:
-            raise TimezoneException("Could not read timezone %s from timezone cache." % (tzid,))
-        
-        return True
-
-    def registerTzidFromCache(self, tzid, tzinfo):
-        if not self._caching:
-            self._caching = True
+    def _getDBPath():
+        if TimezoneCache.dirName is None:
             try:
-                self.loadTimezone(tzid)
-            except TimezoneException:
-                # Fallback to vobject processing the actual tzdata
-                log.err("Cannot load timezone data for %s from timezone cache" % (tzid,))
-                self.vobjectRegisterTzid(tzid, tzinfo)
-            self._caching = False
+                import pkg_resources
+            except ImportError:
+                TimezoneCache.dirName = os.path.join(os.path.dirname(__file__), "zoneinfo")
+            else:
+                TimezoneCache.dirName = pkg_resources.resource_filename("twistedcaldav", "zoneinfo")
+        
+        return TimezoneCache.dirName
+
+    @staticmethod
+    def create(dbpath=None):
+        PyCalendarTimezoneDatabase.createTimezoneDatabase(TimezoneCache._getDBPath() if dbpath is None else dbpath)
+    
+    @staticmethod
+    def clear():
+        PyCalendarTimezoneDatabase.clearTimezoneDatabase()
+
+# zoneinfo never changes in a running instance so cache all this data as we use it
+cachedTZs = {}
+cachedTZIDs = []
+
+def readTZ(tzid):
+
+    if tzid not in cachedTZs:
+        
+        tzcal = PyCalendarTimezoneDatabase.getTimezoneInCalendar(tzid)
+        if tzcal:
+            cachedTZs[tzid] = str(tzcal)
         else:
-            self.vobjectRegisterTzid(tzid, tzinfo)
-
-try:
-    # zoneinfo never changes in a running instance so cache all this data as we use it
-    cachedTZs = {}
-    cachedTZIDs = []
-
-    import pkg_resources
-except ImportError:
-    #
-    # We don't have pkg_resources, so assume file paths work, since that's all we have
-    #
-    
-    dirname = os.path.join(os.path.dirname(__file__), "zoneinfo")
-    def readTZ(tzid):
-
-        if tzid not in cachedTZs:
-            tzpath = os.path.join(*tzid.split("/")) # Don't assume "/" from tzid is a path separator
-            tzpath = os.path.join(dirname, tzpath + ".ics")
-            try:
-                cachedTZs[tzid] = file(tzpath).read()
-            except IOError:
-                raise TimezoneException("Unknown time zone: %s" % (tzid,))
-            
-        return cachedTZs[tzid]
+            raise TimezoneException("Unknown time zone: %s" % (tzid,))
         
-    def listTZs(path=""):
-        if not path and cachedTZIDs:
-            return cachedTZIDs
+    return cachedTZs[tzid]
 
-        result = []
-        for item in os.listdir(os.path.join(dirname, path)):
-            if item.find('.') == -1:
-                result.extend(listTZs(os.path.join(path, item)))
-            elif item.endswith(".ics"):
-                result.append(os.path.join(path, item[:-4]))
-                
-        if not path:
-            cachedTZIDs.extend(result)
-        return result
-else:
-    def readTZ(tzid):
-        if tzid not in cachedTZs:
-            # Here, "/" is always the path separator
-            try:
-                cachedTZs[tzid] = pkg_resources.resource_stream("twistedcaldav", "zoneinfo/%s.ics" % (tzid,)).read()
-            except IOError:
-                raise TimezoneException("Unknown time zone: %s" % (tzid,))
+def listTZs(path=""):
+    if not path and cachedTZIDs:
+        return cachedTZIDs
+
+    result = []
+    for item in os.listdir(os.path.join(TimezoneCache._getDBPath(), path)):
+        if item.find('.') == -1:
+            result.extend(listTZs(os.path.join(path, item)))
+        elif item.endswith(".ics"):
+            result.append(os.path.join(path, item[:-4]))
             
-        return cachedTZs[tzid]
-
-    def listTZs(path=""):  
-        if not path and cachedTZIDs:
-            return cachedTZIDs
-
-        result = []
-        for item in pkg_resources.resource_listdir("twistedcaldav", os.path.join("zoneinfo", path)):
-            if item.find('.') == -1:
-                result.extend(listTZs(os.path.join(path, item)))
-            elif item.endswith(".ics"):
-                result.append(os.path.join(path, item[:-4]))
-                
-        if not path:
-            cachedTZIDs.extend(result)
-        return result
+    if not path:
+        cachedTZIDs.extend(result)
+    return result

@@ -51,16 +51,182 @@ class iCalendar (twistedcaldav.test.util.TestCase):
                 SkipTest("test unimplemented")
 
     def test_component_equality(self):
-        for filename in (
-            os.path.join(self.data_dir, "Holidays", "C318A4BA-1ED0-11D9-A5E0-000A958A3252.ics"),
-            os.path.join(self.data_dir, "Holidays.ics"),
-        ):
-            data = file(filename).read()
-
-            calendar1 = Component.fromString(data)
-            calendar2 = Component.fromString(data)
-
-            self.assertEqual(calendar1, calendar2)
+#        for filename in (
+#            os.path.join(self.data_dir, "Holidays", "C318A4BA-1ED0-11D9-A5E0-000A958A3252.ics"),
+#            os.path.join(self.data_dir, "Holidays.ics"),
+#        ):
+#            data = file(filename).read()
+#
+#            calendar1 = Component.fromString(data)
+#            calendar2 = Component.fromString(data)
+#
+#            self.assertEqual(calendar1, calendar2)
+            
+        data1 = (
+            (
+                "1.1 Switch property order",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080602T120000Z
+EXDATE:20080603T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080603T120000Z
+EXDATE:20080602T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "1.2 Switch component order",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080602T120000Z
+EXDATE:20080603T120000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080603T120000Z
+EXDATE:20080602T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "1.3 Switch VALARM order",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080602T120000Z
+EXDATE:20080603T120000Z
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test-2
+TRIGGER;RELATED=START:-PT5M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080603T120000Z
+EXDATE:20080602T120000Z
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test-2
+TRIGGER;RELATED=START:-PT5M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+        )
+        
+        for description, item1, item2, result in data1:
+            if "1.3" not in description:
+                continue
+            calendar1 = Component.fromString(item1)
+            calendar2 = Component.fromString(item2)
+            (self.assertEqual if result else self.assertNotEqual)(
+                calendar1, calendar2, "%s" % (description,)
+            )
 
     def test_component_validate(self):
         """
@@ -789,14 +955,14 @@ END:VCALENDAR
 
         for original, result in data:
             component = Component.fromString(original)
-            component.addPropertyToAllComponents(Property("REQUEST-STATUS", "2.0;Success"))
+            component.addPropertyToAllComponents(Property("REQUEST-STATUS", ["2.0", "Success"]))
             self.assertEqual(result, str(component).replace("\r", ""))        
 
     def test_attendees_views(self):
         
         data = (
-            # Simple component, no Attendees - no filtering
             (
+                "1.1 Simple component, no Attendees - no filtering",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -819,8 +985,8 @@ END:VCALENDAR
                 ()
             ),
 
-            # Simple component, no Attendees - filtering
             (
+                "1.2 Simple component, no Attendees - filtering",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -839,8 +1005,8 @@ END:VCALENDAR
                 ("mailto:user01@example.com",)
             ),
 
-            # Simple component, with one attendee - filtering match
             (
+                "1.3 Simple component, with one attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -867,8 +1033,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Simple component, with one attendee - no filtering match
             (
+                "1.4 Simple component, with one attendee - no filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -889,8 +1055,8 @@ END:VCALENDAR
                 ("mailto:user3@example.com",)
             ),
 
-            # Recurring component with one instance, each with one attendee - filtering match
             (
+                "2.1 Recurring component with one instance, each with one attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -933,8 +1099,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Recurring component with one instance, each with one attendee - no filtering match
             (
+                "2.2 Recurring component with one instance, each with one attendee - no filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -963,8 +1129,8 @@ END:VCALENDAR
                 ("mailto:user3@example.com",)
             ),        
 
-            # Recurring component with one instance, master with one attendee, instance without attendee - filtering match
             (
+                "2.3 Recurring component with one instance, master with one attendee, instance without attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1000,8 +1166,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Recurring component with one instance, master with one attendee, instance without attendee - no filtering match
             (
+                "2.4 Recurring component with one instance, master with one attendee, instance without attendee - no filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1029,8 +1195,8 @@ END:VCALENDAR
                 ("mailto:user3@example.com",)
             ),
 
-            # Recurring component with one instance, master without attendee, instance with attendee - filtering match
             (
+                "2.5 Recurring component with one instance, master without attendee, instance with attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1065,8 +1231,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Recurring component with one instance, master without attendee, instance with attendee - no filtering match
             (
+                "2.6 Recurring component with one instance, master without attendee, instance with attendee - no filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1094,8 +1260,8 @@ END:VCALENDAR
                 ("mailto:user3@example.com",)
             ),
 
-                    # Simple component, no Attendees - no filtering
             (
+                "3.1 Simple component, no Attendees - no filtering",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1118,8 +1284,8 @@ END:VCALENDAR
                 ()
             ),
 
-            # Simple component, no Attendees - filtering
             (
+                "3.2 Simple component, no Attendees - filtering",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1138,8 +1304,8 @@ END:VCALENDAR
                 ("mailto:user01@example.com",)
             ),
 
-            # Simple component, with one attendee - filtering match
             (
+                "3.3 Simple component, with one attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1166,8 +1332,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Simple component, with one attendee - filtering match
             (
+                "3.4 Simple component, with one attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1194,8 +1360,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Simple component, with one attendee - filtering match - no schedule-agent match
             (
+                "3.5 Simple component, with one attendee - filtering match - no schedule-agent match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1216,8 +1382,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Simple component, with one attendee - filtering match - no schedule-agent match
             (
+                "3.6 Simple component, with one attendee - filtering match - no schedule-agent match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1240,10 +1406,10 @@ END:VCALENDAR
 
         )
         
-        for original, checkScheduleAgent, filtered, attendees in data:
+        for description, original, checkScheduleAgent, filtered, attendees in data:
             component = Component.fromString(original)
             component.attendeesView(attendees, onlyScheduleAgentServer=checkScheduleAgent)
-            self.assertEqual(filtered, str(component).replace("\r", ""))
+            self.assertEqual(filtered, str(component).replace("\r", ""), "Failed: %s" % (description,))
 
     def test_all_but_one_attendee(self):
         
@@ -1737,7 +1903,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1752,7 +1918,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 END:VCALENDAR
@@ -1771,7 +1937,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=2
 RDATE:20071116T010000Z
 END:VEVENT
@@ -1792,7 +1958,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=3
 EXDATE:20071115T000000Z
 END:VEVENT
@@ -1812,7 +1978,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=3
 EXDATE:20071114T000000Z
 END:VEVENT
@@ -1832,14 +1998,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1857,14 +2023,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T010000Z
 DTSTART:20071115T000000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1879,14 +2045,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T010000Z
 DTSTART:20071115T000000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1919,7 +2085,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1934,7 +2100,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1949,14 +2115,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1971,14 +2137,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1993,14 +2159,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -2015,14 +2181,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -2037,14 +2203,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -2059,14 +2225,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -2090,7 +2256,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 END:VEVENT
 END:VCALENDAR
@@ -2101,7 +2267,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM2:True
 END:VEVENT
 END:VCALENDAR
@@ -2112,7 +2278,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 X-ITEM2:True
 END:VEVENT
@@ -2128,7 +2294,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 END:VEVENT
 END:VCALENDAR
@@ -2139,7 +2305,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM2:True
 X-ITEM3:True
 END:VEVENT
@@ -2151,7 +2317,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 X-ITEM2:True
 X-ITEM3:True
@@ -2168,7 +2334,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 END:VEVENT
 END:VCALENDAR
@@ -2179,7 +2345,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM2:True
 X-ITEM1:False
 END:VEVENT
@@ -2191,7 +2357,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 X-ITEM2:True
 X-ITEM1:False
@@ -2208,7 +2374,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM1:True
 END:VEVENT
@@ -2216,7 +2382,7 @@ BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:False
 END:VEVENT
 END:VCALENDAR
@@ -2227,7 +2393,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM2:True
 END:VEVENT
@@ -2235,7 +2401,7 @@ BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM2:False
 END:VEVENT
 END:VCALENDAR
@@ -2246,7 +2412,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM1:True
 X-ITEM2:True
@@ -2255,7 +2421,7 @@ BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:False
 X-ITEM2:False
 END:VEVENT
@@ -2271,7 +2437,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM1:True
 END:VEVENT
@@ -2279,7 +2445,7 @@ BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:False
 END:VEVENT
 END:VCALENDAR
@@ -2290,7 +2456,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM2:True
 END:VEVENT
@@ -2302,7 +2468,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM1:True
 X-ITEM2:True
@@ -2311,7 +2477,7 @@ BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:False
 X-ITEM2:True
 END:VEVENT
@@ -2409,6 +2575,74 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;RSVP=TRUE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+ATTENDEE:mailto:user04@example.com
+RRULE:BYDAY=MO,WE,FR;FREQ=WEEKLY;INTERVAL=1;WKST=SU
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.4",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=US/Pacific:20071114T000000
+RRULE:FREQ=WEEKLY;WKST=SU;INTERVAL=1;BYDAY=MO,WE,FR
+TRANSP:OPAQUE
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user03@example.com
+ATTENDEE;RSVP=FALSE:mailto:user04@example.com
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;_TZID=US/Pacific:20071114T080000Z
 ORGANIZER:mailto:user01@example.com
 ATTENDEE;RSVP=TRUE:mailto:user02@example.com
 ATTENDEE:mailto:user03@example.com
@@ -2852,8 +3086,6 @@ END:VCALENDAR
         )
         
         for title, calendar, rid, result in data:
-            if not title.startswith("3"):
-                continue
             ical = Component.fromString(calendar)
             derived = ical.deriveInstance(rid)
             derived = str(derived).replace("\r", "") if derived else None
