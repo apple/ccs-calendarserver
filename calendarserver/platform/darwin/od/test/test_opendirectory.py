@@ -827,7 +827,7 @@ if runTests:
                 else:
                     self.assertTrue(type(value) is str)
 
-        def test_nonascii_record(self):
+        def test_nonascii_record_by_guid(self):
 
             directory = opendirectory.odInit("/Search")
 
@@ -845,4 +845,24 @@ if runTests:
             self.assertEquals(
                 result[dsattributes.kDS1AttrDistinguishedName],
                 "Unicode Test \xc3\x90"
+            )
+
+        def test_nonascii_record_by_name(self):
+
+            directory = opendirectory.odInit("/Search")
+
+            results = opendirectory.queryRecordsWithAttribute_list(
+                directory,
+                dsattributes.kDS1AttrDistinguishedName,
+                "Unicode Test \xc3\x90",
+                dsattributes.eDSExact,
+                False,
+                dsattributes.kDSStdRecordTypeUsers,
+                USER_ATTRIBUTES,
+                count=0
+            )
+            result = results[0][1]
+            self.assertEquals(
+                result[dsattributes.kDS1AttrGeneratedUID],
+                "CA795296-D77A-4E09-A72F-869920A3D284"
             )
