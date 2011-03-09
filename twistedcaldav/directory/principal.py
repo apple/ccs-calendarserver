@@ -992,7 +992,8 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             return self
 
         if config.EnableProxyPrincipals and name in ("calendar-proxy-read", "calendar-proxy-write"):
-            return CalendarUserProxyPrincipalResource(self, name)
+            # name is required to be str
+            return CalendarUserProxyPrincipalResource(self, str(name))
         else:
             return None
 

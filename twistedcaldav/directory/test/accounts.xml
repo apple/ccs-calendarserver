@@ -95,6 +95,14 @@ limitations under the License.
     <name>a adbkonly</name>
     <email-address>a-adbkonly@example.com</email-address>
   </user>
+  <user>
+    <uid>nonascii</uid>
+    <uid>nonascii佐藤</uid>
+    <guid>320B73A1-46E2-4180-9563-782DFDBE1F63</guid>
+    <password>a</password>
+    <name>佐藤佐藤佐藤</name>
+    <email-address>nonascii@example.com</email-address>
+  </user>
   <user repeat="2">
     <uid>user%02d</uid>
     <guid>user%02d</guid>

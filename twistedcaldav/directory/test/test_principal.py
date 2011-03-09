@@ -42,6 +42,8 @@ from twistedcaldav import carddavxml
 import twistedcaldav.test.util
 
 from txdav.common.datastore.file import CommonDataStore
+from urllib import quote
+
 
 
 class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
@@ -115,14 +117,19 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 self.assertEquals(set((provisioningURL,)), set(pc.principalCollectionURL() for pc in principalCollections))
 
                 shortNames = set((yield typeResource.listChildren()))
-                self.assertEquals(shortNames, set(r.shortNames[0] for r in directory.listRecords(recordType)))
+                # Handle records with mulitple shortNames
+                expected = []
+                for r in directory.listRecords(recordType):
+                    expected.extend(r.shortNames)
+                self.assertEquals(shortNames, set(expected))
 
                 for shortName in shortNames:
                     #print "     -> %s" % (shortName,)
                     recordResource = typeResource.getChild(shortName)
                     self.failUnless(isinstance(recordResource, DirectoryPrincipalResource))
 
-                    recordURL = typeURL + shortName + "/"
+                    # shortName may be non-ascii
+                    recordURL = typeURL + quote(shortName) + "/"
                     self.assertIn(recordURL, (recordResource.principalURL(),) + tuple(recordResource.alternateURIs()))
 
                     principalCollections = recordResource.principalCollections()
