@@ -382,7 +382,7 @@ class Component (object):
                 self._parent = None
         else:
             # FIXME: figure out creating an arbitrary component
-            self._pycalendar = PyCalendar(False) if name == "VCALENDAR" else PyCalendar.makeComponent(name, None)
+            self._pycalendar = PyCalendar(add_defaults=False) if name == "VCALENDAR" else PyCalendar.makeComponent(name, None)
             self._parent = None
 
     def __str__ (self):
@@ -519,7 +519,7 @@ class Component (object):
         """
         return (
             Component(None, pycalendar=c, parent=self)
-            for c in self._pycalendar.getAllComponents()
+            for c in self._pycalendar.getComponents()
         )
 
     def addComponent(self, component):
