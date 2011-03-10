@@ -60,9 +60,9 @@ def usage_purge_events(e=None):
     print ""
     print "options:"
     print "  -h --help: print this help and exit"
-    print "  -d --days <number>: specify how many days in the past to retain (default=%d)" % (DEFAULT_RETAIN_DAYS,)
-    print "  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
     print "  -f --config <path>: Specify caldavd.plist configuration path"
+    print "  -d --days <number>: specify how many days in the past to retain (default=%d)" % (DEFAULT_RETAIN_DAYS,)
+   #print "  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
     print "  -n --dry-run: calculate how many events to purge, but do not purge data"
     print "  -v --verbose: print progress information"
     print ""
@@ -82,8 +82,8 @@ def usage_purge_orphaned_attachments(e=None):
     print ""
     print "options:"
     print "  -h --help: print this help and exit"
-    print "  -b --batch <number>: number of attachments to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
     print "  -f --config <path>: Specify caldavd.plist configuration path"
+   #print "  -b --batch <number>: number of attachments to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
     print "  -n --dry-run: calculate how many attachments to purge, but do not purge data"
     print "  -v --verbose: print progress information"
     print ""
