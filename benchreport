@@ -23,4 +23,4 @@ wd="$(cd "$(dirname "$0")" && pwd -L)";
 
 export PYTHONPATH="$("${wd}/run" -p):${wd}/../CalDAVClientLibrary/src";
 
-exec "${wd}/contrib/performance/benchmark" "$@";
+exec "${wd}/contrib/performance/report" "$@";
