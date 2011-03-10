@@ -647,6 +647,8 @@ dependencies () {
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
+  svn_get "CalDAVClientLibrary" "${top}/CalDAVClientLibrary" "${svn_uri_base}/CalDAVClientLibrary/trunk" HEAD;
+
   local pd="pydoctor-0.3";
   py_dependency -m "b000aa1fb458fe25952dadf26049ae68" \
     "pydoctor" "pydoctor" "${pd}" \
