@@ -722,7 +722,13 @@ class XMPPNotifier(LoggingMixIn):
                 self.sendDebug("Node publish failed (%s)" % (nodeName,), iq)
                 # Don't know how to proceed
                 self.unlockNode(None, nodeName)
+        except AttributeError:
+            # We did not get an XML response; most likely it was a disconnection
+            self.unlockNode(None, nodeName)
+            # Don't re-raise, just unlock and ignore
         except:
+            # Note: this block is not a "finally" because in the case of a 404
+            # we don't want to unlock yet
             self.unlockNode(None, nodeName)
             raise
 
@@ -908,6 +914,9 @@ class XMPPNotifier(LoggingMixIn):
             self.log_error("PubSub node configuration error: %s" %
                 (iq.toXml().encode('ascii', 'replace')),)
             self.sendError("Failed to configure node (%s)" % (nodeName,), iq)
+        except AttributeError:
+            # We did not get an XML response; most likely it was a disconnection
+            pass
         finally:
             self.unlockNode(None, nodeName)
 
@@ -944,6 +953,9 @@ class XMPPNotifier(LoggingMixIn):
             self.log_error("PubSub node delete error: %s" %
                 (iq.toXml().encode('ascii', 'replace')),)
             self.sendDebug("Node delete failed (%s)" % (nodeName,), iq)
+        except AttributeError:
+            # We did not get an XML response; most likely it was a disconnection
+            pass
         finally:
             self.unlockNode(None, nodeName)
 
