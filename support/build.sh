@@ -181,8 +181,8 @@ www_get () {
     if [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
       mkdir -p "${cache_deps}";
 
-      local cache_basename="$(echo "${url}" | hash)-$(basename "${url}")";
-      local cache_file="${cache_deps}/${name}-${cache_basename}";
+      local cache_basename="${name}-$(echo "${url}" | hash)-$(basename "${url}")";
+      local cache_file="${cache_deps}/${cache_basename}";
 
       check_hash () {
         local file="$1"; shift;
