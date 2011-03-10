@@ -181,8 +181,8 @@ www_get () {
     if [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
       mkdir -p "${cache_deps}";
 
-      local cache_basename="$(echo "${url}" | hash)-$(basename "${url}")";
-      local cache_file="${cache_deps}/${name}-${cache_basename}";
+      local cache_basename="${name}-$(echo "${url}" | hash)-$(basename "${url}")";
+      local cache_file="${cache_deps}/${cache_basename}";
 
       check_hash () {
         local file="$1"; shift;
@@ -622,8 +622,8 @@ dependencies () {
     "dateutil" "dateutil" "${du}" \
     "http://www.labix.org/download/python-dateutil/${du}.tar.gz";
 
-  local ld="python-ldap-2.3.12";
-  py_dependency -v "2.3.12" -m "2dadc521b2c2590d9b033894ba5c6f31" \
+  local ld="python-ldap-2.3.13";
+  py_dependency -v "2.3.13" -m "895223d32fa10bbc29aa349bfad59175" \
     "python-ldap" "python-ldap" "${ld}" \
     "http://pypi.python.org/packages/source/p/python-ldap/${ld}.tar.gz";
 
@@ -631,6 +631,11 @@ dependencies () {
   py_dependency -fie -r 219 \
     "vobject" "vobject" "vobject" \
     "http://svn.osafoundation.org/vobject/trunk";
+
+  # XXX actually PyCalendar should be imported in-place.
+  py_dependency -fie -r 137 \
+    "pycalendar" "pycalendar" "pycalendar" \
+    "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
 
   #
   # Tool dependencies.  The code itself doesn't depend on these, but
@@ -646,6 +651,8 @@ dependencies () {
     "http://pypi.python.org/packages/source/p/pyflakes/pyflakes-0.4.0.tar.gz";
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
+
+  svn_get "CalDAVClientLibrary" "${top}/CalDAVClientLibrary" "${svn_uri_base}/CalDAVClientLibrary/trunk" HEAD;
 
   local pd="pydoctor-0.3";
   py_dependency -m "b000aa1fb458fe25952dadf26049ae68" \
