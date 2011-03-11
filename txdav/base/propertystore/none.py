@@ -50,6 +50,9 @@ class PropertyStore(AbstractPropertyStore):
     def keys(self):
         return ()
 
+    def _removeResource(self):
+        pass
+
     #
     # I/O
     #

@@ -19,21 +19,25 @@ Tests for L{txdav.carddav.datastore.sql}, mostly based on
 L{txdav.carddav.datastore.test.common}.
 """
 
-from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests
-
-from txdav.common.datastore.sql import EADDRESSBOOKTYPE
-from txdav.common.datastore.test.util import buildStore
-from txdav.carddav.datastore.test.test_file import setUpAddressBookStore
+from twext.enterprise.dal.syntax import Select, Parameter
 from twext.web2.dav.element.rfc2518 import GETContentLanguage, ResourceType
-from txdav.base.propertystore.base import PropertyName
-from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 
-from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.trial import unittest
 
-from twistedcaldav import memcacher
+from twistedcaldav import memcacher, carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.vcard import Component as VCard
+from twistedcaldav.vcard import Component as VComponent
+
+from txdav.base.propertystore.base import PropertyName
+from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests,\
+    vcard4_text
+from txdav.carddav.datastore.test.test_file import setUpAddressBookStore
+from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
+from txdav.common.datastore.sql import EADDRESSBOOKTYPE
+from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.test.util import buildStore
 
 
 class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
@@ -260,3 +264,83 @@ END:VCARD
 
         yield d1
         yield d2
+
+    @inlineCallbacks
+    def test_removeAddressBookPropertiesOnDelete(self):
+        """
+        L{IAddressBookHome.removeAddressBookWithName} removes an address book that already
+        exists and makes sure properties are also removed.
+        """
+
+        # Create address book and add a property
+        home = yield self.homeUnderTest()
+        name = "remove-me"
+        addressbook = yield home.createAddressBookWithName(name)
+        resourceID = addressbook._resourceID
+        addressbookProperties = addressbook.properties()
+        
+        prop = carddavxml.AddressBookDescription.fromString("Address Book to be removed")
+        addressbookProperties[PropertyName.fromElement(prop)] = prop
+        yield self.commit()
+
+        prop = schema.RESOURCE_PROPERTY
+        _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
+                        From=prop,
+                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+
+        # Check that two properties are present
+        home = yield self.homeUnderTest()
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 2)
+        yield self.commit()
+
+        # Remove address book and check for no properties
+        home = yield self.homeUnderTest()
+        yield home.removeAddressBookWithName(name)
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()
+
+        # Recheck it
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()
+
+    @inlineCallbacks
+    def test_removeAddressBookObjectPropertiesOnDelete(self):
+        """
+        L{IAddressBookHome.removeAddressBookWithName} removes an address book object that already
+        exists and makes sure properties are also removed (which is always the case as right
+        now address book objects never have properties).
+        """
+
+        # Create address book object
+        adbk1 = yield self.addressbookUnderTest()
+        name = "4.vcf"
+        component = VComponent.fromString(vcard4_text)
+        addressobject = yield adbk1.createAddressBookObjectWithName(name, component, metadata={})
+        resourceID = addressobject._resourceID
+
+        prop = schema.RESOURCE_PROPERTY
+        _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
+                        From=prop,
+                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+
+        # No properties on existing address book object
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+
+        yield self.commit()
+
+        # Remove address book object and check for no properties
+        adbk1 = yield self.addressbookUnderTest()
+        yield adbk1.removeAddressBookObjectWithName(name)
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()
+
+        # Recheck it
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()
+

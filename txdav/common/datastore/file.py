@@ -668,6 +668,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
             def cleanup():
                 try:
                     trash.remove()
+                    self.properties()._removeResource()
                 except Exception, e:
                     self.log_error("Unable to delete trashed child at %s: %s" % (trash.fp, e))
 

@@ -13,33 +13,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-import datetime
-from twistedcaldav.dateops import datetimeMktime
 
 """
 Tests for txdav.caldav.datastore.postgres, mostly based on
 L{txdav.caldav.datastore.test.common}.
 """
 
-from twisted.trial import unittest
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import deferLater
-from twisted.internet import reactor
 from twisted.python import hashlib
+from twisted.trial import unittest
 
+from twext.enterprise.dal.syntax import Select, Parameter
 from twext.python.vcomponent import VComponent
 from twext.web2.dav.element.rfc2518 import GETContentLanguage, ResourceType
 
-from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests
-from txdav.common.datastore.sql import ECALENDARTYPE
-from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
-
+from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests,\
+    event4_text
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
-from txdav.base.propertystore.base import PropertyName
+from txdav.common.datastore.sql import ECALENDARTYPE
+from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
 
-from twistedcaldav import memcacher
+from twistedcaldav import memcacher, caldavxml
 from twistedcaldav.config import config
+from twistedcaldav.dateops import datetimeMktime
+
+import datetime
 
 class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     """
@@ -433,5 +436,140 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self.assertNotEqual(notification_uid1_1, None)
         self.assertNotEqual(notification_uid1_2, None)
 
+    @inlineCallbacks
+    def test_removeCalendarPropertiesOnDelete(self):
+        """
+        L{ICalendarHome.removeCalendarWithName} removes a calendar that already
+        exists and makes sure properties are also removed.
+        """
 
+        # Create calendar and add a property
+        home = yield self.homeUnderTest()
+        name = "remove-me"
+        calendar = yield home.createCalendarWithName(name)
+        resourceID = calendar._resourceID
+        calendarProperties = calendar.properties()
         
+        prop = caldavxml.CalendarDescription.fromString("Calendar to be removed")
+        calendarProperties[PropertyName.fromElement(prop)] = prop
+        yield self.commit()
+
+        prop = schema.RESOURCE_PROPERTY
+        _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
+                        From=prop,
+                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+
+        # Check that two properties are present
+        home = yield self.homeUnderTest()
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 2)
+        yield self.commit()
+
+        # Remove calendar and check for no properties
+        home = yield self.homeUnderTest()
+        yield home.removeCalendarWithName(name)
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()
+
+        # Recheck it
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()
+
+    @inlineCallbacks
+    def test_removeCalendarObjectPropertiesOnDelete(self):
+        """
+        L{ICalendarHome.removeCalendarWithName} removes a calendar object that already
+        exists and makes sure properties are also removed (which is always the case as right
+        now calendar objects never have properties).
+        """
+
+        # Create calendar object
+        calendar1 = yield self.calendarUnderTest()
+        name = "4.ics"
+        component = VComponent.fromString(event4_text)
+        metadata = {
+            "accessMode": "PUBLIC",
+            "isScheduleObject": True,
+            "scheduleTag": "abc",
+            "scheduleEtags": (),
+            "hasPrivateComment": False,
+        }
+        calobject = yield calendar1.createCalendarObjectWithName(name, component, metadata=metadata)
+        resourceID = calobject._resourceID
+
+        prop = schema.RESOURCE_PROPERTY
+        _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
+                        From=prop,
+                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+
+        # No properties on existing calendar object
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+
+        yield self.commit()
+
+        # Remove calendar and check for no properties
+        calendar1 = yield self.calendarUnderTest()
+        yield calendar1.removeCalendarObjectWithName(name)
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()
+
+        # Recheck it
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()
+
+    @inlineCallbacks
+    def test_removeInboxObjectPropertiesOnDelete(self):
+        """
+        L{ICalendarHome.removeCalendarWithName} removes an inbox calendar object that already
+        exists and makes sure properties are also removed. Inbox calendar objects can have properties.
+        """
+
+        # Create calendar object and add a property
+        home = yield self.homeUnderTest()
+        inbox = yield home.createCalendarWithName("inbox")
+        
+        name = "4.ics"
+        component = VComponent.fromString(event4_text)
+        metadata = {
+            "accessMode": "PUBLIC",
+            "isScheduleObject": True,
+            "scheduleTag": "abc",
+            "scheduleEtags": (),
+            "hasPrivateComment": False,
+        }
+        calobject = yield inbox.createCalendarObjectWithName(name, component, metadata=metadata)
+        resourceID = calobject._resourceID
+        calobjectProperties = calobject.properties()
+
+        prop = caldavxml.CalendarDescription.fromString("Calendar object to be removed")
+        calobjectProperties[PropertyName.fromElement(prop)] = prop
+        yield self.commit()
+
+        prop = schema.RESOURCE_PROPERTY
+        _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
+                        From=prop,
+                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+
+        # One property exists calendar object
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 1)
+
+        yield self.commit()
+
+        # Remove calendar object and check for no properties
+        home = yield self.homeUnderTest()
+        inbox = yield home.calendarWithName("inbox")
+        yield inbox.removeCalendarObjectWithName(name)
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()
+
+        # Recheck it
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()

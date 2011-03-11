@@ -1655,6 +1655,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         yield self._deletedSyncToken()
         yield self._deleteQuery.on(self._txn, NoSuchHomeChildError,
                                    resourceID=self._resourceID)
+        self.properties()._removeResource()
+
         # Set to non-existent state
         self._resourceID = None
         self._created    = None
@@ -1858,54 +1860,34 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         returnValue(objectResource)
 
 
-    @classproperty
-    def _removeObjectResourceByNameQuery(cls):
-        """
-        DAL query to remove an object resource from this collection by name,
-        returning the UID of the resource it deleted.
-        """
-        obj = cls._objectSchema
-        return Delete(From=obj,
-                      Where=(obj.RESOURCE_NAME == Parameter("name")).And(
-                          obj.PARENT_RESOURCE_ID == Parameter("resourceID")),
-                     Return=obj.UID)
-
-
     @inlineCallbacks
     def removeObjectResourceWithName(self, name):
-        uid = (yield self._removeObjectResourceByNameQuery.on(
-            self._txn, NoSuchObjectResourceError,
-            name=name, resourceID=self._resourceID))[0][0]
-        self._objects.pop(name, None)
-        self._objects.pop(uid, None)
-        yield self._deleteRevision(name)
-        self.notifyChanged()
-
-
-    @classproperty
-    def _removeObjectResourceByUIDQuery(cls):
-        """
-        DAL query to remove an object resource from this collection by UID,
-        returning the name of the resource it deleted.
-        """
-        obj = cls._objectSchema
-        return Delete(From=obj,
-                      Where=(obj.UID == Parameter("uid")).And(
-                          obj.PARENT_RESOURCE_ID == Parameter("resourceID")),
-                     Return=obj.RESOURCE_NAME)
+        
+        child = (yield self.objectResourceWithName(name))
+        if child is None:
+            raise NoSuchObjectResourceError
+        yield self._removeObjectResource(child)
 
 
     @inlineCallbacks
     def removeObjectResourceWithUID(self, uid):
-        name = (yield self._removeObjectResourceByUIDQuery.on(
-            self._txn, NoSuchObjectResourceError,
-            uid=uid, resourceID=self._resourceID
-        ))[0][0]
-        self._objects.pop(name, None)
-        self._objects.pop(uid, None)
-        yield self._deleteRevision(name)
+        
+        child = (yield self.objectResourceWithUID(uid))
+        if child is None:
+            raise NoSuchObjectResourceError
+        yield self._removeObjectResource(child)
 
-        self.notifyChanged()
+    @inlineCallbacks
+    def _removeObjectResource(self, child):
+        name = child.name()
+        uid = child.uid()
+        try:
+            yield child.remove()
+        finally:        
+            self._objects.pop(name, None)
+            self._objects.pop(uid, None)
+            yield self._deleteRevision(name)
+            self.notifyChanged()
 
 
     def objectResourcesHaveProperties(self):
@@ -2242,6 +2224,29 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     def componentType(self):
         returnValue((yield self.component()).mainType())
 
+    @classproperty
+    def _deleteQuery(cls):
+        """
+        DAL statement to delete a L{CommonObjectResource} by its resource ID.
+        """
+        return Delete(cls._objectSchema, Where=cls._objectSchema.RESOURCE_ID == Parameter("resourceID"))
+
+
+    @inlineCallbacks
+    def remove(self):
+        yield self._deleteQuery.on(self._txn, NoSuchObjectResourceError,
+                                   resourceID=self._resourceID)
+        self.properties()._removeResource()
+
+        # Set to non-existent state
+        self._resourceID = None
+        self._name = None
+        self._uid = None
+        self._md5 = None
+        self._size = None
+        self._created = None
+        self._modified = None
+        self._objectText = None
 
     def uid(self):
         return self._uid

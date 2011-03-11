@@ -147,7 +147,10 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
 
     def _keys_uid(self, uid):
         raise NotImplementedError()
-        
+    
+    def _removeResource(self):
+        raise NotImplementedError()
+
     def flush(self):
         raise NotImplementedError()
 
