@@ -57,7 +57,7 @@ from twistedcaldav.notifications import NotificationCollectionResource, \
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource
 from twistedcaldav.schedule import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
-from twistedcaldav.ical import Component as VCalendar
+from twistedcaldav.ical import Component as VCalendar, iCalendarProductID
 from twistedcaldav.ical import Property as VProperty
 from twistedcaldav.vcard import Component as VCard
 
@@ -546,6 +546,7 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         # Generate a monolithic calendar
         calendar = VCalendar("VCALENDAR")
         calendar.addProperty(VProperty("VERSION", "2.0"))
+        calendar.addProperty(VProperty("PRODID", iCalendarProductID))
 
         # Do some optimisation of access control calculation by determining any
         # inherited ACLs outside of the child resource loop and supply those to
