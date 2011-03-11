@@ -633,7 +633,7 @@ dependencies () {
     "http://svn.osafoundation.org/vobject/trunk";
 
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fie -r 137 \
+  py_dependency -fie -r 143 \
     "pycalendar" "pycalendar" "pycalendar" \
     "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
 
