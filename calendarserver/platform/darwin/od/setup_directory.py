@@ -90,6 +90,30 @@ masterUsers = [
             dsattributes.kDS1AttrPrimaryGroupID : ["20"],
         },
     ),
+    (
+        "odtestat@sign",
+        {
+            dsattributes.kDS1AttrFirstName : ["AtSign"],
+            dsattributes.kDS1AttrLastName  : ["Test"],
+            dsattributes.kDS1AttrDistinguishedName : ["At Sign Test"],
+            dsattributes.kDSNAttrEMailAddress : ["attsign@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["71646A3A-1CEF-4744-AB1D-0AC855E25DC8"],
+            dsattributes.kDS1AttrUniqueID : ["33305"],
+            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+        },
+    ),
+    (
+        "odtestsatou",
+        {
+            dsattributes.kDS1AttrFirstName : ["\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4".decode("utf-8")],
+            dsattributes.kDS1AttrLastName  : ["Test \xe4\xbd\x90\xe8\x97\xa4".decode("utf-8")],
+            dsattributes.kDS1AttrDistinguishedName : ["\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4 Test \xe4\xbd\x90\xe8\x97\xa4".decode("utf-8")],
+            dsattributes.kDSNAttrEMailAddress : ["satou@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["C662F833-75AD-4589-9879-5FF102943CEF"],
+            dsattributes.kDS1AttrUniqueID : ["33306"],
+            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+        },
+    ),
 ]
 
 masterGroups = [

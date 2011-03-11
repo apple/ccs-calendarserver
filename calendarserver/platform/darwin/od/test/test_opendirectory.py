@@ -283,9 +283,11 @@ if runTests:
             )
             recordNames = [x[0] for x in results]
             for recordName, info in setup_directory.masterUsers:
-                self.assertTrue(recordName in recordNames)
+                if info[dsattributes.kDS1AttrLastName] == "Test":
+                    self.assertTrue(recordName in recordNames)
             for recordName, info in setup_directory.localUsers:
-                self.assertTrue(recordName in recordNames)
+                if info[dsattributes.kDS1AttrLastName] == "Test":
+                    self.assertTrue(recordName in recordNames)
 
         def test_queryRecordsWithAttribute_list_lastname_exact_insensitive_match_multitype(self):
 
@@ -308,9 +310,11 @@ if runTests:
             )
             recordNames = [x[0] for x in results]
             for recordName, info in setup_directory.masterUsers:
-                self.assertTrue(recordName in recordNames)
+                if info[dsattributes.kDS1AttrLastName] == "Test":
+                    self.assertTrue(recordName in recordNames)
             for recordName, info in setup_directory.localUsers:
-                self.assertTrue(recordName in recordNames)
+                if info[dsattributes.kDS1AttrLastName] == "Test":
+                    self.assertTrue(recordName in recordNames)
 
         def test_queryRecordsWithAttribute_list_lastname_begins_insensitive_match(self):
 
@@ -865,4 +869,20 @@ if runTests:
             self.assertEquals(
                 result[dsattributes.kDS1AttrGeneratedUID],
                 "CA795296-D77A-4E09-A72F-869920A3D284"
+            )
+
+            results = opendirectory.queryRecordsWithAttribute_list(
+                directory,
+                dsattributes.kDS1AttrFirstName,
+                "\xe4\xbd\x90\xe8\x97\xa4",
+                dsattributes.eDSStartsWith,
+                False,
+                dsattributes.kDSStdRecordTypeUsers,
+                USER_ATTRIBUTES,
+                count=0
+            )
+            result = results[0][1]
+            self.assertEquals(
+                result[dsattributes.kDS1AttrGeneratedUID],
+                "C662F833-75AD-4589-9879-5FF102943CEF"
             )
