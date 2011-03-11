@@ -44,7 +44,7 @@ from twistedcaldav.sharing import Invite
 from txdav.common.icommondatastore import (
     IndexedSearchException, ReservationError)
 
-from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import Update, SavepointAction
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Delete
@@ -621,15 +621,27 @@ class SQLLegacyShares(object):
                 homeID=self._home._resourceID, resourceID=collectionResourceID
             )
         elif record.sharetype == 'D':
-            # There is no bind entry already so add one.
-            yield self._acceptDirectShareQuery.on(
-                self._txn, homeID=self._home._resourceID,
-                resourceID=collectionResourceID, name=record.localname,
-                message=record.summary
-            )
+            # There is no bind entry already so add one - but be aware of possible race to create
 
-        shareeCollection = yield self._home.sharedChildWithName(
-            record.localname)
+            # Use savepoint so we can do a partial rollback if there is a race condition
+            # where this row has already been inserted
+            savepoint = SavepointAction("addOrUpdateRecord")
+            yield savepoint.acquire(self._txn)
+
+            try:
+                yield self._acceptDirectShareQuery.on(
+                    self._txn, homeID=self._home._resourceID,
+                    resourceID=collectionResourceID, name=record.localname,
+                    message=record.summary
+                )
+            except Exception: # FIXME: Really want to trap the pg.DatabaseError but in a non-DB specific manner
+                yield savepoint.rollback(self._txn)
+
+                # For now we will assume that the insert already done is the winner - so nothing more to do here
+            else:
+                yield savepoint.release(self._txn)
+
+        shareeCollection = yield self._home.sharedChildWithName(record.localname)
         yield shareeCollection._initSyncToken()
 
 

@@ -41,6 +41,7 @@ from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
 from twistedcaldav import memcacher, caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.dateops import datetimeMktime
+from twistedcaldav.sharing import SharedCollectionRecord
 
 import datetime
 
@@ -573,3 +574,53 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
+
+    @inlineCallbacks
+    def test_directShareCreateConcurrency(self):
+        """
+        Test that two concurrent attempts to create a direct shared calendar
+        work concurrently without an exception.
+        """
+
+        calendarStore = self._sqlCalendarStore
+
+        # Provision the home and calendar now
+        txn = calendarStore.newTransaction()
+        home = yield txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        self.assertNotEqual(home, None)
+        cal = yield home.calendarWithName("calendar")
+        self.assertNotEqual(cal, None)
+        yield txn.commit()
+
+        txn1 = calendarStore.newTransaction()
+        txn2 = calendarStore.newTransaction()
+
+        home1 = yield txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        home2 = yield txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+
+        shares1 = yield home1.retrieveOldShares()
+        shares2 = yield home2.retrieveOldShares()
+
+        record = SharedCollectionRecord(
+            "abcd",
+            "D",
+            "/calendars/__uids__/uid2/calendar/",
+            "XYZ",
+            "Shared Wiki Calendar",
+        )
+
+        @inlineCallbacks
+        def _defer1():
+            yield shares1.addOrUpdateRecord(record)
+            yield txn1.commit()
+        d1 = _defer1()
+
+        @inlineCallbacks
+        def _defer2():
+            yield shares2.addOrUpdateRecord(record)
+            yield txn2.commit()
+        d2 = _defer2()
+
+        yield d1
+        yield d2
+
