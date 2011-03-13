@@ -114,7 +114,8 @@ class ScheduleViaCalDAV(DeliveryService):
                     log.err("Could not access Inbox for recipient: %s" % (recipient.cuaddr,))
                     err = HTTPError(ErrorResponse(
                         responsecode.NOT_FOUND,
-                        (caldav_namespace, "recipient-permissions")
+                        (caldav_namespace, "recipient-permissions"),
+                        "Access to inbox denied",
                     ))
                     self.responses.add(
                         recipient.cuaddr,
@@ -159,7 +160,8 @@ class ScheduleViaCalDAV(DeliveryService):
             log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
             err = HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "recipient-permissions")
+                (caldav_namespace, "recipient-permissions"),
+                "Could not store data in inbox",
             ))
             responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=e.msg)
             returnValue(False)
@@ -190,7 +192,8 @@ class ScheduleViaCalDAV(DeliveryService):
                 log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
                 err = HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "recipient-permissions")
+                    (caldav_namespace, "recipient-permissions"),
+                    "Could not store data in inbox",
                 ))
                 responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_AUTHORITY)
                 returnValue(False)
@@ -231,7 +234,8 @@ class ScheduleViaCalDAV(DeliveryService):
             log.err("Could not determine free busy information: %s" % (recipient.cuaddr,))
             err = HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "recipient-permissions")
+                (caldav_namespace, "recipient-permissions"),
+                "Could not determine free busy information",
             ))
             responses.add(
                 recipient.cuaddr,

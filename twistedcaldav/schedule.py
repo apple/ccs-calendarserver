@@ -210,7 +210,8 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                     # Validate that href's point to a valid calendar.
                     raise HTTPError(ErrorResponse(
                         responsecode.CONFLICT,
-                        (caldav_namespace, "valid-calendar-url")
+                        (caldav_namespace, "valid-calendar-url"),
+                        "Invalid URI",
                     ))
 
         elif property.qname() == (caldav_namespace, "schedule-default-calendar-URL"):
@@ -226,7 +227,8 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 # Validate that href's point to a valid calendar.
                 raise HTTPError(ErrorResponse(
                     responsecode.CONFLICT,
-                    (caldav_namespace, "valid-schedule-default-calendar-URL")
+                    (caldav_namespace, "valid-schedule-default-calendar-URL"),
+                    "Invalid URI",
                 ))
             else:
                 # Canonicalize the URL to __uids__ form

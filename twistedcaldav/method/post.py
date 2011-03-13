@@ -77,7 +77,8 @@ def POST_handler_add_member(self, request):
             self.log_error("MIME type %s not allowed in calendar collection" % (content_type,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "supported-calendar-data")
+                (caldav_namespace, "supported-calendar-data"),
+                "Wrong MIME type for calendar collection",
             ))
             
         # Read the calendar component from the stream
@@ -133,7 +134,8 @@ def POST_handler_add_member(self, request):
             self.log_error("MIME type %s not allowed in address book collection" % (content_type,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (carddav_namespace, "supported-address-data")
+                (carddav_namespace, "supported-address-data"),
+                "Wrong MIME type for address book collection",
             ))
             
         # Read the calendar component from the stream

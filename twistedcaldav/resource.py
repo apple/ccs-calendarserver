@@ -130,7 +130,8 @@ class ReadOnlyResourceMixIn (object):
     def http_MKCALENDAR(self, request):
         return ErrorResponse(
             responsecode.FORBIDDEN,
-            (caldav_namespace, "calendar-collection-location-ok")
+            (caldav_namespace, "calendar-collection-location-ok"),
+            "Resource is read-only",
         )
 
 class ReadOnlyNoCopyResourceMixIn (ReadOnlyResourceMixIn):
@@ -1346,7 +1347,8 @@ class CalDAVResource (
             except ValueError:
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (dav_namespace, "valid-sync-token")
+                    (dav_namespace, "valid-sync-token"),
+                    "Sync token is invalid",
                 ))
         else:
             revision = 0
@@ -1356,7 +1358,8 @@ class CalDAVResource (
         except SyncTokenValidException:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (dav_namespace, "valid-sync-token")
+                (dav_namespace, "valid-sync-token"),
+                "Sync token not recognized",
             ))
 
         returnValue((changed, removed, notallowed, current_token))
@@ -1454,7 +1457,8 @@ class CalDAVResource (
             self.log_error("Cannot create a calendar collection within a calendar collection %s" % (parent,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldavxml.caldav_namespace, "calendar-collection-location-ok")
+                (caldavxml.caldav_namespace, "calendar-collection-location-ok"),
+                "Cannot create a calendar collection inside another calendar collection",
             ))
 
         # Check for any quota limits
@@ -1464,7 +1468,8 @@ class CalDAVResource (
                 self.log_error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    customxml.MaxCollections()
+                    customxml.MaxCollections(),
+                    "Too many calendar collections",
                 ))
                 
         returnValue((yield self.createCalendarCollection()))
@@ -1547,7 +1552,8 @@ class CalDAVResource (
             self.log_error("Cannot create an address book collection within an address book collection %s" % (parent,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (carddavxml.carddav_namespace, "addressbook-collection-location-ok")
+                (carddavxml.carddav_namespace, "addressbook-collection-location-ok"),
+                "Cannot create an address book collection inside of an address book collection",
             ))
 
         # Check for any quota limits
@@ -1557,7 +1563,8 @@ class CalDAVResource (
                 self.log_error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    customxml.MaxCollections()
+                    customxml.MaxCollections(),
+                    "Too many address book collections",
                 ))
                 
         returnValue((yield self.createAddressBookCollection()))

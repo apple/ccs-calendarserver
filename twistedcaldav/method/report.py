@@ -119,7 +119,8 @@ def http_REPORT(self, request):
 
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            davxml.SupportedReport()
+            davxml.SupportedReport(),
+            "Report not supported on this resource",
         ))
 
     #

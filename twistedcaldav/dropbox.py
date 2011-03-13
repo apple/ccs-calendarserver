@@ -119,5 +119,6 @@ class DropBoxCollectionResource (DAVResource):
     def http_PUT(self, request):
         return ErrorResponse(
             responsecode.FORBIDDEN,
-            (calendarserver_namespace, "valid-drop-box")
+            (calendarserver_namespace, "valid-drop-box"),
+            "Cannot store resources in dropbox",
         )

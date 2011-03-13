@@ -215,7 +215,8 @@ class StoreCalendarObjectResource(object):
                 log.err(message)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    customxml.MaxResources()
+                    customxml.MaxResources(),
+                    "Too many resources in collection",
                 ))
 
             # Valid data sizes - do before parsing the data
@@ -226,7 +227,8 @@ class StoreCalendarObjectResource(object):
                     log.err(message)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "max-resource-size")
+                        (caldav_namespace, "max-resource-size"),
+                        "Calendar data too large",
                     ))
             else:
                 # Valid calendar data size check
@@ -235,7 +237,8 @@ class StoreCalendarObjectResource(object):
                     log.err(message)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "max-resource-size")
+                        (caldav_namespace, "max-resource-size"),
+                        "Calendar data too large",
                     ))
 
             if not self.sourcecal:
@@ -246,7 +249,8 @@ class StoreCalendarObjectResource(object):
                         log.err(message)
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
-                            (caldav_namespace, "supported-calendar-data")
+                            (caldav_namespace, "supported-calendar-data"),
+                            "Invalid content-type for data",
                         ))
                 
                     # At this point we need the calendar data to do more tests
@@ -288,7 +292,8 @@ class StoreCalendarObjectResource(object):
                     log.err(message)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "valid-calendar-object-resource")
+                        (caldav_namespace, "valid-calendar-object-resource"),
+                        "Invalid calendar data",
                     ))
 
                 # Valid attendee list size check
@@ -298,7 +303,8 @@ class StoreCalendarObjectResource(object):
                     raise HTTPError(
                         ErrorResponse(
                             responsecode.FORBIDDEN,
-                            MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance))
+                            MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),
+                            "Too many attendees in calenbdar data",
                         )
                     )
 
@@ -316,7 +322,8 @@ class StoreCalendarObjectResource(object):
                     log.err("Source calendar does not have a UID: %s" % self.source)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "valid-calendar-object-resource")
+                        (caldav_namespace, "valid-calendar-object-resource"),
+                        "Missing UID in calendar data",
                     ))
 
                 # FIXME: We need this here because we have to re-index the destination. Ideally it
@@ -526,7 +533,8 @@ class StoreCalendarObjectResource(object):
             if self.access is None:
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (calendarserver_namespace, "valid-access-restriction")
+                    (calendarserver_namespace, "valid-access-restriction"),
+                    "Private event access level not allowed",
                 ))
                 
             # Only DAV:owner is able to set the property to other than PUBLIC
@@ -537,7 +545,8 @@ class StoreCalendarObjectResource(object):
                     if davxml.Principal(parent_owner) != authz and self.access != Component.ACCESS_PUBLIC:
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
-                            (calendarserver_namespace, "valid-access-restriction-change")
+                            (calendarserver_namespace, "valid-access-restriction-change"),
+                            "Private event access level change not allowed",
                         ))
                     
                     return None
@@ -561,11 +570,11 @@ class StoreCalendarObjectResource(object):
             try:
                 result = self.calendar.truncateRecurrence(config.MaxInstancesForRRULE)
             except (ValueError, TypeError), ex:
-                msg = "Cannot truncate calendar resource: %s" % (ex,)
-                log.err(msg)
+                log.err("Cannot truncate calendar resource: %s" % (ex,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "valid-calendar-data"), description=msg
+                    (caldav_namespace, "valid-calendar-data"),
+                   "Cannot truncate recurrences",
                 ))
             if result:
                 self.calendardata = str(self.calendar)
@@ -795,11 +804,11 @@ class StoreCalendarObjectResource(object):
             try:
                 self.calendar = PerUserDataFilter(accessUID).merge(self.calendar.duplicate(), oldCal)
             except ValueError:
-                msg = "Invalid per-user data merge"
-                log.err(msg)
+                log.err("Invalid per-user data merge")
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "valid-calendar-data"), description=msg
+                    (caldav_namespace, "valid-calendar-data"),
+                    "Cannot merge per-user data",
                 ))
             self.calendardata = None
 
@@ -960,7 +969,8 @@ class StoreCalendarObjectResource(object):
                                         rname.encode("utf-8")
                                     )
                                 )
-                            )
+                            ),
+                            "UID already exists",
                         ))
 
 
@@ -1047,7 +1057,8 @@ class StoreCalendarObjectResource(object):
             elif isinstance(err, TooManyInstancesError):
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    NumberOfRecurrencesWithinLimits(PCDATAElement(str(err.max_allowed)))
+                    NumberOfRecurrencesWithinLimits(PCDATAElement(str(err.max_allowed))),
+                    "Too many recurrence instances",
                 ))
             else:
                 # Display the traceback.  Unfortunately this will usually be

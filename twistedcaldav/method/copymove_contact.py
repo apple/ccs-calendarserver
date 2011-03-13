@@ -83,7 +83,8 @@ def maybeCOPYContact(self, request):
         log.err("Attempt to copy an addressbook collection into another addressbook collection %s" % destination)
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            (carddav_namespace, "addressbook-collection-location-ok")
+            (carddav_namespace, "addressbook-collection-location-ok"),
+            "Cannot copy address book collection inside another address book collection",
         ))
 
     # We also do not allow regular collections in addressbook collections
@@ -153,7 +154,8 @@ def maybeMOVEContact(self, request):
             log.err("Attempt to move an addressbook collection into another addressbook collection %s" % destination)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (carddav_namespace, "addressbook-collection-location-ok")
+                (carddav_namespace, "addressbook-collection-location-ok"),
+                "Cannot move address book collection inside another address book collection",
             ))
     
         # We also do not allow regular collections in addressbook collections

@@ -92,7 +92,8 @@ class ScheduleViaISchedule(DeliveryService):
                 # Cannot do server-to-server for this recipient.
                 err = HTTPError(ErrorResponse(
                     responsecode.NOT_FOUND,
-                    (caldav_namespace, "recipient-allowed")
+                    (caldav_namespace, "recipient-allowed"),
+                    "No server for recipient",
                 ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_USER_SUPPORT)
             
@@ -103,7 +104,8 @@ class ScheduleViaISchedule(DeliveryService):
                 # Cannot do server-to-server outgoing requests for this server.
                 err = HTTPError(ErrorResponse(
                     responsecode.NOT_FOUND,
-                    (caldav_namespace, "recipient-allowed")
+                    (caldav_namespace, "recipient-allowed"),
+                    "Cannot send to recipient's server",
                 ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
             
@@ -177,7 +179,8 @@ class IScheduleRequest(object):
             for recipient in self.recipients:
                 err = HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "recipient-failed")
+                    (caldav_namespace, "recipient-failed"),
+                    "Server-to-server request failed",
                 ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
 

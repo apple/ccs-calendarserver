@@ -79,8 +79,9 @@ class ErrorResponse(Response):
             error.namespace = xml_namespace
             error.name = xml_name
 
-        if description:
-            output = davxml.Error(error, davxml.ErrorDescription(description)).toxml()
+        self.description = description
+        if self.description:
+            output = davxml.Error(error, davxml.ErrorDescription(self.description)).toxml()
         else:
             output = davxml.Error(error).toxml()
 
@@ -337,7 +338,7 @@ def errorForFailure(failure):
 def messageForFailure(failure):
     if failure.check(HTTPError):
         if isinstance(failure.value.response, ErrorResponse):
-            return None
-        if isinstance(failure.value.response, StatusResponse):
+            return failure.value.response.description
+        elif isinstance(failure.value.response, StatusResponse):
             return failure.value.response.description
     return str(failure)

@@ -735,7 +735,8 @@ class SharedCollectionMixin(object):
                 self.log_error("Error parsing doc (%s) Doc:\n %s" % (str(e), data,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (customxml.calendarserver_namespace, "valid-request")
+                    (customxml.calendarserver_namespace, "valid-request"),
+                    "Invalid XML",
                 ))
 
             root = doc.root_element
@@ -748,7 +749,8 @@ class SharedCollectionMixin(object):
                 self.log_error("Unsupported XML (%s)" % (root,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (customxml.calendarserver_namespace, "valid-request")
+                    (customxml.calendarserver_namespace, "valid-request"),
+                    "Unsupported XML",
                 ))
 
         return allDataFromStream(request.stream).addCallback(_getData)
@@ -761,7 +763,8 @@ class SharedCollectionMixin(object):
                 return succeed(encoding)
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            (customxml.calendarserver_namespace, "valid-request")
+            (customxml.calendarserver_namespace, "valid-request"),
+            "Invalid request content-type",
         ))
 
     def xmlPOSTAuth(self, request):
@@ -1106,7 +1109,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (customxml.calendarserver_namespace, "valid-request"),
-                "invalid shared collection",
+                "Invalid shared collection",
             ))
             
         # Change the record
@@ -1174,7 +1177,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (customxml.calendarserver_namespace, "valid-request"),
-                    "missing required XML elements",
+                    "Missing required XML elements",
                 ))
             if accepted:
                 return self.acceptInviteShare(request, hostUrl, replytoUID, displayname=summary)
@@ -1198,8 +1201,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 self.log_error("Unsupported XML (%s)" % (root,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (customxml.calendarserver_namespace,
-                     "valid-request")
+                    (customxml.calendarserver_namespace, "valid-request"),
+                    "Unsupported XML",
                 ))
 
         return allDataFromStream(request.stream).addCallback(_getData)

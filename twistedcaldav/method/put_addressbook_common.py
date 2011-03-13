@@ -167,7 +167,8 @@ class StoreAddressObjectResource(object):
                 log.err(message)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    customxml.MaxResources()
+                    customxml.MaxResources(),
+                    message,
                 ))
 
             if not self.sourceadbk:
@@ -178,7 +179,8 @@ class StoreAddressObjectResource(object):
                         log.err(message)
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
-                            (carddav_namespace, "supported-address-data")
+                            (carddav_namespace, "supported-address-data"),
+                            "Invalid content-type",
                         ))
                 
                     # At this point we need the calendar data to do more tests
@@ -192,7 +194,8 @@ class StoreAddressObjectResource(object):
                         log.err(str(e))
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
-                            (carddav_namespace, "valid-address-data")
+                            (carddav_namespace, "valid-address-data"),
+                            "Could not parse vCard",
                         ))
                         
                 # Valid vcard data for CalDAV check
@@ -201,7 +204,8 @@ class StoreAddressObjectResource(object):
                     log.err(message)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (carddav_namespace, "valid-addressbook-object-resource")
+                        (carddav_namespace, "valid-addressbook-object-resource"),
+                        "Invalid vCard data",
                     ))
 
                 # Must have a valid UID at this point
@@ -214,7 +218,8 @@ class StoreAddressObjectResource(object):
                     log.err("Source vcard does not have a UID: %s" % self.source.name())
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (carddav_namespace, "valid-addressbook-object-resource")
+                        (carddav_namespace, "valid-addressbook-object-resource"),
+                        "Missing UID in vCard",
                     ))
 
                 # FIXME: We need this here because we have to re-index the destination. Ideally it
@@ -227,7 +232,8 @@ class StoreAddressObjectResource(object):
                 log.err(message)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (carddav_namespace, "max-resource-size")
+                    (carddav_namespace, "max-resource-size"),
+                    "Address data too large",
                 ))
 
             # Check access
@@ -433,7 +439,8 @@ class StoreAddressObjectResource(object):
                                     rname.encode("utf-8")
                                 )
                             )
-                        )
+                        ),
+                        "UID already used in another resource",
                     ))
             
             # Do the actual put or copy

@@ -146,7 +146,8 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
             if len(method) != 1:
                 raise HTTPError(ErrorResponse(
                     responsecode.BAD_REQUEST,
-                    (calendarserver_namespace, "valid-method")
+                    (calendarserver_namespace, "valid-method"),
+                    "Invalid method query parameter",
                 ))
             method = method[0]
                 
@@ -159,7 +160,8 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
             if action is None:
                 raise HTTPError(ErrorResponse(
                     responsecode.BAD_REQUEST,
-                    (calendarserver_namespace, "supported-method")
+                    (calendarserver_namespace, "supported-method"),
+                    "Unknown method query parameter",
                 ))
     
             return action(request)
@@ -187,7 +189,8 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         if len(tzid) != 1:
             raise HTTPError(ErrorResponse(
                 responsecode.BAD_REQUEST,
-                (calendarserver_namespace, "valid-timezone")
+                (calendarserver_namespace, "valid-timezone"),
+                "Invalid tzid query parameter",
             ))
         tzid = tzid[0]
 
@@ -196,7 +199,8 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         except TimezoneException:
             raise HTTPError(ErrorResponse(
                 responsecode.NOT_FOUND,
-                (calendarserver_namespace, "timezone-available")
+                (calendarserver_namespace, "timezone-available"),
+                "Timezone not found",
             ))
 
         response = Response()
@@ -213,7 +217,8 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         if len(tzid) != 1:
             raise HTTPError(ErrorResponse(
                 responsecode.BAD_REQUEST,
-                (calendarserver_namespace, "valid-timezone")
+                (calendarserver_namespace, "valid-timezone"),
+                "Invalid tzid query parameter",
             ))
         tzid = tzid[0]
         try:
@@ -221,7 +226,8 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         except TimezoneException:
             raise HTTPError(ErrorResponse(
                 responsecode.NOT_FOUND,
-                (calendarserver_namespace, "timezone-available")
+                (calendarserver_namespace, "timezone-available"),
+                "Timezone not found",
             ))
 
         try:
@@ -232,7 +238,8 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         except ValueError:
             raise HTTPError(ErrorResponse(
                 responsecode.BAD_REQUEST,
-                (calendarserver_namespace, "valid-start-date")
+                (calendarserver_namespace, "valid-start-date"),
+                "Invalid start query parameter",
             ))
 
         try:
@@ -245,7 +252,8 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         except ValueError:
             raise HTTPError(ErrorResponse(
                 responsecode.BAD_REQUEST,
-                (calendarserver_namespace, "valid-end-date")
+                (calendarserver_namespace, "valid-end-date"),
+                "Invalid end query parameter",
             ))
 
         # Now do the expansion (but use a cache to avoid re-calculating TZs)

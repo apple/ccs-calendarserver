@@ -633,7 +633,8 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
             log.err("Cannot DELETE default calendar: %s" % (self,))
             raise HTTPError(ErrorResponse(
                 FORBIDDEN,
-                (caldav_namespace, "default-calendar-delete-allowed",)
+                (caldav_namespace, "default-calendar-delete-allowed",),
+                "Cannot delete default calendar",
             ))
 
         response = (

@@ -90,7 +90,8 @@ def http_COPY(self, request):
         log.err("Attempt to copy a calendar collection into another calendar collection %s" % destination)
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            (caldav_namespace, "calendar-collection-location-ok")
+            (caldav_namespace, "calendar-collection-location-ok"),
+            "Cannot copy calendar collection inside another calendar collection",
         ))
 
     # We also do not allow regular collections in calendar collections
@@ -173,7 +174,8 @@ def http_MOVE(self, request):
             log.err("Attempt to move a calendar collection into another calendar collection %s" % destination)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "calendar-collection-location-ok")
+                (caldav_namespace, "calendar-collection-location-ok"),
+                "Cannot move calendar collection inside another calendar collection",
             ))
     
         # We also do not allow regular collections in calendar collections
