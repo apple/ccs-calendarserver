@@ -92,6 +92,7 @@ class _ConnectedTxn(object):
         self._cursor     = cursor
         self._connection = connection
         self._holder     = threadHolder
+        self._first      = True
 
 
     @_forward
@@ -109,6 +110,8 @@ class _ConnectedTxn(object):
 
 
     def _reallyExecSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+        wasFirst = self._first
+        self._first = False
         if args is None:
             args = []
         derived = None
@@ -120,7 +123,17 @@ class _ConnectedTxn(object):
                     derived = []
                 derived.append(arg)
                 args[n] = arg.preQuery(self._cursor)
-        self._cursor.execute(sql, args)
+        try:
+            self._cursor.execute(sql, args)
+        except:
+            if wasFirst:
+                self._connection.close()
+                self._connection = self._pool.connectionFactory()
+                self._cursor     = self._connection.cursor()
+                result = self._reallyExecSQL(sql, args, raiseOnZeroRowCount)
+                return result
+            else:
+                raise
         if derived is not None:
             for arg in derived:
                 arg.postQuery(self._cursor)
@@ -153,14 +166,16 @@ class _ConnectedTxn(object):
 
     def _end(self, really):
         """
-        Common logic for commit or abort.
+        Common logic for commit or abort.  Executed in the cursor main thread.
         """
         if not self._completed:
             self._completed = True
             def reallySomething():
+                # Executed in the cursor thread.
                 if self._cursor is None:
                     return
                 really()
+                self._first = True
             result = self._holder.submit(reallySomething)
             self._pool._repoolAfter(self, result)
             return result
@@ -173,7 +188,7 @@ class _ConnectedTxn(object):
 
 
     def abort(self):
-        return self._end(self._connection.rollback)
+        return self._end(self._connection.rollback).addErrback(log.err)
 
 
     def __del__(self):
@@ -510,11 +525,7 @@ class ConnectionPool(Service, object):
         # Phase 3: All of the busy transactions must be aborted first.  As each
         # one is aborted, it will remove itself from the list.
         while self._busy:
-            d = self._busy[0].abort()
-            try:
-                yield d
-            except:
-                log.err()
+            yield self._busy[0].abort()
 
         # Phase 4: All transactions should now be in the free list, since
         # 'abort()' will have put them there.  Shut down all the associated
@@ -611,7 +622,12 @@ class ConnectionPool(Service, object):
             self._finishing.remove(finishRecord)
             self._repoolNow(txn)
             return result
-        return d.addBoth(repool)
+        def discard(result):
+            self._finishing.remove(finishRecord)
+            txn._releaseConnection()
+            self._startOneMore()
+            return result
+        return d.addCallbacks(repool, discard)
 
 
     def _repoolNow(self, txn):
