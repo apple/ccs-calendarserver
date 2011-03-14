@@ -23,7 +23,6 @@ __all__ = ["StoreAddressObjectResource"]
 import types
 
 from twisted.internet import reactor
-from twisted.python.failure import Failure
 
 from txdav.common.icommondatastore import ReservationError
 
@@ -452,20 +451,8 @@ class StoreAddressObjectResource(object):
             returnValue(response)
     
         except Exception, err:
-            # Preserve the real traceback to display later, since the error-
-            # handling here yields out of the generator and thereby shreds the
-            # stack.
-            f = Failure()
 
             if reservation:
                 yield reservation.unreserve()
-    
-            # FIXME: transaction needs to be rolled back.
-
-            # Display the traceback.  Unfortunately this will usually be
-            # duplicated by the higher-level exception handler that captures
-            # the thing that raises here, but it's better than losing the
-            # information.
-            f.printTraceback()
 
             raise err
