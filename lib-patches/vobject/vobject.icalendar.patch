@@ -21,16 +21,19 @@ Index: vobject/icalendar.py
      if charList is None:
          charList = escapableCharList
  
-@@ -1656,6 +1660,8 @@
+@@ -1655,7 +1659,10 @@
+ 
          if state == "read normal":
              if char == '\\':
-                 state = "read escaped char"
+-                state = "read escaped char"
 +                if leaveEscapes:
 +                    current.append(char)
++                else:
++                    state = "read escaped char"
              elif char == listSeparator:
                  state = "read normal"
                  current = "".join(current)
-@@ -1675,9 +1681,10 @@
+@@ -1675,9 +1682,10 @@
                  else:
                      current.append(char)
              else:
