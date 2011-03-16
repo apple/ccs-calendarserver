@@ -69,7 +69,7 @@ from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav import memcachepool
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from twistedcaldav.upgrade import upgradeData
+from twistedcaldav.upgrade import UpgradeFileSystemFormatService
 
 from calendarserver.tap.util import pgServiceFromConfig
 
@@ -860,23 +860,11 @@ class CalDAVServiceMaker (LoggingMixIn):
         return config.BindAddresses
 
 
-    def scheduleOnDiskUpgrade(self):
-        """
-        Schedule any on disk upgrades we might need.  Note that this will only
-        do the filesystem-format upgrades; migration to the database needs to
-        be done when the connection and possibly server is already up and
-        running.
-        """
-        addSystemEventTrigger("before", "startup", upgradeData, config)
-
-
     def makeService_Single(self, options):
         """
         Create a service to be used in a single-process, stand-alone
         configuration.
         """
-        self.scheduleOnDiskUpgrade()
-
         def slaveSvcCreator(pool, store):
             return self.requestProcessingService(options, store)
         return self.storageService(slaveSvcCreator)
@@ -973,11 +961,13 @@ class CalDAVServiceMaker (LoggingMixIn):
             cp.setServiceParent(ms)
             store = storeFromConfig(config, cp.connection)
             mainService = createMainService(cp, store)
-            maybeUpgradeSvc = UpgradeToDatabaseService.wrapService(
-                CachingFilePath(config.DocumentRoot), mainService,
-                store, uid=uid, gid=gid
+            upgradeSvc = UpgradeFileSystemFormatService(config,
+                UpgradeToDatabaseService.wrapService(
+                    CachingFilePath(config.DocumentRoot), mainService,
+                    store, uid=uid, gid=gid
+                )
             )
-            maybeUpgradeSvc.setServiceParent(ms)
+            upgradeSvc.setServiceParent(ms)
             return ms
         return subServiceFactory
 
@@ -988,8 +978,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         spawning subprocesses that use L{makeService_Slave} to perform work.
         """
         s = ErrorLoggingMultiService()
-
-        self.scheduleOnDiskUpgrade()
 
         # Make sure no old socket files are lying around.
         self.deleteStaleSocketFiles()

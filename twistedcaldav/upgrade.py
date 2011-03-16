@@ -23,7 +23,6 @@ from cPickle import loads as unpickle, UnpicklingError
 
 from twext.web2.dav.fileop import rmdir
 from twext.web2.dav import davxml
-
 from twext.python.log import Logger
 
 from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
@@ -35,7 +34,9 @@ from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.ical import Component
 from twistedcaldav import caldavxml
 
-from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.application.service import Service
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, succeed, returnValue
 
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.resources import migrateResources
@@ -558,10 +559,10 @@ def upgradeData(config):
         if onDiskVersion < version:
             log.warn("Upgrading to version %d" % (version,))
             (yield method(config))
+            log.warn("Upgraded to version %d" % (version,))
             with open(versionFilePath, "w") as verFile:
                 verFile.write(str(version))
             os.chown(versionFilePath, uid, gid)
-
 
 class UpgradeError(RuntimeError):
     """
@@ -674,3 +675,41 @@ def archive(config, srcPath, uid, gid):
         # Can't rename, must copy/delete
         shutil.copy2(srcPath, destPath)
         os.remove(srcPath)
+
+
+
+class UpgradeFileSystemFormatService(Service, object):
+    """
+    Upgrade filesystem from previous versions.
+    """
+
+    def __init__(self, config, service):
+        """
+        Initialize the service.
+        """
+        self.wrappedService = service
+        self.config = config
+
+
+    @inlineCallbacks
+    def doUpgrade(self):
+        """
+        Do the upgrade.  Called by C{startService}, but a different method
+        because C{startService} should return C{None}, not a L{Deferred}.
+
+        @return: a Deferred which fires when the upgrade is complete.
+        """
+        yield upgradeData(self.config)
+
+        # see http://twistedmatrix.com/trac/ticket/4649
+        reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
+
+
+    def startService(self):
+        """
+        Start the service.
+        """
+        self.doUpgrade()
+
+
+
