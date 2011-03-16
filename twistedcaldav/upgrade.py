@@ -36,7 +36,7 @@ from twistedcaldav import caldavxml
 
 from twisted.application.service import Service
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+from twisted.internet.defer import inlineCallbacks, succeed
 
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.resources import migrateResources
