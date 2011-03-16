@@ -657,7 +657,7 @@ dependencies () {
   if "${do_setup}"; then
     cd "${caldav}";
     echo "Building our own extension modules...";
-    python setup.py build_ext --inplace;
+    "${python}" setup.py build_ext --inplace;
   fi;
 }
 
