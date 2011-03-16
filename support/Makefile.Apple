@@ -110,11 +110,6 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/usr/libexec/changeip"
 	$(_v) $(INSTALL_FILE) "$(Sources)/calendarserver/tools/changeip_calendar.py" "$(DSTROOT)/usr/libexec/changeip/changeip_calendar.py"
 	$(_v) chmod ugo+x "$(DSTROOT)/usr/libexec/changeip/changeip_calendar.py"
-	@echo "Installing backup config..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(ETCDIR)/server_backup/"
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(LIBEXECDIR)/server_backup/"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/SBS/conf/85-calendarServer.plist" "$(DSTROOT)$(ETCDIR)/server_backup/"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/SBS/bin/calendarServer_restore" "$(DSTROOT)$(LIBEXECDIR)/server_backup/"
 
 install::
 	@echo "Installing CalDAVTester package..."

@@ -190,7 +190,7 @@ if "${build}"; then
 else
   echo "";
   echo "Submitting sources for ${project_version}...";
-  submitproject "${wc}" "${release}";
+  ~rc/bin/submitproject "${wc}" "${release}";
 fi;
 
 rm -rf "${tmp}";
