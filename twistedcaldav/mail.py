@@ -1043,7 +1043,7 @@ class MailHandler(LoggingMixIn):
             else:
                 if inviteState == "new":
                     details['inviteLabel'] = _("Event Invitation")
-                if inviteState == "update":
+                elif inviteState == "update":
                     details['inviteLabel'] = _("Event Update")
                 else:
                     details['inviteLabel'] = _("Event Reply")
