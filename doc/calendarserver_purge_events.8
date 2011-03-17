@@ -41,12 +41,12 @@ server.
 Display usage information
 .It Fl f, -config Ar FILE
 Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
+.It Fl d, -days Ar NUMBER
+Specify how many days in the past to retain.  Defaults to 365 days.
 .It Fl n, -dry-run
 Calculate and display how many events would be removed, but don't actually remove them.  
 .It Fl v, -verbose
 Print progress information.
-.It Fl d, -days Ar NUMBER
-Specify how many days in the past to retain.  Defaults to 365 days.
 .El
 .Sh FILES
 .Bl -tag -width flag

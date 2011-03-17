@@ -18,6 +18,7 @@
 
 import os
 import sys
+from errno import ENOENT, EACCES
 
 from getopt import getopt, GetoptError
 
@@ -45,6 +46,9 @@ from pycalendar.datetime import PyCalendarDateTime
 
 log = Logger()
 
+DEFAULT_BATCH_SIZE = 100
+DEFAULT_RETAIN_DAYS = 365
+
 def usage_purge_events(e=None):
 
     name = os.path.basename(sys.argv[0])
@@ -53,11 +57,11 @@ def usage_purge_events(e=None):
     print "  Remove old events from the calendar server"
     print ""
     print "options:"
-    print "  -d --days <number>: specify how many days in the past to retain (default=365)"
-    print "  -b --batch <number>: number of events to remove in each transaction (default=100)"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -h --help: print this help and exit"
-    print "  -n --dry-run: only calculate how many events to purge"
+    print "  -f --config <path>: Specify caldavd.plist configuration path"
+    print "  -d --days <number>: specify how many days in the past to retain (default=%d)" % (DEFAULT_RETAIN_DAYS,)
+   #print "  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
+    print "  -n --dry-run: calculate how many events to purge, but do not purge data"
     print "  -v --verbose: print progress information"
     print ""
 
@@ -75,10 +79,10 @@ def usage_purge_orphaned_attachments(e=None):
     print "  Remove orphaned attachments from the calendar server"
     print ""
     print "options:"
-    print "  -b --batch <number>: number of attachments to remove in each transaction (default=100)"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -h --help: print this help and exit"
-    print "  -n --dry-run: only calculate how many attachments to purge"
+    print "  -f --config <path>: Specify caldavd.plist configuration path"
+   #print "  -b --batch <number>: number of attachments to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
+    print "  -n --dry-run: calculate how many attachments to purge, but do not purge data"
     print "  -v --verbose: print progress information"
     print ""
 
@@ -96,9 +100,9 @@ def usage_purge_principal(e=None):
     print "  Remove a principal's events and contacts from the calendar server"
     print ""
     print "options:"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -h --help: print this help and exit"
-    print "  -n --dry-run: only calculate how many events and contacts to purge"
+    print "  -f --config <path>: Specify caldavd.plist configuration path"
+    print "  -n --dry-run: calculate how many events and contacts to purge, but do not purge data"
     print "  -v --verbose: print progress information"
     print ""
 
@@ -109,81 +113,96 @@ def usage_purge_principal(e=None):
         sys.exit(0)
 
 
-class PurgeOldEventsService(Service):
+class WorkerService(Service):
+
+    def __init__(self, store):
+        self._store = store
+
+    def rootResource(self):
+        try:
+            rootResource = getRootResource(config, self._store)
+        except OSError, e:
+            if e.errno == ENOENT:
+                # Trying to re-write resources.xml but its parent directory does
+                # not exist.  The server's never been started, so we're missing
+                # state required to do any work.  (Plus, what would be the point
+                # of purging stuff from a server that's completely empty?)
+                raise ConfigurationError(
+                    "It appears that the server has never been started.\n"
+                    "Please start it at least once before purging anything.")
+            elif e.errno == EACCES:
+                # Trying to re-write resources.xml but it is not writable by the
+                # current user.  This most likely means we're in a system
+                # configuration and the user doesn't have sufficient privileges
+                # to do the other things the tool might need to do either.
+                raise ConfigurationError("You must run this tool as root.")
+            else:
+                raise
+        return rootResource
+
+
+    @inlineCallbacks
+    def startService(self):
+        try:
+            yield self.doWork()
+        except ConfigurationError, ce:
+            sys.stderr.write("Error: %s\n" % (str(ce),))
+        except Exception, e:
+            sys.stderr.write("Error: %s\n" % (e,))
+            raise
+        finally:
+            reactor.stop()
+
+
+
+class PurgeOldEventsService(WorkerService):
 
     cutoff = None
     batchSize = None
     dryrun = False
     verbose = False
 
-    def __init__(self, store):
-        self._store = store
-
-    @inlineCallbacks
-    def startService(self):
-        try:
-            rootResource = getRootResource(config, self._store)
-            directory = rootResource.getDirectory()
-            (yield purgeOldEvents(self._store, directory, rootResource,
-                self.cutoff, self.batchSize, verbose=self.verbose,
-                dryrun=self.dryrun))
-        except Exception, e:
-            sys.stderr.write("Error: %s\n" % (e,))
-            raise
-
-        finally:
-            reactor.stop()
+    def doWork(self):
+        rootResource = self.rootResource()
+        directory = rootResource.getDirectory()
+        return purgeOldEvents(self._store, directory, rootResource,
+            self.cutoff, self.batchSize, verbose=self.verbose,
+            dryrun=self.dryrun)
 
 
-class PurgeOrphanedAttachmentsService(Service):
+
+class PurgeOrphanedAttachmentsService(WorkerService):
 
     batchSize = None
     dryrun = False
     verbose = False
 
-    def __init__(self, store):
-        self._store = store
-
-    @inlineCallbacks
-    def startService(self):
-        try:
-            (yield purgeOrphanedAttachments(self._store, self.batchSize,
-                verbose=self.verbose, dryrun=self.dryrun))
-        except Exception, e:
-            sys.stderr.write("Error: %s\n" % (e,))
-            raise
-
-        finally:
-            reactor.stop()
+    def doWork(self):
+        return purgeOrphanedAttachments(
+            self._store, self.batchSize,
+            verbose=self.verbose, dryrun=self.dryrun)
 
 
-class PurgePrincipalService(Service):
+
+class PurgePrincipalService(WorkerService):
 
     guids = None
     dryrun = False
     verbose = False
 
-    def __init__(self, store):
-        self._store = store
-
     @inlineCallbacks
-    def startService(self):
-        try:
-            rootResource = getRootResource(config, self._store)
-            directory = rootResource.getDirectory()
-            total = (yield purgeGUIDs(directory, rootResource, self.guids,
-                verbose=self.verbose, dryrun=self.dryrun))
-            if self.verbose:
-                amount = "%d event%s" % (total, "s" if total > 1 else "")
-                if self.dryrun:
-                    print "Would have modified or deleted %s" % (amount,)
-                else:
-                    print "Modified or deleted %s" % (amount,)
-        except Exception, e:
-            sys.stderr.write("Error: %s\n" % (e,))
-            raise
-        finally:
-            reactor.stop()
+    def doWork(self):
+        rootResource = self.rootResource()
+        directory = rootResource.getDirectory()
+        total = (yield purgeGUIDs(directory, rootResource, self.guids,
+            verbose=self.verbose, dryrun=self.dryrun))
+        if self.verbose:
+            amount = "%d event%s" % (total, "s" if total > 1 else "")
+            if self.dryrun:
+                print "Would have modified or deleted %s" % (amount,)
+            else:
+                print "Modified or deleted %s" % (amount,)
+
 
 
 def shared_main(configFileName, serviceClass):
@@ -227,8 +246,8 @@ def main_purge_events():
     # Get configuration
     #
     configFileName = None
-    days = 365
-    batchSize = 100
+    days = DEFAULT_RETAIN_DAYS
+    batchSize = DEFAULT_BATCH_SIZE
     dryrun = False
     verbose = False
 
@@ -302,7 +321,7 @@ def main_purge_orphaned_attachments():
     # Get configuration
     #
     configFileName = None
-    batchSize = 100
+    batchSize = DEFAULT_BATCH_SIZE
     dryrun = False
     verbose = False
 
@@ -392,20 +411,6 @@ def main_purge_principals():
         configFileName,
         PurgePrincipalService
     )
-
-
-@inlineCallbacks
-def callThenStop(method, *args, **kwds):
-    try:
-        count = (yield method(*args, **kwds))
-        if kwds.get("dryrun", False):
-            print "Would have purged %d events" % (count,)
-        else:
-            print "Purged %d events" % (count,)
-    except Exception, e:
-        sys.stderr.write("Error: %s\n" % (e,))
-    finally:
-        reactor.stop()
 
 
 @inlineCallbacks

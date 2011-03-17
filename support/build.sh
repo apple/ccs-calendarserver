@@ -210,7 +210,7 @@ www_get () {
         #
         # Try getting a copy from calendarserver.org.
         #
-        local tmp="$(mktemp -t "${cache_basename}")";
+        local tmp="$(mktemp "/tmp/${cache_basename}.XXXXX")";
         curl -L "http://${pkg_host}${pkg_path}/${cache_basename}" -o "${tmp}";
         echo "";
         if [ ! -s "${tmp}" ] || grep '<title>404 Not Found</title>' "${tmp}" > /dev/null; then
@@ -633,7 +633,7 @@ dependencies () {
     "http://svn.osafoundation.org/vobject/trunk";
 
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fie -r 143 \
+  py_dependency -fie -r 144 \
     "pycalendar" "pycalendar" "pycalendar" \
     "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
 
@@ -662,7 +662,7 @@ dependencies () {
   if "${do_setup}"; then
     cd "${caldav}";
     echo "Building our own extension modules...";
-    python setup.py build_ext --inplace;
+    "${python}" setup.py build_ext --inplace;
   fi;
 }
 

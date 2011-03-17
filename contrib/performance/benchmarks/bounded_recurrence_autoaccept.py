@@ -35,13 +35,16 @@ def makeEvent(i, organizerSequence, attendeeCount):
     end = start + timedelta(minutes=30)
     until = start + timedelta(days=5)
     rrule = "RRULE:FREQ=DAILY;INTERVAL=1;UNTIL=" + formatDate(until)
+    attendees = makeAttendees(attendeeCount)
+    attendees.append(
+        'ATTENDEE;CN="Resource 01";CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=T\n'
+        ' RUE;SCHEDULE-STATUS="1.2":urn:uuid:resource01\n')
     return makeVCalendar(
-        uuid4(), start, end, rrule, organizerSequence,
-        makeAttendees(attendeeCount))
+        uuid4(), start, end, rrule, organizerSequence, attendees)
 
 
 def measure(host, port, dtrace, attendeeCount, samples):
-    calendar = "bounded-recurrence"
+    calendar = "bounded-recurrence-autoaccept"
     organizerSequence = 1
 
     # An infinite stream of recurring VEVENTS to PUT to the server.

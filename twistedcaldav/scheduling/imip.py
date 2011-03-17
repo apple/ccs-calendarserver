@@ -68,7 +68,8 @@ class ScheduleViaIMip(DeliveryService):
                 for recipient in self.recipients:
                     err = HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "recipient-failed")
+                        (caldav_namespace, "recipient-failed"),
+                        "iMIP method not allowed: %s" % (method,),
                     ))
                     self.responses.add(
                         recipient.cuaddr,
@@ -95,7 +96,8 @@ class ScheduleViaIMip(DeliveryService):
                     log.err("Could not do server-to-imip request : %s %s" % (self, e))
                     err = HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "recipient-failed")
+                        (caldav_namespace, "recipient-failed"),
+                        "iMIP request failed",
                     ))
                     self.responses.add(
                         recipient.cuaddr,
@@ -116,7 +118,8 @@ class ScheduleViaIMip(DeliveryService):
             for recipient in self.recipients:
                 err = HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "recipient-failed")
+                    (caldav_namespace, "recipient-failed"),
+                    "iMIP request failed",
                 ))
                 self.responses.add(
                     recipient.cuaddr,

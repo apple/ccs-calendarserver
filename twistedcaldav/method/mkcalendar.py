@@ -53,7 +53,8 @@ def http_MKCALENDAR(self, request):
         log.err("Attempt to create collection where resource exists: %s"  % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            (davxml.dav_namespace, "resource-must-be-null")
+            (davxml.dav_namespace, "resource-must-be-null"),
+            "Resource already exists",
         ))
 
     if not parent.isCollection():
@@ -61,7 +62,8 @@ def http_MKCALENDAR(self, request):
                 % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.CONFLICT,
-            (caldavxml.caldav_namespace, "calendar-collection-location-ok")
+            (caldavxml.caldav_namespace, "calendar-collection-location-ok"),
+            "Cannot create calendar inside another calendar",
         ))
 
     #

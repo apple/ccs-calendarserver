@@ -80,7 +80,11 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
         yield report_common.applyToCalendarCollections(self, request, request.uri, depth, generateFreeBusyInfo, (caldavxml.ReadFreeBusy(),))
     except NumberOfMatchesWithinLimits:
         log.err("Too many matching components in free-busy report")
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            davxml.NumberOfMatchesWithinLimits(),
+            "Too many components"
+        ))
     
     # Now build a new calendar object with the free busy info we have
     fbcalendar = report_common.buildFreeBusyResult(fbinfo, timerange)

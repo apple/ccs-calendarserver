@@ -215,6 +215,20 @@ class _ColumnParser(object):
             return self.parseConstraint(maybeIdent)
 
 
+    def namesInParens(self, parens):
+        parens = iterSignificant(parens)
+        expect(parens, ttype=Punctuation, value="(")
+        idorids = parens.next()
+        if isinstance(idorids, Identifier):
+            idnames = [idorids.get_name()]
+        elif isinstance(idorids, IdentifierList):
+            idnames = [x.get_name() for x in idorids.get_identifiers()]
+        else:
+            raise ViolatedExpectation("identifier or list", repr(idorids))
+        expect(parens, ttype=Punctuation, value=")")
+        return idnames
+
+
     def parseConstraint(self, constraintType):
         """
         Parse a 'free' constraint, described explicitly in the table as opposed
@@ -223,20 +237,12 @@ class _ColumnParser(object):
         # only know about PRIMARY KEY and UNIQUE for now
         if constraintType.match(Keyword, 'PRIMARY'):
             expect(self, ttype=Keyword, value='KEY')
-            expect(self, cls=Parenthesis)
-            self.primaryKey = 'MULTI-VALUE-KEY'
+            names = self.namesInParens(expect(self, cls=Parenthesis))
+            self.table.primaryKey = tuple(self.table.columnNamed(n)
+                                          for n in names)
         elif constraintType.match(Keyword, 'UNIQUE'):
-            parens = iterSignificant(expect(self, cls=Parenthesis))
-            expect(parens, ttype=Punctuation, value="(")
-            idorids = parens.next()
-            if isinstance(idorids, Identifier):
-                idnames = [idorids.get_name()]
-            elif isinstance(idorids, IdentifierList):
-                idnames = [x.get_name() for x in idorids.get_identifiers()]
-            else:
-                raise ViolatedExpectation("identifier or list", repr(idorids))
-            expect(parens, ttype=Punctuation, value=")")
-            self.table.tableConstraint(Constraint.UNIQUE, idnames)
+            names = self.namesInParens(expect(self, cls=Parenthesis))
+            self.table.tableConstraint(Constraint.UNIQUE, names)
         else:
             raise ViolatedExpectation('PRIMARY or UNIQUE', constraintType)
         return self.checkEnd(self.next())
@@ -347,6 +353,7 @@ class _ColumnParser(object):
                 elif val.match(Keyword, 'ON'):
                     expect(self, ttype=Keyword.DML, value='DELETE')
                     expect(self, ttype=Keyword, value='CASCADE')
+                    theColumn.cascade = True
                 else:
                     expected = False
                 if not expected:

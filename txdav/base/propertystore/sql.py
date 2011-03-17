@@ -204,4 +204,13 @@ class PropertyStore(AbstractPropertyStore):
             if cachedUID == uid:
                 yield PropertyName.fromString(cachedKey)
 
+    _deleteResourceQuery = Delete(
+        prop, Where=(prop.RESOURCE_ID == Parameter("resourceID"))
+    )
+
+    def _removeResource(self):
+
+        self._cached = {}
+        self._deleteResourceQuery.on(self._txn, resourceID=self._resourceID)
+        self._cacher.delete(str(self._resourceID))
 

@@ -96,7 +96,8 @@ class ImplicitScheduler(object):
         ):
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "valid-attendee-change")
+                (caldav_namespace, "valid-attendee-change"),
+                "Cannot change scheduling object mode",
             ))
 
         returnValue((self.action != "none", new_type == "schedule",))
@@ -120,7 +121,8 @@ class ImplicitScheduler(object):
                 log.debug("Implicit - cannot MOVE with a scheduling object resource")
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "unique-scheduling-object-resource")
+                    (caldav_namespace, "unique-scheduling-object-resource"),
+                    "Cannot MOVE a scheduling object resource",
                 ))
             else:
                 self.action = "none"
@@ -153,7 +155,8 @@ class ImplicitScheduler(object):
                 log.debug("Implicit - cannot COPY with a scheduling object resource")
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "unique-scheduling-object-resource")
+                    (caldav_namespace, "unique-scheduling-object-resource"),
+                    "Cannot COPY with a scheduling object resource",
                 ))
             else:
                 self.action = "none"
@@ -330,7 +333,8 @@ class ImplicitScheduler(object):
                 log.error("Originator '%s' is not enabled for calendaring" % (self.originatorPrincipal,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "invalid-originator")
+                    (caldav_namespace, "invalid-originator"),
+                    "Originator not enabled",
                 ))
     
             # Pick the first mailto cu address or the first other type
@@ -349,7 +353,8 @@ class ImplicitScheduler(object):
             log.error("Only one ORGANIZER is allowed in an iCalendar object:\n%s" % (self.calendar,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "single-organizer")
+                (caldav_namespace, "single-organizer"),
+                "Only one organizer allowed in scheduling object resource",
             ))
         
         # Get the ATTENDEEs
@@ -382,7 +387,8 @@ class ImplicitScheduler(object):
             log.debug("Implicit - found component with same UID in a different collection: %s" % (check_uri,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "unique-scheduling-object-resource")
+                (caldav_namespace, "unique-scheduling-object-resource"),
+                "Cannot duplicate scheduling object resource",
             ))
 
     @inlineCallbacks
@@ -557,7 +563,8 @@ class ImplicitScheduler(object):
                     log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "valid-organizer-change")
+                        (caldav_namespace, "valid-organizer-change"),
+                        "Organizer cannot be changed",
                     ))
         else:
             # Special case of SCHEDULE-FORCE-SEND added to attendees and no other change
@@ -789,7 +796,8 @@ class ImplicitScheduler(object):
                     log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "valid-attendee-change")
+                        (caldav_namespace, "valid-attendee-change"),
+                        "Cannot change organizer",
                     ))
             else:
                 self.oldcalendar = None
@@ -803,7 +811,8 @@ class ImplicitScheduler(object):
                     log.error("Attendee '%s' is not allowed to change SCHEDULE-AGENT on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "valid-attendee-change")
+                        (caldav_namespace, "valid-attendee-change"),
+                        "Cannot alter organizer",
                     ))
 
                 # Determine whether the current change is allowed
@@ -820,7 +829,8 @@ class ImplicitScheduler(object):
                         log.error("Attendee '%s' is not allowed to make an unauthorized change to an organized event: UID:%s" % (self.attendeePrincipal, self.uid,))
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
-                            (caldav_namespace, "valid-attendee-change")
+                            (caldav_namespace, "valid-attendee-change"),
+                            "Attendee changes are not allowed",
                         ))
 
                 if not doITipReply:
@@ -844,7 +854,8 @@ class ImplicitScheduler(object):
                                 log.error("Attendee '%s' is not allowed to set SCHEDULE-AGENT=SERVER on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
                                 raise HTTPError(ErrorResponse(
                                     responsecode.FORBIDDEN,
-                                    (caldav_namespace, "valid-attendee-change")
+                                    (caldav_namespace, "valid-attendee-change"),
+                                    "Attendee cannot change organizer state",
                                 ))
 
                         log.debug("Attendee '%s' is not allowed to update UID: '%s' - missing organizer copy - removing entire event" % (self.attendee, self.uid,))

@@ -184,7 +184,7 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
         recordType,
         attr,
         adjustMatchType(matchType, casei),
-        value,
+        value.decode("utf-8"),
         attributes,
         count,
         None)

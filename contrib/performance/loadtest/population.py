@@ -185,6 +185,10 @@ class StatisticsBase(object):
             self.eventReceived(event)
 
 
+    def report(self):
+        pass
+
+
 
 class SimpleStatistics(StatisticsBase):
     def __init__(self):
@@ -249,7 +253,7 @@ class ReportStatistics(StatisticsBase):
         print format % values
 
 
-    def summarize(self):
+    def report(self):
         print
         self._printHeader()
         for method, data in self._perMethodTimes.iteritems():
@@ -284,7 +288,7 @@ def main():
     arrivalPolicy.run(reactor, simulator)
 
     reactor.run()
-    report.summarize()
+    report.report()
 
 if __name__ == '__main__':
     main()

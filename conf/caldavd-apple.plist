@@ -540,13 +540,13 @@
         <key>params</key>
         <dict>
             <key>queryUserRecords</key>
-            <true/>
+            <false/>
             <key>queryPeopleRecords</key>
-            <true/>
+            <false/>
         </dict>
     </dict>
     <key>EnableSearchAddressBook</key>
-    <true/>
+    <false/>
 
     <key>OpenDirectoryModule</key>
     <string>calendarserver.platform.darwin.od.opendirectory</string>

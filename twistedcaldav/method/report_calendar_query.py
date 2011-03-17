@@ -76,7 +76,8 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         log.err(msg)
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            (caldav_namespace, "valid-calendar-data"), description=msg
+            (caldav_namespace, "valid-calendar-data"),
+            "Invalid calendar-data",
         ))
     if query_tz:
         filter.settimezone(query_tz)
@@ -99,7 +100,8 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             log.err(message)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "supported-calendar-data")
+                (caldav_namespace, "supported-calendar-data"),
+                "Invalid calendar-data",
             ))
         
     else:
@@ -110,7 +112,8 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         log.err("Invalid filter element: %r" % (xmlfilter,))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            (caldav_namespace, "valid-filter")
+            (caldav_namespace, "valid-filter"),
+            "Invalid filter element",
         ))
 
     matchcount = [0]
@@ -241,13 +244,15 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         log.err("Too many instances need to be computed in calendar-query report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed)))
+            NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed))),
+            "Too many instrances",
         ))
     except NumberOfMatchesWithinLimits:
         log.err("Too many matching components in calendar-query report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            davxml.NumberOfMatchesWithinLimits()
+            davxml.NumberOfMatchesWithinLimits(),
+            "Too many components",
         ))
     
     if not hasattr(request, "extendedLogItems"):

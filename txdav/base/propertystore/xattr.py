@@ -257,6 +257,11 @@ class PropertyStore(AbstractPropertyStore):
             if effectivekey[1] == uid and effectivekey not in seen:
                 yield effectivekey[0]
 
+    def _removeResource(self):
+        # xattrs are removed when the underlying file is deleted so just clear out cached changes
+        self.removed.clear()
+        self.modified.clear()
+
     #
     # I/O
     #

@@ -356,7 +356,7 @@ DEFAULT_CONFIG = {
         },
         "Wiki": {
             "Enabled": False,
-            "Cookie": "_authserver_session",
+            "Cookie": "apple_webauth_token",
             "URL": "http://127.0.0.1:8089/RPC2",
             "UserMethod": "userForSession",
             "WikiMethod": "accessLevelForUserWikiCalendar",
@@ -436,6 +436,10 @@ DEFAULT_CONFIG = {
     "EnableDropBox"           : False, # Calendar Drop Box
     "EnablePrivateEvents"     : False, # Private Events
     "EnableTimezoneService"   : False, # Timezone service
+
+    "EnableBatchUpload"       : False,    # POST batch uploads
+    "MaxResourcesBatchUpload" : 100,      # Maximum number of resources in a batch POST
+    "MaxBytesBatchUpload"     : 10485760, # Maximum size of a batch POST (10 MB)
     
     "Sharing": {
         "Enabled"             : False, # Overall on/off switch

@@ -14,11 +14,9 @@
 # limitations under the License.
 ##
 
-import datetime
-
 from twisted.trial.unittest import TestCase
 
-from event_change_date import replaceTimestamp
+from benchmarks.event_change_date import replaceTimestamp
 
 calendarHead = """\
 BEGIN:VCALENDAR

@@ -334,7 +334,7 @@ class ComponentFilter (FilterChildBase):
 
     def getmaxtimerange(self, currentMaximum, currentIsStartTime):
         """
-        Get the date furthest into the future in any time-range elements
+        Get the date farthest into the future in any time-range elements
         
         @param currentMaximum: current future value to compare with
         @type currentMaximum: L{PyCalendarDateTime}

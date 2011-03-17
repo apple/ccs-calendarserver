@@ -21,6 +21,8 @@ SQL Table definitions.
 
 from twisted.python.modules import getModule
 from twext.enterprise.dal.syntax import SchemaSyntax
+from twext.enterprise.dal.model import NO_DEFAULT
+from twext.enterprise.dal.model import Sequence, ProcedureCall
 from twext.enterprise.dal.parseschema import schemaFromPath
 
 
@@ -194,4 +196,73 @@ ADDRESSBOOK_OBJECT_AND_BIND_TABLE = _combine(OBJECT=ADDRESSBOOK_OBJECT_TABLE,
 ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE = _combine(
     REV=ADDRESSBOOK_OBJECT_REVISIONS_TABLE,
     BIND=ADDRESSBOOK_BIND_TABLE)
+
+
+
+def _translateSchema(out):
+    """
+    When run as a script, translate the schema to another dialect.  Currently
+    only postgres and oracle are supported, and native format is postgres, so
+    emit in oracle format.
+    """
+    for sequence in schema.model.sequences:
+        out.write('drop sequence %s; create sequence %s;\n' % (
+            sequence.name, sequence.name))
+    for table in schema:
+        # The only table name which actually exceeds the length limit right now
+        # is CALENDAR_OBJECT_ATTACHMENTS_MODE, which isn't actually _used_
+        # anywhere, so we can fake it for now.
+        out.write('drop table %s; create table %s (\n' % (
+            table.model.name[:30], table.model.name[:30],))
+        first = True
+        for column in table:
+            if first:
+                first = False
+            else:
+                out.write(",\n")
+            typeName = column.model.type.name
+            if typeName == 'text':
+                typeName = 'clob'
+            if typeName == 'boolean':
+                typeName = 'integer'
+            out.write('    "%s" %s' % (column.model.name, typeName))
+            if column.model.type.length:
+                out.write("(%s)" % (column.model.type.length,))
+            if column.model is table.model.primaryKey:
+                out.write(' primary key')
+            default = column.model.default
+            if default is not NO_DEFAULT:
+                # Can't do default sequence types in Oracle, so don't bother.
+                if not isinstance(default, Sequence):
+                    out.write(' default')
+                    if default is None:
+                        out.write(' null')
+                    elif isinstance(default, ProcedureCall):
+                        # Cheating, because there are currently no other
+                        # functions being used.
+                        out.write(" CURRENT_TIMESTAMP at time zone 'UTC'")
+                    else:
+                        if default is True:
+                            default = 1
+                        elif default is False:
+                            default = 0
+                        out.write(" " + repr(default))
+            if not column.model.canBeNull():
+                out.write(' not null')
+            if set([column.model]) in list(table.model.uniques()):
+                out.write(' unique')
+            if column.model.references is not None:
+                out.write(" references %s" % (column.model.references.name,))
+            if column.model.cascade:
+                out.write(" on delete cascade")
+
+        out.write('\n);\n\n')
+
+
+
+if __name__ == '__main__':
+    import sys
+    _translateSchema(sys.stdout)
+
+
 

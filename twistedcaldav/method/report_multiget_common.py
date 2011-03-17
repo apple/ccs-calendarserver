@@ -94,14 +94,22 @@ def multiget_common(self, request, multiget, collection_type):
             result = True
         if not result:
             log.err(message)
-            raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, precondition))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                precondition,
+                "Invalid object data element",
+            ))
     else:
         raise AssertionError("We shouldn't be here")
 
     # Check size of results is within limit when data property requested
     if hasData and len(resources) > config.MaxMultigetWithDataHrefs:
         log.err("Too many results in multiget report returning data: %d" % len(resources))
-        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.NumberOfMatchesWithinLimits()))
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            davxml.NumberOfMatchesWithinLimits(),
+            "Too many resources",
+        ))
 
     """
     Three possibilities exist:
@@ -259,14 +267,22 @@ def multiget_common(self, request, multiget, collection_type):
                     directoryAddressBookLock, limited = (yield  self.directory.cacheVCardsForAddressBookQuery(addressBookFilter, propertyreq, limit) )
                     if limited:
                         log.err("Too many results in multiget report: %d" % len(resources))
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (dav_namespace, "number-of-matches-within-limits"),
+                            "Too many results",
+                        ))
                 else:
                     #get vCards and filter
                     limit = config.DirectoryAddressBook.MaxQueryResults
                     vCardRecords, limited = (yield self.directory.vCardRecordsForAddressBookQuery( addressBookFilter, propertyreq, limit ))
                     if limited:
                         log.err("Too many results in multiget report: %d" % len(resources))
-                        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, (dav_namespace, "number-of-matches-within-limits")))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (dav_namespace, "number-of-matches-within-limits"),
+                            "Too many results",
+                        ))
                    
                     for href in valid_hrefs:
                         matchingRecord = None

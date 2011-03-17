@@ -69,10 +69,12 @@ from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav import memcachepool
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from twistedcaldav.upgrade import upgradeData
+from twistedcaldav.upgrade import UpgradeFileSystemFormatService
 
 from calendarserver.tap.util import pgServiceFromConfig
 
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.adbapi2 import ConnectionPoolConnection
 
@@ -90,6 +92,7 @@ from calendarserver.tap.util import ConnectionWithPeer
 from calendarserver.tap.util import storeFromConfig
 from calendarserver.tap.util import transactionFactoryFromFD
 from calendarserver.tap.util import pgConnectorFromConfig
+from calendarserver.tap.util import oracleConnectorFromConfig
 from calendarserver.tools.util import checkDirectory
 
 try:
@@ -641,6 +644,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         elif not config.UseDatabase:
             txnFactory = None
         elif not config.SharedConnectionPool:
+            dialect = POSTGRES_DIALECT
+            paramstyle = 'pyformat'
             if config.DBType == '':
                 # get a PostgresService to tell us what the local connection
                 # info is, but *don't* start it (that would start one postgres
@@ -649,9 +654,14 @@ class CalDAVServiceMaker (LoggingMixIn):
                     config, None).produceConnection
             elif config.DBType == 'postgres':
                 connectionFactory = pgConnectorFromConfig(config)
+            elif config.DBType == 'oracle':
+                dialect = ORACLE_DIALECT
+                paramstyle = 'numeric'
+                connectionFactory = oracleConnectorFromConfig(config)
             else:
                 raise UsageError("unknown DB type: %r" % (config.DBType,))
-            pool = ConnectionPool(connectionFactory)
+            pool = ConnectionPool(connectionFactory, dialect=dialect,
+                                  paramstyle=paramstyle)
             txnFactory = pool.connection
         else:
             raise UsageError(
@@ -850,23 +860,11 @@ class CalDAVServiceMaker (LoggingMixIn):
         return config.BindAddresses
 
 
-    def scheduleOnDiskUpgrade(self):
-        """
-        Schedule any on disk upgrades we might need.  Note that this will only
-        do the filesystem-format upgrades; migration to the database needs to
-        be done when the connection and possibly server is already up and
-        running.
-        """
-        addSystemEventTrigger("before", "startup", upgradeData, config)
-
-
     def makeService_Single(self, options):
         """
         Create a service to be used in a single-process, stand-alone
         configuration.
         """
-        self.scheduleOnDiskUpgrade()
-
         def slaveSvcCreator(pool, store):
             return self.requestProcessingService(options, store)
         return self.storageService(slaveSvcCreator)
@@ -884,6 +882,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             return config.UtilityServiceClass(store)
 
         return self.storageService(toolServiceCreator)
+
 
     def storageService(self, createMainService, uid=None, gid=None):
         """
@@ -939,6 +938,12 @@ class CalDAVServiceMaker (LoggingMixIn):
                 return self.subServiceFactoryFactory(createMainService,
                     uid=overrideUID, gid=overrideGID)(
                             pgConnectorFromConfig(config))
+            elif config.DBType == 'oracle':
+                # Connect to an Oracle database that is already running.
+                return self.subServiceFactoryFactory(createMainService,
+                    uid=overrideUID, gid=overrideGID,
+                    dialect=ORACLE_DIALECT, paramstyle='numeric')(
+                            oracleConnectorFromConfig(config))
             else:
                 raise UsageError("Unknown database type %r" (config.DBType,))
         else:
@@ -946,19 +951,23 @@ class CalDAVServiceMaker (LoggingMixIn):
             return createMainService(None, store)
 
 
-    def subServiceFactoryFactory(self, createMainService,
-                                 uid=None, gid=None):
+    def subServiceFactoryFactory(self, createMainService, uid=None, gid=None,
+                                 dialect=POSTGRES_DIALECT,
+                                 paramstyle='pyformat'):
         def subServiceFactory(connectionFactory):
             ms = MultiService()
-            cp = ConnectionPool(connectionFactory)
+            cp = ConnectionPool(connectionFactory, dialect=dialect,
+                                paramstyle=paramstyle)
             cp.setServiceParent(ms)
             store = storeFromConfig(config, cp.connection)
             mainService = createMainService(cp, store)
-            maybeUpgradeSvc = UpgradeToDatabaseService.wrapService(
-                CachingFilePath(config.DocumentRoot), mainService,
-                store, uid=uid, gid=gid
+            upgradeSvc = UpgradeFileSystemFormatService(config,
+                UpgradeToDatabaseService.wrapService(
+                    CachingFilePath(config.DocumentRoot), mainService,
+                    store, uid=uid, gid=gid
+                )
             )
-            maybeUpgradeSvc.setServiceParent(ms)
+            upgradeSvc.setServiceParent(ms)
             return ms
         return subServiceFactory
 
@@ -969,8 +978,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         spawning subprocesses that use L{makeService_Slave} to perform work.
         """
         s = ErrorLoggingMultiService()
-
-        self.scheduleOnDiskUpgrade()
 
         # Make sure no old socket files are lying around.
         self.deleteStaleSocketFiles()

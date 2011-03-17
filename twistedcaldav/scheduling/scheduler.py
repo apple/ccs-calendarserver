@@ -183,7 +183,8 @@ class Scheduler(object):
             log.err("%s request must have Originator" % (self.method,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "originator-specified")
+                (caldav_namespace, "originator-specified"),
+                "Missing originator",
             ))
         else:
             self.originator = originator
@@ -202,7 +203,8 @@ class Scheduler(object):
             log.err("%s request must have at least one Recipient" % (self.method,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "recipient-specified")
+                (caldav_namespace, "recipient-specified"),
+                "Must have recipients",
             ))
         else:
             self.recipients = list(attendees)
@@ -221,7 +223,8 @@ class Scheduler(object):
             log.err("%s request must have Originator header" % (self.method,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "originator-specified")
+                (caldav_namespace, "originator-specified"),
+                "Missing originator",
             ))
         else:
             self.originator = originator[0]
@@ -233,7 +236,8 @@ class Scheduler(object):
             log.err("%s request must have at least one Recipient header" % (self.method,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "recipient-specified")
+                (caldav_namespace, "recipient-specified"),
+                "No recipients",
             ))
     
         # Recipient header may be comma separated list
@@ -252,7 +256,8 @@ class Scheduler(object):
             log.err("MIME type %s not allowed in calendar collection" % (contentType,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "supported-calendar-data")
+                (caldav_namespace, "supported-calendar-data"),
+                "Data is not calendar data",
             ))
     
         # Parse the calendar object from the HTTP request stream
@@ -321,7 +326,8 @@ class Scheduler(object):
             log.err("X-CALENDARSERVER-ACCESS not allowed in a calendar component %s request: %s" % (self.method, self.calendar,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (calendarserver_namespace, "no-access-restrictions")
+                (calendarserver_namespace, "no-access-restrictions"),
+                "Private events cannot be scheduled",
             ))
     
         # Determine iTIP method mode
@@ -339,7 +345,8 @@ class Scheduler(object):
                 log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendardata,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "attendee-allowed")
+                    (caldav_namespace, "attendee-allowed"),
+                    "Wrong number of attendees",
                 ))
             self.attendee = attendees[0]
 
@@ -361,7 +368,8 @@ class Scheduler(object):
                     log.err("iTIP data is not valid for a VFREEBUSY request: %s" % (self.calendar,))
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "valid-calendar-data"), description="iTIP data is not valid for a VFREEBUSY request"
+                        (caldav_namespace, "valid-calendar-data"),
+                        "iTIP data is not valid for a VFREEBUSY request",
                     ))
                 dtstart = vfreebusies[0].getStartDateUTC()
                 dtend = vfreebusies[0].getEndDateUTC()
@@ -370,7 +378,7 @@ class Scheduler(object):
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (caldav_namespace, "valid-calendar-data"),
-                        description="VFREEBUSY start/end not valid"
+                        "VFREEBUSY start/end not valid",
                     ))
 
                 # Some clients send floating instead of UTC - coerce to UTC
@@ -379,7 +387,7 @@ class Scheduler(object):
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (caldav_namespace, "valid-calendar-data"),
-                        description="VFREEBUSY start or end not UTC"
+                        "VFREEBUSY start or end not UTC",
                     ))
 
                 self.timeRange = caldavxml.TimeRange(start=iCalendarString(dtstart), end=iCalendarString(dtend))
@@ -452,7 +460,8 @@ class Scheduler(object):
             if freebusy and config.Scheduling.Options.LimitFreeBusyAttendees and ctr >= config.Scheduling.Options.LimitFreeBusyAttendees:
                 err = HTTPError(ErrorResponse(
                     responsecode.NOT_FOUND,
-                    (caldav_namespace, "recipient-limit")
+                    (caldav_namespace, "recipient-limit"),
+                    "Too many attendees",
                 ))
                 responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
                 continue
@@ -475,7 +484,8 @@ class Scheduler(object):
             else:
                 err = HTTPError(ErrorResponse(
                     responsecode.NOT_FOUND,
-                    (caldav_namespace, "recipient-exists")
+                    (caldav_namespace, "recipient-exists"),
+                    "Unknown recipient",
                 ))
                 responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.INVALID_CALENDAR_USER)
 
@@ -547,7 +557,8 @@ class CalDAVScheduler(Scheduler):
             log.err("Unauthenticated originators not allowed: %s" % (self.originator,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "originator-allowed")
+                (caldav_namespace, "originator-allowed"),
+                "Invalid originator",
             ))
 
     def checkOriginator(self):
@@ -562,7 +573,8 @@ class CalDAVScheduler(Scheduler):
             log.err("Could not find principal for originator: %s" % (self.originator,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "originator-allowed")
+                (caldav_namespace, "originator-allowed"),
+                "No principal for originator",
             ))
         else:
             # Must have a valid Inbox.
@@ -571,7 +583,8 @@ class CalDAVScheduler(Scheduler):
                 log.err("Could not find inbox for originator: %s" % (self.originator,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "originator-allowed")
+                    (caldav_namespace, "originator-allowed"),
+                    "Originator cannot be scheduled",
                 ))
 
             self.originator = LocalCalendarUser(self.originator, originatorPrincipal)
@@ -628,7 +641,8 @@ class CalDAVScheduler(Scheduler):
                         log.err("ORGANIZER not allowed to be an Organizer: %s" % (self.calendar,))
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
-                            (caldav_namespace, "organizer-allowed")
+                            (caldav_namespace, "organizer-allowed"),
+                            "Organizer cannot schedule",
                         ))
 
                     self.organizer = LocalCalendarUser(organizer, organizerPrincipal)
@@ -636,7 +650,8 @@ class CalDAVScheduler(Scheduler):
                     log.err("No outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "organizer-allowed")
+                        (caldav_namespace, "organizer-allowed"),
+                        "Organizer cannot schedule",
                     ))
             else:
                 localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(organizer))
@@ -644,7 +659,8 @@ class CalDAVScheduler(Scheduler):
                     log.err("No principal for ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "organizer-allowed")
+                        (caldav_namespace, "organizer-allowed"),
+                        "No principal for organizer",
                     ))
                 else:
                     self.organizer = RemoteCalendarUser(organizer) 
@@ -652,7 +668,8 @@ class CalDAVScheduler(Scheduler):
             log.err("ORGANIZER missing in calendar data: %s" % (self.calendar,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "organizer-allowed")
+                (caldav_namespace, "organizer-allowed"),
+                "Missing organizer",
             ))
 
     def checkOrganizerAsOriginator(self):
@@ -662,7 +679,8 @@ class CalDAVScheduler(Scheduler):
             log.err("ORGANIZER is not local to server in calendar data: %s" % (self.calendar,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "organizer-allowed")
+                (caldav_namespace, "organizer-allowed"),
+                "Organizer is not local to server",
             ))
 
         # Make sure that the ORGANIZER's Outbox is the request URI
@@ -670,7 +688,8 @@ class CalDAVScheduler(Scheduler):
             log.err("Wrong outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "organizer-allowed")
+                (caldav_namespace, "organizer-allowed"),
+                "Outbox does not belong to organizer",
             ))
 
     def checkAttendeeAsOriginator(self):
@@ -686,13 +705,15 @@ class CalDAVScheduler(Scheduler):
                 log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "attendee-allowed")
+                    (caldav_namespace, "attendee-allowed"),
+                    "Outbox does not belong to attendee",
                 ))
         else:
             log.err("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "attendee-allowed")
+                (caldav_namespace, "attendee-allowed"),
+                "No principal for attendee",
             ))
     
     def securityChecks(self):
@@ -793,7 +814,8 @@ class IScheduleScheduler(RemoteScheduler):
             log.err("Authenticated originators not allowed: %s" % (self.originator,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "originator-allowed")
+                (caldav_namespace, "originator-allowed"),
+                "Authentication not allowed",
             ))
 
     @inlineCallbacks
@@ -810,7 +832,8 @@ class IScheduleScheduler(RemoteScheduler):
                 log.err("Cannot use originator that is on this server: %s" % (self.originator,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "originator-allowed")
+                    (caldav_namespace, "originator-allowed"),
+                    "Originator cannot be local to server",
                 ))
             else:
                 self.originator = PartitionedCalendarUser(self.originator, originatorPrincipal)
@@ -831,7 +854,8 @@ class IScheduleScheduler(RemoteScheduler):
             log.err("Originator not on recognized server: %s" % (self.originator,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "originator-allowed")
+                (caldav_namespace, "originator-allowed"),
+                "Originator not recognized by server",
             ))
         else:
             # Get the request IP and map to hostname.
@@ -870,7 +894,8 @@ class IScheduleScheduler(RemoteScheduler):
                 log.err("Originator not on allowed server: %s" % (self.originator,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "originator-allowed")
+                    (caldav_namespace, "originator-allowed"),
+                    "Originator not allowed to send to this server",
                 ))
 
     def _validPartitionServer(self, principal):
@@ -905,7 +930,8 @@ class IScheduleScheduler(RemoteScheduler):
             log.err("Originator not on allowed server: %s" % (self.originator,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "originator-allowed")
+                (caldav_namespace, "originator-allowed"),
+                "Originator not allowed to send to this server",
             ))
 
     @inlineCallbacks
@@ -923,7 +949,8 @@ class IScheduleScheduler(RemoteScheduler):
                     log.err("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "organizer-allowed")
+                        (caldav_namespace, "organizer-allowed"),
+                        "Organizer is not local to server",
                     ))
                 else:
                     # Check that the origin server is the correct partition
@@ -935,7 +962,8 @@ class IScheduleScheduler(RemoteScheduler):
                     log.err("Unsupported ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "organizer-allowed")
+                        (caldav_namespace, "organizer-allowed"),
+                        "Organizer not allowed to be originator",
                     ))
                 else:
                     self.organizer = RemoteCalendarUser(organizer)
@@ -943,7 +971,8 @@ class IScheduleScheduler(RemoteScheduler):
             log.err("ORGANIZER missing in calendar data: %s" % (self.calendar,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "organizer-allowed")
+                (caldav_namespace, "organizer-allowed"),
+                "No organizer in calendar data",
             ))
 
     @inlineCallbacks
@@ -960,7 +989,8 @@ class IScheduleScheduler(RemoteScheduler):
                 log.err("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "attendee-allowed")
+                    (caldav_namespace, "attendee-allowed"),
+                    "Local attendee cannot send to this server",
                 ))
             else:
                 self._validPartitionServer(attendeePrincipal)                
@@ -970,7 +1000,8 @@ class IScheduleScheduler(RemoteScheduler):
                 log.err("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "attendee-allowed")
+                    (caldav_namespace, "attendee-allowed"),
+                    "Attendee not allowed to schedule",
                 ))
     
         # TODO: in this case we should check that the ORGANIZER is the sole recipient.
@@ -990,11 +1021,11 @@ class IScheduleScheduler(RemoteScheduler):
             yield self.checkAttendeeAsOriginator()
             
         else:
-            msg = "Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),)
-            log.err(msg)
+            log.err("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "valid-calendar-data"), description=msg
+                (caldav_namespace, "valid-calendar-data"),
+                "Unknown iTIP method",
             ))
 
 
@@ -1042,7 +1073,8 @@ class IMIPScheduler(RemoteScheduler):
             log.err("Cannot use originator that is on this server: %s" % (self.originator,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "originator-allowed")
+                (caldav_namespace, "originator-allowed"),
+                "Originator cannot be local to server",
             ))
         else:
             self.originator = RemoteCalendarUser(self.originator)
@@ -1069,7 +1101,8 @@ class IMIPScheduler(RemoteScheduler):
             # TODO: verify this is the right response:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (caldav_namespace, "originator-allowed")
+                (caldav_namespace, "originator-allowed"),
+                "Originator server not allowed to send to this server",
             ))
 
 

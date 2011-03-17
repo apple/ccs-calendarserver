@@ -62,13 +62,11 @@ from twext.python.clsprop import classproperty
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Len
-from twext.enterprise.dal.syntax import Lock
 from twext.enterprise.dal.syntax import Max
 from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import SavepointAction
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Update
-from twext.enterprise.dal.syntax import default
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -180,6 +178,7 @@ class CommonStoreTransaction(object):
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
         self._sqlTxn = sqlTxn
         self.paramstyle = sqlTxn.paramstyle
+        self.dialect = sqlTxn.dialect
 
 
     def store(self):
@@ -485,7 +484,7 @@ class CommonHome(LoggingMixIn):
                     {cls._homeMetaDataSchema.RESOURCE_ID: resourceid}).on(txn)
             except Exception: # FIXME: Really want to trap the pg.DatabaseError but in a non-DB specific manner
                 yield savepoint.rollback(txn)
-                
+
                 # Retry the query - row may exist now, if not re-raise
                 homeObject = cls(txn, uid, notifiers)
                 homeObject = (yield homeObject.initFromStore())
@@ -1082,8 +1081,7 @@ class _SharedSyncLogic(object):
                        rev.DELETED: True},
                       Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
                           rev.RESOURCE_ID == Parameter("resourceID")).And(
-                              rev.RESOURCE_NAME == None),
-                     #Return=rev.REVISION
+                              rev.RESOURCE_NAME == None)
                      )
 
 
@@ -1098,7 +1096,6 @@ class _SharedSyncLogic(object):
                        rev.DELETED: True},
                       Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
                           rev.RESOURCE_NAME == None),
-                      # Return=rev.REVISION,
                      )
 
 
@@ -1502,7 +1499,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         DAL statement to create a home child with all default values.
         """
         child = cls._homeChildSchema
-        return Insert({child.RESOURCE_ID: default},
+        return Insert({child.RESOURCE_ID: schema.RESOURCE_ID_SEQ},
                       Return=(child.RESOURCE_ID, child.CREATED, child.MODIFIED))
 
 
@@ -1659,6 +1656,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         yield self._deletedSyncToken()
         yield self._deleteQuery.on(self._txn, NoSuchHomeChildError,
                                    resourceID=self._resourceID)
+        self.properties()._removeResource()
+
         # Set to non-existent state
         self._resourceID = None
         self._created    = None
@@ -1862,54 +1861,34 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         returnValue(objectResource)
 
 
-    @classproperty
-    def _removeObjectResourceByNameQuery(cls):
-        """
-        DAL query to remove an object resource from this collection by name,
-        returning the UID of the resource it deleted.
-        """
-        obj = cls._objectSchema
-        return Delete(From=obj,
-                      Where=(obj.RESOURCE_NAME == Parameter("name")).And(
-                          obj.PARENT_RESOURCE_ID == Parameter("resourceID")),
-                     Return=obj.UID)
-
-
     @inlineCallbacks
     def removeObjectResourceWithName(self, name):
-        uid = (yield self._removeObjectResourceByNameQuery.on(
-            self._txn, NoSuchObjectResourceError,
-            name=name, resourceID=self._resourceID))[0][0]
-        self._objects.pop(name, None)
-        self._objects.pop(uid, None)
-        yield self._deleteRevision(name)
-        self.notifyChanged()
-
-
-    @classproperty
-    def _removeObjectResourceByUIDQuery(cls):
-        """
-        DAL query to remove an object resource from this collection by UID,
-        returning the name of the resource it deleted.
-        """
-        obj = cls._objectSchema
-        return Delete(From=obj,
-                      Where=(obj.UID == Parameter("uid")).And(
-                          obj.PARENT_RESOURCE_ID == Parameter("resourceID")),
-                     Return=obj.RESOURCE_NAME)
+        
+        child = (yield self.objectResourceWithName(name))
+        if child is None:
+            raise NoSuchObjectResourceError
+        yield self._removeObjectResource(child)
 
 
     @inlineCallbacks
     def removeObjectResourceWithUID(self, uid):
-        name = (yield self._removeObjectResourceByUIDQuery.on(
-            self._txn, NoSuchObjectResourceError,
-            uid=uid, resourceID=self._resourceID
-        ))[0][0]
-        self._objects.pop(name, None)
-        self._objects.pop(uid, None)
-        yield self._deleteRevision(name)
+        
+        child = (yield self.objectResourceWithUID(uid))
+        if child is None:
+            raise NoSuchObjectResourceError
+        yield self._removeObjectResource(child)
 
-        self.notifyChanged()
+    @inlineCallbacks
+    def _removeObjectResource(self, child):
+        name = child.name()
+        uid = child.uid()
+        try:
+            yield child.remove()
+        finally:        
+            self._objects.pop(name, None)
+            self._objects.pop(uid, None)
+            yield self._deleteRevision(name)
+            self.notifyChanged()
 
 
     def objectResourcesHaveProperties(self):
@@ -2165,25 +2144,6 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
             returnValue(None)
 
 
-    @classmethod
-    def _selectAllColumns(cls):
-        """
-        Full set of columns in the object table that need to be loaded to
-        initialize the object resource state.  (XXX: remove me, old string-based
-        version, see _allColumns)
-        """
-        return """
-            select
-              %(column_RESOURCE_ID)s,
-              %(column_RESOURCE_NAME)s,
-              %(column_UID)s,
-              %(column_MD5)s,
-              character_length(%(column_TEXT)s),
-              %(column_CREATED)s,
-              %(column_MODIFIED)s
-        """ % cls._objectTable
-
-
     @classproperty
     def _allColumns(cls):
         """
@@ -2265,6 +2225,29 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     def componentType(self):
         returnValue((yield self.component()).mainType())
 
+    @classproperty
+    def _deleteQuery(cls):
+        """
+        DAL statement to delete a L{CommonObjectResource} by its resource ID.
+        """
+        return Delete(cls._objectSchema, Where=cls._objectSchema.RESOURCE_ID == Parameter("resourceID"))
+
+
+    @inlineCallbacks
+    def remove(self):
+        yield self._deleteQuery.on(self._txn, NoSuchObjectResourceError,
+                                   resourceID=self._resourceID)
+        self.properties()._removeResource()
+
+        # Set to non-existent state
+        self._resourceID = None
+        self._name = None
+        self._uid = None
+        self._md5 = None
+        self._size = None
+        self._created = None
+        self._modified = None
+        self._objectText = None
 
     def uid(self):
         return self._uid

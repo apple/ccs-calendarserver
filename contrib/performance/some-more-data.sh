@@ -1,5 +1,6 @@
+#!/bin/bash -x
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +15,19 @@
 # limitations under the License.
 ##
 
-from _event_create import SUMMARY
-from _event_change import measure as _measure
 
-def replaceSummary(event, i):
-    return event.replace(SUMMARY, 'Replacement summary %d' % (i,))
+. ./benchlib.sh
 
+sudo -v # Force up to date sudo token before the user walks away
 
-def measure(host, port, dtrace, attendeeCount, samples):
-    return _measure(
-        host, port, dtrace, attendeeCount, samples, "change-summary",
-        replaceSummary)
+SOURCE_DIR="$1"
+RESULTS="$2"
+
+NOW="$(date +%s)"
+
+WHEN=($((60*60*24*7)) $((60*60*24*31)) $((60*60*24*31*3)))
+for when in ${WHEN[*]}; do
+    THEN=$(($NOW-$when))
+    REV_SPEC="{$(date -r "$THEN" +"%Y-%m-%d")}"
+    ./sample.sh "$REV_SPEC" "$SOURCE_DIR" "$RESULTS"
+done

@@ -48,7 +48,8 @@ def http_GET(self, request):
                 if len(action) != 1:
                     raise HTTPError(ErrorResponse(
                         responsecode.BAD_REQUEST,
-                        (calendarserver_namespace, "valid-action")
+                        (calendarserver_namespace, "valid-action"),
+                        "Invalid action parameter: %s" % (action,),
                     ))
                 action = action[0]
                     
@@ -59,7 +60,8 @@ def http_GET(self, request):
                 if dispatch is None:
                     raise HTTPError(ErrorResponse(
                         responsecode.BAD_REQUEST,
-                        (calendarserver_namespace, "supported-action")
+                        (calendarserver_namespace, "supported-action"),
+                        "Action not supported: %s" % (action,),
                     ))
         
                 response = (yield dispatch(request))

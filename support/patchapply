@@ -24,7 +24,7 @@ import sys
 #
 
 #projects = ("Twisted", "vobject", "dateutil", "xattr")
-projects = ("Twisted", "vobject",)
+projects = ("vobject",)
 cwd = os.getcwd()
 libpatches = os.path.join(cwd, "lib-patches")
 

@@ -200,6 +200,8 @@ class AddressData (CardDAVElement):
         """
         return clazz(davxml.PCDATAElement(addressdata))
 
+    fromTextData = fromAddressData
+
     def __init__(self, *children, **attributes):
         super(AddressData, self).__init__(*children, **attributes)
 
@@ -279,6 +281,8 @@ class AddressData (CardDAVElement):
             return Component.fromString(data)
         else:
             return None
+
+    generateComponent = address
 
     def addressData(self):
         """

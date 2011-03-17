@@ -314,6 +314,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
                 # will have been indexed with an "infinite" value always included.
                 maxDate, isStartDate = filter.getmaxtimerange()
                 if maxDate:
+                    maxDate = maxDate.duplicate()
                     maxDate.setDateOnly(True)
                     if isStartDate:
                         maxDate += PyCalendarDuration(days=365)
@@ -638,10 +639,9 @@ class CalendarIndex (AbstractCalendarIndex):
         # Decide how far to expand based on the component
         doInstanceIndexing = False
         master = calendar.masterComponent()
-        if master is None or not calendar.isRecurring() and not calendar.isRecurringUnbounded():
+        if master is None or not calendar.isRecurring():
             # When there is no master we have a set of overridden components - index them all.
             # When there is one instance - index it.
-            # When bounded - index all.
             expand = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             doInstanceIndexing = True
         else:

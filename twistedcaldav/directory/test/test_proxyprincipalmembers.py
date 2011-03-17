@@ -547,3 +547,25 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
                 yield self._clearProxy(principal, proxyType)
                 yield self._clearProxy(fakePrincipal, proxyType)
+
+
+    @inlineCallbacks
+    def test_NonAsciiProxy(self):
+        """
+        Ensure that principalURLs with non-ascii don't cause problems
+        within CalendarUserProxyPrincipalResource
+        """
+
+        recordType = DirectoryService.recordType_users
+        proxyType = "calendar-proxy-read"
+
+        record = self.directoryService.recordWithGUID("320B73A1-46E2-4180-9563-782DFDBE1F63")
+        provisioningResource = self.principalRootResources[self.directoryService.__class__.__name__]
+        principal =  provisioningResource.principalForRecord(record)
+        proxyPrincipal = provisioningResource.principalForShortName(recordType,
+            "wsanchez")
+
+        yield self._addProxy(principal, proxyType, proxyPrincipal)
+        memberships = yield proxyPrincipal._calendar_user_proxy_index().getMemberships(proxyPrincipal.principalUID())
+        for uid in memberships:
+            subPrincipal = provisioningResource.principalForUID(uid)

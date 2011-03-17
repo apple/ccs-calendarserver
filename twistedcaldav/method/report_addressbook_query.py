@@ -83,7 +83,8 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
             log.err(message)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
-                (carddav_namespace, "supported-address-data")
+                (carddav_namespace, "supported-address-data"),
+                "Invalid address-data",
             ))
         
     else:
@@ -94,7 +95,8 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
         log.err("Invalid filter element: %r" % (filter,))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            (carddav_namespace, "valid-filter")
+            (carddav_namespace, "valid-filter"),
+            "Invalid filter element",
         ))
 
     matchcount = [0,]

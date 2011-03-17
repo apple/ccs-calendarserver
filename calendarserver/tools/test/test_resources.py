@@ -19,11 +19,15 @@ from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.test.util import TestCase
-import dsattributes
 
 
-strGUID = dsattributes.kDS1AttrGeneratedUID
-strName = dsattributes.kDS1AttrDistinguishedName
+try:
+    import dsattributes
+    strGUID = dsattributes.kDS1AttrGeneratedUID
+    strName = dsattributes.kDS1AttrDistinguishedName
+except ImportError:
+    dsattributes = None
+
 
 
 class StubDirectoryRecord(object):
@@ -82,6 +86,9 @@ class StubAugmentService(object):
 
 
 class MigrateResourcesTestCase(TestCase):
+
+    if dsattributes is None:
+        skip = "dsattributes module not available"
 
     @inlineCallbacks
     def test_migrateResources(self):

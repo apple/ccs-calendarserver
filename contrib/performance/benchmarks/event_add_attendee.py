@@ -14,9 +14,8 @@
 # limitations under the License.
 ##
 
-import _event_change
-
-from event import makeAttendees
+from _event_change import measure as _measure
+from _event_create import makeAttendees
 
 
 def measure(host, port, dtrace, attendeeCount, samples):
@@ -29,8 +28,8 @@ def measure(host, port, dtrace, attendeeCount, samples):
         # Find the last CREATED line
         created = event.rfind('CREATED')
         # Insert the attendees before it.
-        return event[:created] + attendees + event[created:]
+        return event[:created] + ''.join(attendees) + event[created:]
 
-    return _event_change.measure(
+    return _measure(
         host, port, dtrace, 0, samples, "add-attendee",
         addAttendees, eventPerSample=True)

@@ -20,11 +20,12 @@
 
 sudo -v # Force up to date sudo token before the user walks away
 
-REV=$1
-SOURCE_DIR=$2
-RESULTS=$3
+REV_SPEC="$1"
+SOURCE_DIR="$2"
+RESULTS="$3"
 
-update_and_build $REV
+update_and_build "$REV_SPEC"
+REV="$(./svn-revno "$SOURCE_DIR")"
 
 if [ "$HOSTS_COUNT" != "" ]; then
     CONCURRENT="--hosts-count $HOSTS_COUNT --host-index $HOST_INDEX"
