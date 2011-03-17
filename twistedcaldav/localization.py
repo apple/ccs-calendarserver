@@ -24,6 +24,7 @@ import array
 from locale import normalize
 
 from twext.python.log import Logger
+from pycalendar.duration import PyCalendarDuration
 
 try:
     from Foundation import (
@@ -90,12 +91,12 @@ If you use the with/as form, you will get an object that implements some
 helper methods for date formatting:
 
     with translationTo('en') as trans:
-        print trans.dtDate(datetime.today())
+        print trans.dtDate(PyCalendarDateTime.getToday())
 
     ... Thursday, October 23, 2008
 
     with translationTo('fr') as trans:
-        print trans.dtDate(datetime.today())
+        print trans.dtDate(PyCalendarDateTime.getToday())
 
     ... Jeudi, Octobre 23, 2008
 
@@ -151,7 +152,7 @@ class translationTo(object):
         return self.translation.ugettext(monthsAbbrev[monthNumber])
 
     def date(self, component):
-        dtStart = component.propertyNativeValue("DTSTART")
+        dtStart = component.propertyValue("DTSTART")
         return self.dtDate(dtStart)
 
     def time(self, component):
@@ -173,32 +174,29 @@ class translationTo(object):
         _ = self.translation.ugettext
 
         tzStart = tzEnd = None
-        dtStart = component.propertyNativeValue("DTSTART")
-        if isinstance(dtStart, datetime.datetime):
-            tzStart = dtStart.tzname()
-        else:
+        dtStart = component.propertyValue("DTSTART")
+        if dtStart.isDateOnly():
             return ("", _("All day"))
+        else:
+            tzStart = dtStart.timeZoneDescriptor()
 
-        # tzStart = component.getProperty("DTSTART").params().get("TZID", "UTC")
-
-        dtEnd = component.propertyNativeValue("DTEND")
+        dtEnd = component.propertyValue("DTEND")
         if dtEnd:
-            if isinstance(dtEnd, datetime.datetime):
-                tzEnd = dtEnd.tzname()
-            # tzEnd = component.getProperty("DTEND").params().get("TZID", "UTC")
+            if not dtEnd.isDateOnly():
+                tzEnd = dtEnd.timeZoneDescriptor()
             duration = dtEnd - dtStart
         else:
             tzEnd = tzStart
-            duration = component.propertyNativeValue("DURATION")
+            duration = component.propertyValue("DURATION")
             if duration:
                 dtEnd = dtStart + duration
             else:
-                if isinstance(dtStart, datetime.date):
+                if dtStart.isDateOnly():
                     dtEnd = None
-                    duration = datetime.timedelta(days=1)
+                    duration = PyCalendarDuration(days=1)
                 else:
-                    dtEnd = dtStart + datetime.timedelta(days=1)
-                    dtEnd.hour = dtEnd.minute = dtEnd.second = 0
+                    dtEnd = dtStart + PyCalendarDuration(days=1)
+                    dtEnd.setHHMMSS(0, 0, 0)
                     duration = dtEnd - dtStart
 
         if dtStart == dtEnd:
@@ -222,37 +220,37 @@ class translationTo(object):
         return (
             _("%(dayName)s, %(monthName)s %(dayNumber)d, %(yearNumber)d")
             % {
-                'dayName'    : _(daysFull[val.weekday()]),
-                'monthName'  : _(monthsFull[val.month]),
-                'dayNumber'  : val.day,
-                'yearNumber' : val.year,
+                'dayName'    : _(daysFull[(val.getDayOfWeek() + 6) % 7]),
+                'monthName'  : _(monthsFull[val.getMonth()]),
+                'dayNumber'  : val.getDay(),
+                'yearNumber' : val.getYear(),
             }
         )
 
     def dtTime(self, val, includeTimezone=True):
-        if not isinstance(val, (datetime.datetime, datetime.time)):
+        if val.isDateOnly():
             return ""
 
         # Bind to '_' so pygettext.py will pick this up for translation
         _ = self.translation.ugettext
 
-        ampm = _("AM") if val.hour < 12 else _("PM")
-        hour12 = val.hour % 12
+        ampm = _("AM") if val.getHours() < 12 else _("PM")
+        hour12 = val.getHours() % 12
         if hour12 == 0:
             hour12 = 12
 
         result = (
             _("%(hour12Number)d:%(minuteNumber)02d %(ampm)s")
             % {
-                'hour24Number' : val.hour, # 0-23
+                'hour24Number' : val.getHours(), # 0-23
                 'hour12Number' : hour12, # 1-12
-                'minuteNumber' : val.minute, # 0-59
+                'minuteNumber' : val.getMinutes(), # 0-59
                 'ampm'         : _(ampm),
             }
         )
 
-        if includeTimezone and val.tzname():
-            result += " %s" % (val.tzname())
+        if includeTimezone and val.local():
+            result += " %s" % (val.timeZoneDescriptor(),)
 
         return result
 
@@ -263,15 +261,17 @@ class translationTo(object):
 
         parts = []
 
-        if val.days == 1:
+        total = val.getTotalSeconds()
+        days = total / (24 * 60 * 60)
+        if days == 1:
             parts.append(_("1 day"))
-        elif val.days > 1:
+        elif days > 1:
             parts.append(_("%(dayCount)d days" %
-                { 'dayCount' : val.days }))
+                { 'dayCount' : days }))
 
-        hours = val.seconds / 3600
-        minutes = divmod(val.seconds / 60, 60)[1]
-        seconds = divmod(val.seconds, 60)[1]
+        hours = divmod(total / 3600, 24)[1]
+        minutes = divmod(total / 60, 60)[1]
+        seconds = divmod(total, 60)[1]
 
         if hours == 1:
             parts.append(_("1 hour"))
@@ -320,7 +320,7 @@ daysAbbrev = [
 ]
 
 monthsFull = [
-    "datetime.month is 1-based",
+    "month is 1-based",
     _("January"),
     _("February"),
     _("March"),
@@ -336,7 +336,7 @@ monthsFull = [
 ]
 
 monthsAbbrev = [
-    "datetime.month is 1-based",
+    "month is 1-based",
     _("JAN"),
     _("FEB"),
     _("MAR"),

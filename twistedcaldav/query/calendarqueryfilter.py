@@ -26,9 +26,10 @@ from twext.python.log import Logger
 
 from twistedcaldav.caldavxml import caldav_namespace, CalDAVTimeZoneElement
 from twistedcaldav.dateops import timeRangesOverlap
-from twistedcaldav.ical import Component, Property, parse_date_or_datetime
-from vobject.icalendar import utc
-import datetime
+from twistedcaldav.ical import Component, Property
+
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
 
 log = Logger()
 
@@ -82,7 +83,7 @@ class Filter(FilterBase):
                     instances = None
                 else:
                     # Expand the instances up to infinity
-                    instances = component.expandTimeRanges(datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc), ignoreInvalidInstances=True)
+                    instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), ignoreInvalidInstances=True)
             else:
                 instances = component.expandTimeRanges(maxend, ignoreInvalidInstances=True)
         else:
@@ -108,7 +109,7 @@ class Filter(FilterBase):
         Set the default timezone to use with this query.
         @param calendar: a L{Component} for the VCALENDAR containing the one
             VTIMEZONE that we want
-        @return: the L{datetime.tzinfo} derived from the VTIMEZONE or utc.
+        @return: the L{PyCalendarTimezone} derived from the VTIMEZONE or utc.
         """
         assert tzelement is None or isinstance(tzelement, CalDAVTimeZoneElement)
 
@@ -118,11 +119,12 @@ class Filter(FilterBase):
                 for subcomponent in calendar.subcomponents():
                     if subcomponent.name() == "VTIMEZONE":
                         # <filter> contains exactly one <comp-filter>
-                        tzinfo = subcomponent.gettzinfo()
-                        self.child.settzinfo(tzinfo)
-                        return tzinfo
+                        tz = subcomponent.gettimezone()
+                        self.child.settzinfo(tz)
+                        return tz
 
         # Default to using utc tzinfo
+        utc = PyCalendarTimezone(utc=True)
         self.child.settzinfo(utc)
         return utc
 
@@ -319,7 +321,7 @@ class ComponentFilter (FilterChildBase):
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
-        @param tzinfo: a L{datetime.tzinfo} to use.
+        @param tzinfo: a L{PyCalendarTimezone} to use.
         """
         
         # Give tzinfo to any TimeRange we have
@@ -332,10 +334,10 @@ class ComponentFilter (FilterChildBase):
 
     def getmaxtimerange(self, currentMaximum, currentIsStartTime):
         """
-        Get the date furthest into the future in any time-range elements
+        Get the date farthest into the future in any time-range elements
         
         @param currentMaximum: current future value to compare with
-        @type currentMaximum: L{datetime.datetime}
+        @type currentMaximum: L{PyCalendarDateTime}
         """
         
         # Give tzinfo to any TimeRange we have
@@ -405,7 +407,7 @@ class PropertyFilter (FilterChildBase):
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
-        @param tzinfo: a L{datetime.tzinfo} to use.
+        @param tzinfo: a L{PyCalendarTimezone} to use.
         """
         
         # Give tzinfo to any TimeRange we have
@@ -417,7 +419,7 @@ class PropertyFilter (FilterChildBase):
         Get the date furthest into the future in any time-range elements
         
         @param currentMaximum: current future value to compare with
-        @type currentMaximum: L{datetime.datetime}
+        @type currentMaximum: L{PyCalendarDateTime}
         """
         
         # Give tzinfo to any TimeRange we have
@@ -438,24 +440,13 @@ class ParameterFilter (FilterChildBase):
 
     def _match(self, property, access):
 
-        # We have to deal with the problem that the 'Native' form of a property
-        # will be missing the TZID parameter due to the conversion performed. Converting
-        # to non-native for the entire calendar object causes problems elsewhere, so its
-        # best to do it here for this one special case.
-        if self.filter_name == "TZID":
-            transformed = property.transformAllFromNative()
-        else:
-            transformed = False
-
-        # At least one property must match (or is-not-defined is set)
+        # At least one parameter must match (or is-not-defined is set)
         result = not self.defined
-        for parameterName in property.params().keys():
-            if parameterName == self.filter_name and self.match(property.params()[parameterName], access):
+        for parameterName in property.parameterNames():
+            if parameterName == self.filter_name and self.match([property.parameterValue(parameterName)], access):
                 result = self.defined
                 break
 
-        if transformed:
-            property.transformAllToNative()
         return result
 
 class IsNotDefined (FilterBase):
@@ -507,7 +498,7 @@ class TextMatch (FilterBase):
         if item is None: return False
 
         if isinstance(item, Property):
-            values = [item.value()]
+            values = [item.strvalue()]
         else:
             values = item
 
@@ -526,7 +517,7 @@ class TextMatch (FilterBase):
 
         for value in values:
             # NB Its possible that we have a text list value which appears as a Python list,
-            # so we need to check for that an iterate over the list.
+            # so we need to check for that and iterate over the list.
             if isinstance(value, list):
                 for subvalue in value:
                     matched, result = _textCompare(subvalue)
@@ -552,14 +543,14 @@ class TimeRange (FilterBase):
         if "start" not in xml_element.attributes and "end" not in xml_element.attributes:
             raise ValueError("One of 'start' or 'end' must be present in CALDAV:time-range")
         
-        self.start = parse_date_or_datetime(xml_element.attributes["start"]) if "start" in xml_element.attributes else None
-        self.end = parse_date_or_datetime(xml_element.attributes["end"]) if "end" in xml_element.attributes else None
+        self.start = PyCalendarDateTime.parseText(xml_element.attributes["start"]) if "start" in xml_element.attributes else None
+        self.end = PyCalendarDateTime.parseText(xml_element.attributes["end"]) if "end" in xml_element.attributes else None
         self.tzinfo = None
 
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
-        @param tzinfo: a L{datetime.tzinfo} to use.
+        @param tzinfo: a L{PyCalendarTimezone} to use.
         """
         
         # Give tzinfo to any TimeRange we have
@@ -572,16 +563,16 @@ class TimeRange (FilterBase):
         @return:      True if valid, False otherwise
         """
         
-        if self.start is not None and not isinstance(self.start, datetime.datetime):
+        if self.start is not None and self.start.isDateOnly():
             log.msg("start attribute in <time-range> is not a date-time: %s" % (self.start,))
             return False
-        if self.end is not None and not isinstance(self.end, datetime.datetime):
+        if self.end is not None and self.end.isDateOnly():
             log.msg("end attribute in <time-range> is not a date-time: %s" % (self.end,))
             return False
-        if self.start is not None and self.start.tzinfo != utc:
+        if self.start is not None and not self.start.utc():
             log.msg("start attribute in <time-range> is not UTC: %s" % (self.start,))
             return False
-        if self.end is not None and self.end.tzinfo != utc:
+        if self.end is not None and not self.end.utc():
             log.msg("end attribute in <time-range> is not UTC: %s" % (self.end,))
             return False
 

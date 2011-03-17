@@ -41,10 +41,9 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.linkresource import LinkFollowerMixIn
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 
-from vobject.icalendar import dateTimeToString, utc
+from pycalendar.datetime import PyCalendarDateTime
 
 from uuid import uuid4
-import datetime
 import os
 import types
 
@@ -564,7 +563,7 @@ class SharedCollectionMixin(object):
         typeAttr = {'shared-type':self.sharedResourceType()}
         xmltype = customxml.InviteNotification(**typeAttr)
         xmldata = customxml.Notification(
-            customxml.DTStamp.fromString(dateTimeToString(datetime.datetime.now(tz=utc))),
+            customxml.DTStamp.fromString(PyCalendarDateTime.getNowUTC().getText()),
             customxml.InviteNotification(
                 customxml.UID.fromString(record.inviteuid),
                 davxml.HRef.fromString(record.userid),
@@ -1123,7 +1122,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         notificationUID = "%s-reply" % (replytoUID,)
         xmltype = customxml.InviteReply()
         xmldata = customxml.Notification(
-            customxml.DTStamp.fromString(dateTimeToString(datetime.datetime.now(tz=utc))),
+            customxml.DTStamp.fromString(PyCalendarDateTime.getNowUTC().getText()),
             customxml.InviteReply(
                 *(
                     (

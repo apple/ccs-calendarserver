@@ -382,7 +382,7 @@ class Scheduler(object):
                     ))
 
                 # Some clients send floating instead of UTC - coerce to UTC
-                if dtstart.tzinfo is None or dtend.tzinfo is None:
+                if not dtstart.utc() or not dtend.utc():
                     log.err("VFREEBUSY start or end not UTC: %s" % (self.calendar,))
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,

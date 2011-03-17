@@ -279,7 +279,7 @@ class ImplicitScheduler(object):
         self.request.suppressRefresh = False
 
         for attendee in self.calendar.getAllAttendeeProperties():
-            if attendee.params().get("PARTSTAT", ["NEEDS-ACTION"])[0] == "NEEDS-ACTION":
+            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "NEEDS-ACTION":
                 self.request.suppressRefresh = True
         
         if hasattr(self.request, "doing_attendee_refresh"):
@@ -491,7 +491,7 @@ class ImplicitScheduler(object):
                     comp = self.calendar.overriddenComponent(rid)
             
                     for attendee in comp.getAllAttendeeProperties():
-                        if attendee.params().has_key("PARTSTAT"):
+                        if attendee.hasParameter("PARTSTAT"):
                             cuaddr = attendee.value()
                             
                             if cuaddr in self.organizerPrincipal.calendarUserAddresses():
@@ -500,7 +500,7 @@ class ImplicitScheduler(object):
                                 # The organizer is automatically ACCEPTED to the event.
                                 continue
 
-                            attendee.params()["PARTSTAT"] = ["NEEDS-ACTION",]
+                            attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
 
                 # Check for removed attendees
                 if not recurrence_reschedule:
@@ -511,15 +511,15 @@ class ImplicitScheduler(object):
             
         # Always set RSVP=TRUE for any NEEDS-ACTION
         for attendee in self.calendar.getAllAttendeeProperties():
-            if attendee.params().get("PARTSTAT", ["NEEDS-ACTION"])[0] == "NEEDS-ACTION":
-                attendee.params()["RSVP"] = ["TRUE",]
+            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "NEEDS-ACTION":
+                attendee.setParameter("RSVP", "TRUE")
 
         yield self.scheduleWithAttendees()
         
         # Always clear SCHEDULE-FORCE-SEND from all attendees after scheduling
         for attendee in self.calendar.getAllAttendeeProperties():
             try:
-                del attendee.params()["SCHEDULE-FORCE-SEND"]
+                attendee.removeParameter("SCHEDULE-FORCE-SEND")
             except KeyError:
                 pass
 
@@ -571,7 +571,7 @@ class ImplicitScheduler(object):
             reinvites = set()
             for attendee in self.calendar.getAllAttendeeProperties():
                 try:
-                    if attendee.params()["SCHEDULE-FORCE-SEND"][0] == "REQUEST":
+                    if attendee.parameterValue("SCHEDULE-FORCE-SEND") == "REQUEST":
                         reinvites.add(attendee.value())
                 except KeyError:
                     pass
@@ -609,10 +609,10 @@ class ImplicitScheduler(object):
         # Also look for new EXDATEs
         oldexdates = set()
         for property in self.oldcalendar.masterComponent().properties("EXDATE"):
-            oldexdates.update(property.value())
+            oldexdates.update([value.getValue() for value in property.value()])
         newexdates = set()
         for property in self.calendar.masterComponent().properties("EXDATE"):
-            newexdates.update(property.value())
+            newexdates.update([value.getValue() for value in property.value()])
 
         addedexdates = newexdates - oldexdates
 

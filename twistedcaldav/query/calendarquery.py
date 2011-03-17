@@ -26,7 +26,7 @@ __all__ = [
     "sqlcalendarquery",
 ]
 
-from twistedcaldav.dateops import floatoffset
+from twistedcaldav.dateops import floatoffset, pyCalendarTodatetime
 from twistedcaldav.query import expression, sqlgenerator, calendarqueryfilter
 
 # SQL Index column (field) names
@@ -197,10 +197,10 @@ def getTimerangeArguments(timerange):
     endfloat = floatoffset(end, tzinfo) if end else None
 
     return (
-        (start) if start else None,
-        (end) if end else None,
-        (startfloat) if startfloat else None,
-        (endfloat) if endfloat else None,
+        pyCalendarTodatetime(start) if start else None,
+        pyCalendarTodatetime(end) if end else None,
+        pyCalendarTodatetime(startfloat) if startfloat else None,
+        pyCalendarTodatetime(endfloat) if endfloat else None,
     )
 
 def sqlcalendarquery(filter, calendarid=None, userid=None, generator=sqlgenerator.sqlgenerator):

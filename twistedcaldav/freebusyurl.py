@@ -22,10 +22,6 @@ __all__ = [
     "FreeBusyURLResource",
 ]
 
-import datetime
-
-from vobject.icalendar import utc
-
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twext.python.log import Logger
@@ -44,13 +40,14 @@ from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Property
-from twistedcaldav.ical import parse_datetime
-from twistedcaldav.ical import parse_duration
 from twistedcaldav.resource import CalDAVResource, ReadOnlyNoCopyResourceMixIn
 from twistedcaldav.schedule import deliverSchedulePrivilegeSet
 from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
 from twistedcaldav.scheduling.scheduler import Scheduler
+
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.duration import PyCalendarDuration
 
 log = Logger()
 
@@ -181,15 +178,15 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         # Start/end/duration must be valid iCalendar DATE-TIME UTC or DURATION values
         try:
             if self.start:
-                self.start = parse_datetime(self.start)
-                if self.start.tzinfo != utc:
+                self.start = PyCalendarDateTime.parseText(self.start)
+                if not self.start.utc():
                     raise ValueError()
             if self.end:
-                self.end = parse_datetime(self.end)
-                if self.end.tzinfo != utc:
+                self.end = PyCalendarDateTime.parseText(self.end)
+                if not self.end.utc():
                     raise ValueError()
             if self.duration:
-                self.duration = parse_duration(self.duration)
+                self.duration = PyCalendarDuration.parseText(self.duration)
         except ValueError:
             raise HTTPError(ErrorResponse(
                 responsecode.BAD_REQUEST,
@@ -208,7 +205,7 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
             ))
         
         # Duration must be positive
-        if self.duration and self.duration.days < 0:
+        if self.duration and self.duration.getTotalSeconds() < 0:
             raise HTTPError(ErrorResponse(
                 responsecode.BAD_REQUEST,
                 (calendarserver_namespace, "valid-query-parameters"),
@@ -217,12 +214,12 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         
         # Now fill in the missing pieces
         if self.start is None:
-            now = datetime.datetime.now()
-            self.start = now.replace(hour=0, minute=0, second=0, tzinfo=utc)
+            self.start = PyCalendarDateTime.getNowUTC()
+            self.start.setHHMMSS(0, 0, 0)
         if self.duration:
             self.end = self.start + self.duration
         if self.end is None:
-            self.end = self.start + datetime.timedelta(days=config.FreeBusyURL.TimePeriod)
+            self.end = self.start + PyCalendarDuration(days=config.FreeBusyURL.TimePeriod)
             
         # End > start
         if self.end <= self.start:

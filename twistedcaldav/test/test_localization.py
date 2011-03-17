@@ -19,7 +19,8 @@ from __future__ import with_statement
 from twistedcaldav.localization import translationTo
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
-from datetime import time
+from pycalendar.datetime import PyCalendarDateTime
+
 import os
 
 def getComp(str):
@@ -64,21 +65,21 @@ class LocalizationTests(TestCase):
 
         with translationTo('English', localeDir=localeDir) as t:
 
-            self.assertEquals(t.dtTime(time(0,0)), "12:00 AM")
-            self.assertEquals(t.dtTime(time(12,0)), "12:00 PM")
-            self.assertEquals(t.dtTime(time(23,59)), "11:59 PM")
-            self.assertEquals(t.dtTime(time(6,5)), "6:05 AM")
-            self.assertEquals(t.dtTime(time(16,5)), "4:05 PM")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1,  0,  0, 0)), "12:00 AM")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 12,  0, 0)), "12:00 PM")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 23, 59, 0)), "11:59 PM")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1,  6,  5, 0)), "6:05 AM")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 16,  5, 0)), "4:05 PM")
 
     def test_TimeFormatting24Hour(self):
 
         with translationTo('pig', localeDir=localeDir) as t:
 
-            self.assertEquals(t.dtTime(time(0,0)), "00:00")
-            self.assertEquals(t.dtTime(time(12,0)), "12:00")
-            self.assertEquals(t.dtTime(time(23,59)), "23:59")
-            self.assertEquals(t.dtTime(time(6,5)), "06:05")
-            self.assertEquals(t.dtTime(time(16,5)), "16:05")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1,  0,  0, 0)), "00:00")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 12,  0, 0)), "12:00")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 23, 59, 0)), "23:59")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1,  6,  5, 0)), "06:05")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 16,  5, 0)), "16:05")
 
     def test_CalendarFormatting(self):
 
@@ -87,15 +88,15 @@ class LocalizationTests(TestCase):
             comp = data[0][1]
             self.assertEquals(t.date(comp), "Saturday, October 25, 2008")
             self.assertEquals(t.time(comp),
-                (u'9:15 AM to 10:15 AM PDT', u'1 hour 1 second'))
+                (u'9:15 AM to 10:15 AM (PDT)', u'1 hour 1 second'))
 
             comp = data[1][1]
             self.assertEquals(t.time(comp),
-                (u'1:15 PM to 3:15 PM PDT', u'2 hours 2 seconds'))
+                (u'1:15 PM to 3:15 PM (PDT)', u'2 hours 2 seconds'))
 
             comp = data[2][1]
             self.assertEquals(t.time(comp),
-                (u'11:05 AM to 2:15 PM PDT', u'3 hours 10 minutes'))
+                (u'11:05 AM to 2:15 PM (PDT)', u'3 hours 10 minutes'))
 
             comp = data[3][1]
             self.assertEquals(t.time(comp),
@@ -103,11 +104,11 @@ class LocalizationTests(TestCase):
 
             comp = data[4][1]
             self.assertEquals(t.time(comp),
-                (u'1:15 PM PDT', ""))
+                (u'1:15 PM (PDT)', ""))
 
             comp = data[5][1]
             self.assertEquals(t.time(comp),
-                (u'11:05 AM PDT to 6:15 PM EDT', u'4 hours 10 minutes'))
+                (u'11:05 AM (PDT) to 6:15 PM (EDT)', u'4 hours 10 minutes'))
 
             self.assertEquals(t.monthAbbreviation(1), "JAN")
 
@@ -116,15 +117,15 @@ class LocalizationTests(TestCase):
             comp = data[0][1]
             self.assertEquals(t.date(comp), 'Aturdaysay, Octoberway 25, 2008')
             self.assertEquals(t.time(comp),
-                (u'09:15 otay 10:15 PDT', u'1 ourhay 1 econdsay'))
+                (u'09:15 otay 10:15 (PDT)', u'1 ourhay 1 econdsay'))
 
             comp = data[1][1]
             self.assertEquals(t.time(comp),
-                (u'13:15 otay 15:15 PDT', u'2 ourshay 2 econdsay'))
+                (u'13:15 otay 15:15 (PDT)', u'2 ourshay 2 econdsay'))
 
             comp = data[2][1]
             self.assertEquals(t.time(comp),
-                (u'11:05 otay 14:15 PDT', u'3 ourshay 10 inutesmay'))
+                (u'11:05 otay 14:15 (PDT)', u'3 ourshay 10 inutesmay'))
 
             comp = data[3][1]
             self.assertEquals(t.time(comp),
@@ -132,10 +133,10 @@ class LocalizationTests(TestCase):
 
             comp = data[4][1]
             self.assertEquals(t.time(comp),
-                (u'13:15 PDT', ""))
+                (u'13:15 (PDT)', ""))
 
             comp = data[5][1]
             self.assertEquals(t.time(comp),
-                (u'11:05 PDT otay 18:15 EDT', u'4 ourshay 10 inutesmay'))
+                (u'11:05 (PDT) otay 18:15 (EDT)', u'4 ourshay 10 inutesmay'))
 
             self.assertEquals(t.monthAbbreviation(1), "ANJAY")

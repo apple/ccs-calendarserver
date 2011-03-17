@@ -44,8 +44,9 @@ class TestCopyMoveValidation(TestCase):
         self.destination.name = lambda : '1'
         self.destinationParent = CalDAVResource()
         self.destinationParent.name = lambda : '2'
-        self.sampleCalendar = Component.fromString("""
-BEGIN:VCALENDAR
+
+    def _getSampleCalendar(self):
+        return Component.fromString("""BEGIN:VCALENDAR
 VERSION:2.0
 BEGIN:VEVENT
 UID:12345-67890
@@ -56,6 +57,9 @@ RRULE:FREQ=YEARLY
 END:VEVENT
 END:VCALENDAR
 """)
+
+    def _getStorer(self, calendar):
+        self.sampleCalendar = calendar
         req = SimpleRequest(None, "COPY", "http://example.com/foo/bar")
         self.storer = StoreCalendarObjectResource(
             req,
@@ -64,8 +68,8 @@ END:VCALENDAR
             destination_uri="http://example.com/foo/baz",
             calendar=self.sampleCalendar
         )
-
-
+        return self.storer
+                
     @inlineCallbacks
     def test_simpleValidRequest(self):
         """
@@ -73,7 +77,7 @@ END:VCALENDAR
         L{StoreCalendarObjectResource.fullValidation} results in a L{Deferred}
         which fires with C{None} (and raises no exception).
         """
-        self.assertEquals((yield self.storer.fullValidation()), None)
+        self.assertEquals((yield self._getStorer(self._getSampleCalendar()).fullValidation()), None)
 
 
     @inlineCallbacks
@@ -87,13 +91,14 @@ END:VCALENDAR
         """
 
         # Get the event, and add too many attendees to it.
+        self.sampleCalendar = self._getSampleCalendar()
         eventComponent = list(self.sampleCalendar.subcomponents())[0]
         for x in xrange(config.MaxAttendeesPerInstance):
             eventComponent.addProperty(
-                Property(u"ATTENDEE", u"mailto:user%d@example.com" % (x+3,)))
+                Property("ATTENDEE", "mailto:user%d@example.com" % (x+3,)))
 
         try:
-            yield self.storer.fullValidation()
+            yield self._getStorer(self.sampleCalendar).fullValidation()
         except HTTPError, err:
             element = XML(err.response.stream.mem)[0]
             self.assertEquals(

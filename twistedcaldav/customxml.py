@@ -31,10 +31,7 @@ from twext.web2.dav import davxml
 from twistedcaldav import caldavxml, carddavxml
 from twistedcaldav.ical import Component as iComponent
 
-from vobject.icalendar import utc
-from vobject.icalendar import dateTimeToString
-
-import datetime
+from pycalendar.datetime import PyCalendarDateTime
 
 calendarserver_namespace = "http://calendarserver.org/ns/"
 
@@ -512,7 +509,7 @@ class DTStamp (davxml.WebDAVTextElement):
 
     def __init__(self, *children):
         super(DTStamp, self).__init__(children)
-        self.children = (davxml.PCDATAElement(dateTimeToString(datetime.datetime.now(tz=utc))),)
+        self.children = (davxml.PCDATAElement(PyCalendarDateTime.getNowUTC().getText()),)
 
 class Action (davxml.WebDAVElement):
     """

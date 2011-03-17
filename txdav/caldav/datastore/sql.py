@@ -39,7 +39,7 @@ from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime,\
-    parseSQLTimestamp
+    parseSQLTimestamp, pyCalendarTodatetime
 from twistedcaldav.ical import Component
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
@@ -69,9 +69,9 @@ from twext.enterprise.dal.syntax import utcNowSQL
 from twext.enterprise.dal.syntax import Len
 from txdav.common.icommondatastore import IndexedSearchException
 
-from vobject.icalendar import utc
-
-import datetime
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.duration import PyCalendarDuration
+from pycalendar.timezone import PyCalendarTimezone
 
 from zope.interface.declarations import implements
 
@@ -399,13 +399,11 @@ class CalendarObject(CommonObjectResource):
         # Decide how far to expand based on the component
         doInstanceIndexing = False
         master = component.masterComponent()
-        if ( master is None or not component.isRecurring()
-             and not component.isRecurringUnbounded() ):
+        if ( master is None or not component.isRecurring() ):
             # When there is no master we have a set of overridden components -
             #   index them all.
             # When there is one instance - index it.
-            # When bounded - index all.
-            expand = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+            expand = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             doInstanceIndexing = True
         else:
             
@@ -417,8 +415,8 @@ class CalendarObject(CommonObjectResource):
             # by default.  This is a caching parameter which affects the size of the index;
             # it does not affect search results beyond this period, but it may affect
             # performance of such a search.
-            expand = (datetime.date.today() +
-                      datetime.timedelta(days=config.FreeBusyIndexExpandAheadDays))
+            expand = (PyCalendarDateTime.getToday() +
+                      PyCalendarDuration(days=config.FreeBusyIndexExpandAheadDays))
 
             if expand_until and expand_until > expand:
                 expand = expand_until
@@ -435,8 +433,8 @@ class CalendarObject(CommonObjectResource):
             # occurrences into some obscenely far-in-the-future date, so we cap the caching
             # period.  Searches beyond this period will always be relatively expensive for
             # resources with occurrences beyond this period.
-            if expand > (datetime.date.today() +
-                         datetime.timedelta(days=config.FreeBusyIndexExpandMaxDays)):
+            if expand > (PyCalendarDateTime.getToday() +
+                         PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)):
                 raise IndexedSearchException
 
         # Always do recurrence expansion even if we do not intend to index - we need this to double-check the
@@ -458,7 +456,7 @@ class CalendarObject(CommonObjectResource):
         # Now coerce indexing to off if needed 
         if not doInstanceIndexing:
             instances = None
-            recurrenceLimit = datetime.datetime(1900, 1, 1, 0, 0, 0, tzinfo=utc)
+            recurrenceLimit = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             
         co = schema.CALENDAR_OBJECT
         tr = schema.TIME_RANGE
@@ -503,7 +501,7 @@ class CalendarObject(CommonObjectResource):
                 co.DROPBOX_ID                      : self._dropboxID,
                 co.ORGANIZER                       : organizer,
                 co.RECURRANCE_MAX                  :
-                    normalizeForIndex(recurrenceLimit) if recurrenceLimit else None,
+                    pyCalendarTodatetime(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None,
                 co.ACCESS                          : self._access,
                 co.SCHEDULE_OBJECT                 : self._schedule_object,
                 co.SCHEDULE_TAG                    : self._schedule_tag,
@@ -535,7 +533,7 @@ class CalendarObject(CommonObjectResource):
         else:
             values = {
                 co.RECURRANCE_MAX :
-                    normalizeForIndex(recurrenceLimit) if recurrenceLimit else None,
+                    pyCalendarTodatetime(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None,
             }
     
             yield Update(
@@ -553,16 +551,18 @@ class CalendarObject(CommonObjectResource):
             # TIME_RANGE table update
             for key in instances:
                 instance = instances[key]
-                start = instance.start.replace(tzinfo=utc)
-                end = instance.end.replace(tzinfo=utc)
-                float = instance.start.tzinfo is None
+                start = instance.start
+                end = instance.end
+                float = instance.start.floating()
+                start.setTimezoneUTC(True)
+                end.setTimezoneUTC(True)
                 transp = instance.component.propertyValue("TRANSP") == "TRANSPARENT"
                 instanceid = (yield Insert({
                     tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
                     tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
                     tr.FLOATING                    : float,
-                    tr.START_DATE                  : start,
-                    tr.END_DATE                    : end,
+                    tr.START_DATE                  : pyCalendarTodatetime(start),
+                    tr.END_DATE                    : pyCalendarTodatetime(end),
                     tr.FBTYPE                      :
                         icalfbtype_to_indexfbtype.get(
                             instance.component.getFBType(),
@@ -580,16 +580,16 @@ class CalendarObject(CommonObjectResource):
             # Special - for unbounded recurrence we insert a value for "infinity"
             # that will allow an open-ended time-range to always match it.
             if component.isRecurringUnbounded():
-                start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
-                end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
+                start = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+                end = PyCalendarDateTime(2100, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
                 float = False
                 transp = True
                 instanceid = (yield Insert({
                     tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
                     tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
                     tr.FLOATING                    : float,
-                    tr.START_DATE                  : start,
-                    tr.END_DATE                    : end,
+                    tr.START_DATE                  : pyCalendarTodatetime(start),
+                    tr.END_DATE                    : pyCalendarTodatetime(end),
                     tr.FBTYPE                      :
                         icalfbtype_to_indexfbtype["UNKNOWN"],
                     tr.TRANSPARENT                 : transp,

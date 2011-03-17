@@ -15,19 +15,18 @@
 ##
 
 import os
-import datetime
-from dateutil.tz import tzutc
 from difflib import unified_diff
 import itertools
 
 from twisted.trial.unittest import SkipTest
 
-from twistedcaldav.ical import Component, parse_date, parse_datetime,\
-    parse_date_or_datetime, parse_duration, Property, InvalidICalendarDataError
+from twistedcaldav.ical import Component, Property, InvalidICalendarDataError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 import twistedcaldav.test.util
 
-from vobject.icalendar import utc
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.duration import PyCalendarDuration
 
 class iCalendar (twistedcaldav.test.util.TestCase):
     """
@@ -52,16 +51,182 @@ class iCalendar (twistedcaldav.test.util.TestCase):
                 SkipTest("test unimplemented")
 
     def test_component_equality(self):
-        for filename in (
-            os.path.join(self.data_dir, "Holidays", "C318A4BA-1ED0-11D9-A5E0-000A958A3252.ics"),
-            os.path.join(self.data_dir, "Holidays.ics"),
-        ):
-            data = file(filename).read()
-
-            calendar1 = Component.fromString(data)
-            calendar2 = Component.fromString(data)
-
-            self.assertEqual(calendar1, calendar2)
+#        for filename in (
+#            os.path.join(self.data_dir, "Holidays", "C318A4BA-1ED0-11D9-A5E0-000A958A3252.ics"),
+#            os.path.join(self.data_dir, "Holidays.ics"),
+#        ):
+#            data = file(filename).read()
+#
+#            calendar1 = Component.fromString(data)
+#            calendar2 = Component.fromString(data)
+#
+#            self.assertEqual(calendar1, calendar2)
+            
+        data1 = (
+            (
+                "1.1 Switch property order",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080602T120000Z
+EXDATE:20080603T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080603T120000Z
+EXDATE:20080602T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "1.2 Switch component order",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080602T120000Z
+EXDATE:20080603T120000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080603T120000Z
+EXDATE:20080602T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "1.3 Switch VALARM order",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080602T120000Z
+EXDATE:20080603T120000Z
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test-2
+TRIGGER;RELATED=START:-PT5M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+EXDATE:20080603T120000Z
+EXDATE:20080602T120000Z
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test-2
+TRIGGER;RELATED=START:-PT5M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+        )
+        
+        for description, item1, item2, result in data1:
+            if "1.3" not in description:
+                continue
+            calendar1 = Component.fromString(item1)
+            calendar2 = Component.fromString(item2)
+            (self.assertEqual if result else self.assertNotEqual)(
+                calendar1, calendar2, "%s" % (description,)
+            )
 
     def test_component_validate(self):
         """
@@ -186,13 +351,13 @@ END:VCALENDAR
 
         year = 2004
 
-        instances = calendar.expandTimeRanges(datetime.date(2100, 1, 1))
+        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
-            self.assertEqual(start, datetime.datetime(year, 7, 4))
-            self.assertEqual(end  , datetime.datetime(year, 7, 5))
+            self.assertEqual(start, PyCalendarDateTime(year, 7, 4))
+            self.assertEqual(end  , PyCalendarDateTime(year, 7, 5))
             if year == 2050: break
             year += 1
 
@@ -211,14 +376,14 @@ END:VCALENDAR
         }
         year = 2004
 
-        instances = calendar.expandTimeRanges(datetime.date(2100, 1, 1))
+        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
             if year in results:
-                self.assertEqual(start, datetime.datetime(year, results[year][0], results[year][1]))
-                self.assertEqual(end  , datetime.datetime(year, results[year][0], results[year][2]))
+                self.assertEqual(start, PyCalendarDateTime(year, results[year][0], results[year][1]))
+                self.assertEqual(end  , PyCalendarDateTime(year, results[year][0], results[year][2]))
             if year == 2050: break
             year += 1
 
@@ -237,14 +402,14 @@ END:VCALENDAR
         }
         year = 2002
 
-        instances = calendar.expandTimeRanges(datetime.date(2100, 1, 1))
+        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
             if year in results:
-                self.assertEqual(start, datetime.datetime(year, results[year][0], results[year][1]))
-                self.assertEqual(end  , datetime.datetime(year, results[year][0], results[year][2]))
+                self.assertEqual(start, PyCalendarDateTime(year, results[year][0], results[year][1]))
+                self.assertEqual(end  , PyCalendarDateTime(year, results[year][0], results[year][2]))
             if year == 2050: break
             year += 1
 
@@ -256,13 +421,13 @@ END:VCALENDAR
         """
         calendar = Component.fromStream(file(os.path.join(self.data_dir, "Holidays", "C318ABFE-1ED0-11D9-A5E0-000A958A3252.ics")))
 
-        instances = calendar.expandTimeRanges(datetime.date(2100, 1, 1))
+        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
-            self.assertEqual(start, datetime.datetime(2004, 11, 25))
-            self.assertEqual(end, datetime.datetime(2004, 11, 27))
+            self.assertEqual(start, PyCalendarDateTime(2004, 11, 25))
+            self.assertEqual(end, PyCalendarDateTime(2004, 11, 27))
             break;
 
     #test_component_timerange.todo = "recurrence expansion should give us no end date here"
@@ -271,49 +436,41 @@ END:VCALENDAR
         """
         parse_date()
         """
-        self.assertEqual(parse_date("19970714"), datetime.date(1997, 7, 14))
+        self.assertEqual(PyCalendarDateTime.parseText("19970714"), PyCalendarDateTime(1997, 7, 14))
 
     def test_parse_datetime(self):
         """
         parse_datetime()
         """
-        try: parse_datetime("19980119T2300")
-        except ValueError: pass
-        else: self.fail("Invalid DATE-TIME should raise ValueError")
+        dt = PyCalendarDateTime.parseText("19980118T230000")
+        self.assertEqual(dt, PyCalendarDateTime(1998, 1, 18, 23, 0, 0))
+        self.assertTrue(dt.floating())
 
-        dt = parse_datetime("19980118T230000")
-        self.assertEqual(dt, datetime.datetime(1998, 1, 18, 23, 0))
-        self.assertNot(dt.tzinfo)
-
-        dt = parse_datetime("19980119T070000Z")
-        self.assertEqual(dt, datetime.datetime(1998, 1, 19, 07, 0, tzinfo=utc))
+        dt = PyCalendarDateTime.parseText("19980119T070000Z")
+        self.assertEqual(dt, PyCalendarDateTime(1998, 1, 19, 7, 0, 0, tzid=PyCalendarTimezone(utc=True)))
 
     def test_parse_date_or_datetime(self):
         """
         parse_date_or_datetime()
         """
-        self.assertEqual(parse_date_or_datetime("19970714"), datetime.date(1997, 7, 14))
+        self.assertEqual(PyCalendarDateTime.parseText("19970714"), PyCalendarDateTime(1997, 7, 14))
 
-        try: parse_date_or_datetime("19980119T2300")
-        except ValueError: pass
-        else: self.fail("Invalid DATE-TIME should raise ValueError")
+        dt = PyCalendarDateTime.parseText("19980118T230000")
+        self.assertEqual(dt, PyCalendarDateTime(1998, 1, 18, 23, 0, 0))
+        self.assertTrue(dt.floating())
 
-        dt = parse_date_or_datetime("19980118T230000")
-        self.assertEqual(dt, datetime.datetime(1998, 1, 18, 23, 0))
-        self.assertNot(dt.tzinfo)
-
-        dt = parse_date_or_datetime("19980119T070000Z")
-        self.assertEqual(dt, datetime.datetime(1998, 1, 19, 07, 0, tzinfo=utc))
+        dt = PyCalendarDateTime.parseText("19980119T070000Z")
+        self.assertEqual(dt, PyCalendarDateTime(1998, 1, 19, 7, 0, 0, tzid=PyCalendarTimezone(utc=True)))
 
     def test_parse_duration(self):
         """
         parse_duration()
         """
-        self.assertEqual(parse_duration( "P15DT5H0M20S"), datetime.timedelta(days= 15, hours= 5, minutes=0, seconds= 20))
-        self.assertEqual(parse_duration("+P15DT5H0M20S"), datetime.timedelta(days= 15, hours= 5, minutes=0, seconds= 20))
-        self.assertEqual(parse_duration("-P15DT5H0M20S"), datetime.timedelta(days=-15, hours=-5, minutes=0, seconds=-20))
+        self.assertEqual(PyCalendarDuration.parseText( "P15DT5H0M20S"), PyCalendarDuration(days= 15, hours= 5, minutes=0, seconds= 20))
+        self.assertEqual(PyCalendarDuration.parseText("+P15DT5H0M20S"), PyCalendarDuration(days= 15, hours= 5, minutes=0, seconds= 20))
+        self.assertEqual(PyCalendarDuration.parseText("-P15DT5H0M20S"), PyCalendarDuration(days=-15, hours=-5, minutes=0, seconds=-20))
 
-        self.assertEqual(parse_duration("P7W"), datetime.timedelta(weeks=7))
+        self.assertEqual(PyCalendarDuration.parseText("P7W"), PyCalendarDuration(weeks=7))
 
     def test_correct_attendee_properties(self):
         
@@ -413,7 +570,7 @@ END:VCALENDAR
 """,
                 (
                     ("mailto:user1@example.com", None),
-                    ("mailto:user1@example.com", datetime.datetime(2008, 11, 14, 0, 0, tzinfo=tzutc()))
+                    ("mailto:user1@example.com", PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)))
                 )
             ),
             (
@@ -437,7 +594,7 @@ END:VCALENDAR
 """,
                 (
                     ("mailto:user1@example.com", None),
-                    ("mailto:user3@example.com", datetime.datetime(2009, 11, 14, 0, 0, tzinfo=tzutc()))
+                    ("mailto:user3@example.com", PyCalendarDateTime(2009, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)))
                 )
             ),
             (
@@ -542,8 +699,8 @@ END:VCALENDAR
                 False,
                 (
                     ("mailto:user2@example.com", None),
-                    ("mailto:user2@example.com", datetime.datetime(2008, 11, 14, 0, 0, tzinfo=tzutc())),
-                    ("mailto:user3@example.com", datetime.datetime(2008, 11, 14, 0, 0, tzinfo=tzutc()))
+                    ("mailto:user2@example.com", PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+                    ("mailto:user3@example.com", PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)))
                 )
             ),
             (
@@ -804,8 +961,8 @@ END:VCALENDAR
     def test_attendees_views(self):
         
         data = (
-            # Simple component, no Attendees - no filtering
             (
+                "1.1 Simple component, no Attendees - no filtering",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -828,8 +985,8 @@ END:VCALENDAR
                 ()
             ),
 
-            # Simple component, no Attendees - filtering
             (
+                "1.2 Simple component, no Attendees - filtering",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -848,8 +1005,8 @@ END:VCALENDAR
                 ("mailto:user01@example.com",)
             ),
 
-            # Simple component, with one attendee - filtering match
             (
+                "1.3 Simple component, with one attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -876,8 +1033,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Simple component, with one attendee - no filtering match
             (
+                "1.4 Simple component, with one attendee - no filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -898,8 +1055,8 @@ END:VCALENDAR
                 ("mailto:user3@example.com",)
             ),
 
-            # Recurring component with one instance, each with one attendee - filtering match
             (
+                "2.1 Recurring component with one instance, each with one attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -942,8 +1099,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Recurring component with one instance, each with one attendee - no filtering match
             (
+                "2.2 Recurring component with one instance, each with one attendee - no filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -972,8 +1129,8 @@ END:VCALENDAR
                 ("mailto:user3@example.com",)
             ),        
 
-            # Recurring component with one instance, master with one attendee, instance without attendee - filtering match
             (
+                "2.3 Recurring component with one instance, master with one attendee, instance without attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1009,8 +1166,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Recurring component with one instance, master with one attendee, instance without attendee - no filtering match
             (
+                "2.4 Recurring component with one instance, master with one attendee, instance without attendee - no filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1038,8 +1195,8 @@ END:VCALENDAR
                 ("mailto:user3@example.com",)
             ),
 
-            # Recurring component with one instance, master without attendee, instance with attendee - filtering match
             (
+                "2.5 Recurring component with one instance, master without attendee, instance with attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1074,8 +1231,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Recurring component with one instance, master without attendee, instance with attendee - no filtering match
             (
+                "2.6 Recurring component with one instance, master without attendee, instance with attendee - no filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1103,8 +1260,8 @@ END:VCALENDAR
                 ("mailto:user3@example.com",)
             ),
 
-                    # Simple component, no Attendees - no filtering
             (
+                "3.1 Simple component, no Attendees - no filtering",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1127,8 +1284,8 @@ END:VCALENDAR
                 ()
             ),
 
-            # Simple component, no Attendees - filtering
             (
+                "3.2 Simple component, no Attendees - filtering",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1147,8 +1304,8 @@ END:VCALENDAR
                 ("mailto:user01@example.com",)
             ),
 
-            # Simple component, with one attendee - filtering match
             (
+                "3.3 Simple component, with one attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1175,8 +1332,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Simple component, with one attendee - filtering match
             (
+                "3.4 Simple component, with one attendee - filtering match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1203,8 +1360,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Simple component, with one attendee - filtering match - no schedule-agent match
             (
+                "3.5 Simple component, with one attendee - filtering match - no schedule-agent match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1225,8 +1382,8 @@ END:VCALENDAR
                 ("mailto:user2@example.com",)
             ),
 
-            # Simple component, with one attendee - filtering match - no schedule-agent match
             (
+                "3.6 Simple component, with one attendee - filtering match - no schedule-agent match",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//PYVOBJECT//NONSGML Version 1//EN
@@ -1249,10 +1406,10 @@ END:VCALENDAR
 
         )
         
-        for original, checkScheduleAgent, filtered, attendees in data:
+        for description, original, checkScheduleAgent, filtered, attendees in data:
             component = Component.fromString(original)
             component.attendeesView(attendees, onlyScheduleAgentServer=checkScheduleAgent)
-            self.assertEqual(filtered, str(component).replace("\r", ""))
+            self.assertEqual(filtered, str(component).replace("\r", ""), "Failed: %s" % (description,))
 
     def test_all_but_one_attendee(self):
         
@@ -1746,12 +1903,12 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
                 False,
-                (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),)
+                (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),)
             ),
             (
                 "Simple recurring",
@@ -1761,15 +1918,15 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 END:VCALENDAR
 """,
                 False,
                 (
-                    datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 )
             ),
             (
@@ -1780,7 +1937,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=2
 RDATE:20071116T010000Z
 END:VEVENT
@@ -1788,9 +1945,9 @@ END:VCALENDAR
 """,
                 False,
                 (
-                    datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2007, 11, 16, 1, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 )
             ),
             (
@@ -1801,7 +1958,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=3
 EXDATE:20071115T000000Z
 END:VEVENT
@@ -1809,8 +1966,8 @@ END:VCALENDAR
 """,
                 False,
                 (
-                    datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2007, 11, 16, 0, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2007, 11, 16, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 )
             ),
             (
@@ -1821,7 +1978,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=3
 EXDATE:20071114T000000Z
 END:VEVENT
@@ -1829,8 +1986,8 @@ END:VCALENDAR
 """,
                 False,
                 (
-                    datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2007, 11, 16, 0, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2007, 11, 16, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 )
             ),
             (
@@ -1841,21 +1998,21 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
                 False,
                 (
-                    datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2007, 11, 15, 1, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 )
             ),
             (
@@ -1866,14 +2023,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T010000Z
 DTSTART:20071115T000000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1888,21 +2045,21 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T010000Z
 DTSTART:20071115T000000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
                 True,
                 (
-                    datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 )
             ),
         )
@@ -1910,9 +2067,9 @@ END:VCALENDAR
         for description, original, ignoreInvalidInstances, results in data:
             component = Component.fromString(original)
             if results is None:
-                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, datetime.date(2100, 1, 1), ignoreInvalidInstances)
+                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances)
             else:
-                instances = component.expandTimeRanges(datetime.date(2100, 1, 1), ignoreInvalidInstances)
+                instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances)
                 self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
                 for instance in instances:
                     self.assertTrue(instances[instance].start in results, "%s: %s missing" % (description, instance,))
@@ -1928,7 +2085,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1943,7 +2100,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1958,14 +2115,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1980,14 +2137,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -2002,14 +2159,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -2024,14 +2181,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -2046,14 +2203,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -2068,14 +2225,14 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
@@ -2099,7 +2256,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 END:VEVENT
 END:VCALENDAR
@@ -2110,7 +2267,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM2:True
 END:VEVENT
 END:VCALENDAR
@@ -2121,7 +2278,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 X-ITEM2:True
 END:VEVENT
@@ -2137,7 +2294,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 END:VEVENT
 END:VCALENDAR
@@ -2148,7 +2305,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM2:True
 X-ITEM3:True
 END:VEVENT
@@ -2160,7 +2317,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 X-ITEM2:True
 X-ITEM3:True
@@ -2177,7 +2334,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 END:VEVENT
 END:VCALENDAR
@@ -2188,7 +2345,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM2:True
 X-ITEM1:False
 END:VEVENT
@@ -2200,7 +2357,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:True
 X-ITEM2:True
 X-ITEM1:False
@@ -2217,7 +2374,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM1:True
 END:VEVENT
@@ -2225,7 +2382,7 @@ BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:False
 END:VEVENT
 END:VCALENDAR
@@ -2236,7 +2393,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM2:True
 END:VEVENT
@@ -2244,7 +2401,7 @@ BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM2:False
 END:VEVENT
 END:VCALENDAR
@@ -2255,7 +2412,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM1:True
 X-ITEM2:True
@@ -2264,7 +2421,7 @@ BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:False
 X-ITEM2:False
 END:VEVENT
@@ -2280,7 +2437,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM1:True
 END:VEVENT
@@ -2288,7 +2445,7 @@ BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:False
 END:VEVENT
 END:VCALENDAR
@@ -2299,7 +2456,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM2:True
 END:VEVENT
@@ -2311,7 +2468,7 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
-DURATION:P1H
+DURATION:PT1H
 RRULE:FREQ=DAILY
 X-ITEM1:True
 X-ITEM2:True
@@ -2320,7 +2477,7 @@ BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20071115T000000Z
 DTSTART:20071115T010000Z
-DURATION:P1H
+DURATION:PT1H
 X-ITEM1:False
 X-ITEM2:True
 END:VEVENT
@@ -2418,6 +2575,74 @@ PRODID:-//PYVOBJECT//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890-1
 DTSTART:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;RSVP=TRUE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+ATTENDEE:mailto:user04@example.com
+RRULE:BYDAY=MO,WE,FR;FREQ=WEEKLY;INTERVAL=1;WKST=SU
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.4",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=US/Pacific:20071114T000000
+RRULE:FREQ=WEEKLY;WKST=SU;INTERVAL=1;BYDAY=MO,WE,FR
+TRANSP:OPAQUE
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user03@example.com
+ATTENDEE;RSVP=FALSE:mailto:user04@example.com
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;_TZID=US/Pacific:20071114T080000Z
 ORGANIZER:mailto:user01@example.com
 ATTENDEE;RSVP=TRUE:mailto:user02@example.com
 ATTENDEE:mailto:user03@example.com
@@ -2631,7 +2856,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.datetime(2009, 1, 2, 8, 0, 0, tzinfo=tzutc()),
+                PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090102T080000Z
@@ -2654,7 +2879,7 @@ RDATE:20090102T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.datetime(2009, 1, 2, 18, 0, 0, tzinfo=tzutc()),
+                PyCalendarDateTime(2009, 1, 2, 18, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090102T180000Z
@@ -2678,7 +2903,7 @@ RDATE:20090104T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.datetime(2009, 1, 3, 18, 0, 0, tzinfo=tzutc()),
+                PyCalendarDateTime(2009, 1, 3, 18, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090103T180000Z
@@ -2700,7 +2925,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.datetime(2009, 1, 2, 9, 0, 0, tzinfo=tzutc()),
+                PyCalendarDateTime(2009, 1, 2, 9, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 None,
             ),
             (
@@ -2717,7 +2942,7 @@ RDATE:20090102T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.datetime(2009, 1, 2, 19, 0, 0, tzinfo=tzutc()),
+                PyCalendarDateTime(2009, 1, 2, 19, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 None,
             ),
             (
@@ -2735,7 +2960,7 @@ RDATE:20090104T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.datetime(2009, 1, 3, 19, 0, 0, tzinfo=tzutc()),
+                PyCalendarDateTime(2009, 1, 3, 19, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 None,
             ),
             (
@@ -2751,7 +2976,7 @@ RRULE:FREQ=WEEKLY
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.date(2009, 1, 8),
+                PyCalendarDateTime(2009, 1, 8),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID;VALUE=DATE:20090108
@@ -2774,7 +2999,7 @@ RDATE;VALUE=DATE:20090103
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.date(2009, 1, 3),
+                PyCalendarDateTime(2009, 1, 3),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID;VALUE=DATE:20090103
@@ -2798,7 +3023,7 @@ RDATE;VALUE=DATE:20090118
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.date(2009, 1, 10),
+                PyCalendarDateTime(2009, 1, 10),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID;VALUE=DATE:20090110
@@ -2820,7 +3045,7 @@ RRULE:FREQ=WEEKLY
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.date(2009, 1, 3),
+                PyCalendarDateTime(2009, 1, 3),
                 None,
             ),
             (
@@ -2837,7 +3062,7 @@ RDATE;VALUE=DATE:20090104
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.date(2009, 1, 5),
+                PyCalendarDateTime(2009, 1, 5),
                 None,
             ),
             (
@@ -2855,14 +3080,12 @@ RDATE;VALUE=DATE:20090118
 END:VEVENT
 END:VCALENDAR
 """,
-                datetime.datetime(2009, 1, 19),
+                PyCalendarDateTime(2009, 1, 19),
                 None,
             ),
         )
         
         for title, calendar, rid, result in data:
-            if not title.startswith("3"):
-                continue
             ical = Component.fromString(calendar)
             derived = ical.deriveInstance(rid)
             derived = str(derived).replace("\r", "") if derived else None
@@ -2885,8 +3108,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    datetime.datetime(2009, 1, 2, 8, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2009, 1, 4, 8, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2009, 1, 4, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 ),
                 (
                     """BEGIN:VEVENT
@@ -2920,8 +3143,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    datetime.datetime(2009, 1, 2, 18, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2009, 1, 4, 8, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2009, 1, 2, 18, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2009, 1, 4, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 ),
                 (
                     """BEGIN:VEVENT
@@ -2956,8 +3179,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    datetime.datetime(2009, 1, 3, 18, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2009, 1, 5, 8, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2009, 1, 3, 18, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2009, 1, 5, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 ),
                 (
                     """BEGIN:VEVENT
@@ -2990,8 +3213,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    datetime.datetime(2009, 1, 2, 9, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2009, 1, 3, 8, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2009, 1, 2, 9, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2009, 1, 3, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 ),
                 (
                     None,
@@ -3019,8 +3242,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    datetime.datetime(2009, 1, 2, 19, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2009, 1, 3, 8, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2009, 1, 2, 19, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2009, 1, 3, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 ),
                 (
                     None,
@@ -3049,8 +3272,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    datetime.datetime(2009, 1, 3, 19, 0, 0, tzinfo=tzutc()),
-                    datetime.datetime(2009, 1, 3, 8, 0, 0, tzinfo=tzutc()),
+                    PyCalendarDateTime(2009, 1, 3, 19, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    PyCalendarDateTime(2009, 1, 3, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 ),
                 (
                     None,
@@ -3234,8 +3457,8 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), False),
+                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
                 )
             ),
             (
@@ -3252,9 +3475,9 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 5, 0, 0, 0, tzinfo=tzutc()), False),
+                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 5, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
                 )
             ),
             (
@@ -3271,10 +3494,10 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), False),
+                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
                 )
             ),
             (
@@ -3292,11 +3515,11 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 2, 0, 0, tzinfo=tzutc()), False),
+                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
                 )
             ),
             (
@@ -3315,12 +3538,12 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 2, 0, 0, tzinfo=tzutc()), False),
-                    (datetime.datetime(2009, 10, 3, 0, 0, 0, tzinfo=tzutc()), False),
+                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (PyCalendarDateTime(2009, 10, 3, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
                 )
             ),
             (
@@ -3342,11 +3565,11 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2007, 11, 15, 1, 0, 0, tzinfo=tzutc()), False),
-                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), False),
+                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
                 )
             ),
             (
@@ -3369,12 +3592,12 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2007, 11, 15, 1, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2007, 11, 15, 2, 0, 0, tzinfo=tzutc()), False),
-                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 1, 0, 0, tzinfo=tzutc()), False),
+                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2007, 11, 15, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
                 )
             ),
             (
@@ -3391,9 +3614,9 @@ END:VCALENDAR
 """,
                 (
                     (None, False),
-                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), False),
-                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), True),
-                    (datetime.datetime(2009, 10, 4, 0, 0, 0, tzinfo=tzutc()), False),
+                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
                 )
             ),
             (
@@ -3423,7 +3646,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    (datetime.datetime(2007, 11, 14, 0, 0, 0, tzinfo=tzutc()), True),
+                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
                 )
             ),
             (
@@ -3438,7 +3661,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    (datetime.datetime(2007, 11, 15, 0, 0, 0, tzinfo=tzutc()), False),
+                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
                 )
             ),
         )
@@ -3727,7 +3950,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", False,),
                                 ),
@@ -3771,7 +3994,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", False,),
@@ -3824,7 +4047,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", False,),
@@ -3868,19 +4091,19 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", False,),
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 3, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 3, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", True,),
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 4, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 4, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", True,),
                                 ),
@@ -3941,21 +4164,21 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", True,),
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 3, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 3, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", True,),
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 4, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 4, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", False,),
@@ -4038,7 +4261,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 2, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", True,),
@@ -4046,7 +4269,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 3, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 3, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", True,),
@@ -4054,7 +4277,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                datetime.datetime(2008, 6, 4, 12, 0, 0, tzinfo=tzutc()),
+                                PyCalendarDateTime(2008, 6, 4, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", False,),

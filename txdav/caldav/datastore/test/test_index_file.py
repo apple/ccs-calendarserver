@@ -15,6 +15,7 @@
 ##
 
 from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks
 from twisted.internet.task import deferLater
 
 from txdav.caldav.datastore.index_file import Index, MemcachedUIDReserver
@@ -29,10 +30,9 @@ from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
 import twistedcaldav.test.util
 
-import datetime
-import os
-from twisted.internet.defer import inlineCallbacks
+from pycalendar.datetime import PyCalendarDateTime
 
+import os
 
 class MinimalCalendarObjectReplacement(object):
     """
@@ -301,7 +301,7 @@ END:VCALENDAR
             else:
                 self.assertFalse(self.db.resourceExists(name), msg=description)
 
-        self.db.testAndUpdateIndex(datetime.date(2020, 1, 1))
+        self.db.testAndUpdateIndex(PyCalendarDateTime(2020, 1, 1))
         for description, name, calendar_txt, reCreate, ok in data:
             if ok:
                 self.assertTrue(self.db.resourceExists(name), msg=description)

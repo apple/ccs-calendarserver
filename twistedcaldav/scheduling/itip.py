@@ -30,16 +30,12 @@ iTIP (RFC2446) processing.
 # know how to deal with overridden instances.
 #
 
-import datetime
-
-from vobject.icalendar import utc
-from vobject.icalendar import dateTimeToString
-
 from twext.python.log import Logger
-from twext.python.datetime import asUTC, iCalendarString
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property, iCalendarProductID, Component
+
+from pycalendar.datetime import PyCalendarDateTime
 
 log = Logger()
 
@@ -101,7 +97,7 @@ class iTipProcessing(object):
             private_comments = current_master.properties("X-CALENDARSERVER-PRIVATE-COMMENT")
             transps = current_master.properties("TRANSP")
             organizer = current_master.getProperty("ORGANIZER")
-            organizer_schedule_status = organizer.params().get("SCHEDULE-STATUS", None) if organizer else None
+            organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
         else:
             master_valarms = ()
             private_comments = ()
@@ -124,7 +120,7 @@ class iTipProcessing(object):
             if organizer_schedule_status: 
                 organizer = master_component.getProperty("ORGANIZER")
                 if organizer:
-                    organizer.params()["SCHEDULE-STATUS"] = organizer_schedule_status
+                    organizer.setParameter("SCHEDULE-STATUS", organizer_schedule_status)
                 
             # Now try to match recurrences
             for component in new_calendar.subcomponents():
@@ -321,7 +317,7 @@ class iTipProcessing(object):
             if attendee:
                 attendees.add(attendee)
                 if rids is not None and (partstat or private_comment):
-                    rids.add((iCalendarString(rid), partstat, private_comment,))
+                    rids.add((rid.getText(), partstat, private_comment,))
 
         # Check for an invalid instance by itself
         len_attendees = len(attendees)
@@ -363,20 +359,20 @@ class iTipProcessing(object):
             return None, False, False
 
         attendee = attendees[0]
-        partstat = attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]
+        partstat = attendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
         
         # Now find matching ATTENDEE in to_component
         existing_attendee = to_component.getAttendeeProperty((attendee.value(),))
         if existing_attendee:
-            oldpartstat = existing_attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]
-            existing_attendee.params()["PARTSTAT"] = [partstat]
-            existing_attendee.params()["SCHEDULE-STATUS"] = [reqstatus]
+            oldpartstat = existing_attendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
+            existing_attendee.setParameter("PARTSTAT", partstat)
+            existing_attendee.setParameter("SCHEDULE-STATUS", reqstatus)
             partstat_changed = (oldpartstat != partstat)
             
             # Always delete RSVP on PARTSTAT change
             if partstat_changed:
                 try:
-                    del existing_attendee.params()["RSVP"]
+                    existing_attendee.removeParameter("RSVP")
                 except KeyError:
                     pass
 
@@ -389,12 +385,8 @@ class iTipProcessing(object):
                 # Look for matching X-CALENDARSERVER-ATTENDEE-COMMENT property in existing data (State 2 in spec)
                 private_comments = tuple(to_component.properties("X-CALENDARSERVER-ATTENDEE-COMMENT"))
                 for comment in private_comments:
-                    params = comment.params()["X-CALENDARSERVER-ATTENDEE-REF"]
-                    if len(params) != 1:
-                        log.error("Must be one and only one X-CALENDARSERVER-ATTENDEE-REF parameter in X-CALENDARSERVER-ATTENDEE-COMMENT")
-                        params = (None,)
-                    param = params[0]
-                    if param == attendee.value():
+                    attendeeref = comment.parameterValue("X-CALENDARSERVER-ATTENDEE-REF")
+                    if attendeeref == attendee.value():
                         private_comment = comment
                         break
                 else:
@@ -410,11 +402,11 @@ class iTipProcessing(object):
  
             elif attendee_comment is None and private_comment is not None:
                 # Remove all property parameters
-                private_comment.params().clear()
+                private_comment.removeAllParameters()
                 
                 # Add default parameters
-                private_comment.params()["X-CALENDARSERVER-ATTENDEE-REF"] = [attendee.value()]
-                private_comment.params()["X-CALENDARSERVER-DTSTAMP"] = [dateTimeToString(datetime.datetime.now(tz=utc))]
+                private_comment.setParameter("X-CALENDARSERVER-ATTENDEE-REF", attendee.value())
+                private_comment.setParameter("X-CALENDARSERVER-DTSTAMP", PyCalendarDateTime.getNowUTC().getText())
                 
                 # Set value empty
                 private_comment.setValue("")
@@ -428,8 +420,8 @@ class iTipProcessing(object):
                     "X-CALENDARSERVER-ATTENDEE-COMMENT",
                     attendee_comment.value(),
                     params = {
-                        "X-CALENDARSERVER-ATTENDEE-REF":     [attendee.value()],
-                        "X-CALENDARSERVER-DTSTAMP": [dateTimeToString(datetime.datetime.now(tz=utc))],
+                        "X-CALENDARSERVER-ATTENDEE-REF": attendee.value(),
+                        "X-CALENDARSERVER-DTSTAMP":      PyCalendarDateTime.getNowUTC().getText(),
                     }
                 )
                 to_component.addProperty(private_comment)
@@ -440,11 +432,11 @@ class iTipProcessing(object):
                 # Only change if different
                 if private_comment.value() != attendee_comment.value():
                     # Remove all property parameters
-                    private_comment.params().clear()
+                    private_comment.removeAllParameters()
                     
                     # Add default parameters
-                    private_comment.params()["X-CALENDARSERVER-ATTENDEE-REF"] = [attendee.value()]
-                    private_comment.params()["X-CALENDARSERVER-DTSTAMP"] = [dateTimeToString(datetime.datetime.now(tz=utc))]
+                    private_comment.setParameter("X-CALENDARSERVER-ATTENDEE-REF", attendee.value())
+                    private_comment.setParameter("X-CALENDARSERVER-DTSTAMP", PyCalendarDateTime.getNowUTC().getText())
                     
                     # Set new value
                     private_comment.setValue(attendee_comment.value())
@@ -467,11 +459,11 @@ class iTipProcessing(object):
             [to_component.replaceProperty(prop) for prop in matched.properties("TRANSP")]
 
             organizer = matched.getProperty("ORGANIZER")
-            organizer_schedule_status = organizer.params().get("SCHEDULE-STATUS", None) if organizer else None
+            organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
             if organizer_schedule_status: 
                 organizer = to_component.getProperty("ORGANIZER")
                 if organizer:
-                    organizer.params()["SCHEDULE-STATUS"] = organizer_schedule_status
+                    organizer.setParameter("SCHEDULE-STATUS", organizer_schedule_status)
 
             # Remove the old one
             if remove_matched:
@@ -486,7 +478,7 @@ class iTipProcessing(object):
             if organizer_schedule_status: 
                 organizer = to_component.getProperty("ORGANIZER")
                 if organizer:
-                    organizer.params()["SCHEDULE-STATUS"] = organizer_schedule_status
+                    organizer.setParameter("SCHEDULE-STATUS", organizer_schedule_status)
     
     @staticmethod
     def fixForiCal3(components, recipient, compatibilityMode):
@@ -498,7 +490,7 @@ class iTipProcessing(object):
                 continue
             attendee = component.getAttendeeProperty((recipient,))
             if attendee:
-                partstat = attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]
+                partstat = attendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
                 if partstat == "NEEDS-ACTION":
                     if compatibilityMode:
                         component.addProperty(Property("X-APPLE-NEEDS-REPLY", "TRUE"))
@@ -523,7 +515,6 @@ class iTipGenerator(object):
             
             # Create a new component matching the type of the original
             comp = Component(original.mainType())
-            itip.addComponent(comp)
 
             # Use the master component when the instance is None
             if not instance_rid:
@@ -535,14 +526,14 @@ class iTipGenerator(object):
             assert instance is not None, "Need a master component"
 
             # Add some required properties extracted from the original
-            comp.addProperty(Property("DTSTAMP", datetime.datetime.now(tz=utc)))
+            comp.addProperty(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
             comp.addProperty(Property("UID", instance.propertyValue("UID")))
             seq = instance.propertyValue("SEQUENCE")
-            seq = str(int(seq) + 1) if seq else "1"
+            seq = int(seq) + 1 if seq else 1
             comp.addProperty(Property("SEQUENCE", seq))
             comp.addProperty(instance.getOrganizerProperty())
             if instance_rid:
-                comp.addProperty(Property("RECURRENCE-ID", asUTC(instance_rid)))
+                comp.addProperty(Property("RECURRENCE-ID", instance_rid.duplicate().adjustToUTC()))
             
             def addProperties(propname):
                 for property in instance.properties(propname):
@@ -567,6 +558,8 @@ class iTipGenerator(object):
                 comp.addProperty(attendeeProp)
 
             tzids.update(comp.timezoneIDs())
+
+            itip.addComponent(comp)
             
         # Now include any referenced tzids
         for comp in original.subcomponents():
@@ -589,7 +582,7 @@ class iTipGenerator(object):
         itip.addProperty(Property("METHOD", "REQUEST"))
         
         # Force update to DTSTAMP everywhere
-        itip.replacePropertyInAllComponents(Property("DTSTAMP", datetime.datetime.now(tz=utc)))
+        itip.replacePropertyInAllComponents(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
 
         # Now filter out components that do not contain every attendee
         itip.attendeesView(attendees, onlyScheduleAgentServer=True)
@@ -617,7 +610,7 @@ class iTipGenerator(object):
         itip.filterComponents(changedRids)
 
         # Force update to DTSTAMP everywhere
-        itip.replacePropertyInAllComponents(Property("DTSTAMP", datetime.datetime.now(tz=utc)))
+        itip.replacePropertyInAllComponents(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
 
         # Remove all attendees except the one we want
         itip.removeAllButOneAttendee(attendee)
@@ -651,11 +644,11 @@ class iTipGenerator(object):
             attendeeProps = itip.getAttendeeProperties((attendee,))
             assert attendeeProps, "Must have some matching ATTENDEEs"
             for attendeeProp in attendeeProps:
-                attendeeProp.params().setdefault("PARTSTAT", ["DECLINED",])[0] = "DECLINED"
+                attendeeProp.setParameter("PARTSTAT", "DECLINED")
         
         # Add REQUEST-STATUS to each top-level component
         itip.addPropertyToAllComponents(Property("REQUEST-STATUS", ["2.0", "Success",]))
-        
+
         # Strip out unwanted bits
         iTipGenerator.prepareSchedulingMessage(itip, reply=True)
 

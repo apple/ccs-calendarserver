@@ -214,7 +214,7 @@ END:VCALENDAR
                             self.fail("Got calendar for unexpected UID %r" % (uid,))
 
                         if data:
-                            original_calendar = ical.Component.fromStream(data[uid])
+                            original_calendar = ical.Component.fromString(data[uid])
                         else:
                             original_filename = file(os.path.join(self.holidays_dir, uid + ".ics"))
                             original_calendar = ical.Component.fromStream(original_filename)

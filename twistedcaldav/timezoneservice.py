@@ -40,12 +40,13 @@ from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.extensions import DAVResource,\
     DAVResourceWithoutChildrenMixin
-from twistedcaldav.ical import parse_date_or_datetime
 from twistedcaldav.ical import tzexpand
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 from twistedcaldav.timezones import TimezoneException
 from twistedcaldav.timezones import listTZs
 from twistedcaldav.timezones import readTZ
+
+from pycalendar.datetime import PyCalendarDateTime
 
 class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource):
     """
@@ -234,7 +235,7 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
             start = request.args.get("start", ())
             if len(start) != 1:
                 raise ValueError()
-            start = parse_date_or_datetime(start[0])
+            start = PyCalendarDateTime.parseText(start[0])
         except ValueError:
             raise HTTPError(ErrorResponse(
                 responsecode.BAD_REQUEST,
@@ -246,7 +247,7 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
             end = request.args.get("end", ())
             if len(end) != 1:
                 raise ValueError()
-            end = parse_date_or_datetime(end[0])
+            end = PyCalendarDateTime.parseText(end[0])
             if end <= start:
                 raise ValueError()
         except ValueError:

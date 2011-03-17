@@ -73,7 +73,8 @@ from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
 from txdav.base.propertystore.sql import PropertyStore
 
 from twistedcaldav.customxml import NotificationType
-from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp
+from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
+    pyCalendarTodatetime
 
 v1_schema = getModule(__name__).filePath.sibling("sql_schema_v1.sql").getContent()
 
@@ -302,12 +303,12 @@ class CommonStoreTransaction(object):
     def eventsOlderThan(self, cutoff, batchSize=None):
         """
         Return up to the oldest batchSize events which exist completely earlier
-        than "cutoff" (datetime)
+        than "cutoff" (PyCalendarDateTime)
 
         Returns a deferred to a list of (uid, calendarName, eventName, maxDate)
         tuples.
         """
-        kwds = { "CutOff" : cutoff }
+        kwds = { "CutOff" : pyCalendarTodatetime(cutoff) }
         if batchSize is not None:
             kwds["batchSize"] = batchSize
             query = self._oldEventsLimited

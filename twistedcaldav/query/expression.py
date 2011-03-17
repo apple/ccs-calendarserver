@@ -75,7 +75,7 @@ class logicExpression(baseExpression):
 
     def __str__(self):
         """
-        Generate a suitable text descriptor of this epxression.
+        Generate a suitable text descriptor of this expression.
         
         @return: a C{str} of the text for this expression.
         """

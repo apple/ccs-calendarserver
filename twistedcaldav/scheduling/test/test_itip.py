@@ -14,10 +14,10 @@
 # limitations under the License.
 ##
 
-from dateutil.tz import tzutc
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
 from twistedcaldav.ical import Component
 from twistedcaldav.scheduling.itip import iTipProcessing, iTipGenerator
-import datetime
 import os
 import twistedcaldav.test.util
 
@@ -1269,7 +1269,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 ("mailto:user2@example.com",),
-                (datetime.datetime(2008, 11, 14, 0, 0, tzinfo=tzutc()), ),
+                (PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), ),
             ),
 
             # Recurring component with one instance, each with one attendee - cancel instance
@@ -1308,7 +1308,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 ("mailto:user2@example.com",),
-                (datetime.datetime(2008, 11, 14, 0, 0, tzinfo=tzutc()), ),
+                (PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), ),
             ),
 
             # Recurring component with one instance, each with one attendee - cancel master

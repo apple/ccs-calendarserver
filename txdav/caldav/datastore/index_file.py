@@ -39,8 +39,6 @@ try:
 except ImportError:
     from pysqlite2 import dbapi2 as sqlite
 
-from vobject.icalendar import utc
-
 from twisted.internet.defer import maybeDeferred, succeed
 
 from twext.python.log import Logger, LoggingMixIn
@@ -48,6 +46,7 @@ from twext.python.log import Logger, LoggingMixIn
 from txdav.common.icommondatastore import SyncTokenValidException,\
     ReservationError, IndexedSearchException
 
+from twistedcaldav.dateops import pyCalendarTodatetime
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarquery, calendarqueryfilter
 from twistedcaldav.sql import AbstractSQLDatabase
@@ -55,6 +54,10 @@ from twistedcaldav.sql import db_prefix
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.config import config
 from twistedcaldav.memcachepool import CachePoolUserMixIn
+
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.duration import PyCalendarDuration
+from pycalendar.timezone import PyCalendarTimezone
 
 log = Logger()
 
@@ -311,9 +314,10 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
                 # will have been indexed with an "infinite" value always included.
                 maxDate, isStartDate = filter.getmaxtimerange()
                 if maxDate:
-                    maxDate = maxDate.date()
+                    maxDate = maxDate.duplicate()
+                    maxDate.setDateOnly(True)
                     if isStartDate:
-                        maxDate += datetime.timedelta(days=365)
+                        maxDate += PyCalendarDuration(days=365)
                     self.testAndUpdateIndex(maxDate)
             else:
                 # We cannot handle this filter in an indexed search
@@ -605,7 +609,7 @@ class CalendarIndex (AbstractCalendarIndex):
         Gives all resources which have not been expanded beyond a given date
         in the index
         """
-        return self._db_values_for_sql("select NAME from RESOURCE where RECURRANCE_MAX < :1", minDate)
+        return self._db_values_for_sql("select NAME from RESOURCE where RECURRANCE_MAX < :1", pyCalendarTodatetime(minDate))
 
     def reExpandResource(self, name, expand_until):
         """
@@ -635,11 +639,10 @@ class CalendarIndex (AbstractCalendarIndex):
         # Decide how far to expand based on the component
         doInstanceIndexing = False
         master = calendar.masterComponent()
-        if master is None or not calendar.isRecurring() and not calendar.isRecurringUnbounded():
+        if master is None or not calendar.isRecurring():
             # When there is no master we have a set of overridden components - index them all.
             # When there is one instance - index it.
-            # When bounded - index all.
-            expand = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
+            expand = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             doInstanceIndexing = True
         else:
             # If migrating or re-creating or config option for delayed indexing is off, always index
@@ -650,8 +653,8 @@ class CalendarIndex (AbstractCalendarIndex):
             # by default.  This is a caching parameter which affects the size of the index;
             # it does not affect search results beyond this period, but it may affect
             # performance of such a search.
-            expand = (datetime.date.today() +
-                      datetime.timedelta(days=config.FreeBusyIndexExpandAheadDays))
+            expand = (PyCalendarDateTime.getToday() +
+                      PyCalendarDuration(days=config.FreeBusyIndexExpandAheadDays))
 
             if expand_until and expand_until > expand:
                 expand = expand_until
@@ -668,8 +671,8 @@ class CalendarIndex (AbstractCalendarIndex):
             # occurrences into some obscenely far-in-the-future date, so we cap the caching
             # period.  Searches beyond this period will always be relatively expensive for
             # resources with occurrences beyond this period.
-            if expand > (datetime.date.today() +
-                         datetime.timedelta(days=config.FreeBusyIndexExpandMaxDays)):
+            if expand > (PyCalendarDateTime.getToday() +
+                         PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)):
                 raise IndexedSearchException()
 
         # Always do recurrence expansion even if we do not intend to index - we need this to double-check the
@@ -684,7 +687,7 @@ class CalendarIndex (AbstractCalendarIndex):
         # Now coerce indexing to off if needed 
         if not doInstanceIndexing:
             instances = None
-            recurrenceLimit = datetime.datetime(1900, 1, 1, 0, 0, 0, tzinfo=utc)
+            recurrenceLimit = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             
         self._delete_from_db(name, uid, False)
 
@@ -693,7 +696,7 @@ class CalendarIndex (AbstractCalendarIndex):
             """
             insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX, ORGANIZER)
             values (:1, :2, :3, :4, :5)
-            """, name, uid, calendar.resourceType(), recurrenceLimit, organizer
+            """, name, uid, calendar.resourceType(), pyCalendarTodatetime(recurrenceLimit) if recurrenceLimit else None, organizer
         )
         resourceid = self.lastrowid
 
@@ -720,9 +723,9 @@ class CalendarIndex (AbstractCalendarIndex):
         if doInstanceIndexing:
             for key in instances:
                 instance = instances[key]
-                start = instance.start.replace(tzinfo=utc)
-                end = instance.end.replace(tzinfo=utc)
-                float = 'Y' if instance.start.tzinfo is None else 'N'
+                start = instance.start
+                end = instance.end
+                float = 'Y' if instance.start.floating() else 'N'
                 transp = 'T' if instance.component.propertyValue("TRANSP") == "TRANSPARENT" else 'F'
                 self._db_execute(
                     """
@@ -731,8 +734,8 @@ class CalendarIndex (AbstractCalendarIndex):
                     """,
                     resourceid,
                     float,
-                    start,
-                    end,
+                    pyCalendarTodatetime(start),
+                    pyCalendarTodatetime(end),
                     icalfbtype_to_indexfbtype.get(instance.component.getFBType(), 'F'),
                     transp
                 )
@@ -751,14 +754,14 @@ class CalendarIndex (AbstractCalendarIndex):
             # Special - for unbounded recurrence we insert a value for "infinity"
             # that will allow an open-ended time-range to always match it.
             if calendar.isRecurringUnbounded():
-                start = datetime.datetime(2100, 1, 1, 0, 0, 0, tzinfo=utc)
-                end = datetime.datetime(2100, 1, 1, 1, 0, 0, tzinfo=utc)
+                start = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+                end = PyCalendarDateTime(2100, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
                 float = 'N'
                 self._db_execute(
                     """
                     insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE, TRANSPARENT)
                     values (:1, :2, :3, :4, :5, :6)
-                    """, resourceid, float, start, end, '?', '?'
+                    """, resourceid, float, pyCalendarTodatetime(start), pyCalendarTodatetime(end), '?', '?'
                 )
                 instanceid = self.lastrowid
                 peruserdata = calendar.perUserTransparency(None)

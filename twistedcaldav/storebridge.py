@@ -38,7 +38,7 @@ from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin,\
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty,\
-    InvalidICalendarDataError
+    InvalidICalendarDataError, iCalendarProductID
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
@@ -47,6 +47,7 @@ from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource
 from twistedcaldav.schedule import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
+
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from urlparse import urlsplit
@@ -915,6 +916,7 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         # Generate a monolithic calendar
         calendar = VCalendar("VCALENDAR")
         calendar.addProperty(VProperty("VERSION", "2.0"))
+        calendar.addProperty(VProperty("PRODID", iCalendarProductID))
 
         # Do some optimisation of access control calculation by determining any
         # inherited ACLs outside of the child resource loop and supply those to
@@ -993,6 +995,7 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         for components in by_uid.values():
             
             newvcal = VCalendar("VCALENDAR")
+            newvcal.addProperty(VProperty("VERSION", "2.0"))
             newvcal.addProperty(VProperty("PRODID", vcal.propertyValue("PRODID")))
             
             # Get the set of TZIDs and include them
@@ -1002,7 +1005,7 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
             for tzid in tzids:
                 try:
                     tz = by_tzid[tzid]
-                    newvcal.addComponent(tz)
+                    newvcal.addComponent(tz.duplicate())
                 except KeyError:
                     # We ignore the error and generate invalid ics which someone will
                     # complain about at some point
@@ -1010,7 +1013,7 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
             
             # Now add each component
             for component in components:
-                newvcal.addComponent(component)
+                newvcal.addComponent(component.duplicate())
  
             results.append(newvcal)
         

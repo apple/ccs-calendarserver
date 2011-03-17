@@ -23,4 +23,13 @@ wd="$(cd "$(dirname "$0")" && pwd -L)";
 
 export PYTHONPATH="$("${wd}/run" -p):${wd}/../CalDAVClientLibrary/src";
 
-exec "${wd}/contrib/performance/benchmark" "$@";
+args="$@"
+
+echo "Parameter: 1";
+"${wd}/contrib/performance/report" ${args} 1 HTTP summarize;
+echo;
+echo "Parameter: 9";
+"${wd}/contrib/performance/report" ${args} 9 HTTP summarize;
+echo;
+echo "Parameter: 81";
+"${wd}/contrib/performance/report" ${args} 81 HTTP summarize;

@@ -15,7 +15,7 @@
 ##
 
 from twext.python.log import Logger
-from twext.python.datetime import timerange, asUTC, iCalendarString
+#from twext.python.datetime import timerange, asUTC, iCalendarString
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component, Property
@@ -24,6 +24,8 @@ from twistedcaldav.scheduling.itip import iTipGenerator
 from twistedcaldav import accounting
 
 from difflib import unified_diff
+from pycalendar.period import PyCalendarPeriod
+from pycalendar.datetime import PyCalendarDateTime
 
 """
 Class that handles diff'ing two calendar objects.
@@ -209,7 +211,7 @@ class iCalDiff(object):
             
             # Whenever SCHEDULE-FORCE-SEND is explicitly set by the Organizer we assume the Organizer
             # is deliberately overwriting PARTSTAT
-            if new_attendee.params().get("SCHEDULE-FORCE-SEND", ["",])[0] == "REQUEST":
+            if new_attendee.parameterValue("SCHEDULE-FORCE-SEND", "") == "REQUEST":
                 continue
 
             # Transfer parameters from any old Attendees found
@@ -221,14 +223,14 @@ class iCalDiff(object):
                 self._transferParameter(old_attendee, new_attendee, "SCHEDULE-STATUS")
     
     def _transferParameter(self, old_property, new_property, parameter):
-        paramvalue = old_property.params().get(parameter)
+        paramvalue = old_property.parameterValue(parameter)
         if paramvalue is None:
             try:
-                del new_property.params()[parameter]
+                new_property.removeParameter(parameter)
             except KeyError:
                 pass
         else:
-            new_property.params()[parameter] = paramvalue
+            new_property.setParameter(parameter, paramvalue)
 
     def attendeeMerge(self, attendee):
         """
@@ -282,7 +284,7 @@ class iCalDiff(object):
                 # Get all EXDATEs in UTC
                 exdates = set()
                 for exdate in master.properties("EXDATE"):
-                    exdates.update([asUTC(value) for value in exdate.value()])
+                    exdates.update([value.getValue().adjustToUTC() for value in exdate.value()])
                
             return exdates, map, master
         
@@ -331,7 +333,7 @@ class iCalDiff(object):
                     # Mark Attendee as DECLINED in the server instance
                     if self._attendeeDecline(self.newCalendar.overriddenComponent(rid)):
                         changeCausesReply = True
-                        changedRids.append(iCalendarString(rid) if rid else "")
+                        changedRids.append(rid.getText() if rid else "")
                 else:
                     # We used to generate a 403 here - but instead we now ignore this error and let the server data
                     # override the client
@@ -407,7 +409,7 @@ class iCalDiff(object):
                 #return False, False, (), None
             changeCausesReply |= reply
             if reply:
-                changedRids.append(iCalendarString(rid) if rid else "")
+                changedRids.append(rid.getText() if rid else "")
 
         # We need to derive instances for any declined using an EXDATE
         for decline in sorted(declines):
@@ -418,7 +420,7 @@ class iCalDiff(object):
                     self.newCalendar.addComponent(overridden)
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
-                        changedRids.append(iCalendarString(decline) if decline else "")
+                        changedRids.append(decline.getText() if decline else "")
                 else:
                     self._logDiffError("attendeeMerge: Unable to override an instance to mark as DECLINED: %s" % (decline,))
                     return False, False, (), None
@@ -456,17 +458,17 @@ class iCalDiff(object):
         # ATTENDEE/PARTSTAT/RSVP
         serverAttendee = serverComponent.getAttendeeProperty((self.attendee,))
         clientAttendee = clientComponent.getAttendeeProperty((self.attendee,))
-        if serverAttendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != clientAttendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0]:
-            serverAttendee.params()["PARTSTAT"] = clientAttendee.params().get("PARTSTAT", "NEEDS-ACTION")
+        if serverAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != clientAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION"):
+            serverAttendee.setParameter("PARTSTAT", clientAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION"))
             replyNeeded = True
-        if serverAttendee.params().get("RSVP", ("FALSE",))[0] != clientAttendee.params().get("RSVP", ("FALSE",))[0]:
-            if clientAttendee.params().get("RSVP", ("FALSE",))[0] == "FALSE":
+        if serverAttendee.parameterValue("RSVP", "FALSE") != clientAttendee.parameterValue("RSVP", "FALSE"):
+            if clientAttendee.parameterValue("RSVP", "FALSE") == "FALSE":
                 try:
-                    del serverAttendee.params()["RSVP"]
+                    serverAttendee.removeParameter("RSVP")
                 except KeyError:
                     pass
             else:
-                serverAttendee.params()["RSVP"] = ["TRUE",]
+                serverAttendee.setParameter("RSVP", "TRUE")
 
         # Transfer these properties from the client data
         replyNeeded |= self._transferProperty("X-CALENDARSERVER-PRIVATE-COMMENT", serverComponent, clientComponent)
@@ -506,7 +508,7 @@ class iCalDiff(object):
 
             # Remove existing ATTACH's from server
             for attachment in tuple(serverComponent.properties("ATTACH")):
-                valueType = attachment.paramValue("VALUE")
+                valueType = attachment.parameterValue("VALUE")
                 if valueType in (None, "URI"):
                     dataValue = attachment.value()
                     if dataValue.find(serverDropbox) != -1:
@@ -514,7 +516,7 @@ class iCalDiff(object):
         
             # Copy new ATTACH's to server
             for attachment in tuple(clientComponent.properties("ATTACH")):
-                valueType = attachment.paramValue("VALUE")
+                valueType = attachment.parameterValue("VALUE")
                 if valueType in (None, "URI"):
                     dataValue = attachment.value()
                     if dataValue.find(serverDropbox) != -1:
@@ -540,7 +542,7 @@ class iCalDiff(object):
             # Bad if EXDATEs have been removed
             missing = serverProps[-1] - clientProps[-1]
             if missing:
-                log.debug("EXDATEs missing: %s" % (", ".join([iCalendarString(exdate) for exdate in missing]),))
+                log.debug("EXDATEs missing: %s" % (", ".join([exdate.getText() for exdate in missing]),))
                 return False
             declines.extend(clientProps[-1] - serverProps[-1])
             return True
@@ -555,7 +557,7 @@ class iCalDiff(object):
             dtend = component.getProperty("DTEND")
             duration = component.getProperty("DURATION")
             
-            timeRange = timerange(
+            timeRange = PyCalendarPeriod(
                 start    = dtstart.value()  if dtstart  is not None else None,
                 end      = dtend.value()    if dtend    is not None else None,
                 duration = duration.value() if duration is not None else None,
@@ -567,23 +569,23 @@ class iCalDiff(object):
             duration = component.getProperty("DURATION")
             
             if dtstart or duration:
-                timeRange = timerange(
+                timeRange = PyCalendarPeriod(
                     start    = dtstart.value()  if dtstart  is not None else None,
                     duration = duration.value() if duration is not None else None,
                 )
             else:
-                timeRange = timerange()
+                timeRange = PyCalendarPeriod()
 
             newdue = component.getProperty("DUE")
             if newdue is not None:
-                newdue = asUTC(newdue.value())
+                newdue.value().adjustToUTC()
             
         # Recurrence rules - we need to normalize the order of the value parts
         newrrules = set()
         rrules = component.properties("RRULE")
         for rrule in rrules:
             indexedTokens = {}
-            indexedTokens.update([valuePart.split("=") for valuePart in rrule.value().split(";")])
+            indexedTokens.update([valuePart.split("=") for valuePart in rrule.value().getText().split(";")])
             sortedValue = ";".join(["%s=%s" % (key, value,) for key, value in sorted(indexedTokens.iteritems(), key=lambda x:x[0])])
             newrrules.add(sortedValue)
         
@@ -591,15 +593,18 @@ class iCalDiff(object):
         newrdates = set()
         rdates = component.properties("RDATE")
         for rdate in rdates:
-            newrdates.update([asUTC(value) for value in rdate.value()])
+            for value in rdate.value():
+                if isinstance(PyCalendarDateTime()):
+                    value.adjustToUTC()
+                newrdates.add(value)
         
         # EXDATEs
         newexdates = set()
         exdates = component.properties("EXDATE")
         for exdate in exdates:
-            newexdates.update([asUTC(value) for value in exdate.value()])
+            newexdates.update([value.getValue().adjustToUTC() for value in exdate.value()])
 
-        return timeRange.start(), timeRange.end(), newdue, newrrules, newrdates, newexdates
+        return timeRange.getStart(), timeRange.getEnd(), newdue, newrrules, newrdates, newexdates
 
     def _transferProperty(self, propName, serverComponent, clientComponent):
 
@@ -625,8 +630,8 @@ class iCalDiff(object):
         @return: C{bool} indicating whether the PARTSTAT value was in fact changed
         """
         attendee = component.getAttendeeProperty((self.attendee,))
-        partstatChanged = attendee.params().get("PARTSTAT", ("NEEDS-ACTION",))[0] != "DECLINED"
-        attendee.params()["PARTSTAT"] = ["DECLINED",]
+        partstatChanged = attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != "DECLINED"
+        attendee.setParameter("PARTSTAT", "DECLINED")
         prop = component.getProperty("X-APPLE-NEEDS-REPLY")
         if prop:
             component.removeProperty(prop)
@@ -705,11 +710,7 @@ class iCalDiff(object):
         comp2 = self._componentDuplicateAndNormalize(comp2)
 
         # Diff all the properties
-        comp1.transformAllFromNative()
-        comp2.transformAllFromNative()
         propdiff = set(comp1.properties()) ^ set(comp2.properties())
-        comp1.transformAllToNative()
-        comp2.transformAllToNative()
         addedChanges = False
         
         propsChanged = {}
@@ -728,17 +729,17 @@ class iCalDiff(object):
             prop1s = tuple(comp1.properties(prop.name()))
             prop2s = tuple(comp2.properties(prop.name()))
             if len(prop1s) == 1 and len(prop2s) == 1:
-                param1s = set(["%s=%s" % (name, value) for name, value in prop1s[0].params().iteritems()])
-                param2s = set(["%s=%s" % (name, value) for name, value in prop2s[0].params().iteritems()])
+                param1s = set(["%s=%s" % (name, prop1s[0].parameterValue(name)) for name in prop1s[0].parameterNames()])
+                param2s = set(["%s=%s" % (name, prop2s[0].parameterValue(name)) for name in prop2s[0].parameterNames()])
                 paramDiffs = param1s ^ param2s
                 propsChanged[prop.name()].update([param.split("=")[0] for param in paramDiffs])
-            if "ORIGINAL-TZID" in propsChanged[prop.name()]:
-                propsChanged[prop.name()].remove("ORIGINAL-TZID")
+            if "_TZID" in propsChanged[prop.name()]:
+                propsChanged[prop.name()].remove("_TZID")
                 propsChanged[prop.name()].add("TZID")
         
         if addedChanges:
             rid = comp1.getRecurrenceIDUTC()
-            rids[iCalendarString(rid) if rid is not None else ""] = propsChanged
+            rids[rid.getText() if rid is not None else ""] = propsChanged
 
     def _logDiffError(self, title):
 

@@ -20,10 +20,7 @@ import os
 import sys
 from errno import ENOENT, EACCES
 
-from datetime import date, timedelta, datetime
 from getopt import getopt, GetoptError
-
-from vobject.icalendar import utc
 
 from twisted.application.service import Service
 from twisted.internet import reactor
@@ -45,6 +42,7 @@ from calendarserver.tap.util import FakeRequest
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.principals import removeProxy
 from calendarserver.tools.util import loadConfig
+from pycalendar.datetime import PyCalendarDateTime
 
 log = Logger()
 
@@ -289,7 +287,10 @@ def main_purge_events():
     if dryrun:
         verbose = True
 
-    cutoff = (date.today()-timedelta(days=days)).strftime("%Y%m%dT000000Z")
+    cutoff = PyCalendarDateTime.getToday()
+    cutoff.setDateOnly(False)
+    cutoff.offsetDay(-days)
+    cutoff = cutoff.getText()
     PurgeOldEventsService.cutoff = cutoff
     PurgeOldEventsService.batchSize = batchSize
     PurgeOldEventsService.dryrun = dryrun
@@ -536,7 +537,7 @@ def cancelEvent(event, when, cua):
     @type event: L{twistedcaldav.ical.Component}
 
     @param when: the cutoff date (anything after which is removed)
-    @type when: datetime with tzinfo
+    @type when: PyCalendarDateTime
 
     @param cua: Calendar User Address of principal being purged, to compare
         to see if it's the organizer of the event or just an attendee
@@ -547,7 +548,8 @@ def cancelEvent(event, when, cua):
     @return: one of the 4 constants above to indicate what action to take
     """
 
-    whenDate = when.date()
+    whenDate = when.duplicate()
+    whenDate.setDateOnly(True)
 
     master = event.masterComponent()
 
@@ -557,14 +559,9 @@ def cancelEvent(event, when, cua):
 
     # Anything completely in the future is deleted
     dtstart = master.getStartDateUTC()
-    if isinstance(dtstart, datetime):
-        isDateTime = True
-        if dtstart > when:
-            return CANCELEVENT_SHOULD_DELETE
-    else:
-        isDateTime = False
-        if dtstart > whenDate:
-            return CANCELEVENT_SHOULD_DELETE
+    isDateTime = not dtstart.isDateOnly()
+    if dtstart > when:
+        return CANCELEVENT_SHOULD_DELETE
 
     organizer = master.getOrganizer()
 
@@ -584,19 +581,15 @@ def cancelEvent(event, when, cua):
     # Set the UNTIL on RRULE to cease at the cutoff
     if master.hasProperty("RRULE"):
         for rrule in master.properties("RRULE"):
-            tokens = {}
-            tokens.update([valuePart.split("=") for valuePart in rrule.value().split(";")])
-            if tokens.has_key("COUNT"):
-                dirty = True
-                del tokens["COUNT"]
+            rrule = rrule.value()
+            if rrule.getUseCount():
+                rrule.setUseCount(False)
 
+            rrule.setUseUntil(True)
             if isDateTime:
-                tokens["UNTIL"] = when.strftime("%Y%m%dT%H%M%SZ")
+                rrule.setUntil(when)
             else:
-                tokens["UNTIL"] = when.strftime("%Y%m%d")
-
-            newValue = ";".join(["%s=%s" % (key, value,) for key, value in tokens.iteritems()])
-            rrule.setValue(newValue)
+                rrule.setUntil(whenDate)
             dirty = True
 
     # Remove any EXDATEs and RDATEs beyond the cutoff
@@ -605,17 +598,13 @@ def cancelEvent(event, when, cua):
             for exdate_rdate in master.properties(dateType):
                 newValues = []
                 for value in exdate_rdate.value():
-                    if isinstance(value, datetime):
-                        if value < when:
-                            newValues.append(value)
+                    if value.getValue() < when:
+                        newValues.append(value)
                     else:
-                        if value < whenDate:
-                            newValues.append(value)
+                        exdate_rdate.value().remove(value)
+                        dirty = True
                 if not newValues:
                     master.removeProperty(exdate_rdate)
-                    dirty = True
-                else:
-                    exdate_rdate.setValue(newValues)
                     dirty = True
 
 
@@ -624,12 +613,8 @@ def cancelEvent(event, when, cua):
         if component.name() == "VEVENT":
             dtstart = component.getStartDateUTC()
             remove = False
-            if isinstance(dtstart, datetime):
-                if dtstart > when:
-                    remove = True
-            else:
-                if dtstart > whenDate:
-                    remove = True
+            if dtstart > when:
+                remove = True
             if remove:
                 event.removeComponent(component)
                 dirty = True
@@ -645,8 +630,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
     when=None):
 
     if when is None:
-        when = datetime.now(tz=utc)
-    # when = datetime(2010, 12, 6, 12, 0, 0, 0, utc)
+        when = PyCalendarDateTime.getNowUTC()
 
     # Does the record exist?
     record = directory.recordWithGUID(guid)
@@ -676,7 +660,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
     calendarHome = yield principal.calendarHome(request)
 
     # Anything in the past is left alone
-    whenString = when.strftime("%Y%m%dT%H%M%SZ")
+    whenString = when.getText()
     filter =  caldavxml.Filter(
           caldavxml.ComponentFilter(
               caldavxml.ComponentFilter(

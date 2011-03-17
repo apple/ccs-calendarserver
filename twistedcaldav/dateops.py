@@ -13,6 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.period import PyCalendarPeriod
+import datetime
+from vobject.icalendar import utc
 
 """
 Date/time Utilities
@@ -30,91 +35,98 @@ __all__ = [
 ]
 
 import calendar
-import datetime
-from vobject.icalendar import utc
-
-from twext.python.datetime import dateordatetime
 
 def normalizeForIndex(dt):
     """
-    Normalize a L{datetime.date} or L{datetime.datetime} object for use in the Index.
-    If it's a L{datetime.date}, convert to L{datetime.datetime} with HH:MM:SS set to 00:00:00 in UTC.
-    If it's a L{datetime.datetime}, convert to UTC.
-    @param dt: a L{datetime.date} or L{datetime.datetime} object to normalize
-    @return: the normalized date or datetime
+    Normalize a L{PyCalendarDateTime} object for use in the Index.
+    Convert to date-time in UTC.
+    @param dt: a L{PyCalendarDateTime} object to normalize
+    @return: the normalized PyCalendarDateTime
     """
-    if not isinstance(dt, datetime.date):
-        raise TypeError("%r is not a datetime.date instance" % (dt,))
+    if not isinstance(dt, PyCalendarDateTime):
+        raise TypeError("%r is not a PyCalendarDateTime instance" % (dt,))
     
-    if isinstance(dt, datetime.datetime):
-        if dt.tzinfo is not None:
-            return dt.astimezone(utc)
-        else:
-            return dt
+    dt = dt.duplicate()
+    if dt.isDateOnly():
+        dt.setDateOnly(False)
+        dt.setHHMMSS(0, 0, 0)
+        dt.setTimezoneID(None)  # Keep it floating
+        return dt
+    elif dt.floating():
+        return dt
     else:
-        return datetime.datetime.fromordinal(dt.toordinal())
+        dt.adjustToUTC()
+        return dt
 
 def normalizeToUTC(dt):
     """
-    Normalize a L{datetime.date} or L{datetime.datetime} object to UTC.
+    Normalize a L{PyCalendarDateTime} object to UTC.
     """
-    if not isinstance(dt, datetime.date):
-        raise TypeError("%r is not a datetime.date instance" % (dt,))
+    if not isinstance(dt, PyCalendarDateTime):
+        raise TypeError("%r is not a PyCalendarDateTime instance" % (dt,))
     
-    if isinstance(dt, datetime.datetime):
-        if dt.tzinfo is not None:
-            return dt.astimezone(utc)
-        else:
-            return dt.replace(tzinfo=utc)
+    dt = dt.duplicate()
+    if dt.isDateOnly():
+        dt.setDateOnly(False)
+        dt.setHHMMSS(0, 0, 0)
+        dt.setTimezoneUTC(True)
+        return dt
+    elif dt.floating():
+        dt.setTimezoneUTC(True)
+        return dt
     else:
-        return datetime.datetime.fromordinal(dt.toordinal()).replace(tzinfo=utc)
+        dt.adjustToUTC()
+        return dt
 
-def floatoffset(dt, tzinfo):
+def floatoffset(dt, pytz):
     """
     Apply the timezone offset to the supplied time, then force tz to utc. This gives the local
     date-time as if the local tz were UTC. It can be used in floating time comparisons with UTC date-times.
     
-    @param dt: a L{datetime.datetime} object to normalize
-    @param tzinfo: a L{datetime.tzinfo} object to apply offset from
-    @return: the normalized datetime
+    @param dt: a L{PyCalendarDateTime} object to normalize
+    @param pytz: a L{PyCalendarTimezone} object to apply offset from
+    @return: the normalized PyCalendarDateTime
     """
     
-    if tzinfo is None:
-        tzinfo = utc
-    return dt.astimezone(tzinfo).replace(tzinfo=utc)
+    if pytz is None:
+        pytz = PyCalendarTimezone(utc=True)
+    
+    dt = dt.duplicate()
+    dt.adjustTimezone(pytz)
+    dt.setTimezoneUTC(True)
+    return dt
+
+def adjustFloatingToTimezone(dtadjust, dtcopyfrom, pytz=None):
+    
+    dtadjust = dtadjust.duplicate()
+    dtadjust.setTimezone(pytz if pytz else dtcopyfrom.getTimezone())
+    return dtadjust
 
 def compareDateTime(dt1, dt2, defaulttz=None):
-    dt1 = dateordatetime(dt1, defaultTZ=defaulttz)
-    dt2 = dateordatetime(dt2, defaultTZ=defaulttz)
-    if dt1 == dt2:
-        return 0
-    elif dt1 < dt2:
-        return -1
-    else:
-        return 1
+    
+    if dt1.floating() and not dt2.floating():
+        dt1 = adjustFloatingToTimezone(dt1, dt2, defaulttz)
+    elif dt2.floating() and not dt1.floating():
+        dt2 = adjustFloatingToTimezone(dt2, dt1, defaulttz)
+    
+    return dt1.compareDateTime(dt2)
 
 def differenceDateTime(start, end, defaulttz = None):
-    return dateordatetime(end, defaultTZ=defaulttz) - dateordatetime(start)
 
-#def timeRangesOverlap(start1, end1, start2, end2, defaulttz = None):
-#    def dodt(d):
-#        if d is None:
-#            return None
-#        else:
-#            return dateordatetime(d, defaulttz)
-#
-#    dodt1 = timerange(dodt(start1), dodt(end1))
-#    dodt2 = timerange(dodt(start2), dodt(end2))
-#
-#    return dodt1.overlapsWith(dodt2)
+    if start.floating() and not end.floating():
+        start = adjustFloatingToTimezone(start, end, defaulttz)
+    elif end.floating() and not start.floating():
+        end = adjustFloatingToTimezone(end, start, defaulttz)
+
+    return end - start
 
 def timeRangesOverlap(start1, end1, start2, end2, defaulttz = None):
-    # Can't compare datetime.date and datetime.datetime objects, so normalize
-    # to date if they are mixed.
-    if isinstance(start1, datetime.datetime) and (start2 is not None) and not isinstance(start2, datetime.datetime): start1 = start1.date()
-    if isinstance(start2, datetime.datetime) and (start1 is not None) and not isinstance(start1, datetime.datetime): start2 = start2.date()
-    if isinstance(end1,   datetime.datetime) and (end2 is not None) and not isinstance(end2,   datetime.datetime): end1   = end1.date()
-    if isinstance(end2,   datetime.datetime) and (end1 is not None) and not isinstance(end1,   datetime.datetime): end2   = end2.date()
+    # Can't compare date-time and date only, so normalize
+    # to date only if they are mixed.
+    if (start1 is not None) and not start1.isDateOnly() and (start2 is not None) and start2.isDateOnly(): start1 = start1.setDateOnly(True)
+    if (start2 is not None) and not start2.isDateOnly() and (start1 is not None) and start1.isDateOnly(): start2 = start2.setDateOnly(True)
+    if (end1 is not None) and not end1.isDateOnly() and (end2 is not None) and end2.isDateOnly(): end1 = end1.setDateOnly(True)
+    if (end2 is not None) and not end2.isDateOnly() and (end1 is not None) and end1.isDateOnly(): end2 = end2.setDateOnly(True)
 
     # Note that start times are inclusive and end times are not.
     if start1 is not None and start2 is not None:
@@ -133,83 +145,61 @@ def timeRangesOverlap(start1, end1, start2, end2, defaulttz = None):
     else:
         return False
 
-def periodEnd(p):
-    """
-    Calculate the end datetime of the period. Since a period is a
-    tuple consisting of a pair of L{datetime.datetime}'s, or one
-    L{datetime.datetime} and one L{datetime.timedelta}, we may need
-    to add the duration to the start to get the actual end.
-    @param p: the period whose end is to be determined.
-    @return: the L{datetime.datetime} for the end.
-    """
-    assert len(p) == 2, "Period is not a tuple of two items: %r" % (p,)
-    assert isinstance(p[0], datetime.datetime), "Period start is not a datetime: %r" % (p,)
-    assert isinstance(p[1], datetime.datetime) or isinstance(p[1], datetime.timedelta), "Period end is not a datetime or timedelta: %r" % (p,)
-    
-    if isinstance(p[1], datetime.timedelta):
-        return p[0] + p[1]
-    else:
-        return p[1]
-    
-def normalizePeriodList(list):
+def normalizePeriodList(periods):
     """
     Normalize the list of periods by merging overlapping or consecutive ranges
     and sorting the list by each periods start.
-    @param list: a list of tuples of L{datetime.datetime} pairs. The list is changed in place.
+    @param list: a list of tuples of L{PyCalendarPeriod}. The list is changed in place.
     """
     
     # First sort the list
     def sortPeriods(p1, p2):
         """
         Compare two periods. Sort by their start and then end times.
-        A period is a tuple consisting of a pair of L{datetime.datetime}'s, or one
-        L{datetime.datetime} and one L{datetime.timedelta}.
+        A period is a L{PyCalendarPeriod}.
         @param p1: first period
         @param p2: second period
         @return: 1 if p1>p2, 0 if p1==p2, -1 if p1<p2
         """
 
-        assert len(p1) == 2, "Period is not a tuple of two items: %r" % (p1,)
-        assert isinstance(p1[0], datetime.datetime), "Period start is not a datetime: %r" % (p1,)
-        assert isinstance(p1[1], datetime.datetime) or isinstance(p1[1], datetime.timedelta), "Period end is not a datetime or timedelta: %r" % (p1,)
-        
-        assert len(p2) == 2, "Period is not a tuple of two items: %r" % (p2,)
-        assert isinstance(p2[0], datetime.datetime), "Period start is not a datetime: %r" % (p2,)
-        assert isinstance(p2[1], datetime.datetime) or isinstance(p2[1], datetime.timedelta), "Period end is not a datetime or timedelta: %r" % (p2,)
+        assert isinstance(p1, PyCalendarPeriod), "Period is not a PyCalendarPeriod: %r" % (p1,)
+        assert isinstance(p2, PyCalendarPeriod), "Period is not a PyCalendarPeriod: %r" % (p2,)
         
         
-        if p1[0] == p2[0]:
-            cmp1 = periodEnd(p1)
-            cmp2 = periodEnd(p2)
+        if p1.getStart() == p2.getStart():
+            cmp1 = p1.getEnd()
+            cmp2 = p2.getEnd()
         else:
-            cmp1 = p1[0]
-            cmp2 = p2[0]
+            cmp1 = p1.getStart()
+            cmp2 = p2.getStart()
         
         return compareDateTime(cmp1, cmp2)
 
-    list.sort(cmp=sortPeriods)
+    for period in periods:
+        period.adjustToUTC()
+    periods.sort(cmp=sortPeriods)
     
     # Now merge overlaps and consecutive periods
     index = None
     p = None
     pe = None
-    for i in xrange(len(list)):
+    for i in xrange(len(periods)):
         if p is None:
             index = i
-            p = list[i]
-            pe = periodEnd(p)
+            p = periods[i]
+            pe = p.getEnd()
             continue
-        ie = periodEnd(list[i])
-        if (pe >= list[i][0]):
+        ie = periods[i].getEnd()
+        if (pe >= periods[i].getStart()):
             if ie > pe:
-                list[index] = (list[index][0], ie)
+                periods[index] = PyCalendarPeriod(periods[index].getStart(), ie)
                 pe = ie
-            list[i] = None
+            periods[i] = None
         else:
             index = i
-            p = list[i]
-            pe = periodEnd(p)
-    list[:] = [x for x in list if x]
+            p = periods[i]
+            pe =p.getEnd()
+    periods[:] = [x for x in periods if x]
 
 def clipPeriod(period, clipPeriod):
     """
@@ -219,10 +209,10 @@ def clipPeriod(period, clipPeriod):
     @return: the (start, end) tuple for the clipped period, or
              None if the period is outside the clip period
     """
-    start = period[0]
-    end = periodEnd(period)
-    clipStart = clipPeriod[0]
-    clipEnd = periodEnd(clipPeriod)
+    start = period.getStart()
+    end = period.getEnd()
+    clipStart = clipPeriod.getStart()
+    clipEnd = clipPeriod.getEnd()
 
     if start < clipStart:
         start = clipStart
@@ -234,10 +224,24 @@ def clipPeriod(period, clipPeriod):
         return None
     else:
         # Try to preserve use of duration in period
-        if isinstance(period[1], datetime.timedelta):
-            return (start, end - start)
-        else:
-            return (start, end)
+        result = PyCalendarPeriod(start, end)
+        result.setUseDuration(period.getUseDuration())
+        return result
+
+def pyCalendarTodatetime(pydt):
+    
+    if pydt.isDateOnly():
+        return datetime.date(year=pydt.getYear(), month=pydt.getMonth(), day=pydt.getDay())
+    else:
+        return datetime.datetime(
+            year=pydt.getYear(),
+            month=pydt.getMonth(),
+            day=pydt.getDay(),
+            hour=pydt.getHours(),
+            minute=pydt.getMinutes(),
+            second=pydt.getSeconds(),
+            tzinfo=utc
+        )
 
 SQL_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 
@@ -246,6 +250,18 @@ def parseSQLTimestamp(ts):
     if len(ts) < 20:
         ts += ".0"
     return datetime.datetime.strptime(ts, SQL_TIMESTAMP_FORMAT)
+
+def parseSQLTimestampToPyCalendar(ts):
+    """
+    Parse an SQL formated timestamp into a PyCalendarDateTime
+    @param ts: the SQL timestamp
+    @type ts: C{str}
+    
+    @return: L{PyCalendarDateTime} result
+    """
+    
+    dt = datetime.datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")
+    return PyCalendarDateTime(year=dt.year, month=dt.month, day=dt.day, hours=dt.hour, minutes=dt.minute, seconds=dt.second)
 
 def datetimeMktime(dt):
 

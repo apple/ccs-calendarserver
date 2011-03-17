@@ -16,11 +16,11 @@
 
 import twistedcaldav.test.util
 from twistedcaldav.ical import Component
-from vobject.icalendar import utc, getTzid
-from vobject.icalendar import registerTzid
 from twistedcaldav.timezones import TimezoneCache, TimezoneException
 from twistedcaldav.timezones import readTZ, listTZs
-import datetime
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
+
 import os
 
 class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
@@ -30,6 +30,10 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
 
     data_dir = os.path.join(os.path.dirname(__file__), "data")
 
+    def tearDown(self):
+        TimezoneCache.clear()
+        TimezoneCache.create()
+        
     def doTest(self, filename, dtstart, dtend, testEqual=True):
         
         if testEqual:
@@ -40,7 +44,7 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
         calendar = Component.fromStream(file(os.path.join(self.data_dir, filename)))
         if calendar.name() != "VCALENDAR": self.fail("Calendar is not a VCALENDAR")
 
-        instances = calendar.expandTimeRanges(datetime.date(2100, 1, 1))
+        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
@@ -54,82 +58,82 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
         Properties in components
         """
         
-        oldtzid = getTzid("America/New_York")
-        try:
-            registerTzid("America/New_York", None)
-            self.doTest("TruncatedApr01.ics", datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc), datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc))
-        finally:
-            registerTzid("America/New_York", oldtzid)
+        TimezoneCache.create("")
+        TimezoneCache.clear()
+
+        self.doTest(
+            "TruncatedApr01.ics",
+            PyCalendarDateTime(2007, 04, 01, 16, 0, 0, PyCalendarTimezone(utc=True)),
+            PyCalendarDateTime(2007, 04, 01, 17, 0, 0, PyCalendarTimezone(utc=True))
+        )
 
     def test_truncatedDec(self):
         """
         Properties in components
         """
-        oldtzid = getTzid("America/New_York")
-        try:
-            registerTzid("America/New_York", None)
-            self.doTest("TruncatedDec10.ics", datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc), datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc))
-        finally:
-            registerTzid("America/New_York", oldtzid)
+        TimezoneCache.create("")
+        TimezoneCache.clear()
+
+        self.doTest(
+            "TruncatedDec10.ics",
+            PyCalendarDateTime(2007, 12, 10, 17, 0, 0, PyCalendarTimezone(utc=True)),
+            PyCalendarDateTime(2007, 12, 10, 18, 0, 0, PyCalendarTimezone(utc=True))
+        )
 
     def test_truncatedAprThenDecFail(self):
         """
         Properties in components
         """
-        if TimezoneCache.activeCache:
-            TimezoneCache.activeCache.unregister()
 
-        oldtzid = getTzid("America/New_York")
-        try:
-            registerTzid("America/New_York", None)
-            self.doTest(
-                "TruncatedApr01.ics",
-                datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc),
-                datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc),
-            )
-            self.doTest(
-                "TruncatedDec10.ics",
-                datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc),
-                datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc),
-                testEqual=False
-            )
-        finally:
-            registerTzid("America/New_York", oldtzid)
+        TimezoneCache.create("")
+        TimezoneCache.clear()
+
+        self.doTest(
+            "TruncatedApr01.ics",
+            PyCalendarDateTime(2007, 04, 01, 16, 0, 0, PyCalendarTimezone(utc=True)),
+            PyCalendarDateTime(2007, 04, 01, 17, 0, 0, PyCalendarTimezone(utc=True)),
+        )
+        self.doTest(
+            "TruncatedDec10.ics",
+            PyCalendarDateTime(2007, 12, 10, 17, 0, 0, PyCalendarTimezone(utc=True)),
+            PyCalendarDateTime(2007, 12, 10, 18, 0, 0, PyCalendarTimezone(utc=True)),
+            testEqual=False
+        )
 
     def test_truncatedAprThenDecOK(self):
         """
         Properties in components
         """
-        oldtzid = getTzid("America/New_York")
-        try:
-            registerTzid("America/New_York", None)
-            tzcache = TimezoneCache()
-            tzcache.register()
-            self.doTest(
-                "TruncatedApr01.ics",
-                datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc),
-                datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc),
-            )
-            self.doTest(
-                "TruncatedDec10.ics",
-                datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc),
-                datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc),
-            )
-            tzcache.unregister()
-        finally:
-            registerTzid("America/New_York", oldtzid)
+        TimezoneCache.create()
+
+        self.doTest(
+            "TruncatedApr01.ics",
+            PyCalendarDateTime(2007, 04, 01, 16, 0, 0, PyCalendarTimezone(utc=True)),
+            PyCalendarDateTime(2007, 04, 01, 17, 0, 0, PyCalendarTimezone(utc=True)),
+        )
+        self.doTest(
+            "TruncatedDec10.ics",
+            PyCalendarDateTime(2007, 12, 10, 17, 0, 0, PyCalendarTimezone(utc=True)),
+            PyCalendarDateTime(2007, 12, 10, 18, 0, 0, PyCalendarTimezone(utc=True)),
+        )
 
     def test_truncatedDecThenApr(self):
         """
         Properties in components
         """
-        oldtzid = getTzid("America/New_York")
-        try:
-            registerTzid("America/New_York", None)
-            self.doTest("TruncatedDec10.ics", datetime.datetime(2007, 12, 10, 17, 0, 0, tzinfo=utc), datetime.datetime(2007, 12, 10, 18, 0, 0, tzinfo=utc))
-            self.doTest("TruncatedApr01.ics", datetime.datetime(2007, 04, 01, 16, 0, 0, tzinfo=utc), datetime.datetime(2007, 04, 01, 17, 0, 0, tzinfo=utc))
-        finally:
-            registerTzid("America/New_York", oldtzid)
+        TimezoneCache.create("")
+        TimezoneCache.clear()
+
+        self.doTest(
+            "TruncatedDec10.ics",
+            PyCalendarDateTime(2007, 12, 10, 17, 0, 0, PyCalendarTimezone(utc=True)),
+            PyCalendarDateTime(2007, 12, 10, 18, 0, 0, PyCalendarTimezone(utc=True))
+        )
+        self.doTest(
+            "TruncatedApr01.ics",
+            PyCalendarDateTime(2007, 04, 01, 16, 0, 0, PyCalendarTimezone(utc=True)),
+            PyCalendarDateTime(2007, 04, 01, 17, 0, 0, PyCalendarTimezone(utc=True))
+        )
 
 class TimezoneCacheTest (twistedcaldav.test.util.TestCase):
     """
@@ -140,19 +144,13 @@ class TimezoneCacheTest (twistedcaldav.test.util.TestCase):
 
     def test_basic(self):
         
-        registerTzid("America/New_York", None)
-        registerTzid("US/Eastern", None)
-
-        tzcache = TimezoneCache()
-        tzcache.register()
-        self.assertTrue(tzcache.loadTimezone("America/New_York"))
-        self.assertTrue(tzcache.loadTimezone("US/Eastern"))
-        tzcache.unregister()
+        TimezoneCache.create()
+        self.assertTrue(readTZ("America/New_York"))
+        self.assertTrue(readTZ("US/Eastern"))
 
     def test_not_in_cache(self):
         
-        tzcache = TimezoneCache()
-        tzcache.register()
+        TimezoneCache.create()
 
         data = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -186,21 +184,24 @@ END:VCALENDAR
 
         calendar = Component.fromString(data)
         if calendar.name() != "VCALENDAR": self.fail("Calendar is not a VCALENDAR")
-        instances = calendar.expandTimeRanges(datetime.date(2100, 1, 1))
+        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
-            self.assertEqual(start, datetime.datetime(2007, 12, 25, 05, 0, 0, tzinfo=utc))
-            self.assertEqual(end, datetime.datetime(2007, 12, 25, 06, 0, 0, tzinfo=utc))
+            self.assertEqual(start, PyCalendarDateTime(2007, 12, 25, 05, 0, 0, PyCalendarTimezone(utc=True)))
+            self.assertEqual(end, PyCalendarDateTime(2007, 12, 25, 06, 0, 0, PyCalendarTimezone(utc=True)))
             break;
-        tzcache.unregister()
 
 class TimezonePackageTest (twistedcaldav.test.util.TestCase):
     """
     Timezone support tests
     """
 
+    def setUp(self):
+        TimezoneCache.clear()
+        TimezoneCache.create()
+        
     def test_ReadTZ(self):
         
         self.assertTrue(readTZ("America/New_York").find("TZID:America/New_York") != -1)
@@ -222,7 +223,6 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
 
     def test_ListTZsCached(self):
         
-        results = listTZs()
         results = listTZs()
         self.assertTrue("America/New_York" in results)
         self.assertTrue("Europe/London" in results)

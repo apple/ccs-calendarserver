@@ -25,16 +25,13 @@ change.
 See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
 
-import datetime
-
-from vobject.icalendar import utc, TimezoneComponent
+from pycalendar.datetime import PyCalendarDateTime
 
 from twext.web2.dav import davxml
 
 from twext.python.log import Logger
 
 from twistedcaldav.ical import Component as iComponent
-from twistedcaldav.ical import parse_date_or_datetime
 
 log = Logger()
 
@@ -93,8 +90,8 @@ class CalDAVTimeRangeElement (CalDAVEmptyElement):
         if "start" not in attributes and "end" not in attributes:
             raise ValueError("One of 'start' or 'end' must be present in CALDAV:time-range")
         
-        self.start = parse_date_or_datetime(attributes["start"]) if "start" in attributes else None
-        self.end = parse_date_or_datetime(attributes["end"]) if "end" in attributes else None
+        self.start = PyCalendarDateTime.parseText(attributes["start"]) if "start" in attributes else None
+        self.end = PyCalendarDateTime.parseText(attributes["end"]) if "end" in attributes else None
 
     def valid(self, level=0):
         """
@@ -103,16 +100,16 @@ class CalDAVTimeRangeElement (CalDAVEmptyElement):
         @return:      True if valid, False otherwise
         """
         
-        if self.start is not None and not isinstance(self.start, datetime.datetime):
+        if self.start is not None and self.start.isDateOnly():
             log.msg("start attribute in <time-range> is not a date-time: %s" % (self.start,))
             return False
-        if self.end is not None and not isinstance(self.end, datetime.datetime):
+        if self.end is not None and self.end.isDateOnly():
             log.msg("end attribute in <time-range> is not a date-time: %s" % (self.end,))
             return False
-        if self.start is not None and self.start.tzinfo != utc:
+        if self.start is not None and not self.start.utc():
             log.msg("start attribute in <time-range> is not UTC: %s" % (self.start,))
             return False
-        if self.end is not None and self.end.tzinfo != utc:
+        if self.end is not None and not self.end.utc():
             log.msg("end attribute in <time-range> is not UTC: %s" % (self.end,))
             return False
 
@@ -148,10 +145,7 @@ class CalDAVTimeZoneElement (CalDAVTextElement):
         found = False
 
         for subcomponent in calendar.subcomponents():
-            if (
-                subcomponent.name() == "VTIMEZONE" and
-                isinstance(subcomponent._vobject, TimezoneComponent)
-            ):
+            if (subcomponent.name() == "VTIMEZONE"):
                 if found:
                     return False
                 else:

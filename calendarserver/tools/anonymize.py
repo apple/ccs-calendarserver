@@ -28,11 +28,12 @@ import shutil
 import sys
 import urllib
 import uuid
-import vobject
 import xattr
 import zlib
 
 from twext.python.plistlib import readPlistFromString
+
+from pycalendar.calendar import PyCalendar
 
 COPY_CAL_XATTRS = (
     'WebDAV:{DAV:}resourcetype',
@@ -275,62 +276,62 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
 
 
 def anonymizeData(directoryMap, data):
-    vobj = vobject.readComponents(data).next()
+    pyobj = PyCalendar.parseText(data)
 
     # Delete property from the top level
     try:
-        for prop in vobj.contents['x-wr-calname']:
-            prop.value = anonymize(prop.value)
+        for prop in pyobj.getProperties('x-wr-calname'):
+            prop.setValue(anonymize(prop.getValue().getValue()))
     except KeyError:
         pass
 
-    for comp in vobj.components():
+    for comp in pyobj.getComponents():
 
         # Replace with anonymized CUAs:
         for propName in ('organizer', 'attendee'):
             try:
-                for prop in list(comp.contents[propName]):
-                    cua = prop.value
+                for prop in tuple(comp.getProperties(propName)):
+                    cua = prop.getValue().getValue()
                     record = directoryMap.lookupCUA(cua)
                     if record is None:
                         # print "Can't find record for", cua
                         record = directoryMap.addRecord(cua=cua)
                         if record is None:
-                            comp.remove(prop)
+                            comp.removeProperty(prop)
                             continue
-                    prop.value = "urn:uuid:%s" % (record['guid'],)
-                    if prop.params.has_key('X-CALENDARSERVER-EMAIL'):
-                        prop.params['X-CALENDARSERVER-EMAIL'] = (record['email'],)
+                    prop.setValue("urn:uuid:%s" % (record['guid'],))
+                    if prop.hasAttribute('X-CALENDARSERVER-EMAIL'):
+                        prop.setAttribute('X-CALENDARSERVER-EMAIL', record['email'])
                     else:
-                        prop.params['EMAIL'] = (record['email'],)
-                    prop.params['CN'] = (record['name'],)
+                        prop.setAttribute('EMAIL', record['email'])
+                    prop.setAttribute('CN', record['name'])
             except KeyError:
                 pass
 
         # Replace with anonymized text:
         for propName in ('summary', 'location', 'description'):
             try:
-                for prop in comp.contents[propName]:
-                    prop.value = anonymize(prop.value)
+                for prop in comp.getProperties(propName):
+                    prop.setValue(anonymize(prop.getValue().getValue()))
             except KeyError:
                 pass
 
         # Replace with anonymized URL:
         try:
-            for prop in comp.contents['url']:
-                prop.value = "http://example.com/%s/" % (anonymize(prop.value),)
+            for prop in comp.getProperties('url'):
+                prop.setValue("http://example.com/%s/" % (anonymize(prop.getValue().getValue()),))
         except KeyError:
             pass
 
         # Remove properties:
         for propName in ('x-apple-dropbox', 'attach'):
             try:
-                for prop in list(comp.contents[propName]):
-                    comp.remove(prop)
+                for prop in tuple(comp.getProperties(propName)):
+                    comp.removeProperty(prop)
             except KeyError:
                 pass
 
-    return vobj.serialize()
+    return pyobj.serialize()
 
 
 class DirectoryMap(object):
