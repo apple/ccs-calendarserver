@@ -142,6 +142,37 @@ class Component (object):
             raise InvalidVCardDataError(e)
 
     @classmethod
+    def allFromString(clazz, string):
+        """
+        Construct a L{Component} from a string.
+        @param string: a string containing vCard data.
+        @return: a C{list} of L{Component}s representing the components described by
+            C{string}.
+        """
+        if type(string) is unicode:
+            string = string.encode("utf-8")
+        return clazz.allFromStream(StringIO.StringIO(string))
+
+    @classmethod
+    def allFromStream(clazz, stream):
+        """
+        Construct possibly multiple L{Component}s from a stream.
+        @param stream: a C{read()}able stream containing vCard data.
+        @return: a C{list} of L{Component}s representing the components described by
+            C{stream}.
+        """
+        
+        results = []
+        try:
+            for vobject in readComponents(stream):
+                results.append(clazz(None, vobject=vobject))
+            return results
+        except vParseError, e:
+            raise InvalidVCardDataError(e)
+        except StopIteration, e:
+            raise InvalidVCardDataError(e)
+
+    @classmethod
     def fromIStream(clazz, stream):
         """
         Construct a L{Component} from a stream.

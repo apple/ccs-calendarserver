@@ -995,6 +995,82 @@ class Link (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "link"
 
+mm_namespace = "http://me.com/_namespace/"
+
+class Multiput (davxml.WebDAVElement):
+    namespace = mm_namespace
+    name = "multiput"
+
+    allowed_children = {
+        (mm_namespace, "resource")   : (1, None),
+    }
+
+class Resource (davxml.WebDAVElement):
+    namespace = mm_namespace
+    name = "resource"
+
+    allowed_children = {
+        (davxml,       "href")     : (0, 1),
+        (mm_namespace, "if-match") : (0, 1),
+        (davxml,       "set")      : (0, 1),
+        (davxml,       "remove")   : (0, 1),
+        (mm_namespace, "delete")   : (0, 1),
+    }
+
+class IfMatch (davxml.WebDAVElement):
+    namespace = mm_namespace
+    name = "if-match"
+
+    allowed_children = {
+        (davxml, "getetag")   : (1, 1),
+    }
+
+class Delete (davxml.WebDAVEmptyElement):
+    namespace = mm_namespace
+    name = "delete"
+
+
+class BulkRequests (davxml.WebDAVElement):
+    namespace = mm_namespace
+    name = "bulk-requests"
+    hidden = True
+    protected = True
+
+    allowed_children = {
+        (mm_namespace, "simple")   : (0, 1),
+        (mm_namespace, "crud")     : (0, 1),
+    }
+
+class Simple (davxml.WebDAVElement):
+    namespace = mm_namespace
+    name = "simple"
+    hidden = True
+    protected = True
+
+    allowed_children = {
+        (mm_namespace, "max-resources")   : (1, 1),
+        (mm_namespace, "max-bytes")       : (1, 1),
+    }
+
+class CRUD (davxml.WebDAVElement):
+    namespace = mm_namespace
+    name = "crud"
+    hidden = True
+    protected = True
+
+    allowed_children = {
+        (mm_namespace, "max-resources")   : (1, 1),
+        (mm_namespace, "max-bytes")       : (1, 1),
+    }
+
+class MaxBulkResources (davxml.WebDAVTextElement):
+    namespace = mm_namespace
+    name = "max-resources"
+
+class MaxBulkBytes (davxml.WebDAVTextElement):
+    namespace = mm_namespace
+    name = "max-bytes"
+
 
 ##
 # Extensions to davxml.ResourceType

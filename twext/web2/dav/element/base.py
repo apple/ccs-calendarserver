@@ -483,6 +483,13 @@ class WebDAVUnknownElement (WebDAVElement):
         PCDATAElement: (0, None),
     }
 
+    @classmethod
+    def fromQname(cls, namespace, name):
+        child = cls()
+        child.namespace = namespace
+        child.name = name
+        return child
+
     def qname(self):
         return (self.namespace, self.name)
 

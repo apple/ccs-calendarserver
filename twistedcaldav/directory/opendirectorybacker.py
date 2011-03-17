@@ -44,7 +44,7 @@ from twext.web2.dav import davxml
 from twext.web2.dav.element.base import twisted_dav_namespace, dav_namespace, parse_date, twisted_private_namespace
 from twext.web2.dav.resource import DAVPropertyMixIn
 from twext.web2.dav.util import joinURL
-from twext.web2.http_headers import MimeType, generateContentType
+from twext.web2.http_headers import MimeType, generateContentType, ETag
 
 
 from twistedcaldav import customxml, carddavxml
@@ -1908,7 +1908,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
                 #print("VCardResource.readProperty: qname = %s, result = %s" % (qname, result))
                 return result
             elif name == "getetag":
-                result = davxml.GETETag( hashlib.md5(self.vCardText()).hexdigest() )
+                result = davxml.GETETag( ETag(hashlib.md5(self.vCardText()).hexdigest()).generate() )
                 #print("VCardResource.readProperty: qname = %s, result = %s" % (qname, result))
                 return result
             elif name == "getcontenttype":

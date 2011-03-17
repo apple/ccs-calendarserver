@@ -815,6 +815,9 @@ class StoreCalendarObjectResource(object):
     @inlineCallbacks
     def doStore(self, implicit):
 
+        # Stash the current calendar data as we may need to return it
+        self.returndata = str(self.calendar)
+
         # Always do the per-user data merge right before we store
         yield self.mergePerUserData()
 

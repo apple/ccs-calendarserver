@@ -806,6 +806,10 @@
     <key>EnableTimezoneService</key>
     <true/>
 
+    <!-- Batch Upload via POST -->
+    <key>EnableBatchUpload</key>
+    <true/>
+
     <!-- Shared Calendars & Address Books -->
     <key>Sharing</key>
     <dict>

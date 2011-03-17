@@ -340,6 +340,8 @@ class CalendarData (CalDAVElement):
         else:
             raise ValueError("Not a calendar: %s" % (calendar,))
 
+    fromTextData = fromCalendar
+
     def __init__(self, *children, **attributes):
         super(CalendarData, self).__init__(*children, **attributes)
 
@@ -432,6 +434,8 @@ class CalendarData (CalDAVElement):
             return iComponent.fromString(data)
         else:
             return None
+
+    generateComponent = calendar
 
     def calendarData(self):
         """

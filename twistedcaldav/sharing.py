@@ -115,7 +115,7 @@ class SharedCollectionMixin(object):
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (customxml.calendarserver_namespace, "valid-request"),
-                "invalid share",
+                "Invalid share",
             ))
             
         record = yield self.invitesDB().recordForInviteUID(inviteUID)
@@ -123,7 +123,7 @@ class SharedCollectionMixin(object):
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (customxml.calendarserver_namespace, "valid-request"),
-                "invalid invitation uid: %s" % (inviteUID,),
+                "Invalid invitation uid: %s" % (inviteUID,),
             ))
         
         # Only certain states are sharer controlled
@@ -597,182 +597,177 @@ class SharedCollectionMixin(object):
         # Add to collections
         yield notifications.deleteNotifictionMessageByUID(request, record.inviteuid)
 
-    def xmlPOSTNoAuth(self, encoding, request):
-        def _handleErrorResponse(error):
-            if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
-                return error.value.response
-            return error
-
-        def _handleInvite(invitedoc):
-            def _handleInviteSet(inviteset):
-                userid = None
-                cn = None
-                access = None
-                summary = None
-                for item in inviteset.children:
-                    if isinstance(item, davxml.HRef):
-                        userid = str(item)
-                        continue
-                    if isinstance(item, customxml.CommonName):
-                        cn = str(item)
-                        continue
-                    if isinstance(item, customxml.InviteSummary):
-                        summary = str(item)
-                        continue
-                    if isinstance(item, customxml.ReadAccess) or isinstance(item, customxml.ReadWriteAccess):
-                        access = item
-                        continue
-                if userid and access and summary:
-                    return (userid, cn, access, summary)
-                else:
-                    error_text = []
-                    if userid is None:
-                        error_text.append("missing href")
-                    if access is None:
-                        error_text.append("missing access")
-                    if summary is None:
-                        error_text.append("missing summary")
-                    raise HTTPError(ErrorResponse(
-                        responsecode.FORBIDDEN,
-                        (customxml.calendarserver_namespace, "valid-request"),
-                        "%s: %s" % (", ".join(error_text), inviteset,),
-                    ))
-
-            def _handleInviteRemove(inviteremove):
-                userid = None
-                access = []
-                for item in inviteremove.children:
-                    if isinstance(item, davxml.HRef):
-                        userid = str(item)
-                        continue
-                    if isinstance(item, customxml.ReadAccess) or isinstance(item, customxml.ReadWriteAccess):
-                        access.append(item)
-                        continue
-                if userid is None:
-                    raise HTTPError(ErrorResponse(
-                        responsecode.FORBIDDEN,
-                        (customxml.calendarserver_namespace, "valid-request"),
-                        "missing href: %s" % (inviteremove,),
-                    ))
-                if len(access) == 0:
-                    access = None
-                else:
-                    access = set(access)
-                return (userid, access)
-
-            def _autoShare(isShared, request):
-                if not isShared:
-                    self.upgradeToShare()
-
-            @inlineCallbacks
-            def _processInviteDoc(_, request):
-                setDict, removeDict, updateinviteDict = {}, {}, {}
-                okusers = set()
-                badusers = set()
-                for item in invitedoc.children:
-                    if isinstance(item, customxml.InviteSet):
-                        userid, cn, access, summary = _handleInviteSet(item)
-                        setDict[userid] = (cn, access, summary)
-                    
-                        # Validate each userid on add only
-                        (okusers if self.validUserIDForShare(userid) else badusers).add(userid)
-                    elif isinstance(item, customxml.InviteRemove):
-                        userid, access = _handleInviteRemove(item)
-                        removeDict[userid] = access
-                        
-                        # Treat removed userids as valid as we will fail invalid ones silently
-                        okusers.add(userid)
-
-                # Only make changes if all OK
-                if len(badusers) == 0:
-                    # Special case removing and adding the same user and treat that as an add
-                    sameUseridInRemoveAndSet = [u for u in removeDict.keys() if u in setDict]
-                    for u in sameUseridInRemoveAndSet:
-                        removeACL = removeDict[u]
-                        cn, newACL, summary = setDict[u]
-                        updateinviteDict[u] = (cn, removeACL, newACL, summary)
-                        del removeDict[u]
-                        del setDict[u]
-                    for userid, access in removeDict.iteritems():
-                        result = (yield self.uninviteUserToShare(userid, access, request))
-                        (okusers if result else badusers).add(userid)
-                    for userid, (cn, access, summary) in setDict.iteritems():
-                        result = (yield self.inviteUserToShare(userid, cn, access, summary, request))
-                        (okusers if result else badusers).add(userid)
-                    for userid, (cn, removeACL, newACL, summary) in updateinviteDict.iteritems():
-                        result = (yield self.inviteUserUpdateToShare(userid, cn, removeACL, newACL, summary, request))
-                        (okusers if result else badusers).add(userid)
-
-                # Do a final validation of the entire set of invites
-                yield self.validateInvites()
-                
-                # Create the multistatus response - only needed if some are bad
-                if badusers:
-                    xml_responses = []
-                    xml_responses.extend([
-                        davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(responsecode.FAILED_DEPENDENCY))
-                        for userid in sorted(okusers)
-                    ])
-                    xml_responses.extend([
-                        davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(responsecode.FORBIDDEN))
-                        for userid in sorted(badusers)
-                    ])
-                
-                    #
-                    # Return response
-                    #
-                    returnValue(MultiStatusResponse(xml_responses))
-                else:
-                    returnValue(responsecode.OK)
-                    
-
-            return self.isShared(request).addCallback(_autoShare, request).addCallback(_processInviteDoc, request)
-
-        def _getData(data):
-            try:
-                doc = davxml.WebDAVDocument.fromString(data)
-            except ValueError, e:
-                self.log_error("Error parsing doc (%s) Doc:\n %s" % (str(e), data,))
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    (customxml.calendarserver_namespace, "valid-request"),
-                    "Invalid XML",
-                ))
-
-            root = doc.root_element
-            xmlDocHanders = {
-                customxml.InviteShare: _handleInvite, 
-            }
-            if type(root) in xmlDocHanders:
-                return xmlDocHanders[type(root)](root).addErrback(_handleErrorResponse)
-            else:
-                self.log_error("Unsupported XML (%s)" % (root,))
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    (customxml.calendarserver_namespace, "valid-request"),
-                    "Unsupported XML",
-                ))
-
-        return allDataFromStream(request.stream).addCallback(_getData)
-
-    def xmlPOSTPreconditions(self, _, request):
-        if request.headers.hasHeader("Content-Type"):
-            mimetype = request.headers.getHeader("Content-Type")
-            if mimetype.mediaType in ("application", "text",) and mimetype.mediaSubtype == "xml":
-                encoding = mimetype.params["charset"] if "charset" in mimetype.params else "utf8"
-                return succeed(encoding)
-        raise HTTPError(ErrorResponse(
-            responsecode.FORBIDDEN,
-            (customxml.calendarserver_namespace, "valid-request"),
-            "Invalid request content-type",
-        ))
-
-    def xmlPOSTAuth(self, request):
-        d = self.authorize(request, (davxml.Read(), davxml.Write()))
-        d.addCallback(self.xmlPOSTPreconditions, request)
-        d.addCallback(self.xmlPOSTNoAuth, request)
-        return d
+    @inlineCallbacks
+    def _xmlHandleInvite(self, request, docroot):
+        yield self.authorize(request, (davxml.Read(), davxml.Write()))
+        result = (yield self._handleInvite(request, docroot))
+        returnValue(result)
     
+    def _handleInvite(self, request, invitedoc):
+        def _handleInviteSet(inviteset):
+            userid = None
+            cn = None
+            access = None
+            summary = None
+            for item in inviteset.children:
+                if isinstance(item, davxml.HRef):
+                    userid = str(item)
+                    continue
+                if isinstance(item, customxml.CommonName):
+                    cn = str(item)
+                    continue
+                if isinstance(item, customxml.InviteSummary):
+                    summary = str(item)
+                    continue
+                if isinstance(item, customxml.ReadAccess) or isinstance(item, customxml.ReadWriteAccess):
+                    access = item
+                    continue
+            if userid and access and summary:
+                return (userid, cn, access, summary)
+            else:
+                error_text = []
+                if userid is None:
+                    error_text.append("missing href")
+                if access is None:
+                    error_text.append("missing access")
+                if summary is None:
+                    error_text.append("missing summary")
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (customxml.calendarserver_namespace, "valid-request"),
+                    "%s: %s" % (", ".join(error_text), inviteset,),
+                ))
+
+        def _handleInviteRemove(inviteremove):
+            userid = None
+            access = []
+            for item in inviteremove.children:
+                if isinstance(item, davxml.HRef):
+                    userid = str(item)
+                    continue
+                if isinstance(item, customxml.ReadAccess) or isinstance(item, customxml.ReadWriteAccess):
+                    access.append(item)
+                    continue
+            if userid is None:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (customxml.calendarserver_namespace, "valid-request"),
+                    "Missing href: %s" % (inviteremove,),
+                ))
+            if len(access) == 0:
+                access = None
+            else:
+                access = set(access)
+            return (userid, access)
+
+        def _autoShare(isShared, request):
+            if not isShared:
+                self.upgradeToShare()
+
+        @inlineCallbacks
+        def _processInviteDoc(_, request):
+            setDict, removeDict, updateinviteDict = {}, {}, {}
+            okusers = set()
+            badusers = set()
+            for item in invitedoc.children:
+                if isinstance(item, customxml.InviteSet):
+                    userid, cn, access, summary = _handleInviteSet(item)
+                    setDict[userid] = (cn, access, summary)
+                
+                    # Validate each userid on add only
+                    (okusers if self.validUserIDForShare(userid) else badusers).add(userid)
+                elif isinstance(item, customxml.InviteRemove):
+                    userid, access = _handleInviteRemove(item)
+                    removeDict[userid] = access
+                    
+                    # Treat removed userids as valid as we will fail invalid ones silently
+                    okusers.add(userid)
+
+            # Only make changes if all OK
+            if len(badusers) == 0:
+                # Special case removing and adding the same user and treat that as an add
+                sameUseridInRemoveAndSet = [u for u in removeDict.keys() if u in setDict]
+                for u in sameUseridInRemoveAndSet:
+                    removeACL = removeDict[u]
+                    cn, newACL, summary = setDict[u]
+                    updateinviteDict[u] = (cn, removeACL, newACL, summary)
+                    del removeDict[u]
+                    del setDict[u]
+                for userid, access in removeDict.iteritems():
+                    result = (yield self.uninviteUserToShare(userid, access, request))
+                    (okusers if result else badusers).add(userid)
+                for userid, (cn, access, summary) in setDict.iteritems():
+                    result = (yield self.inviteUserToShare(userid, cn, access, summary, request))
+                    (okusers if result else badusers).add(userid)
+                for userid, (cn, removeACL, newACL, summary) in updateinviteDict.iteritems():
+                    result = (yield self.inviteUserUpdateToShare(userid, cn, removeACL, newACL, summary, request))
+                    (okusers if result else badusers).add(userid)
+
+            # Do a final validation of the entire set of invites
+            yield self.validateInvites()
+            
+            # Create the multistatus response - only needed if some are bad
+            if badusers:
+                xml_responses = []
+                xml_responses.extend([
+                    davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(responsecode.FAILED_DEPENDENCY))
+                    for userid in sorted(okusers)
+                ])
+                xml_responses.extend([
+                    davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(responsecode.FORBIDDEN))
+                    for userid in sorted(badusers)
+                ])
+            
+                #
+                # Return response
+                #
+                returnValue(MultiStatusResponse(xml_responses))
+            else:
+                returnValue(responsecode.OK)
+
+        return self.isShared(request).addCallback(_autoShare, request).addCallback(_processInviteDoc, request)
+
+    @inlineCallbacks
+    def _xmlHandleInviteReply(self, request, docroot):
+        yield self.authorize(request, (davxml.Read(), davxml.Write()))
+        result = (yield self._handleInviteReply(request, docroot))
+        returnValue(result)
+    
+    def _handleInviteReply(self, request, docroot):
+        raise NotImplementedError
+
+    @inlineCallbacks
+    def xmlRequestHandler(self, request):
+        
+        # Need to read the data and get the root element first
+        xmldata = (yield allDataFromStream(request.stream))
+        try:
+            doc = davxml.WebDAVDocument.fromString(xmldata)
+        except ValueError, e:
+            self.log_error("Error parsing doc (%s) Doc:\n %s" % (str(e), xmldata,))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (customxml.calendarserver_namespace, "valid-request"),
+                "Invalid XML",
+            ))
+
+        root = doc.root_element
+        if type(root) in self.xmlDocHanders:
+            result = (yield self.xmlDocHanders[type(root)](self, request, root))
+            returnValue(result)
+        else:
+            self.log_error("Unsupported XML (%s)" % (root,))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (customxml.calendarserver_namespace, "valid-request"),
+                "Unsupported XML",
+            ))
+
+    xmlDocHanders = {
+        customxml.InviteShare: _xmlHandleInvite,
+        customxml.InviteReply: _xmlHandleInviteReply,          
+    }
+
     def POST_handler_content_type(self, request, contentType):
         if self.isCollection():
             if contentType:
@@ -785,8 +780,8 @@ class SharedCollectionMixin(object):
         return succeed(responsecode.FORBIDDEN)
 
     _postHandlers = {
-        ("application", "xml") : xmlPOSTAuth,
-        ("text", "xml") : xmlPOSTAuth,
+        ("application", "xml") : xmlRequestHandler,
+        ("text", "xml") : xmlRequestHandler,
     }
 
 inviteAccessMapToXML = {
@@ -1146,66 +1141,36 @@ class SharedHomeMixin(LinkFollowerMixIn):
         # Add to collections
         yield notifications.addNotification(request, notificationUID, xmltype, xmldata)
 
-    def xmlPOSTNoAuth(self, encoding, request):
-
-        def _handleErrorResponse(error):
-            if isinstance(error.value, HTTPError) and hasattr(error.value, "response"):
-                return error.value.response
-            return error
-
-        def _handleInviteReply(invitereplydoc):
-            """ Handle a user accepting or declining a sharing invite """
-            hostUrl = None
-            accepted = None
-            summary = None
-            replytoUID = None
-            for item in invitereplydoc.children:
-                if isinstance(item, customxml.InviteStatusAccepted):
-                    accepted = True
-                elif isinstance(item, customxml.InviteStatusDeclined):
-                    accepted = False
-                elif isinstance(item, customxml.InviteSummary):
-                    summary = str(item)
-                elif isinstance(item, customxml.HostURL):
-                    for hosturlItem in item.children:
-                        if isinstance(hosturlItem, davxml.HRef):
-                            hostUrl = str(hosturlItem)
-                elif isinstance(item, customxml.InReplyTo):
-                    replytoUID = str(item)
-            
-            if accepted is None or hostUrl is None or replytoUID is None:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    (customxml.calendarserver_namespace, "valid-request"),
-                    "Missing required XML elements",
-                ))
-            if accepted:
-                return self.acceptInviteShare(request, hostUrl, replytoUID, displayname=summary)
-            else:
-                return self.declineShare(request, hostUrl, replytoUID)
-
-        def _getData(data):
-            try:
-                doc = davxml.WebDAVDocument.fromString(data)
-            except ValueError, e:
-                print "Error parsing doc (%s) Doc:\n %s" % (str(e), data,)
-                raise
-
-            root = doc.root_element
-            xmlDocHanders = {
-                customxml.InviteReply: _handleInviteReply,          
-            }
-            if type(root) in xmlDocHanders:
-                return xmlDocHanders[type(root)](root).addErrback(_handleErrorResponse)
-            else:
-                self.log_error("Unsupported XML (%s)" % (root,))
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    (customxml.calendarserver_namespace, "valid-request"),
-                    "Unsupported XML",
-                ))
-
-        return allDataFromStream(request.stream).addCallback(_getData)
+    def _handleInviteReply(self, request, invitereplydoc):
+        """ Handle a user accepting or declining a sharing invite """
+        hostUrl = None
+        accepted = None
+        summary = None
+        replytoUID = None
+        for item in invitereplydoc.children:
+            if isinstance(item, customxml.InviteStatusAccepted):
+                accepted = True
+            elif isinstance(item, customxml.InviteStatusDeclined):
+                accepted = False
+            elif isinstance(item, customxml.InviteSummary):
+                summary = str(item)
+            elif isinstance(item, customxml.HostURL):
+                for hosturlItem in item.children:
+                    if isinstance(hosturlItem, davxml.HRef):
+                        hostUrl = str(hosturlItem)
+            elif isinstance(item, customxml.InReplyTo):
+                replytoUID = str(item)
+        
+        if accepted is None or hostUrl is None or replytoUID is None:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (customxml.calendarserver_namespace, "valid-request"),
+                "Missing required XML elements",
+            ))
+        if accepted:
+            return self.acceptInviteShare(request, hostUrl, replytoUID, displayname=summary)
+        else:
+            return self.declineShare(request, hostUrl, replytoUID)
 
 class SharedCollectionRecord(object):
     
