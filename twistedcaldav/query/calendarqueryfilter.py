@@ -502,7 +502,7 @@ class TextMatch (FilterBase):
         else:
             values = item
 
-        test = unicode(self.text, "utf-8")
+        test = self.text
         if self.caseless:
             test = test.lower()
 
