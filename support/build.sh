@@ -397,11 +397,12 @@ py_dependency () {
   local optional="false"; # Is this dependency optional?
   local override="false"; # Do I need to get this dependency even if
                           # the system already has it?
-  local  inplace="false"; # Do development in-place; don't run
+  local  inplace="";      # Do development in-place; don't run
                           # setup.py to build, and instead add the
-                          # source directory directly to sys.path.
-                          # twisted and vobject are developed often
-                          # enough that this is convenient.
+                          # source directory plus the given relative
+                          # path directly to sys.path.  twisted and
+                          # vobject are developed often enough that
+                          # this is convenient.
   local skip_egg="false"; # Skip even the 'egg_info' step, because
                           # nothing needs to be built.
   local revision="0";     # Revision (if svn)
@@ -410,15 +411,21 @@ py_dependency () {
   local   f_hash="";      # Checksum
 
   OPTIND=1;
-  while getopts "ofier:v:m:" option; do
+  while getopts "ofi:er:v:m:" option; do
     case "${option}" in
       'o') optional="true"; ;;
       'f') override="true"; ;;
-      'i')  inplace="true"; ;;
       'e') skip_egg="true"; ;;
       'r') get_type="svn"; revision="${OPTARG}"; ;;
       'v')  version="-v ${OPTARG}"; ;;
       'm')   f_hash="-m ${OPTARG}"; ;;
+      'i')
+        if [ -z "${OPTARG}" ]; then
+          inplace=".";
+        else
+          inplace="${OPTARG}";
+        fi;
+        ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -436,7 +443,7 @@ py_dependency () {
   fi;
   if "${override}" || ! py_have_module ${version} "${module}"; then
     "${get_type}_get" ${f_hash} "${name}" "${srcdir}" "${get_uri}" "${revision}"
-    if "${inplace}"; then
+    if [ -n "${inplace}" ]; then
       if "${do_setup}" && "${override}" && ! "${skip_egg}"; then
         echo;
         if py_have_module setuptools; then
@@ -452,8 +459,12 @@ py_dependency () {
     fi;
     py_install "${name}" "${srcdir}";
 
-    if "${inplace}"; then
-      local add_pythonpath="${srcdir}";
+    if [ -n "${inplace}" ]; then
+      if [ "${inplace}" == "." ]; then
+        local add_pythonpath="${srcdir}";
+      else
+        local add_pythonpath="${srcdir}/${inplace}";
+      fi;
       local add_path="${srcdir}/bin";
     else
       local add_pythonpath="${srcdir}/build/${py_platform_libdir}";
@@ -628,12 +639,12 @@ dependencies () {
     "http://pypi.python.org/packages/source/p/python-ldap/${ld}.tar.gz";
 
   # XXX actually vObject should be imported in-place.
-  py_dependency -fie -r 219 \
+  py_dependency -fe -i "" -r 219 \
     "vobject" "vobject" "vobject" \
     "http://svn.osafoundation.org/vobject/trunk";
 
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fie -r 144 \
+  py_dependency -fe -i "src" -r 144 \
     "pycalendar" "pycalendar" "pycalendar" \
     "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
 
