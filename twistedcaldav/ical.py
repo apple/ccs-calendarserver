@@ -296,33 +296,16 @@ class Component (object):
     @classmethod
     def allFromString(clazz, string):
         """
-        Construct a L{Component} from a string.
-        @param string: a string containing iCalendar data.
-        @return: a C{list} of L{Component}s representing the components described by
-            C{string}.
+        Just default to reading a single VCALENDAR
         """
-        if type(string) is unicode:
-            string = string.encode("utf-8")
-        return clazz.allFromStream(StringIO.StringIO(string))
+        return clazz.fromString(string)
 
     @classmethod
     def allFromStream(clazz, stream):
         """
-        Construct possibly multiple L{Component}s from a stream.
-        @param stream: a C{read()}able stream containing iCalendar data.
-        @return: a C{list} of L{Component}s representing the components described by
-            C{stream}.
+        Just default to reading a single VCALENDAR
         """
-        
-        results = []
-        try:
-            for vobject in readComponents(stream):
-                results.append(clazz(None, vobject=vobject))
-            return results
-        except vParseError, e:
-            raise InvalidICalendarDataError(e)
-        except StopIteration, e:
-            raise InvalidICalendarDataError(e)
+        return clazz.fromStream(stream)
 
     @classmethod
     def fromString(clazz, string):

@@ -470,6 +470,13 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
     else:
         useruid = ""
             
+    # Get the timezone property from the collection.
+    has_prop = (yield calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
+    if has_prop:
+        tz = (yield calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
+    else:
+        tz = None
+
     # Try cache
     resources = (yield FBCacheEntry.getCacheEntry(calresource, useruid, timerange)) if config.EnableFreeBusyCache else None
 
@@ -508,14 +515,6 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                        )
                   )
         filter = calendarqueryfilter.Filter(filter)
-    
-        # Get the timezone property from the collection, and store in the query filter
-        # for use during the query itself.
-        has_prop = (yield calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
-        if has_prop:
-            tz = (yield calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
-        else:
-            tz = None
         tzinfo = filter.settimezone(tz)
     
         try:
@@ -532,6 +531,20 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         if not hasattr(request, "extendedLogItems"):
             request.extendedLogItems = {}
         request.extendedLogItems["fb-cached"] = request.extendedLogItems.get("fb-cached", 0) + 1
+
+        # Determine appropriate timezone (UTC is the default)
+        tzinfo = None
+        if tz is not None:
+            calendar = tz.calendar()
+            if calendar is not None:
+                for subcomponent in calendar.subcomponents():
+                    if subcomponent.name() == "VTIMEZONE":
+                        # <filter> contains exactly one <comp-filter>
+                        tzinfo = subcomponent.gettimezone()
+                        break
+
+        if tzinfo is None:
+            tzinfo = PyCalendarTimezone(utc=True)
 
     # We care about separate instances for VEVENTs only
     aggregated_resources = {}
