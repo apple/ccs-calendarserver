@@ -608,6 +608,53 @@ class StoreCalendarObjectResource(object):
 
 
     @inlineCallbacks
+    def replaceMissingToDoProperties(self):
+        """
+        Recover any lost ORGANIZER or ATTENDEE properties in non-recurring VTODOs.
+        """
+
+        if self.destination.exists() and self.calendar.resourceType() == "VTODO" and not self.calendar.isRecurring():
+
+            old_calendar = (yield self.destination.iCalendarForUser(self.request))
+
+            new_organizer = self.calendar.getOrganizer()
+            old_organizer = old_calendar.getOrganizerProperty()
+            new_attendees = self.calendar.getAttendees()
+            old_attendees = tuple(old_calendar.getAllAttendeeProperties())
+            
+            if old_organizer and not new_organizer and len(old_attendees) > 0 and len(new_attendees) == 0:
+                # Transfer old organizer and attendees to new calendar
+                log.debug("Organizer and attendee properties were entirely removed by the client. Restoring existing properties.")
+                
+                # Get the originator who is the owner of the calendar resource being modified
+                originatorPrincipal = (yield self.destination.ownerPrincipal(self.request))
+                originatorAddresses = originatorPrincipal.calendarUserAddresses()
+                
+                for component in self.calendar.subcomponents():
+                    if component.name() != "VTODO":
+                        continue
+
+                    if not component.hasProperty("DTSTART"):
+                        # Need to put DTSTART back in or we get a date mismatch failure later
+                        for old_component in old_calendar.subcomponents():
+                            if old_component.name() != "VTODO":
+                                continue
+                            if old_component.hasProperty("DTSTART"):
+                                component.addProperty(old_component.getProperty("DTSTART"))
+                                break
+                
+                    # Add organizer back in from previous resource
+                    component.addProperty(old_organizer)
+                    
+                    # Add attendees back in from previous resource
+                    for anAttendee in old_attendees:
+                        if component.hasProperty("COMPLETED") and anAttendee.value() in originatorAddresses:
+                            anAttendee.setParameter("PARTSTAT", "COMPLETED")
+                        component.addProperty(anAttendee)                   
+
+                self.calendardata = None
+
+    @inlineCallbacks
     def dropboxPathNormalization(self):
         """
         Make sure sharees only use dropbox paths of the sharer.
@@ -982,6 +1029,9 @@ class StoreCalendarObjectResource(object):
             # Preserve private comments
             yield self.preservePrivateComments()
     
+            # Fix broken VTODOs
+            yield self.replaceMissingToDoProperties()
+
             # Handle sharing dropbox normalization
             dropboxChanged = (yield self.dropboxPathNormalization())
 
