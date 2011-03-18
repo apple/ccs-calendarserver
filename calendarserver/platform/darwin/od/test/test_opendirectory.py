@@ -93,6 +93,7 @@ if runTests:
         dsattributes.kDS1AttrLastName,
         dsattributes.kDSNAttrEMailAddress,
         dsattributes.kDSNAttrMetaNodeLocation,
+        (dsattributes.kDSNAttrJPEGPhoto, "base64"),
     ]
 
     class OpenDirectoryTests(TestCase):
@@ -557,8 +558,8 @@ if runTests:
             self.assertTrue("odtestgrouptop" in recordNames)
             groupMembers = results[0][1][dsattributes.kDSNAttrGroupMembers]
             self.assertEquals(
-                groupMembers,
-                setup_directory.masterGroups[1][1][dsattributes.kDSNAttrGroupMembers]
+                set(groupMembers),
+                set(setup_directory.masterGroups[1][1][dsattributes.kDSNAttrGroupMembers])
             )
 
         def test_queryRecordsWithAttribute_list_groupMembers_recordName_local(self):
@@ -582,8 +583,8 @@ if runTests:
             self.assertTrue("odtestsubgroupa" in recordNames)
             groupMembers = results[0][1][dsattributes.kDSNAttrGroupMembers]
             self.assertEquals(
-                groupMembers,
-                setup_directory.localGroups[0][1][dsattributes.kDSNAttrGroupMembers]
+                set(groupMembers),
+                set(setup_directory.localGroups[0][1][dsattributes.kDSNAttrGroupMembers])
             )
 
 
@@ -608,8 +609,8 @@ if runTests:
             self.assertTrue("odtestgrouptop" in recordNames)
             groupMembers = results[0][1][dsattributes.kDSNAttrGroupMembers]
             self.assertEquals(
-                groupMembers,
-                setup_directory.masterGroups[1][1][dsattributes.kDSNAttrGroupMembers]
+                set(groupMembers),
+                set(setup_directory.masterGroups[1][1][dsattributes.kDSNAttrGroupMembers])
             )
 
         def test_queryRecordsWithAttribute_list_groupMembers_guid_local(self):
@@ -823,7 +824,7 @@ if runTests:
         def test_result_types(self):
             directory = opendirectory.odInit("/Search")
             record = opendirectory.getUserRecord(directory, "odtestbill")
-            name, data = opendirectory.recordToResult(record)
+            name, data = opendirectory.recordToResult(record, {})
             for value in data.values():
                 if isinstance(value, list):
                     for item in value:
@@ -885,4 +886,13 @@ if runTests:
             self.assertEquals(
                 result[dsattributes.kDS1AttrGeneratedUID],
                 "C662F833-75AD-4589-9879-5FF102943CEF"
+            )
+
+        def test_attributeNamesFromList(self):
+            self.assertEquals(
+                ([], {}), opendirectory.attributeNamesFromList(None)
+            )
+            self.assertEquals(
+                (["a", "b"], {"b":"base64"}),
+                opendirectory.attributeNamesFromList(["a", ("b", "base64")])
             )

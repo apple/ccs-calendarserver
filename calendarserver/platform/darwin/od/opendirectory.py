@@ -21,6 +21,7 @@ OpenDirectory.framework access via PyObjC
 import odframework
 import objc
 import dsattributes
+import base64
 from twext.python.log import Logger
 
 log = Logger()
@@ -66,11 +67,15 @@ def adjustMatchType(matchType, caseInsensitive):
 
     # return caseInsensitiveEquivalents[matchType] if caseInsensitive else matchType
 
-def recordToResult(record):
+
+def recordToResult(record, encodings):
     """
     Takes an ODRecord and turns it into a (recordName, attributesDictionary)
     tuple.  Unicode values are converted to utf-8 encoded strings. (Not sure
     what to do with non-unicode values)
+
+    encodings is a attribute-name-to-encoding mapping, useful for specifying
+    how to decode values.
     """
     details, error = record.recordDetailsForAttributes_error_(None, None)
     if error:
@@ -78,16 +83,46 @@ def recordToResult(record):
         raise ODError(error)
     result = {}
     for key, value in details.iteritems():
+        encoding = encodings.get(key, None)
         if key in SINGLE_VALUE_ATTRIBUTES:
-            if len(value) == 0:
-                result[key] = None
+            if encoding:
+                if encoding == "base64":
+                    result[key] = base64.b64encode(value.bytes().tobytes())
             else:
-                if isinstance(value[0], objc.pyobjc_unicode):
-                    result[key] = unicode(value[0]).encode("utf-8") # convert from pyobjc
+                if len(value) == 0:
+                    result[key] = None
+                else:
+                    if isinstance(value[0], objc.pyobjc_unicode):
+                        result[key] = unicode(value[0]).encode("utf-8") # convert from pyobjc
         else:
-            result[key] = [unicode(v).encode("utf-8") for v in value if isinstance(v, objc.pyobjc_unicode)]
+            if encoding:
+                if encoding == "base64":
+                    result[key] = [base64.b64encode(v.bytes().tobytes()) for v in value]
+            else:
+                result[key] = [unicode(v).encode("utf-8") for v in value if isinstance(v, objc.pyobjc_unicode)]
 
     return (details.get(dsattributes.kDSNAttrRecordName, [None])[0], result)
+
+
+def attributeNamesFromList(attributes):
+    """
+    The attributes list can contain string names or tuples of the form (name,
+    encoding).  Return just the names.
+    """
+
+    if attributes is None:
+        attributes = []
+
+    names = []
+    encodings = {}
+    for attribute in attributes:
+        if isinstance(attribute, tuple):
+            names.append(attribute[0])
+            encodings[attribute[0]] = attribute[1]
+        else:
+            names.append(attribute)
+    return names, encodings
+
 
 def odInit(nodeName):
     """
@@ -139,13 +174,16 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
         for each record found, or C{None} otherwise.
     """
     results = []
+
+    attributeNames, encodings = attributeNamesFromList(attributes)
+
     query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         directory.node,
         recordType,
         None,
         MATCHANY,
         None,
-        attributes,
+        attributeNames,
         count,
         None)
     if error:
@@ -156,7 +194,7 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
         log.error(error)
         raise ODError(error)
     for record in records:
-        results.append(recordToResult(record))
+        results.append(recordToResult(record, encodings))
     return results
 
 
@@ -179,13 +217,16 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
     """
 
     results = []
+
+    attributeNames, encodings = attributeNamesFromList(attributes)
+
     query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         directory.node,
         recordType,
         attr,
         adjustMatchType(matchType, casei),
         value.decode("utf-8"),
-        attributes,
+        attributeNames,
         count,
         None)
     if error:
@@ -196,7 +237,7 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
         log.error(error)
         raise ODError(error)
     for record in records:
-        results.append(recordToResult(record))
+        results.append(recordToResult(record, encodings))
     return results
 
 
@@ -216,13 +257,16 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
         for each record found, or C{None} otherwise.
     """
     results = []
+
+    attributeNames, encodings = attributeNamesFromList(attributes)
+
     query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         directory.node,
         recordType,
         None,
         0x210B, # adjustMatchType(matchType, casei),
         compound,
-        attributes,
+        attributeNames,
         count,
         None)
     if error:
@@ -233,7 +277,7 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
         log.error(error)
         raise ODError(error)
     for record in records:
-        results.append(recordToResult(record))
+        results.append(recordToResult(record, encodings))
     return results
 
 
