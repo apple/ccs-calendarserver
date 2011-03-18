@@ -217,6 +217,8 @@ def main():
             migrateConfiguration(options, newServerRootValue, enableCalDAV,
                 enableCardDAV)
 
+            configureNotifications()
+
             setRunState(options, enableCalDAV, enableCardDAV)
             triggerResourceMigration(newServerRootValue)
 
@@ -267,6 +269,17 @@ def setRunState(options, enableCalDAV, enableCardDAV):
         log("Starting service via serveradmin")
         ret = subprocess.call([SERVER_ADMIN, "start", "calendar"])
         log("serveradmin exited with %d" % (ret,))
+
+
+def configureNotifications():
+    """
+    Fetch notification settings from servermgr_notification via server admin
+    and write them into caldavd.plist
+    """
+
+    log("Configuring notifications via serveradmin")
+    ret = subprocess.call([SERVER_ADMIN, "command", "calendar:command=configureNotifications"])
+    log("serveradmin exited with %d" % (ret,))
 
 
 def unloadService(options, service):
