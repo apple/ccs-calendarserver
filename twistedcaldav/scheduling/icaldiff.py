@@ -451,7 +451,7 @@ class iCalDiff(object):
         
         # Now look for items to transfer from one to the other.
         # We care about the ATTENDEE's PARTSTAT, TRANSP, VALARMS, X-APPLE-NEEDS-REPLY,
-        # DTSTAMP, LAST-MODIFIED, and ATTACH's referring to a dropbox
+        # DTSTAMP, LAST-MODIFIED, COMPLETED, and ATTACH's referring to a dropbox
         
         replyNeeded = False
 
@@ -476,6 +476,7 @@ class iCalDiff(object):
         self._transferProperty("DTSTAMP", serverComponent, clientComponent)
         self._transferProperty("LAST-MODIFIED", serverComponent, clientComponent)
         self._transferProperty("X-APPLE-NEEDS-REPLY", serverComponent, clientComponent)
+        self._transferProperty("COMPLETED", serverComponent, clientComponent)
         
         # Dropbox - this now never returns false
         self._transferDropBoxData(serverComponent, clientComponent)

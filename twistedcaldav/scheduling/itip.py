@@ -73,7 +73,8 @@ class iTipProcessing(object):
     @staticmethod
     def processRequest(itip_message, calendar, recipient, autoprocessing=False):
         """
-        Process a METHOD=REQUEST.
+        Process a METHOD=REQUEST. We need to merge per-attendee properties such as TRANPS, COMPLETED etc
+        with the data coming from the organizer.
         
         @param itip_message: the iTIP message calendar object to process.
         @type itip_message:
@@ -91,17 +92,21 @@ class iTipProcessing(object):
         rids = iCalDiff(calendar, itip_message, False).whatIsDifferent()
 
         # Different behavior depending on whether a master component is present or not
+        # Here we cache per-attendee data from the master that we need to use in any new
+        # overridden components that the organizer added
         current_master = calendar.masterComponent()
         if current_master:
             master_valarms = [comp for comp in current_master.subcomponents() if comp.name() == "VALARM"]
             private_comments = current_master.properties("X-CALENDARSERVER-PRIVATE-COMMENT")
             transps = current_master.properties("TRANSP")
+            completeds = current_master.properties("COMPLETED")
             organizer = current_master.getProperty("ORGANIZER")
             organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
         else:
             master_valarms = ()
             private_comments = ()
             transps = ()
+            completeds = ()
             organizer_schedule_status = None
 
         if itip_message.masterComponent() is not None:
@@ -117,6 +122,8 @@ class iTipProcessing(object):
                 master_component.addProperty(comment)
             for transp in transps:
                 master_component.replaceProperty(transp)
+            for completed in completeds:
+                master_component.replaceProperty(completed)
             if organizer_schedule_status: 
                 organizer = master_component.getProperty("ORGANIZER")
                 if organizer:
@@ -125,7 +132,7 @@ class iTipProcessing(object):
             # Now try to match recurrences
             for component in new_calendar.subcomponents():
                 if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
-                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, organizer_schedule_status, component)
+                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, component)
             
             # Now try to match recurrences
             for component in calendar.subcomponents():
@@ -136,7 +143,7 @@ class iTipProcessing(object):
                         new_component = new_calendar.deriveInstance(rid, allowCancelled=allowCancelled)
                         if new_component:
                             new_calendar.addComponent(new_component)
-                            iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, organizer_schedule_status, new_component)
+                            iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, new_component)
             
             # Replace the entire object
             return new_calendar, rids
@@ -153,7 +160,7 @@ class iTipProcessing(object):
                         calendar.addComponent(component)
                 else:
                     component = component.duplicate()
-                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, organizer_schedule_status, component, remove_matched=True)
+                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, component, remove_matched=True)
                     calendar.addComponent(component)
                     if recipient and not autoprocessing:
                         iTipProcessing.fixForiCal3((component,), recipient, config.Scheduling.CalDAV.OldDraftCompatibility)
@@ -446,7 +453,12 @@ class iTipProcessing(object):
         return attendee.value(), partstat_changed, private_comment_changed
 
     @staticmethod
-    def transferItems(from_calendar, master_valarms, private_comments, transps, organizer_schedule_status, to_component, remove_matched=False):
+    def transferItems(from_calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, to_component, remove_matched=False):
+        """
+        Transfer properties from a calendar to a component by first trying to match the component in the original calendar and
+        use the properties from that, or use the values provided as arguments (which have been derived from the original calendar's
+        master component).
+        """
 
         rid = to_component.getRecurrenceIDUTC()
 
@@ -457,6 +469,7 @@ class iTipProcessing(object):
             [to_component.addComponent(comp) for comp in matched.subcomponents() if comp.name() == "VALARM"]
             [to_component.addProperty(prop) for prop in matched.properties("X-CALENDARSERVER-ATTENDEE-COMMENT")]
             [to_component.replaceProperty(prop) for prop in matched.properties("TRANSP")]
+            [to_component.replaceProperty(prop) for prop in matched.properties("COMPLETED")]
 
             organizer = matched.getProperty("ORGANIZER")
             organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
@@ -475,6 +488,7 @@ class iTipProcessing(object):
             [to_component.addComponent(alarm) for alarm in master_valarms]
             [to_component.addProperty(comment) for comment in private_comments]
             [to_component.replaceProperty(transp) for transp in transps]
+            [to_component.replaceProperty(completed) for completed in completeds]
             if organizer_schedule_status: 
                 organizer = to_component.getProperty("ORGANIZER")
                 if organizer:
