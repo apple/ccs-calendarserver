@@ -682,7 +682,7 @@ class CommonHome(LoggingMixIn):
     def syncToken(self):
         revision = (yield self._syncTokenQuery.on(
             self._txn, resourceID=self._resourceID))[0][0]
-        returnValue("%s#%s" % (self._resourceID, revision))
+        returnValue("%s_%s" % (self._resourceID, revision))
 
 
     @classproperty
@@ -962,7 +962,7 @@ class _SharedSyncLogic(object):
         if self._syncTokenRevision is None:
             self._syncTokenRevision = (yield self._childSyncTokenQuery.on(
                 self._txn, resourceID=self._resourceID))[0][0]
-        returnValue(("%s#%s" % (self._resourceID, self._syncTokenRevision,)))
+        returnValue(("%s_%s" % (self._resourceID, self._syncTokenRevision,)))
 
 
     def objectResourcesSinceToken(self, token):
@@ -2540,7 +2540,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                 yield self._syncTokenQuery.on(
                     self._txn, resourceID=self._resourceID)
             )[0][0]
-        returnValue("%s#%s" % (self._resourceID, self._syncTokenRevision))
+        returnValue("%s_%s" % (self._resourceID, self._syncTokenRevision))
 
 
     def properties(self):

@@ -319,7 +319,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         return self._newStoreObject.created() if self._newStoreObject else None
 
 
-    def getSyncToken(self):
+    def getInternalSyncToken(self):
         return self._newStoreObject.syncToken() if self._newStoreObject else None
 
     @inlineCallbacks
@@ -519,7 +519,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 testctag = iffy[iffy.find(prefix):]
                 testctag = testctag[len(prefix):]
                 testctag = testctag.split(">", 1)[0]
-                ctag = (yield self.getSyncToken())
+                ctag = (yield self.getInternalSyncToken())
                 if testctag != ctag:
                     raise HTTPError(StatusResponse(responsecode.PRECONDITION_FAILED, "CTag pre-condition failure"))
 
@@ -617,7 +617,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         
         result = MultiStatusResponse(xmlresponses)
         
-        newctag = (yield self.getSyncToken())
+        newctag = (yield self.getInternalSyncToken())
         result.headers.setRawHeaders("CTag", (newctag,))
 
         # Setup some useful logging
@@ -691,7 +691,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         
         result = MultiStatusResponse(xmlresponses)
         
-        newctag = (yield self.getSyncToken())
+        newctag = (yield self.getInternalSyncToken())
         result.headers.setRawHeaders("CTag", (newctag,))
 
         # Setup some useful logging
@@ -961,7 +961,7 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
 
         # Cache the data
         data = str(calendar)
-        data = (yield self.getSyncToken()) + "\r\n" + data
+        data = (yield self.getInternalSyncToken()) + "\r\n" + data
 
         returnValue(calendar)
 
@@ -2081,7 +2081,7 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
         return True
 
 
-    def getSyncToken(self):
+    def getInternalSyncToken(self):
         return self._newStoreNotifications.syncToken()
 
 

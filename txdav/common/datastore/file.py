@@ -456,14 +456,14 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         
         maxrev = 0
         for child in self.children():
-            maxrev = max(int((yield child.syncToken()).split("#")[1]), maxrev)
+            maxrev = max(int((yield child.syncToken()).split("_")[1]), maxrev)
             
         try:
             urnuuid = str(self.properties()[PropertyName.fromElement(ResourceID)].children[0])
         except KeyError:
             urnuuid = uuid.uuid4().urn
             self.properties()[PropertyName(*ResourceID.qname())] = ResourceID(HRef.fromString(urnuuid))
-        returnValue("%s#%s" % (urnuuid[9:], maxrev))
+        returnValue("%s_%s" % (urnuuid[9:], maxrev))
 
 
     def resourceNamesSinceToken(self, token, depth):
@@ -807,7 +807,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         except KeyError:
             urnuuid = uuid.uuid4().urn
             self.properties()[PropertyName(*ResourceID.qname())] = ResourceID(HRef.fromString(urnuuid))
-        return succeed("%s#%s" % (urnuuid[9:], self.retrieveOldIndex().lastRevision()))
+        return succeed("%s_%s" % (urnuuid[9:], self.retrieveOldIndex().lastRevision()))
 
 
     def objectResourcesSinceToken(self, token):

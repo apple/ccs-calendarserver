@@ -1310,7 +1310,7 @@ END:VCALENDAR
         now that logic lives in the protocol layer, so this testing method
         replicates it.
         """
-        uuid, rev = token.split("#", 1)
+        uuid, rev = token.split("_", 1)
         rev = int(rev)
         return rev
 

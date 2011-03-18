@@ -399,7 +399,7 @@ class FBCacheEntry(object):
     def getCacheEntry(cls, calresource, useruid, timerange):
         
         key = calresource.resourceID() + "/" + useruid
-        token = (yield calresource.getSyncToken())
+        token = (yield calresource.getInternalSyncToken())
         entry = (yield fbcacher.get(key))
         
         if entry:
@@ -422,7 +422,7 @@ class FBCacheEntry(object):
     def makeCacheEntry(cls, calresource, useruid, timerange, fbresults):
 
         key = calresource.resourceID() + "/" + useruid
-        token = (yield calresource.getSyncToken())
+        token = (yield calresource.getInternalSyncToken())
         entry = cls(key, token, timerange, fbresults)
         yield fbcacher.set(key, entry)
 

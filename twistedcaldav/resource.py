@@ -579,7 +579,7 @@ class CalDAVResource (
         elif qname == customxml.GETCTag.qname() and (
             self.isPseudoCalendarCollection() or self.isAddressBookCollection()
         ):
-            returnValue(customxml.GETCTag.fromString((yield self.getSyncToken())))
+            returnValue(customxml.GETCTag.fromString((yield self.getInternalSyncToken())))
 
         elif qname == davxml.SyncToken.qname() and config.EnableSyncReport and (
             davxml.Report(SyncCollection(),) in self.supportedReports()
@@ -1330,13 +1330,15 @@ class CalDAVResource (
 
     @inlineCallbacks
     def whatchanged(self, client_token, depth):
-        current_token = yield self.getSyncToken()
-        current_uuid, current_revision = current_token.split("#", 1)
+        current_token = (yield self.getSyncToken())
+        current_uuid, current_revision = current_token[6:].split("_", 1)
         current_revision = int(current_revision)
 
         if client_token:
             try:
-                caluuid, revision = client_token.split("#", 1)
+                if not client_token.startswith("data:,"):
+                    raise ValueError
+                caluuid, revision = client_token[6:].split("_", 1)
                 revision = int(revision)
                 
                 # Check client token validity
@@ -1368,9 +1370,18 @@ class CalDAVResource (
         # Now handled directly by newstore
         raise NotImplementedError
 
+    @inlineCallbacks
     def getSyncToken(self):
         """
         Return current sync-token value.
+        """
+        
+        internal_token = (yield self.getInternalSyncToken())
+        returnValue("data:,%s" % (internal_token,))
+
+    def getInternalSyncToken(self):
+        """
+        Return current internal sync-token value.
         """
         raise HTTPError(StatusResponse(responsecode.NOT_FOUND, "Property not supported"))
 
@@ -2069,10 +2080,10 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         Merge two sync tokens, choosing the higher revision number of the two,
         but keeping the home resource-id intact.
         """
-        homekey, homerev = hometoken.split("#", 1)
-        notrev = notificationtoken.split("#", 1)[1]
+        homekey, homerev = hometoken.split("_", 1)
+        notrev = notificationtoken.split("_", 1)[1]
         if int(notrev) > int(homerev):
-            hometoken = "%s#%s" % (homekey, notrev,)
+            hometoken = "%s_%s" % (homekey, notrev,)
         return hometoken
 
     def canShare(self):
@@ -2455,12 +2466,12 @@ class CalendarHomeResource(CommonHomeResource):
 
 
     @inlineCallbacks
-    def getSyncToken(self):
+    def getInternalSyncToken(self):
         # The newstore implementation supports this directly
         caltoken = yield self._newStoreHome.syncToken()
 
         if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
-            notificationtoken = yield (yield self.getChild("notification")).getSyncToken()
+            notificationtoken = yield (yield self.getChild("notification")).getInternalSyncToken()
 
             # Merge tokens
             caltoken = self._mergeSyncTokens(caltoken, notificationtoken)
@@ -2565,18 +2576,18 @@ class AddressBookHomeResource (CommonHomeResource):
 
 
     @inlineCallbacks
-    def getSyncToken(self):
+    def getInternalSyncToken(self):
         # The newstore implementation supports this directly
         adbktoken = yield self._newStoreHome.syncToken()
 
         if config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and not config.Sharing.Calendars.Enabled:
-            notifcationtoken = yield (yield self.getChild("notification")).getSyncToken()
+            notifcationtoken = yield (yield self.getChild("notification")).getInternalSyncToken()
             
             # Merge tokens
-            adbkkey, adbkrev = adbktoken.split("#", 1)
-            notrev = notifcationtoken.split("#", 1)[1]
+            adbkkey, adbkrev = adbktoken.split("_", 1)
+            notrev = notifcationtoken.split("_", 1)[1]
             if int(notrev) > int(adbkrev):
-                adbktoken = "%s#%s" % (adbkkey, notrev,)
+                adbktoken = "%s_%s" % (adbkkey, notrev,)
 
         returnValue(adbktoken)
 
