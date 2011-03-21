@@ -29,7 +29,7 @@ RESULTS=$3
 update_and_build $REV
 
 DATE="`./svn-committime $SOURCE $REV`"
-for backend in $BACKENDS; do
+for backend in ${BACKENDS[*]}; do
   setbackend $backend
   for benchmark in $BENCHMARKS; do
       pushd $SOURCE

@@ -24,6 +24,10 @@ REV_SPEC="$1"
 SOURCE_DIR="$2"
 RESULTS="$3"
 
+# Just force the conf file to be written.  We need it to use start and
+# stop, even if it doesn't have a meaningful backend set.
+setbackend ${BACKENDS[0]}
+
 update_and_build "$REV_SPEC"
 REV="$(./svn-revno "$SOURCE_DIR")"
 
@@ -34,7 +38,7 @@ else
 fi
 
 DATE="`./svn-committime $SOURCE $REV`"
-for backend in $BACKENDS; do
+for backend in ${BACKENDS[*]}; do
   setbackend $backend
   pushd $SOURCE
   stop

@@ -18,7 +18,7 @@ set -e # Break on error
 shopt -s nullglob # Expand foo* to nothing if nothing matches
 
 # Names of database backends that can be benchmarked.
-BACKENDS="filesystem postgresql"
+BACKENDS=(filesystem postgresql)
 
 # Location of the CalendarServer source.  Will automatically be
 # updated to the appropriate version, config edited to use the right
