@@ -481,7 +481,6 @@ def getRootResource(config, newStore, resources=None):
             (config.EnableCardDAV, "carddav"),
         ):
             if enabled:
-                host = config.ServerHostName
                 if config.EnableSSL:
                     scheme = "https"
                     port = config.SSLPort
