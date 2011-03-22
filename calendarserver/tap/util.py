@@ -481,7 +481,15 @@ def getRootResource(config, newStore, resources=None):
             (config.EnableCardDAV, "carddav"),
         ):
             if enabled:
-                wellKnownResource.putChild(wellknown_name, RedirectResource(path="/"))
+                host = config.ServerHostName
+                if config.EnableSSL:
+                    scheme = "https"
+                    port = config.SSLPort
+                else:
+                    scheme = "http"
+                    port = config.HTTPPort
+                wellKnownResource.putChild(wellknown_name, RedirectResource(
+                    scheme=scheme, port=port, path="/"))
 
     for name, info in config.Aliases.iteritems():
         if os.path.sep in name or not info.get("path", None):
