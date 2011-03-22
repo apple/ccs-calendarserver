@@ -1806,7 +1806,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         
         if self.addressBooksEnabled():
             baseProperties += (carddavxml.AddressBookHomeSet.qname(),)
-            if config.DirectoryAddressBook.Enabled:
+            if self.directoryAddressBookEnabled():
                 baseProperties += (carddavxml.DirectoryGateway.qname(),)
 
         if config.EnableDropBox:
@@ -1822,10 +1822,13 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
 
     def calendarsEnabled(self):
         return config.EnableCalDAV
-    
+
     def addressBooksEnabled(self):
         return config.EnableCardDAV
-    
+
+    def directoryAddressBookEnabled(self):
+        return config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook
+
     @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
@@ -1899,7 +1902,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 returnValue(carddavxml.AddressBookHomeSet(
                     *[davxml.HRef(url) for url in self.addressBookHomeURLs()]
                  ))
-            elif name == "directory-gateway":
+            elif name == "directory-gateway" and self.directoryAddressBookEnabled():
                 returnValue(carddavxml.DirectoryGateway(
                     davxml.HRef.fromString(joinURL("/", config.DirectoryAddressBook.name, "/"))
                 ))
