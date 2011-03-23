@@ -41,7 +41,7 @@ class Dtrace(object):
         contains_maps = {
             "/CalendarServer": "{caldavd}",
             "/Twisted":        "{Twisted}",
-            "/vobject":        "{vobject}",
+            "/pycalendar":     "{pycalendar}",
         }
 
         def __init__(self, line, lineno):

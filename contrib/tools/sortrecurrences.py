@@ -19,7 +19,7 @@ import getopt
 import os
 import sys
 import traceback
-import vobject
+from pycalendar.calendar import PyCalendar
 
 def usage(error_msg=None):
     if error_msg:
@@ -71,9 +71,9 @@ if __name__ == "__main__":
                 print "Path does not exist: '%s'. Ignoring." % (arg,)
                 continue
 
-            cal = vobject.base.readOne(open(arg))
-            cal.contents['vevent'].sort(key=lambda x:str(x.contents.get('recurrence-id', (vobject.base.ContentLine("recurrence-id", {}, ""),)[0].value)))
-            print cal.serialize()
+            cal = PyCalendar()
+            cal.parse(open(arg))
+            print str(cal.serialize())
 
     except Exception, e:
         sys.exit(str(e))
