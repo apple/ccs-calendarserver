@@ -373,9 +373,9 @@ class PropertyFilter (FilterChildBase):
         # At least one property must match (or is-not-defined is set)
         for property in component.properties():
             # Apply access restrictions, if any.
-            if allowedProperties is not None and property.name() not in allowedProperties:
+            if allowedProperties is not None and property.name().upper() not in allowedProperties:
                 continue
-            if property.name() == self.filter_name and self.match(property, access): break
+            if property.name().upper() == self.filter_name.upper() and self.match(property, access): break
         else:
             return not self.defined
         return self.defined
@@ -392,7 +392,7 @@ class PropertyFilter (FilterChildBase):
         timerange = self.qualifier and isinstance(self.qualifier, TimeRange)
         
         # time-range only on COMPLETED, CREATED, DTSTAMP, LAST-MODIFIED
-        if timerange and self.filter_name not in ("COMPLETED", "CREATED", "DTSTAMP", "LAST-MODIFIED"):
+        if timerange and self.filter_name.upper() not in ("COMPLETED", "CREATED", "DTSTAMP", "LAST-MODIFIED"):
             log.msg("time-range cannot be used with property %s" % (self.filter_name,))
             return False
 
@@ -443,7 +443,7 @@ class ParameterFilter (FilterChildBase):
         # At least one parameter must match (or is-not-defined is set)
         result = not self.defined
         for parameterName in property.parameterNames():
-            if parameterName == self.filter_name and self.match([property.parameterValue(parameterName)], access):
+            if parameterName.upper() == self.filter_name.upper() and self.match([property.parameterValue(parameterName)], access):
                 result = self.defined
                 break
 
@@ -502,7 +502,7 @@ class TextMatch (FilterBase):
         else:
             values = item
 
-        test = self.text
+        test = unicode(self.text, "utf-8")
         if self.caseless:
             test = test.lower()
 
@@ -520,11 +520,11 @@ class TextMatch (FilterBase):
             # so we need to check for that and iterate over the list.
             if isinstance(value, list):
                 for subvalue in value:
-                    matched, result = _textCompare(subvalue)
+                    matched, result = _textCompare(unicode(subvalue))
                     if matched:
                         return result
             else:
-                matched, result = _textCompare(value)
+                matched, result = _textCompare(unicode(value))
                 if matched:
                     return result
         

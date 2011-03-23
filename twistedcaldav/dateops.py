@@ -17,7 +17,7 @@ from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 from pycalendar.period import PyCalendarPeriod
 import datetime
-from vobject.icalendar import utc
+import dateutil.tz
 
 """
 Date/time Utilities
@@ -240,7 +240,7 @@ def pyCalendarTodatetime(pydt):
             hour=pydt.getHours(),
             minute=pydt.getMinutes(),
             second=pydt.getSeconds(),
-            tzinfo=utc
+            tzinfo=dateutil.tz.tzutc()
         )
 
 SQL_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
@@ -268,6 +268,6 @@ def datetimeMktime(dt):
     assert isinstance(dt, datetime.date)
 
     if dt.tzinfo is None:
-        dt.replace(tzinfo=utc)
+        dt.replace(tzinfo=dateutil.tz.tzutc())
     return calendar.timegm(dt.utctimetuple())
 

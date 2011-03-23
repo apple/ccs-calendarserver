@@ -44,7 +44,7 @@ class CalendarDataFilter(CalendarFilter):
     
     def filter(self, ical):
         """
-        Filter the supplied iCalendar (vobject) data using the request information.
+        Filter the supplied iCalendar object using the request information.
 
         @param ical: iCalendar object
         @type ical: L{Component} or C{str}

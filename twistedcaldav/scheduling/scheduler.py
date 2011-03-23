@@ -23,7 +23,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 
 from twext.python.log import Logger, LoggingMixIn
-from twext.python.datetime import iCalendarString
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, Response, StatusResponse
 from twext.web2.http_headers import MimeType
@@ -390,7 +389,7 @@ class Scheduler(object):
                         "VFREEBUSY start or end not UTC",
                     ))
 
-                self.timeRange = caldavxml.TimeRange(start=iCalendarString(dtstart), end=iCalendarString(dtend))
+                self.timeRange = caldavxml.TimeRange(start=dtstart.getText(), end=dtend.getText())
                 self.timeRange.start = dtstart
                 self.timeRange.end = dtend
         

@@ -167,7 +167,7 @@ class PropertyFilter (FilterChildBase):
     def test(self, vcard):
         # At least one property must match (or is-not-defined is set)
         for property in vcard.properties():
-            if property.name() == self.filter_name and self.match(property): break
+            if property.name().upper() == self.filter_name.upper() and self.match(property): break
         else:
             return not self.defined
         return self.defined
@@ -192,8 +192,8 @@ class ParameterFilter (FilterChildBase):
 
         # At least one parameter must match (or is-not-defined is set)
         result = not self.defined
-        for parameterName in property.params().keys():
-            if parameterName == self.filter_name and self.match(property.params()[parameterName]):
+        for parameterName in property.parameterNames():
+            if parameterName.upper() == self.filter_name.upper() and self.match([property.parameterValues(parameterName)]):
                 result = self.defined
                 break
 
@@ -255,7 +255,7 @@ class TextMatch (FilterBase):
         if item is None: return False
 
         if isinstance(item, Property):
-            values = [item.value()]
+            values = [item.strvalue()]
         else:
             values = item
 
@@ -278,7 +278,7 @@ class TextMatch (FilterBase):
 
         for value in values:
             # NB Its possible that we have a text list value which appears as a Python list,
-            # so we need to check for that an iterate over the list.
+            # so we need to check for that and iterate over the list.
             if isinstance(value, list):
                 for subvalue in value:
                     if _textCompare(unicode(subvalue)):

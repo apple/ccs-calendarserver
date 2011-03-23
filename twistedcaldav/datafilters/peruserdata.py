@@ -58,8 +58,7 @@ class PerUserDataFilter(CalendarFilter):
     Filter per-user data
     """
 
-    # If any of these change also change the vobject behaviors in this module's __init__.py
-    # and update usage in ical.py
+    # If any of these change also update usage in ical.py
     PERUSER_COMPONENT     = "X-CALENDARSERVER-PERUSER"
     PERUSER_UID           = "X-CALENDARSERVER-PERUSER-UID"
     PERINSTANCE_COMPONENT = "X-CALENDARSERVER-PERINSTANCE"
@@ -78,7 +77,7 @@ class PerUserDataFilter(CalendarFilter):
     
     def filter(self, ical):
         """
-        Filter the supplied iCalendar (vobject) data using the request information.
+        Filter the supplied iCalendar object using the request information.
         Assume that the object is a CalDAV calendar resource.
 
         @param ical: iCalendar object - this will be modified and returned

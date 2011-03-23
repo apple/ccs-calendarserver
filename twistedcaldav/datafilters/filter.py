@@ -33,7 +33,7 @@ class CalendarFilter(object):
     
     def filter(self, ical):
         """
-        Filter the supplied iCalendar (vobject) data using the request information.
+        Filter the supplied iCalendar object using the request information.
 
         @param ical: iCalendar object
         @type ical: L{Component}
@@ -44,7 +44,7 @@ class CalendarFilter(object):
     
     def merge(self, icalnew, icalold):
         """
-        Merge the old iCalendar (vobject) data into the new iCalendar data using the request information.
+        Merge the old iCalendar object into the new iCalendar data using the request information.
         
         @param icalnew: new iCalendar object to merge data into
         @type icalnew: L{Component}
@@ -78,7 +78,7 @@ class AddressFilter(object):
     
     def filter(self, vcard):
         """
-        Filter the supplied vCard (vobject) data using the request information.
+        Filter the supplied vCard object using the request information.
 
         @param vcard: iCalendar object
         @type vcard: L{Component}
@@ -89,7 +89,7 @@ class AddressFilter(object):
     
     def merge(self, vcardnew, vcardold):
         """
-        Merge the old vcard (vobject) data into the new vcard data using the request information.
+        Merge the old vcard object into the new vcard data using the request information.
         
         @param vcardnew: new vcard object to merge data into
         @type vcardnew: L{Component}

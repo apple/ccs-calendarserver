@@ -35,6 +35,10 @@ from os.path import join, abspath
 from tempfile import mkstemp, gettempdir
 from random import random
 
+from pycalendar.n import N
+from pycalendar.adr import Adr
+from pycalendar.datetime import PyCalendarDateTime
+
 from socket import getfqdn
 
 from twisted.internet import reactor
@@ -51,13 +55,11 @@ from twistedcaldav import customxml, carddavxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
-from twistedcaldav.ical import iCalendarProductID
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.query import addressbookqueryfilter
-from twistedcaldav.vcard import Component, Property
+from twistedcaldav.vcard import Component, Property, vCardProductID
 
 from xmlrpclib import datetime
-from vobject.vcard import Name, Address
 
 from calendarserver.platform.darwin.od import dsattributes, dsquery
 from twisted.python.reflect import namedModule
@@ -1208,13 +1210,9 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
     
     constantProperties = {
         # 3.6.3 PRODID Type Definition
-        # should put version in but twistedcaldav.__version__, is NONE
-        # "PRODID": iCalendarProductID + "//BUILD %s" % twistedcaldav.__version__,
-        "PRODID": iCalendarProductID,
+        "PRODID": vCardProductID,
         # 3.6.9 VERSION Type Definition
         "VERSION": "3.0",
-        # 3.7.1 CLASS Type Definition
-        #"CLASS": "PUBLIC" if config.AnonymousDirectoryAddressBookAccess else "CONFIDENTIAL",
         }
 
     
@@ -1334,7 +1332,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
         
         # ds templates often return empty attribute values
         #     get rid of them here
-        nonEmptyValues = [value for value in values if len(value) > 0 ]
+        nonEmptyValues = [(value.encode("utf-8") if isinstance(value, unicode) else value) for value in values if len(value) > 0 ]
         
         if len(nonEmptyValues) > 0:
             return nonEmptyValues
@@ -1347,9 +1345,9 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
         if values is None:
             return default_value
         elif isinstance(values, list):
-            return values[0]
+            return values[0].encode("utf_8") if isinstance(values[0], unicode) else values[0]
         else:
-            return values
+            return values.encode("utf_8") if isinstance(values, unicode) else values
 
     def joinedValuesForAttribute(self, attributeName, separator=",", default_string="" ):
         values = self.valuesForAttribute(attributeName, None)
@@ -1376,32 +1374,15 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
         
         def generateVCard():
             
-            def equalDictWithFilter( dict1, dict2, ignoreDict ):
-                def filteredDict(dict, ignoreDict):
-
-                    if ignoreDict:                
-                        for ignoreDictKey, ignoreDictValues in ignoreDict.items():
-                            dictKeyValues = dict[ignoreDictKey]
-                            if dictKeyValues:
-                                for ignoreDictValue in ignoreDictValues:
-                                    while ignoreDictValue in dictKeyValues:
-                                        # copy dictionary and remove value from copy
-                                        dictKeyValues = list(dictKeyValues)
-                                        dictKeyValues.remove(ignoreDictValue)
-                                        dict = dict.copy()
-                                        dict[ignoreDictKey] = dictKeyValues
-
-                    return dict
-                
-                return filteredDict(dict1, ignoreDict) == filteredDict(dict2, ignoreDict) 
-
-
             def isUniqueProperty(vcard, newProperty, ignoreParams = None):
-                existingProperties = vcard.properties( newProperty.name() )
+                existingProperties = vcard.properties(newProperty.name())
                 for existingProperty in existingProperties:
-                    if existingProperty.value() == newProperty.value():
-                        if equalDictWithFilter( existingProperty.params(), newProperty.params(), ignoreParams):
-                            return False
+                    if ignoreParams:
+                        existingProperty = existingProperty.duplicate()
+                        for paramname, paramvalue in ignoreParams:
+                            existingProperty.removeParameterValue(paramname, paramvalue)
+                    if existingProperty == newProperty:
+                        return False
                 return True
 
             def addUniqueProperty(vcard, newProperty, ignoreParams = None, attrType = None, attrValue = None):
@@ -1414,7 +1395,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
             def addPropertyAndLabel(groupCount, label, propertyName, propertyValue, parameters = None ):
                 groupCount[0] += 1
                 groupPrefix = "item%d" % groupCount[0]
-                vcard.addProperty(Property(propertyName, propertyValue, params = parameters, group=groupPrefix))
+                vcard.addProperty(Property(propertyName, propertyValue, params=parameters, group=groupPrefix))
                 vcard.addProperty(Property("X-ABLabel", label, group=groupPrefix))
 
             # for attributes of the form  param:value
@@ -1448,11 +1429,11 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
 
                         # only add label prop if needed
                         if paramTypeString in nolabelParamTypes:
-                            addUniqueProperty(vcard, Property(propertyName, attrValue[colonIndex+1:], params = parameters), None, attrValue, attrType)
+                            addUniqueProperty(vcard, Property(propertyName, attrValue[colonIndex+1:], params=parameters), None, attrValue, attrType)
                         else:
                             # use special localizable addressbook labels where possible
                             abLabelString = labelMap.get(labelString, labelString)
-                            addPropertyAndLabel( groupCount, abLabelString, propertyName, propertyValue, parameters)
+                            addPropertyAndLabel(groupCount, abLabelString, propertyName, propertyValue, parameters)
                         preferred = False
 
                     except Exception, e:
@@ -1491,27 +1472,25 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
                                                         #      dsattributes.kDSStdRecordTypePeople).
                                                         
             # name is required, so make sure we have one
-            # vobject.vcard says: Each name attribute can be a string or a list of strings.
+            # vcard says: Each name attribute can be a string or a list of strings.
             if not self.hasAttribute(dsattributes.kDS1AttrFirstName) and not self.hasAttribute(dsattributes.kDS1AttrLastName):
                 familyName = self.firstValueForAttribute(dsattributes.kDS1AttrDistinguishedName)
             else:
                 familyName = self.valuesForAttribute(dsattributes.kDS1AttrLastName, "")
             
-            NameObject = Name(family = familyName, 
-                                                  given = self.valuesForAttribute(dsattributes.kDS1AttrFirstName, ""),
-                                                  additional = self.valuesForAttribute(dsattributes.kDS1AttrMiddleName, ""),
-                                                  prefix = self.valuesForAttribute(dsattributes.kDSNAttrNamePrefix, ""),
-                                                  suffix = self.valuesForAttribute(dsattributes.kDSNAttrNameSuffix, ""),
-                                                  )
-            vcard.addProperty(Property("N", NameObject ))
+            nameObject = N(
+                first = self.valuesForAttribute(dsattributes.kDS1AttrFirstName, ""),
+                last = familyName, 
+                middle = self.valuesForAttribute(dsattributes.kDS1AttrMiddleName, ""),
+                prefix = self.valuesForAttribute(dsattributes.kDSNAttrNamePrefix, ""),
+                suffix = self.valuesForAttribute(dsattributes.kDSNAttrNameSuffix, ""),
+            )
+            vcard.addProperty(Property("N", nameObject))
             
             # set full name to Name with contiguous spaces stripped
             # it turns out that Address Book.app ignores FN and creates it fresh from N in ABRecord
             # so no reason to have FN distinct from N
-            fullName = str(NameObject).strip()
-            while fullName.find("  ") > 0:
-                fullName = " ".join(fullName.split("  "))
-            vcard.addProperty(Property("FN", fullName ))
+            vcard.addProperty(Property("FN", nameObject.getFullName() ))
             
             # 3.1.3 NICKNAME Type Definition
             # dsattributes.kDSNAttrNickName,            # Represents the nickname of a user or person.
@@ -1527,7 +1506,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
             # pyOpenDirectory always returns binary-encoded string                                       
                                                         
             for photo in self.valuesForAttribute(dsattributes.kDSNAttrJPEGPhoto):
-                addUniqueProperty(vcard, Property("PHOTO", photo, params = { "ENCODING": ["b",], "TYPE": ["JPEG",], }, encoded = True), None, dsattributes.kDSNAttrJPEGPhoto, photo)
+                addUniqueProperty(vcard, Property("PHOTO", photo, params={"ENCODING": ["b",], "TYPE": ["JPEG",],}), None, dsattributes.kDSNAttrJPEGPhoto, photo)
     
     
             # 3.1.5 BDAY Type Definition
@@ -1537,7 +1516,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
             
             birthdate = self.isoDateStringForDateAttribute(dsattributes.kDS1AttrBirthday)
             if birthdate:
-                vcard.addProperty(Property("BDAY", birthdate))
+                vcard.addProperty(Property("BDAY", PyCalendarDateTime.parseText(birthdate, fullISO=True)))
     
     
             # 3.2 Delivery Addressing Types http://tools.ietf.org/html/rfc2426#section-3.2
@@ -1545,7 +1524,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
             # 3.2.1 ADR Type Definition
     
             #address
-            # vobject.vcard says: Each address attribute can be a string or a list of strings.
+            # vcard says: Each address attribute can be a string or a list of strings.
             extended = self.valuesForAttribute(dsattributes.kDSNAttrBuilding, "")
             street = self.valuesForAttribute(dsattributes.kDSNAttrStreet, "")
             city = self.valuesForAttribute(dsattributes.kDSNAttrCity, "")
@@ -1554,16 +1533,18 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
             country = self.valuesForAttribute(dsattributes.kDSNAttrCountry, "")
             
             if len(extended) > 0 or len(street) > 0 or len(city) > 0 or len(region) > 0 or len(code) > 0 or len(country) > 0:
-                vcard.addProperty(Property("ADR", Address(
-                                                           #box = box,
-                                                           extended = extended,
-                                                           street = street,
-                                                           city = city,
-                                                           region = region,
-                                                           code = code,
-                                                           country = country,
-                                                           ),
-                                                           params = { "TYPE": ["WORK", "PREF", "POSTAL", "PARCEL",], }))
+                vcard.addProperty(Property("ADR",
+                    Adr(
+                        #pobox = box,
+                        extended = extended,
+                        street = street,
+                        locality = city,
+                        region = region,
+                        postalcode = code,
+                        country = country,
+                    ),
+                    params = {"TYPE": ["WORK", "PREF", "POSTAL", "PARCEL",],}
+                ))
     
     
             # 3.2.2 LABEL Type Definition
@@ -1576,10 +1557,10 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
             # dsattributes.kDSNAttrAddressLine3,            # Line three of multiple lines of address data for a user.
             
             for label in self.valuesForAttribute(dsattributes.kDSNAttrPostalAddress):
-                addUniqueProperty(vcard, Property("LABEL", label, params = { "TYPE": ["POSTAL", "PARCEL",]}), None, dsattributes.kDSNAttrPostalAddress, label)
+                addUniqueProperty(vcard, Property("LABEL", label, params={"TYPE": ["POSTAL", "PARCEL",]}), None, dsattributes.kDSNAttrPostalAddress, label)
                 
             for label in self.valuesForAttribute(dsattributes.kDSNAttrPostalAddressContacts):
-                addUniqueProperty(vcard, Property("LABEL", label, params = { "TYPE": ["POSTAL", "PARCEL",]}), None, dsattributes.kDSNAttrPostalAddressContacts, label)
+                addUniqueProperty(vcard, Property("LABEL", label, params={"TYPE": ["POSTAL", "PARCEL",]}), None, dsattributes.kDSNAttrPostalAddressContacts, label)
                 
             address = self.joinedValuesForAttribute(dsattributes.kDSNAttrAddressLine1)
             addressLine2 = self.joinedValuesForAttribute(dsattributes.kDSNAttrAddressLine2)
@@ -1590,7 +1571,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
                 address += "\n" + addressLine3
             
             if len(address) > 0:
-                vcard.addProperty(Property("LABEL", address, params = { "TYPE": ["POSTAL", "PARCEL",]}))
+                vcard.addProperty(Property("LABEL", address, params={"TYPE": ["POSTAL", "PARCEL",]}))
     
             # 3.3 TELECOMMUNICATIONS ADDRESSING TYPES http://tools.ietf.org/html/rfc2426#section-3.3
             # 3.3.1 TEL Type Definition
@@ -1611,29 +1592,29 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
                                                         #      found in user records (kDSStdRecordTypeUsers). 
                                                         #      Example: home fax:408-555-4444
             
-            params = { "TYPE": ["WORK", "PREF", "VOICE",], }
+            params = {"TYPE": ["WORK", "PREF", "VOICE",],}
             for phone in self.valuesForAttribute(dsattributes.kDSNAttrPhoneNumber):
-                addUniqueProperty(vcard, Property("TEL", phone, params=params), {"TYPE": ["PREF"]}, phone, dsattributes.kDSNAttrPhoneNumber)
-                params = { "TYPE": ["WORK", "VOICE",], }
+                addUniqueProperty(vcard, Property("TEL", phone, params=params), (("TYPE", "PREF"),), phone, dsattributes.kDSNAttrPhoneNumber)
+                params = {"TYPE": ["WORK", "VOICE",],}
     
             params = { "TYPE": ["WORK", "PREF", "CELL",], }
             for phone in self.valuesForAttribute(dsattributes.kDSNAttrMobileNumber):
-                addUniqueProperty(vcard, Property("TEL", phone, params=params), {"TYPE": ["PREF"]}, phone, dsattributes.kDSNAttrMobileNumber)
+                addUniqueProperty(vcard, Property("TEL", phone, params=params), (("TYPE", "PREF"),), phone, dsattributes.kDSNAttrMobileNumber)
                 params = { "TYPE": ["WORK", "CELL",], }
     
             params = { "TYPE": ["WORK", "PREF", "FAX",], }
             for phone in self.valuesForAttribute(dsattributes.kDSNAttrFaxNumber):
-                addUniqueProperty(vcard, Property("TEL", phone, params=params), {"TYPE": ["PREF"]}, phone, dsattributes.kDSNAttrFaxNumber)
+                addUniqueProperty(vcard, Property("TEL", phone, params=params), (("TYPE", "PREF"),), phone, dsattributes.kDSNAttrFaxNumber)
                 params = { "TYPE": ["WORK", "FAX",], }
     
             params = { "TYPE": ["WORK", "PREF", "PAGER",], }
             for phone in self.valuesForAttribute(dsattributes.kDSNAttrPagerNumber):
-                addUniqueProperty(vcard, Property("TEL", phone, params=params), {"TYPE": ["PREF"]}, phone, dsattributes.kDSNAttrPagerNumber)
+                addUniqueProperty(vcard, Property("TEL", phone, params=params), (("TYPE", "PREF"),), phone, dsattributes.kDSNAttrPagerNumber)
                 params = { "TYPE": ["WORK", "PAGER",], }
     
             params = { "TYPE": ["HOME", "PREF", "VOICE",], }
             for phone in self.valuesForAttribute(dsattributes.kDSNAttrHomePhoneNumber):
-                addUniqueProperty(vcard, Property("TEL", phone, params=params), {"TYPE": ["PREF"]}, phone, dsattributes.kDSNAttrHomePhoneNumber)
+                addUniqueProperty(vcard, Property("TEL", phone, params=params), (("TYPE", "PREF"),), phone, dsattributes.kDSNAttrHomePhoneNumber)
                 params = { "TYPE": ["HOME", "VOICE",], }
                     
             addPropertiesAndLabelsForPrefixedAttribute(groupCount, None, "TEL", "work",
@@ -1653,7 +1634,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
             workParams = { "TYPE": ["WORK", "INTERNET",], }
             params = preferredWorkParams
             for emailAddress in self.valuesForAttribute(dsattributes.kDSNAttrEMailAddress):
-                addUniqueProperty(vcard, Property("EMAIL", emailAddress, params=params), {"TYPE": ["PREF"]}, emailAddress, dsattributes.kDSNAttrEMailAddress)
+                addUniqueProperty(vcard, Property("EMAIL", emailAddress, params=params), (("TYPE", "PREF"),), emailAddress, dsattributes.kDSNAttrEMailAddress)
                 params = workParams
                 
             # dsattributes.kDSNAttrEMailContacts,        # multi-valued attribute that defines a record's custom email addresses .
@@ -1681,7 +1662,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
             for coordinate in self.valuesForAttribute(dsattributes.kDSNAttrMapCoordinates):
                 parts = coordinate.split(",")
                 if (len(parts) == 2):
-                    vcard.addProperty(Property("GEO", parts ))
+                    vcard.addProperty(Property("GEO", parts))
                 else:
                     self.log_info("Ignoring malformed attribute %r with value %r. Well-formed example: 7.7,10.6." % (dsattributes.kDSNAttrMapCoordinates, coordinate))
             #
@@ -1721,14 +1702,14 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
                 addUniqueProperty(vcard, Property("NOTE", note), None, dsattributes.kDS1AttrNote, note)
             
             # 3.6.3 PRODID Type Definition
-            #vcard.addProperty(Property("PRODID", iCalendarProductID + "//BUILD %s" % twistedcaldav.__version__))
-            #vcard.addProperty(Property("PRODID", iCalendarProductID))
+            #vcard.addProperty(Property("PRODID", vCardProductID + "//BUILD %s" % twistedcaldav.__version__))
+            #vcard.addProperty(Property("PRODID", vCardProductID))
             # ADDED WITH CONTSTANT PROPERTIES
             
             # 3.6.4 REV Type Definition
             revDate = self.isoDateStringForDateAttribute(dsattributes.kDS1AttrModificationTimestamp)
             if revDate:
-                vcard.addProperty(Property("REV", revDate))
+                vcard.addProperty(Property("REV", PyCalendarDateTime.parseText(revDate, fullISO=True)))
             
             """
             # UNIMPLEMENTED:
@@ -1748,10 +1729,10 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
                                                         #     Usually found in user records (kDSStdRecordTypeUsers). 
                                                         #      Example: http://example.com/blog/jsmith
             for url in self.valuesForAttribute(dsattributes.kDS1AttrWeblogURI):
-                addPropertyAndLabel( groupCount, "weblog", "URL", url, parameters = { "TYPE": ["Weblog",] } )
+                addPropertyAndLabel(groupCount, "weblog", "URL", url, parameters = {"TYPE": ["Weblog",]})
     
             for url in self.valuesForAttribute(dsattributes.kDSNAttrURL):
-                addPropertyAndLabel( groupCount, "_$!<HomePage>!$_", "URL", url, parameters = { "TYPE": ["Homepage",] } )
+                addPropertyAndLabel(groupCount, "_$!<HomePage>!$_", "URL", url, parameters = {"TYPE": ["Homepage",]})
     
     
             # 3.6.9 VERSION Type Definition
@@ -1778,16 +1759,16 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
                                                         #       emails.
     
             for key in self.valuesForAttribute(dsattributes.kDSNAttrPGPPublicKey):
-                addUniqueProperty(vcard, Property("KEY", key, params = { "ENCODING": ["b",], "TYPE": ["PGPPublicKey",] }, encoded=True), None, dsattributes.kDSNAttrPGPPublicKey, key)
+                addUniqueProperty(vcard, Property("KEY", key, params = {"ENCODING": ["b",], "TYPE": ["PGPPublicKey",]}), None, dsattributes.kDSNAttrPGPPublicKey, key)
     
             for key in self.valuesForAttribute(dsattributes.kDS1AttrUserCertificate):
-                addUniqueProperty(vcard, Property("KEY", key, params = { "ENCODING": ["b",], "TYPE": ["UserCertificate",] }, encoded=True), None, dsattributes.kDS1AttrUserCertificate, key)
+                addUniqueProperty(vcard, Property("KEY", key, params = {"ENCODING": ["b",], "TYPE": ["UserCertificate",]}), None, dsattributes.kDS1AttrUserCertificate, key)
     
             for key in self.valuesForAttribute(dsattributes.kDS1AttrUserPKCS12Data):
-                addUniqueProperty(vcard, Property("KEY", key, params = { "ENCODING": ["b",], "TYPE": ["UserPKCS12Data",] }, encoded=True), None, dsattributes.kDS1AttrUserPKCS12Data, key)
+                addUniqueProperty(vcard, Property("KEY", key, params = {"ENCODING": ["b",], "TYPE": ["UserPKCS12Data",]}), None, dsattributes.kDS1AttrUserPKCS12Data, key)
     
             for key in self.valuesForAttribute(dsattributes.kDS1AttrUserSMIMECertificate):
-                addUniqueProperty(vcard, Property("KEY", key, params = { "ENCODING": ["b",], "TYPE": ["UserSMIMECertificate",] }), None, dsattributes.kDS1AttrUserSMIMECertificate, key)
+                addUniqueProperty(vcard, Property("KEY", key, params = {"ENCODING": ["b",], "TYPE": ["UserSMIMECertificate",]}), None, dsattributes.kDS1AttrUserSMIMECertificate, key)
     
             """
             X- attributes, Address Book support
@@ -1834,7 +1815,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
                         managerValue = "%s %s" % (splitManager[0], splitManager[1])
                     else:
                         managerValue = manager
-                    addPropertyAndLabel( groupCount, "_$!<Manager>!$_", "X-ABRELATEDNAMES", managerValue, parameters = { "TYPE": ["Manager",] } )
+                    addPropertyAndLabel( groupCount, "_$!<Manager>!$_", "X-ABRELATEDNAMES", managerValue, parameters={ "TYPE": ["Manager",]} )
             
             """
             # UNIMPLEMENTED: X- attributes

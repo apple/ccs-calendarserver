@@ -39,6 +39,7 @@ from twext.web2.static import File as FileResource
 
 from twisted.cred.portal import Portal
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet import reactor as _reactor
 from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.tcp import Connection
 from twisted.python.reflect import namedClass
@@ -440,7 +441,10 @@ def getRootResource(config, newStore, resources=None):
             directoryBackedAddressBookCollection = directoryBackedAddressBookResourceClass(
                 principalCollections=(principalCollection,)
             )
-            addSystemEventTrigger("after", "startup", directoryBackedAddressBookCollection.provisionDirectory)
+            if _reactor._started:
+                directoryBackedAddressBookCollection.provisionDirectory()
+            else:
+                addSystemEventTrigger("after", "startup", directoryBackedAddressBookCollection.provisionDirectory)
         else:
             # remove /directory from previous runs that may have created it
             try:

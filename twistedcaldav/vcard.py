@@ -25,14 +25,16 @@ __all__ = [
 ]
 
 import cStringIO as StringIO
-
-from vobject import newFromBehavior, readComponents
-from vobject.base import Component as vComponent
-from vobject.base import ContentLine as vContentLine
-from vobject.base import ParseError as vParseError
+import codecs
 
 from twext.web2.stream import IStream
 from twext.web2.dav.util import allDataFromStream
+
+from pycalendar.attribute import PyCalendarAttribute
+from pycalendar.componentbase import PyCalendarComponentBase
+from pycalendar.exceptions import PyCalendarInvalidData
+from pycalendar.vcard.card import Card
+from pycalendar.vcard.property import Property as pyProperty
 
 vCardProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
 
@@ -43,7 +45,7 @@ class Property (object):
     """
     vCard Property
     """
-    def __init__(self, name, value, params={}, group=None, encoded=False, **kwargs):
+    def __init__(self, name, value, params={}, group=None, **kwargs):
         """
         @param name: the property's name
         @param value: the property's value
@@ -54,18 +56,23 @@ class Property (object):
             assert value  is None
             assert params is None
 
-            vobj = kwargs["vobject"]
+            pyobj = kwargs["pycard"]
 
-            if not isinstance(vobj, vContentLine):
-                raise TypeError("Not a vContentLine: %r" % (property,))
+            if not isinstance(pyobj, pyProperty):
+                raise TypeError("Not a pyProperty: %r" % (property,))
 
-            self._vobject = vobj
+            self._pycard = pyobj
         else:
-            # Convert params dictionary to list of lists format used by vobject
-            lparams = [[key] + lvalue for key, lvalue in params.items()]
-            self._vobject = vContentLine(name, lparams, value, isNative=True, group=group, encoded=encoded )
+            # Convert params dictionary to list of lists format used by pycalendar
+            if isinstance(value, unicode):
+                value = value.encode("utf-8")
+            self._pycard = pyProperty(group=group, name=name, value=value)
+            for attrname, attrvalue in params.items():
+                if isinstance(attrvalue, unicode):
+                    attrvalue = attrvalue.encode("utf-8")
+                self._pycard.addAttribute(PyCalendarAttribute(attrname, attrvalue))
 
-    def __str__ (self): return self._vobject.serialize()
+    def __str__ (self): return str(self._pycard)
     def __repr__(self): return "<%s: %r: %r>" % (self.__class__.__name__, self.name(), self.value())
 
     def __hash__(self): return hash(str(self))
@@ -73,7 +80,7 @@ class Property (object):
     def __ne__(self, other): return not self.__eq__(other)
     def __eq__(self, other):
         if not isinstance(other, Property): return False
-        return self.name() == other.name() and self.value() == other.value()
+        return self._pycard == other._pycard
 
     def __gt__(self, other): return not (self.__eq__(other) or self.__lt__(other))
     def __lt__(self, other):
@@ -88,32 +95,115 @@ class Property (object):
     def __ge__(self, other): return self.__eq__(other) or self.__gt__(other)
     def __le__(self, other): return self.__eq__(other) or self.__lt__(other)
 
-    def name  (self): return self._vobject.name
-
-    def value (self): return self._vobject.value
-    def setValue(self, value):
-        self._vobject.value = value
-
-    def params(self): return self._vobject.params
-
-    def transformAllFromNative(self):
-        transformed = self._vobject.isNative
-        if transformed:
-            self._vobject = self._vobject.transformFromNative()
-            self._vobject.transformChildrenFromNative()
-        return transformed
+    def duplicate(self):
+        """
+        Duplicate this object and all its contents.
+        @return: the duplicated vcard.
+        """
+        return Property(None, None, params=None, pycard=self._pycard.duplicate())
         
-    def transformAllToNative(self):
-        transformed = not self._vobject.isNative
-        if transformed:
-            self._vobject = self._vobject.transformToNative()
-            self._vobject.transformChildrenToNative()
-        return transformed
+    def name  (self): return self._pycard.getName()
+
+    def value (self): return self._pycard.getValue().getValue()
+
+    def strvalue (self): return str(self._pycard.getValue())
+
+    def setValue(self, value):
+        self._pycard.setValue(value)
+
+    def parameterNames(self):
+        """
+        Returns a set containing parameter names for this property.
+        """
+        result = set()
+        for pyattrlist in self._pycard.getAttributes().values():
+            for pyattr in pyattrlist:
+                result.add(pyattr.getName())
+        return result
+
+    def parameterValue(self, name, default=None):
+        """
+        Returns a single value for the given parameter.  Raises
+        InvalidICalendarDataError if the parameter has more than one value.
+        """
+        try:
+            return self._pycard.getAttributeValue(name)
+        except KeyError:
+            return default
+
+    def parameterValues(self, name):
+        """
+        Returns a single value for the given parameter.  Raises
+        InvalidICalendarDataError if the parameter has more than one value.
+        """
+        results = []
+        try:
+            attrs = self._pycard.getAttributes()[name.upper()]
+        except KeyError:
+            return []
+        
+        for attr in attrs:
+            results.extend(attr.getValues())
+        return results
+
+    def hasParameter(self, paramname):
+        return self._pycard.hasAttribute(paramname)
+
+    def setParameter(self, paramname, paramvalue):
+        self._pycard.replaceAttribute(PyCalendarAttribute(paramname, paramvalue))
+
+    def removeParameter(self, paramname):
+        self._pycard.removeAttributes(paramname)
+
+    def removeAllParameters(self):
+        self._pycard.setAttributes({})
+
+    def removeParameterValue(self, paramname, paramvalue):
+        
+        paramname = paramname.upper()
+        for attr in tuple(self._pycard.getAttributes()):
+            if attr.getName().upper() == paramname:
+                for value in attr.getValues():
+                    if value == paramvalue:
+                        if not attr.removeValue(value):
+                            self._pycard.removeAttributes(paramname)
+
 
 class Component (object):
     """
     X{vCard} component.
     """
+    @classmethod
+    def allFromString(clazz, string):
+        """
+        FIXME: Just default to reading a single VCARD - actually need more
+        """
+        if type(string) is unicode:
+            string = string.encode("utf-8")
+        else:
+            # Valid utf-8 please
+            string.decode("utf-8")
+        
+        # No BOMs please
+        if string[:3] == codecs.BOM_UTF8:
+            string = string[3:]
+
+        return clazz.allFromStream(StringIO.StringIO(string))
+
+    @classmethod
+    def allFromStream(clazz, stream):
+        """
+        FIXME: Just default to reading a single VCARD - actually need more
+        """
+        try:
+            results = Card.parseMultiple(stream)
+        except PyCalendarInvalidData:
+            results = None
+        if not results:
+            stream.seek(0)
+            raise InvalidVCardDataError("%s" % (stream.read(),))
+        return [clazz(None, pycard=result) for result in results]
+
     @classmethod
     def fromString(clazz, string):
         """
@@ -124,6 +214,14 @@ class Component (object):
         """
         if type(string) is unicode:
             string = string.encode("utf-8")
+        else:
+            # Valid utf-8 please
+            string.decode("utf-8")
+        
+        # No BOMs please
+        if string[:3] == codecs.BOM_UTF8:
+            string = string[3:]
+
         return clazz.fromStream(StringIO.StringIO(string))
 
     @classmethod
@@ -134,43 +232,15 @@ class Component (object):
         @return: a L{Component} representing the first component described by
             C{stream}.
         """
+        cal = Card()
         try:
-            return clazz(None, vobject=readComponents(stream).next())
-        except vParseError, e:
-            raise InvalidVCardDataError(e)
-        except StopIteration, e:
-            raise InvalidVCardDataError(e)
-
-    @classmethod
-    def allFromString(clazz, string):
-        """
-        Construct a L{Component} from a string.
-        @param string: a string containing vCard data.
-        @return: a C{list} of L{Component}s representing the components described by
-            C{string}.
-        """
-        if type(string) is unicode:
-            string = string.encode("utf-8")
-        return clazz.allFromStream(StringIO.StringIO(string))
-
-    @classmethod
-    def allFromStream(clazz, stream):
-        """
-        Construct possibly multiple L{Component}s from a stream.
-        @param stream: a C{read()}able stream containing vCard data.
-        @return: a C{list} of L{Component}s representing the components described by
-            C{stream}.
-        """
-        
-        results = []
-        try:
-            for vobject in readComponents(stream):
-                results.append(clazz(None, vobject=vobject))
-            return results
-        except vParseError, e:
-            raise InvalidVCardDataError(e)
-        except StopIteration, e:
-            raise InvalidVCardDataError(e)
+            result = cal.parse(stream)
+        except PyCalendarInvalidData:
+            result = None
+        if not result:
+            stream.seek(0)
+            raise InvalidVCardDataError("%s" % (stream.read(),))
+        return clazz(None, pycard=cal)
 
     @classmethod
     def fromIStream(clazz, stream):
@@ -198,14 +268,14 @@ class Component (object):
             component.
         """
         if name is None:
-            if "vobject" in kwargs:
-                vobj = kwargs["vobject"]
+            if "pycard" in kwargs:
+                pyobj = kwargs["pycard"]
 
-                if vobj is not None:
-                    if not isinstance(vobj, vComponent):
-                        raise TypeError("Not a vComponent: %r" % (vobj,))
+                if pyobj is not None:
+                    if not isinstance(pyobj, PyCalendarComponentBase):
+                        raise TypeError("Not a PyCalendarComponentBase: %r" % (pyobj,))
 
-                self._vobject = vobj
+                self._pycard = pyobj
             else:
                 raise AssertionError("name may not be None")
 
@@ -221,12 +291,14 @@ class Component (object):
                 self._parent = parent
             else:
                 self._parent = None
-        else:
-            self._vobject = newFromBehavior(name)
+        elif name == "VCARD":
+            self._pycard = Card(add_defaults=False)
             self._parent = None
+        else:
+            raise ValueError("VCards have no child components")
 
-    def __str__ (self): return self._vobject.serialize()
-    def __repr__(self): return "<%s: %r>" % (self.__class__.__name__, str(self._vobject))
+    def __str__ (self): return str(self._pycard)
+    def __repr__(self): return "<%s: %r>" % (self.__class__.__name__, str(self._pycard))
 
     def __hash__(self):
         return hash(str(self))
@@ -235,51 +307,31 @@ class Component (object):
     def __eq__(self, other):
         if not isinstance(other, Component):
             return False
-
-        my_properties = set(self.properties())
-        for property in other.properties():
-            if property in my_properties:
-                my_properties.remove(property)
-            else:
-                return False
-        if my_properties:
-            return False
-
-        return True
+        return self._pycard == other._pycard
 
     # FIXME: Should this not be in __eq__?
     def same(self, other):
-        return self._vobject == other._vobject
+        return self._pycard == other._pycard
     
     def name(self):
         """
         @return: the name of the iCalendar type of this component.
         """
-        return self._vobject.name
-
-    def setBehavior(self, behavior):
-        """
-        Set the behavior of the underlying iCal obtecy.
-        @param behavior: the behavior type to set.
-        """
-        self._vobject.setBehavior(behavior)
+        return self._pycard.getType()
 
     def duplicate(self):
         """
         Duplicate this object and all its contents.
         @return: the duplicated vcard.
         """
-        return Component(None, vobject=vComponent.duplicate(self._vobject))
+        return Component(None, pycard=self._pycard.duplicate())
         
     def hasProperty(self, name):
         """
         @param name: the name of the property whose existence is being tested.
         @return: True if the named property exists, False otherwise.
         """
-        try:
-            return len(self._vobject.contents[name.lower()]) > 0
-        except KeyError:
-            return False
+        return self._pycard.hasProperty(name)
 
     def getProperty(self, name):
         """
@@ -300,64 +352,51 @@ class Component (object):
         @return: an iterable of L{Property} objects, one for each property of
             this component.
         """
+        properties = []
         if name is None:
-            properties = self._vobject.getChildren()
-        else:
-            try:
-                properties = self._vobject.contents[name.lower()]
-            except KeyError:
-                return ()
+            [properties.extend(i) for i in self._pycard.getProperties().values()]
+        elif self._pycard.countProperty(name) > 0:
+            properties = self._pycard.getProperties(name)
 
         return (
-            Property(None, None, None, vobject=p)
+            Property(None, None, None, pycard=p)
             for p in properties
-            if isinstance(p, vContentLine)
         )
 
     def propertyValue(self, name):
         properties = tuple(self.properties(name))
-        if len(properties) == 1: return properties[0].value()
-        if len(properties) > 1: raise InvalidVCardDataError("More than one %s property in component %r" % (name, self))
+        if len(properties) == 1:
+            return properties[0].value()
+        if len(properties) > 1:
+            raise InvalidVCardDataError("More than one %s property in component %r" % (name, self))
         return None
 
-
-    def propertyNativeValue(self, name):
-        """
-        Return the native property value for the named property in the supplied component.
-        NB Assumes a single property exists in the component.
-        @param name: the name of the property whose value is required
-        @return: the native property value
-        """
-        properties = tuple(self.properties(name))
-
-        if len(properties) == 1:
-            transormed = properties[0].transformAllToNative()
-    
-            result = properties[0].value()
-    
-            if transormed:
-                properties[0].transformAllFromNative()
-                
-            return result
-
-        elif len(properties) > 1:
-            raise InvalidVCardDataError("More than one %s property in component %r" % (name, self))
-        else:
-            return None
 
     def addProperty(self, property):
         """
         Adds a property to this component.
         @param property: the L{Property} to add to this component.
         """
-        self._vobject.add(property._vobject)
+        self._pycard.addProperty(property._pycard)
+        self._pycard.finalise()
 
     def removeProperty(self, property):
         """
         Remove a property from this component.
         @param property: the L{Property} to remove from this component.
         """
-        self._vobject.remove(property._vobject)
+        self._pycard.removeProperty(property._pycard)
+        self._pycard.finalise()
+
+    def replaceProperty(self, property):
+        """
+        Add or replace a property in this component.
+        @param property: the L{Property} to add or replace in this component.
+        """
+        
+        # Remove all existing ones first
+        self._pycard.removeProperties(property.name())
+        self.addProperty(property)
 
     def resourceUID(self):
         """
@@ -388,12 +427,3 @@ class Component (object):
         s = str(self)
         if len(s.translate(None, "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0B\x0C\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F")) != len(s):
             raise InvalidVCardDataError("vCard contains illegal control character")
-        
-
-    def transformAllFromNative(self):
-        self._vobject = self._vobject.transformFromNative()
-        self._vobject.transformChildrenFromNative(False)
-        
-    def transformAllToNative(self):
-        self._vobject = self._vobject.transformToNative()
-        self._vobject.transformChildrenToNative()

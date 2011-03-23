@@ -38,7 +38,7 @@ class AddressDataFilter(AddressFilter):
     
     def filter(self, vcard):
         """
-        Filter the supplied vCard (vobject) data using the request information.
+        Filter the supplied vCard object using the request information.
 
         @param vcard: vCard object
         @type vcard: L{Component} or C{str}

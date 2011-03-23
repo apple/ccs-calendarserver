@@ -13,7 +13,7 @@ item1.X-ABADR:us
 NOTE: Many customer fields are added
 item2.URL;type=pref:http://www.example.com/~magic
 item2.X-ABLabel:_$!<HomePage>!$_
-BDAY;value=date:1999-03-18
+BDAY:1999-03-18
 X-AIM;type=WORK;type=pref:custom@example.com
 item3.X-ABDATE;type=pref:1995-05-21
 item3.X-ABLabel:_$!<Anniversary>!$_

@@ -26,7 +26,7 @@ log = Logger()
 Timezone caching.
 
 We need to use our own full definitions of iCalendar VTIMEZONEs as some clients only
-send partial VTIMEZONE objects. Since vObject caches the first VTIMEZONE TZID it sees,
+send partial VTIMEZONE objects. Since PyCalendar caches the first VTIMEZONE TZID it sees,
 if the cached one is partial that will result in incorrect UTC offsets for events outside
 of the time range covered by that partial VTIMEZONE.
 
