@@ -33,7 +33,7 @@ from benchlib import initialize, sample
 from httpclient import StringProducer
 
 
-# XXX Represent these as pycalendar objects?  Would make it easier to add more vevents.
+# XXX Represent these as vobjects?  Would make it easier to add more vevents.
 event = """\
 BEGIN:VCALENDAR
 VERSION:2.0

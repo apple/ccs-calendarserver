@@ -24,9 +24,9 @@ from uuid import uuid4
 
 from datetime import datetime, timedelta
 
-#from vobject import readComponents
-#from vobject.base import Component, ContentLine
-#from vobject.icalendar import VEvent
+from vobject import readComponents
+from vobject.base import Component, ContentLine
+from vobject.icalendar import VEvent
 
 from protocol.caldav.definitions import caldavxml
 

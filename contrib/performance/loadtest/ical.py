@@ -23,9 +23,9 @@ from datetime import datetime
 from xml.etree import ElementTree
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
 
-#from vobject import readComponents
-#from vobject.base import ContentLine
-#from vobject.icalendar import VEvent, dateTimeToString
+from vobject import readComponents
+from vobject.base import ContentLine
+from vobject.icalendar import VEvent, dateTimeToString
 
 from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
