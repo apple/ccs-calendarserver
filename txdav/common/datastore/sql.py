@@ -36,6 +36,7 @@ from twext.web2.http_headers import MimeType
 from twisted.python import hashlib
 from twisted.python.modules import getModule
 from twisted.python.util import FancyEqMixin
+from twisted.python.failure import Failure
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
@@ -54,11 +55,12 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
-    NoSuchObjectResourceError
+    NoSuchObjectResourceError, AllRetriesFailed
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 
 from twext.python.clsprop import classproperty
+from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Len
@@ -236,6 +238,85 @@ class CommonStoreTransaction(object):
         Run things after C{commit}.
         """
         self._postCommitOperations.append(operation)
+
+
+    _savepointCounter = 0
+
+    def _savepoint(self):
+        """
+        Generate a new SavepointAction whose name is unique in this transaction.
+        """
+        self._savepointCounter += 1
+        return SavepointAction('sp%d' % (self._savepointCounter,))
+
+
+    @inlineCallbacks
+    def subtransaction(self, thunk, retries=1):
+        """
+        Create a limited transaction object, which provides only SQL execution,
+        and run a function in a sub-transaction (savepoint) context, with that
+        object to execute SQL on.
+
+        @param thunk: a 1-argument callable which returns a Deferred when it is
+            done.  If this Deferred fails, 
+
+        @param retries: the number of times to re-try C{thunk} before deciding
+            that it's legitimately failed.
+
+        @return: a L{Deferred} which fires or fails according to the logic in
+            C{thunk}.  If it succeeds, it will return the value that C{thunk}
+            returned.
+        """
+        # Right now this code is covered mostly by the automated property store
+        # tests.  It should have more direct test coverage.
+
+        # TODO: we should really have a list of acceptable exceptions for
+        # failure and not blanket catch, but that involves more knowledge of the
+        # database driver in use than we currently possess at this layer.
+        block = self._sqlTxn.commandBlock()
+        sp = self._savepoint()
+        failuresToMaybeLog = []
+        triesLeft = retries + 1
+        try:
+            while True:
+                yield sp.acquire(block)
+                try:
+                    result = yield thunk(block)
+                except:
+                    failuresToMaybeLog.append(Failure())
+                    yield sp.rollback(block)
+                    if triesLeft:
+                        triesLeft -= 1
+                        # Important to get the new block before the old one has
+                        # been completed; since we almost certainly have some
+                        # writes to do, the caller of commit() will expect that
+                        # they actually get done, even if they didn't actually
+                        # block or yield to wait for them!  (c.f. property
+                        # store writes.)
+                        newBlock = self._sqlTxn.commandBlock()
+                        block.end()
+                        block = newBlock
+                        sp = self._savepoint()
+                    else:
+                        block.end()
+                        for f in failuresToMaybeLog:
+                            # TODO: direct tests, to make sure error logging
+                            # happens correctly in all cases.
+                            log.err(f)
+                        raise AllRetriesFailed()
+                else:
+                    yield sp.release(block)
+                    block.end()
+                    returnValue(result)
+        except AlreadyFinishedError:
+            # Interfering agents may disrupt our plans by calling abort()
+            # halfway through trying to do this subtransaction.  In that case -
+            # and only that case - acquire() or release() or commandBlock() may
+            # raise an AlreadyFinishedError (either synchronously, or in the
+            # case of the first two, possibly asynchronously as well).  We can
+            # safely ignore this, because it can't have any real effect; our
+            # caller shouldn't be paying attention anyway.
+            block.end()
 
 
     def execSQL(self, *a, **kw):
