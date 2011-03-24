@@ -27,6 +27,8 @@ from txdav.base.propertystore.test.base import (
     PropertyStoreTest, propertyName, propertyValue)
 
 from twistedcaldav import memcacher
+from twisted.internet.defer import gatherResults
+from twext.enterprise.ienterprise import AlreadyFinishedError
 from twistedcaldav.config import config
 
 try:
@@ -115,25 +117,45 @@ class PropertyStoreTest(PropertyStoreTest):
     @inlineCallbacks
     def test_concurrentInsertion(self):
         """
-        When two property stores set the same value, the last one to set it
-        should win.
+        When two property stores set the same value, both should succeed, and
+        update the cache.  Whoever wins the race (i.e. updates last) will set
+        the last property value.
         """
         pname = propertyName("concurrent")
         pval1 = propertyValue("alpha")
         pval2 = propertyValue("beta")
         concurrentTxn = self.store.newTransaction()
-        self.addCleanup(concurrentTxn.abort)
+        @inlineCallbacks
+        def maybeAbortIt():
+            try:
+                yield concurrentTxn.abort()
+            except AlreadyFinishedError:
+                pass
+        self.addCleanup(maybeAbortIt)
         concurrentPropertyStore = yield PropertyStore.load(
             "user01", concurrentTxn, 1
         )
         concurrentPropertyStore[pname] = pval1
-        concurrentTxn.commit()
-
+        race = []
+        def tiebreaker(label):
+            # Let's not get into the business of figuring out who the database
+            # concurrency rules are suppsoed to pick; it might differ.  We just
+            # take the answer we're given for who gets to be the final writer,
+            # and make sure that matches the property read in the next
+            # transaction.
+            def breaktie(result):
+                race.append(label)
+                return result
+            return breaktie
+        a = concurrentTxn.commit().addCallback(tiebreaker('a'))
         self.propertyStore[pname] = pval2
-        yield self._txn.commit()
-        self._txn = None
-        self._abort(self.propertyStore)
-        self.assertEquals(self.propertyStore[pname], pval2)
+        b = self._txn.commit().addCallback(tiebreaker('b'))
+        del self._txn
+        self.assertEquals((yield gatherResults([a, b])), [None, None])
+        yield self._abort(self.propertyStore)
+        winner = {'a': pval1,
+                  'b': pval2}[race[-1]]
+        self.assertEquals(self.propertyStore[pname], winner)
 
 
 
