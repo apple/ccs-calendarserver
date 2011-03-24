@@ -416,24 +416,37 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         calls.
         """
         if self._stillExecuting:
+            # If we're still executing statements, nevermind.  We'll get called
+            # again by the 'itsDone' callback above.
             return
 
-        if self._pendingBlocks and self._currentBlock is None:
-            self._currentBlock = self._pendingBlocks.pop(0)
+        if self._currentBlock is not None:
+            # If there's still a current block, then keep it going.  We'll be
+            # called by the '_finishExecuting' callback below.
+            return
 
-        if self._currentBlock is not None and not self._currentBlock._started:
-            self._currentBlock._startExecuting().addCallback(
-                self._finishExecuting)
+        # There's no block executing now.  What to do?
+        if self._pendingBlocks:
+            # If there are pending blocks, start one of them.
+            self._currentBlock = self._pendingBlocks.pop(0)
+            d = self._currentBlock._startExecuting()
+            d.addCallback(self._finishExecuting)
+        elif self._blockedQueue is not None:
+            # If there aren't any pending blocks any more, and there are spooled
+            # statements that aren't part of a block, unspool all the statements
+            # that have been held up until this point.
+            bq = self._blockedQueue
+            self._blockedQueue = None
+            bq._unspool(self)
 
 
     def _finishExecuting(self, result):
         """
-        The active block just finished executing.
+        The active block just finished executing.  Clear it and see if there are
+        more blocks to execute, or if all the blocks are done and we should
+        execute any queued free statements.
         """
         self._currentBlock = None
-        bq = self._blockedQueue
-        self._blockedQueue = None
-        bq._unspool(self)
         self._checkNextBlock()
 
 
@@ -481,12 +494,9 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         """
         block = CommandBlock(self)
         if self._currentBlock is None:
-            self._currentBlock = block
             self._blockedQueue = _WaitingTxn(self._pool)
             # FIXME: test the case where it's ready immediately.
             self._checkNextBlock()
-        else:
-            self._pendingBlocks.append(block)
         return block
 
 
