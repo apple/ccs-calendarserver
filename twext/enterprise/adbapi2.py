@@ -1,4 +1,3 @@
-from twext.enterprise.ienterprise import IDerivedParameter
 # -*- test-case-name: twext.enterprise.test.test_adbapi2 -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
@@ -53,7 +52,10 @@ from twisted.python.components import proxyForInterface
 
 from twext.internet.threadutils import ThreadHolder
 from twisted.internet.defer import succeed
+
 from twext.enterprise.ienterprise import ConnectionError
+from twext.enterprise.ienterprise import IDerivedParameter
+
 from twisted.internet.defer import fail
 from twext.enterprise.ienterprise import (
     AlreadyFinishedError, IAsyncTransaction, POSTGRES_DIALECT
@@ -362,7 +364,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         self._complete      = False
         self._currentBlock  = None
         self._pendingBlocks = []
-        self._allPending    = []
+        self._stillExecuting    = []
         self._blockedQueue  = None
 
 
@@ -396,10 +398,11 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         self._checkComplete()
         if block is None and self._blockedQueue is not None:
             return self._blockedQueue.execSQL(sql, args, raiseOnZeroRowCount)
+        # 'block' should always be _currentBlock at this point.
         d = super(_SingleTxn, self).execSQL(sql, args, raiseOnZeroRowCount)
-        self._allPending.append(d)
+        self._stillExecuting.append(d)
         def itsDone(result):
-            self._allPending.remove(d)
+            self._stillExecuting.remove(d)
             self._checkNextBlock()
             return result
         d.addBoth(itsDone)
@@ -412,7 +415,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         execute, and execute the next one if there are no outstanding execute
         calls.
         """
-        if self._allPending:
+        if self._stillExecuting:
             return
 
         if self._pendingBlocks and self._currentBlock is None:
@@ -431,8 +434,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         bq = self._blockedQueue
         self._blockedQueue = None
         bq._unspool(self)
-        # XXX need to check next block, there might have been nothing in the
-        # blocked executing queue.
+        self._checkNextBlock()
 
 
     def commit(self):
@@ -474,14 +476,18 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
 
     def commandBlock(self):
         """
-        Create an IAsyncTransaction that will wait for all currently spooled
+        Create a L{CommandBlock} which will wait for all currently spooled
         commands to complete before executing its own.
         """
-        self._currentBlock = CommandBlock(self)
-        self._blockedQueue = _WaitingTxn(self._pool)
-        # FIXME: test the case where it's ready immediately.
-        self._checkNextBlock()
-        return self._currentBlock
+        block = CommandBlock(self)
+        if self._currentBlock is None:
+            self._currentBlock = block
+            self._blockedQueue = _WaitingTxn(self._pool)
+            # FIXME: test the case where it's ready immediately.
+            self._checkNextBlock()
+        else:
+            self._pendingBlocks.append(block)
+        return block
 
 
 
@@ -557,8 +563,9 @@ class CommandBlock(object):
         """
         # FIXME: test the case where end() is called when it's not the current
         # executing block.
+        if self._ended:
+            raise AlreadyFinishedError()
         self._ended = True
-        self._singleTxn._checkNextBlock()
         DeferredList(self._waitingForEnd).chainDeferred(self._endDeferred)
 
 

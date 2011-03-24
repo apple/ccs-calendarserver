@@ -27,6 +27,7 @@ from twisted.internet.task import Clock
 
 from twisted.internet.defer import Deferred
 from twext.enterprise.ienterprise import ConnectionError
+from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.adbapi2 import ConnectionPool
 
 
@@ -917,4 +918,44 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(len(c), 1)
         self.assertEquals(len(d), 1)
         self.assertEquals(len(e), 1)
+
+
+    def test_twoCommandBlocks(self, flush=lambda : None):
+        """
+        When execution of one command block is complete, it will proceed to the
+        next queued block, then to regular SQL executed on the transaction.
+        """
+        txn = self.pool.connection()
+        cb1 = txn.commandBlock()
+        cb2 = txn.commandBlock()
+        txn.execSQL("e")
+        cb1.execSQL("a")
+        cb2.execSQL("c")
+        cb1.execSQL("b")
+        cb2.execSQL("d")
+        cb2.end()
+        cb1.end()
+        flush()
+        self.assertEquals(self.factory.connections[0].cursors[0].allExecutions,
+                          [("a", []), ("b", []), ("c", []), ("d", []),
+                           ("e", [])])
+
+
+    def test_twoCommandBlocksLatently(self):
+        """
+        Same as L{test_twoCommandBlocks}, but with slower callbacks.
+        """
+        self.pauseHolders()
+        self.test_twoCommandBlocks(self.flushHolders)
+
+
+    def test_commandBlockEndTwice(self):
+        """
+        L{CommandBlock.end} will raise L{AlreadyFinishedError} when called more
+        than once.
+        """
+        txn = self.pool.connection()
+        block = txn.commandBlock()
+        block.end()
+        self.assertRaises(AlreadyFinishedError, block.end)
 
