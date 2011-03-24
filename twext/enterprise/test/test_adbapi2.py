@@ -959,3 +959,81 @@ class ConnectionPoolTests(TestCase):
         block.end()
         self.assertRaises(AlreadyFinishedError, block.end)
 
+
+    def test_commandBlockDelaysCommit(self):
+        """
+        Some command blocks need to run asynchronously, without the overall
+        transaction-managing code knowing how far they've progressed.  Therefore
+        when you call {IAsyncTransaction.commit}(), it should not actually take
+        effect if there are any pending command blocks.
+        """
+        txn = self.pool.connection()
+        block = txn.commandBlock()
+        commitResult = resultOf(txn.commit())
+        block.execSQL("in block")
+        self.assertEquals(commitResult, [])
+        self.assertEquals(self.factory.connections[0].cursors[0].allExecutions,
+                          [("in block", [])])
+        block.end()
+        self.assertEquals(commitResult, [None])
+
+
+    def test_commandBlockDoesntDelayAbort(self):
+        """
+        A L{CommandBlock} can't possibly have anything interesting to say about
+        a transaction that gets rolled back, so C{abort} applies immediately;
+        all outstanding C{execSQL}s will fail immediately, on both command
+        blocks and on the transaction itself.
+        """
+        txn = self.pool.connection()
+        block = txn.commandBlock()
+        block2 = txn.commandBlock()
+        abortResult = resultOf(txn.abort())
+        self.assertEquals(abortResult, [None])
+        self.assertRaises(AlreadyFinishedError, block2.execSQL, "bar")
+        self.assertRaises(AlreadyFinishedError, block.execSQL, "foo")
+        self.assertRaises(AlreadyFinishedError, txn.execSQL, "baz")
+        self.assertEquals(self.factory.connections[0].cursors[0].allExecutions,
+                          [])
+        # end() should _not_ raise an exception, because this is the sort of
+        # thing that might be around a try/finally or try/except; it's just
+        # putting the commandBlock itself into a state consistent with the
+        # transaction.
+        block.end()
+        block2.end()
+
+
+    def test_endedBlockDoesntExecuteMoreSQL(self):
+        """
+        Attempting to execute SQL on a L{CommandBlock} which has had C{end}
+        called on it will result in an L{AlreadyFinishedError}.
+        """
+        txn = self.pool.connection()
+        block = txn.commandBlock()
+        block.end()
+        self.assertRaises(AlreadyFinishedError, block.execSQL, "hello")
+        self.assertEquals(self.factory.connections[0].cursors[0].allExecutions,
+                          [])
+
+
+    def test_commandBlockAfterCommitRaises(self):
+        """
+        Once an L{IAsyncTransaction} has been committed, L{commandBlock} raises
+        an exception.
+        """
+        txn = self.pool.connection()
+        txn.commit()
+        self.assertRaises(AlreadyFinishedError, txn.commandBlock)
+
+
+    def test_commandBlockAfterAbortRaises(self):
+        """
+        Once an L{IAsyncTransaction} has been committed, L{commandBlock} raises
+        an exception.
+        """
+        txn = self.pool.connection()
+        txn.abort()
+        self.assertRaises(AlreadyFinishedError, txn.commandBlock)
+
+
+

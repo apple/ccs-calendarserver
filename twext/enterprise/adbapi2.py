@@ -356,16 +356,19 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
 
     This is the only L{IAsyncTransaction} implementation exposed to application
     code.
+
+    It's also the only implementor of the C{commandBlock} method for grouping
+    commands together.
     """
 
     def __init__(self, pool, baseTxn):
-        self._pool          = pool
-        self._baseTxn       = baseTxn
-        self._complete      = False
-        self._currentBlock  = None
-        self._pendingBlocks = []
-        self._stillExecuting    = []
-        self._blockedQueue  = None
+        self._pool           = pool
+        self._baseTxn        = baseTxn
+        self._complete       = False
+        self._currentBlock   = None
+        self._blockedQueue   = None
+        self._pendingBlocks  = []
+        self._stillExecuting = []
 
 
     def __repr__(self):
@@ -451,6 +454,11 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
 
 
     def commit(self):
+        if self._blockedQueue is not None:
+            # We're in the process of executing a block of commands.  Wait until
+            # they're done.  (Commit will be repeated in _checkNextBlock.)
+            return self._blockedQueue.commit()
+
         self._markComplete()
         return super(_SingleTxn, self).commit()
 
@@ -492,6 +500,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         Create a L{CommandBlock} which will wait for all currently spooled
         commands to complete before executing its own.
         """
+        self._checkComplete()
         block = CommandBlock(self)
         if self._currentBlock is None:
             self._blockedQueue = _WaitingTxn(self._pool)
@@ -546,8 +555,20 @@ class CommandBlock(object):
     def execSQL(self, sql, args=None, raiseOnZeroRowCount=None, track=True):
         """
         Execute some SQL within this command block.
+
+        @param sql: the SQL string to execute.
+
+        @param args: the SQL arguments.
+
+        @param raiseOnZeroRowCount: see L{IAsyncTransaction.execSQL}
+
+        @param track: an internal parameter; was this called by application code
+            or as part of unspooling some previously-queued requests?  True if
+            application code, False if unspooling.
         """
-        # FIXME: check 'ended'
+        if track and self._ended:
+            raise AlreadyFinishedError()
+        self._singleTxn._checkComplete()
         if self._singleTxn._currentBlock is self and self._started:
             d = self._singleTxn._execSQLForBlock(
                 sql, args, raiseOnZeroRowCount, self)
@@ -561,7 +582,8 @@ class CommandBlock(object):
     def _trackForEnd(self, d):
         """
         Watch the following L{Deferred}, since we need to watch it to determine
-        when C{end} should be considered done.
+        when C{end} should be considered done, and the next CommandBlock or
+        regular SQL statement should be unqueued.
         """
         self._waitingForEnd.append(d)
 
@@ -576,6 +598,9 @@ class CommandBlock(object):
         if self._ended:
             raise AlreadyFinishedError()
         self._ended = True
+        # TODO: maybe this should return a Deferred that's a clone of
+        # _endDeferred, so that callers can determine when the block is really
+        # complete?  Struggling for an actual use-case on that one.
         DeferredList(self._waitingForEnd).chainDeferred(self._endDeferred)
 
 
@@ -734,6 +759,8 @@ class ConnectionPool(Service, object):
         @return: an L{IAsyncTransaction}
         """
         if self._stopping:
+            # FIXME: should be wrapping a _SingleTxn around this to get
+            # .commandBlock()
             return _NoTxn(self)
         if self._free:
             basetxn = self._free.pop(0)
