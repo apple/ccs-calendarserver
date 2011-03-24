@@ -891,3 +891,30 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(len(d), 1)
         self.assertEquals(len(e), 1)
 
+
+    def test_commandBlockWithLatency(self):
+        """
+        A block returned by L{IAsyncTransaction.commandBlock} won't start
+        executing until all SQL statements scheduled before it have completed.
+        """
+        self.pauseHolders()
+        txn = self.pool.connection()
+        a = resultOf(txn.execSQL("a"))
+        b = resultOf(txn.execSQL("b"))
+        cb = txn.commandBlock()
+        c = resultOf(cb.execSQL("c"))
+        d = resultOf(cb.execSQL("d"))
+        e = resultOf(txn.execSQL("e"))
+        cb.end()
+        self.flushHolders()
+
+        self.assertEquals(self.factory.connections[0].cursors[0].allExecutions,
+                          [("a", []), ("b", []), ("c", []), ("d", []),
+                           ("e", [])])
+
+        self.assertEquals(len(a), 1)
+        self.assertEquals(len(b), 1)
+        self.assertEquals(len(c), 1)
+        self.assertEquals(len(d), 1)
+        self.assertEquals(len(e), 1)
+

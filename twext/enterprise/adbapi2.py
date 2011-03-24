@@ -40,6 +40,7 @@ from zope.interface import implements
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.defer import returnValue
+from twisted.internet.defer import DeferredList
 from twisted.internet.defer import Deferred
 from twisted.protocols.amp import Boolean
 from twisted.python.failure import Failure
@@ -414,23 +415,24 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         if self._allPending:
             return
 
-        if self._currentBlock is not None:
-            if self._currentBlock._ended:
-                # ???: is this necessary?  We can immediately forget the block
-                # when it ends, we don't need to keep it around until all of its
-                # statements have completed.
-                self._currentBlock = None
-                bq = self._blockedQueue
-                self._blockedQueue = None
-                bq._unspool(self)
-            else:
-                return
+        if self._pendingBlocks and self._currentBlock is None:
+            self._currentBlock = self._pendingBlocks.pop(0)
 
-        if self._pendingBlocks:
-            block = self._pendingBlocks.pop(0)
-            self._currentBlock = block
-            self._blockedQueue = _WaitingTxn(self._pool)
-            block._startExecuting()
+        if self._currentBlock is not None and not self._currentBlock._started:
+            self._currentBlock._startExecuting().addCallback(
+                self._finishExecuting)
+
+
+    def _finishExecuting(self, result):
+        """
+        The active block just finished executing.
+        """
+        self._currentBlock = None
+        bq = self._blockedQueue
+        self._blockedQueue = None
+        bq._unspool(self)
+        # XXX need to check next block, there might have been nothing in the
+        # blocked executing queue.
 
 
     def commit(self):
@@ -475,10 +477,24 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         Create an IAsyncTransaction that will wait for all currently spooled
         commands to complete before executing its own.
         """
-        cb = CommandBlock(self)
+        self._currentBlock = CommandBlock(self)
+        self._blockedQueue = _WaitingTxn(self._pool)
         # FIXME: test the case where it's ready immediately.
         self._checkNextBlock()
-        return cb
+        return self._currentBlock
+
+
+
+class _Unspooler(object):
+    def __init__(self, orig):
+        self.orig = orig
+
+
+    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+        """
+        Execute some SQL, but don't track a new Deferred.
+        """
+        return self.orig.execSQL(sql, args, raiseOnZeroRowCount, False)
 
 
 
@@ -498,24 +514,40 @@ class CommandBlock(object):
         self.paramstyle = singleTxn.paramstyle
         self.dialect = singleTxn.dialect
         self._spool = _WaitingTxn(singleTxn._pool)
+        self._started = False
         self._ended = False
+        self._waitingForEnd = []
+        self._endDeferred = Deferred()
         singleTxn._pendingBlocks.append(self)
 
 
     def _startExecuting(self):
-        self._spool._unspool(self)
+        self._started = True
+        self._spool._unspool(_Unspooler(self))
+        return self._endDeferred
 
 
-    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None, track=True):
         """
         Execute some SQL within this command block.
         """
         # FIXME: check 'ended'
-        if self._singleTxn._currentBlock is self:
-            return self._singleTxn._execSQLForBlock(
+        if self._singleTxn._currentBlock is self and self._started:
+            d = self._singleTxn._execSQLForBlock(
                 sql, args, raiseOnZeroRowCount, self)
         else:
-            return self._spool.execSQL(sql, args, raiseOnZeroRowCount)
+            d = self._spool.execSQL(sql, args, raiseOnZeroRowCount)
+        if track:
+            self._trackForEnd(d)
+        return d
+
+
+    def _trackForEnd(self, d):
+        """
+        Watch the following L{Deferred}, since we need to watch it to determine
+        when C{end} should be considered done.
+        """
+        self._waitingForEnd.append(d)
 
 
     def end(self):
@@ -527,6 +559,7 @@ class CommandBlock(object):
         # executing block.
         self._ended = True
         self._singleTxn._checkNextBlock()
+        DeferredList(self._waitingForEnd).chainDeferred(self._endDeferred)
 
 
 
