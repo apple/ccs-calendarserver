@@ -59,20 +59,19 @@ class CalendarDataFilter(CalendarFilter):
         # Make sure input is valid
         ical = self.validCalendar(ical)
 
-        # Pre-process the calendar data based on expand and limit options
+        # Process the calendar data based on expand and limit options
         if self.calendardata.freebusy_set:
             ical = self.limitFreeBusy(ical)
-
-        # Filter data based on any provided CALDAV:comp element, or use all current data
-        if self.calendardata.component is not None:
-            ical = self.compFilter(self.calendardata.component, ical)
         
-        # Post-process the calendar data based on the expand and limit options
         if self.calendardata.recurrence_set:
             if isinstance(self.calendardata.recurrence_set, LimitRecurrenceSet):
                 ical = self.limitRecurrence(ical)
             elif isinstance(self.calendardata.recurrence_set, Expand):
                 ical = self.expandRecurrence(ical, self.timezone)
+
+        # Filter data based on any provided CALDAV:comp element, or use all current data
+        if self.calendardata.component is not None:
+            ical = self.compFilter(self.calendardata.component, ical)
         
         return ical
 

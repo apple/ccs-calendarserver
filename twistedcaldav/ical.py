@@ -898,6 +898,7 @@ class Component (object):
         for property in newcomp.properties():
             value = property.value()
             if isinstance(value, PyCalendarDateTime) and value.local():
+                property.removeParameter("TZID")
                 property.setValue(value.duplicateAsUTC())
         
         # Now reset DTSTART, DTEND/DURATION
