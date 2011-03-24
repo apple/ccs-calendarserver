@@ -520,11 +520,11 @@ class TextMatch (FilterBase):
             # so we need to check for that and iterate over the list.
             if isinstance(value, list):
                 for subvalue in value:
-                    matched, result = _textCompare(unicode(subvalue))
+                    matched, result = _textCompare(unicode(subvalue, "utf-8"))
                     if matched:
                         return result
             else:
-                matched, result = _textCompare(unicode(value))
+                matched, result = _textCompare(unicode(value, "utf-8"))
                 if matched:
                     return result
         

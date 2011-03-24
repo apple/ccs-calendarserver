@@ -281,10 +281,10 @@ class TextMatch (FilterBase):
             # so we need to check for that and iterate over the list.
             if isinstance(value, list):
                 for subvalue in value:
-                    if _textCompare(unicode(subvalue)):
+                    if _textCompare(unicode(subvalue, "utf-8")):
                         return not self.negate
             else:
-                if _textCompare(unicode(value)):
+                if _textCompare(unicode(value, "utf-8")):
                     return not self.negate
         
         return self.negate
