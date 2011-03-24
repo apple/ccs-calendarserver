@@ -23,8 +23,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 
-from txdav.base.propertystore.base import PropertyName
-from txdav.base.propertystore.test import base
+from txdav.base.propertystore.test.base import (
+    PropertyStoreTest, propertyName, propertyValue)
 
 from twistedcaldav import memcacher
 from twistedcaldav.config import config
@@ -32,12 +32,13 @@ from twistedcaldav.config import config
 try:
     from txdav.base.propertystore.sql import PropertyStore
 except ImportError, e:
+    # XXX: when could this ever fail?
     PropertyStore = None
     importErrorMessage = str(e)
 
 
 
-class PropertyStoreTest(base.PropertyStoreTest):
+class PropertyStoreTest(PropertyStoreTest):
 
 
     @inlineCallbacks
@@ -111,10 +112,32 @@ class PropertyStoreTest(base.PropertyStoreTest):
         self.propertyStore2._globalKeys = store._globalKeys
 
 
+    @inlineCallbacks
+    def test_concurrentInsertion(self):
+        """
+        When two property stores set the same value, the last one to set it
+        should win.
+        """
+        pname = propertyName("concurrent")
+        pval1 = propertyValue("alpha")
+        pval2 = propertyValue("beta")
+        concurrentTxn = self.store.newTransaction()
+        self.addCleanup(concurrentTxn.abort)
+        concurrentPropertyStore = yield PropertyStore.load(
+            "user01", concurrentTxn, 1
+        )
+        concurrentPropertyStore[pname] = pval1
+        concurrentTxn.commit()
+
+        self.propertyStore[pname] = pval2
+        yield self._txn.commit()
+        self._txn = None
+        self._abort(self.propertyStore)
+        self.assertEquals(self.propertyStore[pname], pval2)
+
+
 
 if PropertyStore is None:
     PropertyStoreTest.skip = importErrorMessage
 
 
-def propertyName(name):
-    return PropertyName("http://calendarserver.org/ns/test/", name)
