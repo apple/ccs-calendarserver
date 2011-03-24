@@ -15,8 +15,8 @@
 #
 ##
 
-from vobject import readComponents
-from vobject.base import Component, ContentLine
+#from vobject import readComponents
+#from vobject.base import Component, ContentLine
 
 from twisted.internet.defer import Deferred
 from twisted.trial.unittest import TestCase

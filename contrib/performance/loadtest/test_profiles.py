@@ -19,7 +19,7 @@
 Tests for loadtest.profiles.
 """
 
-from vobject import readComponents
+#from vobject import readComponents
 
 from protocol.caldav.definitions import caldavxml
 
