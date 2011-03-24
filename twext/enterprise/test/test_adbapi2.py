@@ -146,6 +146,7 @@ class FakeCursor(Child):
         # not entirely correct, but all we care about is its truth value.
         self.description = False
         self.variables = []
+        self.allExecutions = []
 
 
     @property
@@ -158,6 +159,7 @@ class FakeCursor(Child):
         self.connection.executions += 1
         if self.connection._executeFailQueue:
             raise self.connection._executeFailQueue.pop(0)()
+        self.allExecutions.append((sql, args))
         self.sql = sql
         self.description = True
         self.rowcount = 1
@@ -424,7 +426,8 @@ class ConnectionPoolTests(TestCase):
         and thereby frees up the resources it is holding.
         """
         a = self.pool.connection()
-        [[[counter, echo]]] = resultOf(a.execSQL("alpha"))
+        alphaResult = resultOf(a.execSQL("alpha"))
+        [[[counter, echo]]] = alphaResult
         self.assertEquals(len(self.factory.connections), 1)
         self.assertEquals(len(self.holders), 1)
         [holder] = self.holders
@@ -846,4 +849,27 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(len(self.factory.connections), 2)
         self.assertEquals(self.factory.connections[0].closed, True)
         self.assertEquals(self.factory.connections[1].closed, False)
+
+
+    def test_commandBlock(self):
+        """
+        L{IAsyncTransaction.commandBlock} returns an L{IAsyncTransaction}
+        provider which ensures that a block of commands are executed together.
+        """
+        txn = self.pool.connection()
+        a = resultOf(txn.execSQL("a"))
+        cb = txn.commandBlock()
+        b = resultOf(cb.execSQL("b"))
+        d = resultOf(txn.execSQL("d"))
+        c = resultOf(cb.execSQL("c"))
+        cb.end()
+        e = resultOf(txn.execSQL("e"))
+        self.assertEquals(self.factory.connections[0].cursors[0].allExecutions,
+                          [("a", []), ("b", []), ("c", []), ("d", []),
+                           ("e", [])])
+        self.assertEquals(len(a), 1)
+        self.assertEquals(len(b), 1)
+        self.assertEquals(len(c), 1)
+        self.assertEquals(len(d), 1)
+        self.assertEquals(len(e), 1)
 
