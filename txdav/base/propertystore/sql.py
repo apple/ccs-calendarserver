@@ -55,6 +55,23 @@ class PropertyStore(AbstractPropertyStore):
                         Where=prop.RESOURCE_ID == Parameter("resourceID"))
 
 
+    @inlineCallbacks
+    def _refresh(self, txn):
+        """
+        Load, or re-load, this object with the given transaction; first from
+        memcache, then pulling from the database again.
+        """
+        # Cache existing properties in this object
+        # Look for memcache entry first
+        rows = yield self._cacher.get(str(self._resourceID))
+        if rows is None:
+            rows = yield self._allWithID.on(txn, resourceID=self._resourceID)
+            yield self._cacher.set(str(self._resourceID),
+                                   rows if rows is not None else ())
+        for name, uid, value in rows:
+            self._cached[(name, uid)] = value
+
+
     @classmethod
     @inlineCallbacks
     def load(cls, defaultuser, txn, resourceID, created=False):
@@ -64,16 +81,7 @@ class PropertyStore(AbstractPropertyStore):
         self._resourceID = resourceID
         self._cached = {}
         if not created:
-            # Cache existing properties in this object
-            # Look for memcache entry first
-            rows = yield self._cacher.get(str(self._resourceID))
-            if rows is None:
-                rows = yield self._allWithID.on(txn,
-                                                resourceID=self._resourceID)
-                yield self._cacher.set(str(self._resourceID),
-                                       rows if rows is not None else ())
-            for name, uid, value in rows:
-                self._cached[(name, uid)] = value
+            yield self._refresh(txn)
         returnValue(self)
 
 
@@ -170,14 +178,27 @@ class PropertyStore(AbstractPropertyStore):
         key_str = key.toString()
         value_str = value.toxml()
 
-        if (key_str, uid) in self._cached:
-            self._updateQuery.on(self._txn, resourceID=self._resourceID,
-                                 value=value_str, name=key_str, uid=uid)
-        else:
-            self._insertQuery.on(self._txn, resourceID=self._resourceID,
-                                 value=value_str, name=key_str, uid=uid)
+        tried = []
+
+        wasCached = [(key_str, uid) in self._cached]
         self._cached[(key_str, uid)] = value_str
-        self._cacher.delete(str(self._resourceID))
+        @inlineCallbacks
+        def trySetItem(txn):
+            if tried:
+                yield self._refresh(txn)
+                wasCached[:] = [(key_str, uid) in self._cached]
+            tried.append(True)
+            if wasCached[0]:
+                yield self._updateQuery.on(
+                    txn, resourceID=self._resourceID, value=value_str,
+                    name=key_str, uid=uid)
+            else:
+                yield self._insertQuery.on(
+                    txn, resourceID=self._resourceID, value=value_str,
+                    name=key_str, uid=uid)
+            self._cacher.delete(str(self._resourceID))
+        self._txn.subtransaction(trySetItem)
+
 
 
     _deleteQuery = Delete(

@@ -23,21 +23,24 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 
-from txdav.base.propertystore.base import PropertyName
-from txdav.base.propertystore.test import base
+from txdav.base.propertystore.test.base import (
+    PropertyStoreTest, propertyName, propertyValue)
 
 from twistedcaldav import memcacher
+from twisted.internet.defer import gatherResults
+from twext.enterprise.ienterprise import AlreadyFinishedError
 from twistedcaldav.config import config
 
 try:
     from txdav.base.propertystore.sql import PropertyStore
 except ImportError, e:
+    # XXX: when could this ever fail?
     PropertyStore = None
     importErrorMessage = str(e)
 
 
 
-class PropertyStoreTest(base.PropertyStoreTest):
+class PropertyStoreTest(PropertyStoreTest):
 
 
     @inlineCallbacks
@@ -111,10 +114,52 @@ class PropertyStoreTest(base.PropertyStoreTest):
         self.propertyStore2._globalKeys = store._globalKeys
 
 
+    @inlineCallbacks
+    def test_concurrentInsertion(self):
+        """
+        When two property stores set the same value, both should succeed, and
+        update the cache.  Whoever wins the race (i.e. updates last) will set
+        the last property value.
+        """
+        pname = propertyName("concurrent")
+        pval1 = propertyValue("alpha")
+        pval2 = propertyValue("beta")
+        concurrentTxn = self.store.newTransaction()
+        @inlineCallbacks
+        def maybeAbortIt():
+            try:
+                yield concurrentTxn.abort()
+            except AlreadyFinishedError:
+                pass
+        self.addCleanup(maybeAbortIt)
+        concurrentPropertyStore = yield PropertyStore.load(
+            "user01", concurrentTxn, 1
+        )
+        concurrentPropertyStore[pname] = pval1
+        race = []
+        def tiebreaker(label):
+            # Let's not get into the business of figuring out who the database
+            # concurrency rules are suppsoed to pick; it might differ.  We just
+            # take the answer we're given for who gets to be the final writer,
+            # and make sure that matches the property read in the next
+            # transaction.
+            def breaktie(result):
+                race.append(label)
+                return result
+            return breaktie
+        a = concurrentTxn.commit().addCallback(tiebreaker('a'))
+        self.propertyStore[pname] = pval2
+        b = self._txn.commit().addCallback(tiebreaker('b'))
+        del self._txn
+        self.assertEquals((yield gatherResults([a, b])), [None, None])
+        yield self._abort(self.propertyStore)
+        winner = {'a': pval1,
+                  'b': pval2}[race[-1]]
+        self.assertEquals(self.propertyStore[pname], winner)
+
+
 
 if PropertyStore is None:
     PropertyStoreTest.skip = importErrorMessage
 
 
-def propertyName(name):
-    return PropertyName("http://calendarserver.org/ns/test/", name)

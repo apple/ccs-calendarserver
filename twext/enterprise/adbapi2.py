@@ -1,4 +1,3 @@
-from twext.enterprise.ienterprise import IDerivedParameter
 # -*- test-case-name: twext.enterprise.test.test_adbapi2 -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
@@ -40,6 +39,7 @@ from zope.interface import implements
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.defer import returnValue
+from twisted.internet.defer import DeferredList
 from twisted.internet.defer import Deferred
 from twisted.protocols.amp import Boolean
 from twisted.python.failure import Failure
@@ -52,7 +52,10 @@ from twisted.python.components import proxyForInterface
 
 from twext.internet.threadutils import ThreadHolder
 from twisted.internet.defer import succeed
+
 from twext.enterprise.ienterprise import ConnectionError
+from twext.enterprise.ienterprise import IDerivedParameter
+
 from twisted.internet.defer import fail
 from twext.enterprise.ienterprise import (
     AlreadyFinishedError, IAsyncTransaction, POSTGRES_DIALECT
@@ -166,12 +169,24 @@ class _ConnectedTxn(object):
 
     def _end(self, really):
         """
-        Common logic for commit or abort.  Executed in the cursor main thread.
+        Common logic for commit or abort.  Executed in the main reactor thread.
+
+        @param really: the callable to execute in the cursor thread to actually
+            do the commit or rollback.
+
+        @return: a L{Deferred} which fires when the database logic has
+            completed.
+
+        @raise: L{AlreadyFinishedError} if the transaction has already been
+            committed or aborted.
         """
         if not self._completed:
             self._completed = True
             def reallySomething():
-                # Executed in the cursor thread.
+                """
+                Do the database work and set appropriate flags.  Executed in the
+                cursor thread.
+                """
                 if self._cursor is None:
                     return
                 really()
@@ -264,6 +279,11 @@ class _WaitingTxn(object):
     implements(IAsyncTransaction)
 
     def __init__(self, pool):
+        """
+        Initialize a L{_WaitingTxn} based on a L{ConnectionPool}.  (The C{pool}
+        is used only to reflect C{dialect} and C{paramstyle} attributes; not
+        remembered or modified in any way.)
+        """
         self._spool = []
         self.paramstyle = pool.paramstyle
         self.dialect = pool.dialect
@@ -313,6 +333,10 @@ class _WaitingTxn(object):
 
 
     def abort(self):
+        """
+        Succeed and do nothing.  The actual logic for this method is mostly
+        implemented by L{_SingleTxn._stopWaiting}.
+        """
         return succeed(None)
 
 
@@ -332,12 +356,19 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
 
     This is the only L{IAsyncTransaction} implementation exposed to application
     code.
+
+    It's also the only implementor of the C{commandBlock} method for grouping
+    commands together.
     """
 
     def __init__(self, pool, baseTxn):
-        self._pool     = pool
-        self._baseTxn  = baseTxn
-        self._complete = False
+        self._pool           = pool
+        self._baseTxn        = baseTxn
+        self._complete       = False
+        self._currentBlock   = None
+        self._blockedQueue   = None
+        self._pendingBlocks  = []
+        self._stillExecuting = []
 
 
     def __repr__(self):
@@ -358,22 +389,86 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         spooledBase._unspool(baseTxn)
 
 
-    def execSQL(self, *a, **kw):
+    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+        return self._execSQLForBlock(sql, args, raiseOnZeroRowCount, None)
+
+
+    def _execSQLForBlock(self, sql, args, raiseOnZeroRowCount, block):
+        """
+        Execute some SQL for a particular L{CommandBlock}; or, if the given
+        C{block} is C{None}, execute it in the outermost transaction context.
+        """
         self._checkComplete()
-        return super(_SingleTxn, self).execSQL(*a, **kw)
+        if block is None and self._blockedQueue is not None:
+            return self._blockedQueue.execSQL(sql, args, raiseOnZeroRowCount)
+        # 'block' should always be _currentBlock at this point.
+        d = super(_SingleTxn, self).execSQL(sql, args, raiseOnZeroRowCount)
+        self._stillExecuting.append(d)
+        def itsDone(result):
+            self._stillExecuting.remove(d)
+            self._checkNextBlock()
+            return result
+        d.addBoth(itsDone)
+        return d
+
+
+    def _checkNextBlock(self):
+        """
+        Check to see if there are any blocks pending statements waiting to
+        execute, and execute the next one if there are no outstanding execute
+        calls.
+        """
+        if self._stillExecuting:
+            # If we're still executing statements, nevermind.  We'll get called
+            # again by the 'itsDone' callback above.
+            return
+
+        if self._currentBlock is not None:
+            # If there's still a current block, then keep it going.  We'll be
+            # called by the '_finishExecuting' callback below.
+            return
+
+        # There's no block executing now.  What to do?
+        if self._pendingBlocks:
+            # If there are pending blocks, start one of them.
+            self._currentBlock = self._pendingBlocks.pop(0)
+            d = self._currentBlock._startExecuting()
+            d.addCallback(self._finishExecuting)
+        elif self._blockedQueue is not None:
+            # If there aren't any pending blocks any more, and there are spooled
+            # statements that aren't part of a block, unspool all the statements
+            # that have been held up until this point.
+            bq = self._blockedQueue
+            self._blockedQueue = None
+            bq._unspool(self)
+
+
+    def _finishExecuting(self, result):
+        """
+        The active block just finished executing.  Clear it and see if there are
+        more blocks to execute, or if all the blocks are done and we should
+        execute any queued free statements.
+        """
+        self._currentBlock = None
+        self._checkNextBlock()
 
 
     def commit(self):
+        if self._blockedQueue is not None:
+            # We're in the process of executing a block of commands.  Wait until
+            # they're done.  (Commit will be repeated in _checkNextBlock.)
+            return self._blockedQueue.commit()
+
         self._markComplete()
         return super(_SingleTxn, self).commit()
 
 
     def abort(self):
         self._markComplete()
+        result = super(_SingleTxn, self).abort()
         if self in self._pool._waiting:
             self._stopWaiting()
-            return succeed(None)
-        return super(_SingleTxn, self).abort()
+        return result
 
 
     def _stopWaiting(self):
@@ -398,6 +493,115 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         """
         self._checkComplete()
         self._complete = True
+
+
+    def commandBlock(self):
+        """
+        Create a L{CommandBlock} which will wait for all currently spooled
+        commands to complete before executing its own.
+        """
+        self._checkComplete()
+        block = CommandBlock(self)
+        if self._currentBlock is None:
+            self._blockedQueue = _WaitingTxn(self._pool)
+            # FIXME: test the case where it's ready immediately.
+            self._checkNextBlock()
+        return block
+
+
+
+class _Unspooler(object):
+    def __init__(self, orig):
+        self.orig = orig
+
+
+    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+        """
+        Execute some SQL, but don't track a new Deferred.
+        """
+        return self.orig.execSQL(sql, args, raiseOnZeroRowCount, False)
+
+
+
+class CommandBlock(object):
+    """
+    A partial implementation of L{IAsyncTransaction} that will group execSQL
+    calls together.
+
+    Does not implement commit() or abort(), because this will simply group
+    commands.  In order to implement sub-transactions or checkpoints, some
+    understanding of the SQL dialect in use by the underlying connection is
+    required.  Instead, it provides 'end'.
+    """
+
+    def __init__(self, singleTxn):
+        self._singleTxn = singleTxn
+        self.paramstyle = singleTxn.paramstyle
+        self.dialect = singleTxn.dialect
+        self._spool = _WaitingTxn(singleTxn._pool)
+        self._started = False
+        self._ended = False
+        self._waitingForEnd = []
+        self._endDeferred = Deferred()
+        singleTxn._pendingBlocks.append(self)
+
+
+    def _startExecuting(self):
+        self._started = True
+        self._spool._unspool(_Unspooler(self))
+        return self._endDeferred
+
+
+    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None, track=True):
+        """
+        Execute some SQL within this command block.
+
+        @param sql: the SQL string to execute.
+
+        @param args: the SQL arguments.
+
+        @param raiseOnZeroRowCount: see L{IAsyncTransaction.execSQL}
+
+        @param track: an internal parameter; was this called by application code
+            or as part of unspooling some previously-queued requests?  True if
+            application code, False if unspooling.
+        """
+        if track and self._ended:
+            raise AlreadyFinishedError()
+        self._singleTxn._checkComplete()
+        if self._singleTxn._currentBlock is self and self._started:
+            d = self._singleTxn._execSQLForBlock(
+                sql, args, raiseOnZeroRowCount, self)
+        else:
+            d = self._spool.execSQL(sql, args, raiseOnZeroRowCount)
+        if track:
+            self._trackForEnd(d)
+        return d
+
+
+    def _trackForEnd(self, d):
+        """
+        Watch the following L{Deferred}, since we need to watch it to determine
+        when C{end} should be considered done, and the next CommandBlock or
+        regular SQL statement should be unqueued.
+        """
+        self._waitingForEnd.append(d)
+
+
+    def end(self):
+        """
+        The block of commands has completed.  Allow other SQL to run on the
+        underlying L{IAsyncTransaction}.
+        """
+        # FIXME: test the case where end() is called when it's not the current
+        # executing block.
+        if self._ended:
+            raise AlreadyFinishedError()
+        self._ended = True
+        # TODO: maybe this should return a Deferred that's a clone of
+        # _endDeferred, so that callers can determine when the block is really
+        # complete?  Struggling for an actual use-case on that one.
+        DeferredList(self._waitingForEnd).chainDeferred(self._endDeferred)
 
 
 
@@ -555,6 +759,8 @@ class ConnectionPool(Service, object):
         @return: an L{IAsyncTransaction}
         """
         if self._stopping:
+            # FIXME: should be wrapping a _SingleTxn around this to get
+            # .commandBlock()
             return _NoTxn(self)
         if self._free:
             basetxn = self._free.pop(0)

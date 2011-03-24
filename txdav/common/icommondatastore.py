@@ -108,6 +108,12 @@ class InternalDataStoreError(CommonStoreError):
     Uh, oh.
     """
 
+class AllRetriesFailed(CommonStoreError):
+    """
+    In a re-tried subtransaction, all attempts failed to produce useful
+    progress.  Other exceptions will be logged.
+    """
+
 # Indexing / sync tokens
 
 class ReservationError(LookupError):
