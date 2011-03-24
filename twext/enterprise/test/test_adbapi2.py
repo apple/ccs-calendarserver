@@ -655,6 +655,24 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(resultOf(self.pool.stopService()), [None])
 
 
+    def test_abortSpooled(self):
+        """
+        Aborting a still-spooled transaction (one which has no statements being
+        executed) will result in all of its Deferreds immediately failing and
+        none of the queued statements being executed.
+        """
+        # Use up the available connections ...
+        for i in xrange(self.pool.maxConnections):
+            self.pool.connection()
+        # ... so that this one has to be spooled.
+        spooled = self.pool.connection()
+        result = resultOf(spooled.execSQL("alpha"))
+        # sanity check, it would be bad if this actually executed.
+        self.assertEqual(result, [])
+        spooled.abort()
+        self.assertEqual(result[0].type, ConnectionError)
+
+
     def test_waitForAlreadyAbortedTransaction(self):
         """
         L{ConnectionPool.stopService} will wait for all transactions to shut

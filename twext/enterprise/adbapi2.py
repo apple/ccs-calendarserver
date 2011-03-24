@@ -330,6 +330,10 @@ class _WaitingTxn(object):
 
 
     def abort(self):
+        """
+        Succeed and do nothing.  The actual logic for this method is mostly
+        implemented by L{_SingleTxn._stopWaiting}.
+        """
         return succeed(None)
 
 
@@ -436,10 +440,10 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
 
     def abort(self):
         self._markComplete()
+        result = super(_SingleTxn, self).abort()
         if self in self._pool._waiting:
             self._stopWaiting()
-            return succeed(None)
-        return super(_SingleTxn, self).abort()
+        return result
 
 
     def _stopWaiting(self):
