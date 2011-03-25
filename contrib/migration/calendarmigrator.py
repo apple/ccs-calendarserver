@@ -219,8 +219,8 @@ def main():
 
             configureNotifications()
 
-            setRunState(options, enableCalDAV, enableCardDAV)
             triggerResourceMigration(newServerRootValue)
+            setRunState(options, enableCalDAV, enableCardDAV)
 
     else:
         log("ERROR: --sourceRoot must be specified")
