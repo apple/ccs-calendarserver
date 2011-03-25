@@ -26,6 +26,17 @@ from twext.python.log import Logger
 
 log = Logger()
 
+NUM_TRIES = 3
+
+RETRY_CODES = (
+    5200, # Server unreachable
+    5201, # Server not found
+    5202, # Server error
+    5203, # Server timeout
+    5204, # Contact master
+    5205, # Server communication error
+)
+
 # Single-value attributes (must be converted from lists):
 SINGLE_VALUE_ATTRIBUTES = [
     dsattributes.kDS1AttrBirthday,
@@ -133,13 +144,26 @@ def odInit(nodeName):
         C{None} on failure.
     """
     session = odframework.ODSession.defaultSession()
-    node, error = odframework.ODNode.nodeWithSession_name_error_(session,
-        nodeName, None)
-    if error:
-        log.error(error)
-        raise ODError(error)
 
-    return Directory(session, node, nodeName)
+    tries = NUM_TRIES
+    while tries:
+        node, error = odframework.ODNode.nodeWithSession_name_error_(session,
+            nodeName, None)
+
+        if not error:
+            return Directory(session, node, nodeName)
+
+        code = error.code()
+        log.debug("Received code %d from node call: %s" % (code, error))
+
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
+
+    log.error(error)
+    raise ODError(error)
+
 
 
 def getNodeAttributes(directory, nodeName, attributes):
@@ -153,11 +177,24 @@ def getNodeAttributes(directory, nodeName, attributes):
     @param attributes: C{list} or C{tuple} containing the attributes to return for each record.
     @return: C{dict} of attributes found.
     """
-    details, error = directory.node.nodeDetailsForKeys_error_(attributes, None)
-    if error:
-        log.error(error)
-        raise ODError(error)
-    return details
+
+    tries = NUM_TRIES
+    while tries:
+
+        details, error = directory.node.nodeDetailsForKeys_error_(attributes, None)
+        if not error:
+            return details
+
+        code = error.code()
+        log.debug("Received code %d from node details call: %s" % (code, error))
+
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
+
+    log.error(error)
+    raise ODError(error)
 
 
 def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0):
@@ -177,26 +214,36 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
 
     attributeNames, encodings = attributeNamesFromList(attributes)
 
-    query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
-        directory.node,
-        recordType,
-        None,
-        MATCHANY,
-        None,
-        attributeNames,
-        count,
-        None)
-    if error:
-        log.error(error)
-        raise ODError(error)
-    records, error = query.resultsAllowingPartial_error_(False, None)
-    if error:
-        log.error(error)
-        raise ODError(error)
-    for record in records:
-        results.append(recordToResult(record, encodings))
-    return results
+    tries = NUM_TRIES
+    while tries:
+        query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+            directory.node,
+            recordType,
+            None,
+            MATCHANY,
+            None,
+            attributeNames,
+            count,
+            None)
 
+        if not error:
+            records, error = query.resultsAllowingPartial_error_(False, None)
+
+        if not error:
+            for record in records:
+                results.append(recordToResult(record, encodings))
+            return results
+
+        code = error.code()
+        log.debug("Received code %d from query call: %s" % (code, error))
+
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
+
+    log.error(error)
+    raise ODError(error)
 
 def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, recordType, attributes, count=0):
     """
@@ -220,25 +267,37 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
 
     attributeNames, encodings = attributeNamesFromList(attributes)
 
-    query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
-        directory.node,
-        recordType,
-        attr,
-        adjustMatchType(matchType, casei),
-        value.decode("utf-8"),
-        attributeNames,
-        count,
-        None)
-    if error:
-        log.error(error)
-        raise ODError(error)
-    records, error = query.resultsAllowingPartial_error_(False, None)
-    if error:
-        log.error(error)
-        raise ODError(error)
-    for record in records:
-        results.append(recordToResult(record, encodings))
-    return results
+    tries = NUM_TRIES
+    while tries:
+
+        query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+            directory.node,
+            recordType,
+            attr,
+            adjustMatchType(matchType, casei),
+            value.decode("utf-8"),
+            attributeNames,
+            count,
+            None)
+
+        if not error:
+            records, error = query.resultsAllowingPartial_error_(False, None)
+
+        if not error:
+            for record in records:
+                results.append(recordToResult(record, encodings))
+            return results
+
+        code = error.code()
+        log.debug("Received code %d from query call: %s" % (code, error))
+
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
+
+    log.error(error)
+    raise ODError(error)
 
 
 def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attributes, count=0):
@@ -260,25 +319,37 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
 
     attributeNames, encodings = attributeNamesFromList(attributes)
 
-    query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
-        directory.node,
-        recordType,
-        None,
-        0x210B, # adjustMatchType(matchType, casei),
-        compound,
-        attributeNames,
-        count,
-        None)
-    if error:
-        log.error(error)
-        raise ODError(error)
-    records, error = query.resultsAllowingPartial_error_(False, None)
-    if error:
-        log.error(error)
-        raise ODError(error)
-    for record in records:
-        results.append(recordToResult(record, encodings))
-    return results
+    tries = NUM_TRIES
+    while tries:
+
+        query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+            directory.node,
+            recordType,
+            None,
+            0x210B, # adjustMatchType(matchType, casei),
+            compound,
+            attributeNames,
+            count,
+            None)
+
+        if not error:
+            records, error = query.resultsAllowingPartial_error_(False, None)
+
+        if not error:
+            for record in records:
+                results.append(recordToResult(record, encodings))
+            return results
+
+        code = error.code()
+        log.debug("Received code %d from query call: %s" % (code, error))
+
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
+
+    log.error(error)
+    raise ODError(error)
 
 
 def getUserRecord(directory, user):
@@ -289,16 +360,29 @@ def getUserRecord(directory, user):
     @param user: C{str} the user identifier/directory record name to fetch.
     @return: OD record if the user was found, None otherwise.
     """
-    record, error = directory.node.recordWithRecordType_name_attributes_error_(
-        dsattributes.kDSStdRecordTypeUsers,
-        user,
-        None,
-        None
-    )
-    if error:
-        log.error(error)
-        raise ODError(error)
-    return record
+    tries = NUM_TRIES
+    while tries:
+
+        record, error = directory.node.recordWithRecordType_name_attributes_error_(
+            dsattributes.kDSStdRecordTypeUsers,
+            user,
+            None,
+            None
+        )
+        if not error:
+            return record
+
+        code = error.code()
+        log.debug("Received code %d from recordWithRecordType call: %s" % (code, error))
+
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
+
+    log.error(error)
+    raise ODError(error)
+
 
 def authenticateUserBasic(directory, nodeName, user, password):
     """
@@ -314,11 +398,22 @@ def authenticateUserBasic(directory, nodeName, user, password):
     if record is None:
         raise ODError("Record not found")
 
-    result, error = record.verifyPassword_error_(password, None)
-    if error:
-        log.error(error)
-        raise ODError(error)
-    return result
+    tries = NUM_TRIES
+    while tries:
+        result, error = record.verifyPassword_error_(password, None)
+        if not error:
+            return result
+
+        code = error.code()
+        log.debug("Received code %d from Basic auth call: %s" % (code, error))
+
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
+
+    log.error(error)
+    raise ODError(error)
 
 
 def authenticateUserDigest(directory, nodeName, user, challenge, response, method):
@@ -337,19 +432,31 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
     if record is None:
         raise ODError("Record not found")
 
-    # TODO: what are these other return values?
-    result, mystery1, mystery2, error = record.verifyExtendedWithAuthenticationType_authenticationItems_continueItems_context_error_(
-        DIGEST_MD5,
-        [user, challenge, response, method],
-        None, None, None
-    )
-    if error:
-        log.error(error)
-        raise ODError(error)
-    return result
+    tries = NUM_TRIES
+    while tries:
+
+        # TODO: what are these other return values?
+        result, mystery1, mystery2, error = record.verifyExtendedWithAuthenticationType_authenticationItems_continueItems_context_error_(
+            DIGEST_MD5,
+            [user, challenge, response, method],
+            None, None, None
+        )
+        if not error:
+            return result
+
+        code = error.code()
+        log.debug("Received code %d from Digest auth call: %s" % (code, error))
+
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
+
+    log.error(error)
+    raise ODError(error)
+
 
 class ODError(Exception):
     """
     Exceptions from DirectoryServices errors.
     """
-    pass
