@@ -772,7 +772,13 @@ class XMPPNotifier(LoggingMixIn):
                 self.log_error("PubSub node creation error: %s" %
                     (iq.toXml().encode('ascii', 'replace')),)
                 self.sendError("Node creation failed (%s)" % (nodeName,), iq)
+        except AttributeError:
+            # We did not get an XML response; most likely it was a disconnection
+            self.unlockNode(None, nodeName)
+            # Don't re-raise, just unlock and ignore
         except:
+            # Note: this block is not a "finally" because in the case of a 409
+            # we don't want to unlock yet
             self.unlockNode(None, nodeName)
             raise
 
