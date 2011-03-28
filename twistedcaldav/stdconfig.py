@@ -437,7 +437,7 @@ DEFAULT_CONFIG = {
     "EnablePrivateEvents"     : False, # Private Events
     "EnableTimezoneService"   : False, # Timezone service
 
-    "EnableBatchUpload"       : False,    # POST batch uploads
+    "EnableBatchUpload"       : True,     # POST batch uploads
     "MaxResourcesBatchUpload" : 100,      # Maximum number of resources in a batch POST
     "MaxBytesBatchUpload"     : 10485760, # Maximum size of a batch POST (10 MB)
     
