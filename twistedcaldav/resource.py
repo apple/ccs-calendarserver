@@ -1403,6 +1403,9 @@ class CalDAVResource (
                     # This is almost verbatim from twext.web2.static.checkPreconditions
                     if request.method not in ("GET", "HEAD"):
                         
+                        # Always test against the current etag first just in case schedule-etags is out of sync
+                        etags = (self.etag(), ) + tuple([http_headers.ETag(etag) for etag in etags])
+
                         # Loop over each tag and succeed if any one matches, else re-raise last exception
                         exists = self.exists()
                         last_modified = self.lastModified()
@@ -1412,7 +1415,7 @@ class CalDAVResource (
                                 http.checkPreconditions(
                                     request,
                                     entityExists = exists,
-                                    etag = http_headers.ETag(etag),
+                                    etag = etag,
                                     lastModified = last_modified,
                                 )
                             except HTTPError, e:
