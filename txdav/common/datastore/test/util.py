@@ -26,6 +26,7 @@ from zope.interface.exceptions import BrokenMethodImplementation,\
 
 from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
+from twext.web2.dav.resource import TwistedGETContentMD5
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
@@ -36,11 +37,14 @@ from twisted.application.service import Service
 from txdav.common.datastore.sql import CommonDataStore, v1_schema
 from txdav.base.datastore.subpostgres import PostgresService
 from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
+from txdav.base.propertystore.base import PropertyName
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from twext.enterprise.adbapi2 import ConnectionPool
 from twisted.internet.defer import returnValue
 from twistedcaldav.notify import Notifier, NodeCreationException
+from twistedcaldav.vcard import Component as ABComponent
 
+md5key = PropertyName.fromElement(TwistedGETContentMD5)
 
 def allInstancesOf(cls):
     for o in gc.get_referrers(cls):
@@ -214,6 +218,100 @@ def populateCalendarsFrom(requirements, store):
                             VComponent.fromString(objData),
                             metadata = metadata,
                         )
+    yield populateTxn.commit()
+
+@inlineCallbacks
+def resetCalendarMD5s(md5s, store):
+    """
+    Change MD5s in C{store} from C{requirements}.
+
+    @param requirements: a dictionary of the format described by
+        L{txdav.caldav.datastore.test.common.CommonTests.requirements}.
+
+    @param store: the L{IDataStore} to populate with calendar data.
+    """
+    populateTxn = store.newTransaction()
+    for homeUID in md5s:
+        calendars = md5s[homeUID]
+        if calendars is not None:
+            home = yield populateTxn.calendarHomeWithUID(homeUID, True)
+            for calendarName in calendars:
+                calendarObjNames = calendars[calendarName]
+                if calendarObjNames is not None:
+                    # XXX should not be yielding!  this SQL will be executed
+                    # first!
+                    calendar = yield home.calendarWithName(calendarName)
+                    for objectName in calendarObjNames:
+                        md5 = calendarObjNames[objectName]
+                        obj = yield calendar.calendarObjectWithName(
+                            objectName,
+                        )
+                        obj.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
+    yield populateTxn.commit()
+
+
+@inlineCallbacks
+def populateAddressBooksFrom(requirements, store):
+    """
+    Populate C{store} from C{requirements}.
+
+    @param requirements: a dictionary of the format described by
+        L{txdav.caldav.datastore.test.common.CommonTests.requirements}.
+
+    @param store: the L{IDataStore} to populate with addressbook data.
+    """
+    populateTxn = store.newTransaction()
+    for homeUID in requirements:
+        addressbooks = requirements[homeUID]
+        if addressbooks is not None:
+            home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
+            # We don't want the default addressbook
+            try:
+                yield home.removeAddressBookWithName("addressbook")
+            except NoSuchHomeChildError:
+                pass
+            for addressbookName in addressbooks:
+                addressbookObjNames = addressbooks[addressbookName]
+                if addressbookObjNames is not None:
+                    # XXX should not be yielding!  this SQL will be executed
+                    # first!
+                    yield home.createAddressBookWithName(addressbookName)
+                    addressbook = yield home.addressbookWithName(addressbookName)
+                    for objectName in addressbookObjNames:
+                        objData = addressbookObjNames[objectName]
+                        yield addressbook.createAddressBookObjectWithName(
+                            objectName,
+                            ABComponent.fromString(objData),
+                        )
+    yield populateTxn.commit()
+
+@inlineCallbacks
+def resetAddressBookMD5s(md5s, store):
+    """
+    Change MD5s in C{store} from C{requirements}.
+
+    @param requirements: a dictionary of the format described by
+        L{txdav.caldav.datastore.test.common.CommonTests.requirements}.
+
+    @param store: the L{IDataStore} to populate with addressbook data.
+    """
+    populateTxn = store.newTransaction()
+    for homeUID in md5s:
+        addressbooks = md5s[homeUID]
+        if addressbooks is not None:
+            home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
+            for addressbookName in addressbooks:
+                addressbookObjNames = addressbooks[addressbookName]
+                if addressbookObjNames is not None:
+                    # XXX should not be yielding!  this SQL will be executed
+                    # first!
+                    addressbook = yield home.addressbookWithName(addressbookName)
+                    for objectName in addressbookObjNames:
+                        md5 = addressbookObjNames[objectName]
+                        obj = yield addressbook.addressbookObjectWithName(
+                            objectName,
+                        )
+                        obj.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
     yield populateTxn.commit()
 
 

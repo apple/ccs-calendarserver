@@ -30,9 +30,11 @@ from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.caldav.datastore.test.common import CommonTests
+from txdav.carddav.datastore.test.common import CommonTests as ABCommonTests
 from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import theStoreBuilder, \
-    populateCalendarsFrom, StubNotifierFactory
+    populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s,\
+    populateAddressBooksFrom, resetAddressBookMD5s
 from txdav.common.datastore.util import UpgradeToDatabaseService
 
 class HomeMigrationTests(TestCase):
@@ -68,9 +70,20 @@ class HomeMigrationTests(TestCase):
             fileStore, self.sqlStore, self.stubService
         )
         self.upgrader.setServiceParent(self.topService)
+
         requirements = CommonTests.requirements
         yield populateCalendarsFrom(requirements, fileStore)
+        md5s = CommonTests.md5s
+        yield resetCalendarMD5s(md5s, fileStore)
         self.filesPath.child("calendars").child(
+            "__uids__").child("ho").child("me").child("home1").child(
+            ".some-extra-data").setContent("some extra data")
+
+        requirements = ABCommonTests.requirements
+        yield populateAddressBooksFrom(requirements, fileStore)
+        md5s = ABCommonTests.md5s
+        yield resetAddressBookMD5s(md5s, fileStore)
+        self.filesPath.child("addressbooks").child(
             "__uids__").child("ho").child("me").child("home1").child(
             ".some-extra-data").setContent("some extra data")
 
@@ -101,13 +114,14 @@ class HomeMigrationTests(TestCase):
         # Want metadata preserved
         home = (yield txn.calendarHomeWithUID("home1"))
         calendar = (yield home.calendarWithName("calendar_1"))
-        for name, metadata in (
-            ("1.ics", CommonTests.metadata1),
-            ("2.ics", CommonTests.metadata2),
-            ("3.ics", CommonTests.metadata3),
+        for name, metadata, md5 in (
+            ("1.ics", CommonTests.metadata1, CommonTests.md5Values[0]),
+            ("2.ics", CommonTests.metadata2, CommonTests.md5Values[1]),
+            ("3.ics", CommonTests.metadata3, CommonTests.md5Values[2]),
         ):
             object = (yield calendar.calendarObjectWithName(name))
             self.assertEquals(object.getMetadata(), metadata)
+            self.assertEquals(object.md5(), md5)
 
 
     @inlineCallbacks
@@ -180,5 +194,40 @@ class HomeMigrationTests(TestCase):
         outAttachment.retrieve(SimpleProto())
         allData = yield allDone
         self.assertEquals(allData, someAttachmentData)
+
+
+    @inlineCallbacks
+    def test_upgradeAddressBookHomes(self):
+        """
+        L{UpgradeToDatabaseService.startService} will do the upgrade, then
+        start its dependent service by adding it to its service hierarchy.
+        """
+        self.topService.startService()
+        yield self.subStarted
+        self.assertEquals(self.stubService.running, True)
+        txn = self.sqlStore.newTransaction()
+        self.addCleanup(txn.commit)
+        for uid in ABCommonTests.requirements:
+            if ABCommonTests.requirements[uid] is not None:
+                self.assertNotIdentical(
+                    None, (yield txn.addressbookHomeWithUID(uid))
+                )
+        # Un-migrated data should be preserved.
+        self.assertEquals(self.filesPath.child("addressbooks-migrated").child(
+            "__uids__").child("ho").child("me").child("home1").child(
+                ".some-extra-data").getContent(),
+                "some extra data"
+        )
+        
+        # Want metadata preserved
+        home = (yield txn.addressbookHomeWithUID("home1"))
+        adbk = (yield home.addressbookWithName("addressbook_1"))
+        for name, md5 in (
+            ("1.vcf", ABCommonTests.md5Values[0]),
+            ("2.vcf", ABCommonTests.md5Values[1]),
+            ("3.vcf", ABCommonTests.md5Values[2]),
+        ):
+            object = (yield adbk.addressbookObjectWithName(name))
+            self.assertEquals(object.md5(), md5)
 
 

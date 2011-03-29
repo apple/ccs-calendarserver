@@ -475,7 +475,11 @@ class CalendarObject(CommonObjectResource):
             self._uid = component.resourceUID()
             self._md5 = hashlib.md5(componentText).hexdigest()
             self._size = len(componentText)
-    
+
+            # Special - if migrating we need to preserve the original md5    
+            if self._txn._migrating and hasattr(component, "md5"):
+                self._md5 = component.md5
+
             # Determine attachment mode (ignore inbox's) - NB we have to do this
             # after setting up other properties as UID at least is needed
             self._attachment = _ATTACHMENTS_MODE_NONE

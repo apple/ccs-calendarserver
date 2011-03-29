@@ -125,10 +125,11 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
         
         try:
             # Must account for metadata
-            
+            component = (yield calendarObject.component()) # XXX WRONG SHOULD CALL getComponent
+            component.md5 = calendarObject.md5()
             yield outCalendar.createCalendarObjectWithName(
                 calendarObject.name(),
-                (yield calendarObject.component()), # XXX WRONG SHOULD CALL getComponent
+                component,
                 metadata=calendarObject.getMetadata(),
             )
 

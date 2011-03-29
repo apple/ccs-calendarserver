@@ -18,6 +18,7 @@
 Tests for common addressbook store API functions.
 """
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
+from twisted.python import hashlib
 
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.base.propertystore.base import PropertyName
@@ -107,12 +108,30 @@ class CommonTests(CommonCommonTests):
     L{txdav.carddav.iaddressbookstore}.
     """
 
+    md5Values = (
+        hashlib.md5("1234").hexdigest(),
+        hashlib.md5("5678").hexdigest(),
+        hashlib.md5("9ABC").hexdigest(),
+    )
     requirements = {
         "home1": {
             "addressbook_1": {
                 "1.vcf": adbk1Root.child("1.vcf").getContent(),
                 "2.vcf": adbk1Root.child("2.vcf").getContent(),
                 "3.vcf": adbk1Root.child("3.vcf").getContent()
+            },
+            "addressbook_2": {},
+            "addressbook_empty": {},
+            "not_a_addressbook": None
+        },
+        "not_a_home": None
+    }
+    md5s = {
+        "home1": {
+            "addressbook_1": {
+                "1.vcf": md5Values[0],
+                "2.vcf": md5Values[1],
+                "3.vcf": md5Values[2],
             },
             "addressbook_2": {},
             "addressbook_empty": {},

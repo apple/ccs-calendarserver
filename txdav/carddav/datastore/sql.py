@@ -242,6 +242,11 @@ class AddressBookObject(CommonObjectResource):
         # ADDRESSBOOK_OBJECT table update
         self._md5 = hashlib.md5(componentText).hexdigest()
         self._size = len(componentText)
+
+        # Special - if migrating we need to preserve the original md5    
+        if self._txn._migrating and hasattr(component, "md5"):
+            self._md5 = component.md5
+
         if inserting:
             self._resourceID, self._created, self._modified = (
                 yield Insert(

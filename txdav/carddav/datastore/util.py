@@ -80,9 +80,12 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
     for addressbookObject in inObjects:
         
         try:
+            component = (yield addressbookObject.component()) # XXX WRONG SHOULD CALL getComponent
+            component.md5 = addressbookObject.md5()
             yield outAddressbook.createAddressBookObjectWithName(
                 addressbookObject.name(),
-                (yield addressbookObject.component())) # XXX WRONG SHOULD CALL getComponent
+                component,
+            )
     
             # Only the owner's properties are migrated, since previous releases of
             # addressbook server didn't have per-user properties.

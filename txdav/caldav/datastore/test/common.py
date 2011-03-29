@@ -22,6 +22,7 @@ Tests for common calendar store API functions.
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue,\
     maybeDeferred
 from twisted.internet.protocol import Protocol
+from twisted.python import hashlib
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
@@ -174,12 +175,30 @@ class CommonTests(CommonCommonTests):
         "hasPrivateComment": True,
     }
 
+    md5Values = (
+        hashlib.md5("1234").hexdigest(),
+        hashlib.md5("5678").hexdigest(),
+        hashlib.md5("9ABC").hexdigest(),
+    )
     requirements = {
         "home1": {
             "calendar_1": {
-                "1.ics": (cal1Root.child("1.ics").getContent(), metadata1,),
-                "2.ics": (cal1Root.child("2.ics").getContent(), metadata2,),
-                "3.ics": (cal1Root.child("3.ics").getContent(), metadata3,),
+                "1.ics": (cal1Root.child("1.ics").getContent(), metadata1),
+                "2.ics": (cal1Root.child("2.ics").getContent(), metadata2),
+                "3.ics": (cal1Root.child("3.ics").getContent(), metadata3),
+            },
+            "calendar_2": {},
+            "calendar_empty": {},
+            "not_a_calendar": None
+        },
+        "not_a_home": None
+    }
+    md5s = {
+        "home1": {
+            "calendar_1": {
+                "1.ics": md5Values[0],
+                "2.ics": md5Values[1],
+                "3.ics": md5Values[2],
             },
             "calendar_2": {},
             "calendar_empty": {},
