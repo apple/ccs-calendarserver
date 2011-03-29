@@ -36,6 +36,7 @@ RETRY_CODES = (
     5204, # Contact master
     5205, # Server communication error
 )
+INCORRECT_CREDENTIALS = 5000
 
 # Single-value attributes (must be converted from lists):
 SINGLE_VALUE_ATTRIBUTES = [
@@ -400,12 +401,23 @@ def authenticateUserBasic(directory, nodeName, user, password):
 
     tries = NUM_TRIES
     while tries:
+
+        log.debug("Checking basic auth for user '%s' (tries remaining: %d)" %
+            (user, tries))
+
         result, error = record.verifyPassword_error_(password, None)
         if not error:
+            log.debug("Basic auth for user '%s' result: %s" % (user, result))
             return result
 
         code = error.code()
-        log.debug("Received code %d from Basic auth call: %s" % (code, error))
+
+        if code == INCORRECT_CREDENTIALS:
+            log.debug("Basic auth for user '%s' failed due to incorrect credentials" % (user,))
+            return False
+
+        log.debug("Basic auth for user '%s' failed with code %d (%s)" %
+            (user, code, error))
 
         if code in RETRY_CODES:
             tries -= 1
@@ -435,6 +447,9 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
     tries = NUM_TRIES
     while tries:
 
+        log.debug("Checking digest auth for user '%s' (tries remaining: %d)" %
+            (user, tries))
+
         # TODO: what are these other return values?
         result, mystery1, mystery2, error = record.verifyExtendedWithAuthenticationType_authenticationItems_continueItems_context_error_(
             DIGEST_MD5,
@@ -442,10 +457,17 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
             None, None, None
         )
         if not error:
+            log.debug("Digest auth for user '%s' result: %s" % (user, result))
             return result
 
         code = error.code()
-        log.debug("Received code %d from Digest auth call: %s" % (code, error))
+
+        if code == INCORRECT_CREDENTIALS:
+            log.debug("Digest auth for user '%s' failed due to incorrect credentials" % (user,))
+            return False
+
+        log.debug("Digest auth for user '%s' failed with code %d (%s)" %
+            (user, code, error))
 
         if code in RETRY_CODES:
             tries -= 1
