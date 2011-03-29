@@ -40,7 +40,7 @@ from twistedcaldav.resource import CalDAVComplianceMixIn
 from twistedcaldav.resource import CalendarHomeResource, AddressBookHomeResource
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.storebridge import CalendarCollectionResource,\
-    AddressBookCollectionResource
+    AddressBookCollectionResource, StoreNotificationCollectionResource
 
 log = Logger()
 
@@ -90,6 +90,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             DirectoryPrincipalResource.cacheNotifierFactory = MemcacheChangeNotifier
             CalendarCollectionResource.cacheNotifierFactory = MemcacheChangeNotifier
             AddressBookCollectionResource.cacheNotifierFactory = MemcacheChangeNotifier
+            StoreNotificationCollectionResource.cacheNotifierFactory = MemcacheChangeNotifier
         else:
             self.responseCache = DisabledCache()
 

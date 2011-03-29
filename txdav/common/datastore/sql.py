@@ -2628,6 +2628,11 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         return self._propertyStore
 
 
+    def addNotifier(self, notifier):
+        if self._notifiers is None:
+            self._notifiers = ()
+        self._notifiers += (notifier,)
+ 
     def notifierID(self, label="default"):
         if self._notifiers:
             return self._notifiers[0].getID(label)

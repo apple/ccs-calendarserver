@@ -2053,22 +2053,32 @@ class _NotificationChildHelper(object):
 
 
 class StoreNotificationCollectionResource(_NotificationChildHelper,
-                                      NotificationCollectionResource):
+                                          NotificationCollectionResource,
+                                          ResponseCacheMixin):
     """
     Wrapper around a L{txdav.caldav.icalendar.ICalendar}.
     """
 
-    def __init__(self, notifications, home, *args, **kw):
+    cacheNotifierFactory = DisabledCacheNotifier
+
+    def __init__(self, notifications, homeResource, home, *args, **kw):
         """
         Create a CalendarCollectionResource from a L{txdav.caldav.icalendar.ICalendar}
         and the arguments required for L{CalDAVResource}.
         """
         super(StoreNotificationCollectionResource, self).__init__(*args, **kw)
         self._initializeWithNotifications(notifications, home)
+        self._parentResource = homeResource
+        if self._newStoreNotifications:
+            self.cacheNotifier = self.cacheNotifierFactory(self)
+            self._newStoreNotifications.addNotifier(CacheStoreNotifier(self))
 
 
     def name(self):
         return "notification"
+
+    def url(self):
+        return joinURL(self._parentResource.url(), self.name(), "/")
 
     @inlineCallbacks
     def listChildren(self):

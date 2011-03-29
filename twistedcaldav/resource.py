@@ -2153,6 +2153,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         from twistedcaldav.storebridge import StoreNotificationCollectionResource
         similar = StoreNotificationCollectionResource(
             notifications,
+            self,
             self._newStoreHome,
             principalCollections = self.principalCollections(),
         )

@@ -549,9 +549,10 @@ class SharedCollectionMixin(object):
         sharee = self.principalForCalendarUserAddress(record.userid)
         if sharee is None:
             raise ValueError("sharee is None but userid was valid before")
-        notifications = yield self._associatedTransaction.notificationsWithUID(
-            sharee.principalUID()
-        )
+        
+        # We need to look up the resource so that the response cache notifier is properly initialized
+        notificationResource = (yield request.locateResource(sharee.notificationURL()))
+        notifications = notificationResource._newStoreNotifications
         
         # Look for existing notification
         oldnotification = (yield notifications.notificationObjectWithUID(record.inviteuid))
