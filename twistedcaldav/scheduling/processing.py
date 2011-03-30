@@ -223,6 +223,15 @@ class ImplicitProcessor(object):
         @type attendee: C{set}
         """
         
+        # When doing auto-processing of replies, only refresh attendees when the last auto-accept is done.
+        # Note that when we do this we also need to refresh the attendee that is generating the reply because they
+        # are no longer up to date with changes of other auto-accept attendees.
+        if hasattr(self.request, "auto_reply_processing_count") and self.request.auto_reply_processing_count > 1:
+            self.request.auto_reply_suppressed = True
+            returnValue(None)
+        if hasattr(self.request, "auto_reply_suppressed"):
+            attendees = ()
+
         from twistedcaldav.scheduling.implicit import ImplicitScheduler
         scheduler = ImplicitScheduler()
         yield scheduler.refreshAllAttendeesExceptSome(self.request, resource, self.recipient_calendar, attendees)
@@ -300,6 +309,11 @@ class ImplicitProcessor(object):
             new_resource = (yield self.writeCalendarResource(defaultURL, default, name, new_calendar))
             
             if autoprocessed and send_reply:
+                # Track outstanding auto-reply processing
+                if not hasattr(self.request, "auto_reply_processing_count"):
+                    self.request.auto_reply_processing_count = 1
+                else:
+                    self.request.auto_reply_processing_count += 1
                 reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
 
             # Build the schedule-changes XML element
@@ -325,6 +339,11 @@ class ImplicitProcessor(object):
                 new_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, new_calendar))
                 
                 if autoprocessed and send_reply:
+                    # Track outstanding auto-reply processing
+                    if not hasattr(self.request, "auto_reply_processing_count"):
+                        self.request.auto_reply_processing_count = 1
+                    else:
+                        self.request.auto_reply_processing_count += 1
                     reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
 
                 # Build the schedule-changes XML element
@@ -462,6 +481,10 @@ class ImplicitProcessor(object):
                 yield txn.commit()
         finally:
             yield lock.clean()
+
+            # Track outstanding auto-reply processing
+            if hasattr(self.request, "auto_reply_processing_count"):
+                self.request.auto_reply_processing_count -= 1
 
     @inlineCallbacks
     def checkAttendeeAutoReply(self, calendar):
