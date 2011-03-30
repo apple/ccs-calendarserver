@@ -785,9 +785,11 @@ if runTests:
             challenge, response = getChallengeResponse(user, password, node,
                 uri, method)
 
-            self.assertRaises(opendirectory.ODError,
-                opendirectory.authenticateUserDigest,
-                directory, node, user, challenge, response, method)
+            self.assertEquals(
+                False,
+                opendirectory.authenticateUserDigest(directory, node, user,
+                    challenge, response, method)
+            )
 
         def test_digestAuth_master_missing_record(self):
             directory = opendirectory.odInit("/Search")
