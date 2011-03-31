@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,9 +25,6 @@ import socket
 import sys
 import tables
 import traceback
-
-UTC_OFFSET = -8
-UTC_START_HOUR = 5
 
 def safePercent(x, y, multiplier=100):
     return ((multiplier * x) / y) if y else 0
@@ -151,6 +148,7 @@ class CalendarServerLogAnalyzer(object):
         self,
         startHour=None,
         endHour=None,
+        utcoffset = None,
         resolutionMinutes=60,
         filterByUser=None,
         filterByClient=None,
@@ -159,13 +157,11 @@ class CalendarServerLogAnalyzer(object):
 
         self.startHour = startHour
         self.endHour = endHour
+        self.utcoffset = utcoffset
         self.filterByUser = filterByUser
         self.filterByClient = filterByClient
         self.ignoreNonHTTPMethods = ignoreNonHTTPMethods
         
-        self.utcStartHour = UTC_START_HOUR
-        self.autoUTC = True
-        self.localtimeOffset = UTC_OFFSET
         self.startTime = datetime.datetime.now().replace(microsecond=0)
         
         self.host = socket.getfqdn()
@@ -174,6 +170,7 @@ class CalendarServerLogAnalyzer(object):
         
         self.resolutionMinutes = resolutionMinutes
         self.timeBucketCount = (24 * 60) / resolutionMinutes
+        self.loggedUTCOffset = None
 
         self.hourlyTotals = [[0, 0, 0, collections.defaultdict(int), 0.0,] for _ignore in xrange(self.timeBucketCount)]
         
@@ -200,7 +197,7 @@ class CalendarServerLogAnalyzer(object):
 
         self.requestSizeByBucket = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
         self.responseSizeByBucket = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
-        self.averageResponseCountByMethod = collections.defaultdict(lambda: [0, 0])
+        self.responseCountByMethod = collections.defaultdict(lambda: [0, 0])
 
         self.requestTimeByBucket = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
         
@@ -222,9 +219,7 @@ class CalendarServerLogAnalyzer(object):
         else:
             f = open(fpath)
             
-        lastHourFromStart = -1
-        self.startHourFromStart = divmod(self.startHour - (self.utcStartHour + self.localtimeOffset), self.timeBucketCount)[1]
-        self.endHourFromStart = divmod(self.endHour - (self.utcStartHour + self.localtimeOffset), self.timeBucketCount)[1]
+        self.maxIndex = (self.endHour - self.startHour + 1) * 60 / self.resolutionMinutes
         try:
             ctr = 0
             for line in f:
@@ -244,20 +239,12 @@ class CalendarServerLogAnalyzer(object):
                 # Do hour ranges
                 logHour = int(self.currentLine.logTime[0:2])
                 logMinute = int(self.currentLine.logTime[3:5])
-                if self.autoUTC:
-                    self.utcStartHour = logHour
-                    self.localtimeOffset = -8 if logHour == 6 else -7
-                    self.startHourFromStart = divmod(self.startHour - (self.utcStartHour + self.localtimeOffset), 24)[1]
-                    self.endHourFromStart = divmod(self.endHour - (self.utcStartHour + self.localtimeOffset), 24)[1]
-                    self.autoUTC = False
-                hourFromStart = divmod(logHour - self.utcStartHour, 24)[1]
-#                if hourFromStart > 1:
-#                    break
-                if hourFromStart > lastHourFromStart:
-                    lastHourFromStart = hourFromStart
-                if hourFromStart < self.startHourFromStart:
+                hourFromStart = logHour - (0 if self.utcoffset is None else self.utcoffset) - self.startHour
+                if hourFromStart < 0:
+                    hourFromStart += 24
+                if logHour < self.startHour:
                     continue
-                elif hourFromStart > self.endHourFromStart:
+                elif logHour > self.endHour:
                     continue
                 
                 timeBucketIndex = (hourFromStart * 60 + logMinute) / self.resolutionMinutes
@@ -366,10 +353,10 @@ class CalendarServerLogAnalyzer(object):
                     self.responseSizeByBucket[self.getCountBucket(self.currentLine.bytes, responseSizeBuckets)][timeBucketIndex] += 1
                     
                 if rcount != -1:
-                    self.averageResponseCountByMethod[" TOTAL"][0] += rcount
-                    self.averageResponseCountByMethod[" TOTAL"][1] += 1
-                    self.averageResponseCountByMethod[adjustedMethod][0] += rcount
-                    self.averageResponseCountByMethod[adjustedMethod][1] += 1
+                    self.responseCountByMethod[" TOTAL"][0] += rcount
+                    self.responseCountByMethod[" TOTAL"][1] += 1
+                    self.responseCountByMethod[adjustedMethod][0] += rcount
+                    self.responseCountByMethod[adjustedMethod][1] += 1
 
                 # Request time analysis
                 self.requestTimeByBucket[" TOTAL"][timeBucketIndex] += 1
@@ -412,7 +399,7 @@ class CalendarServerLogAnalyzer(object):
                 self.averagedHourlyByRecipientCount[method][hour] = newValue
         
         averaged = collections.defaultdict(int)
-        for key, value in self.averageResponseCountByMethod.iteritems():
+        for key, value in self.responseCountByMethod.iteritems():
             averaged[key] = (value[0] / value[1]) if value[1] else 0
         self.averageResponseCountByMethod = averaged
 
@@ -421,39 +408,6 @@ class CalendarServerLogAnalyzer(object):
                 count = self.clientByMethodCount[client][method]
                 self.clientByMethodAveragedTime[client][method] = totaltime/count if count else 0
 
-#regex1 = re.compile("""[^ ]+ - (?P<userid>"[^"]+"|[^ ]+) \[[^:]+:(?P<logTime>[^ ]+) [^"]+"(?P<method>\?\?\?|[^ ]+)( (?P<uri>[^ ]+) HTTP/..."|") (?P<status>[^ ]+) (?P<bytes>[^ ]+) "(?P<referrer>[^"]+)" "(?P<client>[^"]+)" (?P<rest>.*)""")
-#regex2 = re.compile("""\[(?P<time>[^ ]+) ms\] \[(?P<port>[^ ]+) (?P<qdepth>[^ ]+)\]""")
-#
-#def parseLineR(line):
-#    
-#    m = regex1.match(line)
-#    
-#    userid = m.group("userid")
-#    logTime = m.group("logTime")
-#    method = m.group("method")
-#    if method == "???":
-#        uri = ""
-#    else:
-#        uri = m.group("uri")
-#    status = int(m.group("status"))
-#    bytes = int(m.group("bytes"))
-#    referrer = m.group("referrer")
-#    client = m.group("client")
-#    rest = m.group("rest")
-#    
-#    if rest[0] == '[':
-#        m = regex2.match(rest)
-#        
-#        extended = {}
-#        extended["t"] = float(m.group("time"))
-#        extended["i"] = int(m.group("port"))
-#        extended["or"] = int(m.group("qdepth"))
-#    else:
-#        items = rest.split()
-#        extended = dict([item.split('=') for item in items])
-#
-#    return userid, logTime, method, uri, status, bytes, referrer, client, extended
-    
     def parseLine(self, line):
     
         startPos = line.find("- ")
@@ -463,6 +417,9 @@ class CalendarServerLogAnalyzer(object):
         startPos = endPos + 1
         logDateTime = line[startPos + 1:startPos + 21]
         logTime = line[startPos + 13:startPos + 21]
+        
+        if self.loggedUTCOffset is None:
+            self.loggedUTCOffset = int(line[startPos + 22:startPos + 25])
     
         startPos = line.find(']', startPos + 21) + 3
         endPos = line.find(' ', startPos)
@@ -521,44 +478,12 @@ class CalendarServerLogAnalyzer(object):
         index = self.currentLine.client.find("iCal/")
         if index != -1:
             name = self.currentLine.client[index:self.currentLine.client.find(' ', index)]
-            if name.startswith("iCal/3"):
-                return "iCal/3"
-            elif name == "iCal/4.0":
-                return "iCal/4.0"
-            elif name == "iCal/4.0.1":
-                return "iCal/4.0.1"
-            elif name == "iCal/4.0.2":
-                return "iCal/4.0.2"
-            elif name == "iCal/4.0.3":
-                return "iCal/4.0.3"
-            elif name.startswith("iCal/4"):
-                return "iCal/4.?"
-            elif name.startswith("iCal/5"):
-                return "iCal/5.?"
-            else:
-                return "iCal/???"
+            return name
         
         index = self.currentLine.client.find("iPhone/")
         if index != -1:
             name = self.currentLine.client[index:self.currentLine.client.find(' ', index)]
-            if name.startswith("iPhone/3.0"):
-                return "iPhone/3.0"
-            elif name.startswith("iPhone/3.1"):
-                return "iPhone/3.1"
-            elif name.startswith("iPhone/3.2"):
-                return "iPhone/3.2"
-            elif name.startswith("iPhone/3"):
-                return "iPhone/3.?"
-            elif name.startswith("iPhone/4.0"):
-                return "iPhone/4.0"
-            elif name.startswith("iPhone/4.1"):
-                return "iPhone/4.1"
-            elif name.startswith("iPhone/4.2"):
-                return "iPhone/4.2"
-            elif name.startswith("iPhone/4"):
-                return "iPhone/4.?"
-            else:
-                return "iPhone/???"
+            return name
         
         index = self.currentLine.client.find("calendarclient")
         if index != -1:
@@ -570,6 +495,18 @@ class CalendarServerLogAnalyzer(object):
             else:
                 return "Simulator"
     
+        quickclients = (
+            ("CardDAVPlugin/", "CardDAVPlugin"), 
+            ("Address%20Book/", "AddressBook"),
+            ("AddressBook/", "AddressBook"),
+            ("Mail/", "Mail"),
+            ("iChat/", "iChat"),
+        )
+        for quick, result in quickclients:
+            index = self.currentLine.client.find(quick)
+            if index != -1:
+                return result
+
         return "Other"
     
     def getAdjustedMethodName(self):
@@ -586,10 +523,25 @@ class CalendarServerLogAnalyzer(object):
                         return "PROPFIND%s Calendar Home" % ("-cached" if cached else "")
                     elif uribits[3] == "inbox":
                         return "PROPFIND Inbox"
-                    elif uribits[3] == "dropbox":
+                    elif uribits[3] == ("dropbox", "freebusy"):
                         pass
+                    elif uribits[3] == "notification":
+                        return "PROPFIND Notification"
                     else:
                         return "PROPFIND Calendar"
+    
+            elif uribits[0] == "addressbooks":
+                
+                if len(uribits) > 3:
+                    if uribits[3] == "":
+                        return "PROPFIND%s Adbk Home" % ("-cached" if cached else "")
+                    elif uribits[3] == "notification":
+                        return "PROPFIND Notification"
+                    else:
+                        return "PROPFIND Adbk"
+    
+            elif uribits[0] == "directory":
+                return "PROPFIND%s directory" % ("-cached" if cached else "")
     
             elif uribits[0] == "principals":
                 return "PROPFIND%s Principal" % ("-cached" if cached else "")
@@ -597,7 +549,23 @@ class CalendarServerLogAnalyzer(object):
         elif self.currentLine.method.startswith("REPORT"):
             
             if "(" in self.currentLine.method:
-                return "REPORT %s" % self.currentLine.method.split(":")[1][:-1]
+                report_type = self.currentLine.method.split("}" if "}" in self.currentLine.method else ":")[1][:-1]
+                if report_type == "addressbook-query":
+                    uribits = self.currentLine.uri.split('/')[1:]
+                    if uribits[0] == "directory":
+                        report_type = "directory-query"
+                shorter = {
+                    "calendar-multiget"             : "cal-multi",
+                    "addressbook-multiget"          : "adbk-multi",
+                    "calendar-query"                : "cal-query",
+                    "addressbook-query"             : "adbk-query",
+                    "directory-query"               : "directory",
+                    "sync-collection"               : "sync",
+                    "principal-search-property-set" : "p-set",
+                    "principal-property-search"     : "p-search",
+                    "expand-property"               : "expand",
+                }
+                return "REPORT %s" % (shorter.get(report_type, report_type),)
         
         elif self.currentLine.method == "PROPPATCH":
             
@@ -608,14 +576,48 @@ class CalendarServerLogAnalyzer(object):
             
         elif self.currentLine.method == "POST":
             
-            if "freebusy" in self.currentLine.extended:
-                return "POST Freebusy"
-            else:
-                for key in ("itip.publish", "itip.request", "itip.cancel", "itip.add", "itip.decline-counter",):
-                    if key in self.currentLine.extended:
-                        return "POST iTIP Organizer"
+            uribits = self.currentLine.uri.split('/')[1:]
+            
+            if uribits[0] == "calendars" and len(uribits) > 3 and uribits[3] == "outbox":
+                if "freebusy" in self.currentLine.extended:
+                    return "POST Freebusy"
                 else:
-                    return "POST iTIP Attendee"
+                    for key in ("itip.publish", "itip.request", "itip.cancel", "itip.add", "itip.decline-counter",):
+                        if key in self.currentLine.extended:
+                            return "POST Organizer"
+                    else:
+                        return "POST Attendee"
+            elif uribits[0] == "calendars":
+                
+                if len(uribits) > 3:
+                    if uribits[3] == "":
+                        return "POST Calendar Home"
+                    elif uribits[3] == "outbox":
+                        if "freebusy" in self.currentLine.extended:
+                            return "POST Freebusy"
+                        else:
+                            for key in ("itip.publish", "itip.request", "itip.cancel", "itip.add", "itip.decline-counter",):
+                                if key in self.currentLine.extended:
+                                    return "POST Organizer"
+                            else:
+                                return "POST Attendee"
+                    elif uribits[3] in ("dropbox", "freebusy", "notification"):
+                        pass
+                    else:
+                        return "POST Calendar"
+    
+            elif uribits[0] == "addressbooks":
+                
+                if len(uribits) > 3:
+                    if uribits[3] == "":
+                        return "POST Adbk Home"
+                    elif uribits[3] == "notification":
+                        pass
+                    else:
+                        return "POST Adbk"
+
+            elif uribits[0].startswith("timezones"):
+                return "POST Timezones"
             
         elif self.currentLine.method == "PUT":
             
@@ -628,9 +630,33 @@ class CalendarServerLogAnalyzer(object):
             
             uribits = self.currentLine.uri.split('/')[1:]
             
-            if len(uribits) > 3 and uribits[3] == "dropbox":
-                return "GET Dropbox"
-            
+            if uribits[0] == "calendars":
+                
+                if len(uribits) > 3:
+                    if uribits[3] == "":
+                        return "GET Calendar Home"
+                    elif uribits[3] in ("notification", "outbox"):
+                        pass
+                    elif uribits[3] == "dropbox":
+                        return "GET Dropbox"
+                    elif uribits[3] == "freebusy":
+                        return "GET Freebusy"
+                    else:
+                        return "GET Calendar"
+    
+            elif uribits[0] == "addressbooks":
+                
+                if len(uribits) > 3:
+                    if uribits[3] == "":
+                        return "GET Adbk Home"
+                    elif uribits[3] == "notification":
+                        pass
+                    else:
+                        return "GET Adbk"
+
+            elif uribits[0].startswith("timezones"):
+                return "GET Timezones"
+
         return self.currentLine.method
     
     def getCountBucket(self, count, buckets):
@@ -773,8 +799,8 @@ class CalendarServerLogAnalyzer(object):
         print "URI Counts"
         self.printURICounts(doTabs)
 
-        print "User Interaction Counts"
-        self.printUserInteractionCounts(doTabs)
+        #print "User Interaction Counts"
+        #self.printUserInteractionCounts(doTabs)
 
         #print "User Weights (top 100)"
         #self.printUserWeights(doTabs)
@@ -800,24 +826,21 @@ class CalendarServerLogAnalyzer(object):
     
     def getHourFromIndex(self, index):
         
+        if index >= self.maxIndex:
+            return None
         totalminutes = index * self.resolutionMinutes
         
         offsethour, minute = divmod(totalminutes, 60)
-        utchour = divmod(offsethour + self.utcStartHour, 24)[1]
-        localhour = divmod(utchour + self.localtimeOffset, 24)[1]
+        localhour = divmod(offsethour + self.startHour, 24)[1]
+        utchour = divmod(localhour - self.loggedUTCOffset, 24)[1]
         
         # Clip to select hour range
-        if offsethour < self.startHourFromStart:
-            return None
-        elif offsethour > self.endHourFromStart:
-            return None
-        else:
-            return "%02d:%02d (%02d:%02d)" % (utchour, minute, localhour, minute,)
+        return "%02d:%02d (%02d:%02d)" % (localhour, minute, utchour, minute,)
         
     def printHourlyTotals(self, doTabs):
         
         table = tables.Table()
-        table.addHeader(("Hour UTC (PDT)", "Total",    "Av. Queue", "Max. Queue", "Av. Response",))
+        table.addHeader(("Local (UTC)", "Total",    "Av. Queue", "Max. Queue", "Av. Response",))
         table.addHeader(("",               "Requests", "Depth",     "Depth (# queues)",      "Time(ms)",))
         table.setDefaultColumnFormats((
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
@@ -905,7 +928,7 @@ class CalendarServerLogAnalyzer(object):
         totals = [0,] * len(hourlyByXXX)
         table = tables.Table()
     
-        header = ["Hour UTC (PDT)",]
+        header = ["Local (UTC)",]
         header2 = ["",]
         use_header2 = False
         formats = [tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY),]
@@ -963,13 +986,15 @@ class CalendarServerLogAnalyzer(object):
     
     def printHourlyCacheDetails(self, doTabs):
     
-        totals = [0,] * 5
+        totals = [0,] * 7
         table = tables.Table()
     
-        header1 = ["Hour UTC (PDT)", "PROPFIND Calendar Home", "", "PROPFIND Principals", ""]
-        header2 = ["",               "Uncached",     "Cached",     "Uncached",  "Cached"]
+        header1 = ["Local (UTC)", "PROPFIND Calendar Home", "", "PROPFIND Address Book Home", "", "PROPFIND Principals", ""]
+        header2 = ["",            "Uncached",         "Cached", "Uncached",             "Cached", "Uncached",      "Cached"]
         formats = [
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY),
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -982,10 +1007,14 @@ class CalendarServerLogAnalyzer(object):
             None,
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY, span=2),
             None,
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY, span=2),
+            None,
         ])
     
         table.addHeaderDivider(skipColumns=(0,))
         table.addHeader(header2, columnFormats = [
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY),
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY),
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY),
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY),
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY),
@@ -1002,25 +1031,34 @@ class CalendarServerLogAnalyzer(object):
             row = []
             row.append(hour)
     
-            homeUncached = self.hourlyByOKMethodCount["PROPFIND Calendar Home"][ctr]
-            homeCached = self.hourlyByOKMethodCount["PROPFIND-cached Calendar Home"][ctr]
-            homeTotal = homeUncached + homeCached
+            calHomeUncached = self.hourlyByOKMethodCount["PROPFIND Calendar Home"][ctr]
+            calHomeCached = self.hourlyByOKMethodCount["PROPFIND-cached Calendar Home"][ctr]
+            calHomeTotal = calHomeUncached + calHomeCached
+            
+            adbkHomeUncached = self.hourlyByOKMethodCount["PROPFIND Adbk Home"][ctr]
+            adbkHomeCached = self.hourlyByOKMethodCount["PROPFIND-cached Adbk Home"][ctr]
+            adbkHomeTotal = adbkHomeUncached + adbkHomeCached
             
             principalUncached = self.hourlyByOKMethodCount["PROPFIND Principal"][ctr]
             principalCached = self.hourlyByOKMethodCount["PROPFIND-cached Principal"][ctr]
             principalTotal = principalUncached + principalCached
             
             
-            row.append("%d (%2d%%)" % (homeUncached, safePercent(homeUncached, homeTotal),))
-            row.append("%d (%2d%%)" % (homeCached, safePercent(homeCached, homeTotal),))
+            row.append("%d (%2d%%)" % (calHomeUncached, safePercent(calHomeUncached, calHomeTotal),))
+            row.append("%d (%2d%%)" % (calHomeCached, safePercent(calHomeCached, calHomeTotal),))
+    
+            row.append("%d (%2d%%)" % (adbkHomeUncached, safePercent(adbkHomeUncached, adbkHomeTotal),))
+            row.append("%d (%2d%%)" % (adbkHomeCached, safePercent(adbkHomeCached, adbkHomeTotal),))
     
             row.append("%d (%2d%%)" % (principalUncached, safePercent(principalUncached, principalTotal),))
             row.append("%d (%2d%%)" % (principalCached, safePercent(principalCached, principalTotal),))
     
-            totals[1] += homeUncached
-            totals[2] += homeCached
-            totals[3] += principalUncached
-            totals[4] += principalCached
+            totals[1] += calHomeUncached
+            totals[2] += calHomeCached
+            totals[3] += adbkHomeUncached
+            totals[4] += adbkHomeCached
+            totals[5] += principalUncached
+            totals[6] += principalCached
     
             table.addRow(row)
     
@@ -1030,6 +1068,8 @@ class CalendarServerLogAnalyzer(object):
         row.append("%d (%2d%%)" % (totals[2], safePercent(totals[2], totals[1] + totals[2]),))
         row.append("%d (%2d%%)" % (totals[3], safePercent(totals[3], totals[3] + totals[4]),))
         row.append("%d (%2d%%)" % (totals[4], safePercent(totals[4], totals[3] + totals[4]),))
+        row.append("%d (%2d%%)" % (totals[5], safePercent(totals[5], totals[5] + totals[6]),))
+        row.append("%d (%2d%%)" % (totals[6], safePercent(totals[6], totals[5] + totals[6]),))
         table.addFooter(row)
     
         table.printTabDelimitedData() if doTabs else table.printTable()
@@ -1546,7 +1586,8 @@ def usage(error_msg=None):
     print """Usage: protocolanalysis [options] [FILE]
 Options:
     -h            Print this help and exit
-    --hours       Range of hours to analyze
+    --hours       Range of hours (local time) to analyze [0:23]
+    --utcoffset   Local time offset for UTC log entries
     --resolution  Time resolution in minutes [60]
     --user        User to analyze
     --client      Client to analyze
@@ -1576,12 +1617,13 @@ if __name__ == "__main__":
         doTabDelimited = False
         repeat = False
         resolution = 60
-        startHour = 22
+        startHour = 0
         endHour = startHour + 23
+        utcoffset = None
         filterByUser = None
         filterByClient = None
 
-        options, args = getopt.getopt(sys.argv[1:], "h", ["diff", "hours=", "resolution=", "repeat", "tabs", "user=", "client=", ])
+        options, args = getopt.getopt(sys.argv[1:], "h", ["diff", "hours=", "utcoffset=", "resolution=", "repeat", "tabs", "user=", "client=", ])
 
         for option, value in options:
             if option == "-h":
@@ -1594,11 +1636,18 @@ if __name__ == "__main__":
                 doTabDelimited = True
             elif option == "--hours":
                 splits = value.split(":")
-                if len(splits) != 2:
+                if len(splits) not in (1, 2):
                     usage("Wrong format for --hours: %s %s" % (value, splits))
+                elif len(splits) == 1:
+                    startHour = int(splits[0])
+                    endHour = startHour + 24
                 else:
                     startHour = int(splits[0])
                     endHour = int(splits[1])
+                    if endHour < startHour:
+                        endHour += 24
+            elif option == "--utcoffset":
+                utcoffset = int(value)
             elif option == "--resolution":
                 resolution = int(value)
             elif option == "--user":
@@ -1631,7 +1680,7 @@ if __name__ == "__main__":
                 continue
            
             if diffMode or not analyzers:
-                analyzers.append(CalendarServerLogAnalyzer(startHour, endHour, resolution, filterByUser, filterByClient))
+                analyzers.append(CalendarServerLogAnalyzer(startHour, endHour, utcoffset, resolution, filterByUser, filterByClient))
             analyzers[-1].analyzeLogFile(arg)
 
         if diffMode and len(analyzers) > 1:
