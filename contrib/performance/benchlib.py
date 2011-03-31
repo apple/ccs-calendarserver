@@ -158,27 +158,34 @@ def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
     msg('dtrace started')
 
     start = time()
-    l = []
+    requests = []
     for i in range(concurrency):
-        l.append(once())
+        requests.append(once())
 
-    while True:
+    while requests:
         try:
-            result, index = yield DeferredList(l, fireOnOneCallback=True, fireOnOneErrback=True)
+            result, index = yield DeferredList(requests, fireOnOneCallback=True, fireOnOneErrback=True)
         except FirstError, e:
             e.subFailure.raiseException()
 
         # Get rid of the completed Deferred
-        del l[index]
+        del requests[index]
 
         if time() > start + sampleTime:
             # Wait for the rest of the outstanding requests to keep things tidy
-            yield DeferredList(l)
+            yield DeferredList(requests)
             # And then move on
             break
         else:
             # And start a new operation to replace it
-            l.append(once())
+            try:
+                requests.append(once())
+            except StopIteration:
+                # Ran out of work to do, so paramgen raised a
+                # StopIteration.  This is pretty sad.  Catch it or it
+                # will demolish inlineCallbacks.
+                if len(requests) == concurrency - 1:
+                    msg('exhausted parameter generator')
     
     msg('stopping dtrace')
     leftOver = yield dtrace.stop()
