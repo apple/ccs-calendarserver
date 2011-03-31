@@ -344,7 +344,7 @@ class CommonStoreTransaction(object):
         return self._sqlTxn.abort()
 
 
-    def _oldEventsBase(limited):
+    def _oldEventsBase(limited): #@NoSelf
         ch = schema.CALENDAR_HOME
         co = schema.CALENDAR_OBJECT
         cb = schema.CALENDAR_BIND
@@ -415,7 +415,7 @@ class CommonStoreTransaction(object):
         returnValue(count)
 
 
-    def _orphanedBase(limited):
+    def _orphanedBase(limited): #@NoSelf
         at = schema.ATTACHMENT
         co = schema.CALENDAR_OBJECT
         kwds = {}
@@ -501,13 +501,13 @@ class CommonHome(LoggingMixIn):
 
 
     @classproperty
-    def _resourceIDFromOwnerQuery(cls):
+    def _resourceIDFromOwnerQuery(cls): #@NoSelf
         home = cls._homeSchema
         return Select([home.RESOURCE_ID],
                       From=home, Where=home.OWNER_UID == Parameter("ownerUID"))
 
     @classproperty
-    def _ownerFromFromResourceID(cls):
+    def _ownerFromFromResourceID(cls): #@NoSelf
         home = cls._homeSchema
         return Select([home.OWNER_UID],
                       From=home,
@@ -742,7 +742,7 @@ class CommonHome(LoggingMixIn):
 
 
     @classproperty
-    def _syncTokenQuery(cls):
+    def _syncTokenQuery(cls): #@NoSelf
         """
         DAL Select statement to find the sync token.
         """
@@ -767,7 +767,7 @@ class CommonHome(LoggingMixIn):
 
 
     @classproperty
-    def _changesQuery(cls):
+    def _changesQuery(cls): #@NoSelf
         bind = cls._bindSchema
         rev = cls._revisionsSchema
         return Select([bind.RESOURCE_NAME, rev.COLLECTION_NAME,
@@ -894,7 +894,7 @@ class CommonHome(LoggingMixIn):
 
 
     @classproperty
-    def _resourceByUIDQuery(cls):
+    def _resourceByUIDQuery(cls): #@NoSelf
         obj = cls._objectSchema
         bind = cls._bindSchema
         return Select([obj.PARENT_RESOURCE_ID, obj.RESOURCE_ID],
@@ -924,7 +924,7 @@ class CommonHome(LoggingMixIn):
 
 
     @classproperty
-    def _quotaQuery(cls):
+    def _quotaQuery(cls): #@NoSelf
         meta = cls._homeMetaDataSchema
         return Select(
             [meta.QUOTA_USED_BYTES], From=meta,
@@ -941,7 +941,7 @@ class CommonHome(LoggingMixIn):
 
 
     @classproperty
-    def _preLockResourceIDQuery(cls):
+    def _preLockResourceIDQuery(cls): #@NoSelf
         meta = cls._homeMetaDataSchema
         return Select(From=meta,
                       Where=meta.RESOURCE_ID==Parameter("resourceID"),
@@ -949,7 +949,7 @@ class CommonHome(LoggingMixIn):
 
 
     @classproperty
-    def _increaseQuotaQuery(cls):
+    def _increaseQuotaQuery(cls): #@NoSelf
         meta = cls._homeMetaDataSchema
         return Update({meta.QUOTA_USED_BYTES: meta.QUOTA_USED_BYTES +
                        Parameter("delta")},
@@ -958,7 +958,7 @@ class CommonHome(LoggingMixIn):
 
 
     @classproperty
-    def _resetQuotaQuery(cls):
+    def _resetQuotaQuery(cls): #@NoSelf
         meta = cls._homeMetaDataSchema
         return Update({meta.QUOTA_USED_BYTES: 0},
                       Where=meta.RESOURCE_ID == Parameter("resourceID"))
@@ -1028,7 +1028,7 @@ class _SharedSyncLogic(object):
     """
 
     @classproperty
-    def _childSyncTokenQuery(cls):
+    def _childSyncTokenQuery(cls): #@NoSelf
         """
         DAL query for retrieving the sync token of a L{CommonHomeChild} based on
         its resource ID.
@@ -1051,7 +1051,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _objectNamesSinceRevisionQuery(cls):
+    def _objectNamesSinceRevisionQuery(cls): #@NoSelf
         """
         DAL query for (resource, deleted-flag)
         """
@@ -1086,7 +1086,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _removeDeletedRevision(cls):
+    def _removeDeletedRevision(cls): #@NoSelf
         rev = cls._revisionsSchema
         return Delete(From=rev,
                       Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
@@ -1094,7 +1094,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _addNewRevision(cls):
+    def _addNewRevision(cls): #@NoSelf
         rev = cls._revisionsSchema
         return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
                        rev.RESOURCE_ID: Parameter("resourceID"),
@@ -1118,7 +1118,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _renameSyncTokenQuery(cls):
+    def _renameSyncTokenQuery(cls): #@NoSelf
         """
         DAL query to change sync token for a rename (increment and adjust
         resource name).
@@ -1140,7 +1140,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _deleteSyncTokenQuery(cls):
+    def _deleteSyncTokenQuery(cls): #@NoSelf
         """
         DAL query to update a sync revision to be a tombstone instead.
         """
@@ -1152,7 +1152,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _sharedRemovalQuery(cls):
+    def _sharedRemovalQuery(cls): #@NoSelf
         """
         DAL query to update the sync token for a shared collection.
         """
@@ -1167,7 +1167,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _unsharedRemovalQuery(cls):
+    def _unsharedRemovalQuery(cls): #@NoSelf
         """
         DAL query to update the sync token for an owned collection.
         """
@@ -1214,7 +1214,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _deleteBumpTokenQuery(cls):
+    def _deleteBumpTokenQuery(cls): #@NoSelf
         rev = cls._revisionsSchema
         return Update({rev.REVISION: schema.REVISION_SEQ,
                        rev.DELETED: True},
@@ -1224,7 +1224,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _updateBumpTokenQuery(cls):
+    def _updateBumpTokenQuery(cls): #@NoSelf
         rev = cls._revisionsSchema
         return Update({rev.REVISION: schema.REVISION_SEQ},
                       Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
@@ -1233,7 +1233,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _insertFindPreviouslyNamedQuery(cls):
+    def _insertFindPreviouslyNamedQuery(cls): #@NoSelf
         rev = cls._revisionsSchema
         return Select([rev.RESOURCE_ID], From=rev,
                       Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
@@ -1241,7 +1241,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _updatePreviouslyNamedQuery(cls):
+    def _updatePreviouslyNamedQuery(cls): #@NoSelf
         rev = cls._revisionsSchema
         return Update({rev.REVISION: schema.REVISION_SEQ,
                        rev.DELETED: False},
@@ -1251,7 +1251,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _completelyNewRevisionQuery(cls):
+    def _completelyNewRevisionQuery(cls): #@NoSelf
         rev = cls._revisionsSchema
         return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
                        rev.RESOURCE_ID: Parameter("resourceID"),
@@ -1351,7 +1351,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _ownedChildListQuery(cls):
+    def _ownedChildListQuery(cls): #@NoSelf
         bind = cls._bindSchema
         return Select([bind.RESOURCE_NAME], From=bind,
                       Where=(bind.HOME_RESOURCE_ID ==
@@ -1360,7 +1360,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _sharedChildListQuery(cls):
+    def _sharedChildListQuery(cls): #@NoSelf
         bind = cls._bindSchema
         return Select([bind.RESOURCE_NAME], From=bind,
                       Where=(bind.HOME_RESOURCE_ID ==
@@ -1409,12 +1409,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _ownedHomeChildrenQuery(cls):
+    def _ownedHomeChildrenQuery(cls): #@NoSelf
         return cls._allHomeChildrenQuery(True)
 
 
     @classproperty
-    def _sharedHomeChildrenQuery(cls):
+    def _sharedHomeChildrenQuery(cls): #@NoSelf
         return cls._allHomeChildrenQuery(False)
 
 
@@ -1489,7 +1489,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _resourceIDOwnedByHomeByName(cls):
+    def _resourceIDOwnedByHomeByName(cls): #@NoSelf
         """
         DAL query to look up an object resource ID owned by a home, given a
         resource name (C{objectName}), and a home resource ID
@@ -1500,7 +1500,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _resourceIDSharedToHomeByName(cls):
+    def _resourceIDSharedToHomeByName(cls): #@NoSelf
         """
         DAL query to look up an object resource ID shared to a home, given a
         resource name (C{objectName}), and a home resource ID
@@ -1540,7 +1540,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _homeChildByIDQuery(cls):
+    def _homeChildByIDQuery(cls): #@NoSelf
         """
         DAL query that looks up home child names / bind modes by home child
         resouce ID and home resource ID.
@@ -1575,7 +1575,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _insertDefaultHomeChild(cls):
+    def _insertDefaultHomeChild(cls): #@NoSelf
         """
         DAL statement to create a home child with all default values.
         """
@@ -1585,7 +1585,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _initialOwnerBind(cls):
+    def _initialOwnerBind(cls): #@NoSelf
         """
         DAL statement to create a bind entry for a particular home value.
         """
@@ -1635,7 +1635,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _datesByIDQuery(cls):
+    def _datesByIDQuery(cls): #@NoSelf
         """
         DAL query to retrieve created/modified dates based on a resource ID.
         """
@@ -1691,7 +1691,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _renameQuery(cls):
+    def _renameQuery(cls): #@NoSelf
         """
         DAL statement to rename a L{CommonHomeChild}
         """
@@ -1724,7 +1724,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _deleteQuery(cls):
+    def _deleteQuery(cls): #@NoSelf
         """
         DAL statement to delete a L{CommonHomeChild} by its resource ID.
         """
@@ -1753,7 +1753,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _ownerHomeFromResourceQuery(cls):
+    def _ownerHomeFromResourceQuery(cls): #@NoSelf
         """
         DAL query to retrieve the home resource ID of the owner from the bound
         home-child ID.
@@ -1796,7 +1796,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _objectResourceNamesQuery(cls):
+    def _objectResourceNamesQuery(cls): #@NoSelf
         """
         DAL query to load all object resource names for a home child.
         """
@@ -1862,7 +1862,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _resourceNameForUIDQuery(cls):
+    def _resourceNameForUIDQuery(cls): #@NoSelf
         """
         DAL query to retrieve the resource name for an object resource based on
         its UID column.
@@ -1891,7 +1891,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _resourceUIDForNameQuery(cls):
+    def _resourceUIDForNameQuery(cls): #@NoSelf
         """
         DAL query to retrieve the UID for an object resource based on its
         resource name column.
@@ -2087,7 +2087,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @classproperty
-    def _allColumnsWithParent(cls):
+    def _allColumnsWithParent(cls): #@NoSelf
         obj = cls._objectSchema
         return Select(cls._allColumns, From=obj,
                       Where=obj.PARENT_RESOURCE_ID == Parameter("parentID"))
@@ -2179,17 +2179,17 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @classproperty
-    def _allWithParentAndName(cls):
+    def _allWithParentAndName(cls): #@NoSelf
         return cls._allWithParentAnd(cls._objectSchema.RESOURCE_NAME, "name")
 
 
     @classproperty
-    def _allWithParentAndUID(cls):
+    def _allWithParentAndUID(cls): #@NoSelf
         return cls._allWithParentAnd(cls._objectSchema.UID, "uid")
 
 
     @classproperty
-    def _allWithParentAndID(cls):
+    def _allWithParentAndID(cls): #@NoSelf
         return cls._allWithParentAnd(cls._objectSchema.RESOURCE_ID,
                                      "resourceID")
 
@@ -2226,7 +2226,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @classproperty
-    def _allColumns(cls):
+    def _allColumns(cls): #@NoSelf
         """
         Full set of columns in the object table that need to be loaded to
         initialize the object resource state.
@@ -2307,7 +2307,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         returnValue((yield self.component()).mainType())
 
     @classproperty
-    def _deleteQuery(cls):
+    def _deleteQuery(cls): #@NoSelf
         """
         DAL statement to delete a L{CommonObjectResource} by its resource ID.
         """
@@ -2361,7 +2361,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @classproperty
-    def _textByIDQuery(cls):
+    def _textByIDQuery(cls): #@NoSelf
         """
         DAL query to load iCalendar/vCard text via an object's resource ID.
         """
@@ -2661,7 +2661,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _completelyNewRevisionQuery(cls):
+    def _completelyNewRevisionQuery(cls): #@NoSelf
         rev = cls._revisionsSchema
         return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
                        # rev.RESOURCE_ID: Parameter("resourceID"),
@@ -2707,7 +2707,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
 
     @classproperty
-    def _allColumnsByHomeIDQuery(cls):
+    def _allColumnsByHomeIDQuery(cls): #@NoSelf
         """
         DAL query to load all columns by home ID.
         """
@@ -2766,7 +2766,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
 
     @classproperty
-    def _oneNotificationQuery(cls):
+    def _oneNotificationQuery(cls): #@NoSelf
         no = cls._objectSchema
         return Select(
             [
@@ -2835,7 +2835,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
 
     @classproperty
-    def _newNotificationQuery(cls):
+    def _newNotificationQuery(cls): #@NoSelf
         no = cls._objectSchema
         return Insert(
             {
@@ -2850,7 +2850,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
 
     @classproperty
-    def _updateNotificationQuery(cls):
+    def _updateNotificationQuery(cls): #@NoSelf
         no = cls._objectSchema
         return Update(
             {

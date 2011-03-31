@@ -172,7 +172,7 @@ class SQLLegacyInvites(object):
 
 
     @classproperty
-    def _allRecordsQuery(cls):
+    def _allRecordsQuery(cls): #@NoSelf
         """
         DAL query for all invite records with a given resource ID.
         """
@@ -192,7 +192,7 @@ class SQLLegacyInvites(object):
 
 
     @classproperty
-    def _inviteForRecipientQuery(cls):
+    def _inviteForRecipientQuery(cls): #@NoSelf
         """
         DAL query to retrieve an invite record for a given recipient address.
         """
@@ -216,7 +216,7 @@ class SQLLegacyInvites(object):
 
 
     @classproperty
-    def _inviteForUIDQuery(cls):
+    def _inviteForUIDQuery(cls): #@NoSelf
         """
         DAL query to retrieve an invite record for a given recipient address.
         """
@@ -253,7 +253,7 @@ class SQLLegacyInvites(object):
 
 
     @classproperty
-    def _updateBindQuery(cls):
+    def _updateBindQuery(cls): #@NoSelf
         bind = cls._bindSchema
 
         return Update({bind.BIND_MODE: Parameter("mode"),
@@ -265,7 +265,7 @@ class SQLLegacyInvites(object):
 
 
     @classproperty
-    def _idsForRecipient(cls):
+    def _idsForRecipient(cls): #@NoSelf
         inv = schema.INVITE
         return Select([inv.RESOURCE_ID, inv.HOME_RESOURCE_ID],
                       From=inv,
@@ -273,7 +273,7 @@ class SQLLegacyInvites(object):
 
 
     @classproperty
-    def _updateInviteQuery(cls):
+    def _updateInviteQuery(cls): #@NoSelf
         """
         DAL query to update an invitation for a given recipient.
         """
@@ -284,7 +284,7 @@ class SQLLegacyInvites(object):
 
 
     @classproperty
-    def _insertBindQuery(cls):
+    def _insertBindQuery(cls): #@NoSelf
         bind = cls._bindSchema
         return Insert(
             {
@@ -304,7 +304,7 @@ class SQLLegacyInvites(object):
 
 
     @classproperty
-    def _insertInviteQuery(cls):
+    def _insertInviteQuery(cls): #@NoSelf
         inv = schema.INVITE
         return Insert(
             {
@@ -379,27 +379,27 @@ class SQLLegacyInvites(object):
 
 
     @classproperty
-    def _deleteBindByRecipient(cls):
+    def _deleteBindByRecipient(cls): #@NoSelf
         inv = schema.INVITE
         return cls._deleteOneBindQuery(
             inv.RECIPIENT_ADDRESS == Parameter("recipient"))
 
 
     @classproperty
-    def _deleteInviteByRecipient(cls):
+    def _deleteInviteByRecipient(cls): #@NoSelf
         inv = schema.INVITE
         return cls._deleteOneInviteQuery(
             inv.RECIPIENT_ADDRESS == Parameter("recipient"))
 
 
     @classproperty
-    def _deleteBindByUID(cls):
+    def _deleteBindByUID(cls): #@NoSelf
         inv = schema.INVITE
         return cls._deleteOneBindQuery(inv.INVITE_UID == Parameter("uid"))
 
 
     @classproperty
-    def _deleteInviteByUID(cls):
+    def _deleteInviteByUID(cls): #@NoSelf
         inv = schema.INVITE
         return cls._deleteOneInviteQuery(inv.INVITE_UID == Parameter("uid"))
 
@@ -482,7 +482,7 @@ class SQLLegacyShares(object):
 
 
     @classproperty
-    def _allSharedToQuery(cls):
+    def _allSharedToQuery(cls): #@NoSelf
         bind = cls._bindSchema
         return Select(
             [bind.RESOURCE_ID, bind.RESOURCE_NAME,
@@ -495,7 +495,7 @@ class SQLLegacyShares(object):
 
 
     @classproperty
-    def _inviteUIDByResourceIDsQuery(cls):
+    def _inviteUIDByResourceIDsQuery(cls): #@NoSelf
         inv = schema.INVITE
         return Select(
             [inv.INVITE_UID], From=inv, Where=
@@ -505,7 +505,7 @@ class SQLLegacyShares(object):
 
 
     @classproperty
-    def _ownerHomeIDAndName(cls):
+    def _ownerHomeIDAndName(cls): #@NoSelf
         bind = cls._bindSchema
         return Select(
             [bind.HOME_RESOURCE_ID, bind.RESOURCE_NAME], From=bind, Where=
@@ -515,7 +515,7 @@ class SQLLegacyShares(object):
 
 
     @classproperty
-    def _ownerUIDFromHomeID(cls):
+    def _ownerUIDFromHomeID(cls): #@NoSelf
         home = cls._homeSchema
         return Select(
             [home.OWNER_UID], From=home,
@@ -573,7 +573,7 @@ class SQLLegacyShares(object):
 
 
     @classproperty
-    def _updateBindName(cls):
+    def _updateBindName(cls): #@NoSelf
         bind = cls._bindSchema
         return Update({bind.RESOURCE_NAME: Parameter("localname")},
                       Where=(bind.HOME_RESOURCE_ID == Parameter("homeID"))
@@ -581,7 +581,7 @@ class SQLLegacyShares(object):
 
 
     @classproperty
-    def _acceptDirectShareQuery(cls):
+    def _acceptDirectShareQuery(cls): #@NoSelf
         bind = cls._bindSchema
         return Insert({
             bind.HOME_RESOURCE_ID: Parameter("homeID"),
@@ -647,7 +647,7 @@ class SQLLegacyShares(object):
 
 
     @classproperty
-    def _unbindShareQuery(cls):
+    def _unbindShareQuery(cls): #@NoSelf
         bind = cls._bindSchema
         return Update({
             bind.RESOURCE_NAME: None
@@ -667,7 +667,7 @@ class SQLLegacyShares(object):
 
 
     @classproperty
-    def _removeInviteShareQuery(cls):
+    def _removeInviteShareQuery(cls): #@NoSelf
         """
         DAL query to remove a non-direct share by invite UID.
         """
@@ -681,7 +681,7 @@ class SQLLegacyShares(object):
 
 
     @classproperty
-    def _removeDirectShareQuery(cls):
+    def _removeDirectShareQuery(cls): #@NoSelf
         """
         DAL query to remove a direct share by its homeID and resourceID.
         """
@@ -1056,7 +1056,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
 
 
     @classproperty
-    def _notExpandedBeyondQuery(self):
+    def _notExpandedBeyondQuery(cls): #@NoSelf
         """
         DAL query to satisfy L{PostgresLegacyIndexEmulator.notExpandedBeyond}.
         """
@@ -1197,7 +1197,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
 
 
     @classproperty
-    def _bruteForceQuery(cls):
+    def _bruteForceQuery(cls): #@NoSelf
         """
         DAL query for all C{CALENDAR_OBJECT} rows in the calendar represented by
         this index.
@@ -1221,7 +1221,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
 
 
     @classproperty
-    def _resourceExistsQuery(cls):
+    def _resourceExistsQuery(cls): #@NoSelf
         """
         DAL query to determine whether a calendar object exists in the
         collection represented by this index.
