@@ -540,12 +540,12 @@ class PushMonitorService(Service):
                         nodes[key] = (href.text, name, kind)
 
             except Exception, e:
-                print "Unable to parse proxy information", e
+                print "Unable to parse push information", e
                 print responseBody
                 raise
 
         except Exception, e:
-            print "Unable to look up who %s is a proxy for" % (self.username,)
+            print "Unable to look up push information for %s" % (self.username,)
             raise
 
         if host is None:
