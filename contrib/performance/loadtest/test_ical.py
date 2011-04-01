@@ -871,17 +871,22 @@ class SnowLeopardTests(TestCase):
         self.assertEquals(outbox.ctag, None)
 
 
-    def test_changeEventAttendee(self):
-        """
-        SnowLeopard.changeEventAttendee removes one attendee from an
-        existing event and appends another.
-        """
+    def interceptRequests(self):
         requests = []
         def request(*args):
             result = Deferred()
             requests.append((result, args))
             return result
         self.client._request = request
+        return requests
+
+
+    def test_changeEventAttendee(self):
+        """
+        SnowLeopard.changeEventAttendee removes one attendee from an
+        existing event and appends another.
+        """
+        requests = self.interceptRequests()
 
         vevent = list(readComponents(EVENT))[0]
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
@@ -918,12 +923,7 @@ class SnowLeopardTests(TestCase):
         L{SnowLeopard.addEvent} PUTs the event passed to it to the
         server and updates local state to reflect its existence.
         """
-        requests = []
-        def request(*args):
-            result = Deferred()
-            requests.append((result, args))
-            return result
-        self.client._request = request
+        requests = self.interceptRequests()
 
         vcalendar = list(readComponents(EVENT))[0]
         d = self.client.addEvent(u'/mumble/frotz.ics', vcalendar)
@@ -953,12 +953,7 @@ class SnowLeopardTests(TestCase):
         URL passed to it and updates local state to reflect its
         removal.
         """
-        requests = []
-        def request(*args):
-            result = Deferred()
-            requests.append((result, args))
-            return result
-        self.client._request = request
+        requests = self.interceptRequests()
 
         calendar = Calendar(caldavxml.calendar, u'calendar', u'/foo/', None)
         event = Event(calendar.url + u'bar.ics', None)
