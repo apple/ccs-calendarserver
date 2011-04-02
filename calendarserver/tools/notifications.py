@@ -317,11 +317,16 @@ class PushMonitorService(Service):
     @inlineCallbacks
     def startService(self):
         try:
-            principals = (yield self.getProxyFor())
-            principals.add("/principals/users/%s/" % (self.username,))
             paths = set()
-            for principal in principals:
-                name, homes = (yield self.getPrincipalDetails(principal))
+            principal = "/principals/users/%s/" % (self.username,)
+            name, homes = (yield self.getPrincipalDetails(principal))
+            if self.verbose:
+                print name, homes
+            for home in homes:
+                paths.add(home)
+            for principal in (yield self.getProxyFor()):
+                name, homes = (yield self.getPrincipalDetails(principal,
+                    includeCardDAV=False))
                 if self.verbose:
                     print name, homes
                 for home in homes:
@@ -341,7 +346,7 @@ class PushMonitorService(Service):
             reactor.stop()
 
     @inlineCallbacks
-    def getPrincipalDetails(self, path):
+    def getPrincipalDetails(self, path, includeCardDAV=True):
         """
         Given a principal path, retrieve and return the corresponding
         displayname and set of calendar/addressbook homes.
@@ -382,12 +387,13 @@ class PushMonitorService(Service):
                                         href = href.text
                                         if href:
                                             homes.append(href)
-                                addressbookHomeSet = prop.find("{urn:ietf:params:xml:ns:carddav}addressbook-home-set")
-                                if addressbookHomeSet is not None:
-                                    for href in addressbookHomeSet.findall("{DAV:}href"):
-                                        href = href.text
-                                        if href:
-                                            homes.append(href)
+                                if includeCardDAV:
+                                    addressbookHomeSet = prop.find("{urn:ietf:params:xml:ns:carddav}addressbook-home-set")
+                                    if addressbookHomeSet is not None:
+                                        for href in addressbookHomeSet.findall("{DAV:}href"):
+                                            href = href.text
+                                            if href:
+                                                homes.append(href)
                                 displayName = prop.find("{DAV:}displayname")
                                 if displayName is not None:
                                     displayName = displayName.text
@@ -425,7 +431,7 @@ class PushMonitorService(Service):
                 </A:prop>
             </A:propfind>
         """
-        path = "principals/users/%s" % (self.username,)
+        path = "/principals/users/%s/" % (self.username,)
 
         try:
             responseBody = (yield self.makeRequest(path, "PROPFIND", headers,
@@ -567,7 +573,7 @@ class PushMonitorService(Service):
 
     def makeRequest(self, path, method, headers, body):
         scheme = "https:" if self.useSSL else "http:"
-        url = "%s//%s:%d/%s/" % (scheme, self.host, self.port, path)
+        url = "%s//%s:%d%s" % (scheme, self.host, self.port, path)
         caldavFactory = client.HTTPClientFactory(url, method=method,
             headers=headers, postdata=body, agent="Push Monitor")
         caldavFactory.username = self.authname
