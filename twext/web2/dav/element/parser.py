@@ -96,6 +96,10 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
     def setDocumentLocator(self, locator): self.locator = locator
     locator = None
 
+    def __init__(self):
+        xml.sax.handler.ContentHandler.__init__(self)
+        self._characterBuffer = None
+
     def location(self):
         return "line %d, column %d" % (self.locator.getLineNumber(), self.locator.getColumnNumber())
 
@@ -125,6 +129,12 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
         del(self.unknownElementClasses)
 
     def startElementNS(self, name, qname, attributes):
+
+        if self._characterBuffer is not None:
+            pcdata = PCDATAElement("".join(self._characterBuffer))
+            self.stack[-1]["children"].append(pcdata)
+            self._characterBuffer = None
+
         attributes_dict = {}
 
         if attributes.getLength() is not 0:
@@ -153,6 +163,12 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
         })
 
     def endElementNS(self, name, qname):
+        
+        if self._characterBuffer is not None:
+            pcdata = PCDATAElement("".join(self._characterBuffer))
+            self.stack[-1]["children"].append(pcdata)
+            self._characterBuffer = None
+
         # Pop the current element from the stack...
         top = self.stack[-1]
         del(self.stack[-1])
@@ -170,12 +186,11 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
         self.stack[-1]["children"].append(element)
 
     def characters(self, content):
-        # Coalesce adjacent PCDATAElements
-        pcdata = PCDATAElement(content)
-        if len(self.stack[-1]["children"]) and isinstance(self.stack[-1]["children"][-1], PCDATAElement):
-            self.stack[-1]["children"][-1] = self.stack[-1]["children"][-1] + pcdata
-        else:
-            self.stack[-1]["children"].append(pcdata)
+        
+        # Stash character data away in a list that we will "".join() when done
+        if self._characterBuffer is None:
+            self._characterBuffer = []
+        self._characterBuffer.append(content)
 
     def ignorableWhitespace(self, whitespace):
         self.characters(self, whitespace)
