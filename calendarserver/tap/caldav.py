@@ -1062,9 +1062,10 @@ class CalDAVServiceMaker (LoggingMixIn):
             cl = ConnectionLimiter(config.MaxAccepts,
                                    (config.MaxRequests *
                                     config.MultiProcess.ProcessCount))
-            cl.setServiceParent(s)
+            dispatcher = cl.dispatcher
         else:
             s._inheritedSockets = [] # keep a reference to these so they don't close
+            dispatcher = None
 
         for bindAddress in self._allBindAddresses():
             self._validatePortConfig()
@@ -1118,10 +1119,15 @@ class CalDAVServiceMaker (LoggingMixIn):
                 dispenser = ConnectionDispenser(pool)
             else:
                 dispenser = None
-            return SlaveSpawnerService(
-                self, monitor, dispenser, cl.dispatcher, options["config"],
+            multi = MultiService()
+            spawner = SlaveSpawnerService(
+                self, monitor, dispenser, dispatcher, options["config"],
                 inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs
             )
+            spawner.setServiceParent(multi)
+            if config.UseMetaFD:
+                cl.setServiceParent(multi)
+            return multi
         ssvc = self.storageService(spawnerSvcCreator, uid, gid)
         ssvc.setServiceParent(s)
         return s
