@@ -195,7 +195,8 @@ class SharedCollectionMixin(object):
             ))
 
         # Accept it
-        response = (yield home.acceptDirectShare(request, compareURL, self.resourceID(), self.displayName()))
+        directID = home.sharesDB().directShareID(home, self)
+        response = (yield home.acceptDirectShare(request, compareURL, directID, self.displayName()))
 
         # Return the URL of the shared calendar
         returnValue(response)
@@ -1244,6 +1245,9 @@ class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
         
         self._db_close()
         os.remove(self.dbpath)
+
+    def directShareID(self, shareeHome, sharerCollection):
+        return "Direct-%s-%s" % (shareeHome.resourceID(), sharerCollection.resourceID(),)
 
     def _db_version(self):
         """

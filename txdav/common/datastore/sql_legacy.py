@@ -559,6 +559,8 @@ class SQLLegacyShares(object):
             all.append(record)
         returnValue(all)
 
+    def directShareID(self, shareeHome, sharerCollection):
+        return "Direct-%s-%s" % (shareeHome._newStoreHome._resourceID, sharerCollection._newStoreObject._resourceID,)
 
     @inlineCallbacks
     def _search(self, **kw):
