@@ -444,6 +444,8 @@ class CalendarData (CalDAVElement):
 
         return str(data)
 
+    textData = calendarData
+
 class CalendarComponent (CalDAVElement):
     """
     Defines which component types to return.

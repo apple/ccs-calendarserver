@@ -297,6 +297,7 @@ class AddressData (CardDAVElement):
 
         return str(data)
 
+    textData = addressData
 
 class AllProperties (CardDAVEmptyElement):
     """

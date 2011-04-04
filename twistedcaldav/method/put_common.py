@@ -121,7 +121,7 @@ class StoreCalendarObjectResource(object):
         request,
         source=None, source_uri=None, sourceparent=None, sourcecal=False, deletesource=False,
         destination=None, destination_uri=None, destinationparent=None, destinationcal=True,
-        calendar=None,
+        calendar=None, calendardata=None,
         isiTIP=False,
         allowImplicitSchedule=True,
         internal_request=False,
@@ -137,6 +137,7 @@ class StoreCalendarObjectResource(object):
         @param destination:       the L{CalDAVResource} for the destination resource to copy into.
         @param destination_uri:   the URI for the destination resource.
         @param calendar:          the C{str} or L{Component} calendar data if there is no source, None otherwise.
+        @param calendardata:      the C{str} calendar data if there is no source, None otherwise. Optional
         @param sourcecal:         True if the source resource is in a calendar collection, False otherwise.
         @param destinationcal:    True if the destination resource is in a calendar collection, False otherwise
         @param sourceparent:      the L{CalDAVResource} for the source resource's parent collection, or None if source is None.
@@ -180,7 +181,7 @@ class StoreCalendarObjectResource(object):
         self.destination_uri = destination_uri
         self.destinationparent = destinationparent
         self.calendar = calendar
-        self.calendardata = None
+        self.calendardata = calendardata
         self.deletesource = deletesource
         self.isiTIP = isiTIP
         self.allowImplicitSchedule = allowImplicitSchedule
@@ -558,7 +559,7 @@ class StoreCalendarObjectResource(object):
             if not self.source and self.destination.exists() and self.destination.accessMode:
                 old_access = self.destination.accessMode
                 self.calendar.addProperty(Property(name=Component.ACCESS_PROPERTY, value=old_access))
-                self.calendardata = str(self.calendar)
+                self.calendardata = None
                 
         return succeed(None)
 
@@ -576,8 +577,8 @@ class StoreCalendarObjectResource(object):
                    "Cannot truncate recurrences",
                 ))
             if result:
-                self.calendardata = str(self.calendar)
-                return result
+                self.calendardata = None
+            return result
         else:
             return False
 
@@ -824,7 +825,7 @@ class StoreCalendarObjectResource(object):
                         returnValue(new_calendar)
                     else:
                         self.calendar = new_calendar
-                        self.calendardata = str(self.calendar)
+                        self.calendardata = None
                         data_changed = True
                 did_implicit_action = True
         else:
@@ -863,7 +864,7 @@ class StoreCalendarObjectResource(object):
     def doStore(self, implicit):
 
         # Stash the current calendar data as we may need to return it
-        self.returndata = str(self.calendar)
+        self.returndata = str(self.calendar) if self.calendardata is None else self.calendardata
 
         # Always do the per-user data merge right before we store
         yield self.mergePerUserData()

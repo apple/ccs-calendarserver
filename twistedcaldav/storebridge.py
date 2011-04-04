@@ -549,21 +549,19 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         
         # Build response
         xmlresponses = []
-        for component in components:
+        for ctr, component in enumerate(components):
             
             code = None
             error = None
             dataChanged = None
             try:
-                componentdata = str(component)
-
                 # Create a new name if one was not provided
-                name =  md5(str(componentdata) + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
+                name =  md5(str(ctr) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
             
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)
                 newchild = (yield request.locateResource(newchildURL))
-                dataChanged = (yield self.storeResourceData(request, newchild, newchildURL, componentdata))
+                dataChanged = (yield self.storeResourceData(request, newchild, newchildURL, component))
 
             except HTTPError, e:
                 # Extract the pre-condition
@@ -644,6 +642,9 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         xmlresponses = []
         checkedBindPrivelege = None
         checkedUnbindPrivelege = None
+        createCount = 0
+        updateCount = 0
+        deleteCount = 0
         for xmlchild in xmlroot.children:
             
             # Determine the multiput operation: create, update, delete
@@ -666,7 +667,8 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                         checkedBindPrivelege = e
 
                 # Create operations
-                yield self.crudCreate(request, xmldata.generateComponent(), xmlresponses, return_changed, checkedBindPrivelege)
+                yield self.crudCreate(request, xmldata, xmlresponses, return_changed, checkedBindPrivelege)
+                createCount += 1
             else:
                 delete = xmlchild.childOfType(customxml.Delete.qname())
                 ifmatch = xmlchild.childOfType(customxml.IfMatch.qname())
@@ -677,7 +679,8 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body - no set of delete operation"))
                     if xmldata is None:
                         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body for set operation"))
-                    yield self.crudUpdate(request, str(href), xmldata.generateComponent(), ifmatch, return_changed, xmlresponses)
+                    yield self.crudUpdate(request, str(href), xmldata, ifmatch, return_changed, xmlresponses)
+                    updateCount += 1
                 else:
                     # Do privilege check on collection once 
                     if checkedUnbindPrivelege is None:
@@ -688,6 +691,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                             checkedUnbindPrivelege = e
 
                     yield self.crudDelete(request, str(href), ifmatch, xmlresponses, checkedUnbindPrivelege);
+                    deleteCount += 1
         
         result = MultiStatusResponse(xmlresponses)
         
@@ -699,18 +703,26 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         if not hasattr(request, "extendedLogItems"):
             request.extendedLogItems = {}
         request.extendedLogItems["rcount"] = len(xmlresponses)
+        if createCount:
+            request.extendedLogItems["create"] = createCount
+        if updateCount:
+            request.extendedLogItems["update"] = updateCount
+        if deleteCount:
+            request.extendedLogItems["delete"] = deleteCount
 
         returnValue(result)
 
     @inlineCallbacks
-    def crudCreate(self, request, component, xmlresponses, return_changed, hasPrivilege):
+    def crudCreate(self, request, xmldata, xmlresponses, return_changed, hasPrivilege):
         
         code = None
         error = None
         try:
-            componentdata = str(component)
             if isinstance(hasPrivilege, HTTPError):
                 raise hasPrivilege
+
+            componentdata = xmldata.textData()
+            component = xmldata.generateComponent()
 
             # Create a new name if one was not provided
             name =  md5(str(componentdata) + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
@@ -718,7 +730,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             # Get a resource for the new item
             newchildURL = joinURL(request.path, name)
             newchild = (yield request.locateResource(newchildURL))
-            yield self.storeResourceData(request, newchild, newchildURL, componentdata)
+            yield self.storeResourceData(request, newchild, newchildURL, component, componentdata)
 
             # FIXME: figure out return_changed behavior
 
@@ -758,11 +770,12 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             )
 
     @inlineCallbacks
-    def crudUpdate(self, request, href, component, ifmatch, return_changed, xmlresponses):
+    def crudUpdate(self, request, href, xmldata, ifmatch, return_changed, xmlresponses):
         code = None
         error = None
         try:
-            componentdata = str(component)
+            componentdata = xmldata.textData()
+            component = xmldata.generateComponent()
 
             updateResource = (yield request.locateResource(href))
             if not updateResource.exists():
@@ -775,7 +788,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             if ifmatch and ifmatch != updateResource.etag().generate():
                 raise HTTPError(responsecode.PRECONDITION_FAILED)
             
-            yield self.storeResourceData(request, updateResource, href, componentdata)
+            yield self.storeResourceData(request, updateResource, href, component, componentdata)
 
             # FIXME: figure out return_changed behavior
 
@@ -1028,14 +1041,15 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         return caldavxml.CalendarData
 
     @inlineCallbacks
-    def storeResourceData(self, request, newchild, newchildURL, data):
+    def storeResourceData(self, request, newchild, newchildURL, component, text=None):
         storer = StoreCalendarObjectResource(
             request = request,
             destination = newchild,
             destination_uri = newchildURL,
             destinationcal = True,
             destinationparent = self,
-            calendar = data,
+            calendar = component,
+            calendardata = text,
         )
         yield storer.run()
         
@@ -1947,7 +1961,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         return carddavxml.AddressData
 
     @inlineCallbacks
-    def storeResourceData(self, request, newchild, newchildURL, data):
+    def storeResourceData(self, request, newchild, newchildURL, component, text=None):
         storer = StoreAddressObjectResource(
             request = request,
             sourceadbk = False,
@@ -1955,7 +1969,8 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
             destination_uri = newchildURL,
             destinationadbk = True,
             destinationparent = self,
-            vcard = data,
+            vcard = component,
+            vcarddata = text,
         )
         yield storer.run()
         

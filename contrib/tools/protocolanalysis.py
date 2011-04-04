@@ -511,9 +511,13 @@ class CalendarServerLogAnalyzer(object):
     
     def getAdjustedMethodName(self):
 
+        try:
+            uribits = self.currentLine.uri.split('/')[1:]
+        except IndexError:
+            uribits = [self.currentLine.uri]
+
         if self.currentLine.method == "PROPFIND":
             
-            uribits = self.currentLine.uri.split('/')[1:]
             cached = "cached" in self.currentLine.extended
 
             if uribits[0] == "calendars":
@@ -551,7 +555,6 @@ class CalendarServerLogAnalyzer(object):
             if "(" in self.currentLine.method:
                 report_type = self.currentLine.method.split("}" if "}" in self.currentLine.method else ":")[1][:-1]
                 if report_type == "addressbook-query":
-                    uribits = self.currentLine.uri.split('/')[1:]
                     if uribits[0] == "directory":
                         report_type = "directory-query"
                 shorter = {
@@ -569,14 +572,10 @@ class CalendarServerLogAnalyzer(object):
         
         elif self.currentLine.method == "PROPPATCH":
             
-            uribits = self.currentLine.uri.split('/')[1:]
-            
             if uribits[0] == "calendars":
                 return "PROPPATCH Calendar"
             
         elif self.currentLine.method == "POST":
-            
-            uribits = self.currentLine.uri.split('/')[1:]
             
             if uribits[0] == "calendars" and len(uribits) > 3 and uribits[3] == "outbox":
                 if "freebusy" in self.currentLine.extended:
@@ -621,14 +620,10 @@ class CalendarServerLogAnalyzer(object):
             
         elif self.currentLine.method == "PUT":
             
-            uribits = self.currentLine.uri.split('/')[1:]
-            
             if len(uribits) > 3 and uribits[3] == "dropbox":
                 return "PUT Dropbox"
             
         elif self.currentLine.method == "GET":
-            
-            uribits = self.currentLine.uri.split('/')[1:]
             
             if uribits[0] == "calendars":
                 

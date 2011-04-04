@@ -89,7 +89,7 @@ class StoreAddressObjectResource(object):
         request,
         source=None, source_uri=None, sourceparent=None, sourceadbk=False, deletesource=False,
         destination=None, destination_uri=None, destinationparent=None, destinationadbk=True,
-        vcard=None,
+        vcard=None, vcarddata=None,
         indexdestination = True,
    ):
         """
@@ -101,9 +101,10 @@ class StoreAddressObjectResource(object):
         @param source_uri:        the URI for the source resource.
         @param destination:       the L{CalDAVResource} for the destination resource to copy into.
         @param destination_uri:   the URI for the destination resource.
-        @param vcard:          the C{str} or L{Component} vcard data if there is no source, None otherwise.
-        @param sourceadbk:         True if the source resource is in a vcard collection, False otherwise.
-        @param destinationadbk:    True if the destination resource is in a vcard collection, False otherwise
+        @param vcard:             the C{str} or L{Component} vcard data if there is no source, None otherwise.
+        @param vcarddata:         the C{str} vcard data if there is no source, None otherwise. Optional.
+        @param sourceadbk:        True if the source resource is in a vcard collection, False otherwise.
+        @param destinationadbk:   True if the destination resource is in a vcard collection, False otherwise
         @param sourceparent:      the L{CalDAVResource} for the source resource's parent collection, or None if source is None.
         @param destinationparent: the L{CalDAVResource} for the destination resource's parent collection.
         @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
@@ -140,7 +141,7 @@ class StoreAddressObjectResource(object):
         self.destination_uri = destination_uri
         self.destinationparent = destinationparent
         self.vcard = vcard
-        self.vcarddata = None
+        self.vcarddata = vcarddata
         self.deletesource = deletesource
         self.indexdestination = indexdestination
         
