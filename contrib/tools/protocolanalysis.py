@@ -511,9 +511,8 @@ class CalendarServerLogAnalyzer(object):
     
     def getAdjustedMethodName(self):
 
-        try:
-            uribits = self.currentLine.uri.split('/')[1:]
-        except IndexError:
+        uribits = self.currentLine.uri.split('/')[1:]
+        if len(uribits) == 0:
             uribits = [self.currentLine.uri]
 
         if self.currentLine.method == "PROPFIND":
