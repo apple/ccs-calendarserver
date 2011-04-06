@@ -163,8 +163,8 @@ class OpenDirectoryService(CachingDirectoryService):
         return 0
 
     def __hash__(self):
-        h = hash(self.__class__)
-        for attr in ("directory", "node"):
+        h = hash(self.__class__.__name__)
+        for attr in ("node",):
             h = (h + hash(getattr(self, attr))) & sys.maxint
         return h
 
