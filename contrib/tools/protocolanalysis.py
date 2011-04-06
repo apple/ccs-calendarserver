@@ -170,7 +170,7 @@ class CalendarServerLogAnalyzer(object):
         
         self.resolutionMinutes = resolutionMinutes
         self.timeBucketCount = (24 * 60) / resolutionMinutes
-        self.loggedUTCOffset = None
+        self.loggedUTCOffset = utcoffset
 
         self.hourlyTotals = [[0, 0, 0, collections.defaultdict(int), 0.0,] for _ignore in xrange(self.timeBucketCount)]
         
@@ -239,7 +239,7 @@ class CalendarServerLogAnalyzer(object):
                 # Do hour ranges
                 logHour = int(self.currentLine.logTime[0:2])
                 logMinute = int(self.currentLine.logTime[3:5])
-                hourFromStart = logHour - (0 if self.utcoffset is None else self.utcoffset) - self.startHour
+                hourFromStart = logHour + (0 if self.utcoffset is None else self.utcoffset) - self.startHour
                 if hourFromStart < 0:
                     hourFromStart += 24
                 if logHour < self.startHour:
