@@ -25,10 +25,12 @@ from protocol.caldav.definitions import caldavxml
 
 from twisted.trial.unittest import TestCase
 from twisted.internet.task import Clock
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, fail
+from twisted.web.http import NO_CONTENT, PRECONDITION_FAILED
+from twisted.web.client import Response
 
 from loadtest.profiles import Eventer, Inviter, Accepter
-from loadtest.ical import Calendar, Event, BaseClient
+from loadtest.ical import IncorrectResponseCode, Calendar, Event, BaseClient
 
 SIMPLE_EVENT = """\
 BEGIN:VCALENDAR
@@ -165,11 +167,18 @@ class Deterministic(object):
 
 
 class StubClient(BaseClient):
+    """
+    Stand in for an iCalendar client.
+
+    @ivar rescheduled: A set of event URLs which will not allow
+        attendee changes due to a changed schedule tag.
+    """
     def __init__(self, number):
         self._events = {}
         self._calendars = {}
         self.user = u"user%02d" % (number,)
         self.email = u"mailto:user%02d@example.com" % (number,)
+        self.rescheduled = set()
 
 
     def addEvent(self, href, vevent):
@@ -182,6 +191,11 @@ class StubClient(BaseClient):
         del self._calendars[calendar + '/'].events[uid]
 
 
+    def updateEvent(self, href):
+        self.rescheduled.remove(href)
+        return succeed(None)
+
+
     def addEventAttendee(self, href, attendee):
         vevent = self._events[href].vevent
         attendees = vevent.contents[u'vevent'][0].contents.setdefault(u'attendee', [])
@@ -189,11 +203,19 @@ class StubClient(BaseClient):
 
 
     def changeEventAttendee(self, href, old, new):
+        if href in self.rescheduled:
+            return fail(IncorrectResponseCode(
+                    NO_CONTENT,
+                    Response(
+                        ('HTTP', 1, 1), PRECONDITION_FAILED,
+                        'Precondition Failed', None, None)))
+
         vevent = self._events[href].vevent
         attendees = vevent.contents[u'vevent'][0].contents.setdefault(u'attendee', [])
         attendees.remove(old)
         attendees.append(new)
         return succeed(None)
+
 
 
 class InviterTests(TestCase):
@@ -443,7 +465,7 @@ class AccepterTests(TestCase):
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
         userNumber = int(attendees[1].params[u'CN'][0].split(None, 1)[1])
         client = StubClient(userNumber)
-        
+
         calendarURL = '/some/calendar/'
         calendar = Calendar(
             caldavxml.calendar, u'calendar', calendarURL, None)
@@ -519,6 +541,38 @@ class AccepterTests(TestCase):
         self.assertEquals(
             attendees[1].params[u'PARTSTAT'], [u'ACCEPTED'])
         self.assertNotIn(u'RSVP', attendees[1].params)
+
+
+    def test_changeEventAttendeePreconditionFailed(self):
+        """
+        If the attempt to accept an invitation fails because of an
+        unmet precondition (412), the event is re-retrieved and the
+        PUT is re-issued with the new data.
+        """
+        clock = Clock()
+        userNumber = 2
+        client = StubClient(userNumber)
+        randomDelay = 3
+
+        calendarURL = '/some/calendar/'
+        calendar = Calendar(
+            caldavxml.calendar, u'calendar', calendarURL, None)
+        client._calendars[calendarURL] = calendar
+
+        vevent = list(readComponents(INVITED_EVENT))[0]
+        event = Event(calendarURL + u'1234.ics', None, vevent)
+        client._setEvent(event.url, event)
+
+        accepter = Accepter(clock, client, userNumber)
+        accepter.random = Deterministic()
+        accepter.random.gauss = lambda mu, sigma: randomDelay
+
+        client.rescheduled.add(event.url)
+
+        accepter.eventChanged(event.url)
+        clock.advance(randomDelay)
+
+
 
 
 

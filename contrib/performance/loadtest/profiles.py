@@ -33,6 +33,9 @@ from protocol.caldav.definitions import caldavxml
 from twisted.python.log import msg
 from twisted.internet.defer import succeed, fail
 from twisted.internet.task import LoopingCall
+from twisted.web.http import PRECONDITION_FAILED
+
+from loadtest.ical import IncorrectResponseCode
 
 
 class ProfileBase(object):
@@ -197,9 +200,27 @@ class Accepter(ProfileBase):
 
 
     def _acceptInvitation(self, href, attendee):
-        self._accepting.remove(href)
-        accepted = self._makeAcceptedAttendee(attendee)
-        d = self._client.changeEventAttendee(href, attendee, accepted)
+        def change():
+            accepted = self._makeAcceptedAttendee(attendee)
+            return self._client.changeEventAttendee(href, attendee, accepted)
+        d = change()
+
+        def scheduleError(reason):
+            reason.trap(IncorrectResponseCode)
+            if reason.value.response.code != PRECONDITION_FAILED:
+                return reason
+
+            # Download the event again and attempt to make the change
+            # to the attendee list again.
+            d = self._client.updateEvent(href)
+            def cbUpdated(ignored):
+                d = change()
+                d.addErrback(scheduleError)
+                return d
+            d.addCallback(cbUpdated)
+            return d
+        d.addErrback(scheduleError)
+
         def accepted(ignored):
             # Find the corresponding event in the inbox and delete it.
             uid = self._client._events[href].getUID()
@@ -209,6 +230,10 @@ class Accepter(ProfileBase):
                         if uid == event.getUID():
                             return self._client.deleteEvent(event.url)
         d.addCallback(accepted)
+        def finished(passthrough):
+            self._accepting.remove(href)
+            return passthrough
+        d.addBoth(finished)
         return d
 
 

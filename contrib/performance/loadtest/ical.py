@@ -644,6 +644,10 @@ class SnowLeopard(BaseClient):
         self._setEvent(href, event)
 
 
+    def updateEvent(self, href):
+        return self._updateEvent(None, href)
+
+
     def _updateEvent(self, ignored, href):
         d = self._request(OK, 'GET', self.root + href[1:].encode('utf-8'))
         def getETag(response):
