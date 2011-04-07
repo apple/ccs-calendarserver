@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -162,8 +162,8 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         if result:
             raise AssertionError("nonce value already cached in credentials database: %s" % (c,))
 
-        # The database record is a tuple of (client ip, nonce-count, timestamp)
-        yield self.db.set(c, (peer.host, 0, time.time()))
+        # The database record is a tuple of (nonce-count, timestamp)
+        yield self.db.set(c, (0, time.time()))
 
         challenge = {
             'nonce': c,
@@ -262,20 +262,14 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         """
 
         nonce = auth.get('nonce')
-        clientip = request.remoteAddr.host
         nonce_count = auth.get('nc')
 
         # First check we have this nonce
         result = (yield self.db.get(nonce))
         if result is None:
             raise error.LoginFailed('Invalid nonce value: %s' % (nonce,))
-        db_clientip, db_nonce_count, db_timestamp = result
+        db_nonce_count, db_timestamp = result
 
-        # Next check client ip
-        if db_clientip != clientip:
-            yield self._invalidate(nonce)
-            raise error.LoginFailed('Client IPs do not match: %s and %s' % (clientip, db_clientip,))
-        
         # cnonce and nonce-count MUST be present if qop is present
         if auth.get('qop') is not None:
             if auth.get('cnonce') is None:
@@ -294,7 +288,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             if nonce_count != db_nonce_count + 1:
                 yield self._invalidate(nonce)
                 raise error.LoginFailed('nonce-count value out of sequence: %s should be one more than %s' % (nonce_count, db_nonce_count,))
-            yield self.db.set(nonce, (db_clientip, nonce_count, db_timestamp))
+            yield self.db.set(nonce, (nonce_count, db_timestamp))
         else:
             # When not using qop the stored nonce-count must always be zero.
             # i.e. we can't allow a qop auth then a non-qop auth with the same nonce

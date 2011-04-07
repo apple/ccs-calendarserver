@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -440,41 +440,6 @@ class DigestAuthTestCase(TestCase):
             response.headers.getHeader("www-authenticate")[0][1]
 
     @inlineCallbacks
-    def test_incompatibleClientIp(self):
-        """
-        Test that the login fails when the request comes from a client ip
-        other than what is encoded in the opaque.
-        """
-
-        credentialFactories = (
-            FakeDigestCredentialFactory('md5', 'auth', 'test realm', self.namespace1),
-            FakeDigestCredentialFactory('md5', '', 'test realm', self.namespace2)
-        )
-
-        for ctr, factory in enumerate(credentialFactories):
-            challenge = (yield factory.getChallenge(address.IPv4Address('TCP', '127.0.0.2', 80)))
-    
-            clientResponse = authRequest1[ctr] % (
-                challenge['nonce'],
-                self.getDigestResponse(challenge, "00000001"),
-            )
-    
-            request = _trivial_GET()
-            yield self.assertRaisesDeferred(
-                error.LoginFailed,
-                factory.decode,
-                clientResponse,
-                request
-            )
-
-            response = (yield UnauthorizedResponse.makeResponse(
-                {"Digest":factory},
-                request.remoteAddr,
-            ))
-            wwwhdrs = response.headers.getHeader("www-authenticate")[0][1]
-            self.assertTrue('stale' not in wwwhdrs, msg="Stale parameter in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
-
-    @inlineCallbacks
     def test_oldNonce(self):
         """
         Test that the login fails when the given opaque is older than
@@ -488,8 +453,8 @@ class DigestAuthTestCase(TestCase):
 
         for ctr, factory in enumerate(credentialFactories):
             challenge = (yield factory.getChallenge(clientAddress))
-            clientip, nonce_count, timestamp = (yield factory.db.get(challenge['nonce']))
-            factory.db.set(challenge['nonce'], (clientip, nonce_count, timestamp - 2 * digest.DigestCredentialFactory.CHALLENGE_LIFETIME_SECS))
+            nonce_count, timestamp = (yield factory.db.get(challenge['nonce']))
+            factory.db.set(challenge['nonce'], (nonce_count, timestamp - 2 * digest.DigestCredentialFactory.CHALLENGE_LIFETIME_SECS))
     
             clientResponse = authRequest1[ctr] % (
                 challenge['nonce'],
