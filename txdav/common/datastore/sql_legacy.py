@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_sharing,twistedcaldav.test.test_calendarquery -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -198,21 +198,40 @@ class SQLLegacyInvites(object):
         """
         inv = schema.INVITE
         return cls._allColumnsQuery(
-            inv.RECIPIENT_ADDRESS == Parameter("recipient"))
+            (inv.RESOURCE_ID == Parameter("resourceID")).And(inv.RECIPIENT_ADDRESS == Parameter("recipient"))
+        )
 
 
     @inlineCallbacks
     def recordForUserID(self, userid):
-        rows = yield self._inviteForRecipientQuery.on(self._txn,
-                                                      recipient=userid)
+        rows = yield self._inviteForRecipientQuery.on(
+            self._txn,
+            resourceID=self._collection._resourceID,
+            recipient=userid
+        )
         returnValue(self._makeInvite(rows[0]) if rows else None)
 
 
+    @classproperty
+    def _inviteForPrincipalUIDQuery(cls): #@NoSelf
+        """
+        DAL query to retrieve an invite record for a given principal UID.
+        """
+        inv = schema.INVITE
+        home = cls._homeSchema
+        return cls._allColumnsQuery(
+            (inv.RESOURCE_ID == Parameter("resourceID")).And(home.OWNER_UID == Parameter("principalUID"))
+        )
+
+
     @inlineCallbacks
-    def recordForPrincipalURL(self, principalURL):
-        for record in (yield self.allRecords()):
-            if record.principalURL == principalURL:
-                returnValue(record)
+    def recordForPrincipalUID(self, principalUID):
+        rows = yield self._inviteForPrincipalUIDQuery.on(
+            self._txn,
+            resourceID=self._collection._resourceID,
+            principalUID=principalUID
+        )
+        returnValue(self._makeInvite(rows[0]) if rows else None)
 
 
     @classproperty
@@ -245,9 +264,8 @@ class SQLLegacyInvites(object):
             _BIND_MODE_READ: "read-only",
             _BIND_MODE_WRITE: "read-write"
         }[bindMode]
-        principalURL = "/principals/__uids__/%s/" % (ownerUID,)
         return Invite(
-            inviteuid, userid, principalURL, common_name,
+            inviteuid, userid, ownerUID, common_name,
             access, state, summary
         )
 
@@ -265,11 +283,11 @@ class SQLLegacyInvites(object):
 
 
     @classproperty
-    def _idsForRecipient(cls): #@NoSelf
+    def _idsForInviteUID(cls): #@NoSelf
         inv = schema.INVITE
         return Select([inv.RESOURCE_ID, inv.HOME_RESOURCE_ID],
                       From=inv,
-                      Where=inv.RECIPIENT_ADDRESS == Parameter("recipient"))
+                      Where=inv.INVITE_UID == Parameter("inviteuid"))
 
 
     @classproperty
@@ -278,9 +296,8 @@ class SQLLegacyInvites(object):
         DAL query to update an invitation for a given recipient.
         """
         inv = schema.INVITE
-        return Update({inv.NAME: Parameter("name"),
-                       inv.INVITE_UID: Parameter("uid")},
-                      Where=inv.RECIPIENT_ADDRESS == Parameter("recipient"))
+        return Update({inv.NAME: Parameter("name")},
+                      Where=inv.INVITE_UID == Parameter("uid"))
 
 
     @classproperty
@@ -327,13 +344,9 @@ class SQLLegacyInvites(object):
             "DECLINED": _BIND_STATUS_DECLINED,
             "INVALID": _BIND_STATUS_INVALID,
         }[record.state]
-        # principalURL is derived from a directory record's principalURL() so
-        # it will always contain the UID.  The form is '/principals/__uids__/x'
-        # (and may contain a trailing slash).
-        principalUID = record.principalURL.split("/")[3]
-        shareeHome = yield self._getHomeWithUID(principalUID)
-        rows = yield self._idsForRecipient.on(self._txn,
-                                              recipient=record.userid)
+        shareeHome = yield self._getHomeWithUID(record.principalUID)
+        rows = yield self._idsForInviteUID.on(self._txn,
+                                              inviteuid=record.inviteuid)
         if rows:
             [[resourceID, homeResourceID]] = rows
             yield self._updateBindQuery.on(
@@ -342,8 +355,7 @@ class SQLLegacyInvites(object):
                 resourceID=resourceID, homeID=homeResourceID
             )
             yield self._updateInviteQuery.on(
-                self._txn, name=record.name, uid=record.inviteuid,
-                recipient=record.userid
+                self._txn, name=record.name, uid=record.inviteuid
             )
         else:
             yield self._insertInviteQuery.on(
@@ -379,20 +391,6 @@ class SQLLegacyInvites(object):
 
 
     @classproperty
-    def _deleteBindByRecipient(cls): #@NoSelf
-        inv = schema.INVITE
-        return cls._deleteOneBindQuery(
-            inv.RECIPIENT_ADDRESS == Parameter("recipient"))
-
-
-    @classproperty
-    def _deleteInviteByRecipient(cls): #@NoSelf
-        inv = schema.INVITE
-        return cls._deleteOneInviteQuery(
-            inv.RECIPIENT_ADDRESS == Parameter("recipient"))
-
-
-    @classproperty
     def _deleteBindByUID(cls): #@NoSelf
         inv = schema.INVITE
         return cls._deleteOneBindQuery(inv.INVITE_UID == Parameter("uid"))
@@ -402,12 +400,6 @@ class SQLLegacyInvites(object):
     def _deleteInviteByUID(cls): #@NoSelf
         inv = schema.INVITE
         return cls._deleteOneInviteQuery(inv.INVITE_UID == Parameter("uid"))
-
-
-    @inlineCallbacks
-    def removeRecordForUserID(self, userid):
-        yield self._deleteBindByRecipient.on(self._txn, recipient=userid)
-        yield self._deleteInviteByRecipient.on(self._txn, recipient=userid)
 
 
     @inlineCallbacks

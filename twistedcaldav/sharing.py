@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_sharing -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,12 +102,6 @@ class SharedCollectionMixin(object):
 
 
     @inlineCallbacks
-    def removeUserFromInvite(self, userid, request):
-        """ Remove a user from this shared calendar """
-        returnValue((yield self.invitesDB().removeRecordForUserID(userid)))
-
-
-    @inlineCallbacks
     def changeUserInviteState(self, request, inviteUID, principalURL, state, summary=None):
         shared = (yield self.isShared(request))
         if not shared:
@@ -116,9 +110,10 @@ class SharedCollectionMixin(object):
                 (customxml.calendarserver_namespace, "valid-request"),
                 "Invalid share",
             ))
-            
+        
+        principalUID = principalURL.split("/")[3]
         record = yield self.invitesDB().recordForInviteUID(inviteUID)
-        if record is None or record.principalURL != principalURL:
+        if record is None or record.principalUID != principalUID:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (customxml.calendarserver_namespace, "valid-request"),
@@ -480,13 +475,14 @@ class SharedCollectionMixin(object):
             returnValue(False)
 
         # Look for existing invite and update its fields or create new one
-        record = yield self.invitesDB().recordForPrincipalURL(principalURL)
+        principalUID = principalURL.split("/")[3]
+        record = yield self.invitesDB().recordForPrincipalUID(principalUID)
         if record:
             record.name = cn
             record.access = inviteAccessMapFromXML[type(ace)]
             record.summary = summary
         else:
-            record = Invite(str(uuid4()), userid, principalURL, cn, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary)
+            record = Invite(str(uuid4()), userid, principalUID, cn, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary)
         
         # Send invite
         yield self.sendInvite(record, request)
@@ -529,7 +525,7 @@ class SharedCollectionMixin(object):
                 yield self.sendInvite(record, request)
     
         # Remove from database
-        yield self.invitesDB().removeRecordForUserID(record.userid)
+        yield self.invitesDB().removeRecordForInviteUID(record.inviteuid)
         
         returnValue(True)            
 
@@ -802,10 +798,10 @@ inviteStatusMapFromXML = dict([(v,k) for k,v in inviteStatusMapToXML.iteritems()
 
 class Invite(object):
     
-    def __init__(self, inviteuid, userid, principalURL, common_name, access, state, summary):
+    def __init__(self, inviteuid, userid, principalUID, common_name, access, state, summary):
         self.inviteuid = inviteuid
         self.userid = userid
-        self.principalURL = principalURL
+        self.principalUID = principalUID
         self.name = common_name
         self.access = access
         self.state = state
@@ -862,9 +858,9 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         row = self._db_execute("select * from INVITE where USERID = :1", userid)
         return self._makeRecord(row[0]) if row else None
     
-    def recordForPrincipalURL(self, principalURL):
+    def recordForPrincipalUID(self, principalUID):
         
-        row = self._db_execute("select * from INVITE where PRINCIPALURL = :1", principalURL)
+        row = self._db_execute("select * from INVITE where PRINCIPALUID = :1", principalUID)
         return self._makeRecord(row[0]) if row else None
     
     def recordForInviteUID(self, inviteUID):
@@ -874,14 +870,10 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
     
     def addOrUpdateRecord(self, record):
 
-        self._db_execute("""insert or replace into INVITE (INVITEUID, USERID, PRINCIPALURL, NAME, ACCESS, STATE, SUMMARY)
+        self._db_execute("""insert or replace into INVITE (INVITEUID, USERID, PRINCIPALUID, NAME, ACCESS, STATE, SUMMARY)
             values (:1, :2, :3, :4, :5, :6, :7)
-            """, record.inviteuid, record.userid, record.principalURL, record.name, record.access, record.state, record.summary,
+            """, record.inviteuid, record.userid, record.principalUID, record.name, record.access, record.state, record.summary,
         )
-    
-    def removeRecordForUserID(self, userid):
-
-        self._db_execute("delete from INVITE where USERID = :1", userid)
     
     def removeRecordForInviteUID(self, inviteUID):
 
@@ -913,7 +905,7 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         # INVITE table is the primary table
         #   INVITEUID: UID for this invite
         #   USERID: identifier of invitee
-        #   PRINCIPALURL: principal-URL of invitee
+        #   PRINCIPALUID: principal-UID of invitee
         #   NAME: common name of invitee
         #   ACCESS: Access mode for share
         #   STATE: Invite response status
@@ -924,7 +916,7 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
             create table INVITE (
                 INVITEUID      text unique,
                 USERID         text unique,
-                PRINCIPALURL   text unique,
+                PRINCIPALUID   text unique,
                 NAME           text,
                 ACCESS         text,
                 STATE          text,
@@ -940,7 +932,7 @@ class InvitesDatabase(AbstractSQLDatabase, LoggingMixIn):
         )
         q.execute(
             """
-            create index PRINCIPALURL on INVITE (PRINCIPALURL)
+            create index PRINCIPALUID on INVITE (PRINCIPALUID)
             """
         )
         q.execute(

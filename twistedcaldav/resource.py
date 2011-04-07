@@ -1178,6 +1178,13 @@ class CalDAVResource (
                 return principal
         return None
 
+    def principalForUID(self, principalUID):
+        for principalCollection in self.principalCollections():
+            principal = principalCollection.principalForUID(principalUID)
+            if principal is not None:
+                return principal
+        return None
+
 
     @inlineCallbacks
     def vCard(self):
