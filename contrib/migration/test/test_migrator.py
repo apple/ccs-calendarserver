@@ -15,12 +15,20 @@
 ##
 
 import twistedcaldav.test.util
-from contrib.migration.calendarmigrator import mergePlist
+from contrib.migration.calendarmigrator import (
+    mergePlist, examinePreviousSystem, relocateData, relativize
+)
+import contrib.migration.calendarmigrator
 
 class MigrationTests(twistedcaldav.test.util.TestCase):
     """
     Calendar Server Migration Tests
     """
+
+    def setUp(self):
+        # Disable logging during tests
+        self.patch(contrib.migration.calendarmigrator, "log", lambda _: None)
+
 
     def test_mergeSSL(self):
 
@@ -237,6 +245,33 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
         self.assertEquals(newCombined, expected)
 
+        # Only CalDAV (Lion -> Lion)
+        oldCalDAV = {
+            "BindHTTPPorts": [],
+            "BindSSLPorts": [],
+            "HTTPPort": 8008,
+            "RedirectHTTPToHTTPS": False,
+            "SSLAuthorityChain": "/etc/certificates/test.chain.pem",
+            "SSLCertificate": "/etc/certificates/test.cert.pem",
+            "SSLPort": 8443,
+            "SSLPrivateKey": "/etc/certificates/test.key.pem",
+        }
+        oldCardDAV = {
+        }
+        expected = {
+            "BindHTTPPorts": [8008, 8800],
+            "BindSSLPorts": [8443, 8843],
+            "EnableSSL" : True,
+            "HTTPPort": 8008,
+            "RedirectHTTPToHTTPS": True,
+            "SSLAuthorityChain": "/etc/certificates/test.chain.pem",
+            "SSLCertificate": "/etc/certificates/test.cert.pem",
+            "SSLPort": 8443,
+            "SSLPrivateKey": "/etc/certificates/test.key.pem",
+        }
+        newCombined = { }
+        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(newCombined, expected)
 
 
         # All settings missing!
@@ -256,3 +291,1061 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
         self.assertEquals(newCombined, expected)
+
+
+    def test_examinePreviousSystem(self):
+        """
+        Set up a virtual system in various configurations, then ensure the
+        examinePreviousSystem( ) method detects/returns the expected values.
+
+        'info' is an array of tuples, each tuple containing:
+            - Description of configuration
+            - Layout of disk as a dictionary of paths plus file contents
+            - Expected return values
+        """
+
+        info = [
+
+        (
+            "Snow -> Lion Migration, all in default locations",
+            ("/Volumes/old", "/"),
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Library/CalendarServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Library/CalendarServer/Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Library/AddressBookServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Library/AddressBookServer/Data</string>
+                    </dict>
+                    </plist>
+                """,
+                "/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/old/Library/CalendarServer/Documents/calendars/" : True,
+                "/Volumes/old/Library/CalendarServer/Data/" : True,
+                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Volumes/old/Library/AddressBookServer/Data/" : True,
+            },
+            (
+                None, # Old ServerRoot value
+                "/Library/CalendarServer/Documents", # Old Cal DocRoot value
+                "/Library/CalendarServer/Data", # Old Cal DataRoot value
+                "/Library/AddressBookServer/Documents", # Old AB DocRoot value
+                93, 93, # user id, group id
+            )
+        ),
+
+        (
+            "Snow -> Lion Migration, all in default locations, non-/ target",
+            ("/Volumes/old", "/Volumes/new"),
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Library/CalendarServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Library/CalendarServer/Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Library/AddressBookServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Library/AddressBookServer/Data</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/new/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/old/Library/CalendarServer/Documents/calendars/" : True,
+                "/Volumes/old/Library/CalendarServer/Data/" : True,
+                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Volumes/old/Library/AddressBookServer/Data/" : True,
+            },
+            (
+                None, # Old ServerRoot value
+                "/Library/CalendarServer/Documents", # Old Cal DocRoot value
+                "/Library/CalendarServer/Data", # Old Cal DataRoot value
+                "/Library/AddressBookServer/Documents", # Old AB DocRoot value
+                93, 93, # user id, group id
+            )
+        ),
+
+        (
+            "Snow -> Lion Migration, not in default locations",
+            ("/Volumes/old", "/"),
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/NonStandard/CalendarServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/NonStandard/CalendarServer/Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/NonStandard/AddressBookServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/NonStandard/AddressBookServer/Data</string>
+                    </dict>
+                    </plist>
+                """,
+                "/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/old/NonStandard/CalendarServer/Documents/calendars/" : True,
+                "/Volumes/old/NonStandard/CalendarServer/Data/" : True,
+                "/Volumes/old/NonStandard/AddressBookServer/Documents/addressbooks/" : True,
+                "/Volumes/old/NonStandard/AddressBookServer/Data/" : True,
+            },
+            (
+                None, # Old ServerRoot value
+                "/NonStandard/CalendarServer/Documents", # Old Cal DocRoot Value
+                "/NonStandard/CalendarServer/Data", # Old Cal DataRoot Value
+                "/NonStandard/AddressBookServer/Documents", # Old AB DocRoot Value
+                93, 93, # user id, group id
+            )
+        ),
+
+        (
+            "Snow -> Lion Migration, in internal/external locations",
+            ("/Volumes/old", "/"),
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Volumes/External/CalendarServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Volumes/External/CalendarServer/Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Library/AddressBookServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Library/AddressBookServer/Data</string>
+                    </dict>
+                    </plist>
+                """,
+                "/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/External/CalendarServer/Documents/calendars/" : True,
+                "/Volumes/External/CalendarServer/Data/" : True,
+                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Volumes/old/Library/AddressBookServer/Data/" : True,
+            },
+            (
+                None, # Old ServerRoot value
+                "/Volumes/External/CalendarServer/Documents", # Old Cal DocRoot Value
+                "/Volumes/External/CalendarServer/Data", # Old Cal DataRoot Value
+                "/Library/AddressBookServer/Documents", # Old AB DocRoot Value
+                93, 93, # user id, group id
+            )
+        ),
+
+
+        (
+            "Snow -> Lion Migration, only AddressBook data",
+            ("/Volumes/old", "/"),
+            {
+                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Library/AddressBookServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Library/AddressBookServer/Data</string>
+                    </dict>
+                    </plist>
+                """,
+                "/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Volumes/old/Library/AddressBookServer/Data/" : True,
+            },
+            (
+                None, # Old ServerRoot value
+                None, # Old Cal DocRoot value
+                None, # Old Cal DataRoot value
+                "/Library/AddressBookServer/Documents", # Old AB DocRoot value
+                93, 93, # user id, group id
+            )
+        ),
+
+        (
+            "Lion -> Lion Migration, all in default locations",
+            ("/Volumes/old", "/"),
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/old/Library/Server/Calendar and Contacts/Documents/" : True,
+                "/Volumes/old/Library/Server/Calendar and Contacts/Data/" : True,
+            },
+            (
+                "/Library/Server/Calendar and Contacts", # Old ServerRoot value
+                "Documents", # Old Cal DocRoot value
+                "Data", # Old Cal DataRoot value
+                None, # Old AB Docs
+                93, 93, # user id, group id
+            )
+        ),
+
+        (
+            "Lion -> Lion Migration, not in default locations",
+            ("/Volumes/old", "/"),
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/NonStandard/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>/Volumes/External/Calendar/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Volumes/External/Calendar/Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/old/NonStandard/Calendar and Contacts/Documents/" : True,
+                "/Volumes/old/NonStandard/Calendar and Contacts/Data/" : True,
+            },
+            (
+                "/NonStandard/Calendar and Contacts", # Old ServerRoot value
+                "/Volumes/External/Calendar/Documents", # Old Cal DocRoot value
+                "/Volumes/External/Calendar/Data", # Old Cal DataRoot value
+                None, # Old AB Docs
+                93, 93, # user id, group id
+            )
+        ),
+
+        (
+            "Lion -> Lion Migration, non-/ targetRoot",
+            ("/Volumes/old", "/Volumes/new"),
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/new/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/old/Library/Server/Calendar and Contacts/Documents/" : True,
+                "/Volumes/old/Library/Server/Calendar and Contacts/Data/" : True,
+            },
+            (
+                "/Library/Server/Calendar and Contacts", # Old ServerRoot value
+                "Documents", # Old Cal DocRoot value
+                "Data", # Old Cal DocRoot value
+                None, # Old AB Docs
+                93, 93, # user id, group id
+            )
+        ),
+
+        (
+            "Lion -> Lion Migration, external ServerRoot with absolute external DocumentRoot and internal DataRoot",
+            ("/Volumes/old", "/Volumes/new"),
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Volumes/External/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>/Volumes/External/CalendarDocuments/</string>
+                        <key>DataRoot</key>
+                        <string>/CalendarData</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/new/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/External/Library/Server/Calendar and Contacts/" : True,
+                "/Volumes/External/CalendarDocuments/" : True,
+                "/Volumes/old/CalendarData" : True,
+                "/Volumes/new/Library/Server/Calendar and Contacts/" : True,
+            },
+            (
+                "/Volumes/External/Server/Calendar and Contacts", # Old ServerRoot value
+                "/Volumes/External/CalendarDocuments/", # Old Cal DocRoot value
+                "/CalendarData", # Old Cal DocRoot value
+                None, # Old AB Docs
+                93, 93, # user id, group id
+            )
+        ),
+
+
+
+        (
+            "Empty migration, nothing exists",
+            ("/Volumes/old", "/Volumes/new"),
+            {
+            },
+            (
+                None, # Old ServerRoot value
+                None, # Old Cal DocRoot value
+                None, # Old Cal DocRoot value
+                None, # Old AB Docs
+                -1, -1, # user id, group id
+            )
+        ),
+
+
+        ]
+
+        for description, (source, target), paths, expected in info:
+            # print "-=-=-=- %s -=-=-=-" % (description,)
+            accessor = StubDiskAccessor(paths)
+            actual = examinePreviousSystem(source, target, diskAccessor=accessor)
+            self.assertEquals(expected, actual)
+
+
+    def test_relocateData(self):
+
+        info = [
+
+        (
+            "Snow -> Lion Migration, all in default locations",
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Library/CalendarServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Library/CalendarServer/Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Library/AddressBookServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Library/AddressBookServer/Data</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/new/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/old/Library/CalendarServer/Documents/calendars/" : True,
+                "/Volumes/old/Library/CalendarServer/Data/" : True,
+                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Volumes/old/Library/AddressBookServer/Data/" : True,
+                "/Volumes/new/Library/Server/Calendar and Contacts" : True,
+            },
+            (   # args
+                "/Volumes/old", # sourceRoot
+                "/Volumes/new", # targetRoot
+                None, # oldServerRootValue
+                "/Library/CalendarServer/Documents", # oldCalDocumentRootValue
+                "/Library/CalendarServer/Data", # oldCalDataRootValue
+                "/Library/AddressBookServer/Documents", # oldABDocumentRootValue
+                93, 93, # user id, group id
+            ),
+            (   # expected return values
+                "/Volumes/new/Library/Server/Calendar and Contacts",
+                "/Library/Server/Calendar and Contacts",
+                "Documents",
+                "Data"
+            ),
+            [   # expected DiskAccessor history
+                ('ditto', '/Volumes/old/Library/CalendarServer/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Documents'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', 93, 93),
+                ('ditto', '/Volumes/old/Library/CalendarServer/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', 93, 93),
+                ('ditto', '/Volumes/old/Library/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks', 93, 93),
+                ('chown', '/Volumes/new/Library/Server/Calendar and Contacts', 93, 93),
+            ]
+        ),
+
+        (
+            "Snow -> Lion Migration, in non-standard locations",
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/NonStandard/CalendarServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/NonStandard/CalendarServer/Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/NonStandard/AddressBookServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/NonStandard/AddressBookServer/Data</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/new/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/old/NonStandard/CalendarServer/Documents/calendars/" : True,
+                "/Volumes/old/NonStandard/CalendarServer/Data/" : True,
+                "/Volumes/old/NonStandard/AddressBookServer/Documents/addressbooks/" : True,
+                "/Volumes/old/NonStandard/AddressBookServer/Data/" : True,
+                "/Volumes/new/Library/Server/Calendar and Contacts" : True,
+            },
+            (   # args
+                "/Volumes/old", # sourceRoot
+                "/Volumes/new", # targetRoot
+                None, # oldServerRootValue
+                "/NonStandard/CalendarServer/Documents", # oldCalDocumentRootValue
+                "/NonStandard/CalendarServer/Data", # oldCalDataRootValue
+                "/NonStandard/AddressBookServer/Documents", # oldABDocumentRootValue
+                93, 93, # user id, group id
+            ),
+            (   # expected return values
+                "/Volumes/new/Library/Server/Calendar and Contacts",
+                "/Library/Server/Calendar and Contacts",
+                "Documents",
+                "Data"
+            ),
+            [
+                ('ditto', '/Volumes/old/NonStandard/CalendarServer/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Documents'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', 93, 93),
+                ('ditto', '/Volumes/old/NonStandard/CalendarServer/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', 93, 93),
+                ('ditto', '/Volumes/old/NonStandard/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks', 93, 93),
+                ('chown', '/Volumes/new/Library/Server/Calendar and Contacts', 93, 93),
+            ]
+        ),
+
+        (
+            "Snow -> Lion Migration, internal AB, external Cal",
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Volumes/External/CalendarServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Volumes/External/CalendarServer/Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Library/AddressBookServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Library/AddressBookServer/Data</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/new/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/External/CalendarServer/Documents" : True,
+                "/Volumes/External/CalendarServer/Data" : True,
+                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Volumes/old/Library/AddressBookServer/Data/" : True,
+                "/Volumes/new/Library/Server/Calendar and Contacts" : True,
+            },
+            (   # args
+                "/Volumes/old", # sourceRoot
+                "/Volumes/new", # targetRoot
+                None, # oldServerRootValue
+                "/Volumes/External/CalendarServer/Documents", # oldCalDocumentRootValue
+                "/Volumes/External/CalendarServer/Data", # oldCalDataRootValue
+                "/Library/AddressBookServer/Documents", # oldABDocumentRootValue
+                93, 93, # user id, group id
+            ),
+            (   # expected return values
+                "/Volumes/new/Library/Server/Calendar and Contacts",
+                "/Library/Server/Calendar and Contacts",
+                "/Volumes/External/CalendarServer/Documents",
+                "/Volumes/External/CalendarServer/Data"
+            ),
+            [
+                ('ditto', '/Volumes/old/Library/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Documents/addressbooks'),
+                ('chown-recursive', '/Volumes/External/CalendarServer/Documents/addressbooks', 93, 93),
+                ('chown', '/Volumes/new/Library/Server/Calendar and Contacts', 93, 93),
+            ]
+        ),
+
+        (
+            "Lion -> Lion Migration, all in default locations",
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/new/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/old/Library/Server/Calendar and Contacts/Documents/" : True,
+                "/Volumes/old/Library/Server/Calendar and Contacts/Data/" : True,
+                "/Volumes/new/Library/Server/Calendar and Contacts/" : True,
+            },
+            (   # args
+                "/Volumes/old", # sourceRoot
+                "/Volumes/new", # targetRoot
+                "/Library/Server/Calendar and Contacts", # oldServerRootValue
+                "Documents", # oldCalDocumentRootValue
+                "Data", # oldCalDataRootValue
+                None, # oldABDocumentRootValue
+                93, 93, # user id, group id
+            ),
+            (   # expected return values
+                "/Volumes/new/Library/Server/Calendar and Contacts",
+                "/Library/Server/Calendar and Contacts",
+                "Documents",
+                "Data"
+            ),
+            [
+                ('ditto', '/Volumes/old/Library/Server/Calendar and Contacts/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Documents'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', 93, 93),
+                ('ditto', '/Volumes/old/Library/Server/Calendar and Contacts/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', 93, 93),
+                ('chown', '/Volumes/new/Library/Server/Calendar and Contacts', 93, 93),
+            ]
+        ),
+
+        (
+            "Lion -> Lion Migration, external ServerRoot with relative DocumentRoot and DataRoot",
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Volumes/External/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/new/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/External/Library/Server/Calendar and Contacts/Documents/" : True,
+                "/Volumes/External/Library/Server/Calendar and Contacts/Data/" : True,
+                "/Volumes/new/Library/Server/Calendar and Contacts/" : True,
+            },
+            (   # args
+                "/Volumes/old", # sourceRoot
+                "/Volumes/new", # targetRoot
+                "/Volumes/External/Library/Server/Calendar and Contacts", # oldServerRootValue
+                "Documents", # oldCalDocumentRootValue
+                "Data", # oldCalDataRootValue
+                None, # oldABDocumentRootValue
+                93, 93, # user id, group id
+            ),
+            (   # expected return values
+                "/Volumes/External/Library/Server/Calendar and Contacts",
+                "/Volumes/External/Library/Server/Calendar and Contacts",
+                "Documents",
+                "Data"
+            ),
+            [
+                ('chown', '/Volumes/External/Library/Server/Calendar and Contacts', 93, 93),
+            ]
+        ),
+
+
+        (
+            "Lion -> Lion Migration, external ServerRoot with absolute external DocumentRoot and internal DataRoot",
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Volumes/External/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>/Volumes/External/CalendarDocuments/</string>
+                        <key>DataRoot</key>
+                        <string>/CalendarData</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/new/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/External/Library/Server/Calendar and Contacts/" : True,
+                "/Volumes/External/CalendarDocuments/" : True,
+                "/Volumes/old/CalendarData" : True,
+                "/Volumes/new/Library/Server/Calendar and Contacts/" : True,
+            },
+            (   # args
+                "/Volumes/old", # sourceRoot
+                "/Volumes/new", # targetRoot
+                "/Volumes/External/Library/Server/Calendar and Contacts", # oldServerRootValue
+                "/Volumes/External/CalendarDocuments/", # oldCalDocumentRootValue
+                "/CalendarData", # oldCalDataRootValue
+                None, # oldABDocumentRootValue
+                93, 93, # user id, group id
+            ),
+            (   # expected return values
+                "/Volumes/External/Library/Server/Calendar and Contacts",
+                "/Volumes/External/Library/Server/Calendar and Contacts",
+                "/Volumes/External/CalendarDocuments",
+                "Data" # Note that DataRoot was copied over to external volume
+            ),
+            [
+                ('ditto', '/Volumes/old/CalendarData', '/Volumes/External/Library/Server/Calendar and Contacts/Data'),
+                ('chown-recursive', '/Volumes/External/Library/Server/Calendar and Contacts/Data', 93, 93),
+                ('chown', '/Volumes/External/Library/Server/Calendar and Contacts', 93, 93),
+            ]
+        ),
+
+        (
+            "Empty migration",
+            {   # no files
+            },
+            (   # args
+                "/Volumes/old", # sourceRoot
+                "/Volumes/new", # targetRoot
+                None, # oldServerRootValue
+                None, # oldCalDocumentRootValue
+                None, # oldCalDataRootValue
+                None, # oldABDocumentRootValue
+                -1, -1, # user id, group id
+            ),
+            (   # expected return values
+                "/Volumes/new/Library/Server/Calendar and Contacts",
+                "/Library/Server/Calendar and Contacts",
+                "Documents",
+                "Data"
+            ),
+            [   # no history
+            ]
+        ),
+
+        ]
+
+        for description, paths, args, expected, history in info:
+            # print "-=-=-=- %s -=-=-=-" % (description,)
+            accessor = StubDiskAccessor(paths)
+            actual = relocateData(*args, diskAccessor=accessor)
+            self.assertEquals(expected, actual)
+            self.assertEquals(history, accessor.history)
+
+
+    def test_stubDiskAccessor(self):
+
+        paths = {
+            "/a/b/c/d" : "foo",
+            "/a/b/c/e" : "bar",
+            "/x/y/z/" : True,
+        }
+        accessor = StubDiskAccessor(paths)
+
+        shouldExist = ["/a", "/a/", "/a/b", "/a/b/", "/a/b/c/d", "/x/y/z"]
+        shouldNotExist = ["/b", "/x/y/z/Z"]
+
+        for path in shouldExist:
+            self.assertTrue(accessor.exists(path))
+        for path in shouldNotExist:
+            self.assertFalse(accessor.exists(path))
+
+        for key, value in paths.iteritems():
+            if value is not True:
+                self.assertEquals(accessor.readFile(key), value)
+
+
+    def test_relativize(self):
+        """
+        Make sure child paths are made relative to their parent
+        """
+        info = [
+            (("/abc/", "/abc/def"), ("/abc", "def")),
+            (("/abc", "/abc/def"), ("/abc", "def")),
+            (("/abc", "/def"), ("/abc", "/def")),
+        ]
+        for args, expected in info:
+            self.assertEquals(expected, relativize(*args))
+
+
+class StubDiskAccessor(object):
+    """
+    A stub which allows testing without actually having real files
+    """
+
+    def __init__(self, paths):
+        self.paths = paths
+        self._fillInDirectories()
+
+        self.reset()
+
+    def _fillInDirectories(self):
+        for key in self.paths.keys():
+            parts = key.split("/")
+            for i in xrange(len(parts)):
+                path = "/".join(parts[:i])
+                self.paths[path] = True
+
+    def addPath(self, path, value):
+        self.paths[path] = value
+        self._fillInDirectories()
+
+    def reset(self):
+        self.history = []
+
+    def exists(self, path):
+        return self.paths.has_key(path.rstrip("/"))
+
+    def readFile(self, path):
+        return self.paths[path]
+
+    def mkdir(self, path):
+        self.history.append(("mkdir", path))
+        self.addPath(path, True)
+
+    def rename(self, before, after):
+        self.history.append(("rename", before, after))
+
+    def isfile(self, path):
+        # FIXME: probably want a better way to denote a directory than "True"
+        return self.exists(path) and self.paths[path] is not True
+
+    def symlink(self, orig, link):
+        self.history.append(("symlink", orig, link))
+
+    def chown(self, path, uid, gid, recursive=False):
+        self.history.append(("chown-recursive" if recursive else "chown", path, uid, gid))
+
+    def walk(self, path, followlinks=True):
+        yield [], [], []
+
+    def listdir(self, path):
+        return []
+
+    def ditto(self, src, dest):
+        self.history.append(("ditto", src, dest))
+        self.addPath(dest, True)
+

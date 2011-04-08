@@ -29,7 +29,7 @@ import shutil
 import subprocess
 import sys
 
-from plistlib import readPlist, writePlist
+from plistlib import readPlist, readPlistFromString, writePlist
 
 CALDAV_LAUNCHD_KEY = "org.calendarserver.calendarserver"
 CARDDAV_LAUNCHD_KEY = "org.addressbookserver.addressbookserver"
@@ -45,6 +45,7 @@ NEW_SERVER_ROOT = "/Library/Server/Calendar and Contacts"
 RESOURCE_MIGRATION_TRIGGER = "trigger_resource_migration"
 SERVER_ADMIN = "/usr/sbin/serveradmin"
 LAUNCHCTL = "/bin/launchctl"
+DITTO = "/usr/bin/ditto"
 
 
 verbatimKeys = """
@@ -213,13 +214,50 @@ def main():
             if enableCalDAV:
                 unloadService(options, CALDAV_LAUNCHD_KEY)
 
-            newServerRootValue = migrateData(options)
-            migrateConfiguration(options, newServerRootValue, enableCalDAV,
-                enableCardDAV)
+            # Pull values out of previous plists
+            (
+                oldServerRootValue,
+                oldCalDocumentRootValue,
+                oldCalDataRootValue,
+                oldABDocumentRootValue,
+                uid,
+                gid
+            ) = examinePreviousSystem(
+                options.sourceRoot,
+                options.targetRoot
+            )
+
+            # Copy data as needed
+            (
+                newServerRoot,
+                newServerRootValue,
+                newDocumentRootValue,
+                newDataRootValue
+            ) = relocateData(
+                options.sourceRoot,
+                options.targetRoot,
+                oldServerRootValue,
+                oldCalDocumentRootValue,
+                oldCalDataRootValue,
+                oldABDocumentRootValue,
+                uid,
+                gid
+            )
+
+            # Combine old and new plists
+            migrateConfiguration(
+                options,
+                newServerRootValue,
+                newDocumentRootValue,
+                newDataRootValue,
+                enableCalDAV,
+                enableCardDAV
+            )
 
             configureNotifications()
 
-            triggerResourceMigration(newServerRootValue)
+            triggerResourceMigration(newServerRoot)
+
             setRunState(options, enableCalDAV, enableCardDAV)
 
     else:
@@ -309,7 +347,8 @@ def triggerResourceMigration(newServerRootValue):
         open(triggerPath, "w").close()
 
 
-def migrateConfiguration(options, newServerRootValue, enableCalDAV, enableCardDAV):
+def migrateConfiguration(options, newServerRootValue,
+    newDocumentRootValue, newDataRootValue, enableCalDAV, enableCardDAV):
     """
     Copy files/directories/symlinks from previous system's /etc/caldavd
     and /etc/carddavd
@@ -323,7 +362,6 @@ def migrateConfiguration(options, newServerRootValue, enableCalDAV, enableCardDA
     if not os.path.exists(newConfigDir):
         log("New configuration directory does not exist: %s" % (newConfigDir,))
         return
-
 
     for configDir in (CALDAVD_CONFIG_DIR, CARDDAVD_CONFIG_DIR):
 
@@ -386,8 +424,8 @@ def migrateConfiguration(options, newServerRootValue, enableCalDAV, enableCardDA
     mergePlist(oldCalDAVDPlist, oldCardDAVDPlist, newCalDAVDPlist)
 
     newCalDAVDPlist["ServerRoot"] = newServerRootValue
-    newCalDAVDPlist["DocumentRoot"] = "Documents"
-    newCalDAVDPlist["DataRoot"] = "Data"
+    newCalDAVDPlist["DocumentRoot"] = newDocumentRootValue
+    newCalDAVDPlist["DataRoot"] = newDataRootValue
 
     newCalDAVDPlist["EnableCalDAV"] = enableCalDAV
     newCalDAVDPlist["EnableCardDAV"] = enableCardDAV
@@ -515,248 +553,209 @@ class ServiceStateError(Exception):
 
 def log(msg):
     try:
+        timestamp = datetime.datetime.now().strftime("%b %d %H:%M:%S")
+        msg = "calendarmigrator: %s %s" % (timestamp, msg)
+        print msg # so it appears in Setup.log
         with open(LOG, 'a') as output:
-            timestamp = datetime.datetime.now().strftime("%b %d %H:%M:%S")
-            msg = "calendarmigrator: %s %s" % (timestamp, msg)
             output.write("%s\n" % (msg,)) # so it appears in our log
-            print msg # so it appears in Setup.log
     except IOError:
         # Could not write to log
         pass
 
-def migrateData(options):
+def examinePreviousSystem(sourceRoot, targetRoot, diskAccessor=None):
     """
     Examines the old caldavd.plist and carddavd.plist to see where data
-    lives in the previous system.  If there is old data, calls relocateData( )
+    lives in the previous system.
     """
 
-    oldCalDocuments = None
-    oldCalData = None
-    oldABDocuments = None
-    calendarDataInDefaultLocation = True
-    addressbookDataInDefaultLocation = True
-    uid = -1
-    gid = -1
-    newServerRoot = None # actual path
-    newServerRootValue = NEW_SERVER_ROOT # value to put in plist
+    if diskAccessor is None:
+        diskAccessor = DiskAccessor()
 
-    oldCalConfigDir = os.path.join(options.sourceRoot, CALDAVD_CONFIG_DIR)
+    oldServerRootValue = None
+    oldCalDocumentRootValue = None
+    oldCalDataRootValue = None
+    oldABDocumentRootValue = None
+
+    # Get uid and gid from new caldavd.plist
+    newCalConfigDir = os.path.join(targetRoot, CALDAVD_CONFIG_DIR)
+    newCalPlistPath = os.path.join(newCalConfigDir, CALDAVD_PLIST)
+    if diskAccessor.exists(newCalPlistPath):
+        contents = diskAccessor.readFile(newCalPlistPath)
+        newCalPlist = readPlistFromString(contents)
+        uid, gid = getServerIDs(newCalPlist)
+        log("ServerIDs from %s: %d, %d" % (newCalPlistPath, uid, gid))
+    else:
+        uid = gid = -1
+        log("Can't find new calendar plist at %s" % (newCalPlistPath,))
+
+    # Try and read old caldavd.plist
+    oldCalConfigDir = os.path.join(sourceRoot, CALDAVD_CONFIG_DIR)
     oldCalPlistPath = os.path.join(oldCalConfigDir, CALDAVD_PLIST)
-    if os.path.exists(oldCalPlistPath):
-        oldCalPlist = readPlist(oldCalPlistPath)
-        uid, gid = getServerIDs(oldCalPlist)
-        log("ServerIDs: %d, %d" % (uid, gid))
+    if diskAccessor.exists(oldCalPlistPath):
+        contents = diskAccessor.readFile(oldCalPlistPath)
+        oldCalPlist = readPlistFromString(contents)
+        log("Found previous caldavd plist at %s" % (oldCalPlistPath,))
+
+        oldServerRootValue = oldCalPlist.get("ServerRoot", None)
+        oldCalDocumentRootValue = oldCalPlist.get("DocumentRoot", None)
+        oldCalDataRootValue = oldCalPlist.get("DataRoot", None)
+
     else:
         log("Can't find previous calendar plist at %s" % (oldCalPlistPath,))
         oldCalPlist = None
-        newCalConfigDir = os.path.join(options.targetRoot, CALDAVD_CONFIG_DIR)
-        newCalPlistPath = os.path.join(newCalConfigDir, CALDAVD_PLIST)
-        if os.path.exists(newCalPlistPath):
-            newCalPlist = readPlist(newCalPlistPath)
-            uid, gid = getServerIDs(newCalPlist)
-            log("ServerIDs: %d, %d" % (uid, gid))
 
-
-    oldABConfigDir = os.path.join(options.sourceRoot, CARDDAVD_CONFIG_DIR)
+    # Try and read old carddavd.plist
+    oldABConfigDir = os.path.join(sourceRoot, CARDDAVD_CONFIG_DIR)
     oldABPlistPath = os.path.join(oldABConfigDir, CARDDAVD_PLIST)
-    if os.path.exists(oldABPlistPath):
-        oldABPlist = readPlist(oldABPlistPath)
+    if diskAccessor.exists(oldABPlistPath):
+        contents = diskAccessor.readFile(oldABPlistPath)
+        oldABPlist = readPlistFromString(contents)
+        log("Found previous carddavd plist at %s" % (oldABPlistPath,))
+
+        oldABDocumentRootValue = oldABPlist.get("DocumentRoot", None)
     else:
-        log("Can't find previous addressbook plist at %s" % (oldABPlistPath,))
+        log("Can't find previous carddavd plist at %s" % (oldABPlistPath,))
         oldABPlist = None
 
-    if oldCalPlist is not None:
-        # See if there is actually any calendar data
+    return (
+        oldServerRootValue,
+        oldCalDocumentRootValue,
+        oldCalDataRootValue,
+        oldABDocumentRootValue,
+        uid,
+        gid
+    )
 
-        oldDocumentRoot = oldCalPlist["DocumentRoot"]
-        if oldDocumentRoot.rstrip("/") != "/Library/CalendarServer/Documents":
-            log("Calendar data in non-standard location: %s" % (oldDocumentRoot,))
-            calendarDataInDefaultLocation = False
-        else:
-            log("Calendar data in standard location: %s" % (oldDocumentRoot,))
 
-        oldDataRoot = oldCalPlist["DataRoot"]
-
-        oldCalendarsPath = os.path.join(oldDocumentRoot, "calendars")
-        if os.path.exists(oldCalendarsPath):
-            # There is calendar data
-            oldCalDocuments = oldDocumentRoot
-            oldCalData = oldDataRoot
-            log("Calendar data to migrate from %s and %s" %
-                (oldCalDocuments, oldCalData))
-
-            if calendarDataInDefaultLocation:
-                newServerRoot = absolutePathWithRoot(options.targetRoot,
-                    NEW_SERVER_ROOT)
-                newServerRootValue = NEW_SERVER_ROOT
-            else:
-                newServerRoot = absolutePathWithRoot(options.targetRoot,
-                    oldDocumentRoot)
-                newServerRootValue = oldDocumentRoot
-        else:
-            log("No calendar data to migrate")
-
-    if oldABPlist is not None:
-        # See if there is actually any addressbook data
-
-        oldDocumentRoot = oldABPlist["DocumentRoot"]
-        if oldDocumentRoot.rstrip("/") != "/Library/AddressBookServer/Documents":
-            log("AddressBook data in non-standard location: %s" % (oldDocumentRoot,))
-            addressbookDataInDefaultLocation = False
-        else:
-            log("AddressBook data in standard location: %s" % (oldDocumentRoot,))
-
-        oldAddressbooksPath = os.path.join(oldDocumentRoot, "addressbooks")
-        if os.path.exists(oldAddressbooksPath):
-            # There is addressbook data
-            oldABDocuments = oldDocumentRoot
-            log("AddressBook data to migrate from %s" % (oldABDocuments,))
-
-            if newServerRoot is None:
-                # don't override server root computed from calendar
-                if addressbookDataInDefaultLocation:
-                    newServerRoot = absolutePathWithRoot(options.targetRoot,
-                        NEW_SERVER_ROOT)
-                    newServerRootValue = NEW_SERVER_ROOT
-                else:
-                    newServerRoot = absolutePathWithRoot(options.targetRoot,
-                        oldDocumentRoot)
-                    newServerRootValue = oldDocumentRoot
-        else:
-            log("No addressbook data to migrate")
-
-    if (oldCalDocuments or oldABDocuments) and newServerRoot:
-        relocateData(oldCalDocuments, oldCalData, oldABDocuments, uid, gid,
-            calendarDataInDefaultLocation, addressbookDataInDefaultLocation,
-            newServerRoot)
-
-    return newServerRootValue
-
-def relocateData(oldCalDocuments, oldCalData, oldABDocuments, uid, gid,
-    calendarDataInDefaultLocation, addressbookDataInDefaultLocation,
-    newServerRoot):
+def relocateData(sourceRoot, targetRoot, oldServerRootValue,
+    oldCalDocumentRootValue, oldCalDataRootValue, oldABDocumentRootValue,
+    uid, gid, diskAccessor=None):
     """
-    Relocates existing calendar data to the new default location iff the data
-    was previously in the old default location; otherwise the old calendar
-    DocumentRoot becomes the new ServerRoot directory, the contents of the
-    old DocumentRoot are moved into ServerRoot/Documents and the contents of
-    old DataRoot are copied/moved into ServerRoot/Data.  If there is addressbook
-    data, a symlink is created as ServerRoot/Documents/addressbooks pointing
-    to the old addressbook directory so that the import-to-PostgreSQL will
-    find it.
+    Copy data from sourceRoot to targetRoot, except when data is on another
+    volume in which case we just refer to it there.
     """
 
-    log("RelocateData: cal documents=%s, cal data=%s, ab documents=%s, new server root=%s"
-        % (oldCalDocuments, oldCalData, oldABDocuments, newServerRoot))
+    if diskAccessor is None:
+        diskAccessor = DiskAccessor()
 
-    if oldCalDocuments and os.path.exists(oldCalDocuments):
+    log("RelocateData: sourceRoot=%s, targetRoot=%s, oldServerRootValue=%s, oldCalDocumentRootValue=%s, oldCalDataRootValue=%s, oldABDocumentRootValue=%s, uid=%d, gid=%d" % (sourceRoot, targetRoot, oldServerRootValue, oldCalDocumentRootValue, oldCalDataRootValue, oldABDocumentRootValue, uid, gid))
 
-        if calendarDataInDefaultLocation:
-            # We're in the default location, relocate to new location
-            newCalDocuments = os.path.join(newServerRoot, "Documents")
-            if not os.path.exists(newCalDocuments):
-                os.mkdir(newCalDocuments)
-            newCalData = os.path.join(newServerRoot, "Data")
-            if not os.path.exists(newCalData):
-                os.mkdir(newCalData)
-            if os.path.exists(oldCalDocuments):
-                # Move evertying from oldCalDocuments
-                for item in list(os.listdir(oldCalDocuments)):
-                    source = os.path.join(oldCalDocuments, item)
-                    dest = os.path.join(newCalDocuments, item)
-                    log("Relocating %s to %s" % (source, dest))
-                    os.rename(source, dest)
-            else:
-                log("Warning: %s does not exist; nothing to migrate" % (oldCalDocuments,))
+
+    if oldServerRootValue:
+        newServerRootValue = oldServerRootValue
+        # Source is Lion; see if ServerRoot refers to an external volume
+        # or a directory in sourceRoot
+        if diskAccessor.exists(oldServerRootValue):
+            # refers to an external volume
+            newServerRoot = newServerRootValue
+        elif diskAccessor.exists(os.path.join(sourceRoot, oldServerRootValue)):
+            # refers to a directory on sourceRoot
+            newServerRoot = absolutePathWithRoot(targetRoot, newServerRootValue)
         else:
-            # The admin has moved calendar data to a non-standard location so
-            # we're going to leave it there, but move things down a level so
-            # that the old DocumentRoot becomes new ServerRoot
+            # It doesn't exist, so use default
+            newServerRootValue = NEW_SERVER_ROOT
+            newServerRoot = absolutePathWithRoot(targetRoot, newServerRootValue)
 
-            # Create "Documents" directory with same ownership as oldCalDocuments
-            newCalDocuments = os.path.join(newServerRoot, "Documents")
-            log("New documents directory: %s" % (newCalDocuments,))
-            newCalData = os.path.join(newServerRoot, "Data")
-            log("New data directory: %s" % (newCalData,))
-            os.mkdir(newCalDocuments)
-            os.mkdir(newCalData)
-            for item in list(os.listdir(newServerRoot)):
-                if item not in ("Documents", "Data"):
-                    source = os.path.join(newServerRoot, item)
-                    dest = os.path.join(newCalDocuments, item)
-                    log("Relocating %s to %s" % (source, dest))
-                    os.rename(source, dest)
+        # If there was an old ServerRoot value, process DocumentRoot and
+        # DataRoot because those could be relative to ServerRoot
+        oldCalDocumentRootValueProcessed = os.path.join(oldServerRootValue,
+            oldCalDocumentRootValue)
+        oldCalDataRootValueProcessed = os.path.join(oldServerRootValue,
+            oldCalDataRootValue)
+    else:
+        newServerRootValue = NEW_SERVER_ROOT
+        newServerRoot = absolutePathWithRoot(targetRoot, newServerRootValue)
+        oldCalDocumentRootValueProcessed = oldCalDocumentRootValue
+        oldCalDataRootValueProcessed = oldCalDataRootValue
 
-        # Relocate calendar DataRoot, copying all files
-        if os.path.exists(oldCalData):
-            if not os.path.exists(newCalData):
-                os.mkdir(newCalData)
-            for item in list(os.listdir(oldCalData)):
-                source = os.path.join(oldCalData, item)
-                if not os.path.isfile(source):
-                    continue
-                dest = os.path.join(newCalData, item)
-                log("Relocating %s to %s" % (source, dest))
-                try:
-                    os.rename(source, dest)
-                except OSError:
-                    # Can't rename because it's cross-volume; must copy/delete
-                    shutil.copy2(source, dest)
-                    os.remove(source)
+    # Set default values for these, possibly overridden below:
+    newDocumentRootValue = "Documents"
+    newDocumentRoot = absolutePathWithRoot(
+        targetRoot,
+        os.path.join(newServerRootValue, newDocumentRootValue)
+    )
+    newDataRootValue = "Data"
+    newDataRoot = absolutePathWithRoot(
+        targetRoot,
+        os.path.join(newServerRootValue, newDataRootValue)
+    )
 
-        # Symlink to AB document root so server will find it an import to
-        # PostgreSQL
-        if oldABDocuments and os.path.exists(oldABDocuments):
-            oldAddressBooks = os.path.join(oldABDocuments, "addressbooks")
-            newAddressBooks = os.path.join(newCalDocuments, "addressbooks")
-            log("Symlinking AddressBook data: %s to %s" % (newAddressBooks, oldAddressBooks))
-            os.symlink(oldAddressBooks, newAddressBooks)
+    # Old Calendar DocumentRoot
+    if oldCalDocumentRootValueProcessed:
+        if diskAccessor.exists(oldCalDocumentRootValueProcessed):
+            # Must be on an external volume if we see it existing at the point
+            # so don't copy it
+            newDocumentRoot = newDocumentRootValue = oldCalDocumentRootValueProcessed
+        elif diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldCalDocumentRootValueProcessed)):
+            diskAccessor.ditto(
+                absolutePathWithRoot(sourceRoot, oldCalDocumentRootValueProcessed),
+                newDocumentRoot
+            )
+            diskAccessor.chown(newDocumentRoot, uid, gid, recursive=True)
+
+    # Old Calendar DataRoot
+    if oldCalDataRootValueProcessed:
+        if diskAccessor.exists(oldCalDataRootValueProcessed):
+            # Must be on an external volume if we see it existing at the point
+            # so don't copy it
+            newDataRootValue = oldCalDataRootValueProcessed
+        elif diskAccessor.exists(
+            absolutePathWithRoot(sourceRoot, oldCalDataRootValueProcessed)
+        ):
+            diskAccessor.ditto(
+                absolutePathWithRoot(sourceRoot, oldCalDataRootValueProcessed),
+                newDataRoot
+            )
+            diskAccessor.chown(newDataRoot, uid, gid, recursive=True)
+
+    # Old AddressBook DocumentRoot
+    if oldABDocumentRootValue:
+        newAddressBooks = os.path.join(newDocumentRoot, "addressbooks")
+        if diskAccessor.exists(oldABDocumentRootValue):
+            # Must be on an external volume if we see it existing at the point
+            diskAccessor.ditto(
+                os.path.join(oldABDocumentRootValue, "addressbooks"),
+                newAddressBooks
+            )
+        elif diskAccessor.exists(
+            absolutePathWithRoot(sourceRoot, oldABDocumentRootValue)
+        ):
+            diskAccessor.ditto(
+                absolutePathWithRoot(
+                    sourceRoot,
+                    os.path.join(oldABDocumentRootValue, "addressbooks")
+                ),
+                os.path.join(newDocumentRoot, "addressbooks")
+            )
+        if diskAccessor.exists(newAddressBooks):
+            diskAccessor.chown(newAddressBooks, uid, gid, recursive=True)
 
 
-    elif oldABDocuments and os.path.exists(oldABDocuments):
-        # No calendar data, only addressbook data
+    # Change ownership of newServerRoot
+    if newServerRoot and diskAccessor.exists(newServerRoot):
+        diskAccessor.chown(newServerRoot, uid, gid, recursive=False)
 
-        if addressbookDataInDefaultLocation:
-            # We're in the default location, relocate to new location
-            newABDocuments = os.path.join(newServerRoot, "Documents")
-            if os.path.exists(newABDocuments):
-                # Move evertying from oldABDocuments
-                for item in list(os.listdir(oldABDocuments)):
-                    source = os.path.join(oldABDocuments, item)
-                    dest = os.path.join(newABDocuments, item)
-                    log("Relocating %s to %s" % (source, dest))
-                    os.rename(source, dest)
-            else:
-                log("Error: %s does not exist" % (newABDocuments,))
-        else:
-            # The admin has moved addressbook data to a non-standard location so
-            # we're going to leave it there, but move things down a level so
-            # that the old DocumentRoot becomes new ServerRoot
+    newServerRootValue, newDocumentRootValue = relativize(newServerRootValue,
+        newDocumentRootValue)
+    newServerRootValue, newDataRootValue = relativize(newServerRootValue,
+        newDataRootValue)
 
-            # Create "Documents" directory with same ownership as oldABDocuments
-            newABDocuments = os.path.join(newServerRoot, "Documents")
-            newABData = os.path.join(newServerRoot, "Data")
-            log("New documents directory: %s" % (newABDocuments,))
-            os.mkdir(newABDocuments)
-            os.mkdir(newABData)
-            for item in list(os.listdir(newServerRoot)):
-                if item not in ("Documents", "Data"):
-                    source = os.path.join(newServerRoot, item)
-                    dest = os.path.join(newABDocuments, item)
-                    log("Relocating %s to %s" % (source, dest))
-                    os.rename(source, dest)
+    return (
+        newServerRoot,
+        newServerRootValue,
+        newDocumentRootValue,
+        newDataRootValue
+    )
 
-    if newServerRoot and os.path.exists(newServerRoot):
-        """
-        Change onwnership of entire ServerRoot
-        """
-        os.chown(newServerRoot, uid, gid)
-        for root, dirs, files in os.walk(newServerRoot, followlinks=True):
-            for name in dirs:
-                os.chown(os.path.join(root, name), uid, gid)
-            for name in files:
-                os.chown(os.path.join(root, name), uid, gid)
 
+def relativize(parent, child):
+    """
+    If child is really a child of parent, make child relative to parent.
+    """
+    if child.startswith(parent):
+        parent = parent.rstrip("/")
+        child = child[len(parent):].strip("/")
+    return parent.rstrip("/"), child.rstrip("/")
 
 
 def getServerIDs(plist):
@@ -772,6 +771,7 @@ def getServerIDs(plist):
         gid = grp.getgrnam(plist["GroupName"]).gr_gid
     return uid, gid
 
+
 def absolutePathWithRoot(root, path):
     """
     Combine root and path as long as path does not start with /Volumes/
@@ -781,6 +781,60 @@ def absolutePathWithRoot(root, path):
     else:
         path = path.strip("/")
         return os.path.join(root, path)
+
+
+class DiskAccessor(object):
+    """
+    A wrapper around various disk access methods so that unit tests can easily
+    replace these with a stub that doesn't actually require disk access.
+    """
+
+    def exists(self, path):
+        return os.path.exists(path)
+
+    def readFile(self, path):
+        input = file(path)
+        contents = input.read()
+        input.close()
+        return contents
+
+    def mkdir(self, path):
+        return os.mkdir(path)
+
+    def rename(self, before, after):
+        try:
+            return os.rename(before, after)
+        except OSError:
+            # Can't rename because it's cross-volume; must copy/delete
+            shutil.copy2(before, after)
+            return os.remove(before)
+
+    def isfile(self, path):
+        return os.path.isfile(path)
+
+    def symlink(self, orig, link):
+        return os.symlink(orig, link)
+
+    def chown(self, path, uid, gid, recursive=False):
+        os.chown(path, uid, gid)
+        if recursive:
+            for root, dirs, files in os.walk(path, followlinks=True):
+                for name in dirs:
+                    os.chown(os.path.join(root, name), uid, gid)
+                for name in files:
+                    os.chown(os.path.join(root, name), uid, gid)
+
+
+    def walk(self, path, followlinks=True):
+        return os.walk(path, followlinks=followlinks)
+
+    def listdir(self, path):
+        return list(os.listdir(path))
+
+    def ditto(self, src, dest):
+        log("Copying with ditto: %s to %s" % (src, dest))
+        return subprocess.call([DITTO, src, dest])
+
 
 if __name__ == '__main__':
     main()
