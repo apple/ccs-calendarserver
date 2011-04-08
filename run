@@ -517,7 +517,7 @@ fi;
 if ! py_have_module xml.dom.ext; then
   xml="${top}/PyXML-0.8.4";
 
-  www_get "PyXML" "${xml}" http://internap.dl.sourceforge.net/sourceforge/pyxml/PyXML-0.8.4.tar.gz;
+  www_get "PyXML" "${xml}" http://surfnet.dl.sourceforge.net/project/pyxml/pyxml/0.8.4/PyXML-0.8.4.tar.gz;
   py_build "PyXML" "${xml}" false;
   py_install "PyXML" "${xml}";
 
