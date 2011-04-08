@@ -412,18 +412,19 @@ class OpenDirectoryService(CachingDirectoryService):
 
                     recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
 
-                    # Skip if group restriction is in place and guid is not
-                    # a member
-                    if self.restrictedGUIDs is not None:
-                        if str(recordGUID) not in self.restrictedGUIDs:
-                            continue
-
                     recordType = value.get(dsattributes.kDSNAttrRecordType)
                     if isinstance(recordType, list):
                         recordType = recordType[0]
                     if not recordType:
                         continue
                     recordType = self._fromODRecordTypes[recordType]
+
+                    # Skip if group restriction is in place and guid is not
+                    # a member (but don't skip any groups)
+                    if (recordType != self.recordType_groups and
+                        self.restrictedGUIDs is not None):
+                        if str(recordGUID) not in self.restrictedGUIDs:
+                            continue
 
                     recordAuthIDs = self._setFromAttribute(
                         value.get(dsattributes.kDSNAttrAltSecurityIdentities))
