@@ -714,7 +714,7 @@ export PYTHONPATH="${PYTHONPATH}:${vobject}";
 
 if ! py_have_module pydirector; then
   pydirector="${top}/pydirector-1.0.0";
-  www_get "PyDirector" "${pydirector}" http://internap.dl.sourceforge.net/sourceforge/pythondirector/pydirector-1.0.0.tar.gz;
+  www_get "PyDirector" "${pydirector}" http://superb-sea2.dl.sourceforge.net/project/pythondirector/pythondirector/pythondirector-1.0.0/pydirector-1.0.0.tar.gz;
   py_build "PyDirector" "${pydirector}" false;
   py_install "PyDirector" "${pydirector}";
 
