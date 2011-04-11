@@ -15,8 +15,10 @@
 # limitations under the License.
 ##
 
-import os
+from socket import getfqdn
+from socket import gethostbyname
 import copy
+import os
 import re
 
 from twext.web2.dav import davxml
@@ -29,7 +31,6 @@ from twext.python.log import clearLogLevels, setLogLevelForNamespace
 from twistedcaldav import caldavxml, customxml, carddavxml
 from twistedcaldav.config import ConfigProvider, ConfigurationError
 from twistedcaldav.config import config, _mergeData, fullServerPath
-from twistedcaldav.partitions import partitions
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 
@@ -587,14 +588,14 @@ DEFAULT_CONFIG = {
     },
 
     #
-    # Partitioning
+    # Support multiple hosts within a domain
     #
-    "Partitioning" : {
-        "Enabled": False,                          # Partitioning enabled or not
-        "ServerPartitionID": "",                   # Unique ID for this server's partition instance.
-        "PartitionConfigFile": "partitions.plist", # File path for partition information
+    "Servers" : {
+        "Enabled": False,                          # Multiple servers/partitions enabled or not
+        "ConfigFile": "servers.xml",               # File path for server information
         "MaxClients": 5,                           # Pool size for connections to each partition
     },
+    "ServerPartitionID": "",                       # Unique ID for this server's partition instance.
 
     #
     # Performance tuning
@@ -758,10 +759,14 @@ class PListConfigProvider(ConfigProvider):
         if "Includes" in configDict:
             configRoot = os.path.join(configDict.ServerRoot, configDict.ConfigRoot)
             for include in configDict.Includes:
-
-                additionalDict = self._parseConfigFromFile(fullServerPath(configRoot, include))
+                path = fullServerPath(configRoot, include)
+                if '$' in path:
+                    path = path.replace('$', getfqdn())
+                if '#' in path:
+                    path = path.replace('#', gethostbyname(getfqdn()))
+                additionalDict = self._parseConfigFromFile(path)
                 if additionalDict:
-                    log.info("Adding configuration from file: '%s'" % (include,))
+                    log.info("Adding configuration from file: '%s'" % (path,))
                     configDict.update(additionalDict)
         return configDict
 
@@ -849,7 +854,6 @@ def _updateDataStore(configDict):
 
 def _updateHostName(configDict):
     if not configDict.ServerHostName:
-        from socket import getfqdn
         hostname = getfqdn()
         if not hostname:
             hostname = "localhost"
@@ -1116,14 +1120,16 @@ def _updateScheduling(configDict):
                     log.info("iMIP %s password not found in keychain" %
                         (direction,))
 
-def _updatePartitions(configDict):
-    if configDict.Partitioning.Enabled:
-        partitions.setSelfPartition(configDict.Partitioning.ServerPartitionID)
-        partitions.setMaxClients(configDict.Partitioning.MaxClients)
-        partitions.readConfig(fullServerPath(configDict.ConfigRoot, configDict.Partitioning.PartitionConfigFile))
-        partitions.installReverseProxies()
+def _updateServers(configDict):
+    import servers
+    if configDict.Servers.Enabled:
+        servers.Servers.load()
+        servers.Servers.getThisServer().installReverseProxies(
+            configDict.ServerPartitionID,
+            configDict.Servers.MaxClients,
+        )
     else:
-        partitions.clear()
+        servers.Servers.clear()
 
 def _updateCompliance(configDict):
 
@@ -1169,7 +1175,7 @@ POST_UPDATE_HOOKS = (
     _updateLogLevels,
     _updateNotifications,
     _updateScheduling,
-    _updatePartitions,
+    _updateServers,
     _updateCompliance,
     )
     

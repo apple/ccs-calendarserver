@@ -39,7 +39,7 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.method import report_common
 from twistedcaldav.resource import isCalendarCollectionResource
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser,\
-    PartitionedCalendarUser
+    PartitionedCalendarUser, OtherServerCalendarUser
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.scheduling.processing import ImplicitProcessor, ImplicitProcessorException
@@ -99,7 +99,7 @@ class ScheduleViaCalDAV(DeliveryService):
         uid = self.scheduler.calendar.resourceUID()
 
         organizerPrincipal = None
-        if type(self.scheduler.organizer) in (LocalCalendarUser, PartitionedCalendarUser,):
+        if type(self.scheduler.organizer) in (LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,):
             organizerPrincipal = davxml.Principal(davxml.HRef(self.scheduler.organizer.principal.principalURL()))
 
         for recipient in self.recipients:

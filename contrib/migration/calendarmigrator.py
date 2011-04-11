@@ -106,7 +106,6 @@ MaximumAttachmentSize
 Memcached
 MultiProcess
 Notifications
-Partitioning
 Postgres
 ProcessType
 Profiling
@@ -127,6 +126,8 @@ SSLPrivateKey
 Scheduling
 ServerHostName
 ServerRoot
+Servers
+ServerPartitionID
 Sharing
 SudoersFile
 Twisted

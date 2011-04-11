@@ -42,8 +42,8 @@ from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServerRecord
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String
-from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser
-from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser
+from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser,\
+    OtherServerCalendarUser
 
 import OpenSSL
 
@@ -86,6 +86,8 @@ class ScheduleViaISchedule(DeliveryService):
                 server = servermgr.mapDomain(recipient.domain)
             elif isinstance(recipient, PartitionedCalendarUser):
                 server = self._getServerForPartitionedUser(recipient)
+            elif isinstance(recipient, OtherServerCalendarUser):
+                server = self._getServerForOtherServerUser(recipient)
             else:
                 assert False, "Incorrect calendar user address class"
             if not server:
@@ -132,12 +134,24 @@ class ScheduleViaISchedule(DeliveryService):
         if not hasattr(self, "partitionedServers"):
             self.partitionedServers = {}
             
-        partition = recipient.principal.hostedURL()
+        partition = recipient.principal.partitionURI()
         if partition not in self.partitionedServers:
             self.partitionedServers[partition] = IScheduleServerRecord(uri=joinURL(partition, "/ischedule"))
             self.partitionedServers[partition].unNormalizeAddresses = False
         
         return self.partitionedServers[partition]
+
+    def _getServerForOtherServerUser(self, recipient):
+        
+        if not hasattr(self, "otherServers"):
+            self.otherServers = {}
+            
+        server = recipient.principal.serverURI()
+        if server not in self.otherServers:
+            self.otherServers[server] = IScheduleServerRecord(uri=joinURL(server, "/ischedule"))
+            self.otherServers[server].unNormalizeAddresses = False
+        
+        return self.otherServers[server]
 
 class IScheduleRequest(object):
     
