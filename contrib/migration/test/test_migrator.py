@@ -883,7 +883,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', 93, 93),
                 ('ditto', '/Volumes/old/Library/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks'),
                 ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks', 93, 93),
-                ('chown', '/Volumes/new/Library/Server/Calendar and Contacts', 93, 93),
             ]
         ),
 
@@ -959,7 +958,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', 93, 93),
                 ('ditto', '/Volumes/old/NonStandard/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks'),
                 ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks', 93, 93),
-                ('chown', '/Volumes/new/Library/Server/Calendar and Contacts', 93, 93),
             ]
         ),
 
@@ -1031,7 +1029,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             [
                 ('ditto', '/Volumes/old/Library/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Documents/addressbooks'),
                 ('chown-recursive', '/Volumes/External/CalendarServer/Documents/addressbooks', 93, 93),
-                ('chown', '/Volumes/new/Library/Server/Calendar and Contacts', 93, 93),
             ]
         ),
 
@@ -1095,7 +1092,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', 93, 93),
                 ('ditto', '/Volumes/old/Library/Server/Calendar and Contacts/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
                 ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', 93, 93),
-                ('chown', '/Volumes/new/Library/Server/Calendar and Contacts', 93, 93),
             ]
         ),
 
@@ -1155,7 +1151,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "Data"
             ),
             [
-                ('chown', '/Volumes/External/Library/Server/Calendar and Contacts', 93, 93),
             ]
         ),
 
@@ -1219,7 +1214,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             [
                 ('ditto', '/Volumes/old/CalendarData', '/Volumes/External/Library/Server/Calendar and Contacts/Data'),
                 ('chown-recursive', '/Volumes/External/Library/Server/Calendar and Contacts/Data', 93, 93),
-                ('chown', '/Volumes/External/Library/Server/Calendar and Contacts', 93, 93),
             ]
         ),
 
