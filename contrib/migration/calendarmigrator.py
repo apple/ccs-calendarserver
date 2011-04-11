@@ -731,10 +731,6 @@ def relocateData(sourceRoot, targetRoot, oldServerRootValue,
             diskAccessor.chown(newAddressBooks, uid, gid, recursive=True)
 
 
-    # Change ownership of newServerRoot
-    if newServerRoot and diskAccessor.exists(newServerRoot):
-        diskAccessor.chown(newServerRoot, uid, gid, recursive=False)
-
     newServerRootValue, newDocumentRootValue = relativize(newServerRootValue,
         newDocumentRootValue)
     newServerRootValue, newDataRootValue = relativize(newServerRootValue,
