@@ -634,7 +634,7 @@ DEFAULT_CONFIG = {
     },
 
     # Umask
-    "umask": 0027,
+    "umask": 0022,
 
     # A TCP port used for communication between the child and master
     # processes (bound to 127.0.0.1). Specify 0 to let OS assign a port.
