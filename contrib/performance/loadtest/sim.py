@@ -20,6 +20,7 @@ from random import Random
 from plistlib import readPlist
 from collections import namedtuple
 
+from twisted.python import context
 from twisted.python.filepath import FilePath
 from twisted.python.log import addObserver
 from twisted.python.usage import UsageError, Options
@@ -30,6 +31,30 @@ from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.population import (
     Populator, ClientType, PopulationParameters, SmoothRampUp,
     CalendarClientSimulator)
+
+
+class LagTrackingReactor(object):
+    """
+    This reactor wraps another reactor and proxies all attribute
+    access (including method calls).  It only changes the behavior of
+    L{IReactorTime.callLater} to insert a C{"lag"} key into the
+    context which delayed function calls are invoked with.  This key
+    has a float value which gives the difference in time between when
+    the call was original scheduled and when the call actually took
+    place.
+    """
+    def __init__(self, reactor):
+        self._reactor = reactor
+
+    def __getattr__(self, name):
+        return getattr(self._reactor, name)
+
+    def callLater(self, delay, function, *args, **kwargs):
+        expected = self._reactor.seconds() + delay
+        def modifyContext():
+            now = self._reactor.seconds()
+            context.call({'lag': now - expected}, function, *args, **kwargs)
+        return self._reactor.callLater(delay, modifyContext)
 
 
 class SimOptions(Options):
@@ -103,7 +128,7 @@ class LoadSimulator(object):
         self.arrival = arrival
         self.parameters = parameters
         self.observers = observers
-        self.reactor = reactor
+        self.reactor = LagTrackingReactor(reactor)
 
 
     @classmethod
