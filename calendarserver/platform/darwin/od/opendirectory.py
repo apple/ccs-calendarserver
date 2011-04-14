@@ -23,6 +23,22 @@ import objc
 import dsattributes
 import base64
 from twext.python.log import Logger
+import Foundation
+
+
+def autoPooled(f):
+    """
+    A decorator which creates an autorelease pool and deletes it, causing it
+    to drain
+    """
+    def autoPooledFunction(*args, **kwds):
+        pool = Foundation.NSAutoreleasePool.alloc().init()
+        try:
+            return f(*args, **kwds)
+        finally:
+            del pool
+    return autoPooledFunction
+
 
 log = Logger()
 
@@ -136,6 +152,7 @@ def attributeNamesFromList(attributes):
     return names, encodings
 
 
+@autoPooled
 def odInit(nodeName):
     """
     Create an Open Directory object to operate on the specified directory service node name.
@@ -167,6 +184,7 @@ def odInit(nodeName):
 
 
 
+@autoPooled
 def getNodeAttributes(directory, nodeName, attributes):
     """
     Return key attributes for the specified directory node. The attributes
@@ -198,6 +216,7 @@ def getNodeAttributes(directory, nodeName, attributes):
     raise ODError(error)
 
 
+@autoPooled
 def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0):
     """
     List records in Open Directory, and return key attributes for each one.
@@ -212,44 +231,41 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
         for each record found, or C{None} otherwise.
     """
     results = []
-
     attributeNames, encodings = attributeNamesFromList(attributes)
 
-    try:
-        tries = NUM_TRIES
-        while tries:
-            query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
-                directory.node,
-                recordType,
-                None,
-                MATCHANY,
-                None,
-                attributeNames,
-                count,
-                None)
+    tries = NUM_TRIES
+    while tries:
+        query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+            directory.node,
+            recordType,
+            None,
+            MATCHANY,
+            None,
+            attributeNames,
+            count,
+            None)
 
-            if not error:
-                records, error = query.resultsAllowingPartial_error_(False, None)
+        if not error:
+            records, error = query.resultsAllowingPartial_error_(False, None)
 
-            if not error:
-                for record in records:
-                    results.append(recordToResult(record, encodings))
-                return results
+        if not error:
+            for record in records:
+                results.append(recordToResult(record, encodings))
+            return results
 
-            code = error.code()
-            log.debug("Received code %d from query call: %s" % (code, error))
+        code = error.code()
+        log.debug("Received code %d from query call: %s" % (code, error))
 
-            if code in RETRY_CODES:
-                tries -= 1
-            else:
-                break
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
 
-        log.error(error)
-        raise ODError(error)
+    log.error(error)
+    raise ODError(error)
 
-    finally:
-        objc.recycleAutoreleasePool()
 
+@autoPooled
 def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, recordType, attributes, count=0):
     """
     List records in Open Directory matching specified attribute/value, and return key attributes for each one.
@@ -267,48 +283,43 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
     @return: C{list} containing a C{list} of C{str} (record name) and C{dict} attributes
         for each record found, or C{None} otherwise.
     """
-
     results = []
-
     attributeNames, encodings = attributeNamesFromList(attributes)
 
-    try:
-        tries = NUM_TRIES
-        while tries:
+    tries = NUM_TRIES
+    while tries:
 
-            query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
-                directory.node,
-                recordType,
-                attr,
-                adjustMatchType(matchType, casei),
-                value.decode("utf-8"),
-                attributeNames,
-                count,
-                None)
+        query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+            directory.node,
+            recordType,
+            attr,
+            adjustMatchType(matchType, casei),
+            value.decode("utf-8"),
+            attributeNames,
+            count,
+            None)
 
-            if not error:
-                records, error = query.resultsAllowingPartial_error_(False, None)
+        if not error:
+            records, error = query.resultsAllowingPartial_error_(False, None)
 
-            if not error:
-                for record in records:
-                    results.append(recordToResult(record, encodings))
-                return results
+        if not error:
+            for record in records:
+                results.append(recordToResult(record, encodings))
+            return results
 
-            code = error.code()
-            log.debug("Received code %d from query call: %s" % (code, error))
+        code = error.code()
+        log.debug("Received code %d from query call: %s" % (code, error))
 
-            if code in RETRY_CODES:
-                tries -= 1
-            else:
-                break
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
 
-        log.error(error)
-        raise ODError(error)
-
-    finally:
-        objc.recycleAutoreleasePool()
+    log.error(error)
+    raise ODError(error)
 
 
+@autoPooled
 def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attributes, count=0):
     """
     List records in Open Directory matching specified criteria, and return key attributes for each one.
@@ -328,41 +339,37 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
 
     attributeNames, encodings = attributeNamesFromList(attributes)
 
-    try:
-        tries = NUM_TRIES
-        while tries:
+    tries = NUM_TRIES
+    while tries:
 
-            query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
-                directory.node,
-                recordType,
-                None,
-                0x210B, # adjustMatchType(matchType, casei),
-                compound,
-                attributeNames,
-                count,
-                None)
+        query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+            directory.node,
+            recordType,
+            None,
+            0x210B, # adjustMatchType(matchType, casei),
+            compound,
+            attributeNames,
+            count,
+            None)
 
-            if not error:
-                records, error = query.resultsAllowingPartial_error_(False, None)
+        if not error:
+            records, error = query.resultsAllowingPartial_error_(False, None)
 
-            if not error:
-                for record in records:
-                    results.append(recordToResult(record, encodings))
-                return results
+        if not error:
+            for record in records:
+                results.append(recordToResult(record, encodings))
+            return results
 
-            code = error.code()
-            log.debug("Received code %d from query call: %s" % (code, error))
+        code = error.code()
+        log.debug("Received code %d from query call: %s" % (code, error))
 
-            if code in RETRY_CODES:
-                tries -= 1
-            else:
-                break
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
 
-        log.error(error)
-        raise ODError(error)
-
-    finally:
-        objc.recycleAutoreleasePool()
+    log.error(error)
+    raise ODError(error)
 
 
 def getUserRecord(directory, user):
@@ -397,6 +404,7 @@ def getUserRecord(directory, user):
     raise ODError(error)
 
 
+@autoPooled
 def authenticateUserBasic(directory, nodeName, user, password):
     """
     Authenticate a user with a password to Open Directory.
@@ -407,43 +415,40 @@ def authenticateUserBasic(directory, nodeName, user, password):
     @param pswd: C{str} containing the password to check.
     @return: C{True} if the user was found, C{False} otherwise.
     """
-    try:
-        record = getUserRecord(directory, user)
-        if record is None:
-            raise ODError("Record not found")
+    record = getUserRecord(directory, user)
+    if record is None:
+        raise ODError("Record not found")
 
-        tries = NUM_TRIES
-        while tries:
+    tries = NUM_TRIES
+    while tries:
 
-            log.debug("Checking basic auth for user '%s' (tries remaining: %d)" %
-                (user, tries))
+        log.debug("Checking basic auth for user '%s' (tries remaining: %d)" %
+            (user, tries))
 
-            result, error = record.verifyPassword_error_(password, None)
-            if not error:
-                log.debug("Basic auth for user '%s' result: %s" % (user, result))
-                return result
+        result, error = record.verifyPassword_error_(password, None)
+        if not error:
+            log.debug("Basic auth for user '%s' result: %s" % (user, result))
+            return result
 
-            code = error.code()
+        code = error.code()
 
-            if code == INCORRECT_CREDENTIALS:
-                log.debug("Basic auth for user '%s' failed due to incorrect credentials" % (user,))
-                return False
+        if code == INCORRECT_CREDENTIALS:
+            log.debug("Basic auth for user '%s' failed due to incorrect credentials" % (user,))
+            return False
 
-            log.debug("Basic auth for user '%s' failed with code %d (%s)" %
-                (user, code, error))
+        log.debug("Basic auth for user '%s' failed with code %d (%s)" %
+            (user, code, error))
 
-            if code in RETRY_CODES:
-                tries -= 1
-            else:
-                break
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
 
-        log.error(error)
-        raise ODError(error)
-
-    finally:
-        objc.recycleAutoreleasePool()
+    log.error(error)
+    raise ODError(error)
 
 
+@autoPooled
 def authenticateUserDigest(directory, nodeName, user, challenge, response, method):
     """
     Authenticate using HTTP Digest credentials to Open Directory.
@@ -456,46 +461,42 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
     @param method: C{str} the HTTP method being used.
     @return: C{True} if the user was found, C{False} otherwise.
     """
-    try:
-        record = getUserRecord(directory, user)
-        if record is None:
-            raise ODError("Record not found")
+    record = getUserRecord(directory, user)
+    if record is None:
+        raise ODError("Record not found")
 
-        tries = NUM_TRIES
-        while tries:
+    tries = NUM_TRIES
+    while tries:
 
-            log.debug("Checking digest auth for user '%s' (tries remaining: %d)" %
-                (user, tries))
+        log.debug("Checking digest auth for user '%s' (tries remaining: %d)" %
+            (user, tries))
 
-            # TODO: what are these other return values?
-            result, mystery1, mystery2, error = record.verifyExtendedWithAuthenticationType_authenticationItems_continueItems_context_error_(
-                DIGEST_MD5,
-                [user, challenge, response, method],
-                None, None, None
-            )
-            if not error:
-                log.debug("Digest auth for user '%s' result: %s" % (user, result))
-                return result
+        # TODO: what are these other return values?
+        result, mystery1, mystery2, error = record.verifyExtendedWithAuthenticationType_authenticationItems_continueItems_context_error_(
+            DIGEST_MD5,
+            [user, challenge, response, method],
+            None, None, None
+        )
+        if not error:
+            log.debug("Digest auth for user '%s' result: %s" % (user, result))
+            return result
 
-            code = error.code()
+        code = error.code()
 
-            if code == INCORRECT_CREDENTIALS:
-                log.debug("Digest auth for user '%s' failed due to incorrect credentials" % (user,))
-                return False
+        if code == INCORRECT_CREDENTIALS:
+            log.debug("Digest auth for user '%s' failed due to incorrect credentials" % (user,))
+            return False
 
-            log.debug("Digest auth for user '%s' failed with code %d (%s)" %
-                (user, code, error))
+        log.debug("Digest auth for user '%s' failed with code %d (%s)" %
+            (user, code, error))
 
-            if code in RETRY_CODES:
-                tries -= 1
-            else:
-                break
+        if code in RETRY_CODES:
+            tries -= 1
+        else:
+            break
 
-        log.error(error)
-        raise ODError(error)
-
-    finally:
-        objc.recycleAutoreleasePool()
+    log.error(error)
+    raise ODError(error)
 
 
 class ODError(Exception):

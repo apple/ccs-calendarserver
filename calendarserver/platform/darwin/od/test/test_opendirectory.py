@@ -898,3 +898,13 @@ if runTests:
                 (["a", "b"], {"b":"base64"}),
                 opendirectory.attributeNamesFromList(["a", ("b", "base64")])
             )
+
+        def test_autoPooled(self):
+            """
+            Make sure no exception is raised by an autoPooled method
+            """
+            @opendirectory.autoPooled
+            def method(x):
+                return x + 1
+
+            self.assertEquals(2, method(1))
