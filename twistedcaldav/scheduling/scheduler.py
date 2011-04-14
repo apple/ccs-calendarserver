@@ -907,8 +907,11 @@ class IScheduleScheduler(RemoteScheduler):
         Check the validity of the partitioned host.
         """
 
-        # Extract expected host/port
-        expected_uri = principal.partitionURI() if principal.thisServer() else principal.serverURI()
+        # Extract expected host/port. This will be the partitionURI, or if no partitions,
+        # the serverURI
+        expected_uri = principal.partitionURI()
+        if expected_uri is None:
+            expected_uri = principal.serverURI()
         expected_uri = urlparse.urlparse(expected_uri)
     
         # Get the request IP and map to hostname.

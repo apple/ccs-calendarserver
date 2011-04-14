@@ -179,10 +179,10 @@ class IScheduleRequest(object):
                 proto = (yield ClientCreator(reactor, HTTPClientProtocol).connectTCP(self.server.host, self.server.port))
             
             request = ClientRequest("POST", self.server.path, self.headers, self.data)
-            yield log.logRequest("debug", "Sending server-to-server POST request:", request)
+            yield self.logRequest("debug", "Sending server-to-server POST request:", request)
             response = (yield proto.submitRequest(request))
     
-            yield log.logResponse("debug", "Received server-to-server POST response:", response)
+            yield self.logResponse("debug", "Received server-to-server POST response:", response)
             xml = (yield davXMLFromStream(response.stream))
     
             self._parseResponse(xml)
@@ -205,7 +205,7 @@ class IScheduleRequest(object):
 
         assert level in logLevels
 
-        if self.willLogAtLevel(level):
+        if log.willLogAtLevel(level):
             iostr = StringIO()
             iostr.write("%s\n" % (message,))
             if hasattr(request, "clientproto"):
@@ -231,7 +231,7 @@ class IScheduleRequest(object):
                 request.stream = MemoryStream(data if data is not None else "")
                 request.stream.doStartReading = None
             
-                self.emit(level, iostr.getvalue(), **kwargs)
+                log.emit(level, iostr.getvalue(), **kwargs)
 
             d = allDataFromStream(request.stream)
             d.addCallback(_gotData)
@@ -246,7 +246,7 @@ class IScheduleRequest(object):
         """
         assert level in logLevels
 
-        if self.willLogAtLevel(level):
+        if log.willLogAtLevel(level):
             iostr = StringIO()
             iostr.write("%s\n" % (message,))
             code_message = responsecode.RESPONSES.get(response.code, "Unknown Status")
@@ -269,7 +269,7 @@ class IScheduleRequest(object):
                 response.stream = MemoryStream(data if data is not None else "")
                 response.stream.doStartReading = None
             
-                self.emit(level, iostr.getvalue(), **kwargs)
+                log.emit(level, iostr.getvalue(), **kwargs)
                 
             d = allDataFromStream(response.stream)
             d.addCallback(_gotData)

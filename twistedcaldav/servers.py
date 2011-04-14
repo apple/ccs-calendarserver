@@ -58,11 +58,9 @@ class ServersDB(object):
             if xmlFile:
                 self._xmlFile = xmlFile
             else:
-                self._xmlFile = FilePath(
-                    fullServerPath(
-                        config.ConfigRoot,
-                        config.Servers.ConfigFile
-                    )
+                self._xmlFile = fullServerPath(
+                    config.ConfigRoot,
+                    config.Servers.ConfigFile
                 )
         self._servers = ServersParser.parse(self._xmlFile)
         for server in self._servers.values():
@@ -70,7 +68,7 @@ class ServersDB(object):
                 self._thisServer = server
                 break
         else:
-            raise ValueError("No server in self._xmlFile matches this server.")
+            raise ValueError("No server in %s matches this server." % (self._xmlFile,))
     
     def clear(self):
         self._servers = {}
@@ -82,7 +80,7 @@ class ServersDB(object):
         
     def getServerURIById(self, id):
         try:
-            return self._servers.get[id].uri
+            return self._servers[id].uri
         except KeyError:
             return None
     

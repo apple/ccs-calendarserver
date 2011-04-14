@@ -379,7 +379,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
     Extends L{DAVResource} to provide iSchedule inbox functionality.
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent, store):
         """
         @param parent: the parent resource of this one.
         """
@@ -388,6 +388,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
         DAVResource.__init__(self, principalCollections=parent.principalCollections())
 
         self.parent = parent
+        self._newStore = store
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
@@ -411,6 +412,13 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
 
     def isPseudoCalendarCollection(self):
         return False
+
+    def principalForCalendarUserAddress(self, address):
+        for principalCollection in self.principalCollections():
+            principal = principalCollection.principalForCalendarUserAddress(address)
+            if principal is not None:
+                return principal
+        return None
 
     def render(self, request):
         output = """<html>
@@ -438,8 +446,18 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
         # This is a server-to-server scheduling operation.
         scheduler = IScheduleScheduler(request, self)
 
+        # Need a transaction to work with
+        txn = self._newStore.newTransaction("new transaction for Server To Server Inbox Resource")
+        request._newStoreTransaction = txn
+         
         # Do the POST processing treating this as a non-local schedule
-        result = (yield scheduler.doSchedulingViaPOST(use_request_headers=True))
+        try:
+            result = (yield scheduler.doSchedulingViaPOST(use_request_headers=True))
+        except Exception, e:
+            yield txn.abort()
+            raise e
+        else:
+            yield txn.commit()
         returnValue(result.response())
 
     ##

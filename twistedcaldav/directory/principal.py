@@ -951,6 +951,11 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
                 uidsResourceName,
                 self.record.uid
             ) + "/"
+            
+            # Prefix with other server if needed
+            if not self.thisServer():
+                self.calendarHomeURL = joinURL(self.serverURI(), self.calendarHomeURL)
+
         url = self.calendarHomeURL
         if url is None:
             return None
@@ -976,6 +981,11 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
                 uidsResourceName,
                 self.record.uid
             ) + "/"
+            
+            # Prefix with other server if needed
+            if not self.thisServer():
+                self.addressBookHomeURL = joinURL(self.serverURI(), self.addressBookHomeURL)
+
         url = self.addressBookHomeURL
         if url is None:
             return None

@@ -759,11 +759,7 @@ class PListConfigProvider(ConfigProvider):
         if "Includes" in configDict:
             configRoot = os.path.join(configDict.ServerRoot, configDict.ConfigRoot)
             for include in configDict.Includes:
-                path = fullServerPath(configRoot, include)
-                if '$' in path:
-                    path = path.replace('$', getfqdn())
-                if '#' in path:
-                    path = path.replace('#', gethostbyname(getfqdn()))
+                path = _expandPath(fullServerPath(configRoot, include))
                 additionalDict = self._parseConfigFromFile(path)
                 if additionalDict:
                     log.info("Adding configuration from file: '%s'" % (path,))
@@ -783,6 +779,13 @@ class PListConfigProvider(ConfigProvider):
             configDict = _cleanup(configDict, self._defaults)
         return configDict
 
+def _expandPath(path):
+    if '$' in path:
+        return path.replace('$', getfqdn())
+    elif '#' in path:
+        return path.replace('#', gethostbyname(getfqdn()))
+    else:
+        return path
 
 RELATIVE_PATHS = [
     ("ServerRoot", "DataRoot"),
