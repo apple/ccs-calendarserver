@@ -74,6 +74,7 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
             CachingDirectoryService.INDEX_TYPE_AUTHID   : {},
         }
         self.directoryService = directoryService
+        self.lastPurgedTime = time.time()
 
     def addRecord(self, record, indexType, indexKey, useMemcache=True,
         neverExpire=False):
@@ -121,8 +122,22 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
                         self.log_debug("Missing record index item; type: %s, item: %s" % (indexType, item))
         
     def findRecord(self, indexType, indexKey):
+        self.purgeExpiredRecords()
         return self.recordsIndexedBy[indexType].get(indexKey)
 
+
+    def purgeExpiredRecords(self):
+        """
+        Scan the cached records and remove any that have expired.
+        Does nothing if we've scanned within the past cacheTimeout seconds.
+        """
+        if time.time() - self.lastPurgedTime > self.directoryService.cacheTimeout:
+            for record in list(self.records):
+                if record.isExpired():
+                    self.removeRecord(record)
+            self.lastPurgedTime = time.time()
+
+            
 class CachingDirectoryService(DirectoryService):
     """
     Caching Directory implementation of L{IDirectoryService}.
@@ -272,10 +287,7 @@ class CachingDirectoryService(DirectoryService):
                 record = self.recordCacheForType(recordType).findRecord(indexType, indexKey)
 
                 if record:
-                    if (
-                        record.cachedTime != 0 and
-                        time.time() - record.cachedTime > self.cacheTimeout
-                    ):
+                    if record.isExpired():
                         self.recordCacheForType(recordType).removeRecord(record)
                         return None
                     else:
@@ -385,6 +397,20 @@ class CachingDirectoryRecord(DirectoryRecord):
 
     def neverExpire(self):
         self.cachedTime = 0
+
+    def isExpired(self):
+        """
+        Returns True if this record was created more than cacheTimeout
+        seconds ago
+        """
+        if (
+            self.cachedTime != 0 and
+            time.time() - self.cachedTime > self.service.cacheTimeout
+        ):
+            return True
+        else:
+            return False
+
 
 class DirectoryMemcacheError(DirectoryError):
     """

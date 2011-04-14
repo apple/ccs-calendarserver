@@ -215,36 +215,40 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
 
     attributeNames, encodings = attributeNamesFromList(attributes)
 
-    tries = NUM_TRIES
-    while tries:
-        query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
-            directory.node,
-            recordType,
-            None,
-            MATCHANY,
-            None,
-            attributeNames,
-            count,
-            None)
+    try:
+        tries = NUM_TRIES
+        while tries:
+            query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+                directory.node,
+                recordType,
+                None,
+                MATCHANY,
+                None,
+                attributeNames,
+                count,
+                None)
 
-        if not error:
-            records, error = query.resultsAllowingPartial_error_(False, None)
+            if not error:
+                records, error = query.resultsAllowingPartial_error_(False, None)
 
-        if not error:
-            for record in records:
-                results.append(recordToResult(record, encodings))
-            return results
+            if not error:
+                for record in records:
+                    results.append(recordToResult(record, encodings))
+                return results
 
-        code = error.code()
-        log.debug("Received code %d from query call: %s" % (code, error))
+            code = error.code()
+            log.debug("Received code %d from query call: %s" % (code, error))
 
-        if code in RETRY_CODES:
-            tries -= 1
-        else:
-            break
+            if code in RETRY_CODES:
+                tries -= 1
+            else:
+                break
 
-    log.error(error)
-    raise ODError(error)
+        log.error(error)
+        raise ODError(error)
+
+    finally:
+        objc.recycleAutoreleasePool()
 
 def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, recordType, attributes, count=0):
     """
@@ -268,37 +272,41 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
 
     attributeNames, encodings = attributeNamesFromList(attributes)
 
-    tries = NUM_TRIES
-    while tries:
+    try:
+        tries = NUM_TRIES
+        while tries:
 
-        query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
-            directory.node,
-            recordType,
-            attr,
-            adjustMatchType(matchType, casei),
-            value.decode("utf-8"),
-            attributeNames,
-            count,
-            None)
+            query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+                directory.node,
+                recordType,
+                attr,
+                adjustMatchType(matchType, casei),
+                value.decode("utf-8"),
+                attributeNames,
+                count,
+                None)
 
-        if not error:
-            records, error = query.resultsAllowingPartial_error_(False, None)
+            if not error:
+                records, error = query.resultsAllowingPartial_error_(False, None)
 
-        if not error:
-            for record in records:
-                results.append(recordToResult(record, encodings))
-            return results
+            if not error:
+                for record in records:
+                    results.append(recordToResult(record, encodings))
+                return results
 
-        code = error.code()
-        log.debug("Received code %d from query call: %s" % (code, error))
+            code = error.code()
+            log.debug("Received code %d from query call: %s" % (code, error))
 
-        if code in RETRY_CODES:
-            tries -= 1
-        else:
-            break
+            if code in RETRY_CODES:
+                tries -= 1
+            else:
+                break
 
-    log.error(error)
-    raise ODError(error)
+        log.error(error)
+        raise ODError(error)
+
+    finally:
+        objc.recycleAutoreleasePool()
 
 
 def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attributes, count=0):
@@ -320,37 +328,41 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
 
     attributeNames, encodings = attributeNamesFromList(attributes)
 
-    tries = NUM_TRIES
-    while tries:
+    try:
+        tries = NUM_TRIES
+        while tries:
 
-        query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
-            directory.node,
-            recordType,
-            None,
-            0x210B, # adjustMatchType(matchType, casei),
-            compound,
-            attributeNames,
-            count,
-            None)
+            query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
+                directory.node,
+                recordType,
+                None,
+                0x210B, # adjustMatchType(matchType, casei),
+                compound,
+                attributeNames,
+                count,
+                None)
 
-        if not error:
-            records, error = query.resultsAllowingPartial_error_(False, None)
+            if not error:
+                records, error = query.resultsAllowingPartial_error_(False, None)
 
-        if not error:
-            for record in records:
-                results.append(recordToResult(record, encodings))
-            return results
+            if not error:
+                for record in records:
+                    results.append(recordToResult(record, encodings))
+                return results
 
-        code = error.code()
-        log.debug("Received code %d from query call: %s" % (code, error))
+            code = error.code()
+            log.debug("Received code %d from query call: %s" % (code, error))
 
-        if code in RETRY_CODES:
-            tries -= 1
-        else:
-            break
+            if code in RETRY_CODES:
+                tries -= 1
+            else:
+                break
 
-    log.error(error)
-    raise ODError(error)
+        log.error(error)
+        raise ODError(error)
+
+    finally:
+        objc.recycleAutoreleasePool()
 
 
 def getUserRecord(directory, user):
@@ -395,37 +407,41 @@ def authenticateUserBasic(directory, nodeName, user, password):
     @param pswd: C{str} containing the password to check.
     @return: C{True} if the user was found, C{False} otherwise.
     """
-    record = getUserRecord(directory, user)
-    if record is None:
-        raise ODError("Record not found")
+    try:
+        record = getUserRecord(directory, user)
+        if record is None:
+            raise ODError("Record not found")
 
-    tries = NUM_TRIES
-    while tries:
+        tries = NUM_TRIES
+        while tries:
 
-        log.debug("Checking basic auth for user '%s' (tries remaining: %d)" %
-            (user, tries))
+            log.debug("Checking basic auth for user '%s' (tries remaining: %d)" %
+                (user, tries))
 
-        result, error = record.verifyPassword_error_(password, None)
-        if not error:
-            log.debug("Basic auth for user '%s' result: %s" % (user, result))
-            return result
+            result, error = record.verifyPassword_error_(password, None)
+            if not error:
+                log.debug("Basic auth for user '%s' result: %s" % (user, result))
+                return result
 
-        code = error.code()
+            code = error.code()
 
-        if code == INCORRECT_CREDENTIALS:
-            log.debug("Basic auth for user '%s' failed due to incorrect credentials" % (user,))
-            return False
+            if code == INCORRECT_CREDENTIALS:
+                log.debug("Basic auth for user '%s' failed due to incorrect credentials" % (user,))
+                return False
 
-        log.debug("Basic auth for user '%s' failed with code %d (%s)" %
-            (user, code, error))
+            log.debug("Basic auth for user '%s' failed with code %d (%s)" %
+                (user, code, error))
 
-        if code in RETRY_CODES:
-            tries -= 1
-        else:
-            break
+            if code in RETRY_CODES:
+                tries -= 1
+            else:
+                break
 
-    log.error(error)
-    raise ODError(error)
+        log.error(error)
+        raise ODError(error)
+
+    finally:
+        objc.recycleAutoreleasePool()
 
 
 def authenticateUserDigest(directory, nodeName, user, challenge, response, method):
@@ -440,42 +456,46 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
     @param method: C{str} the HTTP method being used.
     @return: C{True} if the user was found, C{False} otherwise.
     """
-    record = getUserRecord(directory, user)
-    if record is None:
-        raise ODError("Record not found")
+    try:
+        record = getUserRecord(directory, user)
+        if record is None:
+            raise ODError("Record not found")
 
-    tries = NUM_TRIES
-    while tries:
+        tries = NUM_TRIES
+        while tries:
 
-        log.debug("Checking digest auth for user '%s' (tries remaining: %d)" %
-            (user, tries))
+            log.debug("Checking digest auth for user '%s' (tries remaining: %d)" %
+                (user, tries))
 
-        # TODO: what are these other return values?
-        result, mystery1, mystery2, error = record.verifyExtendedWithAuthenticationType_authenticationItems_continueItems_context_error_(
-            DIGEST_MD5,
-            [user, challenge, response, method],
-            None, None, None
-        )
-        if not error:
-            log.debug("Digest auth for user '%s' result: %s" % (user, result))
-            return result
+            # TODO: what are these other return values?
+            result, mystery1, mystery2, error = record.verifyExtendedWithAuthenticationType_authenticationItems_continueItems_context_error_(
+                DIGEST_MD5,
+                [user, challenge, response, method],
+                None, None, None
+            )
+            if not error:
+                log.debug("Digest auth for user '%s' result: %s" % (user, result))
+                return result
 
-        code = error.code()
+            code = error.code()
 
-        if code == INCORRECT_CREDENTIALS:
-            log.debug("Digest auth for user '%s' failed due to incorrect credentials" % (user,))
-            return False
+            if code == INCORRECT_CREDENTIALS:
+                log.debug("Digest auth for user '%s' failed due to incorrect credentials" % (user,))
+                return False
 
-        log.debug("Digest auth for user '%s' failed with code %d (%s)" %
-            (user, code, error))
+            log.debug("Digest auth for user '%s' failed with code %d (%s)" %
+                (user, code, error))
 
-        if code in RETRY_CODES:
-            tries -= 1
-        else:
-            break
+            if code in RETRY_CODES:
+                tries -= 1
+            else:
+                break
 
-    log.error(error)
-    raise ODError(error)
+        log.error(error)
+        raise ODError(error)
+
+    finally:
+        objc.recycleAutoreleasePool()
 
 
 class ODError(Exception):
