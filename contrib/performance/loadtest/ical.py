@@ -670,9 +670,12 @@ class SnowLeopard(BaseClient):
 
 
 class RequestLogger(object):
-    format = "%(user)s request %(code)s %(lag)s[%(duration)0.2f ms] %(method)8s %(url)s"
-    lagFormat = '{Lag %0.2f ms} '
-    lagSpacer = ' ' * len(lagFormat % (1.0,))
+    format = u"%(user)s request %(code)s%(success)s%(lag)s[%(duration)0.2f ms] %(method)8s %(url)s"
+    lagFormat = u'{Lag %0.2f ms} '
+    lagSpacer = u' ' * len(lagFormat % (1.0,))
+
+    success = u"\N{CHECK MARK}"
+    failure = u"\N{BALLOT X}"
 
     def observe(self, event):
         if event.get("type") == "response":
@@ -681,7 +684,11 @@ class RequestLogger(object):
                 event['lag'] = self.lagSpacer
             else:
                 event['lag'] = self.lagFormat % (event['lag'] * 1000.0,)
-            print self.format % event
+            if event['success']:
+                event['success'] = self.success
+            else:
+                event['success'] = self.failure
+            print (self.format % event).encode('utf-8')
 
 
     def report(self):
