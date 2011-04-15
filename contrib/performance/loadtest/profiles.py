@@ -59,6 +59,16 @@ class ProfileBase(object):
             if cal.resourceType == calendarType]
 
 
+    def _isSelfAttendee(self, attendee):
+        """
+        Try to match one of the attendee's identifiers against one of
+        C{self._client}'s identifiers.  Return C{True} if something matches,
+        C{False} otherwise.
+        """
+        return attendee.params[u'EMAIL'][0] == self._client.email[len('mailto:'):]
+
+
+
 class CannotAddAttendee(Exception):
     """
     Indicates no new attendees can be invited to a particular event.
@@ -143,10 +153,16 @@ class Inviter(ProfileBase):
                 if event is None:
                     continue
 
+                vevent = event.contents[u'vevent'][0]
+                organizer = vevent.contents.get('organizer', [None])[0]
+                if organizer is not None and not self._isSelfAttendee(organizer):
+                    # This event was organized by someone else, don't try to invite someone to it.
+                    continue
+
                 href = calendar.url + uuid
 
                 # Find out who might attend
-                attendees = event.contents['vevent'][0].contents.get('attendee', [])
+                attendees = vevent.contents.get('attendee', [])
 
                 d = self._addAttendee(event, attendees)
                 d.addCallbacks(
@@ -189,7 +205,7 @@ class Accepter(ProfileBase):
         # NEEDS-ACTION PARTSTAT.
         attendees = vevent.contents['vevent'][0].contents.get('attendee', [])
         for attendee in attendees:
-            if attendee.params[u'EMAIL'][0] == self._client.email[len('mailto:'):]:
+            if self._isSelfAttendee(attendee):
                 if attendee.params[u'PARTSTAT'][0] == 'NEEDS-ACTION':
                     # XXX Base this on something real
                     delay = self.random.gauss(10, 2)
