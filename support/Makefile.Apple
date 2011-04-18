@@ -108,6 +108,10 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/usr/libexec/changeip"
 	$(_v) $(INSTALL_FILE) "$(Sources)/calendarserver/tools/changeip_calendar.py" "$(DSTROOT)/usr/libexec/changeip/changeip_calendar.py"
 	$(_v) chmod ugo+x "$(DSTROOT)/usr/libexec/changeip/changeip_calendar.py"
+	@echo "Installing certificate update scripts..."
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/usr/libexec/certupdate"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/certupdate/calendarcertupdate.py" "$(DSTROOT)/usr/libexec/certupdate/calendarcertupdate.py"
+	$(_v) chmod ugo+x "$(DSTROOT))/usr/libexec/certupdate/calendarcertupdate.py"
 
 install::
 	@echo "Installing CalDAVTester package..."
