@@ -47,7 +47,7 @@ def main():
         if isThisMyCert(CALDAVD_PLIST, sys.argv[2]):
             try:
                 replaceCert(CALDAVD_PLIST, sys.argv[4])
-                restartService()
+                restartService(CALDAVD_PLIST)
                 die("Replaced calendar cert with %s" % (sys.argv[4],), 0)
             except Exception, e:
                 die("Error replacing calendar cert with %s: %s" % (sys.argv[4], e), 2)
@@ -102,14 +102,33 @@ def replaceCert(plistPath, otherCert):
     writePlist(plist, plistPath)
 
 
-def restartService():
+def restartService(plistPath):
     """
     Use serveradmin to restart the service.
     """
 
-    log("Starting service via serveradmin")
-    ret = subprocess.call([SERVER_ADMIN, "restart", "calendar"])
-    log("serveradmin exited with %d" % (ret,))
+    plist = readPlist(plistPath)
+
+    if not plist.get("EnableSSL", False):
+        log("SSL is not enabled, so no need to restart")
+        return
+
+    if plist.get("EnableCardDAV", False):
+        log("Stopping addressbook service via serveradmin")
+        ret = subprocess.call([SERVER_ADMIN, "stop", "addressbook"])
+        log("serveradmin exited with %d" % (ret,))
+        log("Starting addressbook service via serveradmin")
+        ret = subprocess.call([SERVER_ADMIN, "start", "addressbook"])
+        log("serveradmin exited with %d" % (ret,))
+    elif plist.get("EnableCalDAV", False):
+        log("Stopping calendar service via serveradmin")
+        ret = subprocess.call([SERVER_ADMIN, "stop", "calendar"])
+        log("serveradmin exited with %d" % (ret,))
+        log("Starting calendar service via serveradmin")
+        ret = subprocess.call([SERVER_ADMIN, "start", "calendar"])
+        log("serveradmin exited with %d" % (ret,))
+    else:
+        log("Neither calendar nor addressbook services were running")
 
 
 def log(msg):
