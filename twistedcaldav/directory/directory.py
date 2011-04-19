@@ -509,6 +509,15 @@ class DirectoryRecord(LoggingMixIn):
         else:
             return None
     
+    def server(self):
+        """
+        Server hosting this record. Return None if hosted on this server.
+        """
+        if config.Servers.Enabled and self.serverID:
+            return servers.Servers.getServerById(self.serverID)
+        else:
+            return None
+    
     def partitionURI(self):
         """
         URL of the server hosting this record. Return None if hosted on this server.

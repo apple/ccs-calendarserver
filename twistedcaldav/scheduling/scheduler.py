@@ -19,6 +19,7 @@ import re
 import socket
 import urlparse
 
+from twisted.internet.abstract import isIPAddress
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 
@@ -263,6 +264,8 @@ class Scheduler(object):
         # Parse the calendar object from the HTTP request stream
         try:
             self.calendar = (yield Component.fromIStream(self.request.stream))
+
+            self.preProcessCalendarData()
             self.calendardata = str(self.calendar)
         except:
             # FIXME: Bare except
@@ -272,6 +275,13 @@ class Scheduler(object):
                 (caldav_namespace, "valid-calendar-data"),
                 description="Can't parse calendar data"
             ))
+
+    def preProcessCalendarData(self):
+        """
+        After loading calendar data from the request, do some optional processing of it. This method will be
+        overridden by those schedulers that need to do special things to the data.
+        """
+        pass
 
     def checkAuthorization(self):
         raise NotImplementedError
@@ -812,6 +822,25 @@ class IScheduleScheduler(RemoteScheduler):
         if self.request.headers.getRawHeaders('x-calendarserver-itip-refreshonly', ("F"))[0] == "T":
             self.request.doing_attendee_refresh = 1
         
+    def preProcessCalendarData(self):
+        """
+        For data coming in from outside we need to normalize the calendar user addresses so that later iTIP
+        processing will match calendar users against those in stored calendar data.
+        """
+
+        def lookupFunction(cuaddr):
+            principal = self.resource.principalForCalendarUserAddress(cuaddr)
+            if principal is None:
+                return (None, None, None)
+            else:
+                return (
+                    principal.record.fullName.decode("utf-8"),
+                    principal.record.guid,
+                    principal.record.calendarUserAddresses
+                )
+
+        self.calendar.normalizeCalendarUserAddresses(lookupFunction)
+
     def checkAuthorization(self):
         # Must have an unauthenticated user
         if self.resource.currentPrincipal(self.request) != davxml.Principal(davxml.Unauthenticated()):
@@ -919,20 +948,21 @@ class IScheduleScheduler(RemoteScheduler):
         
         # First compare as dotted IP
         matched = False
-        if clientip == expected_uri.hostname:
-            matched = True
+        if isIPAddress(expected_uri.hostname):
+            if clientip == expected_uri.hostname:
+                matched = True
         else:
-            # Now do hostname lookup
+            # Now do expected hostname -> IP lookup
             try:
-                host, aliases, _ignore_ips = socket.gethostbyaddr(clientip)
-                for hostname in itertools.chain((host,), aliases):
-                    # Try host match
-                    if hostname == expected_uri.hostname:
+                # So now try the lookup of the expected host
+                _ignore_host, _ignore_aliases, ips = socket.gethostbyname_ex(expected_uri.hostname)
+                for ip in ips:
+                    if ip == clientip:
                         matched = True
                         break
             except socket.herror, e:
                 log.debug("iSchedule cannot lookup client ip '%s': %s" % (clientip, str(e),))
-        
+                
         if not matched:
             log.err("Originator not on allowed server: %s" % (self.originator,))
             raise HTTPError(ErrorResponse(

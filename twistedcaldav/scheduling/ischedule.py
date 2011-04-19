@@ -146,12 +146,12 @@ class ScheduleViaISchedule(DeliveryService):
         if not hasattr(self, "otherServers"):
             self.otherServers = {}
             
-        server = recipient.principal.serverURI()
-        if server not in self.otherServers:
-            self.otherServers[server] = IScheduleServerRecord(uri=joinURL(server, "/ischedule"))
-            self.otherServers[server].unNormalizeAddresses = False
+        serverURI = recipient.principal.serverURI()
+        if serverURI not in self.otherServers:
+            self.otherServers[serverURI] = IScheduleServerRecord(uri=joinURL(serverURI, "/ischedule"))
+            self.otherServers[serverURI].unNormalizeAddresses = not recipient.principal.server().isImplicit
         
-        return self.otherServers[server]
+        return self.otherServers[serverURI]
 
 class IScheduleRequest(object):
     

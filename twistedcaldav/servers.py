@@ -14,8 +14,6 @@
 # limitations under the License.
 ##
 
-from twext.python.filepath import CachingFilePath as FilePath
-
 from twext.python.log import Logger
 
 from twistedcaldav.client.pool import installPool
@@ -99,6 +97,7 @@ class Server(object):
         self.uri = None
         self.thisServer = False
         self.partitions = {}
+        self.isImplicit = True
     
     def check(self):
         # Check whether this matches the current server
@@ -135,6 +134,9 @@ ELEMENT_ID                      = "id"
 ELEMENT_URI                     = "uri"
 ELEMENT_PARTITIONS              = "partitions"
 ELEMENT_PARTITION               = "partition"
+ATTR_IMPLICIT                   = "implicit"
+ATTR_VALUE_YES                  = "yes"
+ATTR_VALUE_NO                   = "no"
 
 class ServersParser(object):
     """
@@ -157,6 +159,8 @@ class ServersParser(object):
                 log.error("Unknown server type: '%s' in servers file: '%s'" % (child.tag, xmlFile,), raiseException=RuntimeError)
 
             server = Server()
+            server.isImplicit = child.get(ATTR_IMPLICIT, ATTR_VALUE_YES) == ATTR_VALUE_YES
+
             for node in child.getchildren():
                 if node.tag == ELEMENT_ID:
                     server.id = node.text

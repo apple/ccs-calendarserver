@@ -771,6 +771,9 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     def serverURI(self):
         return self.record.serverURI()
 
+    def server(self):
+        return self.record.server()
+
     def partitionURI(self):
         return self.record.partitionURI()
 
