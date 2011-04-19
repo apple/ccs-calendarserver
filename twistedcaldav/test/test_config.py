@@ -42,6 +42,37 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
     <string>debug</string>
   </dict>
 
+  <key>Notifications</key>
+  <dict>
+    <key>Services</key>
+    <dict>
+      <key>XMPPNotifier</key>
+      <dict>
+          <key>Password</key>
+          <string>xmpp</string>
+      </dict>
+    </dict>
+  </dict>
+
+  <key>Scheduling</key>
+  <dict>
+    <key>iMIP</key>
+    <dict>
+      <key>Password</key>
+      <string>imip</string>
+      <key>Sending</key>
+      <dict>
+          <key>Password</key>
+          <string>sending</string>
+      </dict>
+      <key>Receiving</key>
+      <dict>
+          <key>Password</key>
+          <string>receiving</string>
+      </dict>
+    </dict>
+  </dict>
+
 </dict>
 </plist>
 """
@@ -125,6 +156,28 @@ class ConfigTests(TestCase):
         config.reload()
 
         self.assertEquals(config.HTTPPort, 8008)
+
+    def testPreserveAcrossReload(self):
+        self.assertEquals(config.Scheduling.iMIP.Password, "")
+        self.assertEquals(config.Scheduling.iMIP.Sending.Password, "")
+        self.assertEquals(config.Scheduling.iMIP.Receiving.Password, "")
+        self.assertEquals(config.Notifications.Services.XMPPNotifier.Password, "")
+
+        config.load(self.testConfig)
+
+        self.assertEquals(config.Scheduling.iMIP.Password, "imip")
+        self.assertEquals(config.Scheduling.iMIP.Sending.Password, "sending")
+        self.assertEquals(config.Scheduling.iMIP.Receiving.Password, "receiving")
+        self.assertEquals(config.Notifications.Services.XMPPNotifier.Password, "xmpp")
+
+        writePlist({}, self.testConfig)
+
+        config.reload()
+
+        self.assertEquals(config.Scheduling.iMIP.Password, "imip")
+        self.assertEquals(config.Scheduling.iMIP.Sending.Password, "sending")
+        self.assertEquals(config.Scheduling.iMIP.Receiving.Password, "receiving")
+        self.assertEquals(config.Notifications.Services.XMPPNotifier.Password, "xmpp")
 
     def testSetAttr(self):
         self.assertNotIn("BindAddresses", config.__dict__)

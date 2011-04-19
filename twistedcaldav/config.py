@@ -135,6 +135,8 @@ class Config(object):
         else:
             self._provider = provider
         self._updating = False
+        self._beforeResetHook = None
+        self._afterResetHook = None
         self._preUpdateHooks = []
         self._postUpdateHooks = []
         self.reset()
@@ -179,15 +181,25 @@ class Config(object):
             lastDict[configItem] = defaultValue
             return defaultValue
 
+    def addResetHooks(self, before, after):
+        """
+        Hooks for preserving config across reload( ) + reset( )
+
+        Each hook will be passed the config data; whatever the before hook
+        returns will be passed as the second arg to the after hook.
+        """
+        self._beforeResetHook = before
+        self._afterResetHook = after
+
     def addPreUpdateHooks(self, hooks):
         self._preUpdateHooks.extend(hooks)
-        
+
     def addPostUpdateHooks(self, hooks):
         self._postUpdateHooks.extend(hooks)
 
     def getProvider(self):
         return self._provider
-    
+
     def setProvider(self, provider):
         self._provider = provider
         self.reset()
@@ -231,7 +243,16 @@ class Config(object):
         configDict = ConfigDict(self._provider.loadConfig())
         configDict._reloading = True
         if not self._provider.hasErrors():
+            if self._beforeResetHook:
+                # Give the beforeResetHook a chance to stash away values we want
+                # to preserve across the reload( )
+                preserved = self._beforeResetHook(self._data)
+            else:
+                preserved = None
             self.reset()
+            if preserved and self._afterResetHook:
+                # Pass the preserved data back to the afterResetHook
+                self._afterResetHook(self._data, preserved)
             self.update(configDict)
         else:
             raise ConfigurationError("Invalid configuration in %s"
