@@ -111,7 +111,7 @@ install::
 	@echo "Installing certificate update scripts..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/usr/libexec/certupdate"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/certupdate/calendarcertupdate.py" "$(DSTROOT)/usr/libexec/certupdate/calendarcertupdate.py"
-	$(_v) chmod ugo+x "$(DSTROOT))/usr/libexec/certupdate/calendarcertupdate.py"
+	$(_v) chmod ugo+x "$(DSTROOT)/usr/libexec/certupdate/calendarcertupdate.py"
 
 install::
 	@echo "Installing CalDAVTester package..."
