@@ -703,8 +703,13 @@ class ConnectionPool(Service, object):
 
     def startService(self):
         """
-        No startup necessary.
+        Increase the thread pool size of the reactor by the number of threads
+        that this service may consume.  This is important because unlike most
+        L{IReactorThreads} users, the connection work units are very long-lived
+        and block until this service has been stopped.
         """
+        tp = self.reactor.getThreadPool()
+        self.reactor.suggestThreadPoolSize(tp.max + self.maxConnections)
 
 
     @inlineCallbacks
@@ -741,6 +746,9 @@ class ConnectionPool(Service, object):
             # it's just stopping the thread, and the holder's stop() is
             # independently submitted from .abort() / .close().
             yield self._free.pop()._releaseConnection()
+
+        tp = self.reactor.getThreadPool()
+        self.reactor.suggestThreadPoolSize(tp.max - self.maxConnections)
 
 
     def _createHolder(self):
