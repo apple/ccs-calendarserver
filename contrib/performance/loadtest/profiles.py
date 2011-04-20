@@ -30,10 +30,11 @@ from vobject.icalendar import VEvent
 
 from protocol.caldav.definitions import caldavxml
 
+from twisted.python import context
 from twisted.python.log import msg
 from twisted.python.failure import Failure
 from twisted.internet.defer import succeed, fail
-from twisted.internet.task import LoopingCall, deferLater
+from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
 from loadtest.logger import SummarizingMixin
@@ -75,9 +76,15 @@ class ProfileBase(object):
         Helper to emit a log event when a new operation is started and
         another one when it completes.
         """
+        # If this is a scheduled request, record the lag in the
+        # scheduling now so it can be reported when the response is
+        # received.
+        lag = context.get('lag', None)
+
         before = self._reactor.seconds()
         msg(type="operation", phase="start",
-            user=self._client.user, label=label)
+            user=self._client.user, label=label, lag=lag)
+
         def finished(passthrough):
             success = not isinstance(passthrough, Failure)
             after = self._reactor.seconds()
@@ -231,10 +238,8 @@ class Accepter(ProfileBase):
                     # XXX Base this on something real
                     delay = self.random.gauss(10, 2)
                     self._accepting.add(href)
-                    d = deferLater(
-                        self._reactor, delay,
-                        self._acceptInvitation, href, attendee)
-                    return self._newOperation("accept", d)
+                    self._reactor.callLater(
+                        delay, self._acceptInvitation, href, attendee)
 
 
     def _acceptInvitation(self, href, attendee):
@@ -272,7 +277,7 @@ class Accepter(ProfileBase):
             self._accepting.remove(href)
             return passthrough
         d.addBoth(finished)
-        return d
+        return self._newOperation("accept", d)
 
 
     def _makeAcceptedAttendee(self, attendee):
@@ -354,7 +359,7 @@ END:VCALENDAR
             href = '%s%s.ics' % (
                 calendar.url, vevent.contents[u'uid'][0].value)
             d = self._client.addEvent(href, vcalendar)
-            return self._newOperation("new-event", d)
+            return self._newOperation("create", d)
 
 
 class OperationLogger(SummarizingMixin):
@@ -364,9 +369,11 @@ class OperationLogger(SummarizingMixin):
     logger.
     """
     formats = {
-        u"start": u"%(user)s %(label)s begin",
-        u"end": u"%(user)s %(label)s end [%(duration)5.2f s]",
+        u"start": u"%(user)s - - - - - - - - - - - %(label)8s BEGIN %(lag)s",
+        u"end"  : u"%(user)s - - - - - - - - - - - %(label)8s END [%(duration)5.2f s]",
         }
+
+    lagFormat = u'{lag %5.2f ms}'
 
     _fields = [
         ('operation', 10, '%10s'),
@@ -383,6 +390,10 @@ class OperationLogger(SummarizingMixin):
 
     def observe(self, event):
         if event.get("type") == "operation":
+            if event.get('lag') is None:
+                event['lag'] = ''
+            else:
+                event['lag'] = self.lagFormat % (event['lag'] * 1000.0,)
             print (self.formats[event[u'phase']] % event).encode('utf-8')
             if event[u'phase'] == u'end':
                 dataset = self._perOperationTimes.setdefault(event[u'label'], [])

@@ -28,7 +28,6 @@ from vobject import readComponents
 from vobject.base import ContentLine
 from vobject.icalendar import VEvent, dateTimeToString
 
-from twisted.python import context
 from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
@@ -186,11 +185,6 @@ class SnowLeopard(BaseClient):
 
 
     def _request(self, expectedResponseCode, method, url, headers=None, body=None):
-        # If this is a scheduled request, record the lag in the
-        # scheduling now so it can be reported when the response is
-        # received.
-        lag = context.get('lag', None)
-
         if headers is None:
             headers = Headers({})
         headers.setRawHeaders('User-Agent', [self.USER_AGENT])
@@ -210,8 +204,7 @@ class SnowLeopard(BaseClient):
             msg(
                 type="response", success=success, method=method,
                 headers=headers, body=body, code=response.code,
-                user=self.user, duration=(after - before), url=url,
-                lag=lag)
+                user=self.user, duration=(after - before), url=url)
 
             if success:
                 return response
@@ -670,20 +663,13 @@ class SnowLeopard(BaseClient):
 
 
 class RequestLogger(object):
-    format = u"%(user)s request %(code)s%(success)s%(lag)s[%(duration)5.2f s] %(method)8s %(url)s"
-    lagFormat = u'{Lag %5.2f ms}'
-    lagSpacer = u' ' * len(lagFormat % (1.0,))
-
+    format = u"%(user)s request %(code)s%(success)s[%(duration)5.2f s] %(method)8s %(url)s"
     success = u"\N{CHECK MARK}"
     failure = u"\N{BALLOT X}"
 
     def observe(self, event):
         if event.get("type") == "response":
             event['url'] = urlunparse(('', '') + urlparse(event['url'])[2:])
-            if event.get('lag') is None:
-                event['lag'] = self.lagSpacer
-            else:
-                event['lag'] = self.lagFormat % (event['lag'] * 1000.0,)
             if event['success']:
                 event['success'] = self.success
             else:
