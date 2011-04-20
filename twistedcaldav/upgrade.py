@@ -114,7 +114,7 @@ def upgrade_to_1(config):
             if principal is None:
                 return (None, None, None)
             else:
-                return (principal.record.fullName.decode("utf-8"),
+                return (principal.record.fullName,
                     principal.record.guid,
                     principal.record.calendarUserAddresses)
 

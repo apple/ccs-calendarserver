@@ -944,7 +944,7 @@ class CommonTests(CommonCommonTests):
         """
         self.assertEquals(
             (yield self.calendarObjectUnderTest()).organizer(),
-            "mailto:wsanchez@apple.com"
+            "mailto:wsanchez@example.com"
         )
 
 
