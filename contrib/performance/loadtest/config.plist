@@ -67,6 +67,7 @@
     <array>
       <string>loadtest.population.ReportStatistics</string>
       <string>loadtest.ical.RequestLogger</string>
+      <string>loadtest.profiles.OperationLogger</string>
     </array>
 
   </dict>
