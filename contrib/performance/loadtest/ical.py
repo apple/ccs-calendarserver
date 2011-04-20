@@ -670,7 +670,7 @@ class SnowLeopard(BaseClient):
 
 
 class RequestLogger(object):
-    format = u"%(user)s request %(code)s%(success)s%(lag)s[%(duration)0.2f ms] %(method)8s %(url)s"
+    format = u"%(user)s request %(code)s%(success)s%(lag)s[%(duration)5.2f s] %(method)8s %(url)s"
     lagFormat = u'{Lag %5.2f ms}'
     lagSpacer = u' ' * len(lagFormat % (1.0,))
 
