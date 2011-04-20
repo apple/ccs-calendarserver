@@ -31,10 +31,12 @@ from vobject.icalendar import VEvent
 from protocol.caldav.definitions import caldavxml
 
 from twisted.python.log import msg
+from twisted.python.failure import Failure
 from twisted.internet.defer import succeed, fail
-from twisted.internet.task import LoopingCall
+from twisted.internet.task import LoopingCall, deferLater
 from twisted.web.http import PRECONDITION_FAILED
 
+from loadtest.logger import SummarizingMixin
 from loadtest.ical import IncorrectResponseCode
 
 
@@ -66,6 +68,25 @@ class ProfileBase(object):
         C{False} otherwise.
         """
         return attendee.params[u'EMAIL'][0] == self._client.email[len('mailto:'):]
+
+
+    def _newOperation(self, label, deferred):
+        """
+        Helper to emit a log event when a new operation is started and
+        another one when it completes.
+        """
+        before = self._reactor.seconds()
+        msg(type="operation", phase="start",
+            user=self._client.user, label=label)
+        def finished(passthrough):
+            success = not isinstance(passthrough, Failure)
+            after = self._reactor.seconds()
+            msg(type="operation", phase="end", duration=after - before,
+                user=self._client.user, label=label, success=success)
+            return passthrough
+        deferred.addBoth(finished)
+        return deferred
+        
 
 
 
@@ -170,7 +191,7 @@ class Inviter(ProfileBase):
                         self._client.addEventAttendee(
                             href, attendee),
                     lambda reason: reason.trap(CannotAddAttendee))
-                return d
+                return self._newOperation("invite", d)
 
 
 
@@ -210,9 +231,10 @@ class Accepter(ProfileBase):
                     # XXX Base this on something real
                     delay = self.random.gauss(10, 2)
                     self._accepting.add(href)
-                    self._reactor.callLater(
-                        delay, self._acceptInvitation, href, attendee)
-                    return
+                    d = deferLater(
+                        self._reactor, delay,
+                        self._acceptInvitation, href, attendee)
+                    return self._newOperation("accept", d)
 
 
     def _acceptInvitation(self, href, attendee):
@@ -331,4 +353,48 @@ END:VCALENDAR
 
             href = '%s%s.ics' % (
                 calendar.url, vevent.contents[u'uid'][0].value)
-            return self._client.addEvent(href, vcalendar)
+            d = self._client.addEvent(href, vcalendar)
+            return self._newOperation("new-event", d)
+
+
+class OperationLogger(SummarizingMixin):
+    """
+    Profiles will initiate operations which may span multiple requests.  Start
+    and stop log messages are emitted for these operations and logged by this
+    logger.
+    """
+    formats = {
+        u"start": u"%(user)s %(label)s begin",
+        u"end": u"%(user)s %(label)s end [%(duration)5.2f s]",
+        }
+
+    _fields = [
+        ('operation', 10, '%10s'),
+        ('count', 8, '%8s'),
+        ('failed', 8, '%8s'),
+        ('>3sec', 8, '%8s'),
+        ('mean', 8, '%8.4f'),
+        ('median', 8, '%8.4f'),
+        ]
+
+    def __init__(self):
+        self._perOperationTimes = {}
+
+
+    def observe(self, event):
+        if event.get("type") == "operation":
+            print (self.formats[event[u'phase']] % event).encode('utf-8')
+            if event[u'phase'] == u'end':
+                dataset = self._perOperationTimes.setdefault(event[u'label'], [])
+                dataset.append((event[u'success'], event[u'duration']))
+
+
+    def report(self):
+        print
+        self.printHeader([
+                (label, width)
+                for (label, width, fmt)
+                in self._fields])
+        self.printData(
+            [fmt for (label, width, fmt) in self._fields],
+            sorted(self._perOperationTimes.items()))

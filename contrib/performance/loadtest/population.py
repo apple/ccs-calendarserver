@@ -26,9 +26,9 @@ from twisted.python.util import FancyEqMixin
 from twisted.python.log import msg, err
 
 from stats import mean, median, stddev, mad
+from loadtest.logger import SummarizingMixin
 from loadtest.ical import SnowLeopard, RequestLogger
 from loadtest.profiles import Eventer, Inviter, Accepter
-
 
 class ClientType(object, FancyEqMixin):
     """
@@ -206,7 +206,7 @@ class SimpleStatistics(StatisticsBase):
 
 
 
-class ReportStatistics(StatisticsBase):
+class ReportStatistics(StatisticsBase, SummarizingMixin):
     _fields = [
         ('operation', 10, '%10s'),
         ('count', 8, '%8s'),
@@ -225,39 +225,15 @@ class ReportStatistics(StatisticsBase):
         dataset.append((event['success'], event['duration']))
 
 
-    def _printHeader(self):
-        format = []
-        labels = []
-        for (label, width, fmt) in self._fields:
-            format.append('%%%ds' % (width,))
-            labels.append(label)
-        print ''.join(format) % tuple(labels)
-
-
-    def _summarizeData(self, method, data):
-        failed = 0
-        threesec = 0
-        durations = []
-        for (success, duration) in data:
-            if not success:
-                failed += 1
-            if duration > 3:
-                threesec += 1
-            durations.append(duration)
-
-        return method, len(data), failed, threesec, mean(durations), median(durations)
-
-
-    def _printData(self, *values):
-        format = ''.join(fmt for (label, width, fmt) in self._fields)
-        print format % values
-
-
     def report(self):
         print
-        self._printHeader()
-        for method, data in self._perMethodTimes.iteritems():
-            self._printData(*self._summarizeData(method, data))
+        self.printHeader([
+                (label, width)
+                for (label, width, fmt)
+                in self._fields])
+        self.printData(
+            [fmt for (label, width, fmt) in self._fields],
+            sorted(self._perMethodTimes.items()))
 
 
 def main():
