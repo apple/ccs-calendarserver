@@ -370,7 +370,7 @@ verifyClass(IReactorThreads, ClockWithThreads)
 
 
 
-class ConnectionPoolBootTestss(TestCase):
+class ConnectionPoolBootTests(TestCase):
     """
     Tests for the start-up phase of L{ConnectionPool}.
     """
