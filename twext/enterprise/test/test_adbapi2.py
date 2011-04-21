@@ -197,6 +197,9 @@ class FakeVariable(object):
 
 
     def getvalue(self):
+        vv = self.cursor.connection.parent.varvals
+        if vv:
+            return vv.pop(0)
         return self.cursor.variables.index(self) + 300
 
 
@@ -211,6 +214,7 @@ class ConnectionFactory(Parent):
         self.idcounter = count(1)
         self._connectResultQueue = []
         self.defaultConnect()
+        self.varvals = []
 
 
     @property
