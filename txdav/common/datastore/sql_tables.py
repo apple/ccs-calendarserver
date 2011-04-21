@@ -206,14 +206,13 @@ def _translateSchema(out):
     emit in oracle format.
     """
     for sequence in schema.model.sequences:
-        out.write('drop sequence %s; create sequence %s;\n' % (
-            sequence.name, sequence.name))
+        out.write('create sequence %s;\n' % (sequence.name,))
     for table in schema:
         # The only table name which actually exceeds the length limit right now
         # is CALENDAR_OBJECT_ATTACHMENTS_MODE, which isn't actually _used_
         # anywhere, so we can fake it for now.
-        out.write('drop table %s; create table %s (\n' % (
-            table.model.name[:30], table.model.name[:30],))
+        shortName = table.model.name[:30]
+        out.write('create table %s (\n' % (shortName,))
         first = True
         for column in table:
             if first:
