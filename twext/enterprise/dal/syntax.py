@@ -850,7 +850,7 @@ class _OracleOutParam(object):
     def preQuery(self, cursor):
         self.columnSyntax
         typeMap = {'integer': cx_Oracle.NUMBER,
-                   'text': cx_Oracle.CLOB,
+                   'text': cx_Oracle.NCLOB,
                    'varchar': cx_Oracle.STRING,
                    'timestamp': cx_Oracle.TIMESTAMP}
         typeID = self.columnSyntax.model.type.name.lower()

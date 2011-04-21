@@ -520,7 +520,7 @@ class GenerationTests(TestCase):
         class FakeCXOracleModule(object):
             NUMBER = 'the NUMBER type'
             STRING = 'a string type (for varchars)'
-            CLOB = 'the clob type. (for text)'
+            NCLOB = 'the NCLOB type. (for text)'
             TIMESTAMP = 'for timestamps!'
         self.patch(syntax, 'cx_Oracle', FakeCXOracleModule)
         factory    = ConnectionFactory()
