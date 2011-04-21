@@ -214,6 +214,8 @@ class _Statement(object):
         columns we expect to have returned, and replacing any C{None}s with
         empty strings in the appropriate position.
         """
+        if rows is None:
+            return None
         newRows = []
         for row in rows:
             newRow = []
@@ -934,7 +936,7 @@ class _DMLStatement(_Statement):
 
 
     def _resultColumns(self):
-        return self.Return
+        return self._returnAsList()
 
 
 
