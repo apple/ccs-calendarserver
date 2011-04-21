@@ -21,7 +21,10 @@
 # set up by the CalendarServer run script and are not otherwise installed on
 # your system.
 
-wd="$(pwd)";
+if [ -z "${wd}" ]; then
+    wd="$(pwd)";
+fi;
+
 . ${wd}/support/build.sh;
 do_setup=false;
 do_get=false;

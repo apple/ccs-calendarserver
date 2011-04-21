@@ -34,6 +34,7 @@ from twext.enterprise.test.test_adbapi2 import ConnectionFactory
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.test.test_adbapi2 import resultOf
 from twext.enterprise.test.test_adbapi2 import FakeThreadHolder
+from twisted.internet.defer import succeed
 from twisted.trial.unittest import TestCase
 
 
@@ -49,6 +50,25 @@ class _FakeTransaction(object):
 
 
 
+class FakeCXOracleModule(object):
+    NUMBER = 'the NUMBER type'
+    STRING = 'a string type (for varchars)'
+    NCLOB = 'the NCLOB type. (for text)'
+    TIMESTAMP = 'for timestamps!'
+
+
+
+class NullTestingOracleTxn(object):
+    """
+    Fake transaction for testing oracle NULL behavior.
+    """
+
+    dialect = ORACLE_DIALECT
+    paramstyle = 'numeric'
+
+    def execSQL(self, text, params, exc):
+        return succeed([[None, None]])
+
 class GenerationTests(TestCase):
     """
     Tests for syntactic helpers to generate SQL queries.
@@ -63,7 +83,10 @@ class GenerationTests(TestCase):
                        create table OTHER (BAR integer,
                                            FOO_BAR integer not null);
                        create table TEXTUAL (MYTEXT varchar(255));
-                       create table LEVELS (ACCESS integer, USERNAME varchar(255));
+                       create table LEVELS (ACCESS integer,
+                                            USERNAME varchar(255));
+                       create table NULLCHECK (ASTRING varchar(255) not null,
+                                               ANUMBER integer);
                        """)
         self.schema = SchemaSyntax(s)
 
@@ -121,7 +144,7 @@ class GenerationTests(TestCase):
         self.assertRaises(ValueError, sampleComparison)
 
 
-    def test_nullComparison(self):
+    def test_compareWithNULL(self):
         """
         Comparing a column with None results in the generation of an 'is null'
         or 'is not null' SQL statement.
@@ -510,18 +533,14 @@ class GenerationTests(TestCase):
         )
 
 
-    def test_insertMultiReturnOnOracleTxn(self):
+    def simulateOracleConnection(self):
         """
-        As described in L{test_insertMultiReturnOracle}, Oracle deals with
-        'returning' clauses by using out parameters.  However, this is not quite
-        enough, as the code needs to actually retrieve the values from the out
-        parameters.
+        Create a fake oracle-ish connection pool without using real threads or a
+        real database.
+
+        @return: a 3-tuple of L{IAsyncTransaction}, L{ConnectionPool},
+            L{ConnectionFactory}.
         """
-        class FakeCXOracleModule(object):
-            NUMBER = 'the NUMBER type'
-            STRING = 'a string type (for varchars)'
-            CLOB = 'the clob type. (for text)'
-            TIMESTAMP = 'for timestamps!'
         self.patch(syntax, 'cx_Oracle', FakeCXOracleModule)
         factory    = ConnectionFactory()
         pool       = ConnectionPool(factory.connect, maxConnections=2,
@@ -531,6 +550,17 @@ class GenerationTests(TestCase):
         pool._createHolder = lambda : FakeThreadHolder(self)
         pool.startService()
         conn = pool.connection()
+        return conn, pool, factory
+
+
+    def test_insertMultiReturnOnOracleTxn(self):
+        """
+        As described in L{test_insertMultiReturnOracle}, Oracle deals with
+        'returning' clauses by using out parameters.  However, this is not quite
+        enough, as the code needs to actually retrieve the values from the out
+        parameters.
+        """
+        conn, pool, factory = self.simulateOracleConnection()
         i = Insert({self.schema.FOO.BAR: 40,
                     self.schema.FOO.BAZ: 50},
                    Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ))
@@ -826,6 +856,45 @@ class GenerationTests(TestCase):
             stmts, [("select BAR from FOO where BAR = :1 and BAZ = :2",
                      [7, 9])]
         )
+
+
+    def test_rewriteOracleNULLs_Select(self):
+        """
+        Oracle databases cannot distinguish between the empty string and
+        C{NULL}.  When you insert an empty string, C{cx_Oracle} therefore treats
+        it as a C{None} and will return that when you select it back again.  We
+        address this in the schema by dropping 'not null' constraints.
+
+        Therefore, when executing a statement which includes a string column,
+        'on' should rewrite None return values from C{cx_Oracle} to be empty
+        bytestrings, but only for string columns.
+        """
+
+        rows = resultOf(
+            Select([self.schema.NULLCHECK.ASTRING,
+                    self.schema.NULLCHECK.ANUMBER],
+                   From=self.schema.NULLCHECK).on(NullTestingOracleTxn()))[0]
+
+        self.assertEquals(rows, [['', None]])
+
+
+    def test_rewriteOracleNULLs_Insert(self):
+        """
+        The behavior described in the previous test applies to other statement
+        types as well, specifically those with 'returning' clauses.
+        """
+        conn, pool, factory = self.simulateOracleConnection()
+        # Add 2 cursor variable values so that these will be used by
+        # FakeVariable.getvalue.
+        factory.varvals.extend([None, None])
+        rows = resultOf(
+            Insert({self.schema.NULLCHECK.ASTRING: '',
+                    self.schema.NULLCHECK.ANUMBER: None},
+                   Return=[self.schema.NULLCHECK.ASTRING,
+                           self.schema.NULLCHECK.ANUMBER]
+                  ).on(conn))[0]
+
+        self.assertEquals(rows, [['', None]])
 
 
     def test_nestedLogicalExpressions(self):

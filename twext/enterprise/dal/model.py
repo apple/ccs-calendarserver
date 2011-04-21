@@ -188,7 +188,8 @@ class Column(FancyEqMixin, object):
 
     def needsValue(self):
         """
-        Does this column require a value in INSERT statements which create rows?
+        Does this column require a value in C{INSERT} statements which create
+        rows?
 
         @return: C{True} for L{Column}s with no default specified which also
             cannot be NULL, C{False} otherwise.

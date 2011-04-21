@@ -19,7 +19,7 @@
 Syntax wrappers and generators for SQL.
 """
 
-import itertools
+from itertools import count, repeat
 
 from zope.interface import implements
 
@@ -72,7 +72,7 @@ class NumericPlaceholder(ConnectionMetadata):
 
     def __init__(self, dialect):
         super(NumericPlaceholder, self).__init__(dialect)
-        self._next = itertools.count(1).next
+        self._next = count(1).next
 
 
     def placeholder(self):
@@ -121,10 +121,37 @@ class _Statement(object):
 
 
     def _extraVars(self, txn, metadata):
+        """
+        A hook for subclasses to provide additional keyword arguments to the
+        C{bind} call when L{_Statement.on} is executed.  Currently this is used
+        only for 'out' parameters to capture results when executing statements
+        that do not normally have a result (L{Insert}, L{Delete}, L{Update}).
+        """
         return {}
 
 
     def _extraResult(self, result, outvars, metadata):
+        """
+        A hook for subclasses to manipulate the results of 'on', after they've
+        been retrieved by the database but before they've been given to
+        application code.
+
+        @param result: a L{Deferred} that will fire with the rows as returned by
+            the database.
+        @type result: C{list} of rows, which are C{list}s or C{tuple}s.
+
+        @param outvars: a dictionary of extra variables returned by
+            C{self._extraVars}.
+
+        @param metadata: information about the connection where the statement
+            was executed.
+
+        @type metadata: L{ConnectionMetadata} (a subclass thereof)
+
+        @return: the result to be returned from L{_Statement.on}.
+
+        @rtype: L{Deferred} firing result rows
+        """
         return result
 
 
@@ -132,6 +159,19 @@ class _Statement(object):
         """
         Execute this statement on a given L{IAsyncTransaction} and return the
         resulting L{Deferred}.
+
+        @param txn: the L{IAsyncTransaction} to execute this on.
+
+        @param raiseOnZeroRowCount: the exception to raise if no data was
+            affected or returned by this query.
+
+        @param kw: keyword arguments, mapping names of L{Parameter} objects
+            located somewhere in C{self}
+
+        @return: results from the database.
+
+        @rtype: a L{Deferred} firing a C{list} of records (C{tuple}s or
+            C{list}s)
         """
         metadata = self._paramstyles[txn.paramstyle](txn.dialect)
         outvars = self._extraVars(txn, metadata)
@@ -139,7 +179,57 @@ class _Statement(object):
         fragment = self.toSQL(metadata).bind(**kw)
         result = txn.execSQL(fragment.text, fragment.parameters,
                              raiseOnZeroRowCount)
-        return self._extraResult(result, outvars, metadata)
+        result = self._extraResult(result, outvars, metadata)
+        if metadata.dialect == ORACLE_DIALECT and result:
+            result.addCallback(self._fixOracleNulls)
+        return result
+
+
+    def _resultColumns(self):
+        """
+        Subclasses must implement this to return a description of the columns
+        expected to be returned.  This is a list of L{ColumnSyntax} objects, and
+        possibly other expression syntaxes which will be converted to C{None}.
+        """
+        raise NotImplementedError(
+            "Each statement subclass must describe its result"
+        )
+
+
+    def _resultShape(self):
+        """
+        Process the result of the subclass's C{_resultColumns}, as described in
+        the docstring above.
+        """
+        for expectation in self._resultColumns():
+            if isinstance(expectation, ColumnSyntax):
+                yield expectation.model
+            else:
+                yield None
+
+
+    def _fixOracleNulls(self, rows):
+        """
+        Oracle treats empty strings as C{NULL}.  Fix this by looking at the
+        columns we expect to have returned, and replacing any C{None}s with
+        empty strings in the appropriate position.
+        """
+        if rows is None:
+            return None
+        newRows = []
+        for row in rows:
+            newRow = []
+            for column, description in zip(row, self._resultShape()):
+                if ((description is not None and
+                     # FIXME: "is the python type str" is what I mean; this list
+                     # should be more centrally maintained
+                     description.type.name in ('varchar', 'text', 'char') and
+                     column is None
+                    )):
+                    column = ''
+                newRow.append(column)
+            newRows.append(newRow)
+        return newRows
 
 
 
@@ -719,6 +809,10 @@ class Select(_Statement):
         return result
 
 
+    def _resultColumns(self):
+        # FIXME: ALL_COLUMNS
+        return self.columns.columns
+
 
 def _commaJoined(stmts):
     first = True
@@ -783,7 +877,9 @@ class _DMLStatement(_Statement):
         Add a dialect-appropriate 'returning' clause to the end of the given SQL
         statement.
 
-        @param metadata: describes the database we are generating the statement for.
+        @param metadata: describes the database we are generating the statement
+            for.
+
         @type metadata: L{ConnectionMetadata}
 
         @param stmt: the SQL fragment generated without the 'returning' clause
@@ -839,8 +935,16 @@ class _DMLStatement(_Statement):
             return result
 
 
+    def _resultColumns(self):
+        return self._returnAsList()
+
+
 
 class _OracleOutParam(object):
+    """
+    A parameter that will be populated using the cx_Oracle API for host
+    variables.
+    """
     implements(IDerivedParameter)
 
     def __init__(self, columnSyntax):
@@ -848,9 +952,8 @@ class _OracleOutParam(object):
 
 
     def preQuery(self, cursor):
-        self.columnSyntax
         typeMap = {'integer': cx_Oracle.NUMBER,
-                   'text': cx_Oracle.CLOB,
+                   'text': cx_Oracle.NCLOB,
                    'varchar': cx_Oracle.STRING,
                    'timestamp': cx_Oracle.TIMESTAMP}
         typeID = self.columnSyntax.model.type.name.lower()
@@ -993,7 +1096,19 @@ class Delete(_DMLStatement):
 
 
 
-class Lock(_Statement):
+class _LockingStatement(_Statement):
+    """
+    A statement related to lock management, which implicitly has no results.
+    """
+    def _resultColumns(self):
+        """
+        No columns should be expected, so return an infinite iterator of None.
+        """
+        return repeat(None)
+
+
+
+class Lock(_LockingStatement):
     """
     An SQL 'lock' statement.
     """
@@ -1015,7 +1130,7 @@ class Lock(_Statement):
 
 
 
-class Savepoint(_Statement):
+class Savepoint(_LockingStatement):
     """
     An SQL 'savepoint' statement.
     """
@@ -1028,7 +1143,7 @@ class Savepoint(_Statement):
         return SQLFragment('savepoint %s' % (self.name,))
 
 
-class RollbackToSavepoint(_Statement):
+class RollbackToSavepoint(_LockingStatement):
     """
     An SQL 'rollback to savepoint' statement.
     """
@@ -1041,7 +1156,7 @@ class RollbackToSavepoint(_Statement):
         return SQLFragment('rollback to savepoint %s' % (self.name,))
 
 
-class ReleaseSavepoint(_Statement):
+class ReleaseSavepoint(_LockingStatement):
     """
     An SQL 'release savepoint' statement.
     """

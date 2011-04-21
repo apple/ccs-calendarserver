@@ -48,7 +48,7 @@ try_python () {
 # Detect which version of Python to use, then print out which one was detected.
 
 detect_python_version () {
-  for v in "" "2.6" "2.5"
+  for v in "2.7" "2.6" "2.5" ""
   do
     for p in								\
       "${PYTHON:=}"							\
