@@ -61,12 +61,13 @@ fi;
 # Do The Right Thing
 ##
 
-export PYTHONPATH=$("${wd}/run" -p);
+. "${wd}/support/shell.sh"
 
 if [ ! -e "${documentroot}/calendars/__uids__/user09" ]; then
   curl "http://localhost:8008/calendars/__uids__/user09/";
 fi;
 
-python twistedcaldav/test/data/makelargecalendars.py -o 9 -d "${documentroot}";
+"${python}" twistedcaldav/test/data/makelargecalendars.py -o 9 -d "${documentroot}";
 
-cd "${cdt}" && python testcaldav.py -s "${serverinfo}" "$@";
+cd "${cdt}" && "${python}" testcaldav.py -s "${serverinfo}" "$@";
+
