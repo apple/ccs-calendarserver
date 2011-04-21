@@ -2,6 +2,7 @@
 
 wd="$(cd "$(dirname "$0")" && pwd)";
 
-export PYTHONPATH="$("${wd}/run" -p)";
+. "${wd}/support/shell.sh"
 
-exec python "$@";
+exec "${python}" "$@";
+
