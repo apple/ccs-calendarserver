@@ -49,6 +49,7 @@ from twistedcaldav.scheduling.imip import ScheduleViaIMip
 from twistedcaldav.scheduling.ischedule import ScheduleViaISchedule
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
+from twistedcaldav.servers import Servers
 
 """
 CalDAV/Server-to-Server scheduling behavior.
@@ -264,7 +265,7 @@ class Scheduler(object):
         # Parse the calendar object from the HTTP request stream
         try:
             self.calendar = (yield Component.fromIStream(self.request.stream))
-
+            
             self.preProcessCalendarData()
             self.calendardata = str(self.calendar)
         except:
@@ -825,21 +826,23 @@ class IScheduleScheduler(RemoteScheduler):
     def preProcessCalendarData(self):
         """
         For data coming in from outside we need to normalize the calendar user addresses so that later iTIP
-        processing will match calendar users against those in stored calendar data.
+        processing will match calendar users against those in stored calendar data. Only do that for invites
+        not freebusy.
         """
 
-        def lookupFunction(cuaddr):
-            principal = self.resource.principalForCalendarUserAddress(cuaddr)
-            if principal is None:
-                return (None, None, None)
-            else:
-                return (
-                    principal.record.fullName.decode("utf-8"),
-                    principal.record.guid,
-                    principal.record.calendarUserAddresses
-                )
-
-        self.calendar.normalizeCalendarUserAddresses(lookupFunction)
+        if not self.checkForFreeBusy():
+            def lookupFunction(cuaddr):
+                principal = self.resource.principalForCalendarUserAddress(cuaddr)
+                if principal is None:
+                    return (None, None, None)
+                else:
+                    return (
+                        principal.record.fullName.decode("utf-8"),
+                        principal.record.guid,
+                        principal.record.calendarUserAddresses
+                    )
+    
+            self.calendar.normalizeCalendarUserAddresses(lookupFunction)
 
     def checkAuthorization(self):
         # Must have an unauthenticated user
@@ -946,9 +949,16 @@ class IScheduleScheduler(RemoteScheduler):
         # Get the request IP and map to hostname.
         clientip = self.request.remoteAddr.host
         
-        # First compare as dotted IP
+        # Check against this server (or any of its partitions). We need this because an external iTIP message
+        # may be addressed to users on different partitions, and the node receiving the iTIP message will need to
+        # forward it to the partition nodes, thus the client ip seen by the partitions will in fact be the initial
+        # receiving node.
         matched = False
-        if isIPAddress(expected_uri.hostname):
+        if Servers.getThisServer().checkThisIP(clientip):
+            matched = True
+    
+        # Next compare as dotted IP
+        elif isIPAddress(expected_uri.hostname):
             if clientip == expected_uri.hostname:
                 matched = True
         else:
