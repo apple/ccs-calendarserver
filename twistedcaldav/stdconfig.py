@@ -148,6 +148,7 @@ DEFAULT_PROXYDB_PARAMS = {
         "database": "proxies",
         "user":     "",
         "password": "",
+        "dbtype": "",
     },
 }
 
