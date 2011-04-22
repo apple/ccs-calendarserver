@@ -281,9 +281,19 @@ class AugmentXMLTests(AugmentTests):
         newxmlfile = FilePath(self.mktemp())
         FilePath(xmlFile).copyTo(newxmlfile)
         db = AugmentXMLDB((newxmlfile.path,))
-        self.assertFalse(db._shouldReparse(newxmlfile.path)) # No need to parse
+        self.assertFalse(db._shouldReparse([newxmlfile.path])) # No need to parse
         newxmlfile.setContent("") # Change the file
-        self.assertTrue(db._shouldReparse(newxmlfile.path)) # Need to parse
+        self.assertTrue(db._shouldReparse([newxmlfile.path])) # Need to parse
+
+    def test_refresh(self):
+        """
+        Ensure that a refresh without any file changes doesn't zero out the
+        cache
+        """
+        dbxml = AugmentXMLDB((xmlFile,))
+        keys = dbxml.db.keys()
+        dbxml.refresh()
+        self.assertEquals(keys, dbxml.db.keys())
 
 class AugmentSqliteTests(AugmentTests, AugmentTestsMixin):
 

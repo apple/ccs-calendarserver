@@ -422,7 +422,10 @@ class AugmentXMLDB(AugmentDB):
         """
         super(AugmentXMLDB, self).refresh()
         try:
-            self.db = self._parseXML()
+            results = self._parseXML()
+            # Only update the cache if _parseXML( ) returns anything
+            if results:
+                self.db = results
         except RuntimeError:
             log.error("Failed to parse XML augments file during cache refresh - ignoring")
         self.lastCached = time.time()
@@ -437,16 +440,18 @@ class AugmentXMLDB(AugmentDB):
         self.removeAugmentRecords(self.db.keys())
         return succeed(None)
 
-    def _shouldReparse(self, xmlFile):
+    def _shouldReparse(self, xmlFiles):
         """
-        Check to see whether the given file has been modified since we last
-        parsed it.
+        Check to see whether any of the given files have been modified since
+        we last parsed them.
         """
-        oldModTime, oldSize = self.xmlFileStats.get(xmlFile, (0, 0))
-        newModTime = os.path.getmtime(xmlFile)
-        newSize = os.path.getsize(xmlFile)
-        if (oldModTime != newModTime) or (oldSize != newSize):
-            return True
+        for xmlFile in xmlFiles:
+            if os.path.exists(xmlFile):
+                oldModTime, oldSize = self.xmlFileStats.get(xmlFile, (0, 0))
+                newModTime = os.path.getmtime(xmlFile)
+                newSize = os.path.getsize(xmlFile)
+                if (oldModTime != newModTime) or (oldSize != newSize):
+                    return True
         return False
 
     def _parseXML(self):
@@ -456,29 +461,30 @@ class AugmentXMLDB(AugmentDB):
         If none of the xmlFiles exist, create a default record.
         """
 
-        # Do each file
         results = {}
 
-        allMissing = True
+        # If all augments files are missing, return a default record
         for xmlFile in self.xmlFiles:
             if os.path.exists(xmlFile):
-                # Compare previously seen modification time and size of each
-                # xml file.  If unchanged, skip.
-                if self._shouldReparse(xmlFile):
-                    # Creating a parser does the parse
-                    XMLAugmentsParser(xmlFile, results)
-                    newModTime = os.path.getmtime(xmlFile)
-                    newSize = os.path.getsize(xmlFile)
-                    self.xmlFileStats[xmlFile] = (newModTime, newSize)
-                allMissing = False
-
-        if allMissing:
+                break
+        else:
             results["Default"] = AugmentRecord(
                 "Default",
                 enabled=True,
                 enabledForCalendaring=True,
                 enabledForAddressBooks=True,
             )
+
+        # Compare previously seen modification time and size of each
+        # xml file.  If all are unchanged, skip.
+        if self._shouldReparse(self.xmlFiles):
+            for xmlFile in self.xmlFiles:
+                if os.path.exists(xmlFile):
+                    # Creating a parser does the parse
+                    XMLAugmentsParser(xmlFile, results)
+                    newModTime = os.path.getmtime(xmlFile)
+                    newSize = os.path.getsize(xmlFile)
+                    self.xmlFileStats[xmlFile] = (newModTime, newSize)
 
         return results
 
