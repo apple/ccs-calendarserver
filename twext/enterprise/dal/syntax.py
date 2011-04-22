@@ -708,7 +708,6 @@ class Tuple(object):
 
 
 
-
 class Select(_Statement):
     """
     'select' statement.
@@ -810,8 +809,22 @@ class Select(_Statement):
 
 
     def _resultColumns(self):
-        # FIXME: ALL_COLUMNS
-        return self.columns.columns
+        """
+        Determine the list of L{ColumnSyntax} objects that will represent the
+        result.  Normally just the list of selected columns; if wildcard syntax
+        is used though, determine the ordering from the database.
+        """
+        if self.columns is ALL_COLUMNS:
+            # TODO: Possibly this rewriting should always be done, before even
+            # executing the query, so that if we develop a schema mismatch with
+            # the database (additional columns), the application will still see
+            # the right rows.
+            for table in self.From.tables():
+                for column in table:
+                    yield column
+        else:
+            for column in self.columns.columns:
+                yield column
 
 
 def _commaJoined(stmts):

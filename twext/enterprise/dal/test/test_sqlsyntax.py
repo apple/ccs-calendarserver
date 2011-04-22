@@ -878,10 +878,22 @@ class GenerationTests(TestCase):
         self.assertEquals(rows, [['', None]])
 
 
+    def test_rewriteOracleNULLs_SelectAllColumns(self):
+        """
+        Same as L{test_rewriteOracleNULLs_Select}, but with the L{ALL_COLUMNS}
+        shortcut.
+        """
+        rows = resultOf(
+            Select(From=self.schema.NULLCHECK).on(NullTestingOracleTxn())
+        )[0]
+        self.assertEquals(rows, [['', None]])
+
+
     def test_rewriteOracleNULLs_Insert(self):
         """
-        The behavior described in the previous test applies to other statement
-        types as well, specifically those with 'returning' clauses.
+        The behavior described in L{test_rewriteOracleNULLs_Select} applies to
+        other statement types as well, specifically those with 'returning'
+        clauses.
         """
         conn, pool, factory = self.simulateOracleConnection()
         # Add 2 cursor variable values so that these will be used by
