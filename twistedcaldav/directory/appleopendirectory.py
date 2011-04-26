@@ -616,7 +616,7 @@ class OpenDirectoryService(CachingDirectoryService):
             if recordType == DirectoryService.recordType_users:
                 listRecordTypes = [self._toODRecordTypes[recordType]]
 
-            if recordType in (
+            elif recordType in (
                 DirectoryService.recordType_resources,
                 DirectoryService.recordType_locations,
             ):
