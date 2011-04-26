@@ -121,6 +121,14 @@ DEFAULT_RESOURCE_PARAMS = {
         "xmlFile": "resources.xml",
         "recordTypes" : ("locations", "resources"),
     },
+    "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
+        "node": "/Search",
+        "cacheTimeout": 1,
+        "negativeCaching": False,
+        "restrictEnabledRecords": False,
+        "restrictToGroup": "",
+        "recordTypes" : ("locations", "resources"),
+    },
 }
 
 DEFAULT_AUGMENT_PARAMS = {
@@ -889,6 +897,32 @@ def _postUpdateDirectoryService(configDict):
             if param not in DEFAULT_SERVICE_PARAMS[configDict.DirectoryService.type]:
                 del configDict.DirectoryService.params[param]
 
+def _preUpdateResourceService(configDict, items):
+    # Special handling for directory services configs
+    dsType = items.get("ResourceService", {}).get("type", None)
+    if dsType is None:
+        dsType = configDict.ResourceService.type
+    else:
+        if dsType == configDict.ResourceService.type:
+            oldParams = configDict.ResourceService.params
+            newParams = items.ResourceService.get("params", {})
+            _mergeData(oldParams, newParams)
+        else:
+            if dsType in DEFAULT_RESOURCE_PARAMS:
+                configDict.ResourceService.params = copy.deepcopy(DEFAULT_RESOURCE_PARAMS[dsType])
+            else:
+                configDict.ResourceService.params = {}
+
+    for param in items.get("ResourceService", {}).get("params", {}):
+        if dsType in DEFAULT_RESOURCE_PARAMS and param not in DEFAULT_RESOURCE_PARAMS[dsType]:
+            log.warn("Parameter %s is not supported by service %s" % (param, dsType))
+            
+def _postUpdateResourceService(configDict):
+    if configDict.ResourceService.type in DEFAULT_RESOURCE_PARAMS:
+        for param in tuple(configDict.ResourceService.params):
+            if param not in DEFAULT_RESOURCE_PARAMS[configDict.ResourceService.type]:
+                del configDict.ResourceService.params[param]
+
 
 def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items):
     #
@@ -1166,12 +1200,14 @@ def _updateCompliance(configDict):
 
 PRE_UPDATE_HOOKS = (
     _preUpdateDirectoryService,
+    _preUpdateResourceService,
     _preUpdateDirectoryAddressBookBackingDirectoryService,
     )
 POST_UPDATE_HOOKS = (
     _updateDataStore,
     _updateHostName,
     _postUpdateDirectoryService,
+    _postUpdateResourceService,
     _postUpdateAugmentService,
     _postUpdateProxyDBService,
     _updateACLs,
