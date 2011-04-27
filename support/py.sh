@@ -170,13 +170,13 @@ init_py () {
   # like virtualenv.
   python="$(detect_python_version)";
 
-  # Set the $PYTHON environment variable, a standard-ish mechanism used by
-  # certain non-distutils things that need to find the "right" python.  For
-  # instance, the part of the PostgreSQL build process which builds pl_python.
-  # Note that detect_python_version, above, already honors $PYTHON, so if this
-  # is already set it won't be stomped on, it will just be re-set to the same
-  # value.
-  export PYTHON="${python}";
+  # Set the $PYTHON environment variable to an absolute path pointing at the
+  # appropriate python executable, a standard-ish mechanism used by certain
+  # non-distutils things that need to find the "right" python.  For instance,
+  # the part of the PostgreSQL build process which builds pl_python.  Note that
+  # detect_python_version, above, already honors $PYTHON, so if this is already
+  # set it won't be stomped on, it will just be re-set to the same value.
+  export PYTHON="$(type -p ${python})";
 
   if [ -z "${python:-}" ]; then
     echo "No suitable python found. Python 2.5 is required.";
