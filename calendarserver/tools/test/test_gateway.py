@@ -15,6 +15,7 @@
 ##
 
 import os
+import sys
 from twext.python.plistlib import readPlistFromString
 import xml
 
@@ -81,7 +82,7 @@ class GatewayTestCase(TestCase):
             command = command.encode("utf-8")
 
         sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        python = os.path.join(sourceRoot, "python")
+        python = sys.executable
         gateway = os.path.join(sourceRoot, "bin", "calendarserver_command_gateway")
 
         args = [python, gateway, "-f", self.configFileName]
