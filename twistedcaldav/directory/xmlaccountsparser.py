@@ -31,6 +31,9 @@ from twext.python.log import Logger
 
 from twistedcaldav.directory.directory import DirectoryService
 
+import re
+import hashlib
+
 log = Logger()
 
 ELEMENT_ACCOUNTS          = "accounts"
@@ -165,6 +168,36 @@ class XMLAccountRecord (object):
         done on them with the numeric value provided.
         @param ctr: an integer to substitute into text.
         """
+
+        # Regular expression which matches ~ followed by a number
+        matchNumber = re.compile(r"(~\d+)")
+
+        def expand(text, ctr):
+            """
+            Returns a string where ~<number> is replaced by the first <number>
+            characters from the md5 hexdigest of str(ctr), e.g.:
+
+                expand("~9 foo", 1)
+
+            returns:
+
+                "c4ca4238a foo"
+
+            ...since "c4ca4238a" is the first 9 characters of:
+
+                hashlib.md5(str(1)).hexdigest()
+
+            If <number> is larger than 32, the hash will repeat as needed.
+            """
+            if text:
+                m = matchNumber.search(text)
+                if m:
+                    length = int(m.group(0)[1:])
+                    hash = hashlib.md5(str(ctr)).hexdigest()
+                    string = (hash*((length/32)+1))[:-(32-(length%32))]
+                    return text.replace(m.group(0), string)
+            return text
+
         shortNames = []
         for shortName in self.shortNames:
             if shortName.find("%") != -1:
@@ -183,16 +216,20 @@ class XMLAccountRecord (object):
             fullName = self.fullName % ctr
         else:
             fullName = self.fullName
+        fullName = expand(fullName, ctr)
         if self.firstName and self.firstName.find("%") != -1:
             firstName = self.firstName % ctr
         else:
             firstName = self.firstName
+        firstName = expand(firstName, ctr)
         if self.lastName and self.lastName.find("%") != -1:
             lastName = self.lastName % ctr
         else:
             lastName = self.lastName
+        lastName = expand(lastName, ctr)
         emailAddresses = set()
         for emailAddr in self.emailAddresses:
+            emailAddr = expand(emailAddr, ctr)
             if emailAddr.find("%") != -1:
                 emailAddresses.add(emailAddr % ctr)
             else:

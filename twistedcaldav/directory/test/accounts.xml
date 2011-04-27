@@ -107,7 +107,10 @@ limitations under the License.
     <uid>user%02d</uid>
     <guid>user%02d</guid>
     <password>%02duser</password>
-    <name>User %02d</name>
+    <name>~35 User %02d</name>
+    <first-name>~5</first-name>
+    <last-name>~9 User %02d</last-name>
+    <email-address>~10@example.com</email-address>
   </user>
   <group>
     <uid>managers</uid>

@@ -39,8 +39,8 @@ class XMLFileBase(object):
         "lecroy"     : { "password": "yorcel",     "guid": "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0", "addresses": ("mailto:lecroy@example.com",)   },
         "dreid"      : { "password": "dierd",      "guid": "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1", "addresses": ("mailto:dreid@example.com",)    },
         "nocalendar" : { "password": "radnelacon", "guid": "543D28BA-F74F-4D5F-9243-B3E3A61171E5", "addresses": () },
-        "user01"     : { "password": "01user",     "guid": None                                  , "addresses": () },
-        "user02"     : { "password": "02user",     "guid": None                                  , "addresses": () },
+        "user01"     : { "password": "01user",     "guid": None                                  , "addresses": ("mailto:c4ca4238a0@example.com",) },
+        "user02"     : { "password": "02user",     "guid": None                                  , "addresses": ("mailto:c81e728d9d@example.com",) },
     }
 
     groups = {
@@ -296,6 +296,15 @@ class XMLFile (
         self.assertNotEquals(None, service._lookupInIndex(service.recordType_users, service.INDEX_TYPE_GUID, "9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2"))
         self.assertNotEquals(None, service._lookupInIndex(service.recordType_locations, service.INDEX_TYPE_SHORTNAME, "orion"))
         self.assertEquals(None, service._lookupInIndex(service.recordType_users, service.INDEX_TYPE_CUA, "mailto:nobody@example.com"))
+
+    def test_repeat(self):
+        service = self.service()
+        record = service.recordWithShortName(
+            DirectoryService.recordType_users, "user01")
+        self.assertEquals(record.fullName, "c4ca4238a0b923820dcc509a6f75849bc4c User 01")
+        self.assertEquals(record.firstName, "c4ca4")
+        self.assertEquals(record.lastName, "c4ca4238a User 01")
+        self.assertEquals(record.emailAddresses, set(['c4ca4238a0@example.com']))
 
 class XMLFileSubset (XMLFileBase, TestCase):
     """
