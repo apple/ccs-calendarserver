@@ -29,6 +29,12 @@ conditional_set () {
   fi;
 }
 
+find_header () {
+  local sysheader="$1"; shift;
+  echo "#include <${sysheader}>" | cc -x c -c - 2> /dev/null;
+  return "$?";
+}
+
 # Initialize all the global state required to use this library.
 init_build () {
         verbose="";
@@ -570,6 +576,13 @@ dependencies () {
       "ftp://ftp5.us.postgresql.org/pub/PostgreSQL/source/v${pgv}/${pg}.tar.gz" \
       --with-python;
     :;
+  fi;
+
+  if ! find_header ldap.h; then
+    c_dependency -m "ec63f9c2add59f323a0459128846905b" \
+      "OpenLDAP" "openldap-2.4.25" \
+      "http://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-2.4.25.tgz" \
+      --disable-bdb --disable-hdb;
   fi;
 
   #
