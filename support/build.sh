@@ -541,6 +541,8 @@ c_dependency () {
   export              PATH="${PATH}:${srcdir}/_root/bin";
   export    C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:${srcdir}/_root/include";
   export   LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${srcdir}/_root/lib";
+  export          CPPFLAGS="${CPPFLAGS:-} -I${srcdir}/_root/include";
+  export           LDFLAGS="${LDFLAGS:-} -L${srcdir}/_root/lib";
   export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${srcdir}/_root/lib";
 }
 
