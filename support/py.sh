@@ -50,18 +50,18 @@ try_python () {
 detect_python_version () {
   for v in "2.7" "2.6" "2.5" ""
   do
-    for p in								\
-      "${PYTHON:=}"							\
-      "python${v}"							\
-      "/usr/local/bin/python${v}"					\
-      "/usr/local/python/bin/python${v}"				\
-      "/usr/local/python${v}/bin/python${v}"				\
-      "/opt/bin/python${v}"						\
-      "/opt/python/bin/python${v}"					\
-      "/opt/python${v}/bin/python${v}"					\
-      "/Library/Frameworks/Python.framework/Versions/${v}/bin/python"	\
-      "/opt/local/bin/python${v}"					\
-      "/sw/bin/python${v}"						\
+    for p in                                                            \
+      "${PYTHON:=}"                                                     \
+      "python${v}"                                                      \
+      "/usr/local/bin/python${v}"                                       \
+      "/usr/local/python/bin/python${v}"                                \
+      "/usr/local/python${v}/bin/python${v}"                            \
+      "/opt/bin/python${v}"                                             \
+      "/opt/python/bin/python${v}"                                      \
+      "/opt/python${v}/bin/python${v}"                                  \
+      "/Library/Frameworks/Python.framework/Versions/${v}/bin/python"   \
+      "/opt/local/bin/python${v}"                                       \
+      "/sw/bin/python${v}"                                              \
       ;
     do
       if try_python "${p}"; then
@@ -162,7 +162,21 @@ cmp_version () {
 # setting up variables related to version and build configuration.
 
 init_py () {
+  # First, detect the appropriate version of Python to use, based on our version
+  # requirements and the environment.  Note that all invocations of python in
+  # our build scripts should therefore be '"${python}"', not 'python'; this is
+  # important on systems with older system pythons (2.4 or earlier) with an
+  # alternate install of Python, or alternate python installation mechanisms
+  # like virtualenv.
   python="$(detect_python_version)";
+
+  # Set the $PYTHON environment variable to an absolute path pointing at the
+  # appropriate python executable, a standard-ish mechanism used by certain
+  # non-distutils things that need to find the "right" python.  For instance,
+  # the part of the PostgreSQL build process which builds pl_python.  Note that
+  # detect_python_version, above, already honors $PYTHON, so if this is already
+  # set it won't be stomped on, it will just be re-set to the same value.
+  export PYTHON="$(type -p ${python})";
 
   if [ -z "${python:-}" ]; then
     echo "No suitable python found. Python 2.5 is required.";
