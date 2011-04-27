@@ -580,6 +580,9 @@ dependencies () {
   # code (like, let's say, trial) decides to chdir somewhere.
   export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 
+  # Sourceforge mirror hostname.
+  local sf="superb-sea2.dl.sourceforge.net";
+
   local zi="zope.interface-3.3.0";
   py_dependency -m "93668855e37b4691c5c956665c33392c" \
     "Zope Interface" "zope.interface" "${zi}" \
@@ -589,7 +592,7 @@ dependencies () {
   local px="PyXML-${pv}";
   py_dependency -v "${pv}" -m "1f7655050cebbb664db976405fdba209" \
     "PyXML" "xml.dom.ext" "${px}" \
-    "http://superb-sea2.dl.sourceforge.net/project/pyxml/pyxml/${pv}/${px}.tar.gz";
+    "http://${sf}/project/pyxml/pyxml/${pv}/${px}.tar.gz";
 
   local po="pyOpenSSL-0.10";
   py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
@@ -611,6 +614,13 @@ dependencies () {
   py_dependency -v 0.5 -r 1038 \
     "xattr" "xattr" "xattr" \
     "http://svn.red-bean.com/bob/xattr/releases/xattr-0.6.1/";
+
+  if [ -n "${ORACLE_HOME:-}" ]; then
+      local cx="cx_Oracle-5.1";
+      py_dependency -v 5.1 -m "d2697493a40c9d46c9b7c1c210b61671" \
+          "cx_Oracle" "cx_Oracle" "${cx}" \
+          "http://${sf}/project/cx-oracle/5.1/${cx}.tar.gz";
+  fi;
 
   if [ "${py_version}" != "${py_version##2.5}" ] && ! py_have_module select26; then
     local s26="select26-0.1a3";
