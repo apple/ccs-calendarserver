@@ -20,6 +20,26 @@ General utility client code for interfacing with DB-API 2.0 modules.
 from twext.enterprise.util import mapOracleOutputType
 
 try:
+    import os
+    # In order to encode and decode values going to and from the database,
+    # cx_Oracle depends on Oracle's NLS support, which in turn relies upon
+    # libclntsh's reading of environment variables.  It doesn't matter what the
+    # database language is; the database may contain iCalendar data in many
+    # languages, but we MUST set NLS_LANG to a value that includes an encoding
+    # (character set?) that includes all of Unicode, so that the connection can
+    # encode and decode any valid unicode data.  This is not to encode and
+    # decode bytes, but rather, to faithfully relay Python unicode strings to
+    # the database.  The default connection encoding is US-ASCII, which is
+    # definitely no good.  NLS_LANG needs to be set before the first call to
+    # connect(), not actually before the module gets imported, but this is as
+    # good a place as any.  I am explicitly setting this rather than inheriting
+    # it, because it's not a configuration value in the sense that multiple
+    # values may possibly be correct; _only_ UTF-8 is ever correct to work with
+    # our software, and other values will fail CalDAVTester.  (The state is,
+    # however, process-global; after the first call to connect(), all
+    # subsequent connections inherit this encoding even if the environment
+    # variable changes.) -glyph
+    os.environ['NLS_LANG'] = '.UTF8'
     import cx_Oracle
 except ImportError:
     cx_Oracle = None
