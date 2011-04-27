@@ -224,6 +224,10 @@ def _translateSchema(out):
                 typeName = 'nclob'
             if typeName == 'boolean':
                 typeName = 'integer'
+            if typeName == 'varchar':
+                typeName = 'nvarchar2'
+            if typeName == 'char':
+                typeName = 'nchar'
             out.write('    "%s" %s' % (column.model.name, typeName))
             if column.model.type.length:
                 out.write("(%s)" % (column.model.type.length,))
@@ -250,7 +254,7 @@ def _translateSchema(out):
                  # Oracle treats empty strings as NULLs, so we have to accept
                  # NULL values in columns of a string type.  Other types should
                  # be okay though.
-                 and typeName not in ('text', 'varchar') ):
+                 and typeName not in ('varchar', 'nclob', 'char', 'nchar', 'nvarchar', 'nvarchar2') ):
                 out.write(' not null')
             if set([column.model]) in list(table.model.uniques()):
                 out.write(' unique')
