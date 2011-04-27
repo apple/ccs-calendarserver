@@ -31,7 +31,7 @@ conditional_set () {
 
 find_header () {
   local sysheader="$1"; shift;
-  echo "#include <${sysheader}>" | cc -x c -c - 2> /dev/null;
+  echo "#include <${sysheader}>" | cc -x c -c - -o /dev/null 2> /dev/null;
   return "$?";
 }
 
