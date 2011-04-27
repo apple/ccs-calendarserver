@@ -80,6 +80,14 @@
     <key>ServerRoot</key>
     <string>/var/db/caldavd</string>
 
+    <!-- Database connection -->
+    <!--
+    <key>DBType</key>
+    <string>postgres</string>
+    <key>DSN</key>
+    <string>:caldav:caldav:::</string>
+     -->
+
     <!-- Data root -->
     <key>DataRoot</key>
     <string>Data</string>

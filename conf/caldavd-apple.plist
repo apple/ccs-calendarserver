@@ -171,21 +171,6 @@
         A variety of directory services are available for use.
       -->
 
-    <!-- XML File Directory Service -->
-    <!--
-    <key>DirectoryService</key>
-    <dict>
-      <key>type</key>
-      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
-      
-      <key>params</key>
-      <dict>
-        <key>xmlFile</key>
-        <string>accounts.xml</string>
-      </dict>
-    </dict>
-    -->
-    
     <!-- Open Directory Service (Mac OS X) -->
     <key>DirectoryService</key>
     <dict>
