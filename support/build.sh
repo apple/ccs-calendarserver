@@ -144,10 +144,12 @@ apply_patches () {
   fi;
 
   echo "";
-  echo "Removing build directory ${path}/build...";
-  rm -rf "${path}/build";
-  echo "Removing pyc files from ${path}...";
-  find "${path}" -type f -name '*.pyc' -print0 | xargs -0 rm -f;
+  if [ -e "${path}/setup.py" ]; then
+    echo "Removing build directory ${path}/build...";
+    rm -rf "${path}/build";
+    echo "Removing pyc files from ${path}...";
+    find "${path}" -type f -name '*.pyc' -print0 | xargs -0 rm -f;
+  fi;
 }
 
 
