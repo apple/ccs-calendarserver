@@ -116,7 +116,7 @@ def upgrade_to_1(config):
             if principal is None:
                 return (None, None, None)
             else:
-                return (principal.record.fullName.decode("utf-8"),
+                return (principal.record.fullName,
                     principal.record.guid,
                     principal.record.calendarUserAddresses)
 
@@ -588,16 +588,23 @@ def upgrade_to_2(config):
         docRoot = config.DocumentRoot
         if os.path.exists(docRoot):
             calRoot = os.path.join(docRoot, "calendars")
-            if os.path.exists(calRoot):
+            if os.path.exists(calRoot) and os.path.isdir(calRoot):
                 uidHomes = os.path.join(calRoot, "__uids__")
-                for path1 in os.listdir(uidHomes):
-                    uidLevel1 = os.path.join(uidHomes, path1)
-                    for path2 in os.listdir(uidLevel1):
-                        uidLevel2 = os.path.join(uidLevel1, path2)
-                        for home in os.listdir(uidLevel2):
-                            calHome = os.path.join(uidLevel2, home)
-                            if not flattenHome(calHome):
-                                errorOccurred = True
+                if os.path.isdir(uidHomes): 
+                    for path1 in os.listdir(uidHomes):
+                        uidLevel1 = os.path.join(uidHomes, path1)
+                        if not os.path.isdir(uidLevel1):
+                            continue
+                        for path2 in os.listdir(uidLevel1):
+                            uidLevel2 = os.path.join(uidLevel1, path2)
+                            if not os.path.isdir(uidLevel2):
+                                continue
+                            for home in os.listdir(uidLevel2):
+                                calHome = os.path.join(uidLevel2, home)
+                                if not os.path.isdir(calHome):
+                                    continue
+                                if not flattenHome(calHome):
+                                    errorOccurred = True
         
         return errorOccurred
         

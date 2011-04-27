@@ -15,6 +15,7 @@
 ##
 
 import os
+import sys
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet import reactor
@@ -83,7 +84,7 @@ class ManagePrincipalsTestCase(TestCase):
         Run calendarserver_manage_principals, passing additional as args.
         """
         sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        python = os.path.join(sourceRoot, "python")
+        python = sys.executable
         script = os.path.join(sourceRoot, "bin", "calendarserver_manage_principals")
 
         args = [python, script, "-f", self.configFileName]

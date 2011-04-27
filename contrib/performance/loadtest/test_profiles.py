@@ -334,7 +334,7 @@ class InviterTests(TestCase):
         If the inviter randomly selects a user which is already an
         invitee on the event, a different user is added instead.
         """
-        selfNumber = 13
+        selfNumber = 1
         vevent, event, calendar, client = self._simpleAccount(
             selfNumber, INVITED_EVENT)
 
@@ -374,6 +374,26 @@ class InviterTests(TestCase):
         inviter._invite()
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
         self.assertEquals(len(attendees), 2)
+
+
+    def test_doNotInviteToSomeoneElsesEvent(self):
+        """
+        If there are events on our calendar which are being organized
+        by someone else, the inviter does not attempt to invite new
+        users to them.
+        """
+        selfNumber = 2
+        vevent, event, calendar, client = self._simpleAccount(
+            selfNumber, INVITED_EVENT)
+        inviter = Inviter(None, client, selfNumber)
+        # Try to send an invitation, but with only one event on the
+        # calendar, of which we are not the organizer.  It should be
+        # unchanged afterwards.
+        inviter._invite()
+        attendees = event.vevent.contents[u'vevent'][0].contents[u'attendee']
+        self.assertEqual(len(attendees), 2)
+        self.assertEqual(attendees[0].params['CN'], [u'User 01'])
+        self.assertEqual(attendees[1].params['CN'], [u'User 02'])
 
 
 

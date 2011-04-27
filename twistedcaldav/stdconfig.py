@@ -644,7 +644,7 @@ DEFAULT_CONFIG = {
     },
 
     # Umask
-    "umask": 0027,
+    "umask": 0022,
 
     # A TCP port used for communication between the child and master
     # processes (bound to 127.0.0.1). Specify 0 to let OS assign a port.
@@ -1263,3 +1263,34 @@ def _cleanup(configDict, defaultDict):
 config.setProvider(PListConfigProvider(DEFAULT_CONFIG))
 config.addPreUpdateHooks(PRE_UPDATE_HOOKS)
 config.addPostUpdateHooks(POST_UPDATE_HOOKS)
+
+
+def _preserveConfig(configDict):
+    """
+    Preserve certain config keys across reset( ) because these can't be
+    re-fetched after the process has shed privileges
+    """
+    iMIP = configDict.Scheduling.iMIP
+    XMPP = configDict.Notifications.Services.XMPPNotifier
+    preserved = {
+        "iMIPPassword" : iMIP.Password,
+        "MailSendingPassword" : iMIP.Sending.Password,
+        "MailReceivingPassword" : iMIP.Receiving.Password,
+        "XMPPPassword" : XMPP.Password,
+    }
+    return preserved
+
+def _restoreConfig(configDict, preserved):
+    """
+    Restore certain config keys across reset( ) because these can't be
+    re-fetched after the process has shed privileges
+    """
+    iMIP = configDict.Scheduling.iMIP
+    XMPP = configDict.Notifications.Services.XMPPNotifier
+    iMIP.Password = preserved["iMIPPassword"]
+    iMIP.Sending.Password = preserved["MailSendingPassword"]
+    iMIP.Receiving.Password = preserved["MailReceivingPassword"]
+    XMPP.Password = preserved["XMPPPassword"]
+
+
+config.addResetHooks(_preserveConfig, _restoreConfig)

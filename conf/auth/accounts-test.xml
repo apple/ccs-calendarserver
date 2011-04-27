@@ -38,7 +38,7 @@ limitations under the License.
   <user>
     <uid>wsanchez</uid>
     <guid>wsanchez</guid>
-    <email-address>wsanchez@apple.com</email-address>
+    <email-address>wsanchez@example.com</email-address>
     <password>test</password>
     <name>Wilfredo Sanchez Vega</name>
     <first-name>Wilfredo</first-name>
@@ -47,7 +47,7 @@ limitations under the License.
   <user>
     <uid>cdaboo</uid>
     <guid>cdaboo</guid>
-    <email-address>cdaboo@apple.com</email-address>
+    <email-address>cdaboo@example.com</email-address>
     <password>test</password>
     <name>Cyrus Daboo</name>
     <first-name>Cyrus</first-name>
@@ -56,7 +56,7 @@ limitations under the License.
   <user>
     <uid>sagen</uid>
     <guid>sagen</guid>
-    <email-address>sagen@apple.com</email-address>
+    <email-address>sagen@example.com</email-address>
     <password>test</password>
     <name>Morgen Sagen</name>
     <first-name>Morgen</first-name>
@@ -65,7 +65,7 @@ limitations under the License.
   <user>
     <uid>dre</uid>
     <guid>andre</guid>
-    <email-address>dre@apple.com</email-address>
+    <email-address>dre@example.com</email-address>
     <password>test</password>
     <name>Andre LaBranche</name>
     <first-name>Andre</first-name>
@@ -74,11 +74,20 @@ limitations under the License.
   <user>
     <uid>glyph</uid>
     <guid>glyph</guid>
-    <email-address>glyph@apple.com</email-address>
+    <email-address>glyph@example.com</email-address>
     <password>test</password>
     <name>Glyph Lefkowitz</name>
     <first-name>Glyph</first-name>
     <last-name>Lefkowitz</last-name>
+  </user>
+  <user>
+    <uid>i18nuser</uid>
+    <guid>i18nuser</guid>
+    <email-address>i18nuser@example.com</email-address>
+    <password>i18nuser</password>
+    <name>まだ</name>
+    <first-name>ま</first-name>
+    <last-name>だ</last-name>
   </user>
   <user repeat="99">
     <uid>user%02d</uid>

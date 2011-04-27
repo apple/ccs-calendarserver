@@ -30,11 +30,14 @@ from vobject.icalendar import VEvent
 
 from protocol.caldav.definitions import caldavxml
 
+from twisted.python import context
 from twisted.python.log import msg
+from twisted.python.failure import Failure
 from twisted.internet.defer import succeed, fail
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
+from loadtest.logger import SummarizingMixin
 from loadtest.ical import IncorrectResponseCode
 
 
@@ -57,6 +60,41 @@ class ProfileBase(object):
             for cal 
             in self._client._calendars.itervalues() 
             if cal.resourceType == calendarType]
+
+
+    def _isSelfAttendee(self, attendee):
+        """
+        Try to match one of the attendee's identifiers against one of
+        C{self._client}'s identifiers.  Return C{True} if something matches,
+        C{False} otherwise.
+        """
+        return attendee.params[u'EMAIL'][0] == self._client.email[len('mailto:'):]
+
+
+    def _newOperation(self, label, deferred):
+        """
+        Helper to emit a log event when a new operation is started and
+        another one when it completes.
+        """
+        # If this is a scheduled request, record the lag in the
+        # scheduling now so it can be reported when the response is
+        # received.
+        lag = context.get('lag', None)
+
+        before = self._reactor.seconds()
+        msg(type="operation", phase="start",
+            user=self._client.user, label=label, lag=lag)
+
+        def finished(passthrough):
+            success = not isinstance(passthrough, Failure)
+            after = self._reactor.seconds()
+            msg(type="operation", phase="end", duration=after - before,
+                user=self._client.user, label=label, success=success)
+            return passthrough
+        deferred.addBoth(finished)
+        return deferred
+        
+
 
 
 class CannotAddAttendee(Exception):
@@ -143,10 +181,16 @@ class Inviter(ProfileBase):
                 if event is None:
                     continue
 
+                vevent = event.contents[u'vevent'][0]
+                organizer = vevent.contents.get('organizer', [None])[0]
+                if organizer is not None and not self._isSelfAttendee(organizer):
+                    # This event was organized by someone else, don't try to invite someone to it.
+                    continue
+
                 href = calendar.url + uuid
 
                 # Find out who might attend
-                attendees = event.contents['vevent'][0].contents.get('attendee', [])
+                attendees = vevent.contents.get('attendee', [])
 
                 d = self._addAttendee(event, attendees)
                 d.addCallbacks(
@@ -154,7 +198,7 @@ class Inviter(ProfileBase):
                         self._client.addEventAttendee(
                             href, attendee),
                     lambda reason: reason.trap(CannotAddAttendee))
-                return d
+                return self._newOperation("invite", d)
 
 
 
@@ -189,14 +233,13 @@ class Accepter(ProfileBase):
         # NEEDS-ACTION PARTSTAT.
         attendees = vevent.contents['vevent'][0].contents.get('attendee', [])
         for attendee in attendees:
-            if attendee.params[u'EMAIL'][0] == self._client.email[len('mailto:'):]:
+            if self._isSelfAttendee(attendee):
                 if attendee.params[u'PARTSTAT'][0] == 'NEEDS-ACTION':
                     # XXX Base this on something real
                     delay = self.random.gauss(10, 2)
                     self._accepting.add(href)
                     self._reactor.callLater(
                         delay, self._acceptInvitation, href, attendee)
-                    return
 
 
     def _acceptInvitation(self, href, attendee):
@@ -234,7 +277,7 @@ class Accepter(ProfileBase):
             self._accepting.remove(href)
             return passthrough
         d.addBoth(finished)
-        return d
+        return self._newOperation("accept", d)
 
 
     def _makeAcceptedAttendee(self, attendee):
@@ -315,4 +358,54 @@ END:VCALENDAR
 
             href = '%s%s.ics' % (
                 calendar.url, vevent.contents[u'uid'][0].value)
-            return self._client.addEvent(href, vcalendar)
+            d = self._client.addEvent(href, vcalendar)
+            return self._newOperation("create", d)
+
+
+class OperationLogger(SummarizingMixin):
+    """
+    Profiles will initiate operations which may span multiple requests.  Start
+    and stop log messages are emitted for these operations and logged by this
+    logger.
+    """
+    formats = {
+        u"start": u"%(user)s - - - - - - - - - - - %(label)8s BEGIN %(lag)s",
+        u"end"  : u"%(user)s - - - - - - - - - - - %(label)8s END [%(duration)5.2f s]",
+        }
+
+    lagFormat = u'{lag %5.2f ms}'
+
+    _fields = [
+        ('operation', 10, '%10s'),
+        ('count', 8, '%8s'),
+        ('failed', 8, '%8s'),
+        ('>3sec', 8, '%8s'),
+        ('mean', 8, '%8.4f'),
+        ('median', 8, '%8.4f'),
+        ]
+
+    def __init__(self):
+        self._perOperationTimes = {}
+
+
+    def observe(self, event):
+        if event.get("type") == "operation":
+            if event.get('lag') is None:
+                event['lag'] = ''
+            else:
+                event['lag'] = self.lagFormat % (event['lag'] * 1000.0,)
+            print (self.formats[event[u'phase']] % event).encode('utf-8')
+            if event[u'phase'] == u'end':
+                dataset = self._perOperationTimes.setdefault(event[u'label'], [])
+                dataset.append((event[u'success'], event[u'duration']))
+
+
+    def report(self):
+        print
+        self.printHeader([
+                (label, width)
+                for (label, width, fmt)
+                in self._fields])
+        self.printData(
+            [fmt for (label, width, fmt) in self._fields],
+            sorted(self._perOperationTimes.items()))

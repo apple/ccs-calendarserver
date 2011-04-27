@@ -30,6 +30,7 @@ from calendarserver.tools.util import getDirectory
 
 import hashlib
 import os, zlib, cPickle
+from txdav.caldav.datastore.index_file import db_basename
 
 
 
@@ -290,7 +291,11 @@ class UpgradeTests(TestCase):
             "calendars": {
                 "users": {
                     "wsanchez": {
-                        "calendar" : {},
+                        "calendar" : {
+                            db_basename : {
+                                "@contents": "",
+                            },
+                         },
                         "notifications": {
                             "sample-notification.xml": {
                                 "@contents":  "<?xml version='1.0'>\n<should-be-ignored />"
@@ -307,7 +312,11 @@ class UpgradeTests(TestCase):
                     "64" : {
                         "23" : {
                             "6423F94A-6B76-4A3A-815B-D52CFD77935D" : {
-                                "calendar": {},
+                                "calendar": {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
+                                },
                             }
                         }
                     }
@@ -342,6 +351,9 @@ class UpgradeTests(TestCase):
                     {
                         "calendar" :
                         {
+                            db_basename : {
+                                "@contents": "",
+                            },
                             "1E238CA1-3C95-4468-B8CD-C8A399F78C72.ics" :
                             {
                                 "@contents" : event01_before,
@@ -357,6 +369,9 @@ class UpgradeTests(TestCase):
                         },
                         "inbox" :
                         {
+                            db_basename : {
+                                "@contents": "",
+                            },
                             "@xattrs" :
                             {
                                 # Pickled XML Doc
@@ -371,6 +386,9 @@ class UpgradeTests(TestCase):
                     {
                         "calendar" :
                         {
+                            db_basename : {
+                                "@contents": "",
+                            },
                         },
                     },
                 },
@@ -407,6 +425,9 @@ class UpgradeTests(TestCase):
                             {
                                 "calendar" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "1E238CA1-3C95-4468-B8CD-C8A399F78C72.ics" :
                                     {
                                         "@contents" : event01_after,
@@ -422,6 +443,9 @@ class UpgradeTests(TestCase):
                                 },
                                 "inbox" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "@xattrs" :
                                     {
                                         freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?>\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"),
@@ -438,6 +462,9 @@ class UpgradeTests(TestCase):
                             {
                                 "calendar" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                 },
                             },
                         },
@@ -645,13 +672,16 @@ class UpgradeTests(TestCase):
                 "23" : {
                     "6423F94A-6B76-4A3A-815B-D52CFD77935D" : {
                         "calendar" : {
+                            db_basename : {
+                                "@contents": "",
+                            },
                         },
                         "garbage.ics" : {
                             "@contents": "Oops, not actually an ICS file.",
                         },
                         "other-file.txt": {
                             "@contents": "Also not a calendar collection."
-                        }
+                        },
                     }
                 }
             },
@@ -727,6 +757,122 @@ class UpgradeTests(TestCase):
 
 
     @inlineCallbacks
+    def test_calendarsUpgradeWithNestedCollections(self):
+        """
+        Unknown files, including .DS_Store files at any point in the hierarchy,
+        as well as non-directory in a user's calendar home, will be ignored and not
+        interrupt an upgrade.
+        """
+
+        self.setUpXMLDirectory()
+
+        beforeUIDContents = {
+            "64" : {
+                "23" : {
+                    "6423F94A-6B76-4A3A-815B-D52CFD77935D" : {
+                        "calendar" : {
+                            db_basename : {
+                                "@contents": "",
+                            },
+                        },
+                        "nested1": {
+                            "nested2": {},
+                        },
+                    }
+                }
+            },
+            ".DS_Store" : {
+                "@contents" : "",
+            }
+        }
+
+        afterUIDContents = {
+            "64" : {
+                "23" : {
+                    "6423F94A-6B76-4A3A-815B-D52CFD77935D" : {
+                        "calendar" : {
+                            db_basename : {
+                                "@contents": "",
+                            },
+                        },
+                        ".collection.nested1": {
+                            "nested2": {},
+                        },
+                    }
+                }
+            },
+            ".DS_Store" : {
+                "@contents" : "",
+            }
+        }
+
+        before = {
+            ".DS_Store" :
+            {
+                "@contents" : "",
+            },
+            "calendars" :
+            {
+                ".DS_Store" :
+                {
+                    "@contents" : "",
+                },
+                "__uids__" :beforeUIDContents,
+            },
+            "principals" :
+            {
+                ".DS_Store" :
+                {
+                    "@contents" : "",
+                },
+                OLDPROXYFILE :
+                {
+                    "@contents" : "",
+                }
+            }
+        }
+
+        after = {
+            ".DS_Store" :
+            {
+                "@contents" : "",
+            },
+            "tasks" :
+            {
+                "incoming" :
+                {
+                },
+            },
+            ".calendarserver_version" :
+            {
+                "@contents" : "2",
+            },
+            "calendars" :
+            {
+                ".DS_Store" :
+                {
+                    "@contents" : "",
+                },
+                "__uids__" : afterUIDContents,
+            },
+            NEWPROXYFILE :
+            {
+                "@contents" : None,
+            },
+            MailGatewayTokensDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
+            {
+                "@contents" : None
+            },
+        }
+
+        (yield self.verifyDirectoryComparison(before, after, reverify=True))
+
+
+    @inlineCallbacks
     def test_calendarsUpgradeWithUIDs(self):
         """
         Verify that calendar homes in the /calendars/__uids__/<guid>/ form
@@ -744,6 +890,9 @@ class UpgradeTests(TestCase):
                     {
                         "calendar" :
                         {
+                            db_basename : {
+                                "@contents": "",
+                            },
                             "1E238CA1-3C95-4468-B8CD-C8A399F78C72.ics" :
                             {
                                 "@contents" : event01_before,
@@ -751,6 +900,9 @@ class UpgradeTests(TestCase):
                         },
                         "inbox" :
                         {
+                            db_basename : {
+                                "@contents": "",
+                            },
                             "@xattrs" :
                             {
                                 # Plain XML
@@ -792,6 +944,9 @@ class UpgradeTests(TestCase):
                             {
                                 "calendar" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "1E238CA1-3C95-4468-B8CD-C8A399F78C72.ics" :
                                     {
                                         "@contents" : event01_after,
@@ -803,6 +958,9 @@ class UpgradeTests(TestCase):
                                 },
                                 "inbox" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "@xattrs" :
                                     {
                                         freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?>\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"),
@@ -852,6 +1010,9 @@ class UpgradeTests(TestCase):
                             {
                                 "calendar" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "1E238CA1-3C95-4468-B8CD-C8A399F78C72.ics" :
                                     {
                                         "@contents" : event01_before,
@@ -868,6 +1029,9 @@ class UpgradeTests(TestCase):
                                 },
                                 "inbox" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "@xattrs" :
                                     {
                                         # Zlib compressed XML
@@ -908,6 +1072,9 @@ class UpgradeTests(TestCase):
                             {
                                 "calendar" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "1E238CA1-3C95-4468-B8CD-C8A399F78C72.ics" :
                                     {
                                         "@contents" : event01_after,
@@ -924,6 +1091,9 @@ class UpgradeTests(TestCase):
                                 },
                                 "inbox" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "@xattrs" :
                                     {
                                         freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?>\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"),
@@ -972,6 +1142,9 @@ class UpgradeTests(TestCase):
                             {
                                 "calendar" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "1E238CA1-3C95-4468-B8CD-C8A399F78C72.ics" :
                                     {
                                         "@contents" : event01_after,
@@ -988,6 +1161,9 @@ class UpgradeTests(TestCase):
                                 },
                                 "inbox" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "@xattrs" :
                                     {
                                         # Zlib compressed XML
@@ -1028,6 +1204,9 @@ class UpgradeTests(TestCase):
                             {
                                 "calendar" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "1E238CA1-3C95-4468-B8CD-C8A399F78C72.ics" :
                                     {
                                         "@contents" : event01_after,
@@ -1044,6 +1223,9 @@ class UpgradeTests(TestCase):
                                 },
                                 "inbox" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "@xattrs" :
                                     {
                                         freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>\r\n"),
@@ -1093,6 +1275,9 @@ class UpgradeTests(TestCase):
                             {
                                 "calendar" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "1E238CA1-3C95-4468-B8CD-C8A399F78C72.ics" :
                                     {
                                         "@contents" : event01_before,
@@ -1133,6 +1318,9 @@ class UpgradeTests(TestCase):
                             {
                                 "calendar" :
                                 {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
                                     "1E238CA1-3C95-4468-B8CD-C8A399F78C72.ics" :
                                     {
                                         "@contents" : event01_after,

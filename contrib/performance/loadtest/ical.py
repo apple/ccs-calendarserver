@@ -19,6 +19,7 @@ from uuid import uuid4
 from operator import getitem
 from pprint import pformat
 from datetime import datetime
+from urlparse import urlparse, urlunparse
 
 from xml.etree import ElementTree
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
@@ -196,17 +197,14 @@ class SnowLeopard(BaseClient):
             # not both.
             after = self.reactor.seconds()
 
-            # XXX If the response code is wrong, there's probably not
-            # point passing the response down the callback chain.
-            # errback?
             success = response.code == expectedResponseCode
 
             # if not success:
             #     import pdb; pdb.set_trace()
             msg(
                 type="response", success=success, method=method,
-                headers=headers, body=body,
-                duration=(after - before), url=url)
+                headers=headers, body=body, code=response.code,
+                user=self.user, duration=(after - before), url=url)
 
             if success:
                 return response
@@ -665,9 +663,22 @@ class SnowLeopard(BaseClient):
 
 
 class RequestLogger(object):
+    format = u"%(user)s request %(code)s%(success)s[%(duration)5.2f s] %(method)8s %(url)s"
+    success = u"\N{CHECK MARK}"
+    failure = u"\N{BALLOT X}"
+
     def observe(self, event):
-        if event.get("type") == "request":
-            print event["user"], event["method"], event["url"]
+        if event.get("type") == "response":
+            event['url'] = urlunparse(('', '') + urlparse(event['url'])[2:])
+            if event['success']:
+                event['success'] = self.success
+            else:
+                event['success'] = self.failure
+            print (self.format % event).encode('utf-8')
+
+
+    def report(self):
+        pass
 
 
     

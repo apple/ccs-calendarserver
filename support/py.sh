@@ -48,7 +48,7 @@ try_python () {
 # Detect which version of Python to use, then print out which one was detected.
 
 detect_python_version () {
-  for v in "" "2.6" "2.5"
+  for v in "2.7" "2.6" "2.5" ""
   do
     for p in								\
       "${PYTHON:=}"							\
@@ -120,12 +120,12 @@ py_have_module () {
 # Compare version numbers
 
 cmp_version () {
-  local result=0;
-
   local  v="$1"; shift;
   local mv="$1"; shift;
 
-  while [ $result != 1 ]; do
+  local result;
+
+  while true; do
      vh="${v%%.*}"; # Get highest-order segment
     mvh="${mv%%.*}";
 
@@ -134,8 +134,14 @@ cmp_version () {
       break;
     fi;
 
+    if [ "${vh}" -lt "${mvh}" ]; then
+      result=0;
+      break;
+    fi;
+
     if [ "${v}" == "${v#*.}" ]; then
       # No dots left, so we're ok
+      result=0;
       break;
     fi;
 

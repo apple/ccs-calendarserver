@@ -114,12 +114,20 @@ class Server(object):
                     self.thisServer = parsed_uri.port in (config.SSLPort,) + tuple(config.BindSSLPorts)
         
         # Need to cache IP addresses
-        _ignore_host, _ignore_aliases, ips = socket.gethostbyname_ex(parsed_uri.hostname)
+        try:
+            _ignore_host, _ignore_aliases, ips = socket.gethostbyname_ex(parsed_uri.hostname)
+        except socket.gaierror, e:
+            log.error("Unable to lookup ip-addr for server '%s': %s" % (parsed_uri.hostname, str(e)))
+            ips = ()
         self.ips = set(ips)
 
         for uri in self.partitions.values():
             parsed_uri = urlparse.urlparse(uri)
-            _ignore_host, _ignore_aliases, ips = socket.gethostbyname_ex(parsed_uri.hostname)
+            try:
+                _ignore_host, _ignore_aliases, ips = socket.gethostbyname_ex(parsed_uri.hostname)
+            except socket.gaierror, e:
+                log.error("Unable to lookup ip-addr for partition '%s': %s" % (parsed_uri.hostname, str(e)))
+                ips = ()
             self.partitions_ips.update(ips)
     
     def checkThisIP(self, ip):

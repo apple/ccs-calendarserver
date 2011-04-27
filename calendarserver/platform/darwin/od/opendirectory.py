@@ -23,6 +23,22 @@ import objc
 import dsattributes
 import base64
 from twext.python.log import Logger
+import Foundation
+
+
+def autoPooled(f):
+    """
+    A decorator which creates an autorelease pool and deletes it, causing it
+    to drain
+    """
+    def autoPooledFunction(*args, **kwds):
+        pool = Foundation.NSAutoreleasePool.alloc().init()
+        try:
+            return f(*args, **kwds)
+        finally:
+            del pool
+    return autoPooledFunction
+
 
 log = Logger()
 
@@ -136,6 +152,7 @@ def attributeNamesFromList(attributes):
     return names, encodings
 
 
+@autoPooled
 def odInit(nodeName):
     """
     Create an Open Directory object to operate on the specified directory service node name.
@@ -167,6 +184,7 @@ def odInit(nodeName):
 
 
 
+@autoPooled
 def getNodeAttributes(directory, nodeName, attributes):
     """
     Return key attributes for the specified directory node. The attributes
@@ -198,6 +216,7 @@ def getNodeAttributes(directory, nodeName, attributes):
     raise ODError(error)
 
 
+@autoPooled
 def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0):
     """
     List records in Open Directory, and return key attributes for each one.
@@ -212,7 +231,6 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
         for each record found, or C{None} otherwise.
     """
     results = []
-
     attributeNames, encodings = attributeNamesFromList(attributes)
 
     tries = NUM_TRIES
@@ -246,6 +264,8 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
     log.error(error)
     raise ODError(error)
 
+
+@autoPooled
 def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, recordType, attributes, count=0):
     """
     List records in Open Directory matching specified attribute/value, and return key attributes for each one.
@@ -263,9 +283,7 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
     @return: C{list} containing a C{list} of C{str} (record name) and C{dict} attributes
         for each record found, or C{None} otherwise.
     """
-
     results = []
-
     attributeNames, encodings = attributeNamesFromList(attributes)
 
     tries = NUM_TRIES
@@ -301,6 +319,7 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
     raise ODError(error)
 
 
+@autoPooled
 def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attributes, count=0):
     """
     List records in Open Directory matching specified criteria, and return key attributes for each one.
@@ -385,6 +404,7 @@ def getUserRecord(directory, user):
     raise ODError(error)
 
 
+@autoPooled
 def authenticateUserBasic(directory, nodeName, user, password):
     """
     Authenticate a user with a password to Open Directory.
@@ -428,6 +448,7 @@ def authenticateUserBasic(directory, nodeName, user, password):
     raise ODError(error)
 
 
+@autoPooled
 def authenticateUserDigest(directory, nodeName, user, challenge, response, method):
     """
     Authenticate using HTTP Digest credentials to Open Directory.

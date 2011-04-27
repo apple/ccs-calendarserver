@@ -120,15 +120,34 @@ def getid(uid, gid):
     return (uid, gid)
 
 
-PARENT_ENVIRONMENT = {
-    "PATH": os.environ.get("PATH", ""),
-    "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
-    "LD_LIBRARY_PATH": os.environ.get("LD_LIBRARY_PATH", ""),
-    "DYLD_LIBRARY_PATH": os.environ.get("DYLD_LIBRARY_PATH", ""),
-}
 
-if "KRB5_KTNAME" in os.environ:
-    PARENT_ENVIRONMENT["KRB5_KTNAME"] = os.environ["KRB5_KTNAME"]
+def _computeEnvVars(parent):
+    """
+    Compute environment variables to be propagated to child processes.
+    """
+    result = {}
+    requiredVars = [
+        "PATH",
+        "PYTHONPATH",
+        "LD_LIBRARY_PATH",
+        "DYLD_LIBRARY_PATH",
+    ]
+
+    optionalVars = [
+        "KRB5_KTNAME",
+        "ORACLE_HOME",
+    ]
+
+    for varname in requiredVars:
+        result[varname] = parent.get(varname, "")
+    for varname in optionalVars:
+        if varname in parent:
+            result[varname] = parent[varname]
+    return result
+
+PARENT_ENVIRONMENT = _computeEnvVars(os.environ)
+
+
 
 class CalDAVStatisticsProtocol (Protocol):
 

@@ -99,7 +99,13 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
     def execute(self, sql, args=()):
         realArgs = []
         for arg in args:
-            if isinstance(arg, (str, unicode)) and len(arg) > 1024:
+            if isinstance(arg, str):
+                # We use NCLOB everywhere, so cx_Oracle requires a unicode-type
+                # input.  But we mostly pass around utf-8 encoded bytes at the
+                # application layer as they consume less memory, so do the
+                # conversion here.
+                arg = arg.decode('utf-8')
+            if isinstance(arg, unicode) and len(arg) > 1024:
                 # This *may* cause a type mismatch, but none of the non-CLOB
                 # strings that we're passing would allow a value this large
                 # anyway.  Smaller strings will be automatically converted by
@@ -107,7 +113,7 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
                 # sure why cx_Oracle itself doesn't just do the following hack
                 # automatically and internally for larger values too, but, here
                 # it is:
-                v = self.var(cx_Oracle.CLOB, len(arg) + 1)
+                v = self.var(cx_Oracle.NCLOB, len(arg) + 1)
                 v.setvalue(0, arg)
             else:
                 v = arg
