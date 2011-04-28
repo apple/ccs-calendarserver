@@ -327,7 +327,6 @@ class UpgradeTests(TestCase):
             },
             MailGatewayTokensDatabase.dbFilename : { "@contents" : None },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) : { "@contents" : None },
-            "tasks" : {"incoming" : {}}
         }
 
         (yield self.verifyDirectoryComparison(before, after))
@@ -403,12 +402,6 @@ class UpgradeTests(TestCase):
         }
 
         after = {
-            "tasks" :
-            {
-                "incoming" :
-                {
-                },
-            },
             ".calendarserver_version" :
             {
                 "@contents" : "2",
@@ -532,12 +525,6 @@ class UpgradeTests(TestCase):
                 {
                 },
             },
-            "tasks" :
-            {
-                "incoming" :
-                {
-                },
-            },
             ".calendarserver_version" :
             {
                 "@contents" : "2",
@@ -621,12 +608,6 @@ class UpgradeTests(TestCase):
                 {
                 },
                 "unknowngroup.1" :
-                {
-                },
-            },
-            "tasks" :
-            {
-                "incoming" :
                 {
                 },
             },
@@ -720,12 +701,6 @@ class UpgradeTests(TestCase):
             ".DS_Store" :
             {
                 "@contents" : "",
-            },
-            "tasks" :
-            {
-                "incoming" :
-                {
-                },
             },
             ".calendarserver_version" :
             {
@@ -837,12 +812,6 @@ class UpgradeTests(TestCase):
             {
                 "@contents" : "",
             },
-            "tasks" :
-            {
-                "incoming" :
-                {
-                },
-            },
             ".calendarserver_version" :
             {
                 "@contents" : "2",
@@ -922,12 +891,6 @@ class UpgradeTests(TestCase):
         }
 
         after = {
-            "tasks" :
-            {
-                "incoming" :
-                {
-                },
-            },
             ".calendarserver_version" :
             {
                 "@contents" : "2",
@@ -1050,12 +1013,6 @@ class UpgradeTests(TestCase):
         }
 
         after = {
-            "tasks" :
-            {
-                "incoming" :
-                {
-                },
-            },
             ".calendarserver_version" :
             {
                 "@contents" : "2",
@@ -1182,12 +1139,6 @@ class UpgradeTests(TestCase):
         }
 
         after = {
-            "tasks" :
-            {
-                "incoming" :
-                {
-                },
-            },
             ".calendarserver_version" :
             {
                 "@contents" : "2",
@@ -1300,12 +1251,6 @@ class UpgradeTests(TestCase):
 
 
         after = {
-            "tasks" :
-            {
-                "incoming" :
-                {
-                },
-            },
             "calendars" :
             {
                 "__uids__" :
