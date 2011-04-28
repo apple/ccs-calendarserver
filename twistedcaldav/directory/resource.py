@@ -30,7 +30,7 @@ class DirectoryReverseProxyResource(ReverseProxyResource):
         self.parent = parent
         self.record = record
         
-        super(DirectoryReverseProxyResource, self).__init__(self.record.hostedAt)
+        super(DirectoryReverseProxyResource, self).__init__(self.record.partitionID)
     
     def url(self):
         return joinURL(self.parent.url(), self.record.uid)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,13 +57,15 @@ ACTION is one of add|modify|remove|print
                       help="OD GUID to manipulate", metavar="UID")
     parser.add_option("-i", "--uidfile", dest="uidfile",
                       help="File containing a list of GUIDs to manipulate", metavar="UIDFILE")
-    parser.add_option("-n", "--node", dest="node",
-                      help="Partition node to assign to UID", metavar="NODE")
+    parser.add_option("-s", "--server", dest="serverID",
+                      help="Server id to assign to UID", metavar="SERVER")
+    parser.add_option("-p", "--partition", dest="partitionID",
+                      help="Partition id to assign to UID", metavar="PARTITION")
     parser.add_option("-c", "--enable-calendar", action="store_true", dest="enable_calendar",
                       default=True, help="Enable calendaring for this UID: %default")
     parser.add_option("-a", "--enable-addressbooks", action="store_true", dest="enable_addressbook",
                       default=True, help="Enable calendaring for this UID: %default")
-    parser.add_option("-s", "--auto-schedule", action="store_true", dest="auto_schedule",
+    parser.add_option("-x", "--auto-schedule", action="store_true", dest="auto_schedule",
                       default=False, help="Enable auto-schedule for this UID: %default")
 
     (options, args) = parser.parse_args()
@@ -104,7 +106,8 @@ def makeRecord(uid, options):
     return AugmentRecord(
         uid = uid,
         enabled = True,
-        hostedAt = options.node,
+        serverID = options.serverID,
+        partitionID = options.partitionID,
         enabledForCalendaring = options.enable_calendar,
         enabledForAddressBooks = options.enable_addressbook,
         autoSchedule = options.auto_schedule,
@@ -125,8 +128,6 @@ def run(parser, options, args):
                     uids.append(line[:-1])
             
         if args[0] == "add":
-            if not options.node:
-                parser.error("Partition node must be specified when adding")
             yield augment.AugmentService.addAugmentRecords([makeRecord(uid, options) for uid in uids])
             for uid in uids:
                 print "Added uid '%s' to augment database" % (uid,)

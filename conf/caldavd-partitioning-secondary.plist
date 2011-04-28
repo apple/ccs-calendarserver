@@ -20,18 +20,18 @@
 <plist version="1.0">
   <dict>
 
-    <!--  Partitioning -->
-    <key>Partitioning</key>
+    <!--  Servers -->
+    <key>Servers</key>
     <dict>
 	    <key>Enabled</key>
 	    <true/>
-	    <key>ServerPartitionID</key>
-	    <string>00002</string>
-	    <key>PartitionConfigFile</key>
-	    <string>partitions.plist</string>
+	    <key>ConfigFile</key>
+	    <string>servers.xml</string>
 	    <key>MaxClients</key>
 	    <integer>5</integer>
 	</dict>
+    <key>ServerPartitionID</key>
+    <string>00002</string>
 
     <!-- PostgreSQL ProxyDB Service -->
     <key>ProxyDBService</key>

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@ ELEMENT_RECORD            = "record"
 
 ELEMENT_UID               = "uid"
 ELEMENT_ENABLE            = "enable"
-ELEMENT_HOSTEDAT          = "hosted-at"
+ELEMENT_SERVERID          = "server-id"
+ELEMENT_PARTITIONID       = "partition-id"
 ELEMENT_ENABLECALENDAR    = "enable-calendar"
 ELEMENT_ENABLEADDRESSBOOK = "enable-addressbook"
 ELEMENT_AUTOSCHEDULE      = "auto-schedule"
@@ -48,7 +49,8 @@ VALUE_FALSE               = "false"
 ELEMENT_AUGMENTRECORD_MAP = {
     ELEMENT_UID:               "uid",
     ELEMENT_ENABLE:            "enabled",
-    ELEMENT_HOSTEDAT:          "hostedAt",
+    ELEMENT_SERVERID:          "serverID",
+    ELEMENT_PARTITIONID:       "partitionID",
     ELEMENT_ENABLECALENDAR:    "enabledForCalendaring",
     ELEMENT_ENABLEADDRESSBOOK: "enabledForAddressBooks",
     ELEMENT_AUTOSCHEDULE:      "autoSchedule",
@@ -91,7 +93,8 @@ class XMLAugmentsParser(object):
                 
                 if node.tag in (
                     ELEMENT_UID,
-                    ELEMENT_HOSTEDAT,
+                    ELEMENT_SERVERID,
+                    ELEMENT_PARTITIONID,
                 ):
                     fields[node.tag] = node.text if node.text else ""
                 elif node.tag in (

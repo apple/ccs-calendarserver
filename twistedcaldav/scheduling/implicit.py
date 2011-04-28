@@ -27,7 +27,7 @@ from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.ical import Property
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
-    LocalCalendarUser, PartitionedCalendarUser
+    LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser
 from twistedcaldav.scheduling.icaldiff import iCalDiff
 from twistedcaldav.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler
@@ -915,7 +915,7 @@ class ImplicitScheduler(object):
     def checkOrganizerScheduleAgent(self):
 
         is_server = self.calendar.getOrganizerScheduleAgent()
-        local_organizer = isinstance(self.organizerAddress, LocalCalendarUser)
+        local_organizer = type(self.organizerAddress) in (LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,)
 
         if config.Scheduling.iMIP.Enabled and self.organizerAddress.cuaddr.lower().startswith("mailto:"):
             return True
@@ -943,7 +943,7 @@ class ImplicitScheduler(object):
         calendar_resource, _ignore_name, _ignore_collection, _ignore_uri = (yield getCalendarObjectForPrincipals(self.request, self.organizerPrincipal, self.uid))
         if calendar_resource:
             self.organizer_calendar = (yield calendar_resource.iCalendarForUser(self.request))
-        elif isinstance(self.organizerAddress, PartitionedCalendarUser):
+        elif type(self.organizerAddress) in (PartitionedCalendarUser, OtherServerCalendarUser,):
             # For partitioning where the organizer is on a different node, we will assume that the attendee's copy
             # of the event is up to date and "authoritative". So we pretend that is the organizer copy
             self.organizer_calendar = self.oldcalendar

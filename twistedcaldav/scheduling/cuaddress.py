@@ -21,6 +21,7 @@ from twistedcaldav.scheduling.delivery import DeliveryService
 __all__ = [
     "LocalCalendarUser",
     "PartitionedCalendarUser",
+    "OtherServerCalendarUser",
     "RemoteCalendarUser",
     "EmailCalendarUser",
     "InvalidCalendarUser",
@@ -53,6 +54,15 @@ class PartitionedCalendarUser(CalendarUser):
 
     def __str__(self):
         return "Partitioned calendar user: %s" % (self.cuaddr,)
+
+class OtherServerCalendarUser(CalendarUser):
+    def __init__(self, cuaddr, principal):
+        self.cuaddr = cuaddr
+        self.principal = principal
+        self.serviceType = DeliveryService.serviceType_ischedule
+
+    def __str__(self):
+        return "Other server calendar user: %s" % (self.cuaddr,)
 
 class RemoteCalendarUser(CalendarUser):
     def __init__(self, cuaddr):
@@ -104,3 +114,15 @@ def normalizeCUAddr(addr):
         return addr.rstrip("/")
     else:
         return addr
+
+def calendarUserFromPrincipal(recipient, principal, inbox=None, inboxURL=None):
+    """
+    Get the appropriate calendar user address class for the provided principal.
+    """
+    
+    if principal.locallyHosted():
+        return LocalCalendarUser(recipient, principal, inbox, inboxURL)
+    elif principal.thisServer():
+        return PartitionedCalendarUser(recipient, principal)
+    else:
+        return OtherServerCalendarUser(recipient, principal)

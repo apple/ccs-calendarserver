@@ -16,12 +16,13 @@ limitations under the License.
 
 <!ELEMENT augments (record*) >
 
-  <!ELEMENT record (uid, enable, hosted-at?, enable-calendar?, enable-addressbook?, auto-schedule?)>
+  <!ELEMENT record (uid, enable, (server-id, partition-id?)?, enable-calendar?, enable-addressbook?, auto-schedule?)>
     <!ATTLIST record repeat CDATA "1">
 
   <!ELEMENT uid                (#PCDATA)>
   <!ELEMENT enable             (#PCDATA)>
-  <!ELEMENT hosted-at          (#PCDATA)>
+  <!ELEMENT server-id          (#PCDATA)>
+  <!ELEMENT partition-id       (#PCDATA)>
   <!ELEMENT enable-calendar    (#PCDATA)>
   <!ELEMENT enable-addressbook (#PCDATA)>
   <!ELEMENT auto-schedule      (#PCDATA)>

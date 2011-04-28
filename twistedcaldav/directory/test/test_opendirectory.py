@@ -322,6 +322,8 @@ else:
                             dsattributes.kDSNAttrRecordType : dsattributes.kDSStdRecordTypeGroups,
                         },
                     ),
+                    dsattributes.kDSStdRecordTypePlaces : (),
+                    dsattributes.kDSStdRecordTypeResources : (),
                 }
 
                 def attributeMatches(fieldValue, value, caseless, matchType):

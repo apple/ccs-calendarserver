@@ -22,6 +22,7 @@ from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider,\
     RELATIVE_PATHS
 from twistedcaldav.test.util import TestCase
+import socket
 
 testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -378,3 +379,194 @@ class ConfigTests(TestCase):
         # But attr syntax is OK
         configDict._x = "X"
         self.assertEquals(configDict._x, "X")
+
+    def test_SimpleInclude(self):
+
+        testConfigMaster = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <key>ResponseCompression</key>
+  <false/>
+
+  <key>ServerRoot</key>
+  <string></string>
+
+  <key>ConfigRoot</key>
+  <string></string>
+
+  <key>HTTPPort</key>
+  <integer>8008</integer>
+
+  <key>SSLPort</key>
+  <integer>8443</integer>
+
+  <key>DefaultLogLevel</key>
+  <string>info</string>
+  <key>LogLevels</key>
+  <dict>
+    <key>some.namespace</key>
+    <string>debug</string>
+  </dict>
+  
+  <key>Includes</key>
+  <array>
+      <string>%s</string>
+  </array>
+
+</dict>
+</plist>
+"""
+
+        testConfigInclude = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <key>HTTPPort</key>
+  <integer>9008</integer>
+
+</dict>
+</plist>
+"""
+
+        config.setProvider(PListConfigProvider(DEFAULT_CONFIG))
+
+        self.testInclude = self.mktemp()
+        open(self.testInclude, "w").write(testConfigInclude)
+
+        self.testMaster = self.mktemp()
+        open(self.testMaster, "w").write(testConfigMaster % (self.testInclude,))
+
+        config.load(self.testMaster)
+        self.assertEquals(config.HTTPPort, 9008)
+        self.assertEquals(config.SSLPort, 8443)
+
+    def test_FQDNInclude(self):
+
+        testConfigMaster = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <key>ResponseCompression</key>
+  <false/>
+
+  <key>ServerRoot</key>
+  <string></string>
+
+  <key>ConfigRoot</key>
+  <string></string>
+
+  <key>HTTPPort</key>
+  <integer>8008</integer>
+
+  <key>SSLPort</key>
+  <integer>8443</integer>
+
+  <key>DefaultLogLevel</key>
+  <string>info</string>
+  <key>LogLevels</key>
+  <dict>
+    <key>some.namespace</key>
+    <string>debug</string>
+  </dict>
+  
+  <key>Includes</key>
+  <array>
+      <string>%s.$</string>
+  </array>
+
+</dict>
+</plist>
+"""
+
+        testConfigInclude = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <key>HTTPPort</key>
+  <integer>9008</integer>
+
+</dict>
+</plist>
+"""
+
+        config.setProvider(PListConfigProvider(DEFAULT_CONFIG))
+
+        self.testIncludeRoot = self.mktemp()
+        self.testInclude = self.testIncludeRoot + "." + socket.getfqdn()
+        open(self.testInclude, "w").write(testConfigInclude)
+
+        self.testMaster = self.mktemp()
+        open(self.testMaster, "w").write(testConfigMaster % (self.testIncludeRoot,))
+
+        config.load(self.testMaster)
+        self.assertEquals(config.HTTPPort, 9008)
+        self.assertEquals(config.SSLPort, 8443)
+
+    def test_HostnameInclude(self):
+
+        testConfigMaster = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <key>ResponseCompression</key>
+  <false/>
+
+  <key>ServerRoot</key>
+  <string></string>
+
+  <key>ConfigRoot</key>
+  <string></string>
+
+  <key>HTTPPort</key>
+  <integer>8008</integer>
+
+  <key>SSLPort</key>
+  <integer>8443</integer>
+
+  <key>DefaultLogLevel</key>
+  <string>info</string>
+  <key>LogLevels</key>
+  <dict>
+    <key>some.namespace</key>
+    <string>debug</string>
+  </dict>
+  
+  <key>Includes</key>
+  <array>
+      <string>%s.#</string>
+  </array>
+
+</dict>
+</plist>
+"""
+
+        testConfigInclude = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <key>HTTPPort</key>
+  <integer>9008</integer>
+
+</dict>
+</plist>
+"""
+
+        config.setProvider(PListConfigProvider(DEFAULT_CONFIG))
+
+        self.testIncludeRoot = self.mktemp()
+        self.testInclude = self.testIncludeRoot + "." + socket.gethostbyname(socket.getfqdn())
+        open(self.testInclude, "w").write(testConfigInclude)
+
+        self.testMaster = self.mktemp()
+        open(self.testMaster, "w").write(testConfigMaster % (self.testIncludeRoot,))
+
+        config.load(self.testMaster)
+        self.assertEquals(config.HTTPPort, 9008)
+        self.assertEquals(config.SSLPort, 8443)

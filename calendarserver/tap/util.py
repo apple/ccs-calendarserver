@@ -519,6 +519,7 @@ def getRootResource(config, newStore, resources=None):
 
         ischedule = iScheduleResourceClass(
             root,
+            newStore,
         )
         root.putChild("ischedule", ischedule)
 

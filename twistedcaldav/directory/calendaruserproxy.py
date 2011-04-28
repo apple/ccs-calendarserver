@@ -797,11 +797,12 @@ class ProxyPostgreSQLDB(ADBAPIPostgreSQLMixin, ProxyDB):
     PostgreSQL based augment database implementation.
     """
 
-    def __init__(self, host, database, user=None, password=None):
+    def __init__(self, host, database, user=None, password=None, dbtype=None):
         
         ADBAPIPostgreSQLMixin.__init__(self, )
         ProxyDB.__init__(self, "Proxies", "pgdb", (), host=host, database=database, user=user, password=password,)
-
+        if dbtype:
+            ProxyDB.schema_type = dbtype
 
 ##
 # Utilities

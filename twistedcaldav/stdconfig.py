@@ -15,8 +15,10 @@
 # limitations under the License.
 ##
 
-import os
+from socket import getfqdn
+from socket import gethostbyname
 import copy
+import os
 import re
 
 from twext.web2.dav import davxml
@@ -29,7 +31,6 @@ from twext.python.log import clearLogLevels, setLogLevelForNamespace
 from twistedcaldav import caldavxml, customxml, carddavxml
 from twistedcaldav.config import ConfigProvider, ConfigurationError
 from twistedcaldav.config import config, _mergeData, fullServerPath
-from twistedcaldav.partitions import partitions
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 
@@ -120,6 +121,14 @@ DEFAULT_RESOURCE_PARAMS = {
         "xmlFile": "resources.xml",
         "recordTypes" : ("locations", "resources"),
     },
+    "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
+        "node": "/Search",
+        "cacheTimeout": 1,
+        "negativeCaching": False,
+        "restrictEnabledRecords": False,
+        "restrictToGroup": "",
+        "recordTypes" : ("locations", "resources"),
+    },
 }
 
 DEFAULT_AUGMENT_PARAMS = {
@@ -147,6 +156,7 @@ DEFAULT_PROXYDB_PARAMS = {
         "database": "proxies",
         "user":     "",
         "password": "",
+        "dbtype": "",
     },
 }
 
@@ -587,14 +597,14 @@ DEFAULT_CONFIG = {
     },
 
     #
-    # Partitioning
+    # Support multiple hosts within a domain
     #
-    "Partitioning" : {
-        "Enabled": False,                          # Partitioning enabled or not
-        "ServerPartitionID": "",                   # Unique ID for this server's partition instance.
-        "PartitionConfigFile": "partitions.plist", # File path for partition information
+    "Servers" : {
+        "Enabled": False,                          # Multiple servers/partitions enabled or not
+        "ConfigFile": "servers.xml",               # File path for server information
         "MaxClients": 5,                           # Pool size for connections to each partition
     },
+    "ServerPartitionID": "",                       # Unique ID for this server's partition instance.
 
     #
     # Performance tuning
@@ -758,10 +768,10 @@ class PListConfigProvider(ConfigProvider):
         if "Includes" in configDict:
             configRoot = os.path.join(configDict.ServerRoot, configDict.ConfigRoot)
             for include in configDict.Includes:
-
-                additionalDict = self._parseConfigFromFile(fullServerPath(configRoot, include))
+                path = _expandPath(fullServerPath(configRoot, include))
+                additionalDict = self._parseConfigFromFile(path)
                 if additionalDict:
-                    log.info("Adding configuration from file: '%s'" % (include,))
+                    log.info("Adding configuration from file: '%s'" % (path,))
                     configDict.update(additionalDict)
         return configDict
 
@@ -778,6 +788,13 @@ class PListConfigProvider(ConfigProvider):
             configDict = _cleanup(configDict, self._defaults)
         return configDict
 
+def _expandPath(path):
+    if '$' in path:
+        return path.replace('$', getfqdn())
+    elif '#' in path:
+        return path.replace('#', gethostbyname(getfqdn()))
+    else:
+        return path
 
 RELATIVE_PATHS = [
     ("ServerRoot", "DataRoot"),
@@ -849,7 +866,6 @@ def _updateDataStore(configDict):
 
 def _updateHostName(configDict):
     if not configDict.ServerHostName:
-        from socket import getfqdn
         hostname = getfqdn()
         if not hostname:
             hostname = "localhost"
@@ -880,6 +896,32 @@ def _postUpdateDirectoryService(configDict):
         for param in tuple(configDict.DirectoryService.params):
             if param not in DEFAULT_SERVICE_PARAMS[configDict.DirectoryService.type]:
                 del configDict.DirectoryService.params[param]
+
+def _preUpdateResourceService(configDict, items):
+    # Special handling for directory services configs
+    dsType = items.get("ResourceService", {}).get("type", None)
+    if dsType is None:
+        dsType = configDict.ResourceService.type
+    else:
+        if dsType == configDict.ResourceService.type:
+            oldParams = configDict.ResourceService.params
+            newParams = items.ResourceService.get("params", {})
+            _mergeData(oldParams, newParams)
+        else:
+            if dsType in DEFAULT_RESOURCE_PARAMS:
+                configDict.ResourceService.params = copy.deepcopy(DEFAULT_RESOURCE_PARAMS[dsType])
+            else:
+                configDict.ResourceService.params = {}
+
+    for param in items.get("ResourceService", {}).get("params", {}):
+        if dsType in DEFAULT_RESOURCE_PARAMS and param not in DEFAULT_RESOURCE_PARAMS[dsType]:
+            log.warn("Parameter %s is not supported by service %s" % (param, dsType))
+            
+def _postUpdateResourceService(configDict):
+    if configDict.ResourceService.type in DEFAULT_RESOURCE_PARAMS:
+        for param in tuple(configDict.ResourceService.params):
+            if param not in DEFAULT_RESOURCE_PARAMS[configDict.ResourceService.type]:
+                del configDict.ResourceService.params[param]
 
 
 def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items):
@@ -1116,14 +1158,16 @@ def _updateScheduling(configDict):
                     log.info("iMIP %s password not found in keychain" %
                         (direction,))
 
-def _updatePartitions(configDict):
-    if configDict.Partitioning.Enabled:
-        partitions.setSelfPartition(configDict.Partitioning.ServerPartitionID)
-        partitions.setMaxClients(configDict.Partitioning.MaxClients)
-        partitions.readConfig(fullServerPath(configDict.ConfigRoot, configDict.Partitioning.PartitionConfigFile))
-        partitions.installReverseProxies()
+def _updateServers(configDict):
+    import servers
+    if configDict.Servers.Enabled:
+        servers.Servers.load()
+        servers.Servers.getThisServer().installReverseProxies(
+            configDict.ServerPartitionID,
+            configDict.Servers.MaxClients,
+        )
     else:
-        partitions.clear()
+        servers.Servers.clear()
 
 def _updateCompliance(configDict):
 
@@ -1156,12 +1200,14 @@ def _updateCompliance(configDict):
 
 PRE_UPDATE_HOOKS = (
     _preUpdateDirectoryService,
+    _preUpdateResourceService,
     _preUpdateDirectoryAddressBookBackingDirectoryService,
     )
 POST_UPDATE_HOOKS = (
     _updateDataStore,
     _updateHostName,
     _postUpdateDirectoryService,
+    _postUpdateResourceService,
     _postUpdateAugmentService,
     _postUpdateProxyDBService,
     _updateACLs,
@@ -1169,7 +1215,7 @@ POST_UPDATE_HOOKS = (
     _updateLogLevels,
     _updateNotifications,
     _updateScheduling,
-    _updatePartitions,
+    _updateServers,
     _updateCompliance,
     )
     

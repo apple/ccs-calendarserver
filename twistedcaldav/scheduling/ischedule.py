@@ -42,8 +42,8 @@ from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServerRecord
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String
-from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser
-from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser
+from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser,\
+    OtherServerCalendarUser
 
 import OpenSSL
 
@@ -86,6 +86,8 @@ class ScheduleViaISchedule(DeliveryService):
                 server = servermgr.mapDomain(recipient.domain)
             elif isinstance(recipient, PartitionedCalendarUser):
                 server = self._getServerForPartitionedUser(recipient)
+            elif isinstance(recipient, OtherServerCalendarUser):
+                server = self._getServerForOtherServerUser(recipient)
             else:
                 assert False, "Incorrect calendar user address class"
             if not server:
@@ -132,12 +134,24 @@ class ScheduleViaISchedule(DeliveryService):
         if not hasattr(self, "partitionedServers"):
             self.partitionedServers = {}
             
-        partition = recipient.principal.hostedURL()
+        partition = recipient.principal.partitionURI()
         if partition not in self.partitionedServers:
             self.partitionedServers[partition] = IScheduleServerRecord(uri=joinURL(partition, "/ischedule"))
             self.partitionedServers[partition].unNormalizeAddresses = False
         
         return self.partitionedServers[partition]
+
+    def _getServerForOtherServerUser(self, recipient):
+        
+        if not hasattr(self, "otherServers"):
+            self.otherServers = {}
+            
+        serverURI = recipient.principal.serverURI()
+        if serverURI not in self.otherServers:
+            self.otherServers[serverURI] = IScheduleServerRecord(uri=joinURL(serverURI, "/ischedule"))
+            self.otherServers[serverURI].unNormalizeAddresses = not recipient.principal.server().isImplicit
+        
+        return self.otherServers[serverURI]
 
 class IScheduleRequest(object):
     
@@ -165,10 +179,10 @@ class IScheduleRequest(object):
                 proto = (yield ClientCreator(reactor, HTTPClientProtocol).connectTCP(self.server.host, self.server.port))
             
             request = ClientRequest("POST", self.server.path, self.headers, self.data)
-            yield log.logRequest("debug", "Sending server-to-server POST request:", request)
+            yield self.logRequest("debug", "Sending server-to-server POST request:", request)
             response = (yield proto.submitRequest(request))
     
-            yield log.logResponse("debug", "Received server-to-server POST response:", response)
+            yield self.logResponse("debug", "Received server-to-server POST response:", response)
             xml = (yield davXMLFromStream(response.stream))
     
             self._parseResponse(xml)
@@ -191,7 +205,7 @@ class IScheduleRequest(object):
 
         assert level in logLevels
 
-        if self.willLogAtLevel(level):
+        if log.willLogAtLevel(level):
             iostr = StringIO()
             iostr.write("%s\n" % (message,))
             if hasattr(request, "clientproto"):
@@ -217,7 +231,7 @@ class IScheduleRequest(object):
                 request.stream = MemoryStream(data if data is not None else "")
                 request.stream.doStartReading = None
             
-                self.emit(level, iostr.getvalue(), **kwargs)
+                log.emit(level, iostr.getvalue(), **kwargs)
 
             d = allDataFromStream(request.stream)
             d.addCallback(_gotData)
@@ -232,7 +246,7 @@ class IScheduleRequest(object):
         """
         assert level in logLevels
 
-        if self.willLogAtLevel(level):
+        if log.willLogAtLevel(level):
             iostr = StringIO()
             iostr.write("%s\n" % (message,))
             code_message = responsecode.RESPONSES.get(response.code, "Unknown Status")
@@ -255,7 +269,7 @@ class IScheduleRequest(object):
                 response.stream = MemoryStream(data if data is not None else "")
                 response.stream.doStartReading = None
             
-                self.emit(level, iostr.getvalue(), **kwargs)
+                log.emit(level, iostr.getvalue(), **kwargs)
                 
             d = allDataFromStream(response.stream)
             d.addCallback(_gotData)

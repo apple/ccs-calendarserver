@@ -81,8 +81,10 @@ class CommonUIDProvisioningResource(object):
         
         if record.locallyHosted():
             child = yield self.homeResourceCreator(record, transaction)
-        else:
+        elif record.thisServer():
             child = DirectoryReverseProxyResource(self, record)
+        else:
+            child = None # Use a redirect?
 
         returnValue(child)
 

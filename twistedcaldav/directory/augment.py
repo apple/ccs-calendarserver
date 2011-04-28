@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,14 +44,16 @@ class AugmentRecord(object):
         self,
         uid,
         enabled=False,
-        hostedAt="",
+        serverID="",
+        partitionID="",
         enabledForCalendaring=False,
         autoSchedule=False,
         enabledForAddressBooks=False,
     ):
         self.uid = uid
         self.enabled = enabled
-        self.hostedAt = hostedAt
+        self.serverID = serverID
+        self.partitionID = partitionID
         self.enabledForCalendaring = enabledForCalendaring
         self.enabledForAddressBooks = enabledForAddressBooks
         self.autoSchedule = autoSchedule
@@ -296,13 +298,7 @@ class AugmentXMLDB(AugmentDB):
 
             _ignore_etree, augments_node = newElementTreeWithRoot(xmlaugmentsparser.ELEMENT_AUGMENTS)
             for record in self.db.itervalues():
-                record_node = addSubElement(augments_node, xmlaugmentsparser.ELEMENT_RECORD)
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_UID, record.uid)
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_HOSTEDAT, record.hostedAt)
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true" if record.enabledForCalendaring else "false")
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true" if record.enabledForAddressBooks else "false")
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if record.autoSchedule else "false")
+                self._addRecordToXMLDB(record, augments_node)
 
 
             writeXML(xmlfile, augments_node)
@@ -328,13 +324,7 @@ class AugmentXMLDB(AugmentDB):
 
         # Create new record
         for record in records:
-            record_node = addSubElement(augments_node, xmlaugmentsparser.ELEMENT_RECORD)
-            addSubElement(record_node, xmlaugmentsparser.ELEMENT_UID, record.uid)
-            addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
-            addSubElement(record_node, xmlaugmentsparser.ELEMENT_HOSTEDAT, record.hostedAt)
-            addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true" if record.enabledForCalendaring else "false")
-            addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true" if record.enabledForAddressBooks else "false")
-            addSubElement(record_node, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if record.autoSchedule else "false")
+            self._addRecordToXMLDB(record, augments_node)
         
         # Modify xmlfile
         writeXML(xmlfile, augments_node)
@@ -360,16 +350,9 @@ class AugmentXMLDB(AugmentDB):
             if uid in recordMap:
                 # Modify record
                 record = recordMap[uid]
-                del record_node.getchildren()[:]
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_UID, record.uid)
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_HOSTEDAT, record.hostedAt)
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true" if record.enabledForCalendaring else "false")
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true" if record.enabledForAddressBooks else "false")
-                addSubElement(record_node, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if record.autoSchedule else "false")
+                self._updateRecordInXMLDB(record, record_node)
                 changed = True
-        
-        
+
         # Modify xmlfile
         if changed:
             writeXML(xmlfile, augments_node)
@@ -416,6 +399,21 @@ class AugmentXMLDB(AugmentDB):
         if changed:
             writeXML(xmlfile, augments_node)
         
+        
+    def _addRecordToXMLDB(self, record, parentNode):
+        record_node = addSubElement(parentNode, xmlaugmentsparser.ELEMENT_RECORD)
+        self._updateRecordInXMLDB(record, record_node)
+
+    def _updateRecordInXMLDB(self, record, recordNode):
+        del recordNode.getchildren()[:]
+        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_UID, record.uid)
+        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
+        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_SERVERID, record.serverID)
+        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_PARTITIONID, record.partitionID)
+        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true" if record.enabledForCalendaring else "false")
+        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true" if record.enabledForAddressBooks else "false")
+        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if record.autoSchedule else "false")
+
     def refresh(self):
         """
         Refresh any cached data.
@@ -499,9 +497,6 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
     def __init__(self, dbID, dbapiName, dbapiArgs, **kwargs):
         
         AugmentDB.__init__(self)
-        self.cachedPartitions = {}
-        self.cachedHostedAt = {}
-        
         AbstractADBAPIDatabase.__init__(self, dbID, dbapiName, dbapiArgs, True, **kwargs)
         
     @inlineCallbacks
@@ -528,16 +523,17 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
         """
         
         # Query for the record information
-        results = (yield self.query("select UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE from AUGMENTS where UID = :1", (uid,)))
+        results = (yield self.query("select UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE from AUGMENTS where UID = :1", (uid,)))
         if not results:
             returnValue(None)
         else:
-            uid, enabled, partitionid, enabledForCalendaring, enabledForAddressBooks, autoSchedule = results[0]
+            uid, enabled, serverid, partitionid, enabledForCalendaring, enabledForAddressBooks, autoSchedule = results[0]
             
             record = AugmentRecord(
                 uid = uid,
                 enabled = enabled == "T",
-                hostedAt = (yield self._getPartition(partitionid)),
+                serverID = serverid,
+                partitionID = partitionid,
                 enabledForCalendaring = enabledForCalendaring == "T",
                 enabledForAddressBooks = enabledForAddressBooks == "T",
                 autoSchedule = autoSchedule == "T",
@@ -571,35 +567,6 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
 
         return self.execute("delete from AUGMENTS", ())
         
-    @inlineCallbacks
-    def _getPartitionID(self, hostedat, createIfMissing=True):
-        
-        # We will use a cache for these as we do not expect changes whilst running
-        try:
-            returnValue(self.cachedHostedAt[hostedat])
-        except KeyError:
-            pass
-
-        partitionid = (yield self.queryOne("select PARTITIONID from PARTITIONS where HOSTEDAT = :1", (hostedat,)))
-        if partitionid == None:
-            yield self.execute("insert into PARTITIONS (HOSTEDAT) values (:1)", (hostedat,))
-            partitionid = (yield self.queryOne("select PARTITIONID from PARTITIONS where HOSTEDAT = :1", (hostedat,)))
-        self.cachedHostedAt[hostedat] = partitionid
-        returnValue(partitionid)
-
-    @inlineCallbacks
-    def _getPartition(self, partitionid):
-        
-        # We will use a cache for these as we do not expect changes whilst running
-        try:
-            returnValue(self.cachedPartitions[partitionid])
-        except KeyError:
-            pass
-
-        partition = (yield self.queryOne("select HOSTEDAT from PARTITIONS where PARTITIONID = :1", (partitionid,)))
-        self.cachedPartitions[partitionid] = partition
-        returnValue(partition)
-
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
@@ -626,6 +593,7 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
             (
                 ("UID",          "text unique"),
                 ("ENABLED",      "text(1)"),
+                ("SERVERID",     "text"),
                 ("PARTITIONID",  "text"),
                 ("CALENDARING",  "text(1)"),
                 ("ADDRESSBOOKS", "text(1)"),
@@ -634,19 +602,9 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
             ifnotexists=True,
         )
 
-        yield self._create_table(
-            "PARTITIONS",
-            (
-                ("PARTITIONID",   "serial"),
-                ("HOSTEDAT",      "text"),
-            ),
-            ifnotexists=True,
-        )
-
     @inlineCallbacks
     def _db_empty_data_tables(self):
         yield self._db_execute("delete from AUGMENTS")
-        yield self._db_execute("delete from PARTITIONS")
 
 class AugmentSqliteDB(ADBAPISqliteMixin, AugmentADAPI):
     """
@@ -660,15 +618,15 @@ class AugmentSqliteDB(ADBAPISqliteMixin, AugmentADAPI):
 
     @inlineCallbacks
     def _addRecord(self, record):
-        partitionid = (yield self._getPartitionID(record.hostedAt))
         yield self.execute(
             """insert or replace into AUGMENTS
-            (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
-            values (:1, :2, :3, :4, :5, :6)""",
+            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
+            values (:1, :2, :3, :4, :5, :6, :7)""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
-                partitionid,
+                record.serverID,
+                record.partitionID,
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
                 "T" if record.autoSchedule else "F",
@@ -690,15 +648,15 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
 
     @inlineCallbacks
     def _addRecord(self, record):
-        partitionid = (yield self._getPartitionID(record.hostedAt))
         yield self.execute(
             """insert into AUGMENTS
-            (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
-            values (:1, :2, :3, :4, :5, :6)""",
+            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
+            values (:1, :2, :3, :4, :5, :6, :7)""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
-                partitionid,
+                record.serverID,
+                record.partitionID,
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
                 "T" if record.autoSchedule else "F",
@@ -707,15 +665,15 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
 
     @inlineCallbacks
     def _modifyRecord(self, record):
-        partitionid = (yield self._getPartitionID(record.hostedAt))
         yield self.execute(
             """update AUGMENTS set
-            (UID, ENABLED, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE) =
-            (:1, :2, :3, :4, :5, :6) where UID = :7""",
+            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE) =
+            (:1, :2, :3, :4, :5, :6, :7) where UID = :8""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
-                partitionid,
+                record.serverID,
+                record.partitionID,
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
                 "T" if record.autoSchedule else "F",

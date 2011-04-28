@@ -325,6 +325,8 @@ class OpenDirectoryService(CachingDirectoryService):
             'appliesTo' : set([
                 dsattributes.kDSStdRecordTypeUsers,
                 dsattributes.kDSStdRecordTypeGroups,
+                dsattributes.kDSStdRecordTypeResources,
+                dsattributes.kDSStdRecordTypePlaces,
             ]),
         },
         'firstName' : {
@@ -351,6 +353,8 @@ class OpenDirectoryService(CachingDirectoryService):
             'appliesTo' : set([
                 dsattributes.kDSStdRecordTypeUsers,
                 dsattributes.kDSStdRecordTypeGroups,
+                dsattributes.kDSStdRecordTypeResources,
+                dsattributes.kDSStdRecordTypePlaces,
             ]),
         },
         'guid' : {
@@ -358,6 +362,8 @@ class OpenDirectoryService(CachingDirectoryService):
             'appliesTo' : set([
                 dsattributes.kDSStdRecordTypeUsers,
                 dsattributes.kDSStdRecordTypeGroups,
+                dsattributes.kDSStdRecordTypeResources,
+                dsattributes.kDSStdRecordTypePlaces,
             ]),
         },
     }
@@ -367,6 +373,10 @@ class OpenDirectoryService(CachingDirectoryService):
             dsattributes.kDSStdRecordTypeUsers,
         DirectoryService.recordType_groups :
             dsattributes.kDSStdRecordTypeGroups,
+        DirectoryService.recordType_resources :
+            dsattributes.kDSStdRecordTypeResources,
+        DirectoryService.recordType_locations :
+            dsattributes.kDSStdRecordTypePlaces,
     }
 
     _fromODRecordTypes = dict([(b, a) for a, b in _toODRecordTypes.iteritems()])
@@ -605,7 +615,16 @@ class OpenDirectoryService(CachingDirectoryService):
             ]
 
             if recordType == DirectoryService.recordType_users:
-                listRecordTypes = [dsattributes.kDSStdRecordTypeUsers]
+                listRecordTypes = [self._toODRecordTypes[recordType]]
+
+            elif recordType in (
+                DirectoryService.recordType_resources,
+                DirectoryService.recordType_locations,
+            ):
+                if queryattr == dsattributes.kDSNAttrEMailAddress:
+                    continue
+
+                listRecordTypes = [self._toODRecordTypes[recordType]]
 
             elif recordType == DirectoryService.recordType_groups:
 

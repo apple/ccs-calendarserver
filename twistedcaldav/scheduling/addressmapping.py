@@ -24,9 +24,8 @@ from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.imip import ScheduleViaIMip
 from twistedcaldav.scheduling.ischedule import ScheduleViaISchedule
-from twistedcaldav.scheduling.cuaddress import LocalCalendarUser,\
-    RemoteCalendarUser, EmailCalendarUser, InvalidCalendarUser,\
-    PartitionedCalendarUser
+from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser, EmailCalendarUser, InvalidCalendarUser,\
+    calendarUserFromPrincipal
 
 __all__ = [
     "ScheduleAddressMapper",
@@ -54,7 +53,7 @@ class ScheduleAddressMapper(object):
         
         # If we have a principal always treat the user as local or partitioned
         if principal:
-            returnValue(LocalCalendarUser(cuaddr, principal) if principal.locallyHosted() else PartitionedCalendarUser(cuaddr, principal))
+            returnValue(calendarUserFromPrincipal(cuaddr, principal))
 
         # Get the type
         cuaddr_type = (yield self.getCalendarUserServiceType(cuaddr))

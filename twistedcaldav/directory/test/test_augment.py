@@ -28,41 +28,41 @@ xmlFile = os.path.join(os.path.dirname(__file__), "augments-test.xml")
 xmlFileDefault = os.path.join(os.path.dirname(__file__), "augments-test-default.xml")
 
 testRecords = (
-    {"uid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
-    {"uid":"6423F94A-6B76-4A3A-815B-D52CFD77935D", "enabled":True,  "hostedAt":"", "enabledForCalendaring":True, "enabledForAddressBooks":True, "autoSchedule":False},
-    {"uid":"5A985493-EE2C-4665-94CF-4DFEA3A89500", "enabled":False, "hostedAt":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
-    {"uid":"8B4288F6-CC82-491D-8EF9-642EF4F3E7D0", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
-    {"uid":"5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
-    {"uid":"543D28BA-F74F-4D5F-9243-B3E3A61171E5", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
-    {"uid":"6A73326A-F781-47E7-A9F8-AF47364D4152", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":True, "enabledForAddressBooks":True, "autoSchedule":True},
+    {"uid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "enabled":True,  "partitionID":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"6423F94A-6B76-4A3A-815B-D52CFD77935D", "enabled":True,  "partitionID":"", "enabledForCalendaring":True, "enabledForAddressBooks":True, "autoSchedule":False},
+    {"uid":"5A985493-EE2C-4665-94CF-4DFEA3A89500", "enabled":False, "partitionID":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"8B4288F6-CC82-491D-8EF9-642EF4F3E7D0", "enabled":True,  "partitionID":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1", "enabled":True,  "partitionID":"00001", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"543D28BA-F74F-4D5F-9243-B3E3A61171E5", "enabled":True,  "partitionID":"00002", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"6A73326A-F781-47E7-A9F8-AF47364D4152", "enabled":True,  "partitionID":"00002", "enabledForCalendaring":True, "enabledForAddressBooks":True, "autoSchedule":True},
 )
 
 testRecordWildcardDefault = (
-    {"uid":"A4318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":False},
-    {"uid":"AA5F935F-3358-4510-A649-B391D63279F2", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
-    {"uid":"ABF1A83B-1A29-4E04-BDC3-A6A66ECF27CA", "enabled":False, "hostedAt":"",      "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
-    {"uid":"BC22A734-5E41-4FB7-B5C1-51DC0656DC2F", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":False},
-    {"uid":"C6DEEBB1-E14A-47F2-98BA-7E3BB4353E3A", "enabled":True,  "hostedAt":"00003", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":True },
-    {"uid":"AA859321-2C72-4974-ADCF-0CBA0C76F95D", "enabled":True,  "hostedAt":"00001", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
-    {"uid":"AB7C488B-9ED2-4265-881C-7E2E38A63584", "enabled":False, "hostedAt":"",      "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
-    {"uid":"BB0C0DA1-0545-45F6-8D08-917C554D93A4", "enabled":True,  "hostedAt":"00002", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":False},
-    {"uid":"CCD30AD3-582F-4682-8B65-2EDE92C5656E", "enabled":True,  "hostedAt":"00003", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":True },
+    {"uid":"A4318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "partitionID":"00001", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":False},
+    {"uid":"AA5F935F-3358-4510-A649-B391D63279F2", "enabled":True,  "partitionID":"00001", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"ABF1A83B-1A29-4E04-BDC3-A6A66ECF27CA", "enabled":False, "partitionID":"",      "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"BC22A734-5E41-4FB7-B5C1-51DC0656DC2F", "enabled":True,  "partitionID":"00002", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":False},
+    {"uid":"C6DEEBB1-E14A-47F2-98BA-7E3BB4353E3A", "enabled":True,  "partitionID":"00003", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":True },
+    {"uid":"AA859321-2C72-4974-ADCF-0CBA0C76F95D", "enabled":True,  "partitionID":"00001", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"AB7C488B-9ED2-4265-881C-7E2E38A63584", "enabled":False, "partitionID":"",      "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"BB0C0DA1-0545-45F6-8D08-917C554D93A4", "enabled":True,  "partitionID":"00002", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":False},
+    {"uid":"CCD30AD3-582F-4682-8B65-2EDE92C5656E", "enabled":True,  "partitionID":"00003", "enabledForCalendaring":True,  "enabledForAddressBooks":True,  "autoSchedule":True },
 )
 
 testRecordTypeDefault = (
-    ("locations", {"uid":"A4318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "hostedAt":"00004", "enabledForCalendaring":True,  "enabledForAddressBooks":False,  "autoSchedule":True}),
-    ("locations", {"uid":"AA5F935F-3358-4510-A649-B391D63279F2", "enabled":True,  "hostedAt":"00005", "enabledForCalendaring":True, "enabledForAddressBooks":False, "autoSchedule":True}),
-    ("resources", {"uid":"A5318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "hostedAt":"00006", "enabledForCalendaring":True,  "enabledForAddressBooks":False,  "autoSchedule":True}),
-    ("resources", {"uid":"AA6F935F-3358-4510-A649-B391D63279F2", "enabled":True,  "hostedAt":"00007", "enabledForCalendaring":True, "enabledForAddressBooks":False, "autoSchedule":True}),
+    ("locations", {"uid":"A4318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "partitionID":"00004", "enabledForCalendaring":True,  "enabledForAddressBooks":False,  "autoSchedule":True}),
+    ("locations", {"uid":"AA5F935F-3358-4510-A649-B391D63279F2", "enabled":True,  "partitionID":"00005", "enabledForCalendaring":True, "enabledForAddressBooks":False, "autoSchedule":True}),
+    ("resources", {"uid":"A5318887-F2C7-4A70-9056-B88CC8DB26F1", "enabled":True,  "partitionID":"00006", "enabledForCalendaring":True,  "enabledForAddressBooks":False,  "autoSchedule":True}),
+    ("resources", {"uid":"AA6F935F-3358-4510-A649-B391D63279F2", "enabled":True,  "partitionID":"00007", "enabledForCalendaring":True, "enabledForAddressBooks":False, "autoSchedule":True}),
 )
 
 
 testAddRecords = (
-    {"uid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975767", "enabled":True,  "hostedAt":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
+    {"uid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975767", "enabled":True,  "partitionID":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
 )
 
 testModifyRecords = (
-    {"uid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975767", "enabled":True,  "hostedAt":"", "enabledForCalendaring":True, "enabledForAddressBooks":True, "autoSchedule":False},
+    {"uid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975767", "enabled":True,  "partitionID":"", "enabledForCalendaring":True, "enabledForAddressBooks":True, "autoSchedule":False},
 )
 
 

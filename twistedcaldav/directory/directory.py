@@ -43,8 +43,8 @@ from twext.python.log import LoggingMixIn
 from twistedcaldav.config import config
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName
-from twistedcaldav.partitions import partitions
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav import servers
 
 class DirectoryService(LoggingMixIn):
     implements(IDirectoryService, ICredentialsChecker)
@@ -339,7 +339,7 @@ class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)
 
     def __repr__(self):
-        return "<%s[%s@%s(%s)] %s(%s) %r @ %s>" % (
+        return "<%s[%s@%s(%s)] %s(%s) %r @ %s/#%s>" % (
             self.__class__.__name__,
             self.recordType,
             self.service.guid,
@@ -347,7 +347,8 @@ class DirectoryRecord(LoggingMixIn):
             self.guid,
             ",".join(self.shortNames),
             self.fullName,
-            self.hostedAt,
+            self.serverURI(),
+            self.partitionID,
         )
 
     def __init__(
@@ -377,7 +378,8 @@ class DirectoryRecord(LoggingMixIn):
         self.guid                   = guid
         self.uid                    = uid
         self.enabled                = False
-        self.hostedAt               = ""
+        self.serverID               = ""
+        self.partitionID            = ""
         self.shortNames             = shortNames
         self.authIDs                = authIDs
         self.fullName               = fullName
@@ -430,7 +432,8 @@ class DirectoryRecord(LoggingMixIn):
         
         if augment:
             self.enabled = augment.enabled
-            self.hostedAt = augment.hostedAt
+            self.serverID = augment.serverID
+            self.partitionID = augment.partitionID
             self.enabledForCalendaring = augment.enabledForCalendaring
             self.enabledForAddressBooks = augment.enabledForAddressBooks
             self.autoSchedule = augment.autoSchedule
@@ -447,8 +450,10 @@ class DirectoryRecord(LoggingMixIn):
         else:
             # Groups are by default always enabled
             self.enabled = (self.recordType == self.service.recordType_groups)
-            self.hostedAt = ""
+            self.serverID = ""
+            self.partitionID = ""
             self.enabledForCalendaring = False
+            self.enabledForAddressBooks = False
 
 
     def applySACLs(self):
@@ -495,12 +500,52 @@ class DirectoryRecord(LoggingMixIn):
                 return key
         return None
 
-    def locallyHosted(self):
-        return not self.hostedAt or not config.Partitioning.Enabled or self.hostedAt == config.Partitioning.ServerPartitionID
+    def serverURI(self):
+        """
+        URL of the server hosting this record. Return None if hosted on this server.
+        """
+        if config.Servers.Enabled and self.serverID:
+            return servers.Servers.getServerURIById(self.serverID)
+        else:
+            return None
     
-    def hostedURL(self):
-        return partitions.getPartitionURL(self.hostedAt)
+    def server(self):
+        """
+        Server hosting this record. Return None if hosted on this server.
+        """
+        if config.Servers.Enabled and self.serverID:
+            return servers.Servers.getServerById(self.serverID)
+        else:
+            return None
+    
+    def partitionURI(self):
+        """
+        URL of the server hosting this record. Return None if hosted on this server.
+        """
+        if config.Servers.Enabled and self.serverID:
+            s = servers.Servers.getServerById(self.serverID)
+            if s:
+                return s.getPartitionURIForId(self.partitionID)
+        return None
+    
+    def locallyHosted(self):
+        """
+        Hosted on this server/partition instance.
+        """
+        
+        if config.Servers.Enabled and self.serverID:
+            s = servers.Servers.getServerById(self.serverID)
+            if s:
+                return s.thisServer and (not self.partitionID or self.partitionID == config.ServerPartitionID)
+        return True
 
+    def thisServer(self):
+        if config.Servers.Enabled and self.serverID:
+            s = servers.Servers.getServerById(self.serverID)
+            if s:
+                return s.thisServer
+        return True
+        
 class DirectoryError(RuntimeError):
     """
     Generic directory error.

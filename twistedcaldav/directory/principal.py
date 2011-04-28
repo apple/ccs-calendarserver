@@ -608,7 +608,8 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             """---------------------\n"""
             """Directory GUID: %s\n"""         % (self.record.service.guid,),
             """Realm: %s\n"""                  % (self.record.service.realmName,),
-            """Hosted-At: %s\n"""              % (self.record.hostedAt,) if config.Partitioning.Enabled else "", 
+            """Hosted-At: %s\n"""              % (self.record.serverURI(),) if config.Servers.Enabled else "", 
+            """Partition: %s\n"""              % (self.record.partitionID,) if config.Servers.Enabled and self.record.partitionID else "", 
             """\n"""
             """Principal Information\n"""
             """---------------------\n"""
@@ -767,12 +768,21 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     def principalUID(self):
         return self.record.uid
 
+    def serverURI(self):
+        return self.record.serverURI()
+
+    def server(self):
+        return self.record.server()
+
+    def partitionURI(self):
+        return self.record.partitionURI()
+
     def locallyHosted(self):
         return self.record.locallyHosted()
     
-    def hostedURL(self):
-        return self.record.hostedURL()
-
+    def thisServer(self):
+        return self.record.thisServer()
+    
     ##
     # Extra resource info
     ##
@@ -944,6 +954,11 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
                 uidsResourceName,
                 self.record.uid
             ) + "/"
+            
+            # Prefix with other server if needed
+            if not self.thisServer():
+                self.calendarHomeURL = joinURL(self.serverURI(), self.calendarHomeURL)
+
         url = self.calendarHomeURL
         if url is None:
             return None
@@ -969,6 +984,11 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
                 uidsResourceName,
                 self.record.uid
             ) + "/"
+            
+            # Prefix with other server if needed
+            if not self.thisServer():
+                self.addressBookHomeURL = joinURL(self.serverURI(), self.addressBookHomeURL)
+
         url = self.addressBookHomeURL
         if url is None:
             return None

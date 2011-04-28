@@ -38,6 +38,8 @@ from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, succeed
 
+from txdav.caldav.datastore.index_file import db_basename
+
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.resources import migrateResources
 from twisted.python.reflect import namedAny
@@ -471,59 +473,151 @@ def upgrade_to_1(config):
 
     return succeed(None)
 
-
+@inlineCallbacks
 def upgrade_to_2(config):
-    #
-    # Rename proxy DB
-    #
-    oldFilename = "calendaruserproxy.sqlite"
-    newFilename = "proxies.sqlite"
+    
+    errorOccurred = False
 
-    oldDbPath = os.path.join(config.DataRoot, oldFilename)
-    newDbPath = os.path.join(config.DataRoot, newFilename)
-    if os.path.exists(oldDbPath) and not os.path.exists(newDbPath):
-        os.rename(oldDbPath, newDbPath)
+    def renameProxyDB():
+        #
+        # Rename proxy DB
+        #
+        oldFilename = "calendaruserproxy.sqlite"
+        newFilename = "proxies.sqlite"
+    
+        oldDbPath = os.path.join(config.DataRoot, oldFilename)
+        newDbPath = os.path.join(config.DataRoot, newFilename)
+        if os.path.exists(oldDbPath) and not os.path.exists(newDbPath):
+            os.rename(oldDbPath, newDbPath)
 
-    #
-    # Migrates locations and resources from OD
-    #
-    triggerFile = "trigger_resource_migration"
-    triggerPath = os.path.join(config.ServerRoot, triggerFile)
-    if os.path.exists(triggerPath):
-        os.remove(triggerPath)
+    def migrateFromOD():
+        #
+        # Migrates locations and resources from OD
+        #
+        triggerFile = "trigger_resource_migration"
+        triggerPath = os.path.join(config.ServerRoot, triggerFile)
+        if os.path.exists(triggerPath):
+            os.remove(triggerPath)
+    
+            log.info("Migrating locations and resources")
+    
+            directory = getDirectory()
+            userService = directory.serviceForRecordType("users")
+            resourceService = directory.serviceForRecordType("resources")
+            if (
+                not isinstance(userService, OpenDirectoryService) or
+                not isinstance(resourceService, XMLDirectoryService)
+            ):
+                # Configuration requires no migration
+                return succeed(None)
+    
+            # Fetch the autoSchedule assignments from resourceinfo.sqlite and pass
+            # those to migrateResources
+            autoSchedules = {}
+            dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
+            if os.path.exists(dbPath):
+                resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+                results = resourceInfoDatabase._db_execute(
+                    "select GUID, AUTOSCHEDULE from RESOURCEINFO"
+                )
+                for guid, autoSchedule in results:
+                    autoSchedules[guid] = autoSchedule
+    
+            # Create internal copies of resources and locations based on what is
+            # found in OD, overriding the autoSchedule default with existing
+            # assignments from resourceinfo.sqlite
+            return migrateResources(userService, resourceService,
+                autoSchedules=autoSchedules)
 
-        log.info("Migrating locations and resources")
+    def flattenHome(calHome):
 
-        directory = getDirectory()
-        userService = directory.serviceForRecordType("users")
-        resourceService = directory.serviceForRecordType("resources")
-        if (
-            not isinstance(userService, OpenDirectoryService) or
-            not isinstance(resourceService, XMLDirectoryService)
-        ):
-            # Configuration requires no migration
-            return succeed(None)
+        log.debug("Flattening calendar home: %s" % (calHome,))
 
-        # Fetch the autoSchedule assignments from resourceinfo.sqlite and pass
-        # those to migrateResources
-        autoSchedules = {}
-        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
-        if os.path.exists(dbPath):
-            resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-            results = resourceInfoDatabase._db_execute(
-                "select GUID, AUTOSCHEDULE from RESOURCEINFO"
-            )
-            for guid, autoSchedule in results:
-                autoSchedules[guid] = autoSchedule
+        try:
+            for cal in os.listdir(calHome):
+                calPath = os.path.join(calHome, cal)
+                if not os.path.isdir(calPath):
+                    # Skip non-directories; these might have been uploaded by a
+                    # random DAV client, they can't be calendar collections.
+                    continue
+                
+                if cal in ("dropbox",):
+                    continue
+                if os.path.exists(os.path.join(calPath, db_basename)):
+                    continue
+                
+                # Commented this out because it is only needed if there are calendars nested inside of regular collections.
+                # Whilst this is technically possible in early versions of the servers the main clients did not support it.
+                # Also, the v1 upgrade does not look at nested calendars for cu-address normalization.
+                # However, we do still need to "ignore" regular collections in the calendar home so what we do is rename them
+                # with a ".collection." prefix.
+#                def scanCollection(collection):
+#                    
+#                    for child in os.listdir(collection):
+#                        childCollection = os.path.join(collection, child)
+#                        if os.path.isdir(childCollection):
+#                            if os.path.exists(os.path.join(childCollection, db_basename)):
+#                                newPath = os.path.join(calHome, child)
+#                                if os.path.exists(newPath):
+#                                    newPath = os.path.join(calHome, str(uuid.uuid4()))
+#                                log.debug("Moving up calendar: %s" % (childCollection,))
+#                                os.rename(childCollection, newPath)
+#                            else:
+#                                scanCollection(childCollection)
 
-        # Create internal copies of resources and locations based on what is
-        # found in OD, overriding the autoSchedule default with existing
-        # assignments from resourceinfo.sqlite
-        return migrateResources(userService, resourceService,
-            autoSchedules=autoSchedules)
+                if os.path.isdir(calPath):
+                    #log.debug("Regular collection scan: %s" % (calPath,))
+                    #scanCollection(calPath)
+                    log.warn("Regular collection hidden: %s" % (calPath,))
+                    os.rename(calPath, os.path.join(calHome, ".collection." + os.path.basename(calPath)))
 
+        except Exception, e:
+            log.error("Failed to upgrade calendar home %s: %s" % (calHome, e))
+            return False
+        
+        return True
 
+    def flattenHomes():
+        """
+        Make sure calendars inside regular collections are all moved to the top level.
+        """
+        errorOccurred = False
+    
+        log.debug("Flattening calendar homes")
 
+        docRoot = config.DocumentRoot
+        if os.path.exists(docRoot):
+            calRoot = os.path.join(docRoot, "calendars")
+            if os.path.exists(calRoot) and os.path.isdir(calRoot):
+                uidHomes = os.path.join(calRoot, "__uids__")
+                if os.path.isdir(uidHomes): 
+                    for path1 in os.listdir(uidHomes):
+                        uidLevel1 = os.path.join(uidHomes, path1)
+                        if not os.path.isdir(uidLevel1):
+                            continue
+                        for path2 in os.listdir(uidLevel1):
+                            uidLevel2 = os.path.join(uidLevel1, path2)
+                            if not os.path.isdir(uidLevel2):
+                                continue
+                            for home in os.listdir(uidLevel2):
+                                calHome = os.path.join(uidLevel2, home)
+                                if not os.path.isdir(calHome):
+                                    continue
+                                if not flattenHome(calHome):
+                                    errorOccurred = True
+        
+        return errorOccurred
+        
+    renameProxyDB()
+    errorOccurred = flattenHomes()
+    try:
+        yield migrateFromOD()
+    except:
+        errorOccurred = True
+        
+    if errorOccurred:
+        raise UpgradeError("Data upgrade failed, see error.log for details")
+    
 
 # The on-disk version number (which defaults to zero if .calendarserver_version
 # doesn't exist), is compared with each of the numbers in the upgradeMethods
