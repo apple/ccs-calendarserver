@@ -254,7 +254,8 @@ def _translateSchema(out):
                  # Oracle treats empty strings as NULLs, so we have to accept
                  # NULL values in columns of a string type.  Other types should
                  # be okay though.
-                 and typeName not in ('varchar', 'nclob', 'char', 'nchar', 'nvarchar', 'nvarchar2') ):
+                 and typeName not in ('varchar', 'nclob', 'char', 'nchar',
+                                      'nvarchar', 'nvarchar2') ):
                 out.write(' not null')
             if set([column.model]) in list(table.model.uniques()):
                 out.write(' unique')
@@ -265,6 +266,20 @@ def _translateSchema(out):
 
         out.write('\n);\n\n')
 
+    for (num, index) in enumerate(schema.model.indexes):
+        # Index names combine and repeat multiple table names and column names,
+        # so several of them conflict once oracle's length limit is applied.
+        # Luckily, index names don't matter to application code at all, so we
+        # can add a little disambiguating prefix without breaking anything.
+        # -glyph
+        uniqueIndexName = 'IDX_%d_%s' % (num, index.name)
+        shortIndexName = uniqueIndexName[:30]
+        shortTableName = index.table.name[:30]
+        out.write(
+            'create index %s on %s (\n    ' % (shortIndexName, shortTableName)
+        )
+        out.write(',\n    '.join([column.name for column in index.columns]))
+        out.write('\n);\n\n')
 
 
 if __name__ == '__main__':
