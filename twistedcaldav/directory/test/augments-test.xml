@@ -52,7 +52,7 @@ limitations under the License.
   <record>
     <uid>6A73326A-F781-47E7-A9F8-AF47364D4152</uid>
     <enable>true</enable>
-    <partition-id>00002</partition-id>
+    <hosted-at>00002</hosted-at>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>

@@ -37,6 +37,7 @@ ELEMENT_UID               = "uid"
 ELEMENT_ENABLE            = "enable"
 ELEMENT_SERVERID          = "server-id"
 ELEMENT_PARTITIONID       = "partition-id"
+ELEMENT_HOSTEDAT          = "hosted-at"   # Backwards compatibility
 ELEMENT_ENABLECALENDAR    = "enable-calendar"
 ELEMENT_ENABLEADDRESSBOOK = "enable-addressbook"
 ELEMENT_AUTOSCHEDULE      = "auto-schedule"
@@ -51,6 +52,7 @@ ELEMENT_AUGMENTRECORD_MAP = {
     ELEMENT_ENABLE:            "enabled",
     ELEMENT_SERVERID:          "serverID",
     ELEMENT_PARTITIONID:       "partitionID",
+    ELEMENT_HOSTEDAT:          "partitionID",   # Backwards compatibility
     ELEMENT_ENABLECALENDAR:    "enabledForCalendaring",
     ELEMENT_ENABLEADDRESSBOOK: "enabledForAddressBooks",
     ELEMENT_AUTOSCHEDULE:      "autoSchedule",
@@ -95,6 +97,7 @@ class XMLAugmentsParser(object):
                     ELEMENT_UID,
                     ELEMENT_SERVERID,
                     ELEMENT_PARTITIONID,
+                    ELEMENT_HOSTEDAT,
                 ):
                     fields[node.tag] = node.text if node.text else ""
                 elif node.tag in (

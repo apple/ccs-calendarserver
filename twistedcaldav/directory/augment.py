@@ -408,8 +408,10 @@ class AugmentXMLDB(AugmentDB):
         del recordNode.getchildren()[:]
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_UID, record.uid)
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
-        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_SERVERID, record.serverID)
-        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_PARTITIONID, record.partitionID)
+        if record.serverID:
+            addSubElement(recordNode, xmlaugmentsparser.ELEMENT_SERVERID, record.serverID)
+        if record.partitionID:
+            addSubElement(recordNode, xmlaugmentsparser.ELEMENT_PARTITIONID, record.partitionID)
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true" if record.enabledForCalendaring else "false")
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true" if record.enabledForAddressBooks else "false")
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if record.autoSchedule else "false")
