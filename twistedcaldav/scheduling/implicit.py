@@ -232,7 +232,7 @@ class ImplicitScheduler(object):
         elif self.state == "attendee":
             yield self.doImplicitAttendee()
         elif self.state == "attendee-missing":
-            yield self.doImplicitMissingAttendee()
+            self.doImplicitMissingAttendee()
         else:
             returnValue(None)
 
@@ -893,13 +893,11 @@ class ImplicitScheduler(object):
                 log.debug("Implicit - attendee '%s' is updating UID without server scheduling: '%s'" % (self.attendee, self.uid))
                 # Nothing else to do
 
-    @inlineCallbacks
     def doImplicitMissingAttendee(self):
 
         if self.action == "remove":
             # Nothing else to do
             log.debug("Implicit - missing attendee is removing UID without server scheduling: '%s'" % (self.uid,))
-            returnValue(None)
 
         else:
             # We will allow the attendee to do anything in this case, but we will mark the organizer
@@ -910,7 +908,6 @@ class ImplicitScheduler(object):
             if self.calendar.getOrganizerScheduleAgent():
                 self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-AGENT", "NONE", "ORGANIZER", None)
                 self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.NO_USER_SUPPORT_CODE, "ORGANIZER", None)
-            returnValue(None)
 
     def checkOrganizerScheduleAgent(self):
 
