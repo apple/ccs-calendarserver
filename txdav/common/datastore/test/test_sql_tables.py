@@ -23,7 +23,9 @@ These aren't unit tests, they're integration tests to verify the behavior tested
 by L{txdav.base.datastore.test.test_parseschema}.
 """
 
-from txdav.common.datastore.sql_tables import schema
+from cStringIO import StringIO
+
+from txdav.common.datastore.sql_tables import schema, _translateSchema
 from twisted.trial.unittest import TestCase
 
 class SampleSomeColumns(TestCase):
@@ -35,4 +37,16 @@ class SampleSomeColumns(TestCase):
     def test_addressbookObjectResourceID(self):
         self.assertEquals(schema.ADDRESSBOOK_OBJECT.RESOURCE_ID.model.name,
                           "RESOURCE_ID")
+
+
+    def test_schemaTranslation(self):
+        """
+        Basic integration test to make sure that the schema can be translated
+        without exception.
+        """
+        # TODO: better test coverage of the actual functionality here; there are
+        # no unit tests.
+        _translateSchema(StringIO())
+
+
 
