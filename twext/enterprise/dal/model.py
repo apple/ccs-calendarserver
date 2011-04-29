@@ -329,6 +329,22 @@ class Table(FancyEqMixin, object):
                 yield set(constraint.affectsColumns)
 
 
+class Index(object):
+    """
+    An L{Index} is an SQL index.
+    """
+
+    def __init__(self, schema, name, table):
+        self.name = name
+        self.table = table
+        self.columns = []
+        schema.indexes.append(self)
+
+
+    def addColumn(self, column):
+        self.columns.append(column)
+
+
 
 class Sequence(FancyEqMixin, object):
     """
@@ -337,14 +353,27 @@ class Sequence(FancyEqMixin, object):
 
     compareAttributes = 'name'.split()
 
-    def __init__(self, name):
+    def __init__(self, schema, name):
         _checkstr(name)
         self.name = name
         self.referringColumns = []
+        schema.sequences.append(self)
 
 
     def __repr__(self):
         return '<Sequence %r>' % (self.name,)
+
+
+
+def _namedFrom(name, sequence):
+    """
+    Retrieve an item with a given name attribute from a given sequence, or raise
+    a L{KeyError}.
+    """
+    for item in sequence:
+        if item.name == name:
+            return item
+    raise KeyError(name)
 
 
 
@@ -356,6 +385,7 @@ class Schema(object):
     def __init__(self, filename='<string>'):
         self.filename = filename
         self.tables = []
+        self.indexes = []
         self.sequences = []
 
 
@@ -364,17 +394,14 @@ class Schema(object):
 
 
     def tableNamed(self, name):
-        for table in self.tables:
-            if table.name == name:
-                return table
-        raise KeyError(name)
+        return _namedFrom(name, self.tables)
 
 
     def sequenceNamed(self, name):
-        for sequence in self.sequences:
-            if sequence.name == name:
-                return sequence
-        raise KeyError(name)
+        return _namedFrom(name, self.sequences)
 
+
+    def indexNamed(self, name):
+        return _namedFrom(name, self.indexes)
 
 

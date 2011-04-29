@@ -26,9 +26,8 @@ from sqlparse.tokens import Keyword, Punctuation, Number, String, Name
 from sqlparse.sql import (Comment, Identifier, Parenthesis, IdentifierList,
                           Function)
 
-from twext.enterprise.dal.model import Schema, Table, SQLType, ProcedureCall
-from twext.enterprise.dal.model import Constraint
-from twext.enterprise.dal.model import Sequence
+from twext.enterprise.dal.model import (
+    Schema, Table, SQLType, ProcedureCall, Constraint, Sequence, Index)
 
 
 
@@ -116,9 +115,31 @@ def addSQLToSchema(schema, schemaData):
                 t = tableFromCreateStatement(schema, stmt)
                 t.addComment(preface)
             elif createType == u'SEQUENCE':
-                schema.sequences.append(
-                    Sequence(
-                        stmt.token_next(2, True).get_name().encode('utf-8')))
+                Sequence(schema,
+                         stmt.token_next(2, True).get_name().encode('utf-8'))
+            elif createType == u'INDEX':
+                signifindex = iterSignificant(stmt)
+                expect(signifindex, ttype=Keyword.DDL, value='CREATE')
+                expect(signifindex, ttype=Keyword, value='INDEX')
+                indexName = nameOrIdentifier(signifindex.next())
+                expect(signifindex, ttype=Keyword, value='ON')
+                [tableName, columnArgs] = iterSignificant(expect(signifindex,
+                                                                 cls=Function))
+                tableName = nameOrIdentifier(tableName)
+                arggetter = iterSignificant(columnArgs)
+
+                expect(arggetter, ttype=Punctuation, value=u'(')
+                valueOrValues = arggetter.next()
+                if isinstance(valueOrValues, IdentifierList):
+                    valuelist = valueOrValues.get_identifiers()
+                else:
+                    valuelist = [valueOrValues]
+                expect(arggetter, ttype=Punctuation, value=u')')
+
+                idx = Index(schema, indexName, schema.tableNamed(tableName))
+                for token in valuelist:
+                    columnName = nameOrIdentifier(token)
+                    idx.addColumn(idx.table.columnNamed(columnName))
         elif stmt.get_type() == 'INSERT':
             insertTokens = iterSignificant(stmt)
             expect(insertTokens, ttype=Keyword.DML, value='INSERT')
@@ -412,7 +433,7 @@ def expectSingle(nextval, ttype=None, value=None, cls=None):
     """
     if ttype is not None:
         if nextval.ttype != ttype:
-            raise ViolatedExpectation(ttype, '%s:%s' % (nextval.ttype, nextval))
+            raise ViolatedExpectation(ttype, '%s:%r' % (nextval.ttype, nextval))
     if value is not None:
         if nextval.value.upper() != value.upper():
             raise ViolatedExpectation(value, nextval.value)

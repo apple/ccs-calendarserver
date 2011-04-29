@@ -244,3 +244,29 @@ class ParsingExampleTests(TestCase):
         self.assertEquals(s.tableNamed("c").columnNamed("d").cascade, True)
 
 
+    def test_indexes(self):
+        """
+        A 'create index' statement will add an L{Index} object to a L{Schema}'s
+        C{indexes} list.
+        """
+        s = Schema()
+        addSQLToSchema(
+            s,
+            """
+            create table q (b integer); -- noise
+            create table a (b integer primary key, c integer);
+            create table z (c integer); -- make sure we get the right table
+
+            create index idx_a_b on a(b);
+            create index idx_a_b_c on a(c, b);
+            """)
+
+        a = s.tableNamed("a")
+        b = s.indexNamed("idx_a_b")
+        bc = s.indexNamed('idx_a_b_c')
+        self.assertEquals(b.table, a)
+        self.assertEquals(b.columns, [a.columnNamed("b")])
+        self.assertEquals(bc.table, a)
+        self.assertEquals(bc.columns, [a.columnNamed("c"), a.columnNamed("b")])
+
+
