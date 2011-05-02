@@ -290,7 +290,6 @@ def main_purge_events():
     cutoff = PyCalendarDateTime.getToday()
     cutoff.setDateOnly(False)
     cutoff.offsetDay(-days)
-    cutoff = cutoff.getText()
     PurgeOldEventsService.cutoff = cutoff
     PurgeOldEventsService.batchSize = batchSize
     PurgeOldEventsService.dryrun = dryrun
