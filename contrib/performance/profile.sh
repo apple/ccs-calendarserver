@@ -22,11 +22,13 @@ set -e # Break on error
 
 sudo -v # Force up to date sudo token before the user walks away
 
-REV=$1
-LOGS=$2
-RESULTS=$3
+REV_SPEC="$1"
+LOGS="$2"
+RESULTS="$3"
 
-update_and_build $REV
+update_and_build "$REV_SPEC"
+
+REV="$(./svn-revno "$SOURCE_DIR")"
 
 DATE="`./svn-committime $SOURCE $REV`"
 for backend in ${BACKENDS[*]}; do
