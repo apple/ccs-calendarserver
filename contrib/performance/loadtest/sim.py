@@ -22,7 +22,7 @@ from collections import namedtuple
 
 from twisted.python import context
 from twisted.python.filepath import FilePath
-from twisted.python.log import addObserver
+from twisted.python.log import addObserver, removeObserver
 from twisted.python.usage import UsageError, Options
 from twisted.python.reflect import namedAny
 
@@ -199,6 +199,8 @@ class LoadSimulator(object):
     def run(self):
         for obs in self.observers:
             addObserver(obs.observe)
+            self.reactor.addSystemEventTrigger(
+                'before', 'shutdown', removeObserver, obs.observe)
         sim = self.createSimulator()
         arrivalPolicy = self.createArrivalPolicy()
         arrivalPolicy.run(sim)
