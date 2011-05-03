@@ -60,11 +60,20 @@ function update_and_build() {
   popd
 }
 
+# Ensure that the required configuration file is present, exit if not.
+function check_conf() {
+  if [ ! -e $CONF ]; then
+    echo "Configuration file $CONF is missing."
+    exit 1
+  fi
+}
+
 # Start a CalendarServer in the current directory.  Only return after
 # the specified number of slave processes have written their PID files
 # (which is only a weak metric for "the server is ready to use").
 function start() {
   NUM_INSTANCES=$1
+  check_conf
   PIDDIR=$SOURCE/$($EXTRACT $CONF ServerRoot)/$($EXTRACT $CONF RunRoot)
 
   shift
@@ -81,6 +90,9 @@ function start() {
 # Stop the CalendarServer in the current directory.  Only return after
 # it has exited.
 function stop() {
+  if [ ! -e $CONF ]; then
+    return
+  fi
   PIDFILE=$SOURCE/$($EXTRACT $CONF ServerRoot)/$($EXTRACT $CONF RunRoot)/$($EXTRACT $CONF PIDFile)
   ./run -k || true
   while :; do
