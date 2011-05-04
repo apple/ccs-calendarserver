@@ -39,7 +39,8 @@ from twistedcaldav.method.copymove_contact import (
 )
 
 from twistedcaldav.resource import isCalendarCollectionResource,\
-    isPseudoCalendarCollectionResource, CalDAVResource
+    isPseudoCalendarCollectionResource, CalDAVResource,\
+    isAddressBookCollectionResource
 
 log = Logger()
 
@@ -131,6 +132,8 @@ def http_MOVE(self, request):
     if not result:
         is_calendar_collection = isPseudoCalendarCollectionResource(self)
         defaultCalendar = (yield self.isDefaultCalendar(request)) if is_calendar_collection else False
+        is_addressbook_collection = isAddressBookCollectionResource(self)
+        defaultAddressBook = (yield self.isDefaultAddressBook(request)) if is_addressbook_collection else False
 
         if not is_calendar_collection:
             result = yield maybeMOVEContact(self, request)
@@ -140,9 +143,13 @@ def http_MOVE(self, request):
         # Do default WebDAV action
         result = (yield super(CalDAVResource, self).http_MOVE(request))
         
-        if is_calendar_collection:
-            # Do some clean up
-            yield self.movedCalendar(request, defaultCalendar, destination, destination_uri)
+        if result == responsecode.NO_CONTENT:
+            if is_calendar_collection:
+                # Do some clean up
+                yield self.movedCalendar(request, defaultCalendar, destination, destination_uri)
+            elif is_addressbook_collection:
+                # Do some clean up
+                yield self.movedAddressBook(request, defaultAddressBook, destination, destination_uri)
 
         returnValue(result)
         

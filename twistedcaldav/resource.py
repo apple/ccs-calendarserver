@@ -1064,14 +1064,6 @@ class CalDAVResource (
 
     findSpecialCollections = findSpecialCollectionsFaster
 
-    def createdCalendar(self, request):
-        """
-        See L{ICalDAVResource.createCalendar}.
-        This implementation raises L{NotImplementedError}; a subclass must
-        override it.
-        """
-        unimplemented(self)
-
     @inlineCallbacks
     def deletedCalendar(self, request):
         """
@@ -1185,6 +1177,35 @@ class CalDAVResource (
                 return principal
         return None
 
+
+    @inlineCallbacks
+    def movedAddressBook(self, request, defaultAddressBook, destination, destination_uri):
+        """
+        AddressBook has been moved. Need to do some extra clean-up.
+        """
+        
+        # Adjust the default addressbook setting if necessary
+        if defaultAddressBook:
+            principal = (yield self.resourceOwnerPrincipal(request))
+            home = (yield principal.addressBookHome(request))
+            (_ignore_scheme, _ignore_host, destination_path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(destination_uri))
+            yield home.writeProperty(carddavxml.DefaultAddressBookURL(davxml.HRef(destination_path)), request)               
+
+    @inlineCallbacks
+    def isDefaultAddressBook(self, request):
+        
+        assert self.isAddressBookCollection()
+        
+        # Not allowed to delete the default address book
+        principal = (yield self.resourceOwnerPrincipal(request))
+        home = (yield principal.addressBookHome(request))
+        default = (yield home.readProperty(carddavxml.DefaultAddressBookURL.qname(), request))
+        if default and len(default.children) == 1:
+            defaultURL = normalizeURL(str(default.children[0]))
+            myURL = (yield self.canonicalURL(request))
+            returnValue(defaultURL == myURL)
+
+        returnValue(False)
 
     @inlineCallbacks
     def vCard(self):
@@ -2551,6 +2572,64 @@ class AddressBookHomeResource (CommonHomeResource):
         returnValue((storeHome, created))
 
 
+    def liveProperties(self):
+        
+        return super(AddressBookHomeResource, self).liveProperties() + (
+            carddavxml.DefaultAddressBookURL.qname(),
+        )
+
+    @inlineCallbacks
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname == carddavxml.DefaultAddressBookURL.qname():
+            # Must have a valid default
+            try:
+                defaultAddressBookProperty = self.readDeadProperty(property)
+            except HTTPError:
+                defaultAddressBookProperty = None
+            if defaultAddressBookProperty and len(defaultAddressBookProperty.children) == 1:
+                defaultAddressBook = str(defaultAddressBookProperty.children[0])
+                adbk = (yield request.locateResource(str(defaultAddressBook)))
+                if adbk is not None and adbk.exists() and isAddressBookCollectionResource(adbk):
+                    returnValue(defaultAddressBookProperty) 
+            
+            # Default is not valid - we have to try to pick one
+            defaultAddressBookProperty = (yield self.pickNewDefaultAddressBook(request))
+            returnValue(defaultAddressBookProperty)
+            
+        result = (yield super(AddressBookHomeResource, self).readProperty(property, request))
+        returnValue(result)
+
+    @inlineCallbacks
+    def writeProperty(self, property, request):
+        assert isinstance(property, davxml.WebDAVElement)
+
+        if property.qname() == carddavxml.DefaultAddressBookURL.qname():
+            # Verify that the address book added in the PROPPATCH is valid.
+            property.children = [davxml.HRef(normalizeURL(str(href))) for href in property.children]
+            new_adbk = [str(href) for href in property.children]
+            adbk = None
+            if len(new_adbk) == 1:
+                adbkURI = str(new_adbk[0])
+                adbk = (yield request.locateResource(str(new_adbk[0])))
+            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk):
+                # Validate that href's point to a valid addressbook.
+                raise HTTPError(ErrorResponse(
+                    responsecode.CONFLICT,
+                    (carddav_namespace, "valid-default-addressbook-URL"),
+                    "Invalid URI",
+                ))
+            else:
+                # Canonicalize the URL to __uids__ form
+                adbkURI = (yield adbk.canonicalURL(request))
+                property = carddavxml.DefaultAddressBookURL(davxml.HRef(adbkURI))
+
+        yield super(AddressBookHomeResource, self).writeProperty(property, request)
+
     def _setupProvisions(self):
 
         # Cache children which must be of a specific type
@@ -2588,6 +2667,35 @@ class AddressBookHomeResource (CommonHomeResource):
         self.propagateTransaction(similar)
         returnValue(similar)
 
+
+    @inlineCallbacks
+    def pickNewDefaultAddressBook(self, request):
+        """
+        First see if "addressbook" exists in the addressbook home and pick that. Otherwise
+        pick the first one we see.
+        """
+        defaultAddressBookURL = joinURL(self.url(), "addressbook")
+        defaultAddressBook = (yield self.makeRegularChild("addressbook"))
+        if defaultAddressBook is None or not defaultAddressBook.exists():
+            getter = iter((yield self._newStoreHome.addressbooks()))
+            # FIXME: the back-end should re-provision a default addressbook here.
+            # Really, the dead property shouldn't be necessary, and this should
+            # be entirely computed by a back-end method like 'defaultAddressBook()'
+            try:
+                anAddressBook = getter.next()
+            except StopIteration:
+                raise RuntimeError("No address books at all.")
+
+            defaultAddressBookURL = joinURL(self.url(), anAddressBook.name())
+
+        self.writeDeadProperty(
+            carddavxml.DefaultAddressBookURL(
+                davxml.HRef(defaultAddressBookURL)
+            )
+        )
+        returnValue(carddavxml.DefaultAddressBookURL(
+            davxml.HRef(defaultAddressBookURL))
+        )
 
     @inlineCallbacks
     def getInternalSyncToken(self):

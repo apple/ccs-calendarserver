@@ -1001,7 +1001,7 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         if hasattr(service, "addressBookHomesCollection"):
             return service.addressBookHomesCollection.homeForDirectoryRecord(self.record, request)
         else:
-            return None
+            return succeed(None)
 
     ##
     # Static
