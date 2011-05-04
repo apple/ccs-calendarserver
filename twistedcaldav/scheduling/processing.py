@@ -27,6 +27,7 @@ from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError
 from twistedcaldav import customxml, caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.config import config
 from twistedcaldav.ical import Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.method import report_common
@@ -170,7 +171,7 @@ class ImplicitProcessor(object):
         result, processed = iTipProcessing.processReply(self.message, self.recipient_calendar)
         if result:
  
-            # Update the attendee's copy of the event
+            # Update the organizer's copy of the event
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REPLY, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             recipient_calendar_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar))
             
@@ -203,7 +204,7 @@ class ImplicitProcessor(object):
 
             # Only update other attendees when the partstat was changed by the reply
             if partstatChanged:
-                yield self.updateAllAttendeesExceptSome(recipient_calendar_resource, (attendeeReplying,))
+                yield self.queueAttendeeUpdate(recipient_calendar_resource, (attendeeReplying,))
 
             result = (True, False, changes,)
 
@@ -214,13 +215,9 @@ class ImplicitProcessor(object):
         returnValue(result)
 
     @inlineCallbacks
-    def updateAllAttendeesExceptSome(self, resource, attendees):
+    def queueAttendeeUpdate(self, resource, attendees):
         """
-        Send an update out to all attendees except the specified ones, to refresh the others due to a change
-        by that one.
-        
-        @param attendee: cu-addresses of attendees not to send to
-        @type attendee: C{set}
+        Queue up an update to attendees and use a memcache lock to ensure we don't update too frequently.
         """
         
         # When doing auto-processing of replies, only refresh attendees when the last auto-accept is done.
@@ -232,9 +229,68 @@ class ImplicitProcessor(object):
         if hasattr(self.request, "auto_reply_suppressed"):
             attendees = ()
 
-        from twistedcaldav.scheduling.implicit import ImplicitScheduler
-        scheduler = ImplicitScheduler()
-        yield scheduler.refreshAllAttendeesExceptSome(self.request, resource, self.recipient_calendar, attendees)
+        # Use a memcachelock to ensure others don't refresh whilst we have an enqueued call
+        self.uid = self.recipient_calendar.resourceUID()
+        if config.Scheduling.Options.AttendeeRefreshInterval:
+            attendees = ()
+            lock = MemcacheLock("RefreshUIDLock", self.uid, timeout=0.0, expire_time=config.Scheduling.Options.AttendeeRefreshInterval)
+            
+            # Try lock, but fail immediately if already taken
+            try:
+                yield lock.acquire()
+            except MemcacheLockTimeoutError:
+                returnValue(None)
+        else:
+            lock = None
+
+        @inlineCallbacks
+        def _doRefresh(organizer_resource):
+            log.debug("ImplicitProcessing - refreshing UID: '%s'" % (self.uid,))
+            from twistedcaldav.scheduling.implicit import ImplicitScheduler
+            scheduler = ImplicitScheduler()
+            yield scheduler.refreshAllAttendeesExceptSome(self.request, organizer_resource, self.recipient_calendar, attendees)
+
+        @inlineCallbacks
+        def _doDelayedRefresh():
+
+            # We need to get the UID lock for implicit processing whilst we send the auto-reply
+            # as the Organizer processing will attempt to write out data to other attendees to
+            # refresh them. To prevent a race we need a lock.
+            uidlock = MemcacheLock("ImplicitUIDLock", self.uid, timeout=60.0)
+    
+            try:
+                yield uidlock.acquire()
+            except MemcacheLockTimeoutError:
+                # Just try again to get the lock
+                reactor.callLater(2.0, _doDelayedRefresh)
+            else:
+                
+                # Release lock before sending refresh
+                yield lock.release()
+    
+                # inNewTransaction wipes out the remembered resource<-> URL mappings in the
+                # request object but we need to be able to map the actual reply resource to its
+                # URL when doing auto-processing, so we have to sneak that mapping back in here.
+                txn = yield resource.inNewTransaction(self.request)
+                organizer_resource = (yield self.request.locateResource(resource._url))
+    
+                try:
+                    if organizer_resource.exists():
+                        yield _doRefresh(organizer_resource)
+                    else:
+                        log.debug("ImplicitProcessing - skipping refresh of missing UID: '%s'" % (self.uid,))
+                except Exception, e:
+                    log.debug("ImplicitProcessing - refresh exception UID: '%s', %s" % (self.uid, str(e)))
+                    yield txn.abort()
+                else:
+                    yield txn.commit()
+            finally:
+                yield uidlock.clean()
+
+        if lock:
+            reactor.callLater(config.Scheduling.Options.AttendeeRefreshInterval, _doDelayedRefresh)
+        else:
+            yield _doRefresh(resource)
 
     @inlineCallbacks
     def doImplicitAttendee(self):
