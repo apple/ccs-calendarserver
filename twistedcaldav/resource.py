@@ -2262,17 +2262,14 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                             )
 
                         returnValue(customxml.PubSubPushTransportsProperty(*children))
-
-
-            returnValue(customxml.PubSubPushTransportsProperty())
+            returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
             if config.Notifications.Services.XMPPNotifier.Enabled:
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
                     returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))
-            returnValue(customxml.PubSubXMPPPushKeyProperty())
-
+            returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "xmpp-uri"):
             if config.Notifications.Services.XMPPNotifier.Enabled:
@@ -2284,29 +2281,40 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                         returnValue(customxml.PubSubXMPPURIProperty(
                             getPubSubXMPPURI(notifierID, pubSubConfiguration)))
 
-            returnValue(customxml.PubSubXMPPURIProperty())
+            returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"):
             if config.Notifications.Services.XMPPNotifier.Enabled:
-                pubSubConfiguration = getPubSubConfiguration(config)
-                returnValue(
-                    customxml.PubSubHeartbeatProperty(
-                        customxml.PubSubHeartbeatURIProperty(
-                            getPubSubHeartbeatURI(pubSubConfiguration)
-                        ),
-                        customxml.PubSubHeartbeatMinutesProperty(
-                            str(pubSubConfiguration['heartrate'])
+                # Look up node name not because we want to return it, but
+                # to see if XMPP server is actually responding.  If it comes
+                # back with an empty nodeName, don't advertise
+                # xmpp-heartbeat-uri
+                nodeName = (yield self._newStoreHome.nodeName())
+                if nodeName:
+                    pubSubConfiguration = getPubSubConfiguration(config)
+                    returnValue(
+                        customxml.PubSubHeartbeatProperty(
+                            customxml.PubSubHeartbeatURIProperty(
+                                getPubSubHeartbeatURI(pubSubConfiguration)
+                            ),
+                            customxml.PubSubHeartbeatMinutesProperty(
+                                str(pubSubConfiguration['heartrate'])
+                            )
                         )
                     )
-                )
-            returnValue(customxml.PubSubHeartbeatURIProperty())
+            returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "xmpp-server"):
             if config.Notifications.Services.XMPPNotifier.Enabled:
-                pubSubConfiguration = getPubSubConfiguration(config)
-                returnValue(customxml.PubSubXMPPServerProperty(
-                    pubSubConfiguration['xmpp-server']))
-            returnValue(customxml.PubSubXMPPServerProperty())
+                # Look up node name not because we want to return it, but
+                # to see if XMPP server is actually responding.  If it comes
+                # back with an empty nodeName, don't advertise xmpp-server
+                nodeName = (yield self._newStoreHome.nodeName())
+                if nodeName:
+                    pubSubConfiguration = getPubSubConfiguration(config)
+                    returnValue(customxml.PubSubXMPPServerProperty(
+                        pubSubConfiguration['xmpp-server']))
+            returnValue(None)
 
         returnValue((yield super(CommonHomeResource, self).readProperty(property, request)))
 
