@@ -199,6 +199,7 @@ class WrappingTests(TestCase):
             contentLength=0,
             headers=headers
         )
+        req.path = path # normally process( ) sets request.path
         req.credentialFactories = {}
         return req
 
