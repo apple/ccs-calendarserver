@@ -37,6 +37,7 @@ from twisted.internet.defer import succeed, fail
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
+from stats import mean, median
 from loadtest.logger import SummarizingMixin
 from loadtest.ical import IncorrectResponseCode
 
@@ -382,22 +383,32 @@ class OperationLogger(SummarizingMixin):
         ('>3sec', 8, '%8s'),
         ('mean', 8, '%8.4f'),
         ('median', 8, '%8.4f'),
+        ('avglag (ms)', 8, '%8.4f'),
         ]
 
     def __init__(self):
         self._perOperationTimes = {}
+        self._perOperationLags = {}
 
 
     def observe(self, event):
         if event.get("type") == "operation":
-            if event.get('lag') is None:
+            lag = event.get('lag')
+            if lag is None:
                 event['lag'] = ''
             else:
-                event['lag'] = self.lagFormat % (event['lag'] * 1000.0,)
+                event['lag'] = self.lagFormat % (lag * 1000.0,)
             print (self.formats[event[u'phase']] % event).encode('utf-8')
             if event[u'phase'] == u'end':
                 dataset = self._perOperationTimes.setdefault(event[u'label'], [])
                 dataset.append((event[u'success'], event[u'duration']))
+            elif lag is not None:
+                dataset = self._perOperationLags.setdefault(event[u'label'], [])
+                dataset.append(lag)
+
+    def _summarizeData(self, operation, data):
+        avglag = mean(self._perOperationLags.get(operation, [0.0])) * 1000.0
+        return SummarizingMixin._summarizeData(self, operation, data) + (avglag,)
 
 
     def report(self):
