@@ -30,6 +30,7 @@ from vobject.icalendar import VEvent, dateTimeToString
 
 from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
+from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.http_headers import Headers
@@ -381,14 +382,16 @@ class SnowLeopard(BaseClient):
 
     def _checkCalendarsForEvents(self, calendarHomeSet):
         d = self._calendarHomePropfind(calendarHomeSet)
+        @inlineCallbacks
         def cbCalendars(calendars):
             for cal in calendars:
                 if self._calendars.setdefault(cal.url, cal).ctag != cal.ctag or True:
-                    self._updateCalendar(cal)
+                    yield self._updateCalendar(cal)
+        d.addCallback(cbCalendars)
+        d = self._newOperation("poll", d)
         def ebCalendars(reason):
             reason.trap(IncorrectResponseCode)
-            msg(type="aggregate", operation="poll", success=False)
-        d.addCallbacks(cbCalendars, ebCalendars)
+        d.addErrback(ebCalendars)
         d.addErrback(err, "Unexpected failure during calendar home poll")
         return d
 
@@ -463,7 +466,19 @@ class SnowLeopard(BaseClient):
         """
         pollCalendarHome = LoopingCall(
             self._checkCalendarsForEvents, calendarHome)
-        pollCalendarHome.start(self.calendarHomePollInterval)
+        pollCalendarHome.start(self.calendarHomePollInterval, now=False)
+
+    def _newOperation(self, label, deferred):
+        before = self.reactor.seconds()
+        msg(type="operation", phase="start", user=self.user, label=label)
+        def finished(passthrough):
+            success = not isinstance(passthrough, Failure)
+            after = self.reactor.seconds()
+            msg(type="operation", phase="end", duration=after - before,
+                user=self.user, label=label, success=success)
+            return passthrough
+        deferred.addBoth(finished)
+        return deferred
 
 
     @inlineCallbacks
@@ -471,9 +486,14 @@ class SnowLeopard(BaseClient):
         """
         Emulate a CalDAV client.
         """
-        principal = yield self.startup()
-        hrefs = principal.getHrefProperties()
-        self._calendarCheckLoop(hrefs[caldavxml.calendar_home_set].toString())
+        @inlineCallbacks
+        def startup():
+            principal = yield self.startup()
+            hrefs = principal.getHrefProperties()
+            calendarHome = hrefs[caldavxml.calendar_home_set].toString()
+            yield self._checkCalendarsForEvents(calendarHome)
+            self._calendarCheckLoop(calendarHome)
+        yield self._newOperation("startup", startup())
 
         # XXX Oops, should probably stop sometime.
         yield Deferred()
