@@ -23,8 +23,6 @@ set -e # Break on error
 sudo -v # Force up to date sudo token before the user walks away
 
 REV_SPEC="$1"
-LOGS="$2"
-RESULTS="$3"
 
 update_and_build "$REV_SPEC"
 
@@ -39,7 +37,7 @@ for backend in ${BACKENDS[*]}; do
       start 0 -t Single -S profiling/$backend/$benchmark
       popd
       # Chances are sudo will throw out PYTHONPATH unless we tell it not to.
-      sudo PYTHONPATH=$PYTHONPATH ./benchmark --label r$REV-$backend $benchmark
+      sudo ./run.sh ./benchmark --label r$REV-$backend $benchmark
       pushd $SOURCE
       stop
       popd
