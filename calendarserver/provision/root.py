@@ -225,9 +225,20 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                     davxml.HRef.fromString("/principals/__uids__/%s/" % (guid,))
                 )
 
+
         # Examine cookies for wiki auth token; if there, ask the paired wiki
         # server for the corresponding record name.  If that maps to a
         # principal, assign that to authnuser.
+
+        # Also, certain non-browser clients send along the wiki auth token
+        # sometimes, so we now also look for the presence of x-requested-with
+        # header that the webclient sends.  However, in the case of a GET on
+        # /webcal that header won't be sent so therefore we allow wiki auth
+        # for any path in the authServiceMap even if that header is missing.
+        allowWikiAuth = False
+        topLevel = request.path.strip("/").split("/")[0]
+        if self.authServiceMap.get(topLevel, False):
+            allowWikiAuth = True
 
         if not hasattr(request, "checkedWiki"):
             # Only do this once per request
@@ -235,7 +246,12 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
             wikiConfig = config.Authentication.Wiki
             cookies = request.headers.getHeader("cookie")
-            if wikiConfig["Enabled"] and cookies is not None:
+            requestedWith = request.headers.hasHeader("x-requested-with")
+            if (
+                wikiConfig["Enabled"] and
+                (requestedWith or allowWikiAuth) and
+                cookies is not None
+            ):
                 for cookie in cookies:
                     if cookie.name == wikiConfig["Cookie"]:
                         token = cookie.value
