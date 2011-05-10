@@ -101,6 +101,9 @@ class Reactor(object):
         msg(self.message)
 
 
+    def addSystemEventTrigger(self, *args):
+        pass
+
 
 class Observer(object):
     def __init__(self):
