@@ -36,7 +36,7 @@ class ConfigDict(dict):
     that reads an writes nicer in code.  For example:
       C{config.Thingo.Tiny.Tweak}
     instead of:
-      C{config.["Thingo"]["Tiny"]["Tweak"]}
+      C{config["Thingo"]["Tiny"]["Tweak"]}
     """
     def __init__(self, mapping=None):
         if mapping is not None:
