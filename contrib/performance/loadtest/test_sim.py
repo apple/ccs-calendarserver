@@ -30,7 +30,8 @@ from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.population import (
     SmoothRampUp, ClientType, PopulationParameters, CalendarClientSimulator,
     SimpleStatistics)
-from loadtest.sim import Server, Arrival, SimOptions, LoadSimulator, main
+from loadtest.sim import (
+    Server, Arrival, SimOptions, LoadSimulator, LagTrackingReactor, main)
 
 VALID_CONFIG = {
     'server': {
@@ -155,7 +156,8 @@ class LoadSimulatorTests(TestCase):
         sim = LoadSimulator(Server(host, port), None, None, reactor=reactor)
         calsim = sim.createSimulator()
         self.assertIsInstance(calsim, CalendarClientSimulator)
-        self.assertIdentical(calsim.reactor, reactor)
+        self.assertIsInstance(calsim.reactor, LagTrackingReactor)
+        self.assertIdentical(calsim.reactor._reactor, reactor)
         self.assertEquals(calsim.host, host)
         self.assertEquals(calsim.port, port)
 
