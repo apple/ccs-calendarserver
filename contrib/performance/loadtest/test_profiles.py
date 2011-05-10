@@ -183,6 +183,7 @@ class StubClient(BaseClient):
 
     def addEvent(self, href, vevent):
         self._events[href] = Event(href, None, vevent)
+        return succeed(None)
 
 
     def deleteEvent(self, href):
@@ -286,7 +287,7 @@ class InviterTests(TestCase):
         userNumber = 16
         vevent, event, calendar, client = self._simpleAccount(
             userNumber, SIMPLE_EVENT)
-        inviter = Inviter(None, client, userNumber)
+        inviter = Inviter(Clock(), client, userNumber)
         inviter.random = Deterministic()
         inviter._invite()
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
@@ -313,7 +314,7 @@ class InviterTests(TestCase):
         otherNumber = 20
         values = [selfNumber, otherNumber]
 
-        inviter = Inviter(None, client, selfNumber)
+        inviter = Inviter(Clock(), client, selfNumber)
         inviter.random = Deterministic()
         inviter.random.gauss = lambda mu, sigma: values.pop(0)
         inviter._invite()
@@ -343,7 +344,7 @@ class InviterTests(TestCase):
         anotherNumber = inviteeNumber + 5
         values = [inviteeNumber, anotherNumber]
 
-        inviter = Inviter(None, client, selfNumber)
+        inviter = Inviter(Clock(), client, selfNumber)
         inviter.random = Deterministic()
         inviter.random.gauss = lambda mu, sigma: values.pop(0)
         inviter._invite()
@@ -367,7 +368,7 @@ class InviterTests(TestCase):
         selfNumber = 1
         vevent, event, calendar, client = self._simpleAccount(
             selfNumber, INVITED_EVENT)
-        inviter = Inviter(None, client, selfNumber)
+        inviter = Inviter(Clock(), client, selfNumber)
         inviter.random = Deterministic()
         # Always return a user number which has already been invited.
         inviter.random.gauss = lambda mu, sigma: 2
@@ -627,10 +628,9 @@ class EventerTests(TestCase):
         client = StubClient(31)
         client._calendars.update({calendar.url: calendar})
 
-        eventer = Eventer(None, client, None)
+        eventer = Eventer(Clock(), client, None)
         eventer._addEvent()
 
         self.assertEquals(len(client._events), 1)
 
         # XXX Vary the event period/interval and the uid
-
