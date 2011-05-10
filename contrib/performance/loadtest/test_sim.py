@@ -217,7 +217,7 @@ class LoadSimulatorTests(TestCase):
             None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor=reactor)
         arrival = sim.createArrivalPolicy()
         self.assertIsInstance(arrival, FakeArrival)
-        self.assertIdentical(arrival.reactor, reactor)
+        self.assertIdentical(arrival.reactor, sim.reactor)
         self.assertEquals(arrival.x, 3)
         self.assertEquals(arrival.y, 2)
 
