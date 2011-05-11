@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -249,5 +249,12 @@ limitations under the License.
     <password>non_calendar_proxy</password>
     <name>Non-calendar proxy</name>
     <email-address>non_calendar_proxy@example.com</email-address>
+  </resource>
+  <resource>
+    <uid>disabled</uid>
+    <guid>disabled</guid>
+    <password>disabled</password>
+    <name>Disabled Record</name>
+    <email-address>disabled@example.com</email-address>
   </resource>
 </accounts>

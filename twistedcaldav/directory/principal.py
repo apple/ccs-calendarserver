@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_principal -*-
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -443,7 +443,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         return self.parent.principalForCalendarUserAddress(address)
 
     def principalForRecord(self, record):
-        if record is None:
+        if record is None or not record.enabled:
             return None
 
         if record.enabledForCalendaring or record.enabledForAddressBooks:
@@ -474,7 +474,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
             subType = None
 
         record = self.directory.recordWithUID(primaryUID)
-        primaryPrincipal = self.principalForRecord(record) if record and record.enabled else None
+        primaryPrincipal = self.principalForRecord(record)
         if primaryPrincipal is None:
             log.err("No principal found for UID: %s" % (name,))
             return None

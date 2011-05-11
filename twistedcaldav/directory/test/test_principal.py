@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -120,7 +120,8 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 # Handle records with mulitple shortNames
                 expected = []
                 for r in directory.listRecords(recordType):
-                    expected.extend(r.shortNames)
+                    if r.uid != "disabled":
+                        expected.extend(r.shortNames)
                 self.assertEquals(shortNames, set(expected))
 
                 for shortName in shortNames:
@@ -140,7 +141,8 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         Test of a test routine...
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            self.assertEquals(recordResource.record, record)
+            if record.enabled:
+                self.assertEquals(recordResource.record, record)
 
     ##
     # DirectoryPrincipalProvisioningResource
@@ -152,8 +154,11 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             principal = provisioningResource.principalForShortName(recordType, record.shortNames[0])
-            self.failIf(principal is None)
-            self.assertEquals(record, principal.record)
+            if record.enabled:
+                self.failIf(principal is None)
+                self.assertEquals(record, principal.record)
+            else:
+                self.failIf(principal is not None)
 
     def test_principalForUser(self):
         """
@@ -164,8 +169,11 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
             for user in directory.listRecords(DirectoryService.recordType_users):
                 userResource = provisioningResource.principalForUser(user.shortNames[0])
-                self.failIf(userResource is None)
-                self.assertEquals(user, userResource.record)
+                if user.enabled:
+                    self.failIf(userResource is None)
+                    self.assertEquals(user, userResource.record)
+                else:
+                    self.failIf(userResource is not None)
 
     def test_principalForAuthID(self):
         """
@@ -177,8 +185,11 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             for user in directory.listRecords(DirectoryService.recordType_users):
                 creds = UsernamePassword(user.shortNames[0], "bogus")
                 userResource = provisioningResource.principalForAuthID(creds)
-                self.failIf(userResource is None)
-                self.assertEquals(user, userResource.record)
+                if user.enabled:
+                    self.failIf(userResource is None)
+                    self.assertEquals(user, userResource.record)
+                else:
+                    self.failIf(userResource is not None)
 
     def test_principalForUID(self):
         """
@@ -186,8 +197,11 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             principal = provisioningResource.principalForUID(record.uid)
-            self.failIf(principal is None)
-            self.assertEquals(record, principal.record)
+            if record.enabled:
+                self.failIf(principal is None)
+                self.assertEquals(record, principal.record)
+            else:
+                self.failIf(principal is not None)
 
     def test_principalForRecord(self):
         """
@@ -195,8 +209,11 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             principal = provisioningResource.principalForRecord(record)
-            self.failIf(principal is None, msg=str(record))
-            self.assertEquals(record, principal.record)
+            if record.enabled:
+                self.failIf(principal is None)
+                self.assertEquals(record, principal.record)
+            else:
+                self.failIf(principal is not None)
 
     def test_principalForCalendarUserAddress(self):
         """
@@ -205,13 +222,17 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         for (
             provisioningResource, recordType, recordResource, record
         ) in self._allRecords():
-            principalURL = recordResource.principalURL()
-            if principalURL.endswith("/"):
-                alternateURL = principalURL[:-1]
-            else:
-                alternateURL = principalURL + "/"
+        
+            test_items = tuple(record.calendarUserAddresses)
+            if recordResource:
+                principalURL = recordResource.principalURL()
+                if principalURL.endswith("/"):
+                    alternateURL = principalURL[:-1]
+                else:
+                    alternateURL = principalURL + "/"
+                test_items += (principalURL, alternateURL)
 
-            for address in tuple(record.calendarUserAddresses) + (principalURL, alternateURL):
+            for address in test_items:
                 principal = provisioningResource.principalForCalendarUserAddress(address)
                 if record.enabledForCalendaring:
                     self.failIf(principal is None)
@@ -254,7 +275,11 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             principal = provisioningResource.principalForRecord(record)
-            self.failIf(principal is None)
+            if record.enabled:
+                self.failIf(principal is None)
+            else:
+                self.failIf(principal is not None)
+                continue
             if record.enabledForCalendaring:
                 self.assertTrue(isinstance(principal, DirectoryCalendarPrincipalResource))
             else:
@@ -348,15 +373,17 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         that is an instance of DisabledCacheNotifier
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            self.failUnless(isinstance(recordResource.cacheNotifier,
-                                       DisabledCacheNotifier))
+            if record.enabled:
+                self.failUnless(isinstance(recordResource.cacheNotifier,
+                                           DisabledCacheNotifier))
 
     def test_displayName(self):
         """
         DirectoryPrincipalResource.displayName()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            self.failUnless(recordResource.displayName())
+            if record.enabled:
+                self.failUnless(recordResource.displayName())
 
     @inlineCallbacks
     def test_groupMembers(self):
@@ -364,8 +391,9 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         DirectoryPrincipalResource.groupMembers()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            members = yield recordResource.groupMembers()
-            self.failUnless(set(record.members()).issubset(set(r.record for r in members)))
+            if record.enabled:
+                members = yield recordResource.groupMembers()
+                self.failUnless(set(record.members()).issubset(set(r.record for r in members)))
 
     @inlineCallbacks
     def test_groupMemberships(self):
@@ -373,15 +401,17 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         DirectoryPrincipalResource.groupMemberships()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            memberships = yield recordResource.groupMemberships()
-            self.failUnless(set(record.groups()).issubset(set(r.record for r in memberships if hasattr(r, "record"))))
+            if record.enabled:
+                memberships = yield recordResource.groupMemberships()
+                self.failUnless(set(record.groups()).issubset(set(r.record for r in memberships if hasattr(r, "record"))))
 
     def test_principalUID(self):
         """
         DirectoryPrincipalResource.principalUID()
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            self.assertEquals(record.guid, recordResource.principalUID())
+            if record.enabled:
+                self.assertEquals(record.guid, recordResource.principalUID())
 
     def test_calendarUserAddresses(self):
         """
@@ -523,8 +553,9 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         Default access controls for principals.
         """
         for provisioningResource, recordType, recordResource, record in self._allRecords():
-            for args in _authReadOnlyPrivileges(self, recordResource, recordResource.principalURL()):
-                yield self._checkPrivileges(*args)
+            if record.enabled:
+                for args in _authReadOnlyPrivileges(self, recordResource, recordResource.principalURL()):
+                    yield self._checkPrivileges(*args)
 
     @inlineCallbacks
     def test_defaultAccessControlList_provisioners(self):
@@ -627,8 +658,9 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 def _authReadOnlyPrivileges(self, resource, url):
     items = []
     for provisioningResource, recordType, recordResource, record in self._allRecords():
-        items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Read()  , True ))
-        items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Write() , False ))
+        if record.enabled:
+            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Read()  , True ))
+            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Write() , False ))
     items.append(( davxml.Unauthenticated() , davxml.Read()  , False ))
     items.append(( davxml.Unauthenticated() , davxml.Write() , False ))
             
