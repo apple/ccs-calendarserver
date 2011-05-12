@@ -125,9 +125,16 @@ def upgrade_to_1(config):
             if principal is None:
                 return (None, None, None)
             else:
-                return (principal.record.fullName,
-                    principal.record.guid,
-                    principal.record.calendarUserAddresses)
+                rec = principal.record
+
+                # RFC5545 syntax does not allow backslash escaping in
+                # parameter values. A double-quote is thus not allowed
+                # in a parameter value except as the start/end delimiters.
+                # Single quotes are allowed, so we convert any double-quotes
+                # to single-quotes.
+                fullName = rec.fullName.replace('"', "'")
+
+                return (fullName, rec.guid, rec.calendarUserAddresses)
 
         cal.normalizeCalendarUserAddresses(lookupFunction)
 
