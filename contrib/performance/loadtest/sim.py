@@ -33,6 +33,19 @@ from loadtest.population import (
     CalendarClientSimulator)
 
 
+class _DirectoryRecord(object):
+    def __init__(self, uid, password):
+        self.uid = uid
+        self.password = password
+
+
+def recordsFromTextFile(path):
+    return [
+        _DirectoryRecord(*line.split())
+        for line
+        in FilePath(path).getContent().splitlines()]
+
+
 class LagTrackingReactor(object):
     """
     This reactor wraps another reactor and proxies all attribute
@@ -120,14 +133,19 @@ class LoadSimulator(object):
     @type server: L{Server}
     @type arrival: L{Arrival}
     @type parameters: L{PopulationParameters}
+
+    @ivar records: A C{list} of L{DirectoryRecord} instances giving
+        user information about the accounts on the server being put
+        under load.
     """
-    def __init__(self, server, arrival, parameters, observers=None, reactor=None):
+    def __init__(self, server, arrival, parameters, observers=None, records=None, reactor=None):
         if reactor is None:
             from twisted.internet import reactor
         self.server = server
         self.arrival = arrival
         self.parameters = parameters
         self.observers = observers
+        self.records = records
         self.reactor = LagTrackingReactor(reactor)
 
 
@@ -175,7 +193,14 @@ class LoadSimulator(object):
             for observerName in options.config['observers']:
                 observers.append(namedAny(observerName)())
 
-        return cls(server, arrival, parameters, observers)
+        records = []
+        if 'accounts' in options.config:
+            loader = options.config['accounts']['loader']
+            params = options.config['accounts']['params']
+            records.extend(namedAny(loader)(**params))
+
+        return cls(server, arrival, parameters,
+                   observers=observers, records=records)
 
 
     @classmethod
@@ -189,12 +214,13 @@ class LoadSimulator(object):
         port = self.server.port
         populator = Populator(Random())
         return CalendarClientSimulator(
-            populator, self.parameters, self.reactor, host, port)
+            self.records, populator, self.parameters, self.reactor,
+            host, port)
 
 
     def createArrivalPolicy(self):
         return self.arrival.factory(self.reactor, **self.arrival.parameters)
-
+        
 
     def run(self):
         for obs in self.observers:

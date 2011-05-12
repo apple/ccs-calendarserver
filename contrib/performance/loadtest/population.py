@@ -112,13 +112,14 @@ class Populator(object):
 
 
 class CalendarClientSimulator(object):
-    def __init__(self, populator, parameters, reactor, host, port):
+    def __init__(self, records, populator, parameters, reactor, host, port):
+        self._records = records
         self.populator = populator
         self.reactor = reactor
         self.host = host
         self.port = port
         self._pop = self.populator.populate(parameters)
-        self._user = 1
+        self._user = 0
 
 
     def _nextUserNumber(self):
@@ -129,13 +130,14 @@ class CalendarClientSimulator(object):
 
     def _createUser(self, number):
         from urllib2 import HTTPDigestAuthHandler
-        user = "user%02d" % (number,)
+        record = self._records[number]
+        user = record.uid
         auth = HTTPDigestAuthHandler()
         auth.add_password(
             realm="Test Realm",
             uri="http://%s:%d/" % (self.host, self.port),
             user=user,
-            passwd=user)
+            passwd=record.password)
         return user, auth
 
 

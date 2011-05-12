@@ -29,6 +29,17 @@
       <integer>8008</integer>
     </dict>
 
+    <key>accounts</key>
+    <dict>
+      <key>loader</key>
+      <string>loadtest.sim.recordsFromTextFile</string>
+      <key>params</key>
+      <dict>
+	<key>path</key>
+	<string>loadtest/accounts.txt</string>
+      </dict>
+    </dict>
+
     <key>arrival</key>
     <dict>
       <key>factory</key>

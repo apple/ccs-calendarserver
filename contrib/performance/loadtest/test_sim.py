@@ -18,6 +18,8 @@
 from operator import setitem
 from plistlib import writePlistToString
 
+from zope.interface.verify import verifyClass
+
 from twisted.python.log import LogPublisher, theLogPublisher, msg
 from twisted.python.usage import UsageError
 from twisted.python.filepath import FilePath
@@ -25,10 +27,13 @@ from twisted.trial.unittest import TestCase
 from twisted.internet.defer import succeed
 from twisted.internet.task import Clock
 
+from twistedcaldav.directory.idirectory import IDirectoryService
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+
 from loadtest.ical import SnowLeopard
 from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.population import (
-    SmoothRampUp, ClientType, PopulationParameters, CalendarClientSimulator,
+    SmoothRampUp, ClientType, PopulationParameters, Populator, CalendarClientSimulator,
     SimpleStatistics)
 from loadtest.sim import (
     Server, Arrival, SimOptions, LoadSimulator, LagTrackingReactor, main)
@@ -94,6 +99,50 @@ class SimOptionsTests(TestCase):
 
 
 
+class CalendarClientSimulatorTests(TestCase):
+    """
+    Tests for L{CalendarClientSimulator} which adds running clients to
+    a simulation.
+    """
+    realmName = 'stub'
+
+    def _user(self, name):
+        record = DirectoryRecord(self, 'user', name, (name,))
+        record.password = 'password-' + name
+        return record
+
+
+    def test_createUser(self):
+        """
+        Subsequent calls to L{CalendarClientSimulator._createUser}
+        with different user numbers return user details from different
+        directory records.
+        """
+        calsim = CalendarClientSimulator(
+            [self._user('alice'), self._user('bob'), self._user('carol')],
+            Populator(None), None, None, 'example.org', 1234)
+        users = sorted([
+                calsim._createUser(0)[0],
+                calsim._createUser(1)[0],
+                calsim._createUser(2)[0],
+                ])
+        self.assertEqual(['alice', 'bob', 'carol'], users)
+
+
+    def test_createUserAuthInfo(self):
+        """
+        The auth handler returned by L{CalendarClientSimulator._createUser}
+        includes the password taken from user's directory record.
+        """
+        calsim = CalendarClientSimulator(
+            [self._user('alice')],
+            Populator(None), None, None, 'example.org', 1234)
+        user, auth = calsim._createUser(0)
+        self.assertEqual(
+            auth.passwd.find_user_password('Test Realm', 'http://example.org:1234/')[1],
+            'password-' + user)
+
+
 class Reactor(object):
     message = "some event to be observed"
 
@@ -149,9 +198,9 @@ class LoadSimulatorTests(TestCase):
 
     def test_createSimulator(self):
         """
-        L{LoadSimulator.createSimulator} creates a
-        L{CalendarClientSimulator} with its own reactor and host and
-        port information from the configuration file.
+        L{LoadSimulator.createSimulator} creates a L{CalendarClientSimulator}
+        with its own reactor and host and port information from the
+        configuration file.
         """
         host = '127.0.0.7'
         port = 1243
@@ -163,6 +212,28 @@ class LoadSimulatorTests(TestCase):
         self.assertIdentical(calsim.reactor._reactor, reactor)
         self.assertEquals(calsim.host, host)
         self.assertEquals(calsim.port, port)
+
+
+    def test_loadAccountsFromFile(self):
+        """
+        L{LoadSimulator.
+        """
+        accounts = FilePath(self.mktemp())
+        accounts.setContent("foo bar\nbaz quux\n")
+        config = VALID_CONFIG.copy()
+        config["accounts"] = {
+            "loader": "loadtest.sim.recordsFromTextFile",
+            "params": {
+                "path": accounts.path},
+            }
+        configpath = FilePath(self.mktemp())
+        configpath.setContent(writePlistToString(config))
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path])
+        self.assertEqual(2, len(sim.records))
+        self.assertEqual(sim.records[0].uid, 'foo')
+        self.assertEqual(sim.records[0].password, 'bar')
+        self.assertEqual(sim.records[1].uid, 'baz')
+        self.assertEqual(sim.records[1].password, 'quux')
 
 
     def test_loadServerConfig(self):
@@ -277,7 +348,7 @@ class LoadSimulatorTests(TestCase):
         sim = LoadSimulator(
             Server('example.com', 123), 
             Arrival(lambda reactor: NullArrival(), {}),
-            None, observers, Reactor())
+            None, observers, reactor=Reactor())
         sim.run()
         self.assertTrue(observers[0].reported)
         self.assertEquals(
