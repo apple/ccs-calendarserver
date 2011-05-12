@@ -54,6 +54,13 @@ limitations under the License.
     <email-address>dreid@example.com</email-address>
   </user>
   <user>
+    <uid>doublequotes</uid>
+    <guid>8E04787E-336D-41ED-A70B-D233AD0DCE6F</guid>
+    <password>setouqelbuod</password>
+    <name>Double "quotey" Quotes</name>
+    <email-address>doublequotes@example.com</email-address>
+  </user>
+  <user>
     <uid>nocalendar</uid>
     <guid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</guid>
     <password>radnelacon</password>
