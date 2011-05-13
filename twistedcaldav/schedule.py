@@ -168,7 +168,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             if defaultCalendarProperty and len(defaultCalendarProperty.children) == 1:
                 defaultCalendar = str(defaultCalendarProperty.children[0])
                 cal = (yield request.locateResource(str(defaultCalendar)))
-                if cal is not None and cal.exists() and isCalendarCollectionResource(cal):
+                if cal is not None and isCalendarCollectionResource(cal) and cal.exists():
                     returnValue(defaultCalendarProperty) 
             
             # Default is not valid - we have to try to pick one
