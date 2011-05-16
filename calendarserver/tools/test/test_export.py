@@ -31,7 +31,7 @@ from twisted.python.modules import getModule
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from twistedcaldav.ical import Component
-from calendarserver.tools.export import ExportOptions
+from calendarserver.tools.export import ExportOptions, main
 from calendarserver.tools.export import HomeExporter
 from twistedcaldav.datafilters.test.test_peruserdata import dataForTwoUsers
 from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
@@ -137,6 +137,23 @@ class CommandLine(TestCase):
         tmpnam = self.mktemp()
         eo.parseOptions(["--output", tmpnam])
         self.assertEquals(eo.openOutput().name, tmpnam)
+
+
+    def test_outputFileError(self):
+        """
+        If the output file cannot be opened for writing, an error will be
+        displayed to the user on stderr.
+        """
+        io = StringIO()
+        systemExit = self.assertRaises(
+            SystemExit, main, ['calendarserver_export',
+                               '--output', '/not/a/file'], io
+        )
+        self.assertEquals(systemExit.code, 1)
+        self.assertEquals(
+            io.getvalue(),
+            "Unable to open output file for writing: "
+            "[Errno 2] No such file or directory: '/not/a/file'\n")
 
 
 

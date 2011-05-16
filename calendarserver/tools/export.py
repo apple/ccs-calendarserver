@@ -190,7 +190,7 @@ def exportToFile(calendars, exporterUID, fileobj):
 
 
 
-def main():
+def oldmain():
     # quiet pyflakes while I'm working on this.
     from stopbotheringme import CalDAVFile
     try:
@@ -206,7 +206,6 @@ def main():
         usage(e)
 
     configFileName = None
-    outputFileName = None
 
     collections = set()
     calendarHomes = set()
@@ -223,12 +222,6 @@ def main():
 
         elif opt in ("-f", "--config"):
             configFileName = arg
-
-        elif opt in ("-o", "--output"):
-            if arg == "-":
-                outputFileName = None
-            else:
-                outputFileName = arg
 
         elif opt in ("-c", "--collection"):
             path = abspath(arg)
@@ -290,17 +283,10 @@ def main():
         calendar = Component.newCalendar()
 
         uids  = set()
-        tzids = set()
 
         for collection in collections:
             for name, uid, type in collection.index().indexedSearch(None):
                 child = collection.getChild(name)
-                childData = child.iCalendarText()
-
-                try:
-                    childCalendar = Component.fromString(childData)
-                except ValueError:
-                    continue
 
                 if uid in uids:
                     sys.stderr.write("Skipping duplicate event UID %r from %s\n" % (uid, collection.fp.path))
@@ -308,32 +294,26 @@ def main():
                 else:
                     uids.add(uid)
 
-                for component in childCalendar.subcomponents():
-                    # Only insert VTIMEZONEs once
-                    if component.name() == "VTIMEZONE":
-                        tzid = component.propertyValue("TZID")
-                        if tzid in tzids:
-                            continue
-                        else:
-                            tzids.add(tzid)
-
-                    calendar.addComponent(component)
-
         calendarData = str(calendar)
-
-        if outputFileName:
-            try:
-                output = open(outputFileName, "w")
-            except IOError, e:
-                sys.stderr.write("Unable to open output file for writing %s: %s\n" % (outputFileName, e))
-                sys.exit(1)
-        else:
-            output = sys.stdout
-
+        output = sys.stdout
         output.write(calendarData)
-
     except UsageError, e:
         usage(e)
 
-if __name__ == "__main__":
-    main()
+
+
+def main(argv=sys.argv, stderr=sys.stderr):
+    """
+    Do the export.
+    """
+    options = ExportOptions()
+    options.parseOptions(argv[1:])
+    try:
+        output = options.openOutput()
+    except IOError, e:
+        stderr.write("Unable to open output file for writing: %s\n" %
+                     (e))
+        sys.exit(1)
+    output #pyflakes
+
+
