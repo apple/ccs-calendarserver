@@ -45,7 +45,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.ical import Component
 
-from twistedcaldav.stdconfig import DEFAULT_CARDDAV_CONFIG_FILE
+from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from calendarserver.tools.cmdline import utilityMain
 from twisted.application.service import Service
 from calendarserver.tap.util import directoryFromConfig
@@ -85,7 +85,7 @@ class ExportOptions(Options):
 
     synopsis = description
 
-    optParameters = [['config', 'f', DEFAULT_CARDDAV_CONFIG_FILE,
+    optParameters = [['config', 'f', DEFAULT_CONFIG_FILE,
                       "Specify caldavd.plist configuration path."]]
 
     def __init__(self):
