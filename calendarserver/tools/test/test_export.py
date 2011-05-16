@@ -117,7 +117,7 @@ class IntegrationTests(TestCase):
     Tests for exporting data from a live store.
     """
 
-    FAKE_CONFIG_FILE = 'not-a-real-config-file.plist'
+    fakeConfigFile = 'not-a-real-config-file.plist'
 
     @inlineCallbacks
     def setUp(self):
@@ -141,7 +141,7 @@ class IntegrationTests(TestCase):
             raise RuntimeError(
                 "Main called twice this test; duplicate reactor run.")
         self.mainCalled = True
-        self.assertEquals(configFileName, self.FAKE_CONFIG_FILE)
+        self.assertEquals(configFileName, self.fakeConfigFile)
         theService = serviceClass(self.store)
         theService.startService()
 
