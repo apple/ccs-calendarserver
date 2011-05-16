@@ -189,10 +189,15 @@ class IntegrationTests(TestCase):
 
 
     def txn(self):
+        """
+        Create a new transaction and automatically clean it up when the test
+        completes.
+        """
         aTransaction = self.store.newTransaction()
+        @inlineCallbacks
         def maybeAbort():
             try:
-                aTransaction.abort()
+                yield aTransaction.abort()
             except AlreadyFinishedError:
                 pass
         self.addCleanup(maybeAbort)
