@@ -220,7 +220,7 @@ def clipPeriod(period, clipPeriod):
     if end > clipEnd:
         end = clipEnd
     
-    if start > end:
+    if start >= end:
         return None
     else:
         # Try to preserve use of duration in period
