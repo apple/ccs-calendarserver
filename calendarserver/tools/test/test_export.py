@@ -33,18 +33,19 @@ class CommandLine(TestCase):
 
     def test_usageMessage(self):
         """
-        The 'usage' message should print something to standard output and exit.
+        The 'usage' message should print something to standard output (and
+        nothing to standard error) and exit.
         """
         orig = sys.stdout
         orige = sys.stderr
         try:
             out = sys.stdout = StringIO()
             err = sys.stderr = StringIO()
-            usage()
+            self.assertRaises(SystemExit, usage)
         finally:
             sys.stdout = orig
             sys.stderr = orige
-        self.assertGreaterThan(len(out.getvalue()), 0)
+        self.assertEquals(len(out.getvalue()) > 0, True, "No output.")
         self.assertEquals(len(err.getvalue()), 0)
 
 

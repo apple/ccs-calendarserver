@@ -41,7 +41,6 @@ from twistedcaldav.ical import Component as iComponent, Property as iProperty
 from twistedcaldav.ical import iCalendarProductID
 from twistedcaldav.resource import isCalendarCollectionResource,\
     CalendarHomeResource
-from twistedcaldav.static import CalDAVFile
 from twistedcaldav.directory.directory import DirectoryService
 
 from calendarserver.tools.util import UsageError
