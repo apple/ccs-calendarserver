@@ -29,6 +29,11 @@ data storage; it does not operate by talking to the server via the
 network.  It therefore does not apply any of the access restrictions
 that the server would.  As such, one should be midful that data
 exported via this tool may be sensitive.
+
+Please also note that this is not an appropriate tool for backups, as there is
+data associated with users and calendars beyond the iCalendar as visible to the
+owner of that calendar, including DAV properties, information about sharing, and
+per-user data such as alarms.
 """
 
 import os
