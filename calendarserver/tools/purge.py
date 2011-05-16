@@ -19,7 +19,6 @@
 import os
 import sys
 from errno import ENOENT, EACCES
-
 from getopt import getopt, GetoptError
 
 from pycalendar.datetime import PyCalendarDateTime
