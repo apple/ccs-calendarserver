@@ -25,6 +25,8 @@ from calendarserver.tools.util import loadConfig
 
 from twistedcaldav.config import ConfigurationError, config
 
+# TODO: direct unit tests for this function.
+
 def utilityMain(configFileName, serviceClass, reactor=None):
     """
     Shared main-point for utilities.
