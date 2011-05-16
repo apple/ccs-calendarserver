@@ -43,8 +43,8 @@ from getopt import getopt, GetoptError
 from os.path import dirname, abspath
 
 from twisted.python.usage import Options
-from twisted.internet.defer import inlineCallbacks
-#from twisted.internet.defer import returnValue
+from twisted.python import log
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.ical import Component
@@ -55,6 +55,7 @@ from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.stdconfig import DEFAULT_CARDDAV_CONFIG_FILE
 from calendarserver.tools.cmdline import utilityMain
 from twisted.application.service import Service
+from calendarserver.tap.util import directoryFromConfig
 
 from calendarserver.tools.util import (loadConfig, getDirectory)
 
@@ -93,7 +94,7 @@ class ExportOptions(Options):
 
     def opt_record(self, recordName):
         """
-        add a directory record's calendar home (format: 'recordType:shortName')
+        Add a directory record's calendar home (format: 'recordType:shortName').
         """
         recordType, shortName = recordName.split(":", 1)
         self.exporters.append(HomeExporter(recordType, shortName))
@@ -120,6 +121,15 @@ class ExportOptions(Options):
         self.outputName = filename
 
     opt_o = opt_output
+
+
+    def opt_user(self, user):
+        """
+        Add a user's calendar home (shorthand for '-r users:shortName').
+        """
+        self.opt_record("users:" + user)
+
+    opt_u = opt_user
 
 
     def openOutput(self):
@@ -156,6 +166,20 @@ class HomeExporter(object):
         self.collections = []
         self.recordType = recordType
         self.shortName = shortName
+
+
+    @inlineCallbacks
+    def listCalendars(self, txn, exportService):
+        directory = exportService.directoryService()
+        record = directory.recordWithShortName(self.recordType, self.shortName)
+        home = yield txn.calendarHomeWithUID(record.guid)
+        if self.collections:
+            result = []
+            for collection in self.collections:
+                result.append((yield home.calendarWithName(collection)))
+        else:
+            result = yield home.calendars()
+        returnValue(result)
 
 
 
@@ -305,12 +329,14 @@ class ExporterService(Service, object):
     Service which runs, exports the appropriate records, then stops the reactor.
     """
 
-    def __init__(self, store, options, output, reactor):
+    def __init__(self, store, options, output, reactor, config):
         super(ExporterService, self).__init__()
         self.store   = store
         self.options = options
         self.output  = output
         self.reactor = reactor
+        self.config = config
+        self._directory = None
 
 
     def startService(self):
@@ -326,12 +352,32 @@ class ExporterService(Service, object):
         """
         Do the export, stopping the reactor when done.
         """
-        allCalendars = itertools.chain(
-            [exporter.listCalendars(self) for exporter in
-             self.options.exporters]
-        )
-        yield exportToFile(allCalendars, self.output)
+        txn = self.store.newTransaction()
+        try:
+            allCalendars = itertools.chain(
+                *[(yield exporter.listCalendars(txn, self)) for exporter in
+                  self.options.exporters]
+            )
+            yield exportToFile(allCalendars, self.output)
+        except:
+            log.err()
+
+        yield txn.commit()
+        # TODO: should be read-only, so commit/abort shouldn't make a
+        # difference.  commit() for now, in case any transparent cache / update
+        # stuff needed to happen, don't want to undo it.
+        self.output.close()
         self.reactor.stop()
+
+
+    def directoryService(self):
+        """
+        Get an appropriate directory service for this L{ExporterService}'s
+        configuration, creating one first if necessary.
+        """
+        if self._directory is None:
+            self._directory = directoryFromConfig(self.config)
+        return self._directory
 
 
     def stopService(self):
@@ -360,9 +406,9 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         stderr.write("Unable to open output file for writing: %s\n" %
                      (e))
         sys.exit(1)
-    utilityMain(options['config'],
-                lambda store: ExporterService(store, options, output, reactor),
-                reactor)
-    output #pyflakes
+    def makeService(store):
+        from twistedcaldav.config import config
+        return ExporterService(store, options, output, reactor, config)
+    utilityMain(options['config'], makeService, reactor)
 
 

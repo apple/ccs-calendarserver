@@ -24,14 +24,13 @@ from cStringIO import StringIO
 
 from twisted.trial.unittest import TestCase
 
-#from calendarserver.tools import export
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.modules import getModule
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from twistedcaldav.ical import Component
-#from twistedcaldav.directory import augment
+from twistedcaldav.directory import augment
 from twistedcaldav.datafilters.test.test_peruserdata import dataForTwoUsers
 from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
 
@@ -39,8 +38,10 @@ from calendarserver.tools import export
 from calendarserver.tools.export import ExportOptions, main
 from calendarserver.tools.export import HomeExporter
 
+from twisted.python.filepath import FilePath
+from twistedcaldav.test.util import patchConfig
 from twisted.internet.defer import Deferred
-#from twistedcaldav.directory.xmlfile import XMLDirectoryService
+
 from txdav.common.datastore.test.util import buildStore
 from txdav.common.datastore.test.util import populateCalendarsFrom
 
@@ -168,6 +169,9 @@ class IntegrationTests(TestCase):
     Tests for exporting data from a live store.
     """
 
+    accountsFile = 'no-accounts.xml'
+    augmentsFile = 'no-augments.xml'
+
     @inlineCallbacks
     def setUp(self):
         """
@@ -179,16 +183,6 @@ class IntegrationTests(TestCase):
         """
         self.mainCalled = False
         self.patch(export, "utilityMain", self.fakeUtilityMain)
-
-        # In lieu of a configuration file, patch up the augment service and make
-        # it so directoryFromConfig will return something useful.
-
-#        self.patch(augment, "AugmentService",
-#                   augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,)))
-#
-#        self.patch(export, "directoryFromConfig",
-#                    XMLDirectoryService({'xmlFile' : self.xmlFile()},
-#                                                    alwaysStat=True))
 
 
         self.store = yield buildStore(self, None)
@@ -210,6 +204,32 @@ class IntegrationTests(TestCase):
         if self.mainCalled:
             raise RuntimeError(
                 "Main called twice during this test; duplicate reactor run.")
+
+        # In lieu of a configuration file, patch up the augment service and make
+        # it so directoryFromConfig will return something useful.  Don't
+        # actually need to patch the augment service to a real fake; just patch
+        # it so that trial will restore the previous one when this test has
+        # completed.
+
+        self.patch(augment, "AugmentService", None)
+
+        patchConfig(
+            self,
+            DirectoryService=dict(
+                type="twistedcaldav.directory.xmlfile.XMLDirectoryService",
+                params=dict(
+                    xmlFile=self.accountsFile
+                )
+            ),
+            ResourceService=dict(Enabled=False),
+            AugmentService=dict(
+                type="twistedcaldav.directory.augment.AugmentXMLDB",
+                params=dict(
+                    xmlFiles=[self.augmentsFile]
+                )
+            )
+        )
+
         self.mainCalled = True
         self.usedConfigFile = configFileName
         self.usedReactor = reactor
@@ -399,5 +419,62 @@ class IntegrationTests(TestCase):
             Component.fromString(io.getvalue())
         )
 
+
+    @inlineCallbacks
+    def test_full(self):
+        """
+        Running C{calendarserver_export} on the command line exports an ics
+        file. (Almost-full integration test, starting from the main point, using
+        as few test fakes as possible.)
+
+        Note: currently the only test for directory interaction.
+        """
+        yield populateCalendarsFrom(
+            {
+                "user02": {
+                    "calendar1": {
+                        "peruser.ics": (dataForTwoUsers, {}), # EST
+                    }
+                }
+            }, self.store
+        )
+
+        augmentsData = """
+            <augments>
+              <record>
+                <uid>Default</uid>
+                <enable>true</enable>
+                <enable-calendar>true</enable-calendar>
+                <enable-addressbook>true</enable-addressbook>
+              </record>
+            </augments>
+        """
+        augments = FilePath(self.mktemp())
+        augments.setContent(augmentsData)
+
+        accountsData = """
+            <accounts realm="Test Realm">
+                <user>
+                    <uid>user-under-test</uid>
+                    <guid>user02</guid>
+                    <name>Not Interesting</name>
+                    <password>very-secret</password>
+                </user>
+            </accounts>
+        """
+        accounts = FilePath(self.mktemp())
+        accounts.setContent(accountsData)
+        output = FilePath(self.mktemp())
+        self.accountsFile = accounts.path
+        self.augmentsFile = augments.path
+        main(['calendarserver_export', '--output',
+              output.path, '--user', 'user-under-test'], reactor=self)
+
+        yield self.waitToStop
+
+        self.assertEquals(
+            Component.fromString(resultForUser2),
+            Component.fromString(output.getContent())
+        )
 
 
