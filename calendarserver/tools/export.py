@@ -146,6 +146,19 @@ class HomeExporter(object):
     """
     An exporter that constructs a list of calendars based on the UID or
     directory services record ID of the home.
+
+    @ivar collections: A list of the names of collections that this exporter
+        should enumerate.
+
+    @type collections: C{list} of C{str}
+
+    @ivar recordType: The directory record type to export.  For example:
+        'users'.
+
+    @type recordType: C{str}
+
+    @ivar shortName: The shortName of the directory record to export, according
+        to C{recordType}.
     """
 
     def __init__(self, recordType, shortName):
