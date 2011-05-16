@@ -31,10 +31,12 @@ from twisted.python.modules import getModule
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from twistedcaldav.ical import Component
+from calendarserver.tools import export
 from calendarserver.tools.export import ExportOptions, main
 from calendarserver.tools.export import HomeExporter
 from twistedcaldav.datafilters.test.test_peruserdata import dataForTwoUsers
 from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
+from twisted.internet.defer import Deferred
 from txdav.common.datastore.test.util import buildStore
 from txdav.common.datastore.test.util import populateCalendarsFrom
 
@@ -162,8 +164,6 @@ class IntegrationTests(TestCase):
     Tests for exporting data from a live store.
     """
 
-    fakeConfigFile = 'not-a-real-config-file.plist'
-
     @inlineCallbacks
     def setUp(self):
         """
@@ -174,8 +174,17 @@ class IntegrationTests(TestCase):
         L{utilityMain}.
         """
         self.mainCalled = False
-        #self.patch(export, "utilityMain", self.fakeUtilityMain)
+        self.patch(export, "utilityMain", self.fakeUtilityMain)
         self.store = yield buildStore(self, None)
+        self.waitToStop = Deferred()
+
+
+    def stop(self):
+        """
+        Emulate reactor.stop(), which the service must call when it is done with
+        work.
+        """
+        self.waitToStop.callback(None)
 
 
     def fakeUtilityMain(self, configFileName, serviceClass, reactor=None):
@@ -184,11 +193,25 @@ class IntegrationTests(TestCase):
         """
         if self.mainCalled:
             raise RuntimeError(
-                "Main called twice this test; duplicate reactor run.")
+                "Main called twice during this test; duplicate reactor run.")
         self.mainCalled = True
-        self.assertEquals(configFileName, self.fakeConfigFile)
-        theService = serviceClass(self.store)
-        theService.startService()
+        self.usedConfigFile = configFileName
+        self.usedReactor = reactor
+        self.exportService = serviceClass(self.store)
+        self.exportService.startService()
+        self.addCleanup(self.exportService.stopService)
+
+
+    def test_configFile(self):
+        """
+        export.main() invokes utilityMain with the configuration file specified
+        on the command line.
+        """
+        tempConfig = self.mktemp()
+        main(['calendarserver_export', '--config', tempConfig], reactor=self)
+        self.assertEquals(self.mainCalled, True, "Main not called.")
+        self.assertEquals(self.usedConfigFile, tempConfig)
+        self.assertEquals(self.usedReactor, self)
 
 
     @inlineCallbacks

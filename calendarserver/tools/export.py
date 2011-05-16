@@ -50,10 +50,11 @@ from twistedcaldav.ical import Component
 from twistedcaldav.resource import isCalendarCollectionResource,\
     CalendarHomeResource
 from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.stdconfig import DEFAULT_CARDDAV_CONFIG_FILE
+from calendarserver.tools.cmdline import utilityMain
+from twisted.application.service import Service
 
-from calendarserver.tools.util import UsageError
-from calendarserver.tools.util import (
-    loadConfig, getDirectory, dummyDirectoryRecord, autoDisableMemcached)
+from calendarserver.tools.util import (loadConfig, getDirectory)
 
 def usage(e=None):
     if e:
@@ -78,6 +79,9 @@ class ExportOptions(Options):
         calendars to export, given a directory service.  This list is built by
         parsing --record and --collection options.
     """
+
+    optParameters = [['config', 'c', DEFAULT_CARDDAV_CONFIG_FILE,
+                      "Specify caldavd.plist configuration path."]]
 
     def __init__(self):
         super(ExportOptions, self).__init__()
@@ -235,7 +239,7 @@ def oldmain():
         elif opt in ("-H", "--home"):
             path = abspath(arg)
             parent = CalDAVFile(dirname(abspath(path)))
-            calendarHome = CalendarHomeResource(arg, parent, dummyDirectoryRecord)
+            calendarHome = CalendarHomeResource(arg, parent, None)
             checkExists(calendarHome)
             calendarHomes.add(calendarHome)
 
@@ -260,7 +264,6 @@ def oldmain():
         try:
             config = loadConfig(configFileName)
             config.directory = getDirectory()
-            autoDisableMemcached(config)
         except ConfigurationError, e:
             sys.stdout.write("%s\n" % (e,))
             sys.exit(1)
@@ -279,33 +282,59 @@ def oldmain():
             if isCalendarCollectionResource(child):
                 collections.add(child)
 
-    try:
-        calendar = Component.newCalendar()
+    calendar = Component.newCalendar()
 
-        uids  = set()
+    uids  = set()
 
-        for collection in collections:
-            for name, uid, type in collection.index().indexedSearch(None):
-                child = collection.getChild(name)
+    for collection in collections:
+        for name, uid, type in collection.index().indexedSearch(None):
+            child = collection.getChild(name)
 
-                if uid in uids:
-                    sys.stderr.write("Skipping duplicate event UID %r from %s\n" % (uid, collection.fp.path))
-                    continue
-                else:
-                    uids.add(uid)
+            if uid in uids:
+                sys.stderr.write("Skipping duplicate event UID %r from %s\n" % (uid, collection.fp.path))
+                continue
+            else:
+                uids.add(uid)
 
-        calendarData = str(calendar)
-        output = sys.stdout
-        output.write(calendarData)
-    except UsageError, e:
-        usage(e)
+    calendarData = str(calendar)
+    output = sys.stdout
+    output.write(calendarData)
 
 
 
-def main(argv=sys.argv, stderr=sys.stderr):
+class ExporterService(Service, object):
+    """
+    Service which runs, exports the appropriate records, then stops the reactor.
+    """
+
+    def __init__(self):
+        super(ExporterService, self).__init__()
+
+
+    def startService(self):
+        """
+        Start the service.
+        """
+        super(ExporterService, self).startService()
+
+
+    def stopService(self):
+        """
+        Stop the service.  Nothing to do; everything should be finished by this
+        time.
+        """
+        # TODO: stopping this service mid-export should really stop the export
+        # loop, but this is not implemented because nothing will actually do it
+        # except hitting ^C (which also calls reactor.stop(), so that will exit
+        # anyway).
+
+
+def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     """
     Do the export.
     """
+    if reactor is None:
+        from twisted.internet import reactor
     options = ExportOptions()
     options.parseOptions(argv[1:])
     try:
@@ -314,6 +343,7 @@ def main(argv=sys.argv, stderr=sys.stderr):
         stderr.write("Unable to open output file for writing: %s\n" %
                      (e))
         sys.exit(1)
+    utilityMain(options['config'], lambda store: Service(), reactor)
     output #pyflakes
 
 
