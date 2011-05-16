@@ -177,7 +177,7 @@ def exportToFile(calendars, exporterUID, fileobj):
     for calendar in calendars:
         calendar = yield calendar
         for obj in (yield calendar.calendarObjects()):
-            evt = yield obj.filteredComponent(exporterUID)
+            evt = yield obj.filteredComponent(exporterUID, True)
             for sub in evt.subcomponents():
                 if sub.name() != 'VTIMEZONE':
                     # Omit all VTIMEZONE components, since PyCalendar will
