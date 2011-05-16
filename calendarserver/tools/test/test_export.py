@@ -31,12 +31,16 @@ from twisted.python.modules import getModule
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from twistedcaldav.ical import Component
+#from twistedcaldav.directory import augment
+from twistedcaldav.datafilters.test.test_peruserdata import dataForTwoUsers
+from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
+
 from calendarserver.tools import export
 from calendarserver.tools.export import ExportOptions, main
 from calendarserver.tools.export import HomeExporter
-from twistedcaldav.datafilters.test.test_peruserdata import dataForTwoUsers
-from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
+
 from twisted.internet.defer import Deferred
+#from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from txdav.common.datastore.test.util import buildStore
 from txdav.common.datastore.test.util import populateCalendarsFrom
 
@@ -175,6 +179,18 @@ class IntegrationTests(TestCase):
         """
         self.mainCalled = False
         self.patch(export, "utilityMain", self.fakeUtilityMain)
+
+        # In lieu of a configuration file, patch up the augment service and make
+        # it so directoryFromConfig will return something useful.
+
+#        self.patch(augment, "AugmentService",
+#                   augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,)))
+#
+#        self.patch(export, "directoryFromConfig",
+#                    XMLDirectoryService({'xmlFile' : self.xmlFile()},
+#                                                    alwaysStat=True))
+
+
         self.store = yield buildStore(self, None)
         self.waitToStop = Deferred()
 
@@ -202,16 +218,21 @@ class IntegrationTests(TestCase):
         self.addCleanup(self.exportService.stopService)
 
 
-    def test_configFile(self):
+    @inlineCallbacks
+    def test_serviceState(self):
         """
         export.main() invokes utilityMain with the configuration file specified
-        on the command line.
+        on the command line, and creates an L{ExporterService} pointed at the
+        appropriate store.
         """
         tempConfig = self.mktemp()
-        main(['calendarserver_export', '--config', tempConfig], reactor=self)
+        main(['calendarserver_export', '--config', tempConfig, '--output',
+              self.mktemp()], reactor=self)
         self.assertEquals(self.mainCalled, True, "Main not called.")
         self.assertEquals(self.usedConfigFile, tempConfig)
         self.assertEquals(self.usedReactor, self)
+        self.assertEquals(self.exportService.store, self.store)
+        yield self.waitToStop
 
 
     @inlineCallbacks
@@ -220,7 +241,7 @@ class IntegrationTests(TestCase):
         Exporting an empty calendar results in an empty calendar.
         """
         io = StringIO()
-        value = yield exportToFile([], "nobody", io)
+        value = yield exportToFile([], io)
         # it doesn't return anything, it writes to the file.
         self.assertEquals(value, None)
         # but it should write a valid component to the file.
@@ -267,8 +288,7 @@ class IntegrationTests(TestCase):
         io = StringIO()
         yield exportToFile(
             [(yield self.txn().calendarHomeWithUID("home1"))
-              .calendarWithName("calendar1")],
-            "nobody", io
+              .calendarWithName("calendar1")], io
         )
         self.assertEquals(Component.fromString(io.getvalue()),
                           expected)
@@ -301,8 +321,7 @@ class IntegrationTests(TestCase):
         io = StringIO()
         yield exportToFile(
             [(yield self.txn().calendarHomeWithUID("home1"))
-              .calendarWithName("calendar1")],
-            "nobody", io
+              .calendarWithName("calendar1")], io
         )
         self.assertEquals(Component.fromString(io.getvalue()),
                           expected)
@@ -332,8 +351,7 @@ class IntegrationTests(TestCase):
         io = StringIO()
         yield exportToFile(
             [(yield self.txn().calendarHomeWithUID("home1"))
-              .calendarWithName("calendar1")],
-            "nobody", io
+              .calendarWithName("calendar1")], io
         )
         result = Component.fromString(io.getvalue())
 
@@ -359,12 +377,12 @@ class IntegrationTests(TestCase):
     @inlineCallbacks
     def test_perUserFiltering(self):
         """
-        L{exportToFile} performs per-user component filtering based on its
-        C{exporterUID} parameter.
+        L{exportToFile} performs per-user component filtering based on the owner
+        of that calendar.
         """
         yield populateCalendarsFrom(
             {
-                "home1": {
+                "user02": {
                     "calendar1": {
                         "peruser.ics": (dataForTwoUsers, {}), # EST
                     }
@@ -373,8 +391,8 @@ class IntegrationTests(TestCase):
         )
         io = StringIO()
         yield exportToFile(
-            [(yield self.txn().calendarHomeWithUID("home1"))
-              .calendarWithName("calendar1")], "user02", io
+            [(yield self.txn().calendarHomeWithUID("user02"))
+              .calendarWithName("calendar1")], io
         )
         self.assertEquals(
             Component.fromString(resultForUser2),

@@ -37,6 +37,8 @@ per-user data such as alarms.
 """
 
 import sys
+import itertools
+
 from getopt import getopt, GetoptError
 from os.path import dirname, abspath
 
@@ -158,17 +160,12 @@ class HomeExporter(object):
 
 
 @inlineCallbacks
-def exportToFile(calendars, exporterUID, fileobj):
+def exportToFile(calendars, fileobj):
     """
     Export some calendars to a file as a particular UID.
 
     @param calendars: an iterable of L{ICalendar} providers (or L{Deferred}s of
         same).
-
-    @param exporterUID: the calendar data-store UID of the user (i.e. of their
-        calendar home, not of anything in the directory) to export the per-user
-        data of for the given calendars.
-    @type exporterUID: C{str}
 
     @param fileobj: an object with a C{write} method that will accept some
         iCalendar data.
@@ -181,7 +178,8 @@ def exportToFile(calendars, exporterUID, fileobj):
     for calendar in calendars:
         calendar = yield calendar
         for obj in (yield calendar.calendarObjects()):
-            evt = yield obj.filteredComponent(exporterUID, True)
+            evt = yield obj.filteredComponent(
+                calendar.ownerCalendarHome().uid(), True)
             for sub in evt.subcomponents():
                 if sub.name() != 'VTIMEZONE':
                     # Omit all VTIMEZONE components, since PyCalendar will
@@ -307,8 +305,12 @@ class ExporterService(Service, object):
     Service which runs, exports the appropriate records, then stops the reactor.
     """
 
-    def __init__(self):
+    def __init__(self, store, options, output, reactor):
         super(ExporterService, self).__init__()
+        self.store   = store
+        self.options = options
+        self.output  = output
+        self.reactor = reactor
 
 
     def startService(self):
@@ -316,6 +318,20 @@ class ExporterService(Service, object):
         Start the service.
         """
         super(ExporterService, self).startService()
+        self.doExport()
+
+
+    @inlineCallbacks
+    def doExport(self):
+        """
+        Do the export, stopping the reactor when done.
+        """
+        allCalendars = itertools.chain(
+            [exporter.listCalendars(self) for exporter in
+             self.options.exporters]
+        )
+        yield exportToFile(allCalendars, self.output)
+        self.reactor.stop()
 
 
     def stopService(self):
@@ -327,6 +343,7 @@ class ExporterService(Service, object):
         # loop, but this is not implemented because nothing will actually do it
         # except hitting ^C (which also calls reactor.stop(), so that will exit
         # anyway).
+
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
@@ -343,7 +360,9 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         stderr.write("Unable to open output file for writing: %s\n" %
                      (e))
         sys.exit(1)
-    utilityMain(options['config'], lambda store: Service(), reactor)
+    utilityMain(options['config'],
+                lambda store: ExporterService(store, options, output, reactor),
+                reactor)
     output #pyflakes
 
 
