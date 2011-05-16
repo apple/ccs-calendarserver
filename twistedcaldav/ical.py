@@ -368,6 +368,10 @@ class Component (object):
     def newCalendar(cls):
         """
         Create and return an empty C{VCALENDAR} component.
+
+        @return: a new C{VCALENDAR} component with appropriate metadata
+            properties already set (version, product ID).
+        @rtype: an instance of this class
         """
         self = cls("VCALENDAR")
         self.addProperty(Property("VERSION", "2.0"))
