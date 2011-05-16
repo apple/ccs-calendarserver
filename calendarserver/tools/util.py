@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,10 @@
 # limitations under the License.
 ##
 
+"""
+Utility functionality shared between calendarserver command-line tools.
+"""
+
 __all__ = [
     "loadConfig",
     "getDirectory",
@@ -22,6 +26,7 @@ __all__ = [
     "booleanArgument",
 ]
 
+import sys
 import os
 from time import sleep
 import socket
@@ -34,6 +39,8 @@ from twext.python.log import Logger
 
 
 from calendarserver.provision.root import RootResource
+from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
+
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import augment, calendaruserproxy
@@ -269,4 +276,53 @@ def checkDirectory(dirpath, description, access=None, create=None):
             "Insufficient permissions for server on %s directory: %s"
             % (description, dirpath)
         )
+
+
+
+def utilityMain(configFileName, serviceClass, reactor=None):
+    """
+    Shared main-point for utilities.
+
+    This function will:
+
+        - Load the configuration file named by C{configFileName},
+        - launch a L{CalDAVServiceMaker}'s with the C{ProcessType} of
+          C{"Utility"}
+        - run the reactor, with start/stop events hooked up to the service's
+          C{startService}/C{stopService} methods.
+
+    It is C{serviceClass}'s responsibility to stop the reactor when it's
+    complete.
+
+    @param configFileName: the name of the configuration file to load.
+    @type configuration: C{str}
+
+    @param serviceClass: a 1-argument callable which takes an object that
+        provides L{ICalendarStore} and/or L{IAddressbookStore} and returns an
+        L{IService}.
+
+    @param reactor: if specified, the L{IReactorTime} / L{IReactorThreads} /
+        L{IReactorTCP} (etc) provider to use.  If C{None}, the default reactor
+        will be imported and used.
+    """
+    if reactor is None:
+        from twisted.internet import reactor
+    try:
+        loadConfig(configFileName)
+
+        config.ProcessType = "Utility"
+        config.UtilityServiceClass = serviceClass
+
+        maker = CalDAVServiceMaker()
+        options = CalDAVOptions
+        service = maker.makeService(options)
+
+        reactor.addSystemEventTrigger("during", "startup", service.startService)
+        reactor.addSystemEventTrigger("before", "shutdown", service.stopService)
+
+    except ConfigurationError, e:
+        sys.stderr.write("Error: %s\n" % (e,))
+        return
+
+    reactor.run()
 
