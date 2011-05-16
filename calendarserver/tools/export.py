@@ -36,7 +36,6 @@ owner of that calendar, including DAV properties, information about sharing, and
 per-user data such as alarms.
 """
 
-import os
 import sys
 from getopt import getopt, GetoptError
 from os.path import dirname, abspath
@@ -60,24 +59,10 @@ def usage(e=None):
     if e:
         print e
         print ""
-
-    name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] [input_specifiers]" % (name,)
-    print ""
-    print "Generate an iCalendar file containing the merged content of each calendar"
-    print "collection read."
-    print __doc__
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -f --config: Specify caldavd.plist configuration path"
-    print "  -o --output: Specify output file path (default: '-', meaning stdout)"
-    print ""
-    print "input specifiers:"
-    print "  -c --collection: add a calendar collection"
-    print "  -H --home: add a calendar home (and all calendars within it)"
-    print "  -r --record: add a directory record's calendar home (format: 'recordType:shortName')"
-    print "  -u --user: add a user's calendar home (shorthand for '-r users:shortName')"
-
+    try:
+        ExportOptions().opt_help()
+    except SystemExit:
+        pass
     if e:
         sys.exit(64)
     else:
