@@ -39,25 +39,18 @@ per-user data such as alarms.
 import sys
 import itertools
 
-from getopt import getopt, GetoptError
-from os.path import dirname, abspath
 
 from twisted.python.usage import Options
 from twisted.python import log
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from twistedcaldav.config import ConfigurationError
 from twistedcaldav.ical import Component
 
-from twistedcaldav.resource import isCalendarCollectionResource,\
-    CalendarHomeResource
-from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.stdconfig import DEFAULT_CARDDAV_CONFIG_FILE
 from calendarserver.tools.cmdline import utilityMain
 from twisted.application.service import Service
 from calendarserver.tap.util import directoryFromConfig
 
-from calendarserver.tools.util import (loadConfig, getDirectory)
 
 def usage(e=None):
     if e:
@@ -83,7 +76,7 @@ class ExportOptions(Options):
         parsing --record and --collection options.
     """
 
-    optParameters = [['config', 'c', DEFAULT_CARDDAV_CONFIG_FILE,
+    optParameters = [['config', 'f', DEFAULT_CARDDAV_CONFIG_FILE,
                       "Specify caldavd.plist configuration path."]]
 
     def __init__(self):
@@ -170,9 +163,13 @@ class HomeExporter(object):
 
     @inlineCallbacks
     def listCalendars(self, txn, exportService):
+        """
+        Enumerate all calendars based on the directory record and/or calendars
+        for this calendar home.
+        """
         directory = exportService.directoryService()
         record = directory.recordWithShortName(self.recordType, self.shortName)
-        home = yield txn.calendarHomeWithUID(record.guid)
+        home = yield txn.calendarHomeWithUID(record.guid, True)
         if self.collections:
             result = []
             for collection in self.collections:
@@ -213,114 +210,6 @@ def exportToFile(calendars, fileobj):
                     comp.addComponent(sub)
 
     fileobj.write(str(comp))
-
-
-
-def oldmain():
-    # quiet pyflakes while I'm working on this.
-    from stopbotheringme import CalDAVFile
-    try:
-        (optargs, args) = getopt(
-            sys.argv[1:], "hf:o:c:H:r:u:", [
-                "help",
-                "config=",
-                "output=",
-                "collection=", "home=", "record=", "user=",
-            ],
-        )
-    except GetoptError, e:
-        usage(e)
-
-    configFileName = None
-
-    collections = set()
-    calendarHomes = set()
-    records = set()
-
-    def checkExists(resource):
-        if not resource.exists():
-            sys.stderr.write("No such file: %s\n" % (resource.fp.path,))
-            sys.exit(1)
-
-    for opt, arg in optargs:
-        if opt in ("-h", "--help"):
-            usage()
-
-        elif opt in ("-f", "--config"):
-            configFileName = arg
-
-        elif opt in ("-c", "--collection"):
-            path = abspath(arg)
-            collection = CalDAVFile(path)
-            checkExists(collection)
-            if not isCalendarCollectionResource(collection):
-                sys.stderr.write("Not a calendar collection: %s\n" % (path,))
-                sys.exit(1)
-            collections.add(collection)
-
-        elif opt in ("-H", "--home"):
-            path = abspath(arg)
-            parent = CalDAVFile(dirname(abspath(path)))
-            calendarHome = CalendarHomeResource(arg, parent, None)
-            checkExists(calendarHome)
-            calendarHomes.add(calendarHome)
-
-        elif opt in ("-r", "--record"):
-            try:
-                recordType, shortName = arg.split(":", 1)
-                if not recordType or not shortName:
-                    raise ValueError()
-            except ValueError:
-                sys.stderr.write("Invalid record identifier: %r\n" % (arg,))
-                sys.exit(1)
-
-            records.add((recordType, shortName))
-
-        elif opt in ("-u", "--user"):
-            records.add((DirectoryService.recordType_users, arg))
-
-    if args:
-        usage("Too many arguments: %s" % (" ".join(args),))
-
-    if records:
-        try:
-            config = loadConfig(configFileName)
-            config.directory = getDirectory()
-        except ConfigurationError, e:
-            sys.stdout.write("%s\n" % (e,))
-            sys.exit(1)
-
-    for record in records:
-        recordType, shortName = record
-        calendarHome = config.directory.calendarHomeForShortName(recordType, shortName)
-        if not calendarHome:
-            sys.stderr.write("No calendar home found for record: (%s)%s\n" % (recordType, shortName))
-            sys.exit(1)
-        calendarHomes.add(calendarHome)
-
-    for calendarHome in calendarHomes:
-        for childName in calendarHome.listChildren():
-            child = calendarHome.getChild(childName)
-            if isCalendarCollectionResource(child):
-                collections.add(child)
-
-    calendar = Component.newCalendar()
-
-    uids  = set()
-
-    for collection in collections:
-        for name, uid, type in collection.index().indexedSearch(None):
-            child = collection.getChild(name)
-
-            if uid in uids:
-                sys.stderr.write("Skipping duplicate event UID %r from %s\n" % (uid, collection.fp.path))
-                continue
-            else:
-                uids.add(uid)
-
-    calendarData = str(calendar)
-    output = sys.stdout
-    output.write(calendarData)
 
 
 
