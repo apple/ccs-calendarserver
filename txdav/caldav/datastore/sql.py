@@ -67,6 +67,8 @@ from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import utcNowSQL
 from twext.enterprise.dal.syntax import Len
+from twistedcaldav.datafilters.privateevents import PrivateEventFilter
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from txdav.common.icommondatastore import IndexedSearchException
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -610,6 +612,18 @@ class CalendarObject(CommonObjectResource):
     @inlineCallbacks
     def component(self):
         returnValue(VComponent.fromString((yield self.iCalendarText())))
+
+
+    @inlineCallbacks
+    def filteredComponent(self, accessUID):
+        component = yield self.component()
+        calendar = self.calendar()
+        isOwner = (calendar._owned and
+                   calendar.ownerCalendarHome().uid() == accessUID)
+        for filter in [PrivateEventFilter(self.accessMode, isOwner),
+                       PerUserDataFilter(accessUID)]:
+            component = filter.filter(component)
+        returnValue(component)
 
 
     iCalendarText = CommonObjectResource.text
