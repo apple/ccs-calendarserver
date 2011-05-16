@@ -34,12 +34,14 @@ Please also note that this is not an appropriate tool for backups, as there is
 data associated with users and calendars beyond the iCalendar as visible to the
 owner of that calendar, including DAV properties, information about sharing, and
 per-user data such as alarms.
+
 """
 
+import os
 import sys
 import itertools
 
-
+from twisted.python.text import wordWrap
 from twisted.python.usage import Options
 from twisted.python import log
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -66,6 +68,14 @@ def usage(e=None):
         sys.exit(0)
 
 
+description = '\n'.join(
+    wordWrap(
+        """
+        Usage: calendarserver_export [options] [input specifiers]\n
+        """ + __doc__,
+        int(os.environ.get('COLUMNS', '80'))
+    )
+)
 
 class ExportOptions(Options):
     """
@@ -75,6 +85,8 @@ class ExportOptions(Options):
         calendars to export, given a directory service.  This list is built by
         parsing --record and --collection options.
     """
+
+    synopsis = description
 
     optParameters = [['config', 'f', DEFAULT_CARDDAV_CONFIG_FILE,
                       "Specify caldavd.plist configuration path."]]
