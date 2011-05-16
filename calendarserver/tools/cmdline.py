@@ -21,9 +21,8 @@ Shared main-point between utilities.
 import sys
 
 from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
-from calendarserver.tools.util import loadConfig
-
-from twistedcaldav.config import ConfigurationError, config
+from calendarserver.tools.util import loadConfig, autoDisableMemcached
+from twistedcaldav.config import ConfigurationError
 
 # TODO: direct unit tests for this function.
 
@@ -56,10 +55,12 @@ def utilityMain(configFileName, serviceClass, reactor=None):
     if reactor is None:
         from twisted.internet import reactor
     try:
-        loadConfig(configFileName)
+        config = loadConfig(configFileName)
 
         config.ProcessType = "Utility"
         config.UtilityServiceClass = serviceClass
+
+        autoDisableMemcached(config)
 
         maker = CalDAVServiceMaker()
         options = CalDAVOptions
