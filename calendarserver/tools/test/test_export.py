@@ -31,6 +31,8 @@ from twisted.python.modules import getModule
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from twistedcaldav.ical import Component
+from calendarserver.tools.export import ExportOptions
+from calendarserver.tools.export import HomeExporter
 from txdav.common.datastore.test.util import buildStore
 from txdav.common.datastore.test.util import populateCalendarsFrom
 
@@ -71,6 +73,42 @@ class CommandLine(TestCase):
             sys.stderr = orige
         self.assertEquals(len(out.getvalue()) > 0, True, "No output.")
         self.assertEquals(len(err.getvalue()), 0)
+
+
+    def test_oneHome(self):
+        """
+        One '--record' option will result in a single HomeExporter object with
+        no calendars in its list.
+        """
+        eo = ExportOptions()
+        eo.parseOptions(["--record", "users:bob"])
+        self.assertEquals(len(eo.exporters), 1)
+        exp = eo.exporters[0]
+        self.assertIsInstance(exp, HomeExporter)
+        self.assertEquals(exp.recordType, "users")
+        self.assertEquals(exp.shortName, "bob")
+        self.assertEquals(exp.collections, [])
+
+
+    def test_homeAndCollections(self):
+        """
+        The --collection option adds calendars to the last calendar that was
+        exported.
+        """
+        eo = ExportOptions()
+        eo.parseOptions(["--record", "users:bob",
+                         "--collection", "work stuff",
+                         "--record", "users:jethro",
+                         "--collection=fun stuff"])
+        self.assertEquals(len(eo.exporters), 2)
+        exp = eo.exporters[0]
+        self.assertEquals(exp.recordType, "users")
+        self.assertEquals(exp.shortName, "bob")
+        self.assertEquals(exp.collections, ["work stuff"])
+        exp = eo.exporters[1]
+        self.assertEquals(exp.recordType, "users")
+        self.assertEquals(exp.shortName, "jethro")
+        self.assertEquals(exp.collections, ["fun stuff"])
 
 
 

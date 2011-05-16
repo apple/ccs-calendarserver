@@ -41,6 +41,7 @@ import sys
 from getopt import getopt, GetoptError
 from os.path import dirname, abspath
 
+from twisted.python.usage import Options
 from twisted.internet.defer import inlineCallbacks
 #from twisted.internet.defer import returnValue
 
@@ -92,6 +93,45 @@ def emptyComponent():
     c.addProperty(Property("VERSION", "2.0"))
     c.addProperty(Property("PRODID", iCalendarProductID))
     return c
+
+
+
+class ExportOptions(Options):
+
+    def __init__(self):
+        super(ExportOptions, self).__init__()
+        self.exporters = []
+
+
+    def opt_record(self, recordName):
+        """
+        add a directory record's calendar home (format: 'recordType:shortName')
+        """
+        recordType, shortName = recordName.split(":", 1)
+        self.exporters.append(HomeExporter(recordType, shortName))
+
+
+    def opt_collection(self, collectionName):
+        """
+        add a calendar collection.  must be passed after --record (or a synonym,
+        like --user).  for example, to export user1's calendars called
+        'meetings' and 'team', invoke 'calendarserver_export --user=user1
+        --collection=meetings --collection=team'.
+        """
+        self.exporters[-1].collections.append(collectionName)
+
+
+
+class HomeExporter(object):
+    """
+    An exporter that constructs a list of calendars based on the UID or
+    directory services record ID of the home.
+    """
+
+    def __init__(self, recordType, shortName):
+        self.collections = []
+        self.recordType = recordType
+        self.shortName = shortName
 
 
 
