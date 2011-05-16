@@ -24,7 +24,31 @@ from cStringIO import StringIO
 
 from twisted.trial.unittest import TestCase
 
-from calendarserver.tools.export import usage
+#from calendarserver.tools import export
+from twisted.internet.defer import inlineCallbacks
+from twisted.python.modules import getModule
+
+from twext.enterprise.ienterprise import AlreadyFinishedError
+
+from twistedcaldav.ical import Component
+from txdav.common.datastore.test.util import buildStore
+from txdav.common.datastore.test.util import populateCalendarsFrom
+
+from calendarserver.tools.export import usage, exportToFile, emptyComponent
+
+def holiday(uid):
+    return (
+        getModule("twistedcaldav.test").filePath
+            .sibling("data").child("Holidays").child(uid + ".ics")
+            .getContent()
+    )
+
+valentines = holiday("C31854DA-1ED0-11D9-A5E0-000A958A3252")
+newYears = holiday("C3184A66-1ED0-11D9-A5E0-000A958A3252")
+payday = (
+    getModule("twistedcaldav.test").filePath
+    .sibling("data").child("PayDay.ics").getContent()
+)
 
 class CommandLine(TestCase):
     """
@@ -49,4 +73,126 @@ class CommandLine(TestCase):
         self.assertEquals(len(err.getvalue()), 0)
 
 
+
+class IntegrationTests(TestCase):
+    """
+    Tests for exporting data from a live store.
+    """
+
+    FAKE_CONFIG_FILE = 'not-a-real-config-file.plist'
+
+    @inlineCallbacks
+    def setUp(self):
+        """
+        Set up a store and fix the imported C{utilityMain} function (normally
+        from L{calendarserver.tools.cmdline.utilityMain}) to point to a
+        temporary method of this class.  Also, patch the imported C{reactor},
+        since the SUT needs to call C{reactor.stop()} in order to work with
+        L{utilityMain}.
+        """
+        self.mainCalled = False
+        #self.patch(export, "utilityMain", self.fakeUtilityMain)
+        self.store = yield buildStore(self, None)
+
+
+    def fakeUtilityMain(self, configFileName, serviceClass, reactor=None):
+        """
+        Verify a few basic things.
+        """
+        if self.mainCalled:
+            raise RuntimeError(
+                "Main called twice this test; duplicate reactor run.")
+        self.mainCalled = True
+        self.assertEquals(configFileName, self.FAKE_CONFIG_FILE)
+        theService = serviceClass(self.store)
+        theService.startService()
+
+
+    @inlineCallbacks
+    def test_emptyCalendar(self):
+        """
+        Exporting an empty calendar results in an empty calendar.
+        """
+        io = StringIO()
+        value = yield exportToFile([], "nobody", io)
+        # it doesn't return anything, it writes to the file.
+        self.assertEquals(value, None)
+        # but it should write a valid component to the file.
+        self.assertEquals(Component.fromString(io.getvalue()),
+                          emptyComponent())
+
+
+    def txn(self):
+        aTransaction = self.store.newTransaction()
+        def maybeAbort():
+            try:
+                aTransaction.abort()
+            except AlreadyFinishedError:
+                pass
+        self.addCleanup(maybeAbort)
+        return aTransaction
+
+
+    @inlineCallbacks
+    def test_oneEventCalendar(self):
+        """
+        Exporting an calendar with one event in it will result in just that
+        event.
+        """
+        yield populateCalendarsFrom(
+            {
+                "home1": {
+                    "calendar1": {
+                        "valentines-day.ics": (valentines, {})
+                    }
+                }
+            }, self.store
+        )
+
+        expected = emptyComponent()
+        [theComponent] = Component.fromString(valentines).subcomponents()
+        expected.addComponent(theComponent)
+
+        io = StringIO()
+        yield exportToFile(
+            [(yield self.txn().calendarHomeWithUID("home1"))
+              .calendarWithName("calendar1")],
+            "nobody", io
+        )
+        self.assertEquals(Component.fromString(io.getvalue()),
+                          expected)
+
+
+    @inlineCallbacks
+    def test_twoSimpleEvents(self):
+        """
+        Exporting a calendar with two events in it will result in a VCALENDAR
+        component with both VEVENTs in it.
+        """
+        yield populateCalendarsFrom(
+            {
+                "home1": {
+                    "calendar1": {
+                        "valentines-day.ics": (valentines, {}),
+                        "new-years-day.ics": (newYears, {})
+                    }
+                }
+            }, self.store
+        )
+
+        expected = emptyComponent()
+        a = Component.fromString(valentines)
+        b = Component.fromString(newYears)
+        for comp in a, b:
+            for sub in comp.subcomponents():
+                expected.addComponent(sub)
+
+        io = StringIO()
+        yield exportToFile(
+            [(yield self.txn().calendarHomeWithUID("home1"))
+              .calendarWithName("calendar1")],
+            "nobody", io
+        )
+        self.assertEquals(Component.fromString(io.getvalue()),
+                          expected)
 

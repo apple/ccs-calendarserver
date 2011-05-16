@@ -41,15 +41,19 @@ import sys
 from getopt import getopt, GetoptError
 from os.path import dirname, abspath
 
+from twisted.internet.defer import inlineCallbacks
+#from twisted.internet.defer import returnValue
+
 from twistedcaldav.config import ConfigurationError
-from twistedcaldav.ical import Component as iComponent, Property as iProperty
+from twistedcaldav.ical import Component, Property
 from twistedcaldav.ical import iCalendarProductID
 from twistedcaldav.resource import isCalendarCollectionResource,\
     CalendarHomeResource
 from twistedcaldav.directory.directory import DirectoryService
 
 from calendarserver.tools.util import UsageError
-from calendarserver.tools.util import loadConfig, getDirectory, dummyDirectoryRecord, autoDisableMemcached
+from calendarserver.tools.util import (
+    loadConfig, getDirectory, dummyDirectoryRecord, autoDisableMemcached)
 
 def usage(e=None):
     if e:
@@ -78,7 +82,48 @@ def usage(e=None):
     else:
         sys.exit(0)
 
+
+
+def emptyComponent():
+    """
+    Create and return an empty C{VCALENDAR} component.
+    """
+    c = Component("VCALENDAR")
+    c.addProperty(Property("VERSION", "2.0"))
+    c.addProperty(Property("PRODID", iCalendarProductID))
+    return c
+
+
+
+@inlineCallbacks
+def exportToFile(calendars, exporterUID, fileobj):
+    """
+    Export some calendars to a file as a particular UID.
+
+    @param calendars: an iterable of L{ICalendar} providers (or L{Deferred}s of
+        same).
+
+    @param exporterUID: 
+
+    @return: a L{Deferred} which fires when the export is complete.  (Note that
+        the file will not be closed.)
+    @rtype: L{Deferred} that fires with C{None}
+    """
+    comp = emptyComponent()
+    for calendar in calendars:
+        calendar = yield calendar
+        for obj in (yield calendar.calendarObjects()):
+            evt = yield obj.component()
+            for sub in evt.subcomponents():
+                comp.addComponent(sub)
+
+    fileobj.write(str(comp))
+
+
+
 def main():
+    # quiet pyflakes while I'm working on this.
+    from stopbotheringme import CalDAVFile
     try:
         (optargs, args) = getopt(
             sys.argv[1:], "hf:o:c:H:r:u:", [
@@ -173,9 +218,7 @@ def main():
                 collections.add(child)
 
     try:
-        calendar = iComponent("VCALENDAR")
-        calendar.addProperty(iProperty("VERSION", "2.0"))
-        calendar.addProperty(iProperty("PRODID", iCalendarProductID))
+        calendar = emptyComponent()
 
         uids  = set()
         tzids = set()
@@ -186,7 +229,7 @@ def main():
                 childData = child.iCalendarText()
 
                 try:
-                    childCalendar = iComponent.fromString(childData)
+                    childCalendar = Component.fromString(childData)
                 except ValueError:
                     continue
                 assert childCalendar.name() == "VCALENDAR"
