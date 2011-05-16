@@ -1040,6 +1040,19 @@ def _updateACLs(configDict):
 
     log.debug("Nav ACL: %s" % (configDict.ProvisioningResourceACL.toxml(),))
 
+    def principalObjects(urls):
+        for principalURL in urls:
+            yield davxml.Principal(davxml.HRef(principalURL))
+
+    # Should be sets, except WebDAVElement isn't hashable.
+    a = configDict.AdminPrincipalObjects = list(
+        principalObjects(configDict.AdminPrincipals))
+    b = configDict.ReadPrincipalObjects = list(
+        principalObjects(configDict.ReadPrincipals))
+    configDict.AllAdminPrincipalObjects = a + b
+
+
+
 def _updateRejectClients(configDict):
     #
     # Compile RejectClients expressions for speed

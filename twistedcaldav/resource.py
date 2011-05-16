@@ -878,7 +878,7 @@ class CalDAVResource (
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        
+
         isVirt = self.isVirtualShare()
         if isVirt:
             parent = (yield self.locateParent(request, self._share.hosturl))
@@ -928,32 +928,20 @@ class CalDAVResource (
             returnValue(None)
 
 
-    def isOwner(self, request, adminprincipals=False, readprincipals=False):
+    @inlineCallbacks
+    def isOwner(self, request):
         """
-        Determine whether the DAV:owner of this resource matches the currently authorized principal
-        in the request. Optionally test for admin or read principals and allow those.
+        Determine whether the DAV:owner of this resource matches the currently
+        authorized principal in the request, or if the user is a read-only or
+        read-write administrator.
         """
+        current = self.currentPrincipal(request)
+        if current in config.AllAdminPrincipalObjects:
+            returnValue(True)
+        if davxml.Principal((yield self.owner(request))) == current:
+            returnValue(True)
+        returnValue(False)
 
-        def _gotOwner(owner):
-            current = self.currentPrincipal(request)
-            if davxml.Principal(owner) == current:
-                return True
-            
-            if adminprincipals:
-                for principal in config.AdminPrincipals:
-                    if davxml.Principal(davxml.HRef(principal)) == current:
-                        return True
-
-            if readprincipals:
-                for principal in config.AdminPrincipals:
-                    if davxml.Principal(davxml.HRef(principal)) == current:
-                        return True
-                
-            return False
-
-        d = self.owner(request)
-        d.addCallback(_gotOwner)
-        return d
 
     ##
     # DAVResource

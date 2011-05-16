@@ -14,13 +14,23 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.resource import CalDAVResource, CommonHomeResource, CalendarHomeResource, AddressBookHomeResource
+from twisted.internet.defer import inlineCallbacks
+
+from twext.web2.test.test_server import SimpleRequest
+
+from twext.web2.dav.davxml import Principal
+from twext.web2.dav.davxml import Unauthenticated
+from twext.web2.dav.element.rfc2518 import HRef
+
+from twistedcaldav.resource import (
+    CalDAVResource, CommonHomeResource, CalendarHomeResource,
+    AddressBookHomeResource)
 
 from twistedcaldav.test.util import InMemoryPropertyStore
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
 
-from twisted.internet.defer import inlineCallbacks
+from twistedcaldav.test.util import patchConfig
 
 
 class StubProperty(object):
@@ -62,6 +72,7 @@ class CommonHomeResourceTests(TestCase):
         self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'pushkey') in resource.liveProperties())
 
+
     def test_calendarHomeliveProperties(self):
         resource = CalendarHomeResource(None, None, None, StubHome())
         self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
@@ -70,6 +81,7 @@ class CommonHomeResourceTests(TestCase):
         self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-heartbeat-uri') in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-server') in resource.liveProperties())
 
+
     def test_addressBookHomeliveProperties(self):
         resource = AddressBookHomeResource(None, None, None, StubHome())
         self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
@@ -77,6 +89,7 @@ class CommonHomeResourceTests(TestCase):
         self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-uri') not in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-heartbeat-uri') not in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-server') not in resource.liveProperties())
+
 
     @inlineCallbacks
     def test_push404(self):
@@ -117,3 +130,88 @@ class CommonHomeResourceTests(TestCase):
         self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'xmpp-uri'), None)), None)
         self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'xmpp-heartbeat-uri'), None)), None)
         self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'xmpp-server'), None)), None)
+
+
+
+class OwnershipTests(TestCase):
+    """
+    L{CalDAVResource.isOwner} determines if the authenticated principal of the
+    given request is the owner of that resource.
+    """
+
+    @inlineCallbacks
+    def test_isOwnerUnauthenticated(self):
+        """
+        L{CalDAVResource.isOwner} returns C{False} for unauthenticated requests.
+        """
+        site = None
+        request = SimpleRequest(site, "GET", "/not/a/real/url/")
+        request.authzUser = request.authnUser = Principal(Unauthenticated())
+        rsrc = CalDAVResource()
+        rsrc.owner = lambda igreq: HRef("/somebody/")
+        self.assertEquals((yield rsrc.isOwner(request)), False)
+
+
+    @inlineCallbacks
+    def test_isOwnerNo(self):
+        """
+        L{CalDAVResource.isOwner} returns C{True} for authenticated requests
+        with a principal that matches the resource's owner.
+        """
+        site = None
+        request = SimpleRequest(site, "GET", "/not/a/real/url/")
+        theOwner = Principal(HRef("/yes-i-am-the-owner/"))
+        request.authzUser = request.authnUser = theOwner
+        rsrc = CalDAVResource()
+        rsrc.owner = lambda igreq: HRef("/no-i-am-not-the-owner/")
+        self.assertEquals((yield rsrc.isOwner(request)), False)
+
+
+    @inlineCallbacks
+    def test_isOwnerYes(self):
+        """
+        L{CalDAVResource.isOwner} returns C{True} for authenticated requests
+        with a principal that matches the resource's owner.
+        """
+        site = None
+        request = SimpleRequest(site, "GET", "/not/a/real/url/")
+        theOwner = Principal(HRef("/yes-i-am-the-owner/"))
+        request.authzUser = request.authnUser = theOwner
+        rsrc = CalDAVResource()
+        rsrc.owner = lambda igreq: HRef("/yes-i-am-the-owner/")
+        self.assertEquals((yield rsrc.isOwner(request)), True)
+
+
+    @inlineCallbacks
+    def test_isOwnerAdmin(self):
+        """
+        L{CalDAVResource.isOwner} returns C{True} for authenticated requests
+        with a principal that matches any principal configured in the
+        L{AdminPrincipals} list.
+        """
+        theAdmin = "/read-write-admin/"
+        patchConfig(self, AdminPrincipals=[theAdmin])
+        site = None
+        request = SimpleRequest(site, "GET", "/not/a/real/url/")
+        request.authzUser = request.authnUser = Principal(HRef(theAdmin))
+        rsrc = CalDAVResource()
+        rsrc.owner = lambda igreq: HRef("/some-other-user/")
+        self.assertEquals((yield rsrc.isOwner(request)), True)
+
+
+    @inlineCallbacks
+    def test_isOwnerReadPrincipal(self):
+        """
+        L{CalDAVResource.isOwner} returns C{True} for authenticated requests
+        with a principal that matches any principal configured in the
+        L{AdminPrincipals} list.
+        """
+        theAdmin = "/read-only-admin/"
+        patchConfig(self, ReadPrincipals=[theAdmin])
+        site = None
+        request = SimpleRequest(site, "GET", "/not/a/real/url/")
+        request.authzUser = request.authnUser = Principal(HRef(theAdmin))
+        rsrc = CalDAVResource()
+        rsrc.owner = lambda igreq: HRef("/some-other-user/")
+        self.assertEquals((yield rsrc.isOwner(request)), True)
+

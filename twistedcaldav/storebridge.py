@@ -938,7 +938,7 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         filteredaces = (yield self.inheritedACEsforChildren(request))
 
         tzids = set()
-        isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+        isowner = (yield self.isOwner(request))
         accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
         for name, uid, type in (yield maybeDeferred(self.index().bruteForceSearch)): #@UnusedVariable

@@ -174,7 +174,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
             # Check private events access status
-            isowner = (yield calresource.isOwner(request, adminprincipals=True, readprincipals=True))
+            isowner = (yield calresource.isOwner(request))
 
             # Check for disabled access
             if filteredaces is not None:
@@ -229,7 +229,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     timezone = tuple(tz.calendar().subcomponents())[0]
 
             # Check private events access status
-            isowner = (yield calresource.isOwner(request, adminprincipals=True, readprincipals=True))
+            isowner = (yield calresource.isOwner(request))
 
             calendar = (yield calresource.iCalendarForUser(request))
             yield queryCalendarObjectResource(calresource, uri, None, calendar, timezone)

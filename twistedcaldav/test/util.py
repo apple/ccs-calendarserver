@@ -586,6 +586,19 @@ class InMemoryMemcacheProtocol(object):
 
 
 
+def patchConfig(testCase, **kw):
+    """
+    Patch the global configuration (including running the appropriate hooks) for
+    the duration of the given test.
+    """
+    preserved = {}
+    for k in kw:
+        preserved[k] = config.get(k, None)
+    def reUpdate():
+        config.update(preserved)
+    testCase.addCleanup(reUpdate)
+    config.update(kw)
+
 
 
 class ErrorOutput(Exception):
