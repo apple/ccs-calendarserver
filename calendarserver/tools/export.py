@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# -*- test-case-name: calendarserver.tools.test.test_export -*-
 ##
 # Copyright (c) 2006-2009 Apple Inc. All rights reserved.
 #
