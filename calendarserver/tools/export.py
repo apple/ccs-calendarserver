@@ -157,7 +157,12 @@ def exportToFile(calendars, exporterUID, fileobj):
         for obj in (yield calendar.calendarObjects()):
             evt = yield obj.component()
             for sub in evt.subcomponents():
-                comp.addComponent(sub)
+                if sub.name() != 'VTIMEZONE':
+                    # Omit all VTIMEZONE components, since PyCalendar will
+                    # helpfully re-include all necessary VTIMEZONEs when we call
+                    # __str__; see pycalendar.calendar.PyCalendar.generate() and
+                    # .includeTimezones().
+                    comp.addComponent(sub)
 
     fileobj.write(str(comp))
 
@@ -274,7 +279,6 @@ def main():
                     childCalendar = Component.fromString(childData)
                 except ValueError:
                     continue
-                assert childCalendar.name() == "VCALENDAR"
 
                 if uid in uids:
                     sys.stderr.write("Skipping duplicate event UID %r from %s\n" % (uid, collection.fp.path))

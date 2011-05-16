@@ -45,12 +45,20 @@ def holiday(uid):
             .getContent()
     )
 
+def sample(name):
+    return (
+        getModule("twistedcaldav.test").filePath
+        .sibling("data").child(name + ".ics").getContent()
+    )
+
 valentines = holiday("C31854DA-1ED0-11D9-A5E0-000A958A3252")
 newYears = holiday("C3184A66-1ED0-11D9-A5E0-000A958A3252")
-payday = (
-    getModule("twistedcaldav.test").filePath
-    .sibling("data").child("PayDay.ics").getContent()
-)
+payday = sample("PayDay")
+
+one = sample("OneEvent")
+another = sample("AnotherEvent")
+third = sample("ThirdEvent")
+
 
 class CommandLine(TestCase):
     """
@@ -233,4 +241,53 @@ class IntegrationTests(TestCase):
         )
         self.assertEquals(Component.fromString(io.getvalue()),
                           expected)
+
+
+    @inlineCallbacks
+    def test_onlyOneVTIMEZONE(self):
+        """
+        C{VTIMEZONE} subcomponents with matching TZIDs in multiple event
+        calendar objects should only be rendered in the resulting output once.
+
+        (Note that the code to suppor this is actually in PyCalendar, not the
+        export tool itself.)
+        """
+        yield populateCalendarsFrom(
+            {
+                "home1": {
+                    "calendar1": {
+                        "1.ics": (one, {}), # EST
+                        "2.ics": (another, {}), # EST
+                        "3.ics": (third, {}) # PST
+                    }
+                }
+            }, self.store
+        )
+
+        io = StringIO()
+        yield exportToFile(
+            [(yield self.txn().calendarHomeWithUID("home1"))
+              .calendarWithName("calendar1")],
+            "nobody", io
+        )
+        result = Component.fromString(io.getvalue())
+
+        def filtered(name):
+            for c in result.subcomponents():
+                if c.name() == name:
+                    yield c
+
+        timezones = list(filtered("VTIMEZONE"))
+        events = list(filtered("VEVENT"))
+
+        # Sanity check to make sure we picked up all three events:
+        self.assertEquals(len(events), 3)
+
+        self.assertEquals(len(timezones), 2)
+        self.assertEquals(set([tz.propertyValue("TZID") for tz in timezones]),
+
+                          # Use an intentionally wrong TZID in order to make
+                          # sure we don't depend on caching effects elsewhere.
+                          set(["America/New_Yrok", "US/Pacific"]))
+
 
