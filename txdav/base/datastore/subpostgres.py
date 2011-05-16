@@ -87,8 +87,9 @@ class _PostgresMonitor(ProcessProtocol):
 
     def processEnded(self, reason):
         log.msg("postgres process ended %r" % (reason,))
+        result = (reason.value.status == 0)
         self.lineReceiver.connectionLost(reason)
-        self.completionDeferred.callback(None)
+        self.completionDeferred.callback(result)
 
 
 
@@ -362,6 +363,7 @@ class PostgresService(MultiService):
         )
         self.monitor = monitor
         def gotReady(result):
+            self.shouldStopDatabase = result
             self.ready()
             self.deactivateDelayedShutdown()
         def reportit(f):
@@ -370,6 +372,7 @@ class PostgresService(MultiService):
         self.monitor.completionDeferred.addCallback(
             gotReady).addErrback(reportit)
 
+    shouldStopDatabase = False
 
     def startService(self):
         MultiService.startService(self)
@@ -423,14 +426,17 @@ class PostgresService(MultiService):
             d = MultiService.stopService(self)
 
         def superStopped(result):
-            monitor = _PostgresMonitor()
-            pg_ctl = which("pg_ctl")[0]
-            reactor.spawnProcess(monitor, pg_ctl,
-                [pg_ctl, '-l', 'logfile', 'stop'],
-                self.env,
-                uid=self.uid, gid=self.gid,
-            )
-            return monitor.completionDeferred
+            # If pg_ctl's startup wasn't successful, don't bother to stop the
+            # database.  (This also happens in command-line tools.)
+            if self.shouldStopDatabase:
+                monitor = _PostgresMonitor()
+                pg_ctl = which("pg_ctl")[0]
+                reactor.spawnProcess(monitor, pg_ctl,
+                    [pg_ctl, '-l', 'logfile', 'stop'],
+                    self.env,
+                    uid=self.uid, gid=self.gid,
+                )
+                return monitor.completionDeferred
         return d.addCallback(superStopped)
 
 #        def maybeStopSubprocess(result):
