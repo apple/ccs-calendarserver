@@ -183,7 +183,7 @@ class HomeExporter(object):
 @inlineCallbacks
 def exportToFile(calendars, fileobj):
     """
-    Export some calendars to a file as a particular UID.
+    Export some calendars to a file as their owner would see them.
 
     @param calendars: an iterable of L{ICalendar} providers (or L{Deferred}s of
         same).
