@@ -248,14 +248,14 @@ class ExporterService(Service, object):
                   self.options.exporters]
             )
             yield exportToFile(allCalendars, self.output)
+            yield txn.commit()
+            # TODO: should be read-only, so commit/abort shouldn't make a
+            # difference.  commit() for now, in case any transparent cache /
+            # update stuff needed to happen, don't want to undo it.
+            self.output.close()
         except:
             log.err()
 
-        yield txn.commit()
-        # TODO: should be read-only, so commit/abort shouldn't make a
-        # difference.  commit() for now, in case any transparent cache / update
-        # stuff needed to happen, don't want to undo it.
-        self.output.close()
         self.reactor.stop()
 
 
