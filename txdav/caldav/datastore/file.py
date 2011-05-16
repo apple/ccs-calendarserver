@@ -55,13 +55,12 @@ from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.caldav.datastore.index_file import Index as OldIndex,\
     IndexSchedule as OldInboxIndex
 from txdav.caldav.datastore.util import (
-    validateCalendarComponent, dropboxIDFromCalendarObject
+    validateCalendarComponent, dropboxIDFromCalendarObject, CalendarObjectBase
 )
 
 from txdav.common.datastore.file import (
     CommonDataStore, CommonStoreTransaction, CommonHome, CommonHomeChild,
-    CommonObjectResource
-, CommonStubResource)
+    CommonObjectResource, CommonStubResource)
 
 from txdav.common.icommondatastore import (NoSuchObjectResourceError,
     InternalDataStoreError)
@@ -262,7 +261,7 @@ class Calendar(CommonHomeChild):
 
 
 
-class CalendarObject(CommonObjectResource):
+class CalendarObject(CommonObjectResource, CalendarObjectBase):
     """
     @ivar _path: The path of the .ics file on disk
 
@@ -340,8 +339,6 @@ class CalendarObject(CommonObjectResource):
 
 
     def component(self):
-        if self._component is not None:
-            return self._component
         text = self.text()
 
         try:

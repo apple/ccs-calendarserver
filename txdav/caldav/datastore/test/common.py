@@ -912,6 +912,99 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(component.resourceUID(), "uid1")
 
 
+    perUserComponent = lambda self: VComponent.fromString("""BEGIN:VCALENDAR
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20110101T120000Z
+DTEND:20110101T120100Z
+UID:event-with-some-per-user-data
+ATTENDEE:urn:uuid:home1
+ORGANIZER:urn:uuid:home1
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+X-CALENDARSERVER-PERUSER-UID:some-other-user
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:somebody else
+END:VALARM
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+BEGIN:X-CALENDARSERVER-PERUSER
+X-CALENDARSERVER-PERUSER-UID:home1
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:the owner
+END:VALARM
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+
+
+    asSeenByOwner = lambda self: VComponent.fromString("""BEGIN:VCALENDAR
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20110101T120000Z
+DTEND:20110101T120100Z
+UID:event-with-some-per-user-data
+ATTENDEE:urn:uuid:home1
+ORGANIZER:urn:uuid:home1
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:the owner
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+
+
+    asSeenByOther = lambda self: VComponent.fromString("""BEGIN:VCALENDAR
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20110101T120000Z
+DTEND:20110101T120100Z
+UID:event-with-some-per-user-data
+ATTENDEE:urn:uuid:home1
+ORGANIZER:urn:uuid:home1
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:somebody else
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+
+
+    @inlineCallbacks
+    def setUpPerUser(self):
+        """
+        Set up state for testing of per-user components.
+        """
+        cal = yield self.calendarUnderTest()
+        yield cal.createCalendarObjectWithName(
+            "per-user-stuff.ics",
+            self.perUserComponent())
+        returnValue((yield cal.calendarObjectWithName("per-user-stuff.ics")))
+
+
+    @inlineCallbacks
+    def test_filteredComponent(self):
+        """
+        L{ICalendarObject.filteredComponent} returns a L{VComponent} that has
+        filtered per-user data.
+        """
+        obj = yield self.setUpPerUser()
+        otherComp = (yield obj.filteredComponent("some-other-user"))
+        self.assertEquals(otherComp, self.asSeenByOther())
+        ownerComp = (yield obj.filteredComponent("home1"))
+        self.assertEquals(ownerComp, self.asSeenByOwner())
+
+
     @inlineCallbacks
     def test_iCalendarText(self):
         """

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
+"""
+Utility functionality shared between calendarserver tools.
+"""
 
 __all__ = [
     "loadConfig",
@@ -34,6 +38,7 @@ from twext.python.log import Logger
 
 
 from calendarserver.provision.root import RootResource
+
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import augment, calendaruserproxy
@@ -269,4 +274,6 @@ def checkDirectory(dirpath, description, access=None, create=None):
             "Insufficient permissions for server on %s directory: %s"
             % (description, dirpath)
         )
+
+
 

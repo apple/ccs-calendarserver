@@ -46,7 +46,6 @@ from txdav.common.datastore.test.util import buildStore, assertProvides,\
     StubNotifierFactory
 
 
-from twistedcaldav.memcacher import Memcacher
 from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.carddav.iaddressbookstore import IAddressBookHome
 
@@ -470,9 +469,6 @@ class DatabaseWrappingTests(WrappingTests):
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
-        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
-        self.patch(Memcacher, "allowTestCache", True)
         self.calendarStore = yield buildStore(self, StubNotifierFactory())
         super(DatabaseWrappingTests, self).setUp()
 

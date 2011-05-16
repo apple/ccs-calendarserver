@@ -76,6 +76,7 @@ class SQLStoreBuilder(object):
 
         @return: a L{Deferred} which fires with an L{IDataStore}.
         """
+        disableMemcacheForTest(testCase)
         dbRoot = CachingFilePath(self.SHARED_DB_PATH)
         attachmentRoot = dbRoot.child("attachments")
         if self.sharedService is None:
@@ -423,3 +424,24 @@ class StubNotifierFactory(object):
 
     def reset(self):
         self.history = []
+
+
+
+def disableMemcacheForTest(aTest):
+    """
+    Disable all memcache logic for the duration of a test; we shouldn't be
+    starting or connecting to any memcache stuff for most tests.
+    """
+
+    # These imports are local so that they don't accidentally leak to anything
+    # else in this module; nothing else in this module should ever touch global
+    # configuration. -glyph
+
+    from twistedcaldav.config import config
+    from twistedcaldav.memcacher import Memcacher
+
+    aTest.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
+    aTest.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
+    aTest.patch(Memcacher, "allowTestCache", True)
+
+

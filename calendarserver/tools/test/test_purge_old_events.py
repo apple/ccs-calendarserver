@@ -26,7 +26,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial import unittest
 
 from twistedcaldav.config import config
-from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.vcard import Component as VCardComponent
 
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
@@ -348,9 +347,6 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
-        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
-        self.patch(Memcacher, "allowTestCache", True)
         yield super(PurgeOldEventsTests, self).setUp()
         self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()

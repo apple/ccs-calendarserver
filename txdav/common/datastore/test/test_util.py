@@ -26,9 +26,6 @@ from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol
 from twisted.trial.unittest import TestCase
 
-from twistedcaldav.config import config
-from twistedcaldav.memcacher import Memcacher
-
 from txdav.caldav.datastore.test.common import CommonTests
 from txdav.carddav.datastore.test.common import CommonTests as ABCommonTests
 from txdav.common.datastore.file import CommonDataStore
@@ -48,9 +45,7 @@ class HomeMigrationTests(TestCase):
         Set up two stores to migrate between.
         """
         # Add some files to the file store.
-        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
-        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
-        self.patch(Memcacher, "allowTestCache", True)
+
         self.filesPath = CachingFilePath(self.mktemp())
         self.filesPath.createDirectory()
         fileStore = self.fileStore = CommonDataStore(

@@ -67,6 +67,8 @@ from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import utcNowSQL
 from twext.enterprise.dal.syntax import Len
+
+from txdav.caldav.datastore.util import CalendarObjectBase
 from txdav.common.icommondatastore import IndexedSearchException
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -113,7 +115,7 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
-        
+
         objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
         for objectResource in objectResources:
             if ok_object and objectResource._resourceID == ok_object._resourceID:
@@ -121,18 +123,18 @@ class CalendarHome(CommonHome):
             matched_type = "schedule" if objectResource.isScheduleObject else "calendar"
             if type == "schedule" or matched_type == "schedule":
                 returnValue(True)
-            
+
         returnValue(False)
 
     @inlineCallbacks
     def getCalendarResourcesForUID(self, uid, allow_shared=False):
-        
+
         results = []
         objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
         for objectResource in objectResources:
             if allow_shared or objectResource._parentCollection._owned:
                 results.append(objectResource)
-            
+
         returnValue(results)
 
 
@@ -305,7 +307,7 @@ def _pathToName(path):
 
 
 
-class CalendarObject(CommonObjectResource):
+class CalendarObject(CommonObjectResource, CalendarObjectBase):
     implements(ICalendarObject)
 
     _objectTable = CALENDAR_OBJECT_TABLE
@@ -314,7 +316,7 @@ class CalendarObject(CommonObjectResource):
     def __init__(self, calendar, name, uid, resourceID=None, metadata=None):
 
         super(CalendarObject, self).__init__(calendar, name, uid, resourceID)
-        
+
         if metadata is None:
             metadata = {}
         self.accessMode = metadata.get("accessMode", "")
@@ -406,7 +408,7 @@ class CalendarObject(CommonObjectResource):
             expand = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             doInstanceIndexing = True
         else:
-            
+
             # If migrating or re-creating or config option for delayed indexing is off, always index
             if reCreate or self._txn._migrating or not config.FreeBusyIndexDelayedExpand:
                 doInstanceIndexing = True
@@ -453,11 +455,11 @@ class CalendarObject(CommonObjectResource):
             else:
                 raise
 
-        # Now coerce indexing to off if needed 
+        # Now coerce indexing to off if needed
         if not doInstanceIndexing:
             instances = None
             recurrenceLimit = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-            
+
         co = schema.CALENDAR_OBJECT
         tr = schema.TIME_RANGE
         tpy = schema.TRANSPARENCY
@@ -470,13 +472,13 @@ class CalendarObject(CommonObjectResource):
             organizer = component.getOrganizer()
             if not organizer:
                 organizer = ""
-    
+
             # CALENDAR_OBJECT table update
             self._uid = component.resourceUID()
             self._md5 = hashlib.md5(componentText).hexdigest()
             self._size = len(componentText)
 
-            # Special - if migrating we need to preserve the original md5    
+            # Special - if migrating we need to preserve the original md5
             if self._txn._migrating and hasattr(component, "md5"):
                 self._md5 = component.md5
 
@@ -494,7 +496,7 @@ class CalendarObject(CommonObjectResource):
                     # server dropbox collections and only then set the read mode
                     self._attachment = _ATTACHMENTS_MODE_READ
                     self._dropboxID = (yield self.dropboxID())
-    
+
             values = {
                 co.CALENDAR_RESOURCE_ID            : self._calendar._resourceID,
                 co.RESOURCE_NAME                   : self._name,
@@ -513,7 +515,7 @@ class CalendarObject(CommonObjectResource):
                 co.PRIVATE_COMMENTS                : self._private_comments,
                 co.MD5                             : self._md5
             }
-    
+
             if inserting:
                 self._resourceID, self._created, self._modified = (
                     yield Insert(
@@ -539,12 +541,12 @@ class CalendarObject(CommonObjectResource):
                 co.RECURRANCE_MAX :
                     pyCalendarTodatetime(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None,
             }
-    
+
             yield Update(
                 values,
                 Where=co.RESOURCE_ID == self._resourceID
             ).on(self._txn)
-            
+
             # Need to wipe the existing time-range for this and rebuild
             yield Delete(
                 From=tr,
@@ -580,7 +582,7 @@ class CalendarObject(CommonObjectResource):
                         tpy.USER_ID                : useruid,
                         tpy.TRANSPARENT            : transp,
                     }).on(self._txn))
-    
+
             # Special - for unbounded recurrence we insert a value for "infinity"
             # that will allow an open-ended time-range to always match it.
             if component.isRecurringUnbounded():
@@ -622,7 +624,7 @@ class CalendarObject(CommonObjectResource):
 
     def getMetadata(self):
         metadata = {}
-        metadata["accessMode"] = self.accessMode 
+        metadata["accessMode"] = self.accessMode
         metadata["isScheduleObject"] = self.isScheduleObject
         metadata["scheduleTag"] = self.scheduleTag
         metadata["scheduleEtags"] = self.scheduleEtags
@@ -671,7 +673,7 @@ class CalendarObject(CommonObjectResource):
 
     @inlineCallbacks
     def createAttachmentWithName(self, name):
-        
+
         # We need to know the resource_ID of the home collection of the owner (not sharee)
         # of this event
         sharerHomeID = (yield self._parentCollection.sharerHomeID())

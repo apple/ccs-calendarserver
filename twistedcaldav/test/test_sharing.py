@@ -24,7 +24,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase, norequest
-from twistedcaldav.memcacher import Memcacher
+
 from twistedcaldav.resource import CalDAVResource
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 
@@ -547,9 +547,6 @@ class DatabaseSharingTests(SharingTests):
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
-        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
-        self.patch(Memcacher, "allowTestCache", True)
         self.calendarStore = yield buildStore(self, StubNotifierFactory())
         yield super(DatabaseSharingTests, self).setUp()
 

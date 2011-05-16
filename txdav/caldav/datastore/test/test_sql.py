@@ -38,8 +38,8 @@ from txdav.common.datastore.sql import ECALENDARTYPE
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
 
-from twistedcaldav import memcacher, caldavxml
-from twistedcaldav.config import config
+from twistedcaldav import caldavxml
+
 from twistedcaldav.dateops import datetimeMktime
 from twistedcaldav.sharing import SharedCollectionRecord
 
@@ -52,10 +52,6 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
-        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
-        self.patch(memcacher.Memcacher, "allowTestCache", True)
-
         yield super(CalendarSQLStorageTests, self).setUp()
         self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()

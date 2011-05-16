@@ -938,7 +938,7 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         filteredaces = (yield self.inheritedACEsforChildren(request))
 
         tzids = set()
-        isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+        isowner = (yield self.isOwner(request))
         accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
         for name, uid, type in (yield maybeDeferred(self.index().bruteForceSearch)): #@UnusedVariable
@@ -1709,65 +1709,44 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         returnValue(NO_CONTENT)
 
 
+
+class _MetadataProperty(object):
+    """
+    A python property which can be set either on a _newStoreObject or on some
+    metadata if no new store object exists yet.
+    """
+
+    def __init__(self, name):
+        self.name = name
+
+
+    def __get__(self, oself, type=None):
+        if oself._newStoreObject:
+            return getattr(oself._newStoreObject, self.name)
+        else:
+            return oself._metadata.get(self.name, None)
+
+
+    def __set__(self, oself, value):
+        if oself._newStoreObject:
+            setattr(oself._newStoreObject, self.name, value)
+        else:
+            oself._metadata[self.name] = value
+
+
+
 class _CalendarObjectMetaDataMixin(object):
     """
     Dynamically create the required meta-data for an object resource 
     """
 
-    def _get_accessMode(self):
-        return self._newStoreObject.accessMode if self._newStoreObject else self._metadata.get("accessMode", None)
+    accessMode        = _MetadataProperty("accessMode")
+    isScheduleObject  = _MetadataProperty("isScheduleObject")
+    scheduleTag       = _MetadataProperty("scheduleTag")
+    scheduleEtags     = _MetadataProperty("scheduleEtags")
+    hasPrivateComment = _MetadataProperty("hasPrivateComment")
 
-    def _set_accessMode(self, value):
-        if self._newStoreObject:
-            self._newStoreObject.accessMode = value
-        else:
-            self._metadata["accessMode"] = value
 
-    accessMode = property(_get_accessMode, _set_accessMode)
-
-    def _get_isScheduleObject(self):
-        return self._newStoreObject.isScheduleObject if self._newStoreObject else self._metadata.get("isScheduleObject", None)
-
-    def _set_isScheduleObject(self, value):
-        if self._newStoreObject:
-            self._newStoreObject.isScheduleObject = value
-        else:
-            self._metadata["isScheduleObject"] = value
-
-    isScheduleObject = property(_get_isScheduleObject, _set_isScheduleObject)
-
-    def _get_scheduleTag(self):
-        return self._newStoreObject.scheduleTag if self._newStoreObject else self._metadata.get("scheduleTag", None)
-
-    def _set_scheduleTag(self, value):
-        if self._newStoreObject:
-            self._newStoreObject.scheduleTag = value
-        else:
-            self._metadata["scheduleTag"] = value
-
-    scheduleTag = property(_get_scheduleTag, _set_scheduleTag)
-
-    def _get_scheduleEtags(self):
-        return self._newStoreObject.scheduleEtags if self._newStoreObject else self._metadata.get("scheduleEtags", None)
-
-    def _set_scheduleEtags(self, value):
-        if self._newStoreObject:
-            self._newStoreObject.scheduleEtags = value
-        else:
-            self._metadata["scheduleEtags"] = value
-
-    scheduleEtags = property(_get_scheduleEtags, _set_scheduleEtags)
-
-    def _get_hasPrivateComment(self):
-        return self._newStoreObject.hasPrivateComment if self._newStoreObject else self._metadata.get("hasPrivateComment", None)
-
-    def _set_hasPrivateComment(self, value):
-        if self._newStoreObject:
-            self._newStoreObject.hasPrivateComment = value
-        else:
-            self._metadata["hasPrivateComment"] = value
-
-    hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
 
 class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource):
     """

@@ -375,23 +375,6 @@ class CalendarTest(unittest.TestCase):
         )
 
 
-    @inlineCallbacks
-    def test_modifyCalendarObjectCaches(self):
-        """
-        Modifying a calendar object should cache the modified component in
-        memory, to avoid unnecessary parsing round-trips.
-        """
-        self.addCleanup(self.txn.commit)
-        modifiedComponent = VComponent.fromString(event1modified_text)
-        (yield self.calendar1.calendarObjectWithName("1.ics")).setComponent(
-            modifiedComponent
-        )
-        self.assertIdentical(
-            modifiedComponent,
-            (yield self.calendar1.calendarObjectWithName("1.ics")).component()
-        )
-
-
     @featureUnimplemented
     def test_removeCalendarObjectWithUID_absent(self):
         """

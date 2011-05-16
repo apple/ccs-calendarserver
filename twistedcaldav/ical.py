@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test.test_icalendar -*-
 ##
 # Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
@@ -361,6 +362,22 @@ class Component (object):
         #
         def parse(data): return clazz.fromString(data)
         return allDataFromStream(IStream(stream), parse)
+
+
+    @classmethod
+    def newCalendar(cls):
+        """
+        Create and return an empty C{VCALENDAR} component.
+
+        @return: a new C{VCALENDAR} component with appropriate metadata
+            properties already set (version, product ID).
+        @rtype: an instance of this class
+        """
+        self = cls("VCALENDAR")
+        self.addProperty(Property("VERSION", "2.0"))
+        self.addProperty(Property("PRODID", iCalendarProductID))
+        return self
+
 
     def __init__(self, name, **kwargs):
         """

@@ -1304,6 +1304,10 @@ class _SharedSyncLogic(object):
 class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
     """
     Common ancestor class of AddressBooks and Calendars.
+
+    @ivar _owned: Is this calendar or addressbook referencing its sharer (owner)
+        home? (i.e. C{True} if L{ownerCalendarHome} will actually return the
+        sharer, C{False} or if it will return a sharee.)
     """
 
     compareAttributes = (
