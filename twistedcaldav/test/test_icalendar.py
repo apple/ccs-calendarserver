@@ -26,6 +26,7 @@ import twistedcaldav.test.util
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
+from twistedcaldav.ical import iCalendarProductID
 from pycalendar.duration import PyCalendarDuration
 
 class iCalendar (twistedcaldav.test.util.TestCase):
@@ -49,6 +50,20 @@ class iCalendar (twistedcaldav.test.util.TestCase):
                     self.fail("No DTSTART in component: %r" % (subcomponent,))
             else:
                 SkipTest("test unimplemented")
+
+
+    def test_newCalendar(self):
+        """
+        L{Component.newCalendar} creates a new VCALENDAR L{Component} with
+        appropriate version and product identifiers, and no subcomponents.
+        """
+        calendar = Component.newCalendar()
+        version = calendar.getProperty("VERSION")
+        prodid = calendar.getProperty("PRODID")
+        self.assertEqual(version.value(), "2.0")
+        self.assertEqual(prodid.value(), iCalendarProductID)
+        self.assertEqual(list(calendar.subcomponents()), [])
+
 
     def test_component_equality(self):
 #        for filename in (

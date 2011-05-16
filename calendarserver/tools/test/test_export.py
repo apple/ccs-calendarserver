@@ -36,7 +36,7 @@ from calendarserver.tools.export import HomeExporter
 from txdav.common.datastore.test.util import buildStore
 from txdav.common.datastore.test.util import populateCalendarsFrom
 
-from calendarserver.tools.export import usage, exportToFile, emptyComponent
+from calendarserver.tools.export import usage, exportToFile
 
 def holiday(uid):
     return (
@@ -157,7 +157,7 @@ class IntegrationTests(TestCase):
         self.assertEquals(value, None)
         # but it should write a valid component to the file.
         self.assertEquals(Component.fromString(io.getvalue()),
-                          emptyComponent())
+                          Component.newCalendar())
 
 
     def txn(self):
@@ -187,7 +187,7 @@ class IntegrationTests(TestCase):
             }, self.store
         )
 
-        expected = emptyComponent()
+        expected = Component.newCalendar()
         [theComponent] = Component.fromString(valentines).subcomponents()
         expected.addComponent(theComponent)
 
@@ -218,7 +218,7 @@ class IntegrationTests(TestCase):
             }, self.store
         )
 
-        expected = emptyComponent()
+        expected = Component.newCalendar()
         a = Component.fromString(valentines)
         b = Component.fromString(newYears)
         for comp in a, b:

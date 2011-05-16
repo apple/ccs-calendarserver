@@ -46,8 +46,8 @@ from twisted.internet.defer import inlineCallbacks
 #from twisted.internet.defer import returnValue
 
 from twistedcaldav.config import ConfigurationError
-from twistedcaldav.ical import Component, Property
-from twistedcaldav.ical import iCalendarProductID
+from twistedcaldav.ical import Component
+
 from twistedcaldav.resource import isCalendarCollectionResource,\
     CalendarHomeResource
 from twistedcaldav.directory.directory import DirectoryService
@@ -85,18 +85,14 @@ def usage(e=None):
 
 
 
-def emptyComponent():
-    """
-    Create and return an empty C{VCALENDAR} component.
-    """
-    c = Component("VCALENDAR")
-    c.addProperty(Property("VERSION", "2.0"))
-    c.addProperty(Property("PRODID", iCalendarProductID))
-    return c
-
-
-
 class ExportOptions(Options):
+    """
+    Command-line options for 'calendarserver_export'
+
+    @ivar exporters: a list of L{HomeExporter} objects which can identify the
+        calendars to export, given a directory service.  This list is built by
+        parsing --record and --collection options.
+    """
 
     def __init__(self):
         super(ExportOptions, self).__init__()
@@ -149,7 +145,7 @@ def exportToFile(calendars, exporterUID, fileobj):
         the file will not be closed.)
     @rtype: L{Deferred} that fires with C{None}
     """
-    comp = emptyComponent()
+    comp = Component.newCalendar()
     for calendar in calendars:
         calendar = yield calendar
         for obj in (yield calendar.calendarObjects()):
@@ -258,7 +254,7 @@ def main():
                 collections.add(child)
 
     try:
-        calendar = emptyComponent()
+        calendar = Component.newCalendar()
 
         uids  = set()
         tzids = set()
