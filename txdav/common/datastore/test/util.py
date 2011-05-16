@@ -437,7 +437,7 @@ def disableMemcacheForTest(aTest):
     # else in this module; nothing else in this module should ever touch global
     # configuration. -glyph
 
-    from twistedcaldav import config
+    from twistedcaldav.config import config
     from twistedcaldav.memcacher import Memcacher
 
     aTest.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
