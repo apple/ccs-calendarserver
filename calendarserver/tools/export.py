@@ -97,6 +97,7 @@ class ExportOptions(Options):
     def __init__(self):
         super(ExportOptions, self).__init__()
         self.exporters = []
+        self.outputName = '-'
 
 
     def opt_record(self, recordName):
@@ -106,15 +107,38 @@ class ExportOptions(Options):
         recordType, shortName = recordName.split(":", 1)
         self.exporters.append(HomeExporter(recordType, shortName))
 
+    opt_r = opt_record
+
 
     def opt_collection(self, collectionName):
         """
-        add a calendar collection.  must be passed after --record (or a synonym,
-        like --user).  for example, to export user1's calendars called
-        'meetings' and 'team', invoke 'calendarserver_export --user=user1
+        Add a calendar collection.  This option must be passed after --record
+        (or a synonym, like --user).  for example, to export user1's calendars
+        called 'meetings' and 'team', invoke 'calendarserver_export --user=user1
         --collection=meetings --collection=team'.
         """
         self.exporters[-1].collections.append(collectionName)
+
+    opt_c = opt_collection
+
+
+    def opt_output(self, filename):
+        """
+        Specify output file path (default: '-', meaning stdout).
+        """
+        self.outputName = filename
+
+    opt_o = opt_output
+
+
+    def openOutput(self):
+        """
+        Open the appropriate output file based on the '--output' option.
+        """
+        if self.outputName == '-':
+            return sys.stdout
+        else:
+            return open(self.outputName, 'wb')
 
 
 
@@ -155,7 +179,7 @@ def exportToFile(calendars, exporterUID, fileobj):
     for calendar in calendars:
         calendar = yield calendar
         for obj in (yield calendar.calendarObjects()):
-            evt = yield obj.component()
+            evt = yield obj.filteredComponent(exporterUID)
             for sub in evt.subcomponents():
                 if sub.name() != 'VTIMEZONE':
                     # Omit all VTIMEZONE components, since PyCalendar will

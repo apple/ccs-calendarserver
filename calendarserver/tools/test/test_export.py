@@ -33,6 +33,8 @@ from twext.enterprise.ienterprise import AlreadyFinishedError
 from twistedcaldav.ical import Component
 from calendarserver.tools.export import ExportOptions
 from calendarserver.tools.export import HomeExporter
+from twistedcaldav.datafilters.test.test_peruserdata import dataForTwoUsers
+from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
 from txdav.common.datastore.test.util import buildStore
 from txdav.common.datastore.test.util import populateCalendarsFrom
 
@@ -117,6 +119,24 @@ class CommandLine(TestCase):
         self.assertEquals(exp.recordType, "users")
         self.assertEquals(exp.shortName, "jethro")
         self.assertEquals(exp.collections, ["fun stuff"])
+
+
+    def test_outputFileSelection(self):
+        """
+        The --output option selects the file to write to, '-' or no parameter
+        meaning stdout; the L{ExportOptions.openOutput} method returns that
+        file.
+        """
+        eo = ExportOptions()
+        eo.parseOptions([])
+        self.assertIdentical(eo.openOutput(), sys.stdout)
+        eo = ExportOptions()
+        eo.parseOptions(["--output", "-"])
+        self.assertIdentical(eo.openOutput(), sys.stdout)
+        eo = ExportOptions()
+        tmpnam = self.mktemp()
+        eo.parseOptions(["--output", tmpnam])
+        self.assertEquals(eo.openOutput().name, tmpnam)
 
 
 
@@ -289,5 +309,32 @@ class IntegrationTests(TestCase):
                           # Use an intentionally wrong TZID in order to make
                           # sure we don't depend on caching effects elsewhere.
                           set(["America/New_Yrok", "US/Pacific"]))
+
+
+    @inlineCallbacks
+    def test_perUserFiltering(self):
+        """
+        L{exportToFile} performs per-user component filtering based on its
+        C{exporterUID} parameter.
+        """
+        yield populateCalendarsFrom(
+            {
+                "home1": {
+                    "calendar1": {
+                        "peruser.ics": (dataForTwoUsers, {}), # EST
+                    }
+                }
+            }, self.store
+        )
+        io = StringIO()
+        yield exportToFile(
+            [(yield self.txn().calendarHomeWithUID("home1"))
+              .calendarWithName("calendar1")], "user02", io
+        )
+        self.assertEquals(
+            Component.fromString(resultForUser2),
+            Component.fromString(io.getvalue())
+        )
+
 
 
