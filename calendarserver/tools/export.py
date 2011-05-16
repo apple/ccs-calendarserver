@@ -139,7 +139,13 @@ def exportToFile(calendars, exporterUID, fileobj):
     @param calendars: an iterable of L{ICalendar} providers (or L{Deferred}s of
         same).
 
-    @param exporterUID: 
+    @param exporterUID: the calendar data-store UID of the user (i.e. of their
+        calendar home, not of anything in the directory) to export the per-user
+        data of for the given calendars.
+    @type exporterUID: C{str}
+
+    @param fileobj: an object with a C{write} method that will accept some
+        iCalendar data.
 
     @return: a L{Deferred} which fires when the export is complete.  (Note that
         the file will not be closed.)
