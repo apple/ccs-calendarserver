@@ -432,6 +432,10 @@ class IntegrationTests(TestCase):
         yield populateCalendarsFrom(
             {
                 "user02": {
+                    # TODO: more direct test for skipping inbox
+                    "inbox": {
+                        "inbox-item.ics": (valentines, {})
+                    },
                     "calendar1": {
                         "peruser.ics": (dataForTwoUsers, {}), # EST
                     }

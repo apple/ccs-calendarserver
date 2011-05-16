@@ -179,12 +179,14 @@ class HomeExporter(object):
         directory = exportService.directoryService()
         record = directory.recordWithShortName(self.recordType, self.shortName)
         home = yield txn.calendarHomeWithUID(record.guid, True)
+        result = []
         if self.collections:
-            result = []
             for collection in self.collections:
                 result.append((yield home.calendarWithName(collection)))
         else:
-            result = yield home.calendars()
+            for collection in (yield home.calendars()):
+                if collection.name() != 'inbox':
+                    result.append(collection)
         returnValue(result)
 
 
