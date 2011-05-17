@@ -283,7 +283,7 @@ class iCalDiff(object):
                 # Get all EXDATEs in UTC
                 exdates = set()
                 for exdate in master.properties("EXDATE"):
-                    exdates.update([value.getValue().adjustToUTC() for value in exdate.value()])
+                    exdates.update([value.getValue().duplicate().adjustToUTC() for value in exdate.value()])
                
             return exdates, map, master
         
@@ -347,7 +347,9 @@ class iCalDiff(object):
                     overridden = self.newCalendar.overriddenComponent(rid)
                     self.newCalendar.removeComponent(overridden)
                     if self.newMaster:
-                        self.newMaster.addProperty(Property("EXDATE", [rid,]))
+                        # Use the original R-ID value so we preserve the timezone
+                        original_rid = component.propertyValue("RECURRENCE-ID")
+                        self.newMaster.addProperty(Property("EXDATE", [original_rid,]))
         
         # Derive a new component in the new calendar for each new one in setnew
         for key in setnew - setold:
@@ -578,7 +580,7 @@ class iCalDiff(object):
 
             newdue = component.getProperty("DUE")
             if newdue is not None:
-                newdue.value().adjustToUTC()
+                newdue = newdue.value().duplicate().adjustToUTC()
             
         # Recurrence rules - we need to normalize the order of the value parts
         newrrules = set()
@@ -595,14 +597,14 @@ class iCalDiff(object):
         for rdate in rdates:
             for value in rdate.value():
                 if isinstance(PyCalendarDateTime()):
-                    value.adjustToUTC()
+                    value = value.duplicate().adjustToUTC()
                 newrdates.add(value)
         
         # EXDATEs
         newexdates = set()
         exdates = component.properties("EXDATE")
         for exdate in exdates:
-            newexdates.update([value.getValue().adjustToUTC() for value in exdate.value()])
+            newexdates.update([value.getValue().duplicate().adjustToUTC() for value in exdate.value()])
 
         return timeRange.getStart(), timeRange.getEnd(), newdue, newrrules, newrdates, newexdates
 
