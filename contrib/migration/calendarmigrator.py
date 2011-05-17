@@ -453,7 +453,7 @@ def mergePlist(caldav, carddav, combined):
     if "DirectoryService" in caldav:
         combined["DirectoryService"] = caldav["DirectoryService"]
         for key in combined["DirectoryService"]["params"].keys():
-            if key not in ("node", "cacheTimeout", "xmlFile"):
+            if key in ("requireComputerRecord",):
                 del combined["DirectoryService"]["params"][key]
 
     # Merge ports

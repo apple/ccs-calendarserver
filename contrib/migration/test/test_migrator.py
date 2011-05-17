@@ -293,6 +293,51 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         self.assertEquals(newCombined, expected)
 
 
+    def test_mergeDirectoryService(self):
+
+        # Ensure caldavd DirectoryService config is carried over, except
+        # for requireComputerRecord which was is obsolete.
+
+        oldCalDAV = {
+            "DirectoryService": {
+                "type" : "twistedcaldav.directory.appleopendirectory.OpenDirectoryService",
+                "params" : {
+                    "node" : "/Search",
+                    "cacheTimeout" : 15,
+                    "restrictToGroup" : "test-group",
+                    "restrictEnabledRecords" : True,
+                    "negativeCaching" : False,
+                    "requireComputerRecord" : True,
+                },
+            },
+        }
+        oldCardDAV = { "Is this ignored?" : True }
+        expected = {
+            "DirectoryService": {
+                "type" : "twistedcaldav.directory.appleopendirectory.OpenDirectoryService",
+                "params" : {
+                    "node" : "/Search",
+                    "cacheTimeout" : 15,
+                    "restrictToGroup" : "test-group",
+                    "restrictEnabledRecords" : True,
+                    "negativeCaching" : False,
+                },
+            },
+            "BindHTTPPorts": [8008, 8800],
+            "BindSSLPorts": [8443, 8843],
+            "EnableSSL" : False,
+            "HTTPPort": 8008,
+            "RedirectHTTPToHTTPS": False,
+            "SSLAuthorityChain": "",
+            "SSLCertificate": "",
+            "SSLPort": 8443,
+            "SSLPrivateKey": "",
+        }
+        newCombined = { }
+        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(newCombined, expected)
+
+
     def test_examinePreviousSystem(self):
         """
         Set up a virtual system in various configurations, then ensure the
