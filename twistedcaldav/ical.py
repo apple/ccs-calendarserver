@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -2352,6 +2352,61 @@ def tzexpand(tzdata, start, end):
         results.append((
             tzstart.getText(),
             PyCalendarUTCOffsetValue(tzoffsetto).getText(),
+        ))
+    
+    return results
+
+def tzexpandlocal(tzdata, start, end):
+    """
+    Expand a timezone to get onset(local)/utc-offset-from/utc-offset-to/name observance tuples within the specified
+    time range.
+
+    @param tzdata: the iCalendar data containing a VTIMEZONE.
+    @type tzdata: L{PyCalendar}
+    @param start: date for the start of the expansion.
+    @type start: C{date}
+    @param end: date for the end of the expansion.
+    @type end: C{date}
+    
+    @return: a C{list} of tuples
+    """
+    
+    icalobj = Component(None, pycalendar=tzdata)
+    tzcomp = None
+    for comp in icalobj.subcomponents():
+        if comp.name() == "VTIMEZONE":
+            tzcomp = comp
+            break
+    else:
+        raise InvalidICalendarDataError("No VTIMEZONE component in %s" % (tzdata,))
+
+    tzexpanded = tzcomp._pycalendar.expandAll(start, end, with_name=True)
+    
+    results = []
+    
+    # Always need to ensure the start appears in the result
+    start.setDateOnly(False)
+    if tzexpanded:
+        if start != tzexpanded[0][0]:
+            results.append((
+                str(start),
+                PyCalendarUTCOffsetValue(tzexpanded[0][1]).getText(),
+                PyCalendarUTCOffsetValue(tzexpanded[0][1]).getText(),
+                tzexpanded[0][3],
+            ))
+    else:
+        results.append((
+            str(start),
+            PyCalendarUTCOffsetValue(tzcomp._pycalendar.getTimezoneOffsetSeconds(start)).getText(),
+            PyCalendarUTCOffsetValue(tzcomp._pycalendar.getTimezoneOffsetSeconds(start)).getText(),
+            tzcomp.getTZName(),
+        ))
+    for tzstart, tzoffsetfrom, tzoffsetto, name in tzexpanded:
+        results.append((
+            tzstart.getText(),
+            PyCalendarUTCOffsetValue(tzoffsetfrom).getText(),
+            PyCalendarUTCOffsetValue(tzoffsetto).getText(),
+            name,
         ))
     
     return results

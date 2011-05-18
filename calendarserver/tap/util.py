@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@ from twistedcaldav.schedule import IScheduleInboxResource
 from twistedcaldav.simpleresource import SimpleResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
+from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
 from twistedcaldav.util import getMemorySize, getNCPU
 
 try:
@@ -325,13 +326,14 @@ def getRootResource(config, newStore, resources=None):
     #
     # Default resource classes
     #
-    rootResourceClass            = RootResource
-    calendarResourceClass        = DirectoryCalendarHomeProvisioningResource
-    iScheduleResourceClass       = IScheduleInboxResource
-    timezoneServiceResourceClass = TimezoneServiceResource
-    webCalendarResourceClass     = WebCalendarResource
-    webAdminResourceClass        = WebAdminResource
-    addressBookResourceClass     = DirectoryAddressBookHomeProvisioningResource
+    rootResourceClass               = RootResource
+    calendarResourceClass           = DirectoryCalendarHomeProvisioningResource
+    iScheduleResourceClass          = IScheduleInboxResource
+    timezoneServiceResourceClass    = TimezoneServiceResource
+    timezoneStdServiceResourceClass = TimezoneStdServiceResource
+    webCalendarResourceClass        = WebCalendarResource
+    webAdminResourceClass           = WebAdminResource
+    addressBookResourceClass        = DirectoryAddressBookHomeProvisioningResource
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
 
     directory = directoryFromConfig(config)
@@ -480,9 +482,10 @@ def getRootResource(config, newStore, resources=None):
             defaultACL=SimpleResource.allReadACL
         )
         root.putChild(".well-known", wellKnownResource)
-        for enabled, wellknown_name in (
-            (config.EnableCalDAV, "caldav",),
-            (config.EnableCardDAV, "carddav"),
+        for enabled, wellknown_name, redirected_to in (
+            (config.EnableCalDAV, "caldav", "/",),
+            (config.EnableCardDAV, "carddav", "/",),
+            (config.TimezoneService.Enabled, "timezone", "/stdtimezones",),
         ):
             if enabled:
                 if config.EnableSSL:
@@ -491,8 +494,10 @@ def getRootResource(config, newStore, resources=None):
                 else:
                     scheme = "http"
                     port = config.HTTPPort
-                wellKnownResource.putChild(wellknown_name, RedirectResource(
-                    scheme=scheme, port=port, path="/"))
+                wellKnownResource.putChild(
+                    wellknown_name,
+                    RedirectResource(scheme=scheme, port=port, path=redirected_to)
+                )
 
     for name, info in config.Aliases.iteritems():
         if os.path.sep in name or not info.get("path", None):
@@ -511,6 +516,16 @@ def getRootResource(config, newStore, resources=None):
             root,
         )
         root.putChild("timezones", timezoneService)
+
+    # Standard Timezone service is optional
+    if config.TimezoneService.Enabled:
+        log.info("Setting up standard time zone service resource: %r"
+                      % (timezoneStdServiceResourceClass,))
+
+        timezoneStdService = timezoneStdServiceResourceClass(
+            root,
+        )
+        root.putChild("stdtimezones", timezoneStdService)
 
     # iSchedule service is optional
     if config.Scheduling.iSchedule.Enabled:
