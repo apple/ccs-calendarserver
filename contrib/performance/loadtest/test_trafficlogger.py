@@ -98,11 +98,13 @@ class TrafficLoggingReactorTests(TestCase):
         factory.protocol = lambda: proto
         reactor = MemoryReactor()
         logged = loggedReactor(reactor)
-        logged.connectTCP('192.168.1.2', 1234, factory)
-        [(host, port, factory, backlog, interface)] = reactor.tcpClients
+        logged.connectTCP('192.168.1.2', 1234, factory, 21, '127.0.0.2')
+        [(host, port, factory, timeout, bindAddress)] = reactor.tcpClients
         self.assertEqual('192.168.1.2', host)
         self.assertEqual(1234, port)
         self.assertIsInstance(factory, _TrafficLoggingFactory)
+        self.assertEqual(21, timeout)
+        self.assertEqual('127.0.0.2', bindAddress)
 
         # Verify that the factory and protocol specified are really being used
         protocol = factory.buildProtocol(None)

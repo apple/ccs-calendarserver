@@ -52,9 +52,9 @@ class _TCPTrafficLoggingReactor(proxyForInterface(IReactorTCP, '_reactor')):
     A mixin for a reactor wrapper which defines C{connectTCP} so as to cause
     traffic to be logged.
     """
-    def connectTCP(self, host, port, factory):
+    def connectTCP(self, host, port, factory, *args, **kwargs):
         return self._reactor.connectTCP(
-            host, port, _TrafficLoggingFactory(factory))
+            host, port, _TrafficLoggingFactory(factory), *args, **kwargs)
 
 
 class _TrafficLoggingFactory(WrappingFactory):
