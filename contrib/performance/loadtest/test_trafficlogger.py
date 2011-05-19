@@ -113,6 +113,36 @@ class TrafficLoggingReactorTests(TestCase):
         self.assertEqual(proto.data, "foo")
 
 
+    def test_getLogFiles(self):
+        """
+        The reactor returned by L{loggedReactor} has a C{getLogFiles} method
+        which returns a L{logstate} instance containing the active and
+        completed log files tracked by the logging wrapper.
+        """
+        wrapped = ClientFactory()
+        wrapped.protocol = Discard
+        reactor = MemoryReactor()
+        logged = loggedReactor(reactor)
+        logged.connectTCP('127.0.0.1', 1234, wrapped)
+        factory = reactor.tcpClients[0][2]
+
+        finished = factory.buildProtocol(None)
+        finished.makeConnection(StringTransport())
+        finished.dataReceived('finished')
+        finished.connectionLost(None)
+
+        active = factory.buildProtocol(None)
+        active.makeConnection(StringTransport())
+        active.dataReceived('active')
+
+        logs = logged.getLogFiles()
+        self.assertEqual(1, len(logs.finished))
+        self.assertIn('finished', logs.finished[0].getvalue())
+        self.assertEqual(1, len(logs.active))
+        self.assertIn('active', logs.active[0].getvalue())
+
+
+
 class TrafficLoggingFactoryTests(TestCase):
     """
     Tests for L{_TrafficLoggingFactory}.
@@ -121,6 +151,7 @@ class TrafficLoggingFactoryTests(TestCase):
         self.wrapped = ClientFactory()
         self.wrapped.protocol = Discard
         self.factory = _TrafficLoggingFactory(self.wrapped)
+
         
     def test_receivedBytesLogged(self):
         """

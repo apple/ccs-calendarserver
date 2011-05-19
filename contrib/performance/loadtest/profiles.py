@@ -33,7 +33,7 @@ from protocol.caldav.definitions import caldavxml
 from twisted.python import context
 from twisted.python.log import msg
 from twisted.python.failure import Failure
-from twisted.internet.defer import succeed, fail
+from twisted.internet.defer import Deferred, succeed, fail
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
@@ -113,7 +113,7 @@ class Inviter(ProfileBase):
         self._call = LoopingCall(self._invite)
         self._call.clock = self._reactor
         # XXX Base this on something real
-        self._call.start(20)
+        return self._call.start(20)
 
 
     def _addAttendee(self, event, attendees):
@@ -215,6 +215,8 @@ class Accepter(ProfileBase):
 
     def run(self):
         self._subscription = self._client.catalog["eventChanged"].subscribe(self.eventChanged)
+        # TODO: Propagate errors from eventChanged and _acceptInvitation to this Deferred
+        return Deferred()
 
 
     def eventChanged(self, href):
@@ -335,7 +337,7 @@ END:VCALENDAR
         self._call = LoopingCall(self._addEvent)
         self._call.clock = self._reactor
         # XXX Base this on something real
-        self._call.start(25)
+        return self._call.start(25)
 
 
     def _addEvent(self):

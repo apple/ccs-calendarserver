@@ -20,12 +20,15 @@ Tools for generating a population of CalendarServer users based on
 certain usage parameters.
 """
 
+from tempfile import mkdtemp
 from itertools import izip
 
+from twisted.python.filepath import FilePath
 from twisted.python.util import FancyEqMixin
 from twisted.python.log import msg, err
 
 from stats import mean, median, stddev, mad
+from loadtest.trafficlogger import loggedReactor
 from loadtest.logger import SummarizingMixin
 from loadtest.ical import SnowLeopard, RequestLogger
 from loadtest.profiles import Eventer, Inviter, Accepter
@@ -147,22 +150,38 @@ class CalendarClientSimulator(object):
             user, auth = self._createUser(number)
 
             clientType = self._pop.next()
+            reactor = loggedReactor(self.reactor)
             client = clientType.clientType(
-                self.reactor, self.host, self.port, user, auth)
+                reactor, self.host, self.port, user, auth)
             d = client.run()
-            d.addCallbacks(self._clientSuccess, self._clientFailure)
+            d.addErrback(self._clientFailure, reactor)
 
             for profileType in clientType.profileTypes:
-                profileType(self.reactor, client, number).run()
+                d = profileType(reactor, client, number).run()
+                d.addErrback(self._profileFailure, profileType, reactor)
         msg(type="status", clientCount=self._user - 1)
 
 
-    def _clientSuccess(self, result):
-        pass
+    def _dumpLogs(self, loggingReactor):
+        path = FilePath(mkdtemp())
+        logstate = loggingReactor.getLogFiles()
+        for i, log in enumerate(logstate.finished):
+            path.child('%03.log' % (i,)).setContent(log.getvalue())
+        for i, log in enumerate(logstate.active, i):
+            path.child('%03.log' % (i,)).setContent(log.getvalue())
+        return path
 
 
-    def _clientFailure(self, reason):
-        err(reason, "Client stopped with error")
+    def _clientFailure(self, reason, reactor):
+        where = self._dumpLogs(reactor)
+        err(reason, "Client stopped with error; recent traffic in %r" % (
+                where.path,))
+
+
+    def _profileFailure(self, reason, profileType, reactor):
+        where = self._dumpLogs(reactor)
+        err(reason, "Profile stopped with error; recent traffic in %r" % (
+                where.path,))
 
 
 

@@ -466,7 +466,7 @@ class SnowLeopard(BaseClient):
         """
         pollCalendarHome = LoopingCall(
             self._checkCalendarsForEvents, calendarHome)
-        pollCalendarHome.start(self.calendarHomePollInterval, now=False)
+        return pollCalendarHome.start(self.calendarHomePollInterval, now=False)
 
     def _newOperation(self, label, deferred):
         before = self.reactor.seconds()
@@ -492,11 +492,12 @@ class SnowLeopard(BaseClient):
             hrefs = principal.getHrefProperties()
             calendarHome = hrefs[caldavxml.calendar_home_set].toString()
             yield self._checkCalendarsForEvents(calendarHome)
-            self._calendarCheckLoop(calendarHome)
-        yield self._newOperation("startup", startup())
+            returnValue(calendarHome)
+        calendarHome = yield self._newOperation("startup", startup())
 
-        # XXX Oops, should probably stop sometime.
-        yield Deferred()
+        # This completes when the calendar home poll loop completes, which
+        # currently it never will except due to an unexpected error.
+        yield self._calendarCheckLoop(calendarHome)
 
 
     def _makeSelfAttendee(self):

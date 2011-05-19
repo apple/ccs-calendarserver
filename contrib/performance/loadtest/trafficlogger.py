@@ -22,13 +22,19 @@ connections set up using that reactor to be logged.
 
 __all__ = ['loggedReactor']
 
+from weakref import ref
 from StringIO import StringIO
+from collections import namedtuple
 
 from zope.interface import providedBy
 
 from twisted.python.components import proxyForInterface
 from twisted.internet.interfaces import IReactorCore, IReactorTime, IReactorTCP
 from twisted.protocols.policies import WrappingFactory, TrafficLoggingProtocol
+
+
+logstate = namedtuple('logstate', 'active finished')
+
 
 def loggedReactor(reactor):
     """
@@ -52,9 +58,30 @@ class _TCPTrafficLoggingReactor(proxyForInterface(IReactorTCP, '_reactor')):
     A mixin for a reactor wrapper which defines C{connectTCP} so as to cause
     traffic to be logged.
     """
+    _factories = None
+
+    @property
+    def factories(self):
+        if self._factories is None:
+            self._factories = []
+        return self._factories
+
+
+    def getLogFiles(self):
+        active = []
+        finished = []
+        for factoryref in self.factories:
+            factory = factoryref()
+            active.extend(factory.logs)
+            finished.extend(factory.finishedLogs)
+        return logstate(active, finished)
+
+
     def connectTCP(self, host, port, factory, *args, **kwargs):
+        wrapper = _TrafficLoggingFactory(factory)
+        self.factories.append(ref(wrapper, self.factories.remove))
         return self._reactor.connectTCP(
-            host, port, _TrafficLoggingFactory(factory), *args, **kwargs)
+            host, port, wrapper, *args, **kwargs)
 
 
 class _TrafficLoggingFactory(WrappingFactory):
