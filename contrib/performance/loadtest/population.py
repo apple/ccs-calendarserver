@@ -165,10 +165,11 @@ class CalendarClientSimulator(object):
     def _dumpLogs(self, loggingReactor):
         path = FilePath(mkdtemp())
         logstate = loggingReactor.getLogFiles()
+        i = 0
         for i, log in enumerate(logstate.finished):
-            path.child('%03.log' % (i,)).setContent(log.getvalue())
+            path.child('%03d.log' % (i,)).setContent(log.getvalue())
         for i, log in enumerate(logstate.active, i):
-            path.child('%03.log' % (i,)).setContent(log.getvalue())
+            path.child('%03d.log' % (i,)).setContent(log.getvalue())
         return path
 
 

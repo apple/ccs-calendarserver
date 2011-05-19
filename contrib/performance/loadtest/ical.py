@@ -468,6 +468,7 @@ class SnowLeopard(BaseClient):
             self._checkCalendarsForEvents, calendarHome)
         return pollCalendarHome.start(self.calendarHomePollInterval, now=False)
 
+
     def _newOperation(self, label, deferred):
         before = self.reactor.seconds()
         msg(type="operation", phase="start", user=self.user, label=label)
