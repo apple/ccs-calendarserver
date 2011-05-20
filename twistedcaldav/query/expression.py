@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,7 +55,22 @@ class baseExpression(object):
         
         return False
     
-class allExpression(object):
+    def _collapsedExpression(self):
+        return self
+
+    def andWith(self, other):
+        if isinstance(other, andExpression):
+            return andExpression((self._collapsedExpression(),) + tuple(other.expressions))
+        else:
+            return andExpression((self._collapsedExpression(), other._collapsedExpression(),))
+
+    def orWith(self, other):
+        if isinstance(other, orExpression):
+            return orExpression((self._collapsedExpression(),) + tuple(other.expressions))
+        else:
+            return orExpression((self._collapsedExpression(), other._collapsedExpression(),))
+
+class allExpression(baseExpression):
     """
     Match everything.
     """
@@ -99,6 +114,12 @@ class logicExpression(baseExpression):
         
         return True
 
+    def _collapsedExpression(self):
+        if self.multi() and len(self.expressions) == 1:
+            return self.expressions[0]._collapsedExpression()
+        else:
+            return self
+
 class notExpression(logicExpression):
     """
     Logical NOT operation.
@@ -135,6 +156,10 @@ class andExpression(logicExpression):
     def operator(self):
         return "AND"
 
+    def andWith(self, other):
+        self.expressions = tuple(self.expressions) + (other._collapsedExpression(),)
+        return self
+
 class orExpression(logicExpression):
     """
     Logical OR operation.
@@ -145,6 +170,10 @@ class orExpression(logicExpression):
 
     def operator(self):
         return "OR"
+
+    def orWith(self, other):
+        self.expressions = tuple(self.expressions) + (other._collapsedExpression(),)
+        return self
 
 class timerangeExpression(baseExpression):
     """
