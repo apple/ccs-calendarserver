@@ -790,14 +790,30 @@ END:VCALENDAR
 </multistatus>
 """
 
-class SnowLeopardTests(TestCase):
+
+class SnowLeopardMixin:
     """
-    Tests for L{SnowLeopard}.
+    Mixin for L{TestCase}s for L{SnowLeopard}.
     """
     def setUp(self):
         self.client = SnowLeopard(None, "127.0.0.1", 80, None, None)
 
 
+    def interceptRequests(self):
+        requests = []
+        def request(*args):
+            result = Deferred()
+            requests.append((result, args))
+            return result
+        self.client._request = request
+        return requests
+
+
+
+class SnowLeopardTests(SnowLeopardMixin, TestCase):
+    """
+    Tests for L{SnowLeopard}.
+    """
     def test_parsePrincipalPROPFINDResponse(self):
         """
         L{Principal._parsePROPFINDResponse} accepts an XML document
@@ -869,16 +885,6 @@ class SnowLeopardTests(TestCase):
         self.assertEquals(outbox.name, None)
         self.assertEquals(outbox.url, "/calendars/__uids__/user01/outbox/")
         self.assertEquals(outbox.ctag, None)
-
-
-    def interceptRequests(self):
-        requests = []
-        def request(*args):
-            result = Deferred()
-            requests.append((result, args))
-            return result
-        self.client._request = request
-        return requests
 
 
     def test_changeEventAttendee(self):
@@ -1003,3 +1009,18 @@ class SnowLeopardTests(TestCase):
         self.assertEquals(
             first.singletonparams, second.singletonparams,
             "ContentLine singletonparams not equal")
+
+
+
+class UpdateCalendarTests(SnowLeopardMixin, TestCase):
+    """
+    Tests for L{SnowLeopard._updateCalendar}.
+    """
+    def test_eventMissing(self):
+        """
+        If an event included in the calendar PROPFIND response no longer exists
+        by the time a REPORT is issued for that event, the 404 is handled and
+        the rest of the normal update logic for that event is skipped.
+        """
+        d = self.client._updateCalendar('some calendar')
+        

@@ -227,6 +227,7 @@ class LoadSimulator(object):
             addObserver(obs.observe)
             self.reactor.addSystemEventTrigger(
                 'before', 'shutdown', removeObserver, obs.observe)
+        # XXX Screws with the tests, need to make this conditional or something.
         startLogging(stderr, setStdout=False)
         sim = self.createSimulator()
         arrivalPolicy = self.createArrivalPolicy()
