@@ -600,6 +600,11 @@ dependencies () {
   # Sourceforge mirror hostname.
   local sf="superb-sea2.dl.sourceforge.net";
 
+  local st="setuptools-0.6c11";
+  py_dependency -m "7df2a529a074f613b509fb44feefe74e" \
+    "setuptools" "setuptools" "${st}" \
+    "http://pypi.python.org/packages/source/s/setuptools/setuptools-0.6c11.tar.gz";
+
   local zi="zope.interface-3.3.0";
   py_dependency -m "93668855e37b4691c5c956665c33392c" \
     "Zope Interface" "zope.interface" "${zi}" \
