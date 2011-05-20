@@ -162,7 +162,7 @@ class CalendarClientSimulator(object):
         msg(type="status", clientCount=self._user - 1)
 
 
-    def _dumpLogs(self, loggingReactor):
+    def _dumpLogs(self, loggingReactor, reason):
         path = FilePath(mkdtemp())
         logstate = loggingReactor.getLogFiles()
         i = 0
@@ -170,17 +170,18 @@ class CalendarClientSimulator(object):
             path.child('%03d.log' % (i,)).setContent(log.getvalue())
         for i, log in enumerate(logstate.active, i):
             path.child('%03d.log' % (i,)).setContent(log.getvalue())
+        path.child('reason.log').setContent(reason.getTraceback())
         return path
 
 
     def _clientFailure(self, reason, reactor):
-        where = self._dumpLogs(reactor)
+        where = self._dumpLogs(reactor, reason)
         err(reason, "Client stopped with error; recent traffic in %r" % (
                 where.path,))
 
 
     def _profileFailure(self, reason, profileType, reactor):
-        where = self._dumpLogs(reactor)
+        where = self._dumpLogs(reactor, reason)
         err(reason, "Profile stopped with error; recent traffic in %r" % (
                 where.path,))
 
@@ -262,7 +263,6 @@ def main():
     import random
 
     from twisted.internet import reactor
-    from twisted.internet.task import LoopingCall
     from twisted.python.log import addObserver
 
     from twisted.python.failure import startDebugMode
