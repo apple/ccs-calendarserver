@@ -92,6 +92,8 @@ class _TrafficLoggingFactory(WrappingFactory):
 
     protocol = TrafficLoggingProtocol
 
+    noisy = False
+
     def __init__(self, wrappedFactory):
         WrappingFactory.__init__(self, wrappedFactory)
         self.logs = []
