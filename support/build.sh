@@ -529,21 +529,23 @@ c_dependency () {
 
   www_get ${f_hash} "${name}" "${srcdir}" "${uri}";
 
+  local dstroot="${srcdir}/_root";
+
   if "${do_setup}" && (
-      "${force_setup}" || [ ! -d "${srcdir}/_root" ]); then
+      "${force_setup}" || [ ! -d "${dstroot}" ]); then
     echo "Building ${name}...";
     cd "${srcdir}";
-    ./configure --prefix="${srcdir}/_root" "$@";
+    ./configure --prefix="${dstroot}" "$@";
     jmake;
     jmake install;
   fi;
 
-  export              PATH="${PATH}:${srcdir}/_root/bin";
-  export    C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:${srcdir}/_root/include";
-  export   LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${srcdir}/_root/lib";
-  export          CPPFLAGS="${CPPFLAGS:-} -I${srcdir}/_root/include";
-  export           LDFLAGS="${LDFLAGS:-} -L${srcdir}/_root/lib";
-  export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${srcdir}/_root/lib";
+  export              PATH="${PATH}:${dstroot}/bin";
+  export    C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:${dstroot}/include";
+  export   LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${dstroot}/lib";
+  export          CPPFLAGS="${CPPFLAGS:-} -I${dstroot}/include";
+  export           LDFLAGS="${LDFLAGS:-} -L${dstroot}/lib";
+  export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${dstroot}/lib";
 }
 
 
