@@ -87,7 +87,12 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
             params = config.DirectoryAddressBook.params.copy()
             params["directoryBackedAddressBook"] = self
 
-            self.directory = directoryClass(params)
+            try:
+                self.directory = directoryClass(params)
+            except ImportError, e:
+                log.error("Unable to set up directory address book: %s" % (e,))
+                return succeed(None)
+
             return self.directory.createCache()
             
             #print ("DirectoryBackedAddressBookResource.provisionDirectory: provisioned")
