@@ -392,7 +392,6 @@ class SnowLeopard(BaseClient):
         def ebCalendars(reason):
             reason.trap(IncorrectResponseCode)
         d.addErrback(ebCalendars)
-        d.addErrback(err, "Unexpected failure during calendar home poll")
         return d
 
 
