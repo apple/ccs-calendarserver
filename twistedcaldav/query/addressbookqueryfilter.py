@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ class Filter(FilterBase):
         if len(self.children) > 0:
             allof = self.filter_test == "allof"
             for propfilter in self.children:
-                if allof != propfilter.test(vcard):
+                if allof != propfilter._match(vcard):
                     return not allof
             return allof
         else:
@@ -153,7 +153,7 @@ class FilterChildBase(FilterBase):
         if len(self.filters) > 0:
             allof = self.propfilter_test == "allof"
             for filter in self.filters:
-                if allof != filter.test(item):
+                if allof != filter._match(item):
                     return not allof
             return allof
         else:
@@ -164,7 +164,7 @@ class PropertyFilter (FilterChildBase):
     Limits a search to specific properties.
     """
 
-    def test(self, vcard):
+    def _match(self, vcard):
         # At least one property must match (or is-not-defined is set)
         for property in vcard.properties():
             if property.name().upper() == self.filter_name.upper() and self.match(property): break
@@ -188,7 +188,7 @@ class ParameterFilter (FilterChildBase):
     Limits a search to specific parameters.
     """
 
-    def test(self, property):
+    def _match(self, property):
 
         # At least one parameter must match (or is-not-defined is set)
         result = not self.defined
@@ -246,7 +246,7 @@ class TextMatch (FilterBase):
         else:
             self.match_type = "contains"
 
-    def test(self, item):
+    def _match(self, item):
         """
         Match the text for the item.
         If the item is a property, then match the property value,

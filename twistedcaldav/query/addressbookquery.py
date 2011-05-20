@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,8 +26,7 @@ __all__ = [
     "sqladdressbookquery",
 ]
 
-from twistedcaldav.query import expression, sqlgenerator
-from twistedcaldav import carddavxml
+from twistedcaldav.query import expression, sqlgenerator, addressbookqueryfilter
 
 # SQL Index column (field) names
 
@@ -76,32 +75,26 @@ def propfilterExpression(propfilter, fields):
         # Test for <<field>> != "*"
         return expression.isExpression(fields["UID"], "", True)
     
-    # Handle text-match
-    tm = None
-    if propfilter.qualifier and isinstance(propfilter.qualifier, carddavxml.TextMatch):
-        if propfilter.qualifier.negate:
-            tm = expression.notcontainsExpression(fields[propfilter.filter_name], str(propfilter.qualifier), propfilter.qualifier)
-        else:
-            tm = expression.containsExpression(fields[propfilter.filter_name], str(propfilter.qualifier), propfilter.qualifier)
-    
-    # Handle embedded parameters - we do not right now as our Index does not handle them
+    # Handle embedded parameters/text-match
     params = []
-    if len(propfilter.filters) > 0:
-        raise ValueError
-    if len(params) > 1:
-        paramsExpression = expression.orExpression[params]
-    elif len(params) == 1:
-        paramsExpression = params[0]
-    else:
-        paramsExpression = None
+    for filter in propfilter.filters:
+        if isinstance(filter, addressbookqueryfilter.TextMatch):
+            if filter.negate:
+                params.append(expression.notcontainsExpression(fields[propfilter.filter_name], str(filter.text), True))
+            else:
+                params.append(expression.containsExpression(fields[propfilter.filter_name], str(filter.text), True))
+        else:
+            # No embedded parameters - not right now as our Index does not handle them
+            raise ValueError
 
     # Now build return expression
-    if (tm is not None) and (paramsExpression is not None):
-        return expression.andExpression([tm, paramsExpression])
-    elif tm is not None:
-        return tm
-    elif paramsExpression is not None:
-        return paramsExpression
+    if len(params) > 1:
+        if propfilter.propfilter_test == "anyof":
+            return expression.orExpression[params]
+        else:
+            return expression.andExpression[params]
+    elif len(params) == 1:
+        return params[0]
     else:
         return None
 
@@ -116,7 +109,7 @@ def sqladdressbookquery(filter, addressbookid=None, generator=sqlgenerator.sqlge
     """
     try:
         expression = addressbookquery(filter, generator.FIELDS)
-        sql = generator(expression, addressbookid)
+        sql = generator(expression, addressbookid, None)
         return sql.generate()
     except ValueError:
         return None

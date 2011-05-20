@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -133,6 +133,10 @@ normalizePropsValue = {
 }
 
 ignoredComponents = ("VTIMEZONE", "X-CALENDARSERVER-PERUSER",)
+
+# Used for min/max time-range query limits
+minDateTime = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+maxDateTime = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
 
 class InvalidICalendarDataError(ValueError):
     pass
@@ -640,6 +644,26 @@ class Component (object):
                 due = dtstart + duration
 
         return due.duplicateAsUTC() if due is not None else None
+ 
+    def getCompletedDateUTC(self):
+        """
+        Return the completed date or date-time for the specified component
+        converted to UTC.
+        @param component: the Component whose start should be returned.
+        @return: the datetime.date or datetime.datetime for the start.
+        """
+        completed = self.propertyValue("COMPLETED")
+        return completed.duplicateAsUTC() if completed is not None else None
+ 
+    def getCreatedDateUTC(self):
+        """
+        Return the created date or date-time for the specified component
+        converted to UTC.
+        @param component: the Component whose start should be returned.
+        @return: the datetime.date or datetime.datetime for the start.
+        """
+        created = self.propertyValue("CREATED")
+        return created.duplicateAsUTC() if created is not None else None
  
     def getRecurrenceIDUTC(self):
         """
