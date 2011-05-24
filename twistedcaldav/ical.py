@@ -37,9 +37,11 @@ from twext.python.log import Logger
 from twext.web2.stream import IStream
 from twext.web2.dav.util import allDataFromStream
 
+from twistedcaldav.config import config
 from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.timezones import hasTZ, TimezoneException
 
 from pycalendar import definitions
 from pycalendar.attribute import PyCalendarAttribute
@@ -415,6 +417,12 @@ class Component (object):
         if not isinstance(other, Component):
             return False
         return self._pycalendar == other._pycalendar
+
+    def getTextWithTimezones(self, includeTimezones):
+        """
+        Return text representation and include timezones if the option is on
+        """
+        return self._pycalendar.getText(includeTimezones=includeTimezones)
 
     # FIXME: Should this not be in __eq__?
     def same(self, other):
@@ -1198,6 +1206,27 @@ class Component (object):
 
         return self._resource_type
 
+    def stripKnownTimezones(self):
+        """
+        Remove timezones that this server knows about
+        """
+        
+        changed = False
+        for subcomponent in tuple(self.subcomponents()):
+            if subcomponent.name() == "VTIMEZONE":
+                tzid = subcomponent.propertyValue("TZID")
+                try:
+                    hasTZ(tzid)
+                except TimezoneException:
+                    # tzid not available - do not strip
+                    pass
+                else:
+                    # tzid known - strip component out
+                    self.removeComponent(subcomponent)
+                    changed = True
+
+        return changed
+
     def validCalendarForCalDAV(self):
         """
         @raise InvalidICalendarDataError: if the given calendar data is not valid.
@@ -1353,11 +1382,12 @@ class Component (object):
         #
         # Make sure required timezone components are present
         #
-        for timezone_ref in timezone_refs:
-            if timezone_ref not in timezones:
-                msg = "Timezone ID %s is referenced but not defined: %s" % (timezone_ref, self,)
-                log.debug(msg)
-                raise InvalidICalendarDataError(msg)
+        if not config.EnableTimezonesByReference:
+            for timezone_ref in timezone_refs:
+                if timezone_ref not in timezones:
+                    msg = "Timezone ID %s is referenced but not defined: %s" % (timezone_ref, self,)
+                    log.debug(msg)
+                    raise InvalidICalendarDataError(msg)
         
         #
         # FIXME:

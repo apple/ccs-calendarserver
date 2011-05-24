@@ -84,7 +84,20 @@ cachedTZs = {}
 cachedVTZs = {}
 cachedTZIDs = []
 
+def hasTZ(tzid):
+    """
+    Check if the specified TZID is available. Try to load it if not and raise if it
+    cannot be found.
+    """
+
+    if tzid not in cachedVTZs:
+        readVTZ(tzid)
+    return True
+
 def readVTZ(tzid):
+    """
+    Try to load the specified TZID as a calendar object from the database. Raise if not found.
+    """
 
     if tzid not in cachedVTZs:
         
@@ -97,6 +110,9 @@ def readVTZ(tzid):
     return cachedVTZs[tzid]
 
 def readTZ(tzid):
+    """
+    Try to load the specified TZID as text from the database. Raise if not found.
+    """
 
     if tzid not in cachedTZs:
         
@@ -109,6 +125,10 @@ def readTZ(tzid):
     return cachedTZs[tzid]
 
 def listTZs(path=""):
+    """
+    List all timezones in the database.
+    """
+
     if not path and cachedTZIDs:
         return cachedTZIDs
 

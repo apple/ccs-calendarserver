@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ from twext.web2.dav import davxml
 
 from twext.python.log import Logger
 
+from twistedcaldav.config import config
 from twistedcaldav.ical import Component as iComponent
 
 log = Logger()
@@ -330,7 +331,7 @@ class CalendarData (CalDAVElement):
             return clazz(davxml.PCDATAElement(calendar))
         elif isinstance(calendar, iComponent):
             assert calendar.name() == "VCALENDAR", "Not a calendar: %r" % (calendar,)
-            return clazz(davxml.PCDATAElement(str(calendar)))
+            return clazz(davxml.PCDATAElement(calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference)))
         else:
             raise ValueError("Not a calendar: %s" % (calendar,))
 

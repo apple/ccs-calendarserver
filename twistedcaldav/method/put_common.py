@@ -275,7 +275,12 @@ class StoreCalendarObjectResource(object):
                             (caldav_namespace, "valid-calendar-data"),
                             description="Can't parse calendar data"
                         ))
-                        
+
+                # Possible timezone stripping
+                if config.EnableTimezonesByReference:
+                    if self.calendar.stripKnownTimezones():
+                        self.calendardata = None
+
                 # Valid calendar data check
                 result, message = self.validCalendarDataCheck()
                 if not result:

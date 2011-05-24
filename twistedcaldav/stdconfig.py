@@ -463,6 +463,8 @@ DEFAULT_CONFIG = {
             "UpdateIntervalMinutes" : 24 * 60,
         }
     },
+    
+    "EnableTimezonesByReference" : False, # Strip out VTIMEZONES that are known
 
     "EnableBatchUpload"       : True,     # POST batch uploads
     "MaxResourcesBatchUpload" : 100,      # Maximum number of resources in a batch POST
