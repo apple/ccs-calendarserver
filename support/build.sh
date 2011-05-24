@@ -571,7 +571,7 @@ dependencies () {
     c_dependency -m "583441a25f937360624024f2881e5ea8" \
       "memcached" "${mc}" \
       "http://memcached.googlecode.com/files/${mc}.tar.gz" \
-      --enable-threads --with-libevent="${top}/${le}/_root";
+      --with-libevent="${top}/${le}/_root";
   fi;
 
   if ! type postgres > /dev/null 2>&1; then
