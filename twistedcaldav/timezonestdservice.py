@@ -37,22 +37,29 @@ from twext.web2.http import XMLResponse
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
-from twisted.internet.defer import succeed
+from twisted.internet import reactor
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.python.log import addObserver, removeObserver
 
 from twistedcaldav import timezonexml, xmlutil
+from twistedcaldav.client.geturl import getURL
+from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.extensions import DAVResource,\
     DAVResourceWithoutChildrenMixin
 from twistedcaldav.ical import tzexpandlocal
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 from twistedcaldav.timezones import TimezoneException, TimezoneCache, readVTZ
-from twistedcaldav.xmlutil import addSubElement
+from twistedcaldav.xmlutil import addSubElement, readXMLString
 
 from pycalendar.calendar import PyCalendar
 from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.exceptions import PyCalendarInvalidData
 
+from sys import stdout, stderr
 import getopt
 import hashlib
+import itertools
 import os
 import sys
 
@@ -441,7 +448,53 @@ class TimezoneInfo(object):
         xmlutil.addSubElement(node, "dtstamp", self.dtstamp)
         xmlutil.addSubElement(node, "md5", self.md5)
 
-class PrimaryTimezoneDatabase(object):
+class CommonTimezoneDatabase(object):
+    """
+    Maintains the database of timezones read from an XML file.
+    """
+    
+    def __init__(self, basepath, xmlfile):
+        self.basepath = basepath
+        self.xmlfile = xmlfile
+        self.dtstamp = None
+        self.timezones = {}
+
+    def readDatabase(self):
+        """
+        Read in XML data.
+        """
+        _ignore, root = xmlutil.readXML(self.xmlfile, "timezones")
+        self.dtstamp = root.findtext("dtstamp")
+        for child in root.getchildren():
+            if child.tag == "timezone":
+                tz = TimezoneInfo.readXML(child)
+                if tz:
+                    self.timezones[tz.tzid] = tz
+
+    def getTimezones(self, tzids):
+        """
+        Generate a PyCalendar containing the requested timezones.
+        """
+        calendar = PyCalendar()
+        for tzid in sorted(tzids):
+            # We will just use our existing TimezoneCache here
+            try:
+                vtz = readVTZ(tzid)
+                calendar.addComponent(vtz.getComponents()[0].duplicate())
+            except TimezoneException:
+                pass
+
+        return calendar
+
+    def _dumpTZs(self):
+        
+        _ignore, root = xmlutil.newElementTreeWithRoot("timezones")
+        addSubElement(root, "dtstamp", self.dtstamp)
+        for _ignore,v in sorted(self.timezones.items(), key=lambda x:x[0]):
+            v.generateXML(root)
+        xmlutil.writeXML(self.xmlfile, root)
+        
+class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
     """
     Maintains the database of timezones read from an XML file.
     """
@@ -484,14 +537,6 @@ class PrimaryTimezoneDatabase(object):
                     self.changed.add(tzid)
                 self.timezones[tzid] = TimezoneInfo(tzid, self.dtstamp, md5)
     
-    def _dumpTZs(self):
-        
-        _ignore, root = xmlutil.newElementTreeWithRoot("timezones")
-        addSubElement(root, "dtstamp", self.dtstamp)
-        for _ignore,v in sorted(self.timezones.items(), key=lambda x:x[0]):
-            v.generateXML(root)
-        xmlutil.writeXML(self.xmlfile, root)
-        
     def updateDatabase(self):
         """
         Update existing DB info by comparing md5's.
@@ -502,33 +547,261 @@ class PrimaryTimezoneDatabase(object):
         self._scanTZs("", checkIfChanged=True)
         if self.changeCount:
             self._dumpTZs()
+
+class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
+    """
+    Caches a database of timezones from another timezone service.
+    """
     
-    def readDatabase(self):
-        """
-        Read in XML data.
-        """
-        _ignore, root = xmlutil.readXML(self.xmlfile, "timezones")
-        self.dtstamp = root.findtext("dtstamp")
-        for child in root.getchildren():
-            if child.tag == "timezone":
-                tz = TimezoneInfo.readXML(child)
-                if tz:
-                    self.timezones[tz.tzid] = tz
+    def __init__(self, basepath, xmlfile, uri):
+        self.basepath = basepath
+        self.xmlfile = xmlfile
+        self.uri = uri
+        self.discovered = False
+        self.dtstamp = None
+        self.timezones = {}
+        self._url = None
+        
+        if not os.path.exists(self.basepath):
+            os.makedirs(self.basepath)
 
-    def getTimezones(self, tzids):
+    @inlineCallbacks
+    def syncWithServer(self):
         """
-        Generate a PyCalendar containing the requested timezones.
+        Sync local data with that from the server we are replicating.
         """
-        calendar = PyCalendar()
-        for tzid in sorted(tzids):
-            # We will just use our existing TimezoneCache here
-            try:
-                vtz = readVTZ(tzid)
-                calendar.addComponent(vtz.getComponents()[0].duplicate())
-            except TimezoneException:
-                pass
+        
+        result = (yield self._getTimezoneListFromServer())
+        if result is None:
+            # Nothing changed since last sync
+            returnValue(None)
+        newdtstamp, newtimezones = result
+        
+        # Compare timezone infos
+        
+        # New ones on the server
+        newtzids = set(newtimezones.keys()) - set(self.timezones.keys())
+        
+        # Check for changes
+        changedtzids = set()
+        for tzid in set(newtimezones.keys()) & set(self.timezones.keys()):
+            if self.timezones[tzid].dtstamp < newtimezones[tzid].dtstamp:
+                changedtzids.add(tzid)
+        
+        # Now apply changes
+        for tzid in itertools.chain(newtzids, changedtzids):
+            yield self._getTimezoneFromServer(newtimezones[tzid])
+            
+        self.dtstamp = newdtstamp
+        self._dumpTZs()
+        
+        returnValue((len(newtzids), len(changedtzids),))
+        
+    @inlineCallbacks
+    def _discoverServer(self):
+        """
+        Make sure we know the timezone service path
+        """
+        
+        if self.uri is None:
+            if config.TimezoneService.SecondaryService.Host:
+                self.uri = "https://%s/.well-known/timezone" % (self.config.TimezoneService.SecondaryService.Host,)
+            elif config.TimezoneService.SecondaryService.URI:
+                self.uri = config.TimezoneService.SecondaryService.URI
+        elif not self.uri.startswith("https:") and not self.uri.startswith("http:"):
+            self.uri = "https://%s/.well-known/timezone" % (self.uri,)
+            
+        testURI = "%s?action=capabilities" % (self.uri,)
+        response = (yield getURL(testURI))
+        if response is None or response.code / 100 != 2:
+            self.discovered = False
+            returnValue(False)
+        
+        # Cache the redirect target
+        if hasattr(response, "location"):
+            self.uri = response.location 
 
-        return calendar
+        # TODO: Ignoring the data from capabilities for now
+
+        self.discovered = True
+        returnValue(True)
+    
+    @inlineCallbacks
+    def _getTimezoneListFromServer(self):
+        """
+        Retrieve the timezone list from the specified server
+        """
+        
+        # Make sure we have the server
+        if not self.discovered:
+            result = (yield self._discoverServer())
+            if not result:
+                returnValue(None)
+        
+        # List all from the server
+        url = "%s?action=list" % (self.uri,)
+        if self.dtstamp:
+            url = "%s&changesince=%s" % (url, self.dtstamp,)
+        response = (yield getURL(url))
+        if response is None or response.code / 100 != 2:
+            returnValue(None)
+        
+        ct = response.headers.getRawHeaders("content-type", ("bogus/type",))[0]
+        ct = ct.split(";", 1)
+        ct = ct[0]
+        if ct not in ("application/xml", "text/xml",):
+            returnValue(None)
+        
+        etroot, _ignore = readXMLString(response.data, timezonexml.TimezoneList.sname())
+        dtstamp = etroot.findtext(timezonexml.Dtstamp.sname())
+        timezones = {}
+        for summary in etroot.findall(timezonexml.Summary.sname()):
+            tzid = summary.findtext(timezonexml.Tzid.sname())
+            lastmod = summary.findtext(timezonexml.LastModified.sname())
+            timezones[tzid] = TimezoneInfo(tzid, lastmod, None)
+        
+        returnValue((dtstamp, timezones,))
+
+    @inlineCallbacks
+    def _getTimezoneFromServer(self, tzinfo):
+        # List all from the server
+        response = (yield getURL("%s?action=get&tzid=%s" % (self.uri, tzinfo.tzid,)))
+        if response is None or response.code / 100 != 2:
+            returnValue(None)
+        
+        ct = response.headers.getRawHeaders("content-type", ("bogus/type",))[0]
+        ct = ct.split(";", 1)
+        ct = ct[0]
+        if ct not in ("text/calendar",):
+            log.error("Invalid content-type '%s' for tzid : %s" % (ct, tzinfo.tzid,))
+            returnValue(None)
+        
+        ical = response.data
+        try:
+            calendar = PyCalendar.parseText(ical)
+        except PyCalendarInvalidData:
+            log.error("Invalid calendar data for tzid: %s" % (tzinfo.tzid,))
+            returnValue(None)
+        ical = calendar.getText()
+
+        tzinfo.md5 = hashlib.md5(ical).hexdigest()
+        
+        try:
+            tzpath = os.path.join(self.basepath, tzinfo.tzid) + ".ics"
+            if not os.path.exists(os.path.dirname(tzpath)):
+                os.makedirs(os.path.dirname(tzpath))
+            f = open(tzpath, "w")
+            f.write(ical)
+            f.close()
+        except IOError, e:
+            log.error("Unable to write calendar file for %s: %s" % (tzinfo.tzid, str(e),))
+        else:
+            self.timezones[tzinfo.tzid] = tzinfo
+
+    def _removeTimezone(self, tzid):
+        tzpath = os.path.join(self.basepath, tzid) + ".ics"
+        try:
+            os.remove(tzpath)
+            del self.timezones[tzid]
+        except IOError, e:
+            log.error("Unable to write calendar file for %s: %s" % (tzid, str(e),))
+    
+def _doPrimaryActions(action, tzpath, xmlfile, changed):
+
+    tzdb = PrimaryTimezoneDatabase(tzpath, xmlfile)
+    if action == "create":
+        print "Creating new XML file at: %s" % (xmlfile, )
+        tzdb.createNewDatabase()
+        print "Current total: %d" % (len(tzdb.timezones), )
+
+    elif action == "update":
+        print "Updating XML file at: %s" % (xmlfile, )
+        tzdb.readDatabase()
+        tzdb.updateDatabase()
+        print "Current total: %d" % (len(tzdb.timezones), )
+        print "Total Changed: %d" % (tzdb.changeCount, )
+        if tzdb.changeCount:
+            print "Changed:"
+            for k in sorted(tzdb.changed):
+                print "  %s" % (k, )
+    
+    elif action == "list":
+        print "Listing XML file at: %s" % (xmlfile, )
+        tzdb.readDatabase()
+        print "Current timestamp: %s" % (tzdb.dtstamp, )
+        print "Timezones:"
+        for k in sorted(tzdb.timezones.keys()):
+            print "  %s" % (k, )
+    
+    elif action == "changed":
+        print "Changes from XML file at: %s" % (xmlfile, )
+        tzdb.readDatabase()
+        print "Check timestamp: %s" % (changed, )
+        print "Current timestamp: %s" % (tzdb.dtstamp, )
+        results = [k for k, v in tzdb.timezones.items() if v.dtstamp > changed]
+        print "Total Changed: %d" % (len(results), )
+        if results:
+            print "Changed:"
+            for k in sorted(results):
+                print "  %s" % (k, )
+    else:
+        usage("Invalid action: %s" % (action, ))
+
+class StandardIOObserver (object):
+    """
+    Log observer that writes to standard I/O.
+    """
+    def emit(self, eventDict):
+        text = None
+
+        if eventDict["isError"]:
+            output = stderr
+            if "failure" in eventDict:
+                text = eventDict["failure"].getTraceback()
+        else:
+            output = stdout
+
+        if not text:
+            text = " ".join([str(m) for m in eventDict["message"]]) + "\n"
+
+        output.write(text)
+        output.flush()
+
+    def start(self):
+        addObserver(self.emit)
+
+    def stop(self):
+        removeObserver(self.emit)
+
+@inlineCallbacks
+def _runInReactor(tzdb):
+    
+    try:
+        new, changed = yield tzdb.syncWithServer()
+        print "New:           %d" % (new, )
+        print "Changed:       %d" % (changed, )
+        print "Current total: %d" % (len(tzdb.timezones), )
+    except Exception, e:
+        print "Could not sync with server: %s" % (str(e),)
+    finally:
+        reactor.stop()
+
+def _doSecondaryActions(action, tzpath, xmlfile, url):
+
+    tzdb = SecondaryTimezoneDatabase(tzpath, xmlfile, url)
+    try:
+        tzdb.readDatabase()
+    except:
+        pass
+    if action == "cache":
+        print "Caching from secondary server: %s" % (url, )
+
+        observer = StandardIOObserver()
+        observer.start()
+        reactor.callLater(0, _runInReactor, tzdb)
+        reactor.run()
+    else:
+        usage("Invalid action: %s" % (action, ))
 
 def usage(error_msg=None):
     if error_msg:
@@ -541,10 +814,16 @@ Options:
     -v            Be verbose
     -f            XML file path
     -z            zoneinfo file path
+
+    # Primary service
     --create      create new XML file
     --update      update XML file
     --list        list timezones in XML file
     --changed     changed since timestamp
+    
+    # Secondary service
+    --url         URL or domain of service
+    --cache       Cache data from service
 
 Description:
     This utility will create, update or list an XML timezone database
@@ -559,10 +838,13 @@ Description:
 
 if __name__ == '__main__':
     
+    primary = False
+    secondary = False
     action = None
     tzpath = None
     xmlfile = None
     changed = None
+    url = None
     
     # Get options
     options, args = getopt.getopt(
@@ -572,7 +854,9 @@ if __name__ == '__main__':
             "create",
             "update",
             "list",
-            "changed="
+            "changed=",
+            "url=",
+            "cache",
         ]
     )
 
@@ -587,18 +871,29 @@ if __name__ == '__main__':
             tzpath = value
         elif option == "--create":
             action = "create"
+            primary = True
         elif option == "--update":
             action = "update"
+            primary = True
         elif option == "--list":
             action = "list"
+            primary = True
         elif option == "--changed":
             action = "changed"
+            primary = True
             changed = value
+        elif option == "--url":
+            url = value
+            secondary = True
+        elif option == "--cache":
+            action = "cache"
+            secondary = True
         else:
             usage("Unrecognized option: %s" % (option,))
     
     if action is None:
         action = "list"
+        primary = True
     if tzpath is None:
         try:
             import pkg_resources
@@ -608,45 +903,15 @@ if __name__ == '__main__':
             tzpath = pkg_resources.resource_filename("twistedcaldav", "zoneinfo") #@UndefinedVariable
     xmlfile = os.path.expanduser("~/tz.xml")
     
-    if not os.path.isdir(tzpath):
+    if primary and not os.path.isdir(tzpath):
         usage("Invalid zoneinfo path: %s" % (tzpath,))
-    if not os.path.isfile(xmlfile) and action != "create":
+    if primary and not os.path.isfile(xmlfile) and action != "create":
         usage("Invalid XML file path: %s" % (xmlfile,))
 
-    tzdb = PrimaryTimezoneDatabase(tzpath, xmlfile)
-    if action == "create":
-        print "Creating new XML file at: %s" % (xmlfile,)
-        tzdb.createNewDatabase()
-        print "Current total: %d" % (len(tzdb.timezones),)
-    elif action == "update":
-        print "Updating XML file at: %s" % (xmlfile,)
-        tzdb.readDatabase()
-        tzdb.updateDatabase()
-        print "Current total: %d" % (len(tzdb.timezones),)
-        print "Total Changed: %d" % (tzdb.changeCount,)
-        if tzdb.changeCount:
-            print "Changed:"
-            for k in sorted(tzdb.changed):
-                print "  %s" % (k,)
-    elif action == "list":
-        print "Listing XML file at: %s" % (xmlfile,)
-        tzdb.readDatabase()
-        print "Current timestamp: %s" % (tzdb.dtstamp,)
-        print "Timezones:"
-        for k in sorted(tzdb.timezones.keys()):
-            print "  %s" % (k,)
-    elif action == "changed":
-        print "Changes from XML file at: %s" % (xmlfile,)
-        tzdb.readDatabase()
-        print "Check timestamp: %s" % (changed,)
-        print "Current timestamp: %s" % (tzdb.dtstamp,)
-        results = [k for k, v in tzdb.timezones.items() if v.dtstamp > changed]
-        print "Total Changed: %d" % (len(results),)
-        if results:
-            print "Changed:"
-            for k in sorted(results):
-                print "  %s" % (k,)
-    else:
-        usage("Invalid action: %s" % (action,))
+    if primary and secondary:
+        usage("Cannot use primary and secondary options together")
 
-    
+    if primary:
+        _doPrimaryActions(action, tzpath, xmlfile, changed)
+    else:
+        _doSecondaryActions(action, tzpath, xmlfile, url)
