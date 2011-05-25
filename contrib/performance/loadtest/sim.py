@@ -15,7 +15,7 @@
 #
 ##
 
-from sys import argv, stderr
+from sys import argv, stdout
 from random import Random
 from plistlib import readPlist
 from collections import namedtuple
@@ -90,6 +90,17 @@ class SimOptions(Options):
         except Exception, e:
             raise UsageError(
                 "--config %s: %s" % (path, str(e)))
+
+
+    def opt_logfile(self, filename):
+        """
+        Enable normal logging to some file.  - for stdout.
+        """
+        if filename == "-":
+            fObj = stdout
+        else:
+            fObj = file(filename, "a")
+        startLogging(fObj, setStdout=False)
 
 
     def opt_debug(self):
@@ -227,8 +238,6 @@ class LoadSimulator(object):
             addObserver(obs.observe)
             self.reactor.addSystemEventTrigger(
                 'before', 'shutdown', removeObserver, obs.observe)
-        # XXX Screws with the tests, need to make this conditional or something.
-        startLogging(stderr, setStdout=False)
         sim = self.createSimulator()
         arrivalPolicy = self.createArrivalPolicy()
         arrivalPolicy.run(sim)
