@@ -350,14 +350,15 @@ class SnowLeopard(BaseClient):
                 response = yield self._eventReport(url, responseHref)
                 body = yield readBody(response)
                 res = self._parseMultiStatus(body)[responseHref]
-                text = res.getTextProperties()
-                etag = text[davxml.getetag]
-                try:
-                    scheduleTag = text[caldavxml.schedule_tag]
-                except KeyError:
-                    scheduleTag = None
-                body = text[caldavxml.calendar_data]
-                self.eventChanged(responseHref, etag, scheduleTag, body)
+                if " 404 " not in res.getStatus():
+                    text = res.getTextProperties()
+                    etag = text[davxml.getetag]
+                    try:
+                        scheduleTag = text[caldavxml.schedule_tag]
+                    except KeyError:
+                        scheduleTag = None
+                    body = text[caldavxml.calendar_data]
+                    self.eventChanged(responseHref, etag, scheduleTag, body)
 
 
     def eventChanged(self, href, etag, scheduleTag, body):

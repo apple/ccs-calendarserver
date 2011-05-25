@@ -18,8 +18,12 @@
 from vobject import readComponents
 from vobject.base import Component, ContentLine
 
+from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred
 from twisted.trial.unittest import TestCase
+from twisted.web.http import MULTI_STATUS
+from twisted.web.client import ResponseDone
+from twisted.internet.protocol import ProtocolToConsumerAdapter
 
 from protocol.url import URL
 from protocol.webdav.definitions import davxml
@@ -27,7 +31,7 @@ from protocol.caldav.definitions import caldavxml
 from protocol.caldav.definitions import csxml
 
 from loadtest.ical import Event, Calendar, SnowLeopard
-from httpclient import MemoryConsumer
+from httpclient import MemoryConsumer, StringProducer
 
 EVENT_UID = 'D94F247D-7433-43AF-B84B-ADD684D023B0'
 
@@ -1016,11 +1020,99 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
     """
     Tests for L{SnowLeopard._updateCalendar}.
     """
+
+    _CALENDAR_PROPFIND_RESPONSE_BODY = """\
+<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
+  <response>
+    <href>/something/anotherthing.ics</href>
+    <propstat>
+      <prop>
+        <resourcetype>
+          <collection/>
+        </resourcetype>
+        <getetag>"None"</getetag>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+    <propstat>
+      <prop>
+      </prop>
+      <status>HTTP/1.1 404 Not Found</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/something/else.ics</href>
+    <propstat>
+      <prop>
+        <resourcetype>
+          <collection/>
+        </resourcetype>
+        <getetag>"None"</getetag>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+   </response>
+</multistatus>
+"""
+    _CALENDAR_REPORT_RESPONSE_BODY = """\
+<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
+  <response>
+    <href>/something/anotherthing.ics</href>
+    <status>HTTP/1.1 404 Not Found</status>
+  </response>
+</multistatus>
+"""
     def test_eventMissing(self):
         """
         If an event included in the calendar PROPFIND response no longer exists
         by the time a REPORT is issued for that event, the 404 is handled and
         the rest of the normal update logic for that event is skipped.
         """
-        d = self.client._updateCalendar('some calendar')
+        requests = self.interceptRequests()
+
+        calendar = Calendar(None, 'calendar', '/something/', None)
+        self.client._calendars[calendar.url] = calendar
+        d = self.client._updateCalendar(calendar)
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, headers, body = req
+        self.assertEqual('PROPFIND', method)
+        self.assertEqual('http://127.0.0.1:80/something/', url)
+        self.assertEqual(MULTI_STATUS, expectedResponseCode)
+
+        result.callback(
+            MemoryResponse(
+                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)))
         
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, headers, body = req
+        self.assertEqual('REPORT', method)
+        self.assertEqual('http://127.0.0.1:80/something/', url)
+        self.assertEqual(MULTI_STATUS, expectedResponseCode)
+
+        # Someone else comes along and gets rid of the event
+        del self.client._events["/something/anotherthing.ics"]
+
+        result.callback(
+            MemoryResponse(
+                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY)))
+
+        # Verify that processing proceeded to the response after the one with a
+        # 404 status.
+        self.assertIn('/something/else.ics', self.client._events)
+
+
+
+class MemoryResponse(object):
+    def __init__(self, version, code, phrase, headers, bodyProducer):
+        self.bodyProducer = bodyProducer
+        self.length = bodyProducer.length
+
+
+    def deliverBody(self, protocol):
+        protocol.makeConnection(self.bodyProducer)
+        d = self.bodyProducer.startProducing(ProtocolToConsumerAdapter(protocol))
+        d.addCallback(lambda ignored: protocol.connectionLost(Failure(ResponseDone())))
