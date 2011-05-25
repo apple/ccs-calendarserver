@@ -94,6 +94,14 @@ def hasTZ(tzid):
         readVTZ(tzid)
     return True
 
+def addVTZ(tzid, tzcal):
+    """
+    Add a VTIMEZONE component to the cache.
+    """
+    if tzid not in cachedVTZs:
+        cachedVTZs[tzid] = tzcal
+        cachedTZs[tzid] = str(tzcal)
+    
 def readVTZ(tzid):
     """
     Try to load the specified TZID as a calendar object from the database. Raise if not found.

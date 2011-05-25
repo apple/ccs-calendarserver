@@ -526,6 +526,12 @@ def getRootResource(config, newStore, resources=None):
             root,
         )
         root.putChild("stdtimezones", timezoneStdService)
+        
+        # TODO: we only want the master to do this
+        if _reactor._started:
+            _reactor.callLater(0, timezoneStdService.onStartup)
+        else:
+            addSystemEventTrigger("after", "startup", timezoneStdService.onStartup)
 
     # iSchedule service is optional
     if config.Scheduling.iSchedule.Enabled:

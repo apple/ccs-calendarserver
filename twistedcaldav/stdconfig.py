@@ -453,7 +453,8 @@ DEFAULT_CONFIG = {
         "BasePath"      : None,      # Path to zoneinfo - if None use default package path
                                      # secondary service MUST define its own writeable path
         "XMLInfoPath"   : None,      # Path to db cache info - if None use default package path
-                                     # secondary service MUST define its own writeable path
+                                     # secondary service MUST define its own writeable path if
+                                     # not None
         
         "SecondaryService" : {
             # Only one of these should be used when a secondary service is used
@@ -824,6 +825,7 @@ RELATIVE_PATHS = [
     ("ServerRoot", "RunRoot"),
     ("DataRoot", "DatabaseRoot"),
     ("DataRoot", "AttachmentsRoot"),
+    ("DataRoot", ("TimezoneService", "BasePath",)),
     ("ConfigRoot", "SudoersFile"),
     ("LogRoot", "AccessLogFile"),
     ("LogRoot", "ErrorLogFile"),
