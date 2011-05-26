@@ -33,10 +33,31 @@ from loadtest.logger import SummarizingMixin
 from loadtest.ical import SnowLeopard, RequestLogger
 from loadtest.profiles import Eventer, Inviter, Accepter
 
+
+class ProfileType(object, FancyEqMixin):
+    """
+    @ivar profileType: A L{ProfileBase} subclass, or an L{ICalendarUserProfile}
+        implementation.
+
+    @ivar params: A C{dict} which will be passed to C{profileType} as keyword
+        arguments to create a new profile instance.
+    """
+    compareAttributes = ("profileType", "params")
+
+    def __init__(self, profileType, params):
+        self.profileType = profileType
+        self.params = params
+
+
+    def __call__(self, reactor, client, number):
+        return self.profileType(reactor, client, number, **self.params)
+
+
+
 class ClientType(object, FancyEqMixin):
     """
     @ivar clientType: An L{ICalendarClient} implementation
-    @ivar profileTypes: A list of L{ICalendarUserProfile} implementations
+    @ivar profileTypes: A list of L{ProfileType} instances
     """
     compareAttributes = ("clientType", "profileTypes")
 

@@ -64,9 +64,46 @@
 
 	<key>profiles</key>
 	<array>
-	  <string>loadtest.profiles.Eventer</string>
-	  <string>loadtest.profiles.Inviter</string>
-	  <string>loadtest.profiles.Accepter</string>
+
+	  <dict>
+	    <key>class</key>
+	    <string>loadtest.profiles.Eventer</string>
+
+	    <key>params</key>
+	    <dict>
+	      <key>interval</key>
+	      <integer>25</integer>
+	    </dict>
+	  </dict>
+
+	  <dict>
+	    <key>class</key>
+	    <string>loadtest.profiles.Inviter</string>
+
+	    <key>params</key>
+	    <dict>
+	      <key>interval</key>
+	      <integer>20</integer>
+
+	      <key>spread</key>
+	      <integer>3</integer>
+	    </dict>
+	  </dict>
+
+	  <dict>
+	    <key>class</key>
+	    <string>loadtest.profiles.Accepter</string>
+
+	    <key>params</key>
+	    <dict>
+	      <key>delay</key>
+	      <integer>10</integer>
+
+	      <key>spread</key>
+	      <integer>2</integer>
+	    </dict>
+	  </dict>
+
 	</array>
 
 	<key>weight</key>

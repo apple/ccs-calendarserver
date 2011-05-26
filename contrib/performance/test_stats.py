@@ -16,7 +16,7 @@
 
 from unittest import TestCase
 
-from stats import SQLDuration
+from stats import SQLDuration, quantize
 
 class SQLDurationTests(TestCase):
     def setUp(self):
@@ -40,3 +40,40 @@ class SQLDurationTests(TestCase):
             self.stat.normalize('SELECT foo FROM bar WHERE True'),
             'SELECT foo FROM bar WHERE ?')
 
+
+class QuantizationTests(TestCase):
+    """
+    Tests for L{quantize} which constructs discrete datasets of
+    dynamic quantization from continuous datasets.
+    """
+    def test_one(self):
+        """
+        A single data point is put into a bucket equal to its value and returned.
+        """
+        dataset = [5.0]
+        expected = [(5.0, [5.0])]
+        self.assertEqual(quantize(dataset), expected)
+
+
+    def test_two(self):
+        """
+        Each of two values are put into buckets the size of the
+        standard deviation of the sample.
+        """
+        dataset = [2.0, 5.0]
+        expected = [(1.5, [2.0]), (4.5, [5.0])]
+        self.assertEqual(quantize(dataset), expected)
+
+
+    def xtest_three(self):
+        """
+        If two out of three values fall within one bucket defined by
+        the standard deviation of the sample, that bucket is split in
+        half so each bucket has one value.
+        """
+
+
+    def xtest_alpha(self):
+        """
+        This exercises one simple case of L{quantize} with a small amount of data.
+        """

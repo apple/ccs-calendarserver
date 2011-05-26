@@ -200,3 +200,13 @@ class Bytes(_Statistic):
 
     def summarize(self, samples):
         return _Statistic.summarize(self, self.squash(samples))
+
+
+def quantize(data):
+    """
+    Given some continuous data, quantize it into appropriately sized
+    discrete buckets (eg, as would be suitable for constructing a
+    histogram of the values).
+    """
+    buckets = {}
+    return []

@@ -1,4 +1,34 @@
-description of each benchmark on the website
-investigate the performance regression near r6270 to see if it is real
-benchmarks for larger calendars (more events)
-extend report to know about linear scaling, quadratic scaling, etc perhaps
+Client profiles
+  - SnowLeopard iCal profile
+    - XMPP/push
+    - Delete from inbox
+    - Resync?
+    - Separate init behavior from normal operational behavior
+
+  - iPhone iCal profile
+    - Everything
+
+  - Lion iCal profile
+    - Everything
+
+Behavior models
+  - Allow configuration of
+    - Event creation
+    - Invitations
+    - Accept invitation
+
+Measurements/Reporting
+  - Collect aggregate task stats
+    - periodic poll
+    - event
+    - invite
+    - startup
+    - day zero?  resync?  pollb?  eventb?  startupb?  resyncb?
+      - still need to figure out what these are/mean
+  - QoS reports
+    - configurable pass/fail levels
+
+Server initialization
+  - Accounts
+    - DirectoryService?  LDAP?
+  - 

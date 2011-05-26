@@ -30,7 +30,7 @@ from twisted.python.reflect import namedAny
 from loadtest.ical import SnowLeopard
 from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.population import (
-    Populator, ClientType, PopulationParameters, SmoothRampUp,
+    Populator, ProfileType, ClientType, PopulationParameters, SmoothRampUp,
     CalendarClientSimulator)
 
 
@@ -193,7 +193,9 @@ class LoadSimulator(object):
                     clientConfig["weight"],
                     ClientType(
                         namedAny(clientConfig["software"]),
-                        [namedAny(profile)
+                        [ProfileType(
+                                namedAny(profile["class"]),
+                                profile["params"])
                          for profile in clientConfig["profiles"]]))
         if not parameters.clients:
             parameters.addClient(

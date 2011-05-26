@@ -34,7 +34,7 @@ from loadtest.ical import SnowLeopard
 from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.population import (
     SmoothRampUp, ClientType, PopulationParameters, Populator, CalendarClientSimulator,
-    SimpleStatistics)
+    ProfileType, SimpleStatistics)
 from loadtest.sim import (
     Server, Arrival, SimOptions, LoadSimulator, LagTrackingReactor, main)
 
@@ -302,12 +302,13 @@ class LoadSimulatorTests(TestCase):
         config.setContent(writePlistToString({
                     "clients": [{
                             "software": "loadtest.ical.SnowLeopard",
-                            "profiles": ["loadtest.profiles.Eventer"],
+                            "profiles": [{"class": "loadtest.profiles.Eventer", "params": {"interval": 25}}],
                             "weight": 3,
                             }]}))
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         expectedParameters = PopulationParameters()
-        expectedParameters.addClient(3, ClientType(SnowLeopard, [Eventer]))
+        expectedParameters.addClient(
+            3, ClientType(SnowLeopard, [ProfileType(Eventer, {"interval": 25})]))
         self.assertEquals(sim.parameters, expectedParameters)
 
         

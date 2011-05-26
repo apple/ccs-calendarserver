@@ -49,10 +49,15 @@ class ProfileBase(object):
     """
     random = random
 
-    def __init__(self, reactor, client, userNumber):
+    def __init__(self, reactor, client, userNumber, **params):
         self._reactor = reactor
         self._client = client
         self._number = userNumber
+        self.setParameters(**params)
+
+
+    def setParameters(self):
+        pass
 
 
     def _calendarsOfType(self, calendarType):
@@ -109,11 +114,15 @@ class Inviter(ProfileBase):
     """
     A Calendar user who invites and de-invites other users to events.
     """
+    def setParameters(self, interval=20, spread=3):
+        self._interval = interval
+        self._spread = spread
+
+
     def run(self):
         self._call = LoopingCall(self._invite)
         self._call.clock = self._reactor
-        # XXX Base this on something real
-        return self._call.start(20)
+        return self._call.start(self._interval)
 
 
     def _addAttendee(self, event, attendees):
@@ -126,7 +135,7 @@ class Inviter(ProfileBase):
             invitees.add(att.value)
 
         for i in range(10):
-            invitee = max(1, int(self.random.gauss(self._number, 3)))
+            invitee = max(1, int(self.random.gauss(self._number, self._spread)))
             uuid = u'urn:uuid:user%02d' % (invitee,)
             if uuid not in invitees:
                 break
@@ -207,10 +216,10 @@ class Accepter(ProfileBase):
     """
     A Calendar user who accepts invitations to events.
     """
-
-    def __init__(self, reactor, client, userNumber):
-        ProfileBase.__init__(self, reactor, client, userNumber)
+    def setParameters(self, delay=10, spread=2):
         self._accepting = set()
+        self._delay = delay
+        self._spread = spread
 
 
     def run(self):
@@ -238,8 +247,7 @@ class Accepter(ProfileBase):
         for attendee in attendees:
             if self._isSelfAttendee(attendee):
                 if attendee.params[u'PARTSTAT'][0] == 'NEEDS-ACTION':
-                    # XXX Base this on something real
-                    delay = self.random.gauss(10, 2)
+                    delay = self.random.gauss(self._delay, self._spread)
                     self._accepting.add(href)
                     self._reactor.callLater(
                         delay, self._acceptInvitation, href, attendee)
@@ -332,12 +340,14 @@ SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
 """))[0]
+    def setParameters(self, interval=25):
+        self._interval = interval
+
 
     def run(self):
         self._call = LoopingCall(self._addEvent)
         self._call.clock = self._reactor
-        # XXX Base this on something real
-        return self._call.start(25)
+        return self._call.start(self._interval)
 
 
     def _addEvent(self):
