@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from unittest import TestCase
+from twisted.trial.unittest import TestCase
 
 from stats import SQLDuration, quantize
 
