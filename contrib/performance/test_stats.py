@@ -46,6 +46,8 @@ class QuantizationTests(TestCase):
     Tests for L{quantize} which constructs discrete datasets of
     dynamic quantization from continuous datasets.
     """
+    skip = "nothing implemented yet, maybe not necessary"
+
     def test_one(self):
         """
         A single data point is put into a bucket equal to its value and returned.
