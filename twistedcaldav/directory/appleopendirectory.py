@@ -77,6 +77,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 self.recordType_users,
                 self.recordType_groups,
             ),
+            'augmentService' : None,
         }
         ignored = ('requireComputerRecord',)
         params = self.getParams(params, defaults, ignored)
@@ -94,6 +95,7 @@ class OpenDirectoryService(CachingDirectoryService):
             self.log_error("OpenDirectory (node=%s) Initialization error: %s" % (params['node'], e))
             raise
 
+        self.augmentService = params['augmentService']
         self.realmName = params['node']
         self.directory = directory
         self.node = params['node']
@@ -470,7 +472,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     # TODO: this needs to be deferred but for now we hard code
                     # the deferred result because we know it is completing
                     # immediately.
-                    d = augment.AugmentService.getAugmentRecord(record.guid,
+                    d = self.augmentService.getAugmentRecord(record.guid,
                         recordType)
                     d.addCallback(lambda x:record.addAugmentInformation(x))
 
@@ -757,7 +759,7 @@ class OpenDirectoryService(CachingDirectoryService):
             # Look up augment information
             # TODO: this needs to be deferred but for now we hard code the deferred result because
             # we know it is completing immediately.
-            d = augment.AugmentService.getAugmentRecord(record.guid,
+            d = self.augmentService.getAugmentRecord(record.guid,
                 recordType)
             d.addCallback(lambda x:record.addAugmentInformation(x))
 

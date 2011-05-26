@@ -790,9 +790,9 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     @inlineCallbacks
     def setAutoSchedule(self, autoSchedule):
         self.record.autoSchedule = autoSchedule
-        augmentRecord = (yield augment.AugmentService.getAugmentRecord(self.record.guid, self.record.recordType))
+        augmentRecord = (yield self.record.service.augmentService.getAugmentRecord(self.record.guid, self.record.recordType))
         augmentRecord.autoSchedule = autoSchedule
-        (yield augment.AugmentService.addAugmentRecords([augmentRecord]))
+        (yield self.record.service.augmentService.addAugmentRecords([augmentRecord]))
 
     def getAutoSchedule(self):
         return self.record.autoSchedule

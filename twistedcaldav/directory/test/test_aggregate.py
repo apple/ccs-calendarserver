@@ -62,8 +62,13 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
         """
         Returns an IDirectoryService.
         """
-        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
-        xmlService = XMLDirectoryService({'xmlFile' : xmlFile})
+        xmlService = XMLDirectoryService(
+            {
+                'xmlFile' : xmlFile,
+                'augmentService' :
+                    augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
+            }
+        )
         xmlService.recordTypePrefix = xml_prefix
 
 

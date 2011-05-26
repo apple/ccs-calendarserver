@@ -153,7 +153,8 @@ class GatewayTestCase(TestCase):
 
         # This appears to be necessary in order for record.autoSchedule to
         # reflect the change prior to the directory record expiration
-        augment.AugmentService.refresh()
+        augmentService = directory.serviceForRecordType(directory.recordType_locations).augmentService
+        augmentService.refresh()
 
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         self.assertEquals(record.fullName.decode("utf-8"), "Created Location 01 %s" % unichr(208))
@@ -187,7 +188,8 @@ class GatewayTestCase(TestCase):
 
         # This appears to be necessary in order for record.autoSchedule to
         # reflect the change
-        augment.AugmentService.refresh()
+        augmentService = directory.serviceForRecordType(directory.recordType_locations).augmentService
+        augmentService.refresh()
 
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
 

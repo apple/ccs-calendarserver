@@ -80,15 +80,13 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         self.xmlFile = FilePath(config.DataRoot).child("accounts.xml")
         self.xmlFile.setContent(xmlFile.getContent())
 
-        # *temporarily* set up an augment service so this directory service will
-        # work.
-        self.patch(augment, "AugmentService", augment.AugmentXMLDB(
-                xmlFiles=(augmentsFile.path,)
-            )
-        )
 
         self.directoryService = XMLDirectoryService(
-            {'xmlFile' : "accounts.xml"}
+            {
+                "xmlFile" : "accounts.xml",
+                "augmentService" :
+                    augment.AugmentXMLDB( xmlFiles=(augmentsFile.path,)),
+            }
         )
 
         # FIXME: see FIXME in DirectoryPrincipalProvisioningResource.__init__;

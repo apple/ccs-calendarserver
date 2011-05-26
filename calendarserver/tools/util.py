@@ -129,13 +129,14 @@ def getDirectory():
 
     # Load augment/proxy db classes now
     augmentClass = namedClass(config.AugmentService.type)
-    augment.AugmentService = augmentClass(**config.AugmentService.params)
+    augmentService = augmentClass(**config.AugmentService.params)
 
     proxydbClass = namedClass(config.ProxyDBService.type)
     calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
 
     # Wait for directory service to become available
     BaseDirectoryService = namedClass(config.DirectoryService.type)
+    config.DirectoryService.params.augmentService = augmentService
     directory = BaseDirectoryService(config.DirectoryService.params)
     while not directory.isAvailable():
         sleep(5)
@@ -145,6 +146,7 @@ def getDirectory():
 
     if config.ResourceService.Enabled:
         resourceClass = namedClass(config.ResourceService.type)
+        config.ResourceService.params.augmentService = augmentService
         resourceDirectory = resourceClass(config.ResourceService.params)
         resourceDirectory.realmName = directory.realmName
         directories.append(resourceDirectory)

@@ -806,9 +806,10 @@ def updateRecord(create, directory, recordType, **kwargs):
     else:
         record = directory.updateRecord(recordType, **kwargs)
 
-    augmentRecord = (yield augment.AugmentService.getAugmentRecord(kwargs['guid'], recordType))
+    augmentService = directory.serviceForRecordType(recordType).augmentService
+    augmentRecord = (yield augmentService.getAugmentRecord(kwargs['guid'], recordType))
     augmentRecord.autoSchedule = autoSchedule
-    (yield augment.AugmentService.addAugmentRecords([augmentRecord]))
+    (yield augmentService.addAugmentRecords([augmentRecord]))
     directory.updateRecord(recordType, **kwargs)
 
     returnValue(record)

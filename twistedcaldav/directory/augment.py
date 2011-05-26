@@ -201,8 +201,6 @@ class AugmentDB(object):
         """
 
         raise NotImplementedError("Child class must define this.")
-        
-AugmentService = AugmentDB()   # Global augment service
 
 
 class AugmentXMLDB(AugmentDB):

@@ -74,6 +74,7 @@ class LdapDirectoryService(CachingDirectoryService):
         """
 
         defaults = {
+            "augmentService" : None,
             "cacheTimeout": 1,
             "negativeCaching": False,
             "restrictEnabledRecords": False,
@@ -141,6 +142,7 @@ class LdapDirectoryService(CachingDirectoryService):
         super(LdapDirectoryService, self).__init__(params["cacheTimeout"],
                                                    params["negativeCaching"])
 
+        self.augmentService = params["augmentService"]
         self.realmName = params["uri"]
         self.uri = params["uri"]
         self.tls = params["tls"]
@@ -444,7 +446,7 @@ class LdapDirectoryService(CachingDirectoryService):
         # Look up augment information
         # TODO: this needs to be deferred but for now we hard code the
         # deferred result because we know it is completing immediately.
-        d = augment.AugmentService.getAugmentRecord(record.guid,
+        d = self.augmentService.getAugmentRecord(record.guid,
             recordType)
         d.addCallback(lambda x:record.addAugmentInformation(x))
 

@@ -41,8 +41,9 @@ class StubDirectoryRecord(object):
 
 class StubDirectoryService(object):
 
-    def __init__(self):
+    def __init__(self, augmentService):
         self.records = {}
+        self.augmentService = augmentService
 
     def recordWithGUID(self, guid):
         return None
@@ -117,8 +118,7 @@ class MigrateResourcesTestCase(TestCase):
         def queryMethod(sourceService, recordType, verbose=False):
             return data[recordType]
 
-        self.patch(augment, "AugmentService", StubAugmentService)
-        directoryService = StubDirectoryService()
+        directoryService = StubDirectoryService(StubAugmentService())
         yield migrateResources(None, directoryService, queryMethod=queryMethod)
         for guid, recordType in (
             ('6C99E240-E915-4012-82FA-99E0F638D7EF', DirectoryService.recordType_resources),

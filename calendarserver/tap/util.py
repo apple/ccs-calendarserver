@@ -211,7 +211,7 @@ def directoryFromConfig(config):
     log.info("Configuring augment service of type: %s" % (augmentClass,))
 
     try:
-        augment.AugmentService = augmentClass(**config.AugmentService.params)
+        augmentService = augmentClass(**config.AugmentService.params)
     except IOError:
         log.error("Could not start augment service")
         raise
@@ -227,6 +227,7 @@ def directoryFromConfig(config):
     log.info("Configuring directory service of type: %s"
         % (config.DirectoryService.type,))
 
+    config.DirectoryService.params.augmentService = augmentService
     baseDirectory = directoryClass(config.DirectoryService.params)
 
     # Wait for the directory to become available
@@ -243,6 +244,7 @@ def directoryFromConfig(config):
 
         log.info("Configuring resource service of type: %s" % (resourceClass,))
 
+        config.ResourceService.params.augmentService = augmentService
         resourceDirectory = resourceClass(config.ResourceService.params)
         resourceDirectory.realmName = baseDirectory.realmName
         directories.append(resourceDirectory)

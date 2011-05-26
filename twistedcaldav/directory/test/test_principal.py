@@ -53,11 +53,12 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(ProvisionedPrincipals, self).setUp()
 
-        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
         self.directoryServices = (
             XMLDirectoryService(
                 {
                     'xmlFile' : xmlFile,
+                    'augmentService' :
+                        augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
                 }
             ),
         )

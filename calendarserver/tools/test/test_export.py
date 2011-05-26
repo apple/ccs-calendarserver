@@ -30,7 +30,6 @@ from twisted.python.modules import getModule
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from twistedcaldav.ical import Component
-from twistedcaldav.directory import augment
 from twistedcaldav.datafilters.test.test_peruserdata import dataForTwoUsers
 from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
 
@@ -204,14 +203,6 @@ class IntegrationTests(TestCase):
         if self.mainCalled:
             raise RuntimeError(
                 "Main called twice during this test; duplicate reactor run.")
-
-        # In lieu of a configuration file, patch up the augment service and make
-        # it so directoryFromConfig will return something useful.  Don't
-        # actually need to patch the augment service to a real fake; just patch
-        # it so that trial will restore the previous one when this test has
-        # completed.
-
-        self.patch(augment, "AugmentService", None)
 
         patchConfig(
             self,

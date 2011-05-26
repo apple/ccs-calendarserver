@@ -97,9 +97,14 @@ class XMLFile (
     Test XML file based directory implementation.
     """
     def service(self):
-        self.patch(augment, "AugmentService",
-                   augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,)))
-        directory = XMLDirectoryService({'xmlFile' : self.xmlFile()}, alwaysStat=True)
+        directory = XMLDirectoryService(
+            {
+                'xmlFile' : self.xmlFile(),
+                'augmentService' :
+                   augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,)),
+            },
+            alwaysStat=True
+        )
         return directory
 
     def test_changedXML(self):
@@ -162,7 +167,7 @@ class XMLFile (
 </augments>
 """
         )
-        augment.AugmentService.refresh()
+        service.augmentService.refresh()
 
         for recordType, expectedRecords in (
             ( DirectoryService.recordType_users     , ()             ),
@@ -316,12 +321,17 @@ class XMLFileSubset (XMLFileBase, TestCase):
     ))
 
     def test_recordTypesSubset(self):
-        self.patch(augment, "AugmentService",
-                   augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,)))
         directory = XMLDirectoryService(
-            {'xmlFile' : self.xmlFile(), 
-             'recordTypes' : (DirectoryService.recordType_users, 
-                              DirectoryService.recordType_groups)}, 
+            {
+                'xmlFile' : self.xmlFile(),
+                'augmentService' :
+                    augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,)),
+                'recordTypes' :
+                    (
+                        DirectoryService.recordType_users,
+                        DirectoryService.recordType_groups
+                    ),
+            },
             alwaysStat=True
         )
         self.assertEquals(set(("users", "groups")), set(directory.recordTypes()))

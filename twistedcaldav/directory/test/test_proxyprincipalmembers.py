@@ -38,8 +38,13 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(ProxyPrincipals, self).setUp()
 
-        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
-        self.directoryService = XMLDirectoryService({'xmlFile' : xmlFile})
+        self.directoryService = XMLDirectoryService(
+            {
+                'xmlFile' : xmlFile,
+                'augmentService' :
+                    augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
+            }
+        )
         calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB("proxies.sqlite")
 
         # Set up a principals hierarchy for each service we're testing with
