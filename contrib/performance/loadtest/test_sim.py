@@ -219,10 +219,10 @@ class LoadSimulatorTests(TestCase):
         L{LoadSimulator.
         """
         accounts = FilePath(self.mktemp())
-        accounts.setContent("foo bar\nbaz quux\n")
+        accounts.setContent("foo,bar,baz,quux\nfoo2,bar2,baz2,quux2\n")
         config = VALID_CONFIG.copy()
         config["accounts"] = {
-            "loader": "loadtest.sim.recordsFromTextFile",
+            "loader": "loadtest.sim.recordsFromCSVFile",
             "params": {
                 "path": accounts.path},
             }
@@ -232,8 +232,12 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(2, len(sim.records))
         self.assertEqual(sim.records[0].uid, 'foo')
         self.assertEqual(sim.records[0].password, 'bar')
-        self.assertEqual(sim.records[1].uid, 'baz')
-        self.assertEqual(sim.records[1].password, 'quux')
+        self.assertEqual(sim.records[0].commonName, 'baz')
+        self.assertEqual(sim.records[0].email, 'quux')
+        self.assertEqual(sim.records[1].uid, 'foo2')
+        self.assertEqual(sim.records[1].password, 'bar2')
+        self.assertEqual(sim.records[1].commonName, 'baz2')
+        self.assertEqual(sim.records[1].email, 'quux2')
 
 
     def test_loadServerConfig(self):

@@ -32,11 +32,11 @@
     <key>accounts</key>
     <dict>
       <key>loader</key>
-      <string>loadtest.sim.recordsFromTextFile</string>
+      <string>loadtest.sim.recordsFromCSVFile</string>
       <key>params</key>
       <dict>
 	<key>path</key>
-	<string>loadtest/accounts.txt</string>
+	<string>loadtest/accounts.csv</string>
       </dict>
     </dict>
 

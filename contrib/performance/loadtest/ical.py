@@ -268,7 +268,7 @@ class SnowLeopard(BaseClient):
         d = self._request(
             MULTI_STATUS,
             'PROPFIND',
-            self.root + principalURL[1:],
+            self.root + principalURL[1:].encode('utf-8'),
             Headers({
                     'content-type': ['text/xml'],
                     'depth': ['0']}),
@@ -565,8 +565,9 @@ class SnowLeopard(BaseClient):
             start = vevent.contents[u'vevent'][0].contents[u'dtstart'][0].value
             end = vevent.contents[u'vevent'][0].contents[u'dtend'][0].value
             now = datetime.now()
+            uri = self.root + 'calendars/__uids__/' + self.user.encode('utf-8') + '/outbox/'
             d = self._request(
-                OK, 'POST', self.root + 'calendars/__uids__/' + self.user + '/outbox/',
+                OK, 'POST', uri,
                 Headers({
                         'content-type': ['text/calendar'],
                         'originator': [self.email],

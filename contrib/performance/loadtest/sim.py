@@ -35,14 +35,16 @@ from loadtest.population import (
 
 
 class _DirectoryRecord(object):
-    def __init__(self, uid, password):
+    def __init__(self, uid, password, commonName, email):
         self.uid = uid
         self.password = password
+        self.commonName = commonName
+        self.email = email
 
 
-def recordsFromTextFile(path):
+def recordsFromCSVFile(path):
     return [
-        _DirectoryRecord(*line.split())
+        _DirectoryRecord(*line.decode('utf-8').split(u','))
         for line
         in FilePath(path).getContent().splitlines()]
 

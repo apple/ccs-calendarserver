@@ -49,8 +49,9 @@ class ProfileBase(object):
     """
     random = random
 
-    def __init__(self, reactor, client, userNumber, **params):
+    def __init__(self, reactor, simulator, client, userNumber, **params):
         self._reactor = reactor
+        self._sim = simulator
         self._client = client
         self._number = userNumber
         self.setParameters(**params)
@@ -130,26 +131,25 @@ class Inviter(ProfileBase):
         Create a new attendee to add to the list of attendees for the
         given event.
         """
-        invitees = set([u'urn:uuid:user%02d' % (self._number,)])
+        selfRecord = self._sim.getUserRecord(self._number)
+        invitees = set([u'urn:uuid:%s' % (selfRecord.uid,)])
         for att in attendees:
             invitees.add(att.value)
 
         for i in range(10):
             invitee = max(1, int(self.random.gauss(self._number, self._spread)))
-            uuid = u'urn:uuid:user%02d' % (invitee,)
+            record = self._sim.getUserRecord(invitee)
+            uuid = u'urn:uuid:%s' % (record.uid,)
             if uuid not in invitees:
                 break
         else:
             return fail(CannotAddAttendee("Can't find uninvited user to invite."))
 
-        user = u'User %02d' % (invitee,)
-        email = u'user%02d@example.com' % (invitee,)
-
         attendee = ContentLine(
             name=u'ATTENDEE', params=[
-                [u'CN', user],
+                [u'CN', record.commonName],
                 [u'CUTYPE', u'INDIVIDUAL'],
-                [u'EMAIL', email],
+                [u'EMAIL', record.email],
                 [u'PARTSTAT', u'NEEDS-ACTION'],
                 [u'ROLE', u'REQ-PARTICIPANT'],
                 [u'RSVP', u'TRUE'],

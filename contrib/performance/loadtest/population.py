@@ -49,8 +49,8 @@ class ProfileType(object, FancyEqMixin):
         self.params = params
 
 
-    def __call__(self, reactor, client, number):
-        return self.profileType(reactor, client, number, **self.params)
+    def __call__(self, reactor, simulator, client, number):
+        return self.profileType(reactor, simulator, client, number, **self.params)
 
 
 
@@ -146,6 +146,10 @@ class CalendarClientSimulator(object):
         self._user = 0
 
 
+    def getUserRecord(self, index):
+        return self._records[index]
+
+
     def _nextUserNumber(self):
         result = self._user
         self._user += 1
@@ -160,8 +164,8 @@ class CalendarClientSimulator(object):
         auth.add_password(
             realm="Test Realm",
             uri="http://%s:%d/" % (self.host, self.port),
-            user=user,
-            passwd=record.password)
+            user=user.encode('utf-8'),
+            passwd=record.password.encode('utf-8'))
         return user, auth
 
 
@@ -178,7 +182,7 @@ class CalendarClientSimulator(object):
             d.addErrback(self._clientFailure, reactor)
 
             for profileType in clientType.profileTypes:
-                d = profileType(reactor, client, number).run()
+                d = profileType(reactor, self, client, number).run()
                 d.addErrback(self._profileFailure, profileType, reactor)
         msg(type="status", clientCount=self._user - 1)
 
