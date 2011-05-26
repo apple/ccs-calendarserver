@@ -350,7 +350,7 @@ class SnowLeopard(BaseClient):
                 response = yield self._eventReport(url, responseHref)
                 body = yield readBody(response)
                 res = self._parseMultiStatus(body)[responseHref]
-                if " 404 " not in res.getStatus():
+                if res.getStatus() is not None and " 404 " not in res.getStatus():
                     text = res.getTextProperties()
                     etag = text[davxml.getetag]
                     try:
