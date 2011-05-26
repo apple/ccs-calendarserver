@@ -15,6 +15,7 @@
 #
 ##
 
+from xml.parsers.expat import ExpatError
 from sys import argv, stdout
 from random import Random
 from plistlib import readPlist
@@ -87,9 +88,8 @@ class SimOptions(Options):
             raise UsageError("--config %s: %s" % (path, e.strerror))
         try:
             self.config = readPlist(configFile)
-        except Exception, e:
-            raise UsageError(
-                "--config %s: %s" % (path, str(e)))
+        except ExpatError, e:
+            raise UsageError("--config %s: %s" % (path, e)) 
 
 
     def opt_logfile(self, filename):
