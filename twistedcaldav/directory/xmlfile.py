@@ -32,7 +32,6 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twistedcaldav.config import config
 
 from twistedcaldav.config import fullServerPath
-from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser, XMLAccountRecord
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr

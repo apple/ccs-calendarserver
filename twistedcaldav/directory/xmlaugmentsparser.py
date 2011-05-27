@@ -40,6 +40,7 @@ ELEMENT_PARTITIONID       = "partition-id"
 ELEMENT_HOSTEDAT          = "hosted-at"   # Backwards compatibility
 ELEMENT_ENABLECALENDAR    = "enable-calendar"
 ELEMENT_ENABLEADDRESSBOOK = "enable-addressbook"
+ELEMENT_ENABLELOGIN       = "enable-login"
 ELEMENT_AUTOSCHEDULE      = "auto-schedule"
 
 ATTRIBUTE_REPEAT          = "repeat"
@@ -55,6 +56,7 @@ ELEMENT_AUGMENTRECORD_MAP = {
     ELEMENT_HOSTEDAT:          "partitionID",   # Backwards compatibility
     ELEMENT_ENABLECALENDAR:    "enabledForCalendaring",
     ELEMENT_ENABLEADDRESSBOOK: "enabledForAddressBooks",
+    ELEMENT_ENABLELOGIN:       "enabledForLogin",
     ELEMENT_AUTOSCHEDULE:      "autoSchedule",
 }
 
@@ -104,6 +106,7 @@ class XMLAugmentsParser(object):
                     ELEMENT_ENABLE,
                     ELEMENT_ENABLECALENDAR,
                     ELEMENT_ENABLEADDRESSBOOK,
+                    ELEMENT_ENABLELOGIN,
                     ELEMENT_AUTOSCHEDULE,
                 ):
                     fields[node.tag] = node.text == VALUE_TRUE

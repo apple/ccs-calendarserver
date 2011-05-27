@@ -115,6 +115,11 @@ class DirectoryService(LoggingMixIn):
         if credentials.authnPrincipal is None:
             raise UnauthorizedLogin("No such user: %s" % (credentials.credentials.username,))
 
+        # See if record is enabledForLogin
+        if not credentials.authnPrincipal.record.isLoginEnabled():
+            raise UnauthorizedLogin("User not allowed to log in: %s" %
+                (credentials.credentials.username,))
+
         # Handle Kerberos as a separate behavior
         try:
             from twistedcaldav.authkerb import NegotiateCredentials
@@ -358,6 +363,7 @@ class DirectoryRecord(LoggingMixIn):
         calendarUserAddresses=set(), autoSchedule=False, enabledForCalendaring=None,
         enabledForAddressBooks=None,
         uid=None,
+        enabledForLogin=True,
         **kwargs
     ):
         assert service.realmName is not None
@@ -389,6 +395,7 @@ class DirectoryRecord(LoggingMixIn):
         self.enabledForCalendaring  = enabledForCalendaring
         self.autoSchedule           = autoSchedule
         self.enabledForAddressBooks = enabledForAddressBooks
+        self.enabledForLogin        = enabledForLogin
         self.extras                 = kwargs
 
 
@@ -437,6 +444,7 @@ class DirectoryRecord(LoggingMixIn):
             self.enabledForCalendaring = augment.enabledForCalendaring
             self.enabledForAddressBooks = augment.enabledForAddressBooks
             self.autoSchedule = augment.autoSchedule
+            self.enabledForLogin = augment.enabledForLogin
 
             if (self.enabledForCalendaring or self.enabledForAddressBooks) and self.recordType == self.service.recordType_groups:
                 self.enabledForCalendaring = False
@@ -454,6 +462,7 @@ class DirectoryRecord(LoggingMixIn):
             self.partitionID = ""
             self.enabledForCalendaring = False
             self.enabledForAddressBooks = False
+            self.enabledForLogin = False
 
 
     def applySACLs(self):
@@ -472,6 +481,13 @@ class DirectoryRecord(LoggingMixIn):
                                % (username,))
                 self.enabledForAddressBooks = False
 
+    def isLoginEnabled(self):
+        """
+        Returns True if the user should be allowed to log in, based on the
+        enabledForLogin attribute, which is currently controlled by the
+        DirectoryService implementation.
+        """
+        return self.enabledForLogin
 
     def members(self):
         return ()

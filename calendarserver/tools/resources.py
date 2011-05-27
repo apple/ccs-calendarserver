@@ -26,7 +26,6 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.util import switchUID
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.directory import augment
 from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.xmlfile import XMLDirectoryService

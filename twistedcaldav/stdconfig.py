@@ -79,6 +79,8 @@ DEFAULT_SERVICE_PARAMS = {
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
                 "recordName": "userid", # uniquely identifies user records
+                "loginEnabledAttr" : "loginEnabled", # attribute controlling login
+                "loginEnabledValue" : "yes", # value of above attribute
             },
             "groups": {
                 "rdn": "ou=Group",

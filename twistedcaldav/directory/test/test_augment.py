@@ -35,6 +35,9 @@ testRecords = (
     {"uid":"5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1", "enabled":True,  "partitionID":"00001", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
     {"uid":"543D28BA-F74F-4D5F-9243-B3E3A61171E5", "enabled":True,  "partitionID":"00002", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False},
     {"uid":"6A73326A-F781-47E7-A9F8-AF47364D4152", "enabled":True,  "partitionID":"00002", "enabledForCalendaring":True, "enabledForAddressBooks":True, "autoSchedule":True},
+    {"uid":"FC674703-8008-4A77-B80E-0DB55A9CE620", "enabledForLogin":False,}, # Explicitly false
+    {"uid":"B473DC32-1B0D-45EE-9BAC-DA878AE9CE74", "enabledForLogin":True,}, # Explicitly True
+    {"uid":"9F2B176D-B3F5-483A-AA63-0A1FC6E6D54B", "enabledForLogin":True,}, # Default is True
 )
 
 testRecordWildcardDefault = (

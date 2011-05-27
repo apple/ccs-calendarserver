@@ -33,7 +33,6 @@ from twisted.cred.credentials import UsernamePassword
 from twext.web2.auth.digest import DigestedCredentials
 
 from twistedcaldav.config import config
-from twistedcaldav.directory import augment
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -241,6 +240,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
         guids = set()
 
+        self.log_info("Looking up which groups %s is a member of" % (guid,))
         try:
             self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                 self.directory,
@@ -300,6 +300,8 @@ class OpenDirectoryService(CachingDirectoryService):
             recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
             if recordGUID:
                 guids.add(recordGUID)
+
+        self.log_info("%s is a member of %d groups" % (guid, len(guids)))
 
         return guids
 

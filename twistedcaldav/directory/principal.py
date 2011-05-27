@@ -52,7 +52,6 @@ from twistedcaldav.authkerb import NegotiateCredentials
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory import augment
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.common import uidsResourceName
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord

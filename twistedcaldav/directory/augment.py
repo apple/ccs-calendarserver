@@ -49,6 +49,7 @@ class AugmentRecord(object):
         enabledForCalendaring=False,
         autoSchedule=False,
         enabledForAddressBooks=False,
+        enabledForLogin=True,
     ):
         self.uid = uid
         self.enabled = enabled
@@ -56,6 +57,7 @@ class AugmentRecord(object):
         self.partitionID = partitionID
         self.enabledForCalendaring = enabledForCalendaring
         self.enabledForAddressBooks = enabledForAddressBooks
+        self.enabledForLogin = enabledForLogin
         self.autoSchedule = autoSchedule
         self.clonedFromDefault = False
 
@@ -114,6 +116,7 @@ class AugmentDB(object):
             enabled=True,
             enabledForCalendaring=True,
             enabledForAddressBooks=True,
+            enabledForLogin=True,
         )
         self.cachedRecords["Default"] = result
         result = copy.deepcopy(result)
@@ -412,6 +415,7 @@ class AugmentXMLDB(AugmentDB):
             addSubElement(recordNode, xmlaugmentsparser.ELEMENT_PARTITIONID, record.partitionID)
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true" if record.enabledForCalendaring else "false")
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true" if record.enabledForAddressBooks else "false")
+        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLELOGIN, "true" if record.enabledForLogin else "false")
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if record.autoSchedule else "false")
 
     def refresh(self):
@@ -471,6 +475,7 @@ class AugmentXMLDB(AugmentDB):
                 enabled=True,
                 enabledForCalendaring=True,
                 enabledForAddressBooks=True,
+                enabledForLogin=True,
             )
 
         # Compare previously seen modification time and size of each
@@ -523,11 +528,11 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
         """
         
         # Query for the record information
-        results = (yield self.query("select UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE from AUGMENTS where UID = :1", (uid,)))
+        results = (yield self.query("select UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, LOGINENABLED from AUGMENTS where UID = :1", (uid,)))
         if not results:
             returnValue(None)
         else:
-            uid, enabled, serverid, partitionid, enabledForCalendaring, enabledForAddressBooks, autoSchedule = results[0]
+            uid, enabled, serverid, partitionid, enabledForCalendaring, enabledForAddressBooks, autoSchedule, enabledForLogin = results[0]
             
             record = AugmentRecord(
                 uid = uid,
@@ -536,6 +541,7 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
                 partitionID = partitionid,
                 enabledForCalendaring = enabledForCalendaring == "T",
                 enabledForAddressBooks = enabledForAddressBooks == "T",
+                enabledForLogin = enabledForLogin == "T",
                 autoSchedule = autoSchedule == "T",
             )
             
@@ -598,6 +604,7 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
                 ("CALENDARING",  "text(1)"),
                 ("ADDRESSBOOKS", "text(1)"),
                 ("AUTOSCHEDULE", "text(1)"),
+                ("LOGINENABLED", "text(1)"),
             ),
             ifnotexists=True,
         )
@@ -620,8 +627,8 @@ class AugmentSqliteDB(ADBAPISqliteMixin, AugmentADAPI):
     def _addRecord(self, record):
         yield self.execute(
             """insert or replace into AUGMENTS
-            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
-            values (:1, :2, :3, :4, :5, :6, :7)""",
+            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, LOGINENABLED)
+            values (:1, :2, :3, :4, :5, :6, :7, :8)""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
@@ -630,6 +637,7 @@ class AugmentSqliteDB(ADBAPISqliteMixin, AugmentADAPI):
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
                 "T" if record.autoSchedule else "F",
+                "T" if record.enabledForLogin else "F",
             )
         )
 
@@ -650,8 +658,8 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
     def _addRecord(self, record):
         yield self.execute(
             """insert into AUGMENTS
-            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE)
-            values (:1, :2, :3, :4, :5, :6, :7)""",
+            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, LOGINENABLED)
+            values (:1, :2, :3, :4, :5, :6, :7, :8)""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
@@ -660,6 +668,7 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
                 "T" if record.autoSchedule else "F",
+                "T" if record.enabledForLogin else "F",
             )
         )
 
@@ -667,8 +676,8 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
     def _modifyRecord(self, record):
         yield self.execute(
             """update AUGMENTS set
-            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE) =
-            (:1, :2, :3, :4, :5, :6, :7) where UID = :8""",
+            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, LOGINENABLED) =
+            (:1, :2, :3, :4, :5, :6, :7 :8) where UID = :9""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
@@ -677,6 +686,7 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
                 "T" if record.autoSchedule else "F",
+                "T" if record.enabledForLogin else "F",
                 record.uid,
             )
         )

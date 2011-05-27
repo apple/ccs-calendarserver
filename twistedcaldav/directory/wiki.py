@@ -249,7 +249,7 @@ def getWikiACL(resource, request):
 
     except Fault, fault:
 
-        log.debug("Wiki ACL result: user [%s], wiki [%s], FAULT [%s]" % (userID,
+        log.error("Wiki ACL result: user [%s], wiki [%s], FAULT [%s]" % (userID,
             wikiID, fault))
 
         if fault.faultCode == 2: # non-existent user

@@ -45,7 +45,7 @@ from twisted.internet.tcp import Connection
 from twisted.python.reflect import namedClass
 
 from twistedcaldav.bind import doBind
-from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource

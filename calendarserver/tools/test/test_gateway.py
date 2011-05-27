@@ -27,8 +27,6 @@ from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tools.util import getDirectory
 
-from twistedcaldav.directory import augment
-
 
 class GatewayTestCase(TestCase):
 

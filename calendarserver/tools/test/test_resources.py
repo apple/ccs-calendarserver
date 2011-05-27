@@ -16,7 +16,6 @@
 
 from calendarserver.tools.resources import migrateResources
 from twisted.internet.defer import inlineCallbacks, succeed
-from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.test.util import TestCase
 

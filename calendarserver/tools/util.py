@@ -41,7 +41,7 @@ from calendarserver.provision.root import RootResource
 
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.notify import NotifierFactory

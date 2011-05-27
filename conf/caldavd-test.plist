@@ -259,6 +259,10 @@
             <string></string>
             <key>recordName</key>
             <string>uid</string>
+            <key>loginEnabledAttr</key>
+            <string>loginEnabled</string>
+            <key>loginEnabledValue</key>
+            <string>yes</string>
           </dict>
           <key>groups</key>
           <dict>
