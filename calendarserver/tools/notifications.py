@@ -47,9 +47,16 @@ def usage(e=None):
     print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -h --help: print this help and exit"
     print "  -H --host <hostname>: calendar server host name"
+    print "  -n --node <pubsub node>: pubsub node to subscribe to *"
     print "  -p --port <port number>: calendar server port number"
     print "  -s --ssl: use https (default is http)"
     print "  -v --verbose: print additional information including XMPP traffic"
+    print ""
+    print " * The --node option is only required for calendar servers that"
+    print "   don't advertise the push-transports DAV property (such as a Snow"
+    print "   Leopard server).  In this case, --host should specify the name"
+    print "   of the XMPP server and --port should specify the port XMPP is"
+    print "   is listening on."
     print ""
 
     if e:
@@ -62,11 +69,12 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "a:f:hH:p:sv", [
+            sys.argv[1:], "a:f:hH:n:p:sv", [
                 "admin=",
                 "config=",
                 "help",
                 "host=",
+                "node=",
                 "port=",
                 "ssl",
                 "verbose",
@@ -78,6 +86,7 @@ def main():
     admin = None
     configFileName = None
     host = None
+    nodes = None
     port = None
     useSSL = False
     verbose = False
@@ -91,6 +100,8 @@ def main():
             admin = arg
         elif opt in ("-H", "--host"):
             host = arg
+        elif opt in ("-n", "--node"):
+            nodes = [arg]
         elif opt in ("-p", "--port"):
             port = int(arg)
         elif opt in ("-s", "--ssl"):
@@ -126,8 +137,8 @@ def main():
         password = getpass("Password for %s: " % (username,))
         admin = username
 
-    monitorService = PushMonitorService(useSSL, host, port, admin, username,
-        password, verbose)
+    monitorService = PushMonitorService(useSSL, host, port, nodes, admin,
+        username, password, verbose)
     reactor.addSystemEventTrigger("during", "startup",
         monitorService.startService)
     reactor.addSystemEventTrigger("before", "shutdown",
@@ -305,10 +316,12 @@ class PushMonitorService(Service):
     using XMPP and monitored for updates.
     """
 
-    def __init__(self, useSSL, host, port, authname, username, password, verbose):
+    def __init__(self, useSSL, host, port, nodes, authname, username, password,
+        verbose):
         self.useSSL = useSSL
         self.host = host
         self.port = port
+        self.nodes = nodes
         self.authname = authname
         self.username = username
         self.password = password
@@ -317,24 +330,31 @@ class PushMonitorService(Service):
     @inlineCallbacks
     def startService(self):
         try:
-            paths = set()
-            principal = "/principals/users/%s/" % (self.username,)
-            name, homes = (yield self.getPrincipalDetails(principal))
-            if self.verbose:
-                print name, homes
-            for home in homes:
-                paths.add(home)
-            for principal in (yield self.getProxyFor()):
-                name, homes = (yield self.getPrincipalDetails(principal,
-                    includeCardDAV=False))
+            subscribeNodes = { }
+            if self.nodes is None:
+                paths = set()
+                principal = "/principals/users/%s/" % (self.username,)
+                name, homes = (yield self.getPrincipalDetails(principal))
                 if self.verbose:
                     print name, homes
                 for home in homes:
                     paths.add(home)
-            subscribeNodes = { }
-            for path in paths:
-                host, port, nodes = (yield self.getPushInfo(path))
-                subscribeNodes.update(nodes)
+                for principal in (yield self.getProxyFor()):
+                    name, homes = (yield self.getPrincipalDetails(principal,
+                        includeCardDAV=False))
+                    if self.verbose:
+                        print name, homes
+                    for home in homes:
+                        paths.add(home)
+                for path in paths:
+                    host, port, nodes = (yield self.getPushInfo(path))
+                    subscribeNodes.update(nodes)
+            else:
+                for node in self.nodes:
+                    subscribeNodes[node] = ("Unknown", "Unknown", "Unknown")
+                host = self.host
+                port = self.port
+
             if subscribeNodes:
                 self.startMonitoring(host, port, subscribeNodes)
             else:
