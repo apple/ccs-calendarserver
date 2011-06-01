@@ -371,7 +371,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 request.extendedLogItems = {}
             request.extendedLogItems["xff"] = remote_ip[0]
 
-        if request.method == "PROPFIND" and not getattr(request, "notInCache", False) and len(segments) > 1:
+        if config.EnableResponseCache and request.method == "PROPFIND" and not getattr(request, "notInCache", False) and len(segments) > 1:
             try:
                 authnUser, authzUser = (yield self.authenticate(request))
                 request.authnUser = authnUser
