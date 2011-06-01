@@ -70,18 +70,9 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
     def defaultAccessControlList(self):
         return authReadACL
 
-    @inlineCallbacks
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
 
-        wikiACL = (yield getWikiACL(self, request))
-        if wikiACL is not None:
-            # ACL depends on wiki server...
-            log.debug("Wiki ACL: %s" % (wikiACL.toxml(),))
-            returnValue(wikiACL)
-        else:
-            # ...otherwise permissions are fixed, and are not subject to
-            # inheritance rules, etc.
-            returnValue(self.defaultAccessControlList())
+        return succeed(self.defaultAccessControlList())
 
 
 
