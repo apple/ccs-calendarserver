@@ -661,7 +661,7 @@ dependencies () {
     "Pyflakes" "pyflakes" "pyflakes-0.4.0" \
     "http://pypi.python.org/packages/source/p/pyflakes/pyflakes-0.4.0.tar.gz";
 
-  svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
+  svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/branches/release/CalDAVTester-3.0-dev" HEAD;
 
   svn_get "CalDAVClientLibrary" "${top}/CalDAVClientLibrary" "${svn_uri_base}/CalDAVClientLibrary/trunk" HEAD;
 
