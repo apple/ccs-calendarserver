@@ -14,6 +14,12 @@
 # limitations under the License.
 ##
 
+import random, time
+
+from zope.interface import Interface, implements
+
+from twisted.python.util import FancyEqMixin
+
 import sqlparse
 
 NANO = 1000000000.0
@@ -210,3 +216,74 @@ def quantize(data):
     """
     buckets = {}
     return []
+
+
+class IPopulation(Interface):
+    def sample():
+        pass
+
+
+class UniformDiscreteDistribution(object, FancyEqMixin):
+    """
+    
+    """
+    implements(IPopulation)
+
+    compareAttributes = ['_values']
+
+    def __init__(self, values):
+        self._values = values
+        self._refill()
+
+
+    def _refill(self):
+        self._remaining = self._values[:]
+        random.shuffle(self._remaining)
+
+
+    def sample(self):
+        if not self._remaining:
+            self._refill()
+        return self._remaining.pop()
+
+
+
+class LogNormalDistribution(object, FancyEqMixin):
+    """
+    """
+    implements(IPopulation)
+
+    compareAttributes = ['_mu', '_sigma']
+
+    def __init__(self, mu, sigma):
+        self._mu = mu
+        self._sigma = sigma
+
+
+    def sample(self):
+        return random.lognormvariate(self._mu, self._sigma)
+
+
+
+class NearFutureDistribution(object, FancyEqMixin):
+    compareAttributes = ['_offset']
+
+    def __init__(self):
+        self._offset = LogNormalDistribution(7, 0.8)
+
+
+    def sample(self):
+        return time.time() + self._offset.sample()
+
+
+
+class NormalDistribution(object, FancyEqMixin):
+    compareAttributes = ['_mu', '_sigma']
+
+    def __init__(self, mu, sigma):
+        self._mu = mu
+        self._sigma = sigma
+
+
+    def sample(self):
+        return random.normalvariate(self._mu, self._sigma)

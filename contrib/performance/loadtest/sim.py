@@ -197,7 +197,7 @@ class LoadSimulator(object):
                         namedAny(clientConfig["software"]),
                         [ProfileType(
                                 namedAny(profile["class"]),
-                                profile["params"])
+                                cls._convertParams(profile["params"]))
                          for profile in clientConfig["profiles"]]))
         if not parameters.clients:
             parameters.addClient(
@@ -216,6 +216,30 @@ class LoadSimulator(object):
 
         return cls(server, arrival, parameters,
                    observers=observers, records=records)
+
+    @classmethod
+    def _convertParams(cls, params):
+        """
+        Find parameter values which should be more structured than plistlib is
+        capable of constructing and replace them with the more structured form.
+
+        Specifically, find keys that end with C{"Distribution"} and convert
+        them into some kind of distribution object using the associated
+        dictionary of keyword arguments.
+        """
+        for k, v in params.iteritems():
+            if k.endswith('Distribution'):
+                params[k] = cls._convertDistribution(v)
+        return params
+
+
+    @classmethod
+    def _convertDistribution(cls, value):
+        """
+        Construct and return a new distribution object using the type and
+        params specified by C{value}.
+        """
+        return namedAny(value['type'])(**value['params'])
 
 
     @classmethod

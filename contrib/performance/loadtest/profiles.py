@@ -37,7 +37,7 @@ from twisted.internet.defer import Deferred, succeed, fail
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
-from stats import mean, median
+from stats import NearFutureDistribution, UniformDiscreteDistribution, mean, median
 from loadtest.logger import SummarizingMixin
 from loadtest.ical import IncorrectResponseCode
 
@@ -340,8 +340,16 @@ SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
 """))[0]
-    def setParameters(self, interval=25):
+    def setParameters(
+        self, interval=25,
+        eventStartDistribution=NearFutureDistribution(),
+        eventDurationDistribution=UniformDiscreteDistribution([
+                15 * 60, 30 * 60,
+                45 * 60, 60 * 60,
+                120 * 60])):
         self._interval = interval
+        self._eventStartDistribution = eventStartDistribution
+        self._eventDurationDistribution = eventDurationDistribution
 
 
     def run(self):
@@ -363,11 +371,15 @@ END:VCALENDAR
             vevent = vcalendar.contents[u'vevent'][0]
             tz = vevent.contents[u'created'][0].value.tzinfo
             dtstamp = datetime.now(tz)
+            dtstart = datetime.fromtimestamp(self._eventStartDistribution.sample(), tz)
+            dtend = dtstart + timedelta(seconds=self._eventDurationDistribution.sample())
             vevent.contents[u'created'][0].value = dtstamp
             vevent.contents[u'dtstamp'][0].value = dtstamp
-            vevent.contents[u'dtstart'][0].value = dtstamp
-            vevent.contents[u'dtend'][0].value = dtstamp + timedelta(hours=1)
+            vevent.contents[u'dtstart'][0].value = dtstart
+            vevent.contents[u'dtend'][0].value = dtend
             vevent.contents[u'uid'][0].value = unicode(uuid4())
+
+            print 'Creating event from', dtstart, 'to', dtend
 
             href = '%s%s.ics' % (
                 calendar.url, vevent.contents[u'uid'][0].value)

@@ -30,6 +30,7 @@ from twisted.internet.task import Clock
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 
+from stats import NormalDistribution
 from loadtest.ical import SnowLeopard
 from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.population import (
@@ -306,13 +307,25 @@ class LoadSimulatorTests(TestCase):
         config.setContent(writePlistToString({
                     "clients": [{
                             "software": "loadtest.ical.SnowLeopard",
-                            "profiles": [{"class": "loadtest.profiles.Eventer", "params": {"interval": 25}}],
+                            "profiles": [{
+                                    "params": {
+                                        "interval": 25,
+                                        "eventStartDistribution": {
+                                            "type": "stats.NormalDistribution",
+                                            "params": {
+                                                "mu": 123,
+                                                "sigma": 456,
+                                                }}},
+                                    "class": "loadtest.profiles.Eventer"}],
                             "weight": 3,
                             }]}))
+                            
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         expectedParameters = PopulationParameters()
         expectedParameters.addClient(
-            3, ClientType(SnowLeopard, [ProfileType(Eventer, {"interval": 25})]))
+            3, ClientType(SnowLeopard, [ProfileType(Eventer, {
+                            "interval": 25,
+                            "eventStartDistribution": NormalDistribution(123, 456)})]))
         self.assertEquals(sim.parameters, expectedParameters)
 
         

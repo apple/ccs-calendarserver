@@ -16,7 +16,7 @@
 
 from twisted.trial.unittest import TestCase
 
-from stats import SQLDuration, quantize
+from stats import SQLDuration, LogNormalDistribution, UniformDiscreteDistribution, quantize
 
 class SQLDurationTests(TestCase):
     def setUp(self):
@@ -39,6 +39,27 @@ class SQLDurationTests(TestCase):
         self.assertEquals(
             self.stat.normalize('SELECT foo FROM bar WHERE True'),
             'SELECT foo FROM bar WHERE ?')
+
+
+
+class DistributionTests(TestCase):
+    def test_lognormal(self):
+        dist = LogNormalDistribution(1, 1)
+        for i in range(100):
+            value = dist.sample()
+            self.assertIsInstance(value, float)
+            self.assertTrue(value >= 0.0, "negative value %r" % (value,))
+            self.assertTrue(value <= 1000, "implausibly high value %r" % (value,))
+
+
+    def test_uniformdiscrete(self):
+        population = [1, 5, 6, 9]
+        counts = dict.fromkeys(population, 0)
+        dist = UniformDiscreteDistribution(population)
+        for i in range(len(population) * 10):
+            counts[dist.sample()] += 1
+        self.assertEqual(dict.fromkeys(population, 10), counts)
+
 
 
 class QuantizationTests(TestCase):
