@@ -72,7 +72,27 @@
 	    <key>params</key>
 	    <dict>
 	      <key>interval</key>
-	      <integer>25</integer>
+	      <integer>60</integer>
+	      <key>eventStartDistribution</key>
+	      <dict>
+		<key>type</key>
+		<string>stats.WorkDistribution</string>
+		<key>params</key>
+		<dict>
+		  <key>daysOfWeek</key>
+		  <array>
+		    <string>mon</string>
+		    <string>tue</string>
+		    <string>wed</string>
+		    <string>thu</string>
+		    <string>fri</string>
+		  </array>
+		  <key>beginHour</key>
+		  <integer>8</integer>
+		  <key>endHour</key>
+		  <integer>17</integer>
+		</dict>
+	      </dict>
 	    </dict>
 	  </dict>
 

@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-import random, time
+import random, time, datetime
 
 from zope.interface import Interface, implements
 
@@ -287,3 +287,61 @@ class NormalDistribution(object, FancyEqMixin):
 
     def sample(self):
         return random.normalvariate(self._mu, self._sigma)
+
+
+NUM_WEEKDAYS = 7
+
+class WorkDistribution(object, FancyEqMixin):
+    compareAttributes = ["_daysOfWeek", "_beginHour", "_endHour"]
+
+    _weekdayNames = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+    now = staticmethod(datetime.datetime.now)
+
+    def __init__(self, daysOfWeek=["mon", "tue", "wed", "thu", "fri"], beginHour=8, endHour=17):
+        self._daysOfWeek = [self._weekdayNames.index(day) for day in daysOfWeek]
+        self._beginHour = beginHour
+        self._endHour = endHour
+        self._helperDistribution = NormalDistribution(
+            # Mean 6 workdays in the future
+            60 * 60 * 8 * 6,
+            # Standard deviation of 4 workdays
+            60 * 60 * 8 * 4)
+    
+    def astimestamp(self, dt):
+        return time.mktime(dt.timetuple())
+
+
+    def _findWorkAfter(self, when):
+        """
+        Return a two-tuple of the start and end of work hours following
+        C{when}.  If C{when} falls within work hours, then the start time will
+        be equal to when.
+        """
+        # Find a workday that follows the timestamp
+        weekday = when.weekday()
+        for i in range(NUM_WEEKDAYS):
+            day = when + datetime.timedelta(days=i)
+            if (weekday + i) % NUM_WEEKDAYS in self._daysOfWeek:
+                # Joy, a day on which work might occur.  Find the first hour on
+                # this day when work may start.
+                begin = day.replace(
+                    hour=self._beginHour, minute=0, second=0, microsecond=0)
+                end = begin.replace(hour=self._endHour)
+                if end > when:
+                    return begin, end
+
+
+    def sample(self):
+        offset = datetime.timedelta(seconds=self._helperDistribution.sample())
+        beginning = self.now()
+        while offset:
+            start, end = self._findWorkAfter(beginning)
+            if end - start > offset:
+                result = start + offset
+                return self.astimestamp(
+                    result.replace(
+                        minute=result.minute // 15 * 15,
+                        second=0, microsecond=0))
+            offset -= (end - start)
+            beginning = end

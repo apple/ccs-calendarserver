@@ -379,8 +379,6 @@ END:VCALENDAR
             vevent.contents[u'dtend'][0].value = dtend
             vevent.contents[u'uid'][0].value = unicode(uuid4())
 
-            print 'Creating event from', dtstart, 'to', dtend
-
             href = '%s%s.ics' % (
                 calendar.url, vevent.contents[u'uid'][0].value)
             d = self._client.addEvent(href, vcalendar)
