@@ -31,13 +31,13 @@ from vobject.icalendar import VEvent
 from protocol.caldav.definitions import caldavxml
 
 from twisted.python import context
-from twisted.python.log import msg
+from twisted.python.log import msg, err
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred, succeed, fail
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
-from stats import NearFutureDistribution, UniformDiscreteDistribution, mean, median
+from stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean, median
 from loadtest.logger import SummarizingMixin
 from loadtest.ical import IncorrectResponseCode
 
@@ -110,20 +110,35 @@ class CannotAddAttendee(Exception):
     """
 
 
+def loopWithDistribution(reactor, distribution, function):
+    result = Deferred()
+
+    def repeat(ignored):
+        reactor.callLater(distribution.sample(), iterate)
+
+    def iterate():
+        d = function()
+        d.addCallbacks(repeat, result.errback)
+
+    repeat(None)
+    return result
+
+
 
 class Inviter(ProfileBase):
     """
     A Calendar user who invites and de-invites other users to events.
     """
-    def setParameters(self, interval=20, spread=3):
-        self._interval = interval
-        self._spread = spread
+    def setParameters(self,
+                      sendInvitationDistribution=NormalDistribution(600, 60),
+                      inviteeDistanceDistribution=UniformDiscreteDistribution(range(-10, 11))):
+        self._sendInvitationDistribution = sendInvitationDistribution
+        self._inviteeDistanceDistribution = inviteeDistanceDistribution
 
 
     def run(self):
-        self._call = LoopingCall(self._invite)
-        self._call.clock = self._reactor
-        return self._call.start(self._interval)
+        return loopWithDistribution(
+            self._reactor, self._sendInvitationDistribution, self._invite)
 
 
     def _addAttendee(self, event, attendees):
@@ -137,7 +152,8 @@ class Inviter(ProfileBase):
             invitees.add(att.value)
 
         for i in range(10):
-            invitee = max(1, int(self.random.gauss(self._number, self._spread)))
+            invitee = max(
+                1, self._number + self._inviteeDistanceDistribution.sample())
             record = self._sim.getUserRecord(invitee)
             uuid = u'urn:uuid:%s' % (record.uid,)
             if uuid not in invitees:
@@ -210,16 +226,18 @@ class Inviter(ProfileBase):
                     lambda reason: reason.trap(CannotAddAttendee))
                 return self._newOperation("invite", d)
 
+            # Oops, no events to play with.
+            return succeed(None)
+
 
 
 class Accepter(ProfileBase):
     """
     A Calendar user who accepts invitations to events.
     """
-    def setParameters(self, delay=10, spread=2):
+    def setParameters(self, acceptDelayDistribution=NormalDistribution(1200, 60)):
         self._accepting = set()
-        self._delay = delay
-        self._spread = spread
+        self._acceptDelayDistribution = acceptDelayDistribution
 
 
     def run(self):
@@ -247,7 +265,7 @@ class Accepter(ProfileBase):
         for attendee in attendees:
             if self._isSelfAttendee(attendee):
                 if attendee.params[u'PARTSTAT'][0] == 'NEEDS-ACTION':
-                    delay = self.random.gauss(self._delay, self._spread)
+                    delay = self._acceptDelayDistribution.sample()
                     self._accepting.add(href)
                     self._reactor.callLater(
                         delay, self._acceptInvitation, href, attendee)

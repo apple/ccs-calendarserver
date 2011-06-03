@@ -18,7 +18,9 @@ from datetime import datetime
 
 from twisted.trial.unittest import TestCase
 
-from stats import SQLDuration, LogNormalDistribution, UniformDiscreteDistribution, WorkDistribution, quantize
+from stats import (
+    SQLDuration, LogNormalDistribution, UniformDiscreteDistribution,
+    UniformIntegerDistribution, WorkDistribution, quantize)
 
 class SQLDurationTests(TestCase):
     def setUp(self):
@@ -74,6 +76,14 @@ class DistributionTests(TestCase):
             # workday, saturday.  Workday starts at 10am, so the sample value
             # is 3:30pm, ie 1530 hours.
             datetime(2011, 6, 4, 15, 30, 0), datetime.fromtimestamp(value)) 
+
+
+    def test_uniform(self):
+        dist = UniformIntegerDistribution(-5, 10)
+        for i in range(100):
+            value = dist.sample()
+            self.assertTrue(-5 <= value < 10)
+            self.assertIsInstance(value, int)
 
 
 

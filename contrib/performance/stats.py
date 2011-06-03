@@ -289,6 +289,19 @@ class NormalDistribution(object, FancyEqMixin):
         return random.normalvariate(self._mu, self._sigma)
 
 
+
+class UniformIntegerDistribution(object, FancyEqMixin):
+    compareAttributes = ['_min', '_max']
+
+    def __init__(self, min, max):
+        self._min = min
+        self._max = max
+
+
+    def sample(self):
+        return int(random.uniform(self._min, self._max))
+
+
 NUM_WEEKDAYS = 7
 
 class WorkDistribution(object, FancyEqMixin):

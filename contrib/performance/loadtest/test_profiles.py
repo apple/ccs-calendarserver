@@ -165,6 +165,10 @@ class _AnyRecord(object):
 
 
 class Deterministic(object):
+    def __init__(self, value=None):
+        self.value = value
+
+
     def gauss(self, mean, stddev):
         """
         Pretend to return a value from a gaussian distribution with mu
@@ -176,6 +180,10 @@ class Deterministic(object):
 
     def choice(self, sequence):
         return sequence[0]
+
+
+    def sample(self):
+        return self.value
 
 
 
@@ -229,6 +237,16 @@ class StubClient(BaseClient):
         attendees.remove(old)
         attendees.append(new)
         return succeed(None)
+
+
+
+class SequentialDistribution(object):
+    def __init__(self, values):
+        self.values = values
+
+
+    def sample(self):
+        return self.values.pop(0)
 
 
 
@@ -306,7 +324,7 @@ class InviterTests(TestCase):
         vevent, event, calendar, client = self._simpleAccount(
             userNumber, SIMPLE_EVENT)
         inviter = Inviter(Clock(), self.sim, client, userNumber)
-        inviter.random = Deterministic()
+        inviter.setParameters(inviteeDistanceDistribution=Deterministic(1))
         inviter._invite()
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
         self.assertEquals(len(attendees), 1)
@@ -330,11 +348,10 @@ class InviterTests(TestCase):
             selfNumber, SIMPLE_EVENT)
 
         otherNumber = 20
-        values = [selfNumber, otherNumber]
+        values = [selfNumber - selfNumber, otherNumber - selfNumber]
 
         inviter = Inviter(Clock(), self.sim, client, selfNumber)
-        inviter.random = Deterministic()
-        inviter.random.gauss = lambda mu, sigma: values.pop(0)
+        inviter.setParameters(inviteeDistanceDistribution=SequentialDistribution(values))
         inviter._invite()
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
         self.assertEquals(len(attendees), 1)
@@ -360,11 +377,10 @@ class InviterTests(TestCase):
         invitee = vevent.contents[u'vevent'][0].contents[u'attendee'][0]
         inviteeNumber = int(invitee.params[u'CN'][0].split()[1])
         anotherNumber = inviteeNumber + 5
-        values = [inviteeNumber, anotherNumber]
+        values = [inviteeNumber - selfNumber, anotherNumber - selfNumber]
 
         inviter = Inviter(Clock(), self.sim, client, selfNumber)
-        inviter.random = Deterministic()
-        inviter.random.gauss = lambda mu, sigma: values.pop(0)
+        inviter.setParameters(inviteeDistanceDistribution=SequentialDistribution(values))
         inviter._invite()
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
         self.assertEquals(len(attendees), 3)
@@ -387,9 +403,8 @@ class InviterTests(TestCase):
         vevent, event, calendar, client = self._simpleAccount(
             selfNumber, INVITED_EVENT)
         inviter = Inviter(Clock(), self.sim, client, selfNumber)
-        inviter.random = Deterministic()
         # Always return a user number which has already been invited.
-        inviter.random.gauss = lambda mu, sigma: 2
+        inviter.setParameters(inviteeDistanceDistribution=Deterministic(2 - selfNumber))
         inviter._invite()
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
         self.assertEquals(len(attendees), 2)
@@ -527,8 +542,7 @@ class AccepterTests(TestCase):
         client._setEvent(inboxEvent.url, inboxEvent)
 
         accepter = Accepter(clock, self.sim, client, userNumber)
-        accepter.random = Deterministic()
-        accepter.random.gauss = lambda mu, sigma: randomDelay
+        accepter.setParameters(Deterministic(randomDelay))
         accepter.eventChanged(event.url)
         clock.advance(randomDelay)
 
@@ -564,8 +578,7 @@ class AccepterTests(TestCase):
         event = Event(calendarURL + u'1234.ics', None, vevent)
         client._events[event.url] = event
         accepter = Accepter(clock, self.sim, client, userNumber)
-        accepter.random = Deterministic()
-        accepter.random.gauss = lambda mu, sigma: randomDelay
+        accepter.setParameters(Deterministic(randomDelay))
         accepter.eventChanged(event.url)
         clock.advance(randomDelay)
 
@@ -608,8 +621,7 @@ class AccepterTests(TestCase):
         client._setEvent(event.url, event)
 
         accepter = Accepter(clock, self.sim, client, userNumber)
-        accepter.random = Deterministic()
-        accepter.random.gauss = lambda mu, sigma: randomDelay
+        accepter.setParameters(Deterministic(randomDelay))
 
         client.rescheduled.add(event.url)
 

@@ -73,6 +73,7 @@
 	    <dict>
 	      <key>interval</key>
 	      <integer>60</integer>
+
 	      <key>eventStartDistribution</key>
 	      <dict>
 		<key>type</key>
@@ -97,17 +98,39 @@
 	  </dict>
 
 	  <dict>
+
 	    <key>class</key>
 	    <string>loadtest.profiles.Inviter</string>
-
+	    
 	    <key>params</key>
 	    <dict>
-	      <key>interval</key>
-	      <integer>20</integer>
+	      <key>sendInvitationDistribution</key>
+	      <dict>
+		<key>type</key>
+		<string>stats.NormalDistribution</string>
+		<key>params</key>
+		<dict>
+		  <key>mu</key>
+		  <integer>60</integer>
+		  <key>sigma</key>
+		  <integer>5</integer>
+		</dict>
+	      </dict>
 
-	      <key>spread</key>
-	      <integer>3</integer>
+	      <key>inviteeDistanceDistribution</key>
+	      <dict>
+		<key>type</key>
+		<string>stats.UniformIntegerDistribution</string>
+		<key>params</key>
+		<dict>
+		  <key>min</key>
+		  <integer>-100</integer>
+		  <key>max</key>
+		  <integer>101</integer>
+		</dict>
+	      </dict>
 	    </dict>
+
 	  </dict>
 
 	  <dict>
@@ -116,14 +139,21 @@
 
 	    <key>params</key>
 	    <dict>
-	      <key>delay</key>
-	      <integer>10</integer>
-
-	      <key>spread</key>
-	      <integer>2</integer>
+	      <key>acceptDelayDistribution</key>
+	      <dict>
+		<key>type</key>
+		<string>stats.NormalDistribution</string>
+		<key>params</key>
+		<dict>
+		  <key>mu</key>
+		  <integer>360</integer>
+		  <key>sigma</key>
+		  <integer>60</integer>
+		</dict>
+	      </dict>
 	    </dict>
+	  
 	  </dict>
-
 	</array>
 
 	<key>weight</key>
