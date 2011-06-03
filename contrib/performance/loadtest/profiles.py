@@ -154,7 +154,10 @@ class Inviter(ProfileBase):
         for i in range(10):
             invitee = max(
                 1, self._number + self._inviteeDistanceDistribution.sample())
-            record = self._sim.getUserRecord(invitee)
+            try:
+                record = self._sim.getUserRecord(invitee)
+            except IndexError:
+                continue
             uuid = u'urn:uuid:%s' % (record.uid,)
             if uuid not in invitees:
                 break
