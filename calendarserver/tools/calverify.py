@@ -57,6 +57,7 @@ from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import collections
 import os
 import sys
+import time
 
 def usage(e=None):
     if e:
@@ -172,13 +173,17 @@ class CalVerifyService(Service, object):
         """
         print "\n---- Finding calendar homes with no directory record ----"
 
+        if self.options["verbose"]:
+            t = time.time()
         uids = yield self.getAllHomeUIDs()
+        if self.options["verbose"]:
+            print "getAllHomeUIDs time: %.1fs" % (time.time() - t,)
         missing = []
         uids_len = len(uids)
         uids_div = 1 if uids_len < 100 else uids_len / 100
 
         for ctr, uid in enumerate(uids):
-            if self.options["verbose"] and divmod(ctr+1, uids_div)[1] == 0:
+            if self.options["verbose"] and divmod(ctr, uids_div)[1] == 0:
                 print "%d of %d (%d%%)" % (
                     ctr+1,
                     uids_len,
@@ -220,13 +225,11 @@ class CalVerifyService(Service, object):
         kwds = { "UID" : uid }
         rows = (yield Select(
             [Count(co.RESOURCE_ID),],
-            From=ch.join(cb.join(co)),
-            Where=(
-                ch.OWNER_UID == Parameter("UID")).And(
-                ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
-                cb.BIND_MODE == _BIND_MODE_OWN).And(
-                cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID
-            )
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            Where=(ch.OWNER_UID == Parameter("UID"))
         ).on(self.txn, **kwds))
         returnValue(int(rows[0][0]) if rows else 0)
 
@@ -241,7 +244,11 @@ class CalVerifyService(Service, object):
         self.end.offsetYear(1)
         self.fix = fix
 
+        if self.options["verbose"]:
+            t = time.time()
         rows = yield self.getAllResourceInfo(self.start)
+        if self.options["verbose"]:
+            print "getAllResourceInfo time: %.1fs" % (time.time() - t,)
         print "Number of events to process: %s" % (len(rows,))
         
         # Split into organizer events and attendee events
@@ -275,15 +282,14 @@ class CalVerifyService(Service, object):
         kwds = { "Start" : pyCalendarTodatetime(start) }
         rows = (yield Select(
             [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,],
-            From=ch.join(cb).join(co).join(tr, type='left', on=(co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID)),
-            Where=(
-                ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID     ).And(
-                cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID ).And(
-                cb.BIND_MODE == _BIND_MODE_OWN).And(
-                (tr.START_DATE >= Parameter("Start")).Or(co.RECURRANCE_MAX == '1900-01-01')).And(
-                cb.CALENDAR_RESOURCE_NAME != "inbox").And(
-                co.ORGANIZER != ""
-            ),
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN).And(
+                    cb.CALENDAR_RESOURCE_NAME != "inbox").And(
+                    co.ORGANIZER != "")).join(
+                tr, type="left", on=(co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID)),
+            Where=(tr.START_DATE >= Parameter("Start")).Or(co.RECURRANCE_MAX == "1900-01-01"),
             GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
@@ -306,7 +312,7 @@ class CalVerifyService(Service, object):
         # Test organized events
         for ctr, organizerEvent in enumerate(self.organized):
             
-            if self.options["verbose"] and divmod(ctr+1, organizer_div)[1] == 0:
+            if self.options["verbose"] and divmod(ctr, organizer_div)[1] == 0:
                 print "%d of %d (%d%%) Missing: %d  Mismatched: %s" % (
                     ctr+1,
                     organized_len,
@@ -423,7 +429,7 @@ class CalVerifyService(Service, object):
 
         for ctr, attendeeEvent in enumerate(self.attended):
             
-            if self.options["verbose"] and divmod(ctr+1, attended_div)[1] == 0:
+            if self.options["verbose"] and divmod(ctr, attended_div)[1] == 0:
                 print "%d of %d (%d%%) Missing: %d  Mismatched: %s" % (
                     ctr+1,
                     attended_len,
