@@ -1863,7 +1863,10 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         isinbox = self._newStoreObject._calendar.name() == "inbox"
 
         # Do If-Schedule-Tag-Match behavior first
-        if not isinbox:
+        # Important: this should only ever be done when storeRemove is called
+        # directly as a result of an HTTP DELETE to ensure the proper If-
+        # header is used in this test.
+        if not isinbox and implicitly:
             self.validIfScheduleMatch(request)
 
         scheduler = None
