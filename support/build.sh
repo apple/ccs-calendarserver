@@ -542,12 +542,12 @@ c_dependency () {
     local dstroot="${srcdir}/_root";
   fi;
 
-  export              PATH="${PATH}:${dstroot}/bin";
-  export    C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:${dstroot}/include";
-  export   LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${dstroot}/lib";
-  export          CPPFLAGS="${CPPFLAGS:-} -I${dstroot}/include";
-  export           LDFLAGS="${LDFLAGS:-} -L${dstroot}/lib";
-  export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${dstroot}/lib";
+  export              PATH="${dstroot}/bin:${PATH}";
+  export    C_INCLUDE_PATH="${dstroot}/include:${C_INCLUDE_PATH:-}";
+  export   LD_LIBRARY_PATH="${dstroot}/lib:${LD_LIBRARY_PATH:-}";
+  export          CPPFLAGS="-I${dstroot}/include ${CPPFLAGS:-} ";
+  export           LDFLAGS="-L${dstroot}/lib ${LDFLAGS:-} ";
+  export DYLD_LIBRARY_PATH="${dstroot}/lib:${DYLD_LIBRARY_PATH:-}";
 
   if "${do_setup}" && (
       "${force_setup}" || [ ! -d "${dstroot}" ]); then
@@ -572,6 +572,19 @@ dependencies () {
   #
   # Dependencies compiled from C source code
   #
+
+  # Normally we depend on the system Python, but a bundle install should be as
+  # self-contained as possible.
+
+  if "${do_bundle}"; then
+    local pyfn="Python-2.6.4";
+    c_dependency -m "fee5408634a54e721a93531aba37f8c1" \
+        "Python" "${pyfn}" \
+        "http://python.org/downloads/${pyfn}.tar.bz2";
+    # Be sure to use the Python we just built.
+    export PYTHON="$(type -p python)";
+    init_py;
+  fi;
 
   if ! type memcached > /dev/null 2>&1; then
     local le="libevent-1.4.13-stable";
@@ -611,11 +624,12 @@ dependencies () {
 
   # Sourceforge mirror hostname.
   local sf="superb-sea2.dl.sourceforge.net";
-
   local st="setuptools-0.6c11";
+  local pypi="http://pypi.python.org/packages/source";
+
   py_dependency -m "7df2a529a074f613b509fb44feefe74e" \
     "setuptools" "setuptools" "${st}" \
-    "http://pypi.python.org/packages/source/s/setuptools/setuptools-0.6c11.tar.gz";
+    "$pypi/s/setuptools/setuptools-0.6c11.tar.gz";
 
   local zi="zope.interface-3.3.0";
   py_dependency -m "93668855e37b4691c5c956665c33392c" \
@@ -631,7 +645,7 @@ dependencies () {
   local po="pyOpenSSL-0.10";
   py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
     "PyOpenSSL" "OpenSSL" "${po}" \
-    "http://pypi.python.org/packages/source/p/pyOpenSSL/${po}.tar.gz";
+    "${pypi}/p/pyOpenSSL/${po}.tar.gz";
 
   if type krb5-config > /dev/null 2>&1; then
     py_dependency -r 4241 \
@@ -656,17 +670,18 @@ dependencies () {
           "http://${sf}/project/cx-oracle/5.1/${cx}.tar.gz";
   fi;
 
-  if [ "${py_version}" != "${py_version##2.5}" ] && ! py_have_module select26; then
+  if [ "${py_version}" != "${py_version##2.5}" ] && \
+      ! py_have_module select26; then
     local s26="select26-0.1a3";
     py_dependency -m "01b8929e7cfc4a8deb777b92e3115c15" \
       "select26" "select26" "${s26}" \
-      "http://pypi.python.org/packages/source/s/select26/${s26}.tar.gz";
+      "${pypi}/s/select26/${s26}.tar.gz";
   fi;
 
   local pg="PyGreSQL-4.0";
   py_dependency -v 4.0 -m "1aca50e59ff4cc56abe9452a9a49c5ff" -o \
     "PyGreSQL" "pgdb" "${pg}" \
-    "http://pypi.python.org/packages/source/P/PyGreSQL/${pg}.tar.gz";
+    "${pypi}/P/PyGreSQL/${pg}.tar.gz";
 
   py_dependency -v 10.1 -r 30159 \
     "Twisted" "twisted" "Twisted" \
@@ -680,7 +695,7 @@ dependencies () {
   local ld="python-ldap-2.3.13";
   py_dependency -v "2.3.13" -m "895223d32fa10bbc29aa349bfad59175" \
     "python-ldap" "python-ldap" "${ld}" \
-    "http://pypi.python.org/packages/source/p/python-ldap/${ld}.tar.gz";
+    "${pypi}/p/python-ldap/${ld}.tar.gz";
 
   # XXX actually vObject should be imported in-place.
   py_dependency -fe -i "" -r 219 \
@@ -703,11 +718,13 @@ dependencies () {
 
   py_dependency -v 0.4.0 -m "630a72510aae8758f48cf60e4fa17176" \
     "Pyflakes" "pyflakes" "pyflakes-0.4.0" \
-    "http://pypi.python.org/packages/source/p/pyflakes/pyflakes-0.4.0.tar.gz";
+    "${pypi}/p/pyflakes/pyflakes-0.4.0.tar.gz";
 
-  svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
+  svn_get "CalDAVTester" "${top}/CalDAVTester" \
+      "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
-  svn_get "CalDAVClientLibrary" "${top}/CalDAVClientLibrary" "${svn_uri_base}/CalDAVClientLibrary/trunk" HEAD;
+  svn_get "CalDAVClientLibrary" "${top}/CalDAVClientLibrary" \
+      "${svn_uri_base}/CalDAVClientLibrary/trunk" HEAD;
 
   local pd="pydoctor-0.3";
   py_dependency -m "b000aa1fb458fe25952dadf26049ae68" \
