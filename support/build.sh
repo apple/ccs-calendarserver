@@ -542,8 +542,8 @@ c_dependency () {
     local dstroot="${install}";
     srcdir="${install}/src/${path}";
   else
-    local dstroot="${srcdir}/_root";
     srcdir="${top}/${path}";
+    local dstroot="${srcdir}/_root";
   fi;
 
   www_get ${f_hash} "${name}" "${srcdir}" "${uri}";
