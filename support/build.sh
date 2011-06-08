@@ -341,8 +341,10 @@ svn_get () {
       svn checkout -r "${revision}" "${uri}@${revision}" "${path}";
     }
 
-    if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
-      local cache_file="${cache_deps}/${name}-$(echo "${uri}" | hash)@r${revision}.tgz";
+    if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ] \
+        && [ -n "${hash}" ]; then
+      local cacheid="${name}-$(echo "${uri}" | hash)";
+      local cache_file="${cache_deps}/${cacheid}@r${revision}.tgz";
 
       mkdir -p "${cache_deps}";
 
@@ -373,10 +375,12 @@ py_build () {
   if "${do_setup}"; then
     echo "Building ${name}...";
     cd "${path}";
-    if ! "${python}" ./setup.py -q build --build-lib "build/${py_platform_libdir}" "$@"; then
+    if ! "${python}" ./setup.py -q build \
+        --build-lib "build/${py_platform_libdir}" "$@"; then
       if "${optional}"; then
         echo "WARNING: ${name} failed to build.";
-        echo "WARNING: ${name} is not required to run the server; continuing without it.";
+        echo "WARNING: ${name} is not required to run the server;"\
+             "continuing without it.";
       else
         return $?;
       fi;
@@ -404,16 +408,15 @@ py_install () {
 # Declare a dependency on a Python project.
 py_dependency () {
   local optional="false"; # Is this dependency optional?
-  local override="false"; # Do I need to get this dependency even if
-                          # the system already has it?
-  local  inplace="";      # Do development in-place; don't run
-                          # setup.py to build, and instead add the
-                          # source directory plus the given relative
-                          # path directly to sys.path.  twisted and
-                          # vobject are developed often enough that
-                          # this is convenient.
-  local skip_egg="false"; # Skip even the 'egg_info' step, because
-                          # nothing needs to be built.
+  local override="false"; # Do I need to get this dependency even if the system
+                          # already has it?
+  local  inplace="";      # Do development in-place; don't run setup.py to
+                          # build, and instead add the source directory plus the
+                          # given relative path directly to sys.path.  twisted
+                          # and vobject are developed often enough that this is
+                          # convenient.
+  local skip_egg="false"; # Skip even the 'egg_info' step, because nothing needs
+                          # to be built.
   local revision="0";     # Revision (if svn)
   local get_type="www";   # Protocol to use
   local  version="";      # Minimum version required
@@ -442,7 +445,8 @@ py_dependency () {
   # args
   local         name="$1"; shift; # the name of the package (for display)
   local       module="$1"; shift; # the name of the python module.
-  local distribution="$1"; shift; # the name of the directory to put the distribution into.
+  local distribution="$1"; shift; # the name of the directory to put the
+                                  # distribution into.
   local      get_uri="$1"; shift; # what URL should be fetched?
 
   local srcdir="${top}/${distribution}"
@@ -456,7 +460,7 @@ py_dependency () {
       if "${do_setup}" && "${override}" && ! "${skip_egg}"; then
         echo;
         if py_have_module setuptools; then
-          echo "Building ${name}... [overrides system, building egg-info metadata only]";
+          echo "Building ${name}... [overrides system, building egg-info only]";
           cd "${srcdir}";
           "${python}" ./setup.py -q egg_info 2>&1 | (
             grep -i -v 'Unrecognized .svn/entries' || true);
