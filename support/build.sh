@@ -566,6 +566,22 @@ c_dependency () {
   fi;
 }
 
+# Used only when bundling: write out, into the bundle, an 'environment.sh' file
+# that contains all the environment variables necessary to invoke commands in
+# the deployed bundle.
+
+write_environment () {
+  local dstroot="${install}";
+  cat > "${dstroot}/environment.sh" << __EOF__
+export              PATH="${dstroot}/bin:\${PATH}";
+export    C_INCLUDE_PATH="${dstroot}/include:\${C_INCLUDE_PATH:-}";
+export   LD_LIBRARY_PATH="${dstroot}/lib:\${LD_LIBRARY_PATH:-}";
+export          CPPFLAGS="-I${dstroot}/include \${CPPFLAGS:-} ";
+export           LDFLAGS="-L${dstroot}/lib \${LDFLAGS:-} ";
+export DYLD_LIBRARY_PATH="${dstroot}/lib:\${DYLD_LIBRARY_PATH:-}";
+__EOF__
+}
+
 
 #
 # Enumerate all the dependencies with c_dependency and py_dependency;

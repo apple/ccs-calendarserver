@@ -234,6 +234,10 @@ run_main () {
     do_home_install;
   fi;
 
+  if "${do_bundle}"; then
+    write_environment;
+  fi;
+
   # Finally, run the server.
   run;
 }
