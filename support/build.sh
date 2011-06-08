@@ -577,10 +577,10 @@ dependencies () {
   # self-contained as possible.
 
   if "${do_bundle}"; then
-    local pyfn="Python-2.6.4";
-    c_dependency -m "fee5408634a54e721a93531aba37f8c1" \
+    local pyfn="Python-2.7.1";
+    c_dependency -m "aa27bc25725137ba155910bd8e5ddc4f" \
         "Python" "${pyfn}" \
-        "http://python.org/downloads/${pyfn}.tar.bz2";
+        "http://www.python.org/ftp/python/2.7.1/${pyfn}.tar.bz2";
     # Be sure to use the Python we just built.
     export PYTHON="$(type -p python)";
     init_py;
