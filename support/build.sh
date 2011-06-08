@@ -41,6 +41,7 @@ init_build () {
          do_get="true";
        do_setup="true";
          do_run="true";
+      do_bundle="false";
     force_setup="false";
   disable_setup="false";
      print_path="false";
@@ -489,6 +490,8 @@ py_dependency () {
   fi;
 }
 
+# Run 'make' with the given command line, prepending a -j option appropriate to
+# the number of CPUs on the current machine, if that can be determined.
 jmake () {
   case "$(uname -s)" in
     Darwin|Linux)
@@ -529,7 +532,18 @@ c_dependency () {
 
   www_get ${f_hash} "${name}" "${srcdir}" "${uri}";
 
-  local dstroot="${srcdir}/_root";
+  if "${do_bundle}"; then
+    local dstroot="${install}";
+  else
+    local dstroot="${srcdir}/_root";
+  fi;
+
+  export              PATH="${PATH}:${dstroot}/bin";
+  export    C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:${dstroot}/include";
+  export   LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${dstroot}/lib";
+  export          CPPFLAGS="${CPPFLAGS:-} -I${dstroot}/include";
+  export           LDFLAGS="${LDFLAGS:-} -L${dstroot}/lib";
+  export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${dstroot}/lib";
 
   if "${do_setup}" && (
       "${force_setup}" || [ ! -d "${dstroot}" ]); then
@@ -539,13 +553,6 @@ c_dependency () {
     jmake;
     jmake install;
   fi;
-
-  export              PATH="${PATH}:${dstroot}/bin";
-  export    C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:${dstroot}/include";
-  export   LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${dstroot}/lib";
-  export          CPPFLAGS="${CPPFLAGS:-} -I${dstroot}/include";
-  export           LDFLAGS="${LDFLAGS:-} -L${dstroot}/lib";
-  export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${dstroot}/lib";
 }
 
 
@@ -570,8 +577,7 @@ dependencies () {
       "http://monkey.org/~provos/${le}.tar.gz";
     c_dependency -m "583441a25f937360624024f2881e5ea8" \
       "memcached" "${mc}" \
-      "http://memcached.googlecode.com/files/${mc}.tar.gz" \
-      --with-libevent="${top}/${le}/_root";
+      "http://memcached.googlecode.com/files/${mc}.tar.gz";
   fi;
 
   if ! type postgres > /dev/null 2>&1; then
