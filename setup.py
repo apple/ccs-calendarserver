@@ -29,6 +29,9 @@ def find_modules():
     ]
 
     for root, dirs, files in os.walk("."):
+        if root == ".":
+            dirs.remove("data")
+
         for exclude in (
             ".svn",
             "_trial_temp",
@@ -86,7 +89,7 @@ if sys.platform == "darwin":
 # Run setup
 #
 
-if __name__ == "__main__":
+def doSetup():
     from distutils.core import setup
 
     dist = setup(
@@ -134,6 +137,8 @@ if __name__ == "__main__":
 
     if "install" in dist.commands:
         install_obj = dist.command_obj["install"]
+        if install_obj.root is None:
+            return
         install_scripts = os.path.normpath(install_obj.install_scripts)
         install_lib = os.path.normpath(install_obj.install_lib)
         root = os.path.normpath(install_obj.root)
@@ -182,3 +187,10 @@ if __name__ == "__main__":
             newScript = open(scriptPath, "w")
             newScript.write("\n".join(script))
             newScript.close()
+
+
+
+if __name__ == "__main__":
+    doSetup()
+
+
