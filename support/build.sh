@@ -399,7 +399,13 @@ py_install () {
     echo "";
     echo "Installing ${name}...";
     cd "${path}";
-    "${python}" ./setup.py install "${install_flag}${install}";
+    if "${do_bundle}"; then
+      # Since we've built our own Python, an option-free installation is the
+      # best bet.
+      "${python}" ./setup.py install;
+    else
+      "${python}" ./setup.py install "${install_flag}${install}";
+    fi;
     cd /;
   fi;
 }
@@ -532,15 +538,16 @@ c_dependency () {
 
   # Extra arguments are processed below, as arguments to './configure'.
 
-  srcdir="${top}/${path}";
+  if "${do_bundle}"; then
+    local dstroot="${install}";
+    srcdir="${install}/src/${path}";
+  else
+    local dstroot="${srcdir}/_root";
+    srcdir="${top}/${path}";
+  fi;
 
   www_get ${f_hash} "${name}" "${srcdir}" "${uri}";
 
-  if "${do_bundle}"; then
-    local dstroot="${install}";
-  else
-    local dstroot="${srcdir}/_root";
-  fi;
 
   export              PATH="${dstroot}/bin:${PATH}";
   export    C_INCLUDE_PATH="${dstroot}/include:${C_INCLUDE_PATH:-}";
@@ -550,7 +557,7 @@ c_dependency () {
   export DYLD_LIBRARY_PATH="${dstroot}/lib:${DYLD_LIBRARY_PATH:-}";
 
   if "${do_setup}" && (
-      "${force_setup}" || [ ! -d "${dstroot}" ]); then
+      "${force_setup}" || "${do_bundle}" || [ ! -d "${dstroot}" ]); then
     echo "Building ${name}...";
     cd "${srcdir}";
     ./configure --prefix="${dstroot}" "$@";
@@ -573,10 +580,15 @@ dependencies () {
   # Dependencies compiled from C source code
   #
 
-  # Normally we depend on the system Python, but a bundle install should be as
-  # self-contained as possible.
 
   if "${do_bundle}"; then
+    # First a bit of bootstrapping: fill out the standard directory structure.
+    for topdir in bin lib include share src; do
+      mkdir -p "${install}/${topdir}";
+    done;
+
+    # Normally we depend on the system Python, but a bundle install should be as
+    # self-contained as possible.
     local pyfn="Python-2.7.1";
     c_dependency -m "aa27bc25725137ba155910bd8e5ddc4f" \
         "Python" "${pyfn}" \
