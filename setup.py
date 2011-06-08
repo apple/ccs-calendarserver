@@ -29,14 +29,16 @@ def find_modules():
     ]
 
     for root, dirs, files in os.walk("."):
-        if root == ".":
-            dirs.remove("data")
-
-        for exclude in (
+        excludes = [
             ".svn",
             "_trial_temp",
             "build",
-        ):
+        ]
+
+        if root == ".":
+            excludes.append("data")
+
+        for exclude in excludes:
             if exclude in dirs:
                 dirs.remove(exclude)
 
