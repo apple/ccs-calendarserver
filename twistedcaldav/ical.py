@@ -1389,6 +1389,16 @@ class Component (object):
                                 else:
                                     raise InvalidICalendarDataError(msg)
 
+                # Check for VEVENT - DTEND and DURATION cannot appear together
+                if (subcomponent.name() == "VEVENT" and
+                    subcomponent.hasProperty("DTEND") and
+                    subcomponent.hasProperty("DURATION")):
+                    if fix:
+                        # Remove the DTEND
+                        subcomponent.removeProperty("DTEND")
+                    else:
+                        raise InvalidICalendarDataError(msg)
+                    
                 timezone_refs.update(subcomponent.timezoneIDs())
         
         #
