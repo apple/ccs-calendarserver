@@ -608,7 +608,8 @@ dependencies () {
     local pyfn="Python-2.7.1";
     c_dependency -m "aa27bc25725137ba155910bd8e5ddc4f" \
         "Python" "${pyfn}" \
-        "http://www.python.org/ftp/python/2.7.1/${pyfn}.tar.bz2";
+        "http://www.python.org/ftp/python/2.7.1/${pyfn}.tar.bz2" \
+        --enable-shared;
     # Be sure to use the Python we just built.
     export PYTHON="$(type -p python)";
     init_py;
