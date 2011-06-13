@@ -749,12 +749,19 @@ class RequestLogger(object):
 
     def observe(self, event):
         if event.get("type") == "response":
-            event['url'] = urlunparse(('', '') + urlparse(event['url'])[2:])
+            formatArgs = dict(
+                user=event['user'],
+                method=event['method'],
+                url=urlunparse(('', '') + urlparse(event['url'])[2:]),
+                code=event['code'],
+                duration=event['duration'],
+                )
+                
             if event['success']:
-                event['success'] = self.success
+                formatArgs['success'] = self.success
             else:
-                event['success'] = self.failure
-            print (self.format % event).encode('utf-8')
+                formatArgs['success'] = self.failure
+            print (self.format % formatArgs).encode('utf-8')
 
 
     def report(self):
