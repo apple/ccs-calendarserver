@@ -15,13 +15,16 @@
 #
 ##
 
+from datetime import datetime
+
 from vobject import readComponents
 from vobject.base import Component, ContentLine
+from vobject.icalendar import dateTimeToString
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred
 from twisted.trial.unittest import TestCase
-from twisted.web.http import MULTI_STATUS
+from twisted.web.http import OK, MULTI_STATUS
 from twisted.web.client import ResponseDone
 from twisted.internet.protocol import ProtocolToConsumerAdapter
 
@@ -795,12 +798,26 @@ END:VCALENDAR
 """
 
 
+class MemoryResponse(object):
+    def __init__(self, version, code, phrase, headers, bodyProducer):
+        self.bodyProducer = bodyProducer
+        self.length = bodyProducer.length
+
+
+    def deliverBody(self, protocol):
+        protocol.makeConnection(self.bodyProducer)
+        d = self.bodyProducer.startProducing(ProtocolToConsumerAdapter(protocol))
+        d.addCallback(lambda ignored: protocol.connectionLost(Failure(ResponseDone())))
+
+
+
 class SnowLeopardMixin:
     """
     Mixin for L{TestCase}s for L{SnowLeopard}.
     """
     def setUp(self):
-        self.client = SnowLeopard(None, "127.0.0.1", 80, None, None)
+        self.user = "user91"
+        self.client = SnowLeopard(None, "127.0.0.1", 80, self.user, None)
 
 
     def interceptRequests(self):
@@ -1106,13 +1123,65 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
 
 
 
-class MemoryResponse(object):
-    def __init__(self, version, code, phrase, headers, bodyProducer):
-        self.bodyProducer = bodyProducer
-        self.length = bodyProducer.length
+class VFreeBusyTests(SnowLeopardMixin, TestCase):
+    """
+    Tests for L{SnowLeopard.requestAvailability}.
+    """
+    def test_requestAvailability(self):
+        """
+        L{SnowLeopard.requestAvailability} accepts a date range and a set of
+        account uuids and issues a VFREEBUSY request.  It returns a Deferred
+        which fires with a dict mapping account uuids to availability range
+        information.
+        """
+        self.client.uuid = u'urn:uuid:user01'
+        self.client.email = u'mailto:user01@example.com'
+        requests = self.interceptRequests()
 
+        start = datetime(2011, 6, 10, 10, 45, 0)
+        end = datetime(2011, 6, 10, 11, 15, 0)
+        d = self.client.requestAvailability(
+            start, end, [u"urn:uuid:user05", u"urn:uuid:user10"])
 
-    def deliverBody(self, protocol):
-        protocol.makeConnection(self.bodyProducer)
-        d = self.bodyProducer.startProducing(ProtocolToConsumerAdapter(protocol))
-        d.addCallback(lambda ignored: protocol.connectionLost(Failure(ResponseDone())))
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, headers, body = req
+
+        self.assertEqual(OK, expectedResponseCode)
+        self.assertEqual('POST', method)
+        self.assertEqual(
+            'http://127.0.0.1:80/calendars/__uids__/%s/outbox/' % (self.user,),
+            url)
+
+        self.assertEqual(headers.getRawHeaders('originator'), ['mailto:user01@example.com'])
+        self.assertEqual(headers.getRawHeaders('recipient'), ['urn:uuid:user05, urn:uuid:user10'])
+        self.assertEqual(headers.getRawHeaders('content-type'), ['text/calendar'])
+
+        consumer = MemoryConsumer()
+        finished = body.startProducing(consumer)
+        def cbFinished(ignored):
+            vevent = list(readComponents(consumer.value()))[0]
+            uid = vevent.contents[u'vfreebusy'][0].contents[u'uid'][0].value.encode('utf-8')
+            dtstamp = vevent.contents[u'vfreebusy'][0].contents[u'dtstamp'][0].value
+            dtstamp = dateTimeToString(dtstamp, False)
+            self.assertEqual(
+"""\
+BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+VERSION:2.0
+METHOD:REQUEST
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VFREEBUSY
+UID:%(uid)s
+DTEND:20110611T000000Z
+ATTENDEE:urn:uuid:user05
+ATTENDEE:urn:uuid:user10
+DTSTART:20110610T000000Z
+DTSTAMP:%(dtstamp)s
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Availability for urn:uuid:user05, urn:uuid:user10
+END:VFREEBUSY
+END:VCALENDAR
+""".replace('\n', '\r\n') % {'uid': uid, 'dtstamp': dtstamp},consumer.value())
+        finished.addCallback(cbFinished)
+        return finished
+

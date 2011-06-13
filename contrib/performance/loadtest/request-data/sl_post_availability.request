@@ -6,11 +6,9 @@ PRODID:-//Apple Inc.//iCal 4.0.3//EN
 BEGIN:VFREEBUSY
 UID:%(vfreebusy-uid)s
 DTEND:%(end)s
-ATTENDEE:%(attendee)s
-DTSTART:%(start)s
-X-CALENDARSERVER-MASK-UID:%(event-uid)s
-DTSTAMP:%(now)s
+%(attendees)sDTSTART:%(start)s
+%(event-mask)sDTSTAMP:%(now)s
 ORGANIZER:%(organizer)s
-SUMMARY:Availability for %(attendee)s
+SUMMARY:%(summary)s
 END:VFREEBUSY
 END:VCALENDAR

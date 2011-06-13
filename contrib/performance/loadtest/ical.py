@@ -18,7 +18,7 @@
 from uuid import uuid4
 from operator import getitem
 from pprint import pformat
-from datetime import datetime
+from datetime import timedelta, datetime
 from urlparse import urlparse, urlunparse
 
 from xml.etree import ElementTree
@@ -143,7 +143,7 @@ class SnowLeopard(BaseClient):
     # The default interval, used if none is specified in external
     # configuration.  This is also the actual value used by Snow
     # Leopard iCal.
-    CALENDAR_HOME_POLL_INTERVAL = 60 * 15
+    CALENDAR_HOME_POLL_INTERVAL = 15 * 60
 
     _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody('sl_startup_principal_propfind')
     _STARTUP_PRINCIPALS_REPORT = loadRequestBody('sl_startup_principals_report')
@@ -350,7 +350,7 @@ class SnowLeopard(BaseClient):
                 response = yield self._eventReport(url, responseHref)
                 body = yield readBody(response)
                 res = self._parseMultiStatus(body)[responseHref]
-                if res.getStatus() is not None and " 404 " not in res.getStatus():
+                if res.getStatus() is None or " 404 " not in res.getStatus():
                     text = res.getTextProperties()
                     etag = text[davxml.getetag]
                     try:
@@ -561,26 +561,11 @@ class SnowLeopard(BaseClient):
         d.addCallback(narrowed)
         def specific(ignored):
             # Now learn about the attendee's availability
-            uid = vevent.contents[u'vevent'][0].contents[u'uid'][0].value
-            start = vevent.contents[u'vevent'][0].contents[u'dtstart'][0].value
-            end = vevent.contents[u'vevent'][0].contents[u'dtend'][0].value
-            now = datetime.now()
-            uri = self.root + 'calendars/__uids__/' + self.user.encode('utf-8') + '/outbox/'
-            d = self._request(
-                OK, 'POST', uri,
-                Headers({
-                        'content-type': ['text/calendar'],
-                        'originator': [self.email],
-                        'recipient': ['mailto:' + email]}),
-                StringProducer(self._POST_AVAILABILITY % {
-                        'attendee': 'mailto:' + email,
-                        'organizer': self.email,
-                        'vfreebusy-uid': str(uuid4()).upper(),
-                        'event-uid': uid.encode('utf-8'),
-                        'start': dateTimeToString(start, convertToUTC=True),
-                        'end': dateTimeToString(end, convertToUTC=True),
-                        'now': dateTimeToString(now, convertToUTC=True)}))
-            d.addCallback(readBody)
+            return self.requestAvailability(
+                vevent.contents[u'vevent'][0].contents[u'dtstart'][0].value,
+                vevent.contents[u'vevent'][0].contents[u'dtend'][0].value,
+                [self.email, u'mailto:' + email],
+                [vevent.contents[u'vevent'][0].contents[u'uid'][0].value])
             return d
         d.addCallback(specific)
         def availability(ignored):
@@ -681,6 +666,78 @@ class SnowLeopard(BaseClient):
         def record((etag, scheduleTag, body)):
             self.eventChanged(href, etag, scheduleTag, body)
         d.addCallback(record)
+        return d
+
+
+    def requestAvailability(self, start, end, users, mask=set()):
+        """
+        Issue a VFREEBUSY request for I{roughly} the given date range for the
+        given users.  The date range is quantized to one day.  Because of this
+        it is an error for the range to span more than 24 hours.
+
+        @param start: A C{datetime} instance giving the beginning of the
+            desired range.
+
+        @param end: A C{datetime} instance giving the end of the desired range.
+
+        @param users: An iterable of user UUIDs which will be included in the
+            request.
+
+        @param mask: An iterable of event UIDs which are to be ignored for the
+            purposes of this availability lookup.
+
+        @return: A C{Deferred} which fires with a C{dict}.  Keys in the dict
+            are user UUIDs (those requested) and values are something else.
+        """
+        outbox = self.root + 'calendars/__uids__/%s/outbox/' % (
+            self.user.encode('utf-8'),)
+        headers = Headers()
+
+        if mask:
+            maskStr = u'\r\n'.join(['X-CALENDARSERVER-MASK-UID:' + uid
+                                    for uid in mask]) + u'\r\n'
+        else:
+            maskStr = u''
+        maskStr = maskStr.encode('utf-8')
+
+        attendeeStr = '\r\n'.join(['ATTENDEE:' + uuid.encode('utf-8')
+                                   for uuid in users]) + '\r\n'
+
+        # iCal issues 24 hour wide vfreebusy requests, starting and ending at 4am.
+        if start.date() != end.date():
+            raise RuntimeError("Cannot vfreebusy across multiple days")
+
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(hours=24)
+
+        start = dateTimeToString(start, convertToUTC=True)
+        end = dateTimeToString(end, convertToUTC=True)
+        now = dateTimeToString(datetime.now(), convertToUTC=True)
+
+        # XXX Why does it not end up UTC sometimes?
+        if not start.endswith('Z'):
+            start = start + 'Z'
+        if not end.endswith('Z'):
+            end = end + 'Z'
+        if not now.endswith('Z'):
+            now = now + 'Z'
+
+        d = self._request(
+            OK, 'POST', outbox,
+            Headers({
+                    'content-type': ['text/calendar'],
+                    'originator': [self.email],
+                    'recipient': [u', '.join(users).encode('utf-8')]}),
+            StringProducer(self._POST_AVAILABILITY % {
+                    'attendees': attendeeStr,
+                    'summary': (u'Availability for %s' % (', '.join(users),)).encode('utf-8'),
+                    'organizer': self.email.encode('utf-8'),
+                    'vfreebusy-uid': str(uuid4()).upper(),
+                    'event-mask': maskStr,
+                    'start': start,
+                    'end': end,
+                    'now': now}))
+        d.addCallback(readBody)
         return d
 
 
