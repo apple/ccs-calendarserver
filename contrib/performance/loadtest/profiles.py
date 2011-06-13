@@ -229,8 +229,8 @@ class Inviter(ProfileBase):
                     lambda reason: reason.trap(CannotAddAttendee))
                 return self._newOperation("invite", d)
 
-            # Oops, no events to play with.
-            return succeed(None)
+        # Oops, either no events or no calendars to play with.
+        return succeed(None)
 
 
 
