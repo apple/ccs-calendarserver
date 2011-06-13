@@ -90,7 +90,7 @@ class Cmd(object):
 
 class CalendarHomes(Cmd):
     
-    _name = "calendar homes"
+    _name = "List Calendar Homes"
     
     @inlineCallbacks
     def doIt(self, txn):
@@ -127,7 +127,7 @@ class CalendarHomes(Cmd):
 
 class Calendars(Cmd):
     
-    _name = "calendars"
+    _name = "List Calendars"
     
     @inlineCallbacks
     def doIt(self, txn):
@@ -173,7 +173,7 @@ class Calendars(Cmd):
 
 class Events(Cmd):
     
-    _name = "events"
+    _name = "List Events"
     
     @inlineCallbacks
     def doIt(self, txn):
@@ -221,7 +221,7 @@ class Events(Cmd):
 
 class Event(Cmd):
     
-    _name = "event"
+    _name = "Get Event Data by Resource-ID"
     
     @inlineCallbacks
     def doIt(self, txn):
@@ -252,6 +252,47 @@ class Event(Cmd):
         ).on(txn, **{"ResourceID": rid}))
         returnValue(rows[0][0] if rows else None)
 
+class EventsByUID(Cmd):
+    
+    _name = "Get Event Data by iCalendar UID"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        
+        uid = raw_input("UID: ")
+        rows = yield self.getData(txn, uid)
+        if rows:
+            for owner, calendar, data in rows:
+                record = txn._directory.recordWithGUID(owner)
+                shortname = record.shortNames[0] if record else "-"
+                table = tables.Table()
+                table.addRow((shortname, calendar,))
+                print "\n"
+                table.printTable()
+                print data
+        else:
+            print "Could not find icalendar data"
+
+    @inlineCallbacks
+    def getData(self, txn, uid):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.ICALENDAR_TEXT,
+            ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            Where=(co.ICALENDAR_UID == Parameter("UID")),
+        ).on(txn, **{"UID": uid}))
+        returnValue(tuple(rows))
+
 
 class DBInspectService(Service, object):
     """
@@ -280,6 +321,7 @@ class DBInspectService(Service, object):
         self.registerCommand(Calendars)
         self.registerCommand(Events)
         self.registerCommand(Event)
+        self.registerCommand(EventsByUID)
         self.doDBInspect()
 
 
