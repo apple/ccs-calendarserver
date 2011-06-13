@@ -67,7 +67,7 @@ def compfilterListExpression(compfilters, fields):
     if len(compfilters) == 1:
         return compfilterExpression(compfilters[0], fields)
     else:
-        return expression.orExpression([compfilterExpression(c, fields) for c in compfilters])
+        return expression.andExpression([compfilterExpression(c, fields) for c in compfilters])
 
 def compfilterExpression(compfilter, fields):
     """
@@ -98,7 +98,7 @@ def compfilterExpression(compfilter, fields):
     for p in [x for x in compfilter.filters if isinstance(x, calendarqueryfilter.PropertyFilter)]:
         props.append(propfilterExpression(p, fields))
     if len(props) > 1:
-        propsExpression = expression.orExpression[props]
+        propsExpression = expression.andExpression[props]
     elif len(props) == 1:
         propsExpression = props[0]
     else:
@@ -109,7 +109,7 @@ def compfilterExpression(compfilter, fields):
     for _ignore in [x for x in compfilter.filters if isinstance(x, calendarqueryfilter.ComponentFilter)]:
         raise ValueError
     if len(comps) > 1:
-        compsExpression = expression.orExpression[comps]
+        compsExpression = expression.andExpression[comps]
     elif len(comps) == 1:
         compsExpression = comps[0]
     else:
@@ -117,7 +117,7 @@ def compfilterExpression(compfilter, fields):
 
     # Now build compound expression
     if ((propsExpression is not None) and (compsExpression is not None)):
-        expressions.append(expression.orExpression([propsExpression, compsExpression]))
+        expressions.append(expression.andExpression([propsExpression, compsExpression]))
     elif propsExpression is not None:
         expressions.append(propsExpression)
     elif compsExpression is not None:
@@ -160,7 +160,7 @@ def propfilterExpression(propfilter, fields):
     for _ignore in propfilter.filters:
         raise ValueError
     if len(params) > 1:
-        paramsExpression = expression.orExpression[params]
+        paramsExpression = expression.andExpression[params]
     elif len(params) == 1:
         paramsExpression = params[0]
     else:

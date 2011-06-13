@@ -198,9 +198,9 @@ class FilterChildBase(FilterBase):
 
         if len(self.filters) > 0:
             for filter in self.filters:
-                if filter._match(item, access):
-                    return True
-            return False
+                if not filter._match(item, access):
+                    return False
+            return True
         else:
             return True
 
@@ -225,9 +225,9 @@ class ComponentFilter (FilterChildBase):
 
         if len(self.filters) > 0:
             for filter in self.filters:
-                if filter._match(item, access):
-                    return True
-            return False
+                if not filter._match(item, access):
+                    return False
+            return True
         else:
             return True
 
