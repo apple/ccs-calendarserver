@@ -438,9 +438,10 @@ DEFAULT_CONFIG = {
     #
     # Standard (or draft) WebDAV extensions
     #
-    "EnableAddMember"         : True,  # POST ;add-member extension
-    "EnableSyncReport"        : True,  # REPORT collection-sync
-    "EnableWellKnown"         : True,  # /.well-known resource
+    "EnableAddMember"             : True,  # POST ;add-member extension
+    "EnableSyncReport"            : True,  # REPORT collection-sync
+    "EnableWellKnown"             : True,  # /.well-known resource
+    "EnableCalendarQueryExtended" : True,  # Extended calendar-query REPORT
 
     #
     # Non-standard CalDAV extensions
@@ -1202,6 +1203,8 @@ def _updateCompliance(configDict):
             compliance += customxml.calendarserver_sharing_compliance
             # TODO: This is only needed whilst we do not support scheduling in shared calendars
             compliance += customxml.calendarserver_sharing_no_scheduling_compliance
+        if configDict.EnableCalendarQueryExtended:
+            compliance += caldavxml.caldav_query_extended_compliance
     else:
         compliance = ()
 

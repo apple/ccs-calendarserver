@@ -32,6 +32,10 @@ __all__ = [
     "notcontainsExpression",
     "isExpression",
     "isnotExpression",
+    "startswithExpression",
+    "notstartswithExpression",
+    "endswithExpression",
+    "notendswithExpression",
     "inExpression",
     "notinExpression",
 ]
@@ -222,7 +226,7 @@ class notcontainsExpression(textcompareExpression):
         super(notcontainsExpression, self).__init__(field, text, caseless)
 
     def operator(self):
-        return " does not contain"
+        return "does not contain"
 
 class isExpression(textcompareExpression):
     """
@@ -245,6 +249,50 @@ class isnotExpression(textcompareExpression):
 
     def operator(self):
         return "is not"
+
+class startswithExpression(textcompareExpression):
+    """
+    Text STARTSWITH (sub-string match) expression.
+    """
+    
+    def __init__(self, field, text, caseless):
+        super(startswithExpression, self).__init__(field, text, caseless)
+
+    def operator(self):
+        return "starts with"
+
+class notstartswithExpression(textcompareExpression):
+    """
+    Text NOT STARTSWITH (sub-string match) expression.
+    """
+    
+    def __init__(self, field, text, caseless):
+        super(notstartswithExpression, self).__init__(field, text, caseless)
+
+    def operator(self):
+        return "does not start with"
+
+class endswithExpression(textcompareExpression):
+    """
+    Text STARTSWITH (sub-string match) expression.
+    """
+    
+    def __init__(self, field, text, caseless):
+        super(endswithExpression, self).__init__(field, text, caseless)
+
+    def operator(self):
+        return "ends with"
+
+class notendswithExpression(textcompareExpression):
+    """
+    Text NOT STARTSWITH (sub-string match) expression.
+    """
+    
+    def __init__(self, field, text, caseless):
+        super(notendswithExpression, self).__init__(field, text, caseless)
+
+    def operator(self):
+        return "does not end with"
 
 class inExpression(textcompareExpression):
     """

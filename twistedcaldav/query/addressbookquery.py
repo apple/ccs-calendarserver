@@ -79,10 +79,15 @@ def propfilterExpression(propfilter, fields):
     params = []
     for filter in propfilter.filters:
         if isinstance(filter, addressbookqueryfilter.TextMatch):
-            if filter.negate:
-                params.append(expression.notcontainsExpression(fields[propfilter.filter_name], str(filter.text), True))
-            else:
-                params.append(expression.containsExpression(fields[propfilter.filter_name], str(filter.text), True))
+            if filter.match_type == "equals":
+                tm = expression.isnotExpression if filter.negate else expression.isExpression
+            elif filter.match_type == "contains":
+                tm = expression.notcontainsExpression if filter.negate else expression.containsExpression
+            elif filter.match_type == "starts-with":
+                tm = expression.notstartswithExpression if filter.negate else expression.startswithExpression
+            elif filter.match_type == "ends-with":
+                tm = expression.notendswithExpression if filter.negate else expression.endswithExpression
+            params.append(tm(fields[propfilter.filter_name], str(filter.text), True))
         else:
             # No embedded parameters - not right now as our Index does not handle them
             raise ValueError
@@ -90,9 +95,9 @@ def propfilterExpression(propfilter, fields):
     # Now build return expression
     if len(params) > 1:
         if propfilter.propfilter_test == "anyof":
-            return expression.orExpression[params]
+            return expression.orExpression(params)
         else:
-            return expression.andExpression[params]
+            return expression.andExpression(params)
     elif len(params) == 1:
         return params[0]
     else:

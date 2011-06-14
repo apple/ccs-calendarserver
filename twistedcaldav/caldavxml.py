@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +54,10 @@ caldav_implicit_compliance = (
     "calendar-auto-schedule",
     "calendar-availability",
     "inbox-availability",
+)
+
+caldav_query_extended_compliance = (
+    "calendar-query-extended",
 )
 
 class CalDAVElement (davxml.WebDAVElement):
@@ -636,7 +640,10 @@ class ComponentFilter (CalDAVElement):
         (caldav_namespace, "comp-filter"    ): (0, None),
         (caldav_namespace, "prop-filter"    ): (0, None),
     }
-    allowed_attributes = { "name": True }
+    allowed_attributes = {
+        "name": True,
+        "test": False,
+    }
 
 class PropertyFilter (CalDAVElement):
     """
@@ -651,7 +658,10 @@ class PropertyFilter (CalDAVElement):
         (caldav_namespace, "text-match"     ): (0, 1),
         (caldav_namespace, "param-filter"   ): (0, None),
     }
-    allowed_attributes = { "name": True }
+    allowed_attributes = {
+        "name": True,
+        "test": False,
+    }
 
 class ParameterFilter (CalDAVElement):
     """
@@ -697,7 +707,8 @@ class TextMatch (CalDAVTextElement):
 
     allowed_attributes = {
         "caseless": False,
-        "negate-condition": False
+        "negate-condition": False,
+        "match-type": False,
     }
 
 class TimeZone (CalDAVTimeZoneElement):

@@ -860,8 +860,23 @@ class RealSQLBehaviorMixin(object):
     """
 
     ISOP = " = "
-    CONTAINSOP = " LIKE "
-    NOTCONTAINSOP = " NOT LIKE "
+    STARTSWITHOP = ENDSWITHOP = CONTAINSOP = " LIKE "
+    NOTSTARTSWITHOP = NOTENDSWITHOP = NOTCONTAINSOP = " NOT LIKE "
+
+    def containsArgument(self, arg):
+        return "%%%s%%" % (arg,)
+
+    def startswithArgument(self, arg):
+        return "%s%%" % (arg,)
+
+    def endswithArgument(self, arg):
+        return "%%%s" % (arg,)
+
+class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
+    """
+    Query generator for CalDAV indexed searches.
+    """
+
     FIELDS = {
         "TYPE": "CALENDAR_OBJECT.ICALENDAR_TYPE",
         "UID":  "CALENDAR_OBJECT.ICALENDAR_UID",
@@ -967,11 +982,6 @@ class RealSQLBehaviorMixin(object):
         return select, self.arguments
 
 
-    def containsArgument(self, arg):
-        return "%%%s%%" % (arg,)
-
-
-
 class FormatParamStyleMixin(object):
     """
     Mixin for overriding methods on sqlgenerator that generate arguments
@@ -996,7 +1006,7 @@ class FormatParamStyleMixin(object):
 
 
 
-class postgresqlgenerator(FormatParamStyleMixin, RealSQLBehaviorMixin,
+class postgresqlgenerator(FormatParamStyleMixin, CalDAVSQLBehaviorMixin,
                           sqlgenerator):
     """
     Query generator for PostgreSQL indexed searches.
@@ -1008,17 +1018,17 @@ def fixbools(sqltext):
 
 
 
-class oraclesqlgenerator(RealSQLBehaviorMixin, sqlgenerator):
+class oraclesqlgenerator(CalDAVSQLBehaviorMixin, sqlgenerator):
     """
     Query generator for Oracle indexed searches.
     """
-    TIMESPANTEST = fixbools(RealSQLBehaviorMixin.TIMESPANTEST)
-    TIMESPANTEST_NOEND = fixbools(RealSQLBehaviorMixin.TIMESPANTEST_NOEND)
-    TIMESPANTEST_NOSTART = fixbools(RealSQLBehaviorMixin.TIMESPANTEST_NOSTART)
+    TIMESPANTEST = fixbools(CalDAVSQLBehaviorMixin.TIMESPANTEST)
+    TIMESPANTEST_NOEND = fixbools(CalDAVSQLBehaviorMixin.TIMESPANTEST_NOEND)
+    TIMESPANTEST_NOSTART = fixbools(CalDAVSQLBehaviorMixin.TIMESPANTEST_NOSTART)
     TIMESPANTEST_TAIL_PIECE = fixbools(
-        RealSQLBehaviorMixin.TIMESPANTEST_TAIL_PIECE)
+        CalDAVSQLBehaviorMixin.TIMESPANTEST_TAIL_PIECE)
     TIMESPANTEST_JOIN_ON_PIECE = fixbools(
-        RealSQLBehaviorMixin.TIMESPANTEST_JOIN_ON_PIECE)
+        CalDAVSQLBehaviorMixin.TIMESPANTEST_JOIN_ON_PIECE)
 
 
 
@@ -1315,22 +1325,15 @@ class PostgresLegacyInboxIndexEmulator(PostgresLegacyIndexEmulator):
 
 # CARDDAV
 
-class oraclesqladbkgenerator(sqlgenerator):
+class CardDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
     """
-    Query generator for Oracle indexed searches.
+    Query generator for CardDAV indexed searches.
     """
 
-    ISOP = " = "
-    CONTAINSOP = " LIKE "
-    NOTCONTAINSOP = " NOT LIKE "
     FIELDS = {
         "UID":  "ADDRESSBOOK_OBJECT.VCARD_UID",
     }
     RESOURCEDB = "ADDRESSBOOK_OBJECT"
-
-    def containsArgument(self, arg):
-        return "%%%s%%" % (arg,)
-
 
     def generate(self):
         """
@@ -1368,11 +1371,14 @@ class oraclesqladbkgenerator(sqlgenerator):
 
 
 
-class postgresqladbkgenerator(FormatParamStyleMixin, oraclesqladbkgenerator):
+class postgresqladbkgenerator(FormatParamStyleMixin, CardDAVSQLBehaviorMixin, sqlgenerator):
     """
-    Query generator for PostgreSQL indexed searches.  Inherit 'real' database
-    behavior from L{oracleadbkgenerator}, and %s-style formatting from
-    L{FormatParamStyleMixin}.
+    Query generator for PostgreSQL indexed searches.
+    """
+
+class oraclesqladbkgenerator(CardDAVSQLBehaviorMixin, sqlgenerator):
+    """
+    Query generator for Oracle indexed searches.
     """
 
 
