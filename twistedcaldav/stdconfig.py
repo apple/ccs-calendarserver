@@ -465,7 +465,7 @@ DEFAULT_CONFIG = {
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
 
     "GlobalAddressBook": {
-        "Enabled":                   True,
+        "Enabled":                   False,
         "Name":                      "global-addressbook",
         "EnableAnonymousReadAccess": False,
     },
