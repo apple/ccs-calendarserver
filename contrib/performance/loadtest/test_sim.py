@@ -46,9 +46,11 @@ VALID_CONFIG = {
         },
     'arrival': {
         'factory': 'loadtest.population.SmoothRampUp',
-        'groups': 10,
-        'groupSize': 1,
-        'interval': 3,
+        'params': {
+            'groups': 10,
+            'groupSize': 1,
+            'interval': 3,
+            },
         },
     }
 
@@ -266,9 +268,11 @@ class LoadSimulatorTests(TestCase):
         config.setContent(writePlistToString({
                     "arrival": {
                         "factory": "loadtest.population.SmoothRampUp",
-                        "groups": 10,
-                        "groupSize": 1,
-                        "interval": 3,
+                        "params": {
+                            "groups": 10,
+                            "groupSize": 1,
+                            "interval": 3,
+                            },
                         },
                     }))
         sim = LoadSimulator.fromCommandLine(['--config', config.path])

@@ -181,9 +181,9 @@ class LoadSimulator(object):
             server = Server('127.0.0.1', 8008)
 
         if 'arrival' in options.config:
-            params = options.config['arrival']
-            factory = namedAny(params.pop('factory'))
-            arrival = Arrival(factory, params)
+            arrival = Arrival(
+                namedAny(options.config['arrival']['factory']), 
+                options.config['arrival']['params'])
         else:
             arrival = Arrival(
                 SmoothRampUp, dict(groups=10, groupSize=1, interval=3))

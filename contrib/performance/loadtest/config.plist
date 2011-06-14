@@ -19,20 +19,34 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
-
+    <!-- Identify the server to be load tested. -->
     <key>server</key>
     <dict>
+      <!-- Hostname or IPv4 address the server is listening on -->
       <key>host</key>
       <string>127.0.0.1</string>
 
+      <!-- Port number the server is listening on -->
       <key>port</key>
       <integer>8008</integer>
     </dict>
 
+    <!-- Define the credentials of the clients which will be used to load test
+         the server.  These credentials must already be valid on the
+         server. -->
     <key>accounts</key>
     <dict>
+      <!-- The loader is the fully-qualified Python name of a callable which
+           returns a list of directory service records defining all of the
+           client accounts to use.
+
+	   loadtest.sim.recordsFromCSVFile reads username, password, mailto
+	   triples from a CSV file and returns them as a list of faked
+	   directory service records. -->
       <key>loader</key>
       <string>loadtest.sim.recordsFromCSVFile</string>
+
+      <!-- Keyword arguments may be passed to the loader. -->
       <key>params</key>
       <dict>
 	<key>path</key>
@@ -40,46 +54,88 @@
       </dict>
     </dict>
 
+    <!-- Define how many clients will participate in the load test and how they
+         will show up. -->
     <key>arrival</key>
     <dict>
+
+      <!-- Specify a class which creates new clients and introduces them into the test.
+
+	   loadtest.population.SmoothRampUp introduces groups of new clients at
+	   fixed intervals up to a maximum.  The size of the group, interval,
+	   and maximum are configured by the parameters below.  The total
+	   number of clients is groups * groupSize, which needs to be no larger
+	   than the number of credentials created in the accounts section.  -->
       <key>factory</key>
       <string>loadtest.population.SmoothRampUp</string>
 
-      <key>groups</key>
-      <integer>60</integer>
+      <key>params</key>
+      <dict>
+	<!-- groups gives the total number of groups of clients to introduce.-->
+	<key>groups</key>
+	<integer>60</integer>
 
-      <key>groupSize</key>
-      <integer>1</integer>
+	<!-- groupSize is the number of clients in each group of clients.  It's
+	     really only a "smooth" ramp up if this is pretty small. -->
+	<key>groupSize</key>
+	<integer>1</integer>
 
-      <key>interval</key>
-      <integer>13</integer>
+	<!-- Number of seconds between the introduction of each group. -->
+	<key>interval</key>
+	<integer>13</integer>
+      </dict>
 
     </dict>
 
+    <!-- Define the kinds of software and user behavior the load simulation
+         will simulate. -->
     <key>clients</key>
+
+    <!-- Have as many different kinds of software and user behavior
+         configurations as you want.  Each is a dict  -->
     <array>
+
       <dict>
+
+	<!-- Here is a Snow Leopard iCal simulator. -->
 	<key>software</key>
 	<string>loadtest.ical.SnowLeopard</string>
 
+	<!-- The profiles define certain types of user behavior on top of the
+	     client software being simulated.  -->
 	<key>profiles</key>
 	<array>
 
+	  <!-- First an event-creating profile, which will periodically create
+	       new events at a random time on a random calendar. -->
 	  <dict>
 	    <key>class</key>
 	    <string>loadtest.profiles.Eventer</string>
 
 	    <key>params</key>
 	    <dict>
+	      <!-- Define the interval (in seconds) at which this profile will
+	           use its client to create a new event. -->
 	      <key>interval</key>
 	      <integer>60</integer>
 
+	      <!-- Define how start times (DTSTART) for the randomly generated
+	           events will be selected.  This is an example of a
+	           "Distribution" parameter.  The value for most "Distribution"
+	           parameters are interchangeable and extensible.  -->
 	      <key>eventStartDistribution</key>
 	      <dict>
+
+		<!-- This distribution is pretty specialized.  It produces
+		     timestamps in the near future, limited to certain days of
+		     the week and certain hours of the day. -->
 		<key>type</key>
 		<string>stats.WorkDistribution</string>
+
 		<key>params</key>
 		<dict>
+		  <!-- These are the days of the week the distribution will
+		       use. -->
 		  <key>daysOfWeek</key>
 		  <array>
 		    <string>mon</string>
@@ -88,8 +144,13 @@
 		    <string>thu</string>
 		    <string>fri</string>
 		  </array>
+
+		  <!-- The earliest hour of a day at which an event might be
+		       scheduled. -->
 		  <key>beginHour</key>
 		  <integer>8</integer>
+
+		  <!-- And the latest hour of a day. -->
 		  <key>endHour</key>
 		  <integer>17</integer>
 		</dict>
@@ -97,34 +158,49 @@
 	    </dict>
 	  </dict>
 
+	  <!-- This profile invites new attendees to existing events. -->
 	  <dict>
-
 	    <key>class</key>
 	    <string>loadtest.profiles.Inviter</string>
 	    
 	    <key>params</key>
 	    <dict>
+	      <!-- Define the frequency at which new invitations will be sent
+	           out. -->
 	      <key>sendInvitationDistribution</key>
 	      <dict>
 		<key>type</key>
 		<string>stats.NormalDistribution</string>
 		<key>params</key>
 		<dict>
+		  <!-- mu gives the mean of the normal distribution (in
+		       seconds). -->
 		  <key>mu</key>
 		  <integer>60</integer>
+
+		  <!-- and sigma gives its standard deviation. -->
 		  <key>sigma</key>
 		  <integer>5</integer>
 		</dict>
 	      </dict>
 
+	      <!-- Define the distribution of who will be invited to an event.
+	           Each set of credentials loaded by the load tester has an
+	           index; samples from this distribution will be added to that
+	           index to arrive at the index of some other credentials,
+	           which will be the target of the invitation. -->
 	      <key>inviteeDistanceDistribution</key>
 	      <dict>
 		<key>type</key>
 		<string>stats.UniformIntegerDistribution</string>
 		<key>params</key>
 		<dict>
+		  <!-- The minimum value (inclusive) of the uniform
+		       distribution. -->
 		  <key>min</key>
 		  <integer>-100</integer>
+		  <!-- The maximum value (exclusive) of the uniform
+		       distribution. -->
 		  <key>max</key>
 		  <integer>101</integer>
 		</dict>
@@ -133,20 +209,25 @@
 
 	  </dict>
 
+	  <!-- This profile accepts invitations to events. -->
 	  <dict>
 	    <key>class</key>
 	    <string>loadtest.profiles.Accepter</string>
 
 	    <key>params</key>
 	    <dict>
+	      <!-- Define how long to wait after seeing a new invitation before
+	           accepting it. -->
 	      <key>acceptDelayDistribution</key>
 	      <dict>
 		<key>type</key>
 		<string>stats.NormalDistribution</string>
 		<key>params</key>
 		<dict>
+		  <!-- mean -->
 		  <key>mu</key>
 		  <integer>360</integer>
+		  <!-- standard deviation --> 
 		  <key>sigma</key>
 		  <integer>60</integer>
 		</dict>
@@ -156,15 +237,27 @@
 	  </dict>
 	</array>
 
+	<!-- Determine the frequency at which this client configuration will
+	     appear in the clients which are created by the load tester. -->
 	<key>weight</key>
 	<integer>1</integer>
       </dict>
     </array>
 
+    <!-- Define some log observers to report on the load test. -->
     <key>observers</key>
     <array>
+      <!-- ReportStatistics generates an end-of-run summary of the HTTP
+           requests made, their timings, and their results. -->
       <string>loadtest.population.ReportStatistics</string>
+
+      <!-- RequestLogger generates a realtime log of all HTTP requests made
+           during the load test. -->
       <string>loadtest.ical.RequestLogger</string>
+
+      <!-- OperationLogger generates an end-of-run summary of the gross
+           operations performed (logical operations which may span more than
+           one HTTP request, such as inviting an attendee to an event). -->
       <string>loadtest.profiles.OperationLogger</string>
     </array>
 
