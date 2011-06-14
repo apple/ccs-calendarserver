@@ -14,6 +14,7 @@
 # limitations under the License.
 ##
 
+import pytz
 from datetime import datetime
 
 from twisted.trial.unittest import TestCase
@@ -66,16 +67,20 @@ class DistributionTests(TestCase):
 
 
     def test_workdistribution(self):
-        dist = WorkDistribution(["mon", "wed", "thu", "sat"], 10, 20)
+        tzname = "US/Eastern"
+        tzinfo = pytz.timezone(tzname)
+        print tzinfo
+        dist = WorkDistribution(["mon", "wed", "thu", "sat"], 10, 20, tzname)
         dist._helperDistribution = UniformDiscreteDistribution([35 * 60 * 60 + 30 * 60])
-        dist.now = lambda: datetime(2011, 5, 29, 18, 5, 36)
+        dist.now = lambda tz=None: datetime(2011, 5, 29, 18, 5, 36, tzinfo=tz)
         value = dist.sample()
         self.assertEqual(
             # Move past three workdays - monday, wednesday, thursday - using 30
             # of the hours, and then five and a half hours into the fourth
             # workday, saturday.  Workday starts at 10am, so the sample value
             # is 3:30pm, ie 1530 hours.
-            datetime(2011, 6, 4, 15, 30, 0), datetime.fromtimestamp(value)) 
+            datetime(2011, 6, 4, 15, 30, 0, tzinfo=tzinfo),
+            datetime.fromtimestamp(value, tzinfo))
 
 
     def test_uniform(self):

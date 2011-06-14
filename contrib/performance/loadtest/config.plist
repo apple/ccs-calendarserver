@@ -150,9 +150,15 @@
 		  <key>beginHour</key>
 		  <integer>8</integer>
 
-		  <!-- And the latest hour of a day. -->
+		  <!-- And the latest hour of a day (at which an event will be
+                       scheduled to begin!). -->
 		  <key>endHour</key>
-		  <integer>17</integer>
+		  <integer>16</integer>
+
+                  <!-- The timezone in which the event is scheduled.
+                       (XXX Does this really work right?) -->
+                  <key>tzname</key>
+                  <string>America/Los_Angeles</string>
 		</dict>
 	      </dict>
 	    </dict>

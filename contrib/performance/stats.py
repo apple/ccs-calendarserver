@@ -16,6 +16,8 @@
 
 import random, time, datetime
 
+import pytz
+
 from zope.interface import Interface, implements
 
 from twisted.python.util import FancyEqMixin
@@ -311,16 +313,18 @@ class WorkDistribution(object, FancyEqMixin):
 
     now = staticmethod(datetime.datetime.now)
 
-    def __init__(self, daysOfWeek=["mon", "tue", "wed", "thu", "fri"], beginHour=8, endHour=17):
+    def __init__(self, daysOfWeek=["mon", "tue", "wed", "thu", "fri"], beginHour=8, endHour=17, tzname="UTC"):
         self._daysOfWeek = [self._weekdayNames.index(day) for day in daysOfWeek]
         self._beginHour = beginHour
         self._endHour = endHour
+        self._tzinfo = pytz.timezone(tzname)
         self._helperDistribution = NormalDistribution(
             # Mean 6 workdays in the future
             60 * 60 * 8 * 6,
             # Standard deviation of 4 workdays
             60 * 60 * 8 * 4)
-    
+
+
     def astimestamp(self, dt):
         return time.mktime(dt.timetuple())
 
@@ -347,7 +351,7 @@ class WorkDistribution(object, FancyEqMixin):
 
     def sample(self):
         offset = datetime.timedelta(seconds=self._helperDistribution.sample())
-        beginning = self.now()
+        beginning = self.now(self._tzinfo)
         while offset:
             start, end = self._findWorkAfter(beginning)
             if end - start > offset:
