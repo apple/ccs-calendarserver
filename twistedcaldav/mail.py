@@ -529,6 +529,18 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
 # Service
 #
 
+class MailGatewayService(service.MultiService):
+
+    def startService(self):
+        """
+        Purge old database tokens -- doing this in startService so that
+        it happens after we've shed privileges
+        """
+        service.MultiService.startService(self)
+        if self.mailer is not None:
+            self.mailer.purge()
+
+
 class MailGatewayServiceMaker(LoggingMixIn):
     implements(IPlugin, service.IServiceMaker)
 
@@ -543,7 +555,7 @@ class MailGatewayServiceMaker(LoggingMixIn):
             config.Memcached.MaxClients,
         )
 
-        multiService = service.MultiService()
+        mailGatewayService = MailGatewayService()
 
         settings = config.Scheduling['iMIP']
         if settings['Enabled']:
@@ -560,18 +572,19 @@ class MailGatewayServiceMaker(LoggingMixIn):
                 # TODO: raise error?
                 self.log_error("Invalid iMIP type in configuration: %s" %
                     (mailType,))
-                return multiService
+                return mailGatewayService
 
-            client.setServiceParent(multiService)
-
+            client.setServiceParent(mailGatewayService)
 
             # Set up /inbox -- server POSTs to it to send out iMIP invites
-            IScheduleService(settings, mailer).setServiceParent(multiService)
+            IScheduleService(settings, mailer).setServiceParent(mailGatewayService)
 
         else:
+            mailer = None
             self.log_info("Mail Gateway Service not enabled")
 
-        return multiService
+        mailGatewayService.mailer = mailer
+        return mailGatewayService
 
 
 class IScheduleService(service.MultiService, LoggingMixIn):
@@ -609,9 +622,14 @@ class MailHandler(LoggingMixIn):
         if dataRoot is None:
             dataRoot = config.DataRoot
         self.db = MailGatewayTokensDatabase(dataRoot)
-        days = config.Scheduling['iMIP']['InvitationDaysToLive']
+        self.days = config.Scheduling['iMIP']['InvitationDaysToLive']
+
+    def purge(self):
+        """
+        Purge old database tokens
+        """
         self.db.purgeOldTokens(datetime.date.today() -
-            datetime.timedelta(days=days))
+            datetime.timedelta(days=self.days))
 
     def checkDSN(self, message):
         # returns (isDSN, Action, icalendar attachment)

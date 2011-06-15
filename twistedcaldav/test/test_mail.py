@@ -25,6 +25,7 @@ import email
 from twistedcaldav.mail import MailHandler
 from twistedcaldav.mail import MailGatewayTokensDatabase
 import os
+import datetime
 
 
 def echo(*args):
@@ -37,6 +38,32 @@ class MailHandlerTests(TestCase):
         TestCase.setUp(self)
         self.handler = MailHandler(dataRoot=":memory:")
         self.dataDir = os.path.join(os.path.dirname(__file__), "data", "mail")
+
+
+    def test_purge(self):
+        """
+        Ensure that purge( ) cleans out old tokens
+        """
+
+        # Insert an "old" token
+        token = "test_token"
+        organizer = "me@example.com"
+        attendee = "you@example.com"
+        icaluid = "123"
+        pastDate = datetime.date(2009,1,1)
+        self.handler.db._db_execute(
+            """
+            insert into TOKENS (TOKEN, ORGANIZER, ATTENDEE, ICALUID, DATESTAMP)
+            values (:1, :2, :3, :4, :5)
+            """, token, organizer, attendee, icaluid, pastDate
+        )
+        self.handler.db._db_commit()
+
+        # purge, and make sure we don't see that token anymore
+        self.handler.purge()
+        retrieved = self.handler.db.getToken(organizer, attendee, icaluid)
+        self.assertEquals(retrieved, None)
+
 
     def test_iconPath(self):
         iconPath = self.handler.getIconPath({'day':'1', 'month':'1'}, False, language='en')

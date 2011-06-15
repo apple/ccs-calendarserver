@@ -596,12 +596,12 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
             # Cache miss; compute members and update cache
             def gotMembersFromDB(dbmembers):
-                members = set([row[0] for row in dbmembers])
+                members = set([row[0].encode("utf-8") for row in dbmembers])
                 d = self._memcacher.setMembers(principalUID, members)
                 d.addCallback(lambda _: members)
                 return d
 
-            d =  self.query("select MEMBER from GROUPS where GROUPNAME = :1", (principalUID,))
+            d =  self.query("select MEMBER from GROUPS where GROUPNAME = :1", (principalUID.decode("utf-8"),))
             d.addCallback(gotMembersFromDB)
             return d
 
@@ -621,12 +621,12 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
             # Cache miss; compute memberships and update cache
             def gotMembershipsFromDB(dbmemberships):
-                memberships = set([row[0] for row in dbmemberships])
+                memberships = set([row[0].encode("utf-8") for row in dbmemberships])
                 d = self._memcacher.setMemberships(principalUID, memberships)
                 d.addCallback(lambda _: memberships)
                 return d
 
-            d =  self.query("select GROUPNAME from GROUPS where MEMBER = :1", (principalUID,))
+            d =  self.query("select GROUPNAME from GROUPS where MEMBER = :1", (principalUID.decode("utf-8"),))
             d.addCallback(gotMembershipsFromDB)
             return d
 
@@ -647,7 +647,7 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
                 """
                 insert into GROUPS (GROUPNAME, MEMBER)
                 values (:1, :2)
-                """, (principalUID, member,)
+                """, (principalUID.decode("utf-8"), member,)
             )
 
     def _add_to_db_one(self, principalUID, memberUID):
@@ -661,7 +661,7 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
             """
             insert into GROUPS (GROUPNAME, MEMBER)
             values (:1, :2)
-            """, (principalUID, memberUID,)
+            """, (principalUID.decode("utf-8"), memberUID.decode("utf-8"),)
         )
 
     def _delete_from_db(self, principalUID):
@@ -670,7 +670,7 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
         @param principalUID: the UID of the group principal to remove.
         """
-        return self.execute("delete from GROUPS where GROUPNAME = :1", (principalUID,))
+        return self.execute("delete from GROUPS where GROUPNAME = :1", (principalUID.decode("utf-8"),))
 
     def _delete_from_db_one(self, principalUID, memberUID):
         """
@@ -679,7 +679,7 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
         @param principalUID: the UID of the group principal to remove.
         @param memberUID: the UID of the principal that is being removed as a member of this group.
         """
-        return self.execute("delete from GROUPS where GROUPNAME = :1 and MEMBER = :2", (principalUID, memberUID,))
+        return self.execute("delete from GROUPS where GROUPNAME = :1 and MEMBER = :2", (principalUID.decode("utf-8"), memberUID.decode("utf-8"),))
 
     def _delete_from_db_member(self, principalUID):
         """
@@ -687,7 +687,7 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
         @param principalUID: the UID of the member principal to remove.
         """
-        return self.execute("delete from GROUPS where MEMBER = :1", (principalUID,))
+        return self.execute("delete from GROUPS where MEMBER = :1", (principalUID.decode("utf-8"),))
 
     def _db_version(self):
         """
