@@ -263,11 +263,15 @@ class EventsByUID(Cmd):
         uid = raw_input("UID: ")
         rows = yield self.getData(txn, uid)
         if rows:
-            for owner, calendar, data in rows:
+            for owner, calendar, resource, created, modified, data in rows:
                 record = txn._directory.recordWithGUID(owner)
                 shortname = record.shortNames[0] if record else "-"
                 table = tables.Table()
-                table.addRow((shortname, calendar,))
+                table.addRow(("User Name:", shortname,))
+                table.addRow(("Calendar:", calendar,))
+                table.addRow(("Resource:", resource))
+                table.addRow(("Created", created))
+                table.addRow(("Modified", modified))
                 print "\n"
                 table.printTable()
                 print data
@@ -283,6 +287,9 @@ class EventsByUID(Cmd):
             [
                 ch.OWNER_UID,
                 cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_NAME,
+                co.CREATED,
+                co.MODIFIED,
                 co.ICALENDAR_TEXT,
             ],
             From=ch.join(
