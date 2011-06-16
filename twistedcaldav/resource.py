@@ -51,8 +51,7 @@ from twext.web2.dav.idav import IDAVPrincipalCollectionResource
 from twext.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource,\
     davPrivilegeSet
 from twext.web2.dav.resource import TwistedACLInheritable
-from twext.web2.dav.util import joinURL, parentForURL, normalizeURL,\
-    unimplemented
+from twext.web2.dav.util import joinURL, parentForURL, normalizeURL
 from twext.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
@@ -2590,7 +2589,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if defaultAddressBookProperty and len(defaultAddressBookProperty.children) == 1:
                 defaultAddressBook = str(defaultAddressBookProperty.children[0])
                 adbk = (yield request.locateResource(str(defaultAddressBook)))
-                if adbk is not None and adbk.exists() and isAddressBookCollectionResource(adbk):
+                if adbk is not None and isAddressBookCollectionResource(adbk) and adbk.exists() and not adbk.isVirtualShare():
                     returnValue(defaultAddressBookProperty) 
             
             # Default is not valid - we have to try to pick one
@@ -2612,7 +2611,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if len(new_adbk) == 1:
                 adbkURI = str(new_adbk[0])
                 adbk = (yield request.locateResource(str(new_adbk[0])))
-            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk):
+            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk) or adbk.isVirtualShare():
                 # Validate that href's point to a valid addressbook.
                 raise HTTPError(ErrorResponse(
                     responsecode.CONFLICT,
@@ -2673,7 +2672,7 @@ class AddressBookHomeResource (CommonHomeResource):
         defaultAddressBookURL = joinURL(self.url(), "addressbook")
         defaultAddressBook = (yield self.makeRegularChild("addressbook"))
         if defaultAddressBook is None or not defaultAddressBook.exists():
-            getter = iter((yield self._newStoreHome.addressbooks()))
+            getter = iter((yield self._newStoreHome.addressbooks()))  # These are only unshared children
             # FIXME: the back-end should re-provision a default addressbook here.
             # Really, the dead property shouldn't be necessary, and this should
             # be entirely computed by a back-end method like 'defaultAddressBook()'

@@ -168,7 +168,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             if defaultCalendarProperty and len(defaultCalendarProperty.children) == 1:
                 defaultCalendar = str(defaultCalendarProperty.children[0])
                 cal = (yield request.locateResource(str(defaultCalendar)))
-                if cal is not None and isCalendarCollectionResource(cal) and cal.exists():
+                if cal is not None and isCalendarCollectionResource(cal) and cal.exists() and not cal.isVirtualShare():
                     returnValue(defaultCalendarProperty) 
             
             # Default is not valid - we have to try to pick one
@@ -223,7 +223,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 calURI = str(new_calendar[0])
                 cal = (yield request.locateResource(str(new_calendar[0])))
             # TODO: check that owner of the new calendar is the same as owner of this inbox
-            if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
+            if cal is None or not cal.exists() or not isCalendarCollectionResource(cal) or cal.isVirtualShare():
                 # Validate that href's point to a valid calendar.
                 raise HTTPError(ErrorResponse(
                     responsecode.CONFLICT,
@@ -263,16 +263,17 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         defaultCalendarURL = joinURL(calendarHomeURL, "calendar")
         defaultCalendar = (yield request.locateResource(defaultCalendarURL))
         if defaultCalendar is None or not defaultCalendar.exists():
-            getter = iter((yield self.parent._newStoreHome.calendars()))
             # FIXME: the back-end should re-provision a default calendar here.
             # Really, the dead property shouldn't be necessary, and this should
             # be entirely computed by a back-end method like 'defaultCalendar()'
-            try:
-                aCalendar = getter.next()
-            except StopIteration:
-                raise RuntimeError("No calendars at all.")
+            for calendarName in (yield self.parent._newStoreHome.listCalendars()):  # These are only unshared children
+                if calendarName != "inbox":
+                    aCalendar = calendarName
+                    break
+            else:
+                raise RuntimeError("No valid calendars to use as a default calendar.")
 
-            defaultCalendarURL = joinURL(calendarHomeURL, aCalendar.name())
+            defaultCalendarURL = joinURL(calendarHomeURL, aCalendar)
 
         self.writeDeadProperty(
             caldavxml.ScheduleDefaultCalendarURL(
