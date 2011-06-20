@@ -687,7 +687,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         yield attachment.remove()
 
     def attachmentWithName(self, name):
-        return Attachment.attachmentWithName(self._txn, self._dropboxID, name)
+        return Attachment.loadWithName(self._txn, self._dropboxID, name)
 
     def attendeesCanManageAttachments(self):
         return self._attachment == _ATTACHMENTS_MODE_WRITE
@@ -741,11 +741,12 @@ class AttachmentStorageTransport(object):
 
     implements(IAttachmentStorageTransport)
 
-    def __init__(self, attachment, contentType):
+    def __init__(self, attachment, contentType, creating=False):
         self.attachment = attachment
         self.contentType = contentType
         self.buf = ''
         self.hash = hashlib.md5()
+        self.creating = creating
 
 
     @property
@@ -764,6 +765,11 @@ class AttachmentStorageTransport(object):
         # FIXME: this should be synchronously accessible; IAttachment should
         # have a method for getting its parent just as CalendarObject/Calendar
         # do.
+
+        # FIXME: If this method isn't called, the transaction should be
+        # prevented from committing successfully.  It's not valid to have an
+        # attachment that doesn't point to a real file.
+
         home = (
             yield self._txn.calendarHomeWithResourceID(
                 self.attachment._ownerHomeID))
@@ -772,7 +778,8 @@ class AttachmentStorageTransport(object):
 
         if home.quotaAllowedBytes() < ((yield home.quotaUsedBytes())
                                        + (len(self.buf) - oldSize)):
-            yield self.attachment._internalRemove()
+            if self.creating:
+                yield self.attachment._internalRemove()
             raise QuotaExceeded()
 
         self.attachment._path.setContent(self.buf)
@@ -824,12 +831,13 @@ class Attachment(object):
 
     implements(IAttachment)
 
-    def __init__(self, txn, dropboxID, name, ownerHomeID=None):
+    def __init__(self, txn, dropboxID, name, ownerHomeID=None, justCreated=False):
         self._txn = txn
         self._dropboxID = dropboxID
         self._name = name
         self._ownerHomeID = ownerHomeID
         self._size = 0
+        self._justCreated = justCreated
 
 
     @classmethod
@@ -853,7 +861,7 @@ class Attachment(object):
             pass
 
         # Now create the DB entry
-        attachment = cls(txn, dropboxID, name, ownerHomeID)
+        attachment = cls(txn, dropboxID, name, ownerHomeID, True)
         att = schema.ATTACHMENT
         yield Insert({
             att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
@@ -868,8 +876,8 @@ class Attachment(object):
 
     @classmethod
     @inlineCallbacks
-    def attachmentWithName(cls, txn, dropboxID, name):
-        attachment = Attachment(txn, dropboxID, name)
+    def loadWithName(cls, txn, dropboxID, name):
+        attachment = cls(txn, dropboxID, name)
         attachment = (yield attachment.initFromStore())
         returnValue(attachment)
 
@@ -916,7 +924,7 @@ class Attachment(object):
 
 
     def store(self, contentType):
-        return AttachmentStorageTransport(self, contentType)
+        return AttachmentStorageTransport(self, contentType, self._justCreated)
 
 
     def retrieve(self, protocol):
