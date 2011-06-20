@@ -67,7 +67,7 @@ from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import utcNowSQL
 from twext.enterprise.dal.syntax import Len
 
-from txdav.caldav.datastore.util import CalendarObjectBase, CalendarHomeBase
+from txdav.caldav.datastore.util import CalendarObjectBase
 from txdav.caldav.icalendarstore import QuotaExceeded
 
 from txdav.caldav.datastore.util import StorageTransportBase
@@ -79,7 +79,7 @@ from pycalendar.timezone import PyCalendarTimezone
 
 from zope.interface.declarations import implements
 
-class CalendarHome(CommonHome, CalendarHomeBase):
+class CalendarHome(CommonHome):
 
     implements(ICalendarHome)
 
@@ -106,6 +106,11 @@ class CalendarHome(CommonHome, CalendarHomeBase):
         self._childClass = Calendar
         super(CalendarHome, self).__init__(transaction, ownerUID, notifiers)
         self._shares = SQLLegacyCalendarShares(self)
+
+
+    def quotaAllowedBytes(self):
+        return self._txn.store().quota
+
 
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName

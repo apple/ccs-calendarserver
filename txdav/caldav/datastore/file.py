@@ -56,7 +56,7 @@ from txdav.caldav.datastore.index_file import Index as OldIndex,\
     IndexSchedule as OldInboxIndex
 from txdav.caldav.datastore.util import (
     validateCalendarComponent, dropboxIDFromCalendarObject, CalendarObjectBase,
-    CalendarHomeBase, StorageTransportBase
+    StorageTransportBase
 )
 
 from txdav.common.datastore.file import (
@@ -80,16 +80,21 @@ CalendarStoreTransaction = CommonStoreTransaction
 
 IGNORE_NAMES = ('dropbox', 'notification', 'freebusy')
 
-class CalendarHome(CommonHome, CalendarHomeBase):
+class CalendarHome(CommonHome):
     implements(ICalendarHome)
 
     _topPath = "calendars"
     _notifierPrefix = "CalDAV"
 
     def __init__(self, uid, path, calendarStore, transaction, notifiers):
-        super(CalendarHome, self).__init__(uid, path, calendarStore, transaction, notifiers)
+        super(CalendarHome, self).__init__(uid, path, calendarStore,
+                                           transaction, notifiers)
 
         self._childClass = Calendar
+
+
+    def quotaAllowedBytes(self):
+        return self._transaction.store().quota
 
 
     createCalendarWithName = CommonHome.createChildWithName
