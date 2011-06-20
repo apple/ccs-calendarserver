@@ -53,7 +53,7 @@ class ImplicitStoreTests(FileStorageTests, TestCase):
 
     def storeUnderTest(self):
         if self.implicitStore is None:
-            sut = FileStorageTests.storeUnderTest(self)
+            sut = super(ImplicitStoreTests, self).storeUnderTest()
             self.implicitStore = ImplicitStore(sut)
         return self.implicitStore
 
@@ -62,3 +62,5 @@ class ImplicitStoreTests(FileStorageTests, TestCase):
 
     test_calendarObjectsWithDotFile = skipit
     test_init = skipit
+
+del FileStorageTests
