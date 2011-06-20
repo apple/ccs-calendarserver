@@ -862,10 +862,14 @@ class CommonTests(CommonCommonTests):
         self.assertIsInstance(calendar.created(), int)
         self.assertIsInstance(calendar.modified(), int)
 
-        self.assertEqual(calendar.accessMode, CommonTests.metadata1["accessMode"])
-        self.assertEqual(calendar.isScheduleObject, CommonTests.metadata1["isScheduleObject"])
-        self.assertEqual(calendar.scheduleEtags, CommonTests.metadata1["scheduleEtags"])
-        self.assertEqual(calendar.hasPrivateComment, CommonTests.metadata1["hasPrivateComment"])
+        self.assertEqual(calendar.accessMode,
+                         CommonTests.metadata1["accessMode"])
+        self.assertEqual(calendar.isScheduleObject,
+                         CommonTests.metadata1["isScheduleObject"])
+        self.assertEqual(calendar.scheduleEtags,
+                         CommonTests.metadata1["scheduleEtags"])
+        self.assertEqual(calendar.hasPrivateComment,
+                         CommonTests.metadata1["hasPrivateComment"])
 
         calendar.accessMode = Component.ACCESS_PRIVATE
         calendar.isScheduleObject = True
