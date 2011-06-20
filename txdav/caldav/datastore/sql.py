@@ -187,6 +187,14 @@ class CalendarHome(CommonHome):
         yield self.createCalendarWithName("inbox")
 
 
+    def quotaAllowedBytes(self):
+        """
+        The configured number of allowed bytes for attachments in this calendar
+        home.
+        """
+        return 1000
+
+
 
 class Calendar(CommonHomeChild):
     """
@@ -760,10 +768,17 @@ class AttachmentStorageTransport(object):
     @inlineCallbacks
     def loseConnection(self):
 
-        old_size = self.attachment.size()
+        # FIXME: this should be synchronously accessible; IAttachment should
+        # have a method for getting its parent just as CalendarObject/Calendar
+        # do.
+        home = (
+            yield self._txn.calendarHomeWithResourceID(
+                self.attachment._ownerHomeID))
 
-        if home.quotaAllowedBytes() - (home.quotaUsedBytes() +
-                                       self.attachment.size()):
+        oldSize = self.attachment.size()
+
+        if home.quotaAllowedBytes() < ((yield home.quotaUsedBytes())
+                                       + (len(self.buf) - oldSize)):
             raise QuotaExceeded()
 
         self.attachment._path.setContent(self.buf)
@@ -784,15 +799,27 @@ class AttachmentStorageTransport(object):
                 Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
         )
 
-        home = (
-            yield self._txn.calendarHomeWithResourceID(
-                self.attachment._ownerHomeID))
         if home:
             # Adjust quota
-            yield home.adjustQuotaUsedBytes(self.attachment.size() - old_size)
+            yield home.adjustQuotaUsedBytes(self.attachment.size() - oldSize)
 
             # Send change notification to home
             yield home.notifyChanged()
+
+
+    def getPeer(self):
+        raise NotImplementedError()
+        return 'Storing attachment <%r>' % (self.attachment._path,)
+
+
+    def getHost(self):
+        raise NotImplementedError()
+        return 'Storing attachment (host) <%r>' % (self.attachment._path,)
+
+
+    def writeSequence(self, seq):
+        raise NotImplementedError()
+        return self.write(''.join(seq))
 
 
 
@@ -912,14 +939,14 @@ class Attachment(object):
 
     @inlineCallbacks
     def remove(self):
-        old_size = self._size
+        oldSize = self._size
         self._txn.postCommit(self._path.remove)
         yield self._removeStatement.on(self._txn, dropboxID=self._dropboxID,
                                        path=self._name)
         # Adjust quota
         home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
         if home:
-            yield home.adjustQuotaUsedBytes(-old_size)
+            yield home.adjustQuotaUsedBytes(-oldSize)
 
             # Send change notification to home
             yield home.notifyChanged()

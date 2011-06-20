@@ -24,7 +24,6 @@ from txdav.common.icommondatastore import ICommonTransaction, \
 from txdav.idav import IDataStoreObject, IDataStore
 
 from twisted.internet.interfaces import ITransport
-from twisted.internet.interfaces import IConsumer
 from txdav.idav import INotifier
 
 
@@ -464,7 +463,7 @@ class ICalendarObject(IDataStoreObject):
 
 
 
-class IAttachmentStorageTransport(ITransport, IConsumer):
+class IAttachmentStorageTransport(ITransport):
     """
     An L{IAttachmentStorageTransport} is a transport which stores the bytes
     written to in a calendar attachment.
@@ -475,6 +474,8 @@ class IAttachmentStorageTransport(ITransport, IConsumer):
     aborted before C{loseConnection} is called, the upload will be presumed to
     have failed, and no attachment data will be stored.
     """
+
+    # Note: should also require IConsumer
 
     def loseConnection(reason):
         """
