@@ -46,6 +46,12 @@ from txdav.common.datastore.test.util import buildStore, assertProvides,\
     StubNotifierFactory
 
 
+from twext.web2.http import HTTPError
+from twext.web2.responsecode import INSUFFICIENT_STORAGE_SPACE
+from twext.web2.stream import MemoryStream
+from txdav.common.datastore.test.util import deriveQuota
+from twistedcaldav.test.util import patchConfig
+from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
 from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.carddav.iaddressbookstore import IAddressBookHome
 
@@ -71,6 +77,8 @@ class FakeChanRequest(object):
         return '127.0.0.1'
     def finish(self):
         pass
+
+    remoteAddr = '127.0.0.1'
 
 
 
@@ -153,7 +161,7 @@ class WrappingTests(TestCase):
     requestUnderTest = None
 
     @inlineCallbacks
-    def getResource(self, path):
+    def getResource(self, path, method='GET', user=None):
         """
         Retrieve a resource from the site.
 
@@ -161,15 +169,31 @@ class WrappingTests(TestCase):
             slash)
 
         @type path: C{str}
+
+        @param method: the HTTP method to initialize the request with.
+            Defaults to GET.  (This should I{mostly} be irrelevant to path
+            traversal, but may be interesting to subsequent operations on
+            C{self.requestUnderTest}).
+
+        @param user: the username (shortname in the test XML file) of the user
+            to forcibly authenticate this request as.
+
+        @return: a L{Deferred} that fires with an L{IResource}.
         """
         if self.requestUnderTest is None:
-            req = self.requestForPath(path)
+            req = self.requestForPath(path, method)
             self.requestUnderTest = req
         else:
+            # How should this handle mismatched methods?
             req = self.requestUnderTest
         aResource = yield req.locateResource(
             "http://localhost:8008/" + path
         )
+        if user is not None:
+            guid = XMLFileBase.users[user]["guid"]
+            req.authnUser = req.authzUser = (
+                davxml.Principal(davxml.HRef('/principals/__uids__/' + guid + '/'))
+            )
         returnValue(aResource)
 
 
@@ -182,9 +206,9 @@ class WrappingTests(TestCase):
         return self.requestUnderTest._newStoreTransaction.commit()
 
 
-    def requestForPath(self, path):
+    def requestForPath(self, path, method='GET'):
         """
-        Get a L{Request} with a L{FakeChanRequest} for a given path.
+        Get a L{Request} with a L{FakeChanRequest} for a given path and method.
         """
         headers = Headers()
         headers.addRawHeader("Host", "localhost:8008")
@@ -192,13 +216,17 @@ class WrappingTests(TestCase):
         req = Request(
             site=self.site,
             chanRequest=chanReq,
-            command='GET',
+            command=method,
             path=path,
             version=('1', '1'),
             contentLength=0,
             headers=headers
         )
-        req.path = path # normally process( ) sets request.path
+
+        # 'process()' normally sets these.  Shame on web2, having so much
+        # partially-initialized stuff floating around.
+        req.remoteAddr = '127.0.0.1'
+        req.path = path
         req.credentialFactories = {}
         return req
 
@@ -364,6 +392,28 @@ class WrappingTests(TestCase):
                           frozenset([self.principalsResource]))
         self.assertEquals(calDavFileCalendar._associatedTransaction,
                           calendarHome._associatedTransaction)
+
+
+    @inlineCallbacks
+    def test_attachmentQuotaExceeded(self):
+        """
+        Exceeding quota on an attachment returns an HTTP error code.
+        """
+        patchConfig(testCase=self, EnableDropBox=True)
+        yield self.populateOneObject("1.ics", event4_text)
+        calendarObject = yield self.getResource(
+            "/calendars/users/wsanchez/dropbox/uid4.dropbox/too-big-attachment",
+            "PUT", "wsanchez"
+        )
+        self.requestUnderTest.stream = MemoryStream(
+            "x" * deriveQuota(self.id()) * 2)
+        try:
+            result = yield calendarObject.http_PUT(self.requestUnderTest)
+        except HTTPError, he:
+            self.assertEquals(he.response.code, INSUFFICIENT_STORAGE_SPACE)
+        else:
+            self.fail("Error not raised, %r returned instead." %
+                      (result,))
 
 
     @inlineCallbacks
