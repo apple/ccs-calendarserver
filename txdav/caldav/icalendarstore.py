@@ -176,9 +176,21 @@ class ICalendarHome(INotifier, IDataStoreObject):
         """
 
 
+    def quotaAllowedBytes():
+        """
+        The number of bytes of quota that the user is allowed to access.
+
+        Currently this is only enforced / tracked against attachment data.
+
+        @rtype: C{int}
+        """
+
+
     def quotaUsedBytes():
         """
         The number of bytes counted towards the user's quota.
+
+        @rtype: C{int}
         """
 
 

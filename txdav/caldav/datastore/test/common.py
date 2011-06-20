@@ -49,6 +49,8 @@ from txdav.caldav.icalendarstore import (
 
 
 from twistedcaldav.customxml import InviteNotification, InviteSummary
+from txdav.caldav.icalendarstore import IAttachmentStorageTransport
+from txdav.caldav.icalendarstore import QuotaExceeded
 from twistedcaldav.ical import Component
 
 storePath = FilePath(__file__).parent().child("calendar_store")
@@ -1535,6 +1537,7 @@ END:VCALENDAR
             "new.attachment",
         )
         t = attachment.store(MimeType("text", "x-fixture"))
+        self.assertProvides(IAttachmentStorageTransport, t)
         t.write("new attachment")
         t.write(" text")
         yield t.loseConnection()
@@ -1583,6 +1586,24 @@ END:VCALENDAR
             result = yield self.calendarObjectUnderTest()
             returnValue(result)
         return self.createAttachmentTest(refresh)
+
+
+    def test_exceedQuota(self):
+        """
+        If too many bytes are passed to the transport returned by
+        L{ICalendarObject.createAttachmentWithName},
+        L{IAttachmentStorageTransport.loseConnection} will return a L{Deferred}
+        that fails with L{QuotaExceeded}.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createAttachmentWithName(
+            "too-big.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+        self.assertProvides(IAttachmentStorageTransport, t)
+        t.write("new attachment")
+        t.write(" text")
+        yield t.loseConnection()
 
 
     def test_removeAttachmentWithName(self, refresh=lambda x:x):
@@ -1648,7 +1669,7 @@ END:VCALENDAR
         yield self.calendarObjectUnderTest()
         txn = self.lastTransaction
         yield self.commit()
-        
+
         yield self.failUnlessFailure(
             maybeDeferred(txn.commit),
             AlreadyFinishedError
