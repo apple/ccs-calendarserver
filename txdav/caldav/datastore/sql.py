@@ -31,7 +31,6 @@ from twext.web2.http_headers import MimeType, generateContentType
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.error import ConnectionLost
-from twisted.internet.interfaces import ITransport
 from twisted.python import hashlib
 from twisted.python.failure import Failure
 
@@ -69,6 +68,7 @@ from twext.enterprise.dal.syntax import utcNowSQL
 from twext.enterprise.dal.syntax import Len
 
 from txdav.caldav.datastore.util import CalendarObjectBase
+from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from txdav.common.icommondatastore import IndexedSearchException
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -733,9 +733,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
 
+
+
 class AttachmentStorageTransport(object):
 
-    implements(ITransport)
+    implements(IAttachmentStorageTransport)
 
     def __init__(self, attachment, contentType):
         self.attachment = attachment

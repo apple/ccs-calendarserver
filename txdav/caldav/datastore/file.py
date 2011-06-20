@@ -32,7 +32,7 @@ import hashlib
 from errno import ENOENT
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.interfaces import ITransport
+
 from twisted.python.failure import Failure
 
 from txdav.base.propertystore.xattr import PropertyStore
@@ -58,6 +58,7 @@ from txdav.caldav.datastore.util import (
     validateCalendarComponent, dropboxIDFromCalendarObject, CalendarObjectBase
 )
 
+from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from txdav.common.datastore.file import (
     CommonDataStore, CommonStoreTransaction, CommonHome, CommonHomeChild,
     CommonObjectResource, CommonStubResource)
@@ -579,7 +580,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 class AttachmentStorageTransport(object):
 
-    implements(ITransport)
+    implements(IAttachmentStorageTransport)
 
     def __init__(self, attachment, contentType):
         """
@@ -600,7 +601,7 @@ class AttachmentStorageTransport(object):
 
 
     def loseConnection(self):
-        
+
         old_size = self._attachment.size()
 
         # FIXME: do anything
@@ -608,11 +609,15 @@ class AttachmentStorageTransport(object):
 
         md5 = hashlib.md5(self._attachment._path.getContent()).hexdigest()
         props = self._attachment.properties()
-        props[contentTypeKey] = GETContentType(generateContentType(self._contentType))
+        props[contentTypeKey] = GETContentType(
+            generateContentType(self._contentType)
+        )
         props[md5key] = TwistedGETContentMD5.fromString(md5)
 
         # Adjust quota
-        self._attachment._calendarObject._calendar._home.adjustQuotaUsedBytes(self._attachment.size() - old_size)
+        self._attachment._calendarObject._calendar._home.adjustQuotaUsedBytes(
+            self._attachment.size() - old_size
+        )
         props.flush()
 
 

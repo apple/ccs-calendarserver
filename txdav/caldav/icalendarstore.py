@@ -23,16 +23,29 @@ from txdav.common.icommondatastore import ICommonTransaction, \
     IShareableCollection
 from txdav.idav import IDataStoreObject, IDataStore
 
+from twisted.internet.interfaces import ITransport
+from twisted.internet.interfaces import IConsumer
 from txdav.idav import INotifier
 
 
 __all__ = [
-    # Classes
+    # Interfaces
     "ICalendarTransaction",
     "ICalendarHome",
     "ICalendar",
     "ICalendarObject",
+
+    # Exceptions
+    "QuotaExceeded",
 ]
+
+
+
+class QuotaExceeded(Exception):
+    """
+    The quota for a particular user has been exceeded.
+    """
+
 
 
 class ICalendarTransaction(ICommonTransaction):
@@ -171,7 +184,14 @@ class ICalendarHome(INotifier, IDataStoreObject):
 
     def adjustQuotaUsedBytes(delta):
         """
-        Increase the number of bytes that count towards the user's quota.
+        Increase or decrease the number of bytes that count towards the user's
+        quota.
+
+        @param delta: The number of bytes to adjust the quota by.
+
+        @type delta: C{int}
+
+        @raise QuotaExceeded: when the quota is exceeded.
         """
 
 
@@ -432,6 +452,34 @@ class ICalendarObject(IDataStoreObject):
 
 
 
+class IAttachmentStorageTransport(ITransport, IConsumer):
+    """
+    An L{IAttachmentStorageTransport} is a transport which stores the bytes
+    written to in a calendar attachment.
+
+    The user of an L{IAttachmentStorageTransport} must call C{loseConnection} on
+    its result to indicate that the attachment upload was successfully
+    completed.  If the transaction associated with this upload is committed or
+    aborted before C{loseConnection} is called, the upload will be presumed to
+    have failed, and no attachment data will be stored.
+    """
+
+    def loseConnection(reason):
+        """
+        The attachment has completed being uploaded successfully.
+
+        Unlike L{ITransport.loseConnection}, which returns C{None}, providers of
+        L{IAttachmentStorageTransport} must return a L{Deferred} from
+        C{loseConnection}, which may fire with a few different types of error;
+        for example, it may fail with a L{QuotaExceeded}.
+
+        If the upload fails for some reason, the transaction should be
+        terminated with L{ICalendarTransaction.abort} and this method should
+        never be called.
+        """
+
+
+
 class IAttachment(IDataStoreObject):
     """
     Information associated with an attachment to a calendar object.
@@ -439,17 +487,15 @@ class IAttachment(IDataStoreObject):
 
     def store(contentType):
         """
+        Store an attachment (of the given MIME content/type).
+
         @param contentType: The content type of the data which will be stored.
+
         @type contentType: L{twext.web2.http_headers.MimeType}
 
-        @return: An L{ITransport}/L{IConsumer} provider that will store the
-            bytes passed to its 'write' method.
+        @return: A transport which stores the contents written to it.
 
-            The caller of C{store} must call C{loseConnection} on its result to
-            indicate that the attachment upload was successfully completed.  If
-            the transaction associated with this upload is committed or aborted
-            before C{loseConnection} is called, the upload will be presumed to
-            have failed, and no attachment data will be stored.
+        @rtype: L{IAttachmentStorageTransport}
         """
         # If you do a big write()/loseConnection(), how do you tell when the
         # data has actually been written?  you don't: commit() ought to return
