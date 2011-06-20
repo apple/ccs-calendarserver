@@ -753,7 +753,8 @@ dependencies () {
     "CalDAVClientLibrary" "CalDAVClientLibrary" "CalDAVClientLibrary" \
     "${svn_uri_base}/CalDAVClientLibrary/trunk";
 
-  py_dependency -o -v 2011g -m "9ffda6e87b5f067a7ca37c54629c9e58" \
+  # Can't add "-v 2011g" to args because the version check expects numbers.
+  py_dependency -o -m "9ffda6e87b5f067a7ca37c54629c9e58" \
     "pytz" "pytz" "pytz-2011g" \
     "http://pypi.python.org/packages/source/p/pytz/pytz-2011g.tar.gz";
 
