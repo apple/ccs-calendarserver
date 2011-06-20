@@ -202,7 +202,7 @@ def deriveQuota(testID):
 
     @type testID: C{str}
     """
-    h = md5()
+    h = md5(testID)
     seed = int(h.hexdigest(), 16)
     r = Random(seed)
     baseline = 2000
