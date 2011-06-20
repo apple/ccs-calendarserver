@@ -105,7 +105,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         hook for subclasses to override to provide different data stores.
         """
         return CommonDataStore(FilePath(config.DocumentRoot), None, True, False,
-                               quota=deriveQuota(self))
+                               quota=deriveQuota(self.id()))
 
 
     def setupCalendars(self):
