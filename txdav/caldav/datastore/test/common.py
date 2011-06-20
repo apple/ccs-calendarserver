@@ -1642,11 +1642,24 @@ END:VCALENDAR
         t.write(sampleData)
         yield t.loseConnection()
         yield self.exceedQuotaTest(get)
-        catch = StringIO()
-        catch.dataReceived = catch.write
-        catch.connectionLost = lambda reason: None
-        attachment.retrieve(catch)
-        self.assertEquals(catch.getvalue()[:60], sampleData)
+        def checkOriginal():
+            catch = StringIO()
+            catch.dataReceived = catch.write
+            lost = []
+            catch.connectionLost = lost.append
+            attachment.retrieve(catch)
+            expected = sampleData
+            # note: 60 is less than len(expected); trimming is just to make
+            # the error message look sane when the test fails.
+            actual = catch.getvalue()[:60]
+            self.assertEquals(actual, expected)
+        checkOriginal()
+        yield self.commit()
+        # Make sure that things go back to normal after a commit of that
+        # transaction.
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield get()
+        checkOriginal()
 
 
     def test_removeAttachmentWithName(self, refresh=lambda x:x):
