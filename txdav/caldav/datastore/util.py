@@ -30,6 +30,8 @@ from txdav.common.icommondatastore import InvalidObjectResourceError, \
 
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
+from zope.interface.declarations import implements
+from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from twext.python.log import Logger
 log = Logger()
 
@@ -218,7 +220,6 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
     # released versions of CalendarServer.
 
 
-
 class CalendarObjectBase(object):
     """
     Base logic shared between file- and sql-based L{ICalendarObject}
@@ -258,5 +259,65 @@ class CalendarObjectBase(object):
                        PerUserDataFilter(accessUID)]:
             component = filter.filter(component)
         returnValue(component)
+
+
+
+class StorageTransportAddress(object):
+    """
+    Peer / host address for L{IAttachmentStorageTransport} implementations.
+
+    @ivar attachment: the L{IAttachment} being stored.
+
+    @type attachment: L{IAttachment} provider
+
+    @ivar isHost: is this a host address or peer address?
+
+    @type isHost: C{bool}
+    """
+
+    def __init__(self, attachment, isHost):
+        """
+        Initialize with the attachment being stored.
+        """
+        self.attachment = attachment
+        self.isHost = isHost
+
+
+    def __repr__(self):
+        if self.isHost:
+            host = " (host)"
+        else:
+            host = ""
+        return '<Storing Attachment: %r%s>' % (self.attachment.name(), host)
+
+
+
+class StorageTransportBase(object):
+    """
+    Base logic shared between file- and sql-based L{IAttachmentStorageTransport}
+    implementations.
+    """
+
+    implements(IAttachmentStorageTransport)
+
+    def __init__(self, attachment, contentType):
+        """
+        Create a storage transport with a reference to an L{IAttachment} and a
+        L{twext.web2.http_headers.MimeType}.
+        """
+        self._attachment = attachment
+        self._contentType = contentType
+
+
+    def getPeer(self):
+        return StorageTransportAddress(self._attachment, False)
+
+
+    def getHost(self):
+        return StorageTransportAddress(self._attachment, True)
+
+
+    def writeSequence(self, seq):
+        return self.write(''.join(seq))
 
 

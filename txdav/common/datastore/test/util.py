@@ -20,6 +20,8 @@ Store test utility functions
 """
 
 import gc
+from hashlib import md5
+from random import Random
 from zope.interface.verify import verifyObject
 from zope.interface.exceptions import BrokenMethodImplementation,\
     DoesNotImplement
@@ -126,11 +128,12 @@ class SQLStoreBuilder(object):
             attachmentRoot.createDirectory()
         except OSError:
             pass
-        cp = ConnectionPool(self.sharedService.produceConnection)
-        store = CommonDataStore(
-            cp.connection, notifierFactory, attachmentRoot
-        )
         currentTestID = testCase.id()
+        cp = ConnectionPool(self.sharedService.produceConnection)
+        quota = deriveQuota(currentTestID)
+        store = CommonDataStore(
+            cp.connection, notifierFactory, attachmentRoot, quota=quota
+        )
         store.label = currentTestID
         cp.startService()
         def stopIt():
@@ -180,6 +183,31 @@ class SQLStoreBuilder(object):
 
 theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore
+
+
+
+def deriveQuota(testID):
+    """
+    Derive a distinctive quota number for a specific test, based on its ID.
+    This generates a quota which is small enough that tests may trivially exceed
+    it if they wish to do so, but distinctive enough that it may be compared
+    without the risk of testing only a single value for quota.
+
+    Since SQL stores are generally built during test construction, it's awkward
+    to have tests which specifically construct a store to inspect quota-related
+    state; this allows us to have the test and the infrastructure agree on a
+    number.
+
+    @param testID: The identifier for a test, as returned by L{TestCase.id}.
+
+    @type testID: C{str}
+    """
+    h = md5(testID)
+    seed = int(h.hexdigest(), 16)
+    r = Random(seed)
+    baseline = 2000
+    fuzz = r.randint(1, 1000)
+    return baseline + fuzz
 
 
 

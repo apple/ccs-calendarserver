@@ -31,7 +31,6 @@ from twext.web2.http_headers import MimeType, generateContentType
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.error import ConnectionLost
-from twisted.internet.interfaces import ITransport
 from twisted.python import hashlib
 from twisted.python.failure import Failure
 
@@ -69,6 +68,9 @@ from twext.enterprise.dal.syntax import utcNowSQL
 from twext.enterprise.dal.syntax import Len
 
 from txdav.caldav.datastore.util import CalendarObjectBase
+from txdav.caldav.icalendarstore import QuotaExceeded
+
+from txdav.caldav.datastore.util import StorageTransportBase
 from txdav.common.icommondatastore import IndexedSearchException
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -104,6 +106,7 @@ class CalendarHome(CommonHome):
         self._childClass = Calendar
         super(CalendarHome, self).__init__(transaction, ownerUID, notifiers)
         self._shares = SQLLegacyCalendarShares(self)
+
 
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
@@ -685,7 +688,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         yield attachment.remove()
 
     def attachmentWithName(self, name):
-        return Attachment.attachmentWithName(self._txn, self._dropboxID, name)
+        return Attachment.loadWithName(self._txn, self._dropboxID, name)
 
     def attendeesCanManageAttachments(self):
         return self._attachment == _ATTACHMENTS_MODE_WRITE
@@ -733,56 +736,73 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
 
-class AttachmentStorageTransport(object):
 
-    implements(ITransport)
 
-    def __init__(self, attachment, contentType):
-        self.attachment = attachment
-        self.contentType = contentType
-        self.buf = ''
-        self.hash = hashlib.md5()
+class AttachmentStorageTransport(StorageTransportBase):
+
+    def __init__(self, attachment, contentType, creating=False):
+        super(AttachmentStorageTransport, self).__init__(
+            attachment, contentType)
+        self._buf = ''
+        self._hash = hashlib.md5()
+        self._creating = creating
 
 
     @property
     def _txn(self):
-        return self.attachment._txn
+        return self._attachment._txn
 
 
     def write(self, data):
-        self.buf += data
-        self.hash.update(data)
+        if isinstance(data, buffer):
+            data = str(data)
+        self._buf += data
+        self._hash.update(data)
 
 
     @inlineCallbacks
     def loseConnection(self):
 
-        old_size = self.attachment.size()
+        # FIXME: this should be synchronously accessible; IAttachment should
+        # have a method for getting its parent just as CalendarObject/Calendar
+        # do.
 
-        self.attachment._path.setContent(self.buf)
-        self.attachment._contentType = self.contentType
-        self.attachment._md5 = self.hash.hexdigest()
-        self.attachment._size = len(self.buf)
+        # FIXME: If this method isn't called, the transaction should be
+        # prevented from committing successfully.  It's not valid to have an
+        # attachment that doesn't point to a real file.
+
+        home = (yield self._txn.calendarHomeWithResourceID(
+                    self._attachment._ownerHomeID))
+
+        oldSize = self._attachment.size()
+
+        if home.quotaAllowedBytes() < ((yield home.quotaUsedBytes())
+                                       + (len(self._buf) - oldSize)):
+            if self._creating:
+                yield self._attachment._internalRemove()
+            raise QuotaExceeded()
+
+        self._attachment._path.setContent(self._buf)
+        self._attachment._contentType = self._contentType
+        self._attachment._md5 = self._hash.hexdigest()
+        self._attachment._size = len(self._buf)
         att = schema.ATTACHMENT
-        self.attachment._created, self.attachment._modified = map(
+        self._attachment._created, self._attachment._modified = map(
             sqltime,
             (yield Update(
                 {
-                    att.CONTENT_TYPE : generateContentType(self.contentType),
-                    att.SIZE         : self.attachment._size,
-                    att.MD5          : self.attachment._md5,
+                    att.CONTENT_TYPE : generateContentType(self._contentType),
+                    att.SIZE         : self._attachment._size,
+                    att.MD5          : self._attachment._md5,
                     att.MODIFIED     : utcNowSQL
                 },
-                Where=att.PATH == self.attachment.name(),
+                Where=att.PATH == self._attachment.name(),
                 Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
         )
 
-        home = (
-            yield self._txn.calendarHomeWithResourceID(
-                self.attachment._ownerHomeID))
         if home:
             # Adjust quota
-            yield home.adjustQuotaUsedBytes(self.attachment.size() - old_size)
+            yield home.adjustQuotaUsedBytes(self._attachment.size() - oldSize)
 
             # Send change notification to home
             yield home.notifyChanged()
@@ -796,12 +816,13 @@ class Attachment(object):
 
     implements(IAttachment)
 
-    def __init__(self, txn, dropboxID, name, ownerHomeID=None):
+    def __init__(self, txn, dropboxID, name, ownerHomeID=None, justCreated=False):
         self._txn = txn
         self._dropboxID = dropboxID
         self._name = name
         self._ownerHomeID = ownerHomeID
         self._size = 0
+        self._justCreated = justCreated
 
 
     @classmethod
@@ -825,7 +846,7 @@ class Attachment(object):
             pass
 
         # Now create the DB entry
-        attachment = cls(txn, dropboxID, name, ownerHomeID)
+        attachment = cls(txn, dropboxID, name, ownerHomeID, True)
         att = schema.ATTACHMENT
         yield Insert({
             att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
@@ -840,8 +861,8 @@ class Attachment(object):
 
     @classmethod
     @inlineCallbacks
-    def attachmentWithName(cls, txn, dropboxID, name):
-        attachment = Attachment(txn, dropboxID, name)
+    def loadWithName(cls, txn, dropboxID, name):
+        attachment = cls(txn, dropboxID, name)
         attachment = (yield attachment.initFromStore())
         returnValue(attachment)
 
@@ -888,7 +909,7 @@ class Attachment(object):
 
 
     def store(self, contentType):
-        return AttachmentStorageTransport(self, contentType)
+        return AttachmentStorageTransport(self, contentType, self._justCreated)
 
 
     def retrieve(self, protocol):
@@ -905,17 +926,26 @@ class Attachment(object):
 
     @inlineCallbacks
     def remove(self):
-        old_size = self._size
+        oldSize = self._size
         self._txn.postCommit(self._path.remove)
-        yield self._removeStatement.on(self._txn, dropboxID=self._dropboxID,
-                                       path=self._name)
+        yield self._internalRemove()
         # Adjust quota
         home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
         if home:
-            yield home.adjustQuotaUsedBytes(-old_size)
+            yield home.adjustQuotaUsedBytes(-oldSize)
 
             # Send change notification to home
             yield home.notifyChanged()
+
+
+    def _internalRemove(self):
+        """
+        Just delete the row; don't do any accounting / bookkeeping.  (This is
+        for attachments that have failed to be created due to errors during
+        storage.)
+        """
+        return self._removeStatement.on(self._txn, dropboxID=self._dropboxID,
+                                        path=self._name)
 
 
     # IDataStoreObject

@@ -31,8 +31,8 @@ import hashlib
 
 from errno import ENOENT
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.interfaces import ITransport
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
+
 from twisted.python.failure import Failure
 
 from txdav.base.propertystore.xattr import PropertyStore
@@ -55,12 +55,14 @@ from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.caldav.datastore.index_file import Index as OldIndex,\
     IndexSchedule as OldInboxIndex
 from txdav.caldav.datastore.util import (
-    validateCalendarComponent, dropboxIDFromCalendarObject, CalendarObjectBase
+    validateCalendarComponent, dropboxIDFromCalendarObject, CalendarObjectBase,
+    StorageTransportBase
 )
 
 from txdav.common.datastore.file import (
     CommonDataStore, CommonStoreTransaction, CommonHome, CommonHomeChild,
     CommonObjectResource, CommonStubResource)
+from txdav.caldav.icalendarstore import QuotaExceeded
 
 from txdav.common.icommondatastore import (NoSuchObjectResourceError,
     InternalDataStoreError)
@@ -85,7 +87,8 @@ class CalendarHome(CommonHome):
     _notifierPrefix = "CalDAV"
 
     def __init__(self, uid, path, calendarStore, transaction, notifiers):
-        super(CalendarHome, self).__init__(uid, path, calendarStore, transaction, notifiers)
+        super(CalendarHome, self).__init__(uid, path, calendarStore,
+                                           transaction, notifiers)
 
         self._childClass = Calendar
 
@@ -494,14 +497,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # FIXME: rollback, tests for rollback
 
         attachment = (yield self.attachmentWithName(name))
-        old_size = attachment.size()
+        oldSize = attachment.size()
 
         (yield self._dropboxPath()).child(name).remove()
         if name in self._attachments:
             del self._attachments[name]
 
         # Adjust quota
-        self._calendar._home.adjustQuotaUsedBytes(-old_size)
+        self._calendar._home.adjustQuotaUsedBytes(-oldSize)
 
 
     @inlineCallbacks
@@ -577,9 +580,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
 
-class AttachmentStorageTransport(object):
-
-    implements(ITransport)
+class AttachmentStorageTransport(StorageTransportBase):
 
     def __init__(self, attachment, contentType):
         """
@@ -589,9 +590,10 @@ class AttachmentStorageTransport(object):
         @param attachment: The attachment whose data is being filled out.
         @type attachment: L{Attachment}
         """
-        self._attachment = attachment
-        self._contentType = contentType
-        self._file = self._attachment._path.open("w")
+        super(AttachmentStorageTransport, self).__init__(
+            attachment, contentType)
+        self._path = self._attachment._path.temporarySibling()
+        self._file = self._path.open("w")
 
 
     def write(self, data):
@@ -600,20 +602,30 @@ class AttachmentStorageTransport(object):
 
 
     def loseConnection(self):
-        
-        old_size = self._attachment.size()
-
+        home = self._attachment._calendarObject._calendar._home
+        oldSize = self._attachment.size()
+        newSize = self._file.tell()
         # FIXME: do anything
         self._file.close()
 
+        if home.quotaAllowedBytes() < (home.quotaUsedBytes()
+                                       + (newSize - oldSize)):
+            self._path.remove()
+            return fail(QuotaExceeded())
+
+        self._path.moveTo(self._attachment._path)
+
         md5 = hashlib.md5(self._attachment._path.getContent()).hexdigest()
         props = self._attachment.properties()
-        props[contentTypeKey] = GETContentType(generateContentType(self._contentType))
+        props[contentTypeKey] = GETContentType(
+            generateContentType(self._contentType)
+        )
         props[md5key] = TwistedGETContentMD5.fromString(md5)
 
         # Adjust quota
-        self._attachment._calendarObject._calendar._home.adjustQuotaUsedBytes(self._attachment.size() - old_size)
+        home.adjustQuotaUsedBytes(newSize - oldSize)
         props.flush()
+        return succeed(None)
 
 
 
@@ -641,7 +653,7 @@ class Attachment(FileMetaDataMixin):
 
     def properties(self):
         uid = self._calendarObject._parentCollection._home.uid()
-        return PropertyStore(uid, lambda :self._path)
+        return PropertyStore(uid, lambda: self._path)
 
 
     def store(self, contentType):

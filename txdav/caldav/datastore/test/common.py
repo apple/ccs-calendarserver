@@ -19,6 +19,8 @@
 Tests for common calendar store API functions.
 """
 
+from StringIO import StringIO
+
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue,\
     maybeDeferred
 from twisted.internet.protocol import Protocol
@@ -49,6 +51,9 @@ from txdav.caldav.icalendarstore import (
 
 
 from twistedcaldav.customxml import InviteNotification, InviteSummary
+from txdav.caldav.icalendarstore import IAttachmentStorageTransport
+from txdav.caldav.icalendarstore import QuotaExceeded
+from txdav.common.datastore.test.util import deriveQuota
 from twistedcaldav.ical import Component
 
 storePath = FilePath(__file__).parent().child("calendar_store")
@@ -860,10 +865,14 @@ class CommonTests(CommonCommonTests):
         self.assertIsInstance(calendar.created(), int)
         self.assertIsInstance(calendar.modified(), int)
 
-        self.assertEqual(calendar.accessMode, CommonTests.metadata1["accessMode"])
-        self.assertEqual(calendar.isScheduleObject, CommonTests.metadata1["isScheduleObject"])
-        self.assertEqual(calendar.scheduleEtags, CommonTests.metadata1["scheduleEtags"])
-        self.assertEqual(calendar.hasPrivateComment, CommonTests.metadata1["hasPrivateComment"])
+        self.assertEqual(calendar.accessMode,
+                         CommonTests.metadata1["accessMode"])
+        self.assertEqual(calendar.isScheduleObject,
+                         CommonTests.metadata1["isScheduleObject"])
+        self.assertEqual(calendar.scheduleEtags,
+                         CommonTests.metadata1["scheduleEtags"])
+        self.assertEqual(calendar.hasPrivateComment,
+                         CommonTests.metadata1["hasPrivateComment"])
 
         calendar.accessMode = Component.ACCESS_PRIVATE
         calendar.isScheduleObject = True
@@ -1535,6 +1544,7 @@ END:VCALENDAR
             "new.attachment",
         )
         t = attachment.store(MimeType("text", "x-fixture"))
+        self.assertProvides(IAttachmentStorageTransport, t)
         t.write("new attachment")
         t.write(" text")
         yield t.loseConnection()
@@ -1583,6 +1593,108 @@ END:VCALENDAR
             result = yield self.calendarObjectUnderTest()
             returnValue(result)
         return self.createAttachmentTest(refresh)
+
+
+    @inlineCallbacks
+    def test_quotaAllowedBytes(self):
+        """
+        L{ICalendarHome.quotaAllowedBytes} should return the configuration value
+        passed to the calendar store's constructor.
+        """
+        expected = deriveQuota(self.id())
+        home = yield self.homeUnderTest()
+        actual = home.quotaAllowedBytes()
+        self.assertEquals(expected, actual)
+
+
+    @inlineCallbacks
+    def test_quotaTransportAddress(self):
+        """
+        Since L{IAttachmentStorageTransport} is a subinterface of L{ITransport},
+        it must provide peer and host addresses.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        name = 'a-fun-attachment'
+        attachment = yield obj.createAttachmentWithName(name)
+        transport = attachment.store(MimeType("test", "x-something"))
+        peer = transport.getPeer()
+        host = transport.getHost()
+        self.assertIdentical(peer.attachment, attachment)
+        self.assertIdentical(host.attachment, attachment)
+        self.assertIn(name, repr(peer))
+        self.assertIn(name, repr(host))
+
+
+    @inlineCallbacks
+    def exceedQuotaTest(self, getit):
+        """
+        If too many bytes are passed to the transport returned by
+        L{ICalendarObject.createAttachmentWithName},
+        L{IAttachmentStorageTransport.loseConnection} will return a L{Deferred}
+        that fails with L{QuotaExceeded}.
+        """
+        home = yield self.homeUnderTest()
+        attachment = yield getit() 
+        t = attachment.store(MimeType("text", "x-fixture"))
+        sample = "all work and no play makes jack a dull boy"
+        chunk = (sample * (home.quotaAllowedBytes() / len(sample)))
+
+        t.write(chunk)
+        t.writeSequence([chunk, chunk])
+
+        d = t.loseConnection()
+        yield self.failUnlessFailure(d, QuotaExceeded)
+
+
+    @inlineCallbacks
+    def test_exceedQuotaNew(self):
+        """
+        When quota is exceeded on a new attachment, that attachment will no
+        longer exist.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        yield self.exceedQuotaTest(
+            lambda: obj.createAttachmentWithName("too-big.attachment")
+        )
+        self.assertEquals((yield obj.attachments()), [])
+        yield self.commit()
+        obj = yield self.calendarObjectUnderTest()
+        self.assertEquals((yield obj.attachments()), [])
+
+
+    @inlineCallbacks
+    def test_exceedQuotaReplace(self):
+        """
+        When quota is exceeded while replacing an attachment, that attachment's
+        contents will not be replaced.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        create = lambda: obj.createAttachmentWithName("exists.attachment")
+        get = lambda: obj.attachmentWithName("exists.attachment")
+        attachment = yield create()
+        t = attachment.store(MimeType("text", "x-fixture"))
+        sampleData = "a reasonably sized attachment"
+        t.write(sampleData)
+        yield t.loseConnection()
+        yield self.exceedQuotaTest(get)
+        def checkOriginal():
+            catch = StringIO()
+            catch.dataReceived = catch.write
+            lost = []
+            catch.connectionLost = lost.append
+            attachment.retrieve(catch)
+            expected = sampleData
+            # note: 60 is less than len(expected); trimming is just to make
+            # the error message look sane when the test fails.
+            actual = catch.getvalue()[:60]
+            self.assertEquals(actual, expected)
+        checkOriginal()
+        yield self.commit()
+        # Make sure that things go back to normal after a commit of that
+        # transaction.
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield get()
+        checkOriginal()
 
 
     def test_removeAttachmentWithName(self, refresh=lambda x:x):
@@ -1648,7 +1760,7 @@ END:VCALENDAR
         yield self.calendarObjectUnderTest()
         txn = self.lastTransaction
         yield self.commit()
-        
+
         yield self.failUnlessFailure(
             maybeDeferred(txn.commit),
             AlreadyFinishedError

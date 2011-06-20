@@ -75,15 +75,21 @@ UIDPATH = "__uids__"
 
 class CommonDataStore(DataStore):
     """
-    An implementation of data store.
+    Shared logic for SQL-based data stores, between calendar and addressbook
+    storage.
 
     @ivar _path: A L{CachingFilePath} referencing a directory on disk that
         stores all calendar and addressbook data for a group of UIDs.
+
+    @ivar quota: the amount of space granted to each calendar home (in bytes)
+        for storing attachments.
+
+    @type quota: C{int}
     """
     implements(ICalendarStore)
 
     def __init__(self, path, notifierFactory, enableCalendars=True,
-        enableAddressBooks=True):
+        enableAddressBooks=True, quota=(2 ** 20)):
         """
         Create a store.
 
@@ -96,6 +102,7 @@ class CommonDataStore(DataStore):
         self.enableAddressBooks = enableAddressBooks
         self._notifierFactory = notifierFactory
         self._transactionClass = CommonStoreTransaction
+        self.quota = quota
 
 
     def newTransaction(self, name='no name', migrating=False):
@@ -248,6 +255,10 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         self._newChildren = {}
         self._removedChildren = set()
         self._cachedChildren = {}
+
+
+    def quotaAllowedBytes(self):
+        return self._transaction.store().quota
 
 
     @classmethod

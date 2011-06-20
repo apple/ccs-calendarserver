@@ -25,7 +25,11 @@ from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError
 from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
 from twext.web2.http import HTTPError, StatusResponse, Response
 from twext.web2.http_headers import ETag, MimeType
-from twext.web2.responsecode import FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED, BAD_REQUEST, OK
+from twext.web2.responsecode import (
+    FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED,
+    BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE
+)
+
 from twext.web2.stream import ProducerStream, readStream, MemoryStream
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.internet.protocol import Protocol
@@ -43,13 +47,16 @@ from twistedcaldav.ical import Component as VCalendar, Property as VProperty,\
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
-from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
+from twistedcaldav.notifications import (
+    NotificationCollectionResource, NotificationResource
+)
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource
 from twistedcaldav.schedule import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from urlparse import urlsplit
 import time
@@ -1517,12 +1524,18 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
         creating = (self._newStoreAttachment is None)
         if creating:
-            self._newStoreAttachment = self._newStoreObject =  (yield self._newStoreCalendarObject.createAttachmentWithName(
-                self.attachmentName,
-            ))
+            self._newStoreAttachment = self._newStoreObject = (
+                yield self._newStoreCalendarObject.createAttachmentWithName(
+                    self.attachmentName))
         t = self._newStoreAttachment.store(content_type)
         yield readStream(request.stream, t.write)
-        yield t.loseConnection()
+        try:
+            yield t.loseConnection()
+        except QuotaExceeded:
+            raise HTTPError(
+                ErrorResponse(INSUFFICIENT_STORAGE_SPACE,
+                              (dav_namespace, "quota-not-exceeded"))
+            )
         returnValue(CREATED if creating else NO_CONTENT)
 
 

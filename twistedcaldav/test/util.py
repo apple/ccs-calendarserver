@@ -43,6 +43,7 @@ from twistedcaldav.directory.principal import (
     DirectoryPrincipalProvisioningResource)
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
+from txdav.common.datastore.test.util import deriveQuota
 from txdav.common.datastore.file import CommonDataStore
 
 
@@ -103,13 +104,15 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         addressbooks.)  By default returns a L{CommonDataStore}, but this is a
         hook for subclasses to override to provide different data stores.
         """
-        return CommonDataStore(FilePath(config.DocumentRoot), None, True, False)
+        return CommonDataStore(FilePath(config.DocumentRoot), None, True, False,
+                               quota=deriveQuota(self.id()))
 
 
     def setupCalendars(self):
         """
-        Set up the resource at /calendars (a L{DirectoryCalendarHomeProvisioningResource}),
-        and assign it as C{self.calendarCollection}.
+        Set up the resource at /calendars (a
+        L{DirectoryCalendarHomeProvisioningResource}), and assign it as
+        C{self.calendarCollection}.
         """
 
         # Need a data store

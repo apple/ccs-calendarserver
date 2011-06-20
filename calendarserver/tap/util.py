@@ -190,11 +190,15 @@ def storeFromConfig(config, txnFactory):
     if txnFactory is not None:
         return CommonSQLDataStore(
             txnFactory, notifierFactory, FilePath(config.AttachmentsRoot),
-            config.EnableCalDAV, config.EnableCardDAV
+            config.EnableCalDAV, config.EnableCardDAV,
+            quota=config.UserQuota
         )
     else:
-        return CommonFileDataStore(FilePath(config.DocumentRoot),
-            notifierFactory, config.EnableCalDAV, config.EnableCardDAV) 
+        return CommonFileDataStore(
+            FilePath(config.DocumentRoot),
+            notifierFactory, config.EnableCalDAV, config.EnableCardDAV,
+            quota=config.UserQuota
+        ) 
 
 
 
