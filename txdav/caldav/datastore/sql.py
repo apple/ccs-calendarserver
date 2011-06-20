@@ -69,6 +69,7 @@ from twext.enterprise.dal.syntax import Len
 
 from txdav.caldav.datastore.util import CalendarObjectBase
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport
+from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.icommondatastore import IndexedSearchException
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -760,6 +761,10 @@ class AttachmentStorageTransport(object):
     def loseConnection(self):
 
         old_size = self.attachment.size()
+
+        if home.quotaAllowedBytes() - (home.quotaUsedBytes() +
+                                       self.attachment.size()):
+            raise QuotaExceeded()
 
         self.attachment._path.setContent(self.buf)
         self.attachment._contentType = self.contentType
