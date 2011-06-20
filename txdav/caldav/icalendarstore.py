@@ -477,7 +477,7 @@ class IAttachmentStorageTransport(ITransport):
 
     # Note: should also require IConsumer
 
-    def loseConnection(reason):
+    def loseConnection():
         """
         The attachment has completed being uploaded successfully.
 
