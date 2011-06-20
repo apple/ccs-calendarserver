@@ -594,7 +594,8 @@ class AttachmentStorageTransport(object):
         """
         self._attachment = attachment
         self._contentType = contentType
-        self._file = self._attachment._path.open("w")
+        self._path = self._attachment._path.temporarySibling()
+        self._file = self._path.open("w")
 
 
     def write(self, data):
@@ -605,13 +606,16 @@ class AttachmentStorageTransport(object):
     def loseConnection(self):
         home = self._attachment._calendarObject._calendar._home
         oldSize = self._attachment.size()
-
-        if home.quotaAllowedBytes() < ((home.quotaUsedBytes())
-                                       + (self._file.tell() - oldSize)):
-            return fail(QuotaExceeded())
-
+        newSize = self._file.tell()
         # FIXME: do anything
         self._file.close()
+
+        if home.quotaAllowedBytes() < (home.quotaUsedBytes()
+                                       + (newSize - oldSize)):
+            self._path.remove()
+            return fail(QuotaExceeded())
+
+        self._path.moveTo(self._attachment._path)
 
         md5 = hashlib.md5(self._attachment._path.getContent()).hexdigest()
         props = self._attachment.properties()
@@ -621,9 +625,7 @@ class AttachmentStorageTransport(object):
         props[md5key] = TwistedGETContentMD5.fromString(md5)
 
         # Adjust quota
-        home.adjustQuotaUsedBytes(
-            self._attachment.size() - oldSize
-        )
+        home.adjustQuotaUsedBytes(newSize - oldSize)
         props.flush()
         return succeed(None)
 
@@ -667,7 +669,7 @@ class Attachment(FileMetaDataMixin):
 
     def properties(self):
         uid = self._calendarObject._parentCollection._home.uid()
-        return PropertyStore(uid, lambda :self._path)
+        return PropertyStore(uid, lambda: self._path)
 
 
     def store(self, contentType):

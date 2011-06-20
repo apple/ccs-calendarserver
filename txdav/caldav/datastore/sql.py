@@ -772,6 +772,7 @@ class AttachmentStorageTransport(object):
 
         if home.quotaAllowedBytes() < ((yield home.quotaUsedBytes())
                                        + (len(self.buf) - oldSize)):
+            yield self.attachment._internalRemove()
             raise QuotaExceeded()
 
         self.attachment._path.setContent(self.buf)
@@ -934,8 +935,7 @@ class Attachment(object):
     def remove(self):
         oldSize = self._size
         self._txn.postCommit(self._path.remove)
-        yield self._removeStatement.on(self._txn, dropboxID=self._dropboxID,
-                                       path=self._name)
+        yield self._internalRemove()
         # Adjust quota
         home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
         if home:
@@ -943,6 +943,16 @@ class Attachment(object):
 
             # Send change notification to home
             yield home.notifyChanged()
+
+
+    def _internalRemove(self):
+        """
+        Just delete the row; don't do any accounting / bookkeeping.  (This is
+        for attachments that have failed to be created due to errors during
+        storage.)
+        """
+        return self._removeStatement.on(self._txn, dropboxID=self._dropboxID,
+                                        path=self._name)
 
 
     # IDataStoreObject
