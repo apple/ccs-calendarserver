@@ -19,6 +19,8 @@
 Tests for common calendar store API functions.
 """
 
+from StringIO import StringIO
+
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue,\
     maybeDeferred
 from twisted.internet.protocol import Protocol
@@ -1593,7 +1595,7 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_exceedQuota(self):
+    def exceedQuotaTest(self, getit):
         """
         If too many bytes are passed to the transport returned by
         L{ICalendarObject.createAttachmentWithName},
@@ -1601,18 +1603,50 @@ END:VCALENDAR
         that fails with L{QuotaExceeded}.
         """
         home = yield self.homeUnderTest()
-        obj = yield self.calendarObjectUnderTest()
-        attachment = yield obj.createAttachmentWithName(
-            "too-big.attachment",
-        )
+        attachment = yield getit() 
         t = attachment.store(MimeType("text", "x-fixture"))
         sample = "all work and no play makes jack a dull boy"
 
-        t.write(sample * (1 + (home.quotaAllowedBytes() /
-                          len(sample))))
+        t.write(sample * (2 + (home.quotaAllowedBytes() /
+                               len(sample))))
 
         d = t.loseConnection()
         yield self.failUnlessFailure(d, QuotaExceeded)
+
+
+    @inlineCallbacks
+    def test_exceedQuotaNew(self):
+        """
+        When quota is exceeded on a new attachment, that attachment will no
+        longer exist.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        yield self.exceedQuotaTest(
+            lambda: obj.createAttachmentWithName("too-big.attachment")
+        )
+        self.assertEquals((yield obj.attachments()), [])
+
+
+    @inlineCallbacks
+    def test_exceedQuotaReplace(self):
+        """
+        When quota is exceeded while replacing an attachment, that attachment's
+        contents will not be replaced.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        create = lambda: obj.createAttachmentWithName("exists.attachment")
+        get = lambda: obj.attachmentWithName("exists.attachment")
+        attachment = yield create()
+        t = attachment.store(MimeType("text", "x-fixture"))
+        sampleData = "a reasonably sized attachment"
+        t.write(sampleData)
+        yield t.loseConnection()
+        yield self.exceedQuotaTest(get)
+        catch = StringIO()
+        catch.dataReceived = catch.write
+        catch.connectionLost = lambda reason: None
+        attachment.retrieve(catch)
+        self.assertEquals(catch.getvalue()[:60], sampleData)
 
 
     def test_removeAttachmentWithName(self, refresh=lambda x:x):
