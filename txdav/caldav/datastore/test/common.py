@@ -1608,6 +1608,24 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_quotaTransportAddress(self):
+        """
+        Since L{IAttachmentStorageTransport} is a subinterface of L{ITransport},
+        it must provide peer and host addresses.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        name = 'a-fun-attachment'
+        attachment = yield obj.createAttachmentWithName(name)
+        transport = attachment.store(MimeType("test", "x-something"))
+        peer = transport.getPeer()
+        host = transport.getHost()
+        self.assertIdentical(peer.attachment, attachment)
+        self.assertIdentical(host.attachment, attachment)
+        self.assertIn(name, repr(peer))
+        self.assertIn(name, repr(host))
+
+
+    @inlineCallbacks
     def exceedQuotaTest(self, getit):
         """
         If too many bytes are passed to the transport returned by
@@ -1619,9 +1637,10 @@ END:VCALENDAR
         attachment = yield getit() 
         t = attachment.store(MimeType("text", "x-fixture"))
         sample = "all work and no play makes jack a dull boy"
+        chunk = (sample * (home.quotaAllowedBytes() / len(sample)))
 
-        t.write(sample * (2 + (home.quotaAllowedBytes() /
-                               len(sample))))
+        t.write(chunk)
+        t.writeSequence([chunk, chunk])
 
         d = t.loseConnection()
         yield self.failUnlessFailure(d, QuotaExceeded)

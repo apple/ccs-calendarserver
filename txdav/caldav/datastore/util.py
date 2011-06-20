@@ -262,6 +262,36 @@ class CalendarObjectBase(object):
 
 
 
+class StorageTransportAddress(object):
+    """
+    Peer / host address for L{IAttachmentStorageTransport} implementations.
+
+    @ivar attachment: the L{IAttachment} being stored.
+
+    @type attachment: L{IAttachment} provider
+
+    @ivar isHost: is this a host address or peer address?
+
+    @type isHost: C{bool}
+    """
+
+    def __init__(self, attachment, isHost):
+        """
+        Initialize with the attachment being stored.
+        """
+        self.attachment = attachment
+        self.isHost = isHost
+
+
+    def __repr__(self):
+        if self.isHost:
+            host = " (host)"
+        else:
+            host = ""
+        return '<Storing Attachment: %r%s>' % (self.attachment.name(), host)
+
+
+
 class StorageTransportBase(object):
     """
     Base logic shared between file- and sql-based L{IAttachmentStorageTransport}
@@ -280,17 +310,14 @@ class StorageTransportBase(object):
 
 
     def getPeer(self):
-        raise NotImplementedError()
-        return 'Storing attachment <%r>' % (self.attachment._path,)
+        return StorageTransportAddress(self._attachment, False)
 
 
     def getHost(self):
-        raise NotImplementedError()
-        return 'Storing attachment (host) <%r>' % (self.attachment._path,)
+        return StorageTransportAddress(self._attachment, True)
 
 
     def writeSequence(self, seq):
-        raise NotImplementedError()
         return self.write(''.join(seq))
 
 
