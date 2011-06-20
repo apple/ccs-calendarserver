@@ -496,14 +496,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # FIXME: rollback, tests for rollback
 
         attachment = (yield self.attachmentWithName(name))
-        old_size = attachment.size()
+        oldSize = attachment.size()
 
         (yield self._dropboxPath()).child(name).remove()
         if name in self._attachments:
             del self._attachments[name]
 
         # Adjust quota
-        self._calendar._home.adjustQuotaUsedBytes(-old_size)
+        self._calendar._home.adjustQuotaUsedBytes(-oldSize)
 
 
     @inlineCallbacks
@@ -603,7 +603,7 @@ class AttachmentStorageTransport(object):
 
     def loseConnection(self):
 
-        old_size = self._attachment.size()
+        oldSize = self._attachment.size()
 
         # FIXME: do anything
         self._file.close()
@@ -617,7 +617,7 @@ class AttachmentStorageTransport(object):
 
         # Adjust quota
         self._attachment._calendarObject._calendar._home.adjustQuotaUsedBytes(
-            self._attachment.size() - old_size
+            self._attachment.size() - oldSize
         )
         props.flush()
 
