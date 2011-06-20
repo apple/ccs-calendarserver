@@ -741,22 +741,27 @@ dependencies () {
   # they are useful to developers.
   #
 
-  py_dependency -v 0.1.2 -m "aa9852ad81822723adcd9f96838de14e" \
+  py_dependency -o -v 0.1.2 -m "aa9852ad81822723adcd9f96838de14e" \
     "SQLParse" "sqlparse" "sqlparse-0.1.2" \
     "http://python-sqlparse.googlecode.com/files/sqlparse-0.1.2.tar.gz";
 
-  py_dependency -v 0.4.0 -m "630a72510aae8758f48cf60e4fa17176" \
+  py_dependency -o -v 0.4.0 -m "630a72510aae8758f48cf60e4fa17176" \
     "Pyflakes" "pyflakes" "pyflakes-0.4.0" \
     "${pypi}/p/pyflakes/pyflakes-0.4.0.tar.gz";
+ 
+  py_dependency -o -r HEAD \
+    "CalDAVClientLibrary" "CalDAVClientLibrary" "CalDAVClientLibrary" \
+    "${svn_uri_base}/CalDAVClientLibrary/trunk";
+
+  py_dependency -o -v 2011g -m "9ffda6e87b5f067a7ca37c54629c9e58" \
+    "pytz" "pytz" "pytz-2011g" \
+    "http://pypi.python.org/packages/source/p/pytz/pytz-2011g.tar.gz";
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
       "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
-  svn_get "CalDAVClientLibrary" "${top}/CalDAVClientLibrary" \
-      "${svn_uri_base}/CalDAVClientLibrary/trunk" HEAD;
-
   local pd="pydoctor-0.3";
-  py_dependency -m "b000aa1fb458fe25952dadf26049ae68" \
+  py_dependency -o -m "b000aa1fb458fe25952dadf26049ae68" \
     "pydoctor" "pydoctor" "${pd}" \
     "http://launchpadlibrarian.net/42323121/${pd}.tar.gz";
 
