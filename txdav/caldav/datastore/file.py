@@ -31,7 +31,7 @@ import hashlib
 
 from errno import ENOENT
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
 
 from twisted.python.failure import Failure
 
@@ -63,6 +63,7 @@ from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from txdav.common.datastore.file import (
     CommonDataStore, CommonStoreTransaction, CommonHome, CommonHomeChild,
     CommonObjectResource, CommonStubResource)
+from txdav.caldav.icalendarstore import QuotaExceeded
 
 from txdav.common.icommondatastore import (NoSuchObjectResourceError,
     InternalDataStoreError)
@@ -602,8 +603,12 @@ class AttachmentStorageTransport(object):
 
 
     def loseConnection(self):
-
+        home = self._attachment._calendarObject._calendar._home
         oldSize = self._attachment.size()
+
+        if home.quotaAllowedBytes() < ((home.quotaUsedBytes())
+                                       + (self._file.tell() - oldSize)):
+            return fail(QuotaExceeded())
 
         # FIXME: do anything
         self._file.close()
@@ -616,10 +621,11 @@ class AttachmentStorageTransport(object):
         props[md5key] = TwistedGETContentMD5.fromString(md5)
 
         # Adjust quota
-        self._attachment._calendarObject._calendar._home.adjustQuotaUsedBytes(
+        home.adjustQuotaUsedBytes(
             self._attachment.size() - oldSize
         )
         props.flush()
+        return succeed(None)
 
 
     def getPeer(self):
