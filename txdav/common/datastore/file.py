@@ -257,6 +257,10 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         self._cachedChildren = {}
 
 
+    def quotaAllowedBytes(self):
+        return self._transaction.store().quota
+
+
     @classmethod
     def homeWithUID(cls, txn, uid, create=False, withNotifications=False):
 

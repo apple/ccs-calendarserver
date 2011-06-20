@@ -528,6 +528,10 @@ class CommonHome(LoggingMixIn):
             self._revisionBindJoinTable["BIND:%s" % (key,)] = value
 
 
+    def quotaAllowedBytes(self):
+        return self._txn.store().quota
+
+
     @classproperty
     def _resourceIDFromOwnerQuery(cls): #@NoSelf
         home = cls._homeSchema

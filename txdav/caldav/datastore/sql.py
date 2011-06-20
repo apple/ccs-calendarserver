@@ -108,10 +108,6 @@ class CalendarHome(CommonHome):
         self._shares = SQLLegacyCalendarShares(self)
 
 
-    def quotaAllowedBytes(self):
-        return self._txn.store().quota
-
-
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
     calendarWithName = CommonHome.childWithName

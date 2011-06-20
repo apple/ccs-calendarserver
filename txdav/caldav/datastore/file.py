@@ -93,10 +93,6 @@ class CalendarHome(CommonHome):
         self._childClass = Calendar
 
 
-    def quotaAllowedBytes(self):
-        return self._transaction.store().quota
-
-
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
 
