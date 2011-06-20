@@ -218,6 +218,20 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
     # released versions of CalendarServer.
 
 
+class CalendarHomeBase(object):
+    """
+    Base logic shared between file- and sql-based L{ICalendarHome}
+    implementations.
+    """
+
+    def quotaAllowedBytes(self):
+        """
+        The configured number of allowed bytes for attachments in this calendar
+        home.
+        """
+        return 1000
+
+
 
 class CalendarObjectBase(object):
     """

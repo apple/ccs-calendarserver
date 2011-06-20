@@ -55,7 +55,8 @@ from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.caldav.datastore.index_file import Index as OldIndex,\
     IndexSchedule as OldInboxIndex
 from txdav.caldav.datastore.util import (
-    validateCalendarComponent, dropboxIDFromCalendarObject, CalendarObjectBase
+    validateCalendarComponent, dropboxIDFromCalendarObject, CalendarObjectBase,
+    CalendarHomeBase
 )
 
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport
@@ -79,7 +80,7 @@ CalendarStoreTransaction = CommonStoreTransaction
 
 IGNORE_NAMES = ('dropbox', 'notification', 'freebusy')
 
-class CalendarHome(CommonHome):
+class CalendarHome(CommonHome, CalendarHomeBase):
     implements(ICalendarHome)
 
     _topPath = "calendars"
@@ -620,6 +621,20 @@ class AttachmentStorageTransport(object):
         )
         props.flush()
 
+
+    def getPeer(self):
+        raise NotImplementedError()
+        return 'Storing attachment <%r>' % (self.attachment._path,)
+
+
+    def getHost(self):
+        raise NotImplementedError()
+        return 'Storing attachment (host) <%r>' % (self.attachment._path,)
+
+
+    def writeSequence(self, seq):
+        raise NotImplementedError()
+        return self.write(''.join(seq))
 
 
 class Attachment(FileMetaDataMixin):

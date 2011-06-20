@@ -67,9 +67,10 @@ from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import utcNowSQL
 from twext.enterprise.dal.syntax import Len
 
-from txdav.caldav.datastore.util import CalendarObjectBase
+from txdav.caldav.datastore.util import CalendarObjectBase, CalendarHomeBase
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from txdav.caldav.icalendarstore import QuotaExceeded
+
 from txdav.common.icommondatastore import IndexedSearchException
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -78,7 +79,7 @@ from pycalendar.timezone import PyCalendarTimezone
 
 from zope.interface.declarations import implements
 
-class CalendarHome(CommonHome):
+class CalendarHome(CommonHome, CalendarHomeBase):
 
     implements(ICalendarHome)
 
@@ -185,14 +186,6 @@ class CalendarHome(CommonHome):
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(
             Opaque())
         yield self.createCalendarWithName("inbox")
-
-
-    def quotaAllowedBytes(self):
-        """
-        The configured number of allowed bytes for attachments in this calendar
-        home.
-        """
-        return 1000
 
 
 
