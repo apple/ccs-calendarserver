@@ -2081,7 +2081,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         @return: a C{int} containing the maximum allowed bytes if this
             collection is quota-controlled, or C{None} if not quota controlled.
         """
-        return config.UserQuota if config.UserQuota != 0 else None
+        return self._newStoreHome.quotaAllowedBytes()
 
     def currentQuotaUse(self, request):
         """
