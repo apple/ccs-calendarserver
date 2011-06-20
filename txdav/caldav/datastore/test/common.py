@@ -1625,6 +1625,9 @@ END:VCALENDAR
             lambda: obj.createAttachmentWithName("too-big.attachment")
         )
         self.assertEquals((yield obj.attachments()), [])
+        yield self.commit()
+        obj = yield self.calendarObjectUnderTest()
+        self.assertEquals((yield obj.attachments()), [])
 
 
     @inlineCallbacks
