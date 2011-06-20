@@ -1592,6 +1592,7 @@ END:VCALENDAR
         return self.createAttachmentTest(refresh)
 
 
+    @inlineCallbacks
     def test_exceedQuota(self):
         """
         If too many bytes are passed to the transport returned by
@@ -1599,15 +1600,19 @@ END:VCALENDAR
         L{IAttachmentStorageTransport.loseConnection} will return a L{Deferred}
         that fails with L{QuotaExceeded}.
         """
+        home = yield self.homeUnderTest()
         obj = yield self.calendarObjectUnderTest()
         attachment = yield obj.createAttachmentWithName(
             "too-big.attachment",
         )
         t = attachment.store(MimeType("text", "x-fixture"))
-        self.assertProvides(IAttachmentStorageTransport, t)
-        t.write("new attachment")
-        t.write(" text")
-        yield t.loseConnection()
+        sample = "all work and no play makes jack a dull boy"
+
+        t.write(sample * (1 + (home.quotaAllowedBytes() /
+                          len(sample))))
+
+        d = t.loseConnection()
+        yield self.failUnlessFailure(d, QuotaExceeded)
 
 
     def test_removeAttachmentWithName(self, refresh=lambda x:x):
