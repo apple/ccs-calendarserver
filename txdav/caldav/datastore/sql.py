@@ -758,6 +758,8 @@ class AttachmentStorageTransport(StorageTransportBase):
 
 
     def write(self, data):
+        if isinstance(data, buffer):
+            data = str(data)
         self._buf += data
         self._hash.update(data)
 
