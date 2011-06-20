@@ -93,12 +93,39 @@ NotifierPrefixes = {
 }
 
 class CommonDataStore(Service, object):
+    """
+    Shared logic for SQL-based data stores, between calendar and addressbook
+    storage.
+
+    @ivar sqlTxnFactory: A 0-arg factory callable that produces an
+        L{IAsyncTransaction}.
+
+    @ivar notifierFactory: a L{twistedcaldav.notify.NotifierFactory} (or
+        similar) that produces new notifiers for homes and collections.
+
+    @ivar attachmentsPath: a L{FilePath} indicating a directory where
+        attachments may be stored.
+
+    @ivar enableCalendars: a boolean, C{True} if this data store should provide
+        L{ICalendarStore}, C{False} if not.
+
+    @ivar enableAddressBooks: a boolean, C{True} if this data store should
+        provide L{IAddressbookStore}, C{False} if not.
+
+    @ivar label: A string, used for tagging debug messages in the case where
+        there is more than one store.  (Useful mostly for unit tests.)
+
+    @ivar quota: the amount of space granted to each calendar home (in bytes)
+        for storing attachments.
+
+    @type quota: C{int}
+    """
 
     implements(ICalendarStore)
 
     def __init__(self, sqlTxnFactory, notifierFactory, attachmentsPath,
                  enableCalendars=True, enableAddressBooks=True,
-                 label="unlabeled"):
+                 label="unlabeled", quota=(2 ** 20)):
         assert enableCalendars or enableAddressBooks
 
         self.sqlTxnFactory = sqlTxnFactory
@@ -107,6 +134,7 @@ class CommonDataStore(Service, object):
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
         self.label = label
+        self.quota = quota
 
 
     def eachCalendarHome(self):
