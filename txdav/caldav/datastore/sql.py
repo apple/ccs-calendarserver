@@ -68,9 +68,9 @@ from twext.enterprise.dal.syntax import utcNowSQL
 from twext.enterprise.dal.syntax import Len
 
 from txdav.caldav.datastore.util import CalendarObjectBase, CalendarHomeBase
-from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from txdav.caldav.icalendarstore import QuotaExceeded
 
+from txdav.caldav.datastore.util import StorageTransportBase
 from txdav.common.icommondatastore import IndexedSearchException
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -737,26 +737,24 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
 
-class AttachmentStorageTransport(object):
-
-    implements(IAttachmentStorageTransport)
+class AttachmentStorageTransport(StorageTransportBase):
 
     def __init__(self, attachment, contentType, creating=False):
-        self.attachment = attachment
-        self.contentType = contentType
-        self.buf = ''
-        self.hash = hashlib.md5()
-        self.creating = creating
+        super(AttachmentStorageTransport, self).__init__(
+            attachment, contentType)
+        self._buf = ''
+        self._hash = hashlib.md5()
+        self._creating = creating
 
 
     @property
     def _txn(self):
-        return self.attachment._txn
+        return self._attachment._txn
 
 
     def write(self, data):
-        self.buf += data
-        self.hash.update(data)
+        self._buf += data
+        self._hash.update(data)
 
 
     @inlineCallbacks
@@ -770,57 +768,41 @@ class AttachmentStorageTransport(object):
         # prevented from committing successfully.  It's not valid to have an
         # attachment that doesn't point to a real file.
 
-        home = (
-            yield self._txn.calendarHomeWithResourceID(
-                self.attachment._ownerHomeID))
+        home = (yield self._txn.calendarHomeWithResourceID(
+                    self._attachment._ownerHomeID))
 
-        oldSize = self.attachment.size()
+        oldSize = self._attachment.size()
 
         if home.quotaAllowedBytes() < ((yield home.quotaUsedBytes())
-                                       + (len(self.buf) - oldSize)):
-            if self.creating:
-                yield self.attachment._internalRemove()
+                                       + (len(self._buf) - oldSize)):
+            if self._creating:
+                yield self._attachment._internalRemove()
             raise QuotaExceeded()
 
-        self.attachment._path.setContent(self.buf)
-        self.attachment._contentType = self.contentType
-        self.attachment._md5 = self.hash.hexdigest()
-        self.attachment._size = len(self.buf)
+        self._attachment._path.setContent(self._buf)
+        self._attachment._contentType = self._contentType
+        self._attachment._md5 = self._hash.hexdigest()
+        self._attachment._size = len(self._buf)
         att = schema.ATTACHMENT
-        self.attachment._created, self.attachment._modified = map(
+        self._attachment._created, self._attachment._modified = map(
             sqltime,
             (yield Update(
                 {
-                    att.CONTENT_TYPE : generateContentType(self.contentType),
-                    att.SIZE         : self.attachment._size,
-                    att.MD5          : self.attachment._md5,
+                    att.CONTENT_TYPE : generateContentType(self._contentType),
+                    att.SIZE         : self._attachment._size,
+                    att.MD5          : self._attachment._md5,
                     att.MODIFIED     : utcNowSQL
                 },
-                Where=att.PATH == self.attachment.name(),
+                Where=att.PATH == self._attachment.name(),
                 Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
         )
 
         if home:
             # Adjust quota
-            yield home.adjustQuotaUsedBytes(self.attachment.size() - oldSize)
+            yield home.adjustQuotaUsedBytes(self._attachment.size() - oldSize)
 
             # Send change notification to home
             yield home.notifyChanged()
-
-
-    def getPeer(self):
-        raise NotImplementedError()
-        return 'Storing attachment <%r>' % (self.attachment._path,)
-
-
-    def getHost(self):
-        raise NotImplementedError()
-        return 'Storing attachment (host) <%r>' % (self.attachment._path,)
-
-
-    def writeSequence(self, seq):
-        raise NotImplementedError()
-        return self.write(''.join(seq))
 
 
 

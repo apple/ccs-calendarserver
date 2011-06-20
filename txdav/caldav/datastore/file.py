@@ -56,10 +56,9 @@ from txdav.caldav.datastore.index_file import Index as OldIndex,\
     IndexSchedule as OldInboxIndex
 from txdav.caldav.datastore.util import (
     validateCalendarComponent, dropboxIDFromCalendarObject, CalendarObjectBase,
-    CalendarHomeBase
+    CalendarHomeBase, StorageTransportBase
 )
 
-from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from txdav.common.datastore.file import (
     CommonDataStore, CommonStoreTransaction, CommonHome, CommonHomeChild,
     CommonObjectResource, CommonStubResource)
@@ -580,9 +579,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
 
-class AttachmentStorageTransport(object):
-
-    implements(IAttachmentStorageTransport)
+class AttachmentStorageTransport(StorageTransportBase):
 
     def __init__(self, attachment, contentType):
         """
@@ -592,8 +589,8 @@ class AttachmentStorageTransport(object):
         @param attachment: The attachment whose data is being filled out.
         @type attachment: L{Attachment}
         """
-        self._attachment = attachment
-        self._contentType = contentType
+        super(AttachmentStorageTransport, self).__init__(
+            attachment, contentType)
         self._path = self._attachment._path.temporarySibling()
         self._file = self._path.open("w")
 
@@ -629,20 +626,6 @@ class AttachmentStorageTransport(object):
         props.flush()
         return succeed(None)
 
-
-    def getPeer(self):
-        raise NotImplementedError()
-        return 'Storing attachment <%r>' % (self.attachment._path,)
-
-
-    def getHost(self):
-        raise NotImplementedError()
-        return 'Storing attachment (host) <%r>' % (self.attachment._path,)
-
-
-    def writeSequence(self, seq):
-        raise NotImplementedError()
-        return self.write(''.join(seq))
 
 
 class Attachment(FileMetaDataMixin):

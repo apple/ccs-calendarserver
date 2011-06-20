@@ -30,6 +30,8 @@ from txdav.common.icommondatastore import InvalidObjectResourceError, \
 
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
+from zope.interface.declarations import implements
+from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from twext.python.log import Logger
 log = Logger()
 
@@ -272,5 +274,38 @@ class CalendarObjectBase(object):
                        PerUserDataFilter(accessUID)]:
             component = filter.filter(component)
         returnValue(component)
+
+
+
+class StorageTransportBase(object):
+    """
+    Base logic shared between file- and sql-based L{IAttachmentStorageTransport}
+    implementations.
+    """
+
+    implements(IAttachmentStorageTransport)
+
+    def __init__(self, attachment, contentType):
+        """
+        Create a storage transport with a reference to an L{IAttachment} and a
+        L{twext.web2.http_headers.MimeType}.
+        """
+        self._attachment = attachment
+        self._contentType = contentType
+
+
+    def getPeer(self):
+        raise NotImplementedError()
+        return 'Storing attachment <%r>' % (self.attachment._path,)
+
+
+    def getHost(self):
+        raise NotImplementedError()
+        return 'Storing attachment (host) <%r>' % (self.attachment._path,)
+
+
+    def writeSequence(self, seq):
+        raise NotImplementedError()
+        return self.write(''.join(seq))
 
 
