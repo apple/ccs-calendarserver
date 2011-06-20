@@ -426,12 +426,17 @@ class ICalendarObject(IDataStoreObject):
 
     def attachmentWithName(name):
         """
-        Retrieve an attachment from this calendar object.
+        Retrieve an attachment from this calendar object.  If no such attachment
+        exists, return C{None}.
 
         @param name: An identifier, unique to this L{ICalendarObject}, which
             names the attachment for future retrieval.
 
         @type name: C{str}
+
+        @return: an attachment with the given name, or None.
+
+        @rtype: C{NoneType} or L{IAttachment}
         """
         # FIXME: MIME-type?
 
