@@ -136,12 +136,11 @@ class Populator(object):
 
 
 class CalendarClientSimulator(object):
-    def __init__(self, records, populator, parameters, reactor, host, port):
+    def __init__(self, records, populator, parameters, reactor, server):
         self._records = records
         self.populator = populator
         self.reactor = reactor
-        self.host = host
-        self.port = port
+        self.server = server
         self._pop = self.populator.populate(parameters)
         self._user = 0
 
@@ -163,7 +162,7 @@ class CalendarClientSimulator(object):
         auth = HTTPDigestAuthHandler()
         auth.add_password(
             realm="Test Realm",
-            uri="http://%s:%d/" % (self.host, self.port),
+            uri=self.server,
             user=user.encode('utf-8'),
             passwd=record.password.encode('utf-8'))
         return user, auth
@@ -177,7 +176,7 @@ class CalendarClientSimulator(object):
             clientType = self._pop.next()
             reactor = loggedReactor(self.reactor)
             client = clientType.clientType(
-                reactor, self.host, self.port, user, auth)
+                reactor, self.server, user, auth)
             d = client.run()
             d.addErrback(self._clientFailure, reactor)
 

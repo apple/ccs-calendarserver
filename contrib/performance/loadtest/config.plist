@@ -21,15 +21,7 @@
   <dict>
     <!-- Identify the server to be load tested. -->
     <key>server</key>
-    <dict>
-      <!-- Hostname or IPv4 address the server is listening on -->
-      <key>host</key>
-      <string>127.0.0.1</string>
-
-      <!-- Port number the server is listening on -->
-      <key>port</key>
-      <integer>8008</integer>
-    </dict>
+    <string>https://127.0.0.1:8443/</string>
 
     <!-- Define the credentials of the clients which will be used to load test
          the server.  These credentials must already be valid on the

@@ -134,7 +134,6 @@ class SimOptions(Options):
             raise UsageError("Specify a configuration file using --config <path>")
 
 
-Server = namedtuple('Server', 'host port')
 Arrival = namedtuple('Arrival', 'factory parameters')
 
 
@@ -143,7 +142,7 @@ class LoadSimulator(object):
     A L{LoadSimulator} simulates some configuration of calendar
     clients.
 
-    @type server: L{Server}
+    @type server: C{str}
     @type arrival: L{Arrival}
     @type parameters: L{PopulationParameters}
 
@@ -173,12 +172,9 @@ class LoadSimulator(object):
         except UsageError, e:
             raise SystemExit(str(e))
 
+        server = 'http://127.0.0.1:8008/'
         if 'server' in options.config:
-            server = Server( 
-                options.config['server']['host'],
-                options.config['server']['port'])
-        else:
-            server = Server('127.0.0.1', 8008)
+            server = options.config['server']
 
         if 'arrival' in options.config:
             arrival = Arrival(
@@ -249,12 +245,9 @@ class LoadSimulator(object):
 
 
     def createSimulator(self):
-        host = self.server.host
-        port = self.server.port
         populator = Populator(Random())
         return CalendarClientSimulator(
-            self.records, populator, self.parameters, self.reactor,
-            host, port)
+            self.records, populator, self.parameters, self.reactor, self.server)
 
 
     def createArrivalPolicy(self):

@@ -256,7 +256,7 @@ class InviterTests(TestCase):
     """
     def setUp(self):
         self.sim = CalendarClientSimulator(
-            AnyUser(), Populator(None), None, None, None, None)
+            AnyUser(), Populator(None), None, None, None)
 
 
     def _simpleAccount(self, userNumber, eventText):
@@ -437,7 +437,7 @@ class AccepterTests(TestCase):
     """
     def setUp(self):
         self.sim = CalendarClientSimulator(
-            AnyUser(), Populator(None), None, None, None, None)
+            AnyUser(), Populator(None), None, None, None)
 
 
     def test_ignoreEventOnUnknownCalendar(self):
@@ -639,7 +639,7 @@ class EventerTests(TestCase):
     """
     def setUp(self):
         self.sim = CalendarClientSimulator(
-            AnyUser(), Populator(None), None, None, None, None)
+            AnyUser(), Populator(None), None, None, None)
 
 
     def test_doNotAddEventOnInbox(self):

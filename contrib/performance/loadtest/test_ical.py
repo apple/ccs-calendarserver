@@ -817,7 +817,7 @@ class SnowLeopardMixin:
     """
     def setUp(self):
         self.user = "user91"
-        self.client = SnowLeopard(None, "127.0.0.1", 80, self.user, None)
+        self.client = SnowLeopard(None, "http://127.0.0.1/", self.user, None)
 
 
     def interceptRequests(self):
@@ -929,7 +929,7 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         # iCal PUTs the new VCALENDAR object.
         expectedResponseCode, method, url, headers, body = req
         self.assertEquals(method, 'PUT')
-        self.assertEquals(url, 'http://127.0.0.1:80' + event.url)
+        self.assertEquals(url, 'http://127.0.0.1' + event.url)
         self.assertIsInstance(url, str)
         self.assertEquals(headers.getRawHeaders('content-type'), ['text/calendar'])
 
@@ -960,7 +960,7 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         # iCal PUTs the new VCALENDAR object.
         expectedResponseCode, method, url, headers, body = req
         self.assertEquals(method, 'PUT')
-        self.assertEquals(url, 'http://127.0.0.1:80/mumble/frotz.ics')
+        self.assertEquals(url, 'http://127.0.0.1/mumble/frotz.ics')
         self.assertIsInstance(url, str)
         self.assertEquals(headers.getRawHeaders('content-type'), ['text/calendar'])
 
@@ -993,7 +993,7 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
 
         expectedResponseCode, method, url = req
         self.assertEquals(method, 'DELETE')
-        self.assertEquals(url, 'http://127.0.0.1:80' + event.url)
+        self.assertEquals(url, 'http://127.0.0.1' + event.url)
         self.assertIsInstance(url, str)
 
         self.assertNotIn(event.url, self.client._events)
@@ -1095,7 +1095,7 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
         result, req = requests.pop(0)
         expectedResponseCode, method, url, headers, body = req
         self.assertEqual('PROPFIND', method)
-        self.assertEqual('http://127.0.0.1:80/something/', url)
+        self.assertEqual('http://127.0.0.1/something/', url)
         self.assertEqual(MULTI_STATUS, expectedResponseCode)
 
         result.callback(
@@ -1106,7 +1106,7 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
         result, req = requests.pop(0)
         expectedResponseCode, method, url, headers, body = req
         self.assertEqual('REPORT', method)
-        self.assertEqual('http://127.0.0.1:80/something/', url)
+        self.assertEqual('http://127.0.0.1/something/', url)
         self.assertEqual(MULTI_STATUS, expectedResponseCode)
 
         # Someone else comes along and gets rid of the event
@@ -1149,7 +1149,7 @@ class VFreeBusyTests(SnowLeopardMixin, TestCase):
         self.assertEqual(OK, expectedResponseCode)
         self.assertEqual('POST', method)
         self.assertEqual(
-            'http://127.0.0.1:80/calendars/__uids__/%s/outbox/' % (self.user,),
+            'http://127.0.0.1/calendars/__uids__/%s/outbox/' % (self.user,),
             url)
 
         self.assertEqual(headers.getRawHeaders('originator'), ['mailto:user01@example.com'])

@@ -159,10 +159,10 @@ class SnowLeopard(BaseClient):
 
     email = None
 
-    def __init__(self, reactor, host, port, user, auth, calendarHomePollInterval=None):
+    def __init__(self, reactor, root, user, auth, calendarHomePollInterval=None):
         self.reactor = reactor
         self.agent = AuthHandlerAgent(Agent(self.reactor), auth)
-        self.root = 'http://%s:%d/' % (host, port)
+        self.root = root
         self.user = user
 
         if calendarHomePollInterval is None:

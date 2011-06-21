@@ -37,13 +37,10 @@ from loadtest.population import (
     SmoothRampUp, ClientType, PopulationParameters, Populator, CalendarClientSimulator,
     ProfileType, SimpleStatistics)
 from loadtest.sim import (
-    Server, Arrival, SimOptions, LoadSimulator, LagTrackingReactor, main)
+    Arrival, SimOptions, LoadSimulator, LagTrackingReactor, main)
 
 VALID_CONFIG = {
-    'server': {
-        'host': '127.0.0.1',
-        'port': 8008,
-        },
+    'server': 'tcp:127.0.0.1:8008',
     'arrival': {
         'factory': 'loadtest.population.SmoothRampUp',
         'params': {
@@ -123,7 +120,7 @@ class CalendarClientSimulatorTests(TestCase):
         """
         calsim = CalendarClientSimulator(
             [self._user('alice'), self._user('bob'), self._user('carol')],
-            Populator(None), None, None, 'example.org', 1234)
+            Populator(None), None, None, 'http://example.org:1234/')
         users = sorted([
                 calsim._createUser(0)[0],
                 calsim._createUser(1)[0],
@@ -139,7 +136,7 @@ class CalendarClientSimulatorTests(TestCase):
         """
         calsim = CalendarClientSimulator(
             [self._user('alice')],
-            Populator(None), None, None, 'example.org', 1234)
+            Populator(None), None, None, 'http://example.org:1234/')
         user, auth = calsim._createUser(0)
         self.assertEqual(
             auth.passwd.find_user_password('Test Realm', 'http://example.org:1234/')[1],
@@ -205,16 +202,14 @@ class LoadSimulatorTests(TestCase):
         with its own reactor and host and port information from the
         configuration file.
         """
-        host = '127.0.0.7'
-        port = 1243
+        server = 'http://127.0.0.7:1243/'
         reactor = object()
-        sim = LoadSimulator(Server(host, port), None, None, reactor=reactor)
+        sim = LoadSimulator(server, None, None, reactor=reactor)
         calsim = sim.createSimulator()
         self.assertIsInstance(calsim, CalendarClientSimulator)
         self.assertIsInstance(calsim.reactor, LagTrackingReactor)
         self.assertIdentical(calsim.reactor._reactor, reactor)
-        self.assertEquals(calsim.host, host)
-        self.assertEquals(calsim.port, port)
+        self.assertEquals(calsim.server, server)
 
 
     def test_loadAccountsFromFile(self):
@@ -250,13 +245,9 @@ class LoadSimulatorTests(TestCase):
         """
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({
-                    "server": {
-                        "host": "127.0.0.1",
-                        "port": 1234,
-                        },
-                    }))
+                    "server": "https://127.0.0.3:8432/"}))
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
-        self.assertEquals(sim.server, Server("127.0.0.1", 1234))
+        self.assertEquals(sim.server, "https://127.0.0.3:8432/")
 
 
     def test_loadArrivalConfig(self):
@@ -360,6 +351,7 @@ class LoadSimulatorTests(TestCase):
         self.assertEquals(len(sim.observers), 1)
         self.assertIsInstance(sim.observers[0], SimpleStatistics)
 
+
     def test_observeRunReport(self):
         """
         Each log observer is added to the log publisher before the
@@ -368,7 +360,7 @@ class LoadSimulatorTests(TestCase):
         """
         observers = [Observer()]
         sim = LoadSimulator(
-            Server('example.com', 123), 
+            "http://example.com:123/",
             Arrival(lambda reactor: NullArrival(), {}),
             None, observers, reactor=Reactor())
         sim.run()
