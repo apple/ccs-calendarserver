@@ -461,6 +461,63 @@ class GenerationTests(TestCase):
                 "select character_length(MYTEXT) from TEXTUAL"))
 
 
+    def test_startswith(self):
+        """
+        Test for the string starts with comparison.
+        (Note that this should be updated to use different techniques
+        as necessary in different databases.)
+        """
+        self.assertEquals(
+            Select([
+                self.schema.TEXTUAL.MYTEXT],
+                From=self.schema.TEXTUAL,
+                Where=self.schema.TEXTUAL.MYTEXT.StartsWith("test"),
+            ).toSQL(),
+            SQLFragment(
+                "select MYTEXT from TEXTUAL where MYTEXT like (? || ?)",
+                ["test", "%"]
+            )
+        )
+
+
+    def test_endswith(self):
+        """
+        Test for the string starts with comparison.
+        (Note that this should be updated to use different techniques
+        as necessary in different databases.)
+        """
+        self.assertEquals(
+            Select([
+                self.schema.TEXTUAL.MYTEXT],
+                From=self.schema.TEXTUAL,
+                Where=self.schema.TEXTUAL.MYTEXT.EndsWith("test"),
+            ).toSQL(),
+            SQLFragment(
+                "select MYTEXT from TEXTUAL where MYTEXT like (? || ?)",
+                ["%", "test"]
+            )
+        )
+
+
+    def test_contains(self):
+        """
+        Test for the string starts with comparison.
+        (Note that this should be updated to use different techniques
+        as necessary in different databases.)
+        """
+        self.assertEquals(
+            Select([
+                self.schema.TEXTUAL.MYTEXT],
+                From=self.schema.TEXTUAL,
+                Where=self.schema.TEXTUAL.MYTEXT.Contains("test"),
+            ).toSQL(),
+            SQLFragment(
+                "select MYTEXT from TEXTUAL where MYTEXT like (? || (? || ?))",
+                ["%", "test", "%"]
+            )
+        )
+
+
     def test_insert(self):
         """
         L{Insert.toSQL} generates an 'insert' statement with all the relevant

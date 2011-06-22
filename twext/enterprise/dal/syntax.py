@@ -298,6 +298,17 @@ class ExpressionSyntax(Syntax):
         return CompoundComparison(self, 'in', subselect)
 
 
+    def StartsWith(self, other):
+        return CompoundComparison(self, "like", CompoundComparison(Constant(other), '||', Constant('%')))
+
+
+    def EndsWith(self, other):
+        return CompoundComparison(self, "like", CompoundComparison(Constant('%'), '||', Constant(other)))
+
+
+    def Contains(self, other):
+        return CompoundComparison(self, "like", CompoundComparison(Constant('%'), '||', CompoundComparison(Constant(other), '||', Constant('%'))))
+
 
 class FunctionInvocation(ExpressionSyntax):
     def __init__(self, function, *args):
