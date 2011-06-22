@@ -705,7 +705,8 @@ class SnowLeopard(BaseClient):
 
         # iCal issues 24 hour wide vfreebusy requests, starting and ending at 4am.
         if start.date() != end.date():
-            raise RuntimeError("Cannot vfreebusy across multiple days")
+            msg("Availability request spanning multiple days (%r to %r), "
+                "dropping the end date." % (start, end))
 
         start = start.replace(hour=0, minute=0, second=0, microsecond=0)
         end = start + timedelta(hours=24)
