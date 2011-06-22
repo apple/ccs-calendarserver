@@ -24,11 +24,15 @@ of simple commands.
 from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain
-from twext.enterprise.dal.syntax import Select, Parameter, Count
+from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.filepath import FilePath
+from twisted.python.reflect import namedClass
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
+from twistedcaldav.config import config
+from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import os
@@ -303,6 +307,78 @@ class EventsByUID(Cmd):
         returnValue(tuple(rows))
 
 
+class Purge(Cmd):
+    
+    _name = "Purge all data from tables"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        
+        if raw_input("Do you really want to remove all data [y/n]: ")[0].lower() != 'y':
+            print "No data removed"
+            returnValue(None)
+
+        wipeout = (
+            # These are ordered in such a way as to ensure key constraints are not 
+            # violated as data is removed
+
+            schema.RESOURCE_PROPERTY,
+
+            schema.CALENDAR_OBJECT_REVISIONS,
+
+            schema.CALENDAR,
+            #schema.CALENDAR_BIND, - cascades
+            #schema.CALENDAR_OBJECT, - cascades
+            #schema.TIME_RANGE, - cascades
+            #schema.TRANSPARENCY, - cascades
+            
+
+            schema.CALENDAR_HOME,
+            #schema.CALENDAR_HOME_METADATA - cascades
+            schema.INVITE,
+            schema.ATTACHMENT,
+            
+            schema.ADDRESSBOOK_OBJECT_REVISIONS,
+
+            schema.ADDRESSBOOK,
+            #schema.ADDRESSBOOK_BIND, - cascades
+            #schema.ADDRESSBOOK_OBJECT, - cascades
+
+            schema.ADDRESSBOOK_HOME,
+            #schema.ADDRESSBOOK_HOME_METADATA, - cascades
+
+            schema.NOTIFICATION_HOME,
+            schema.NOTIFICATION,
+            #schema.NOTIFICATION_OBJECT_REVISIONS - cascades,
+        )
+
+        for tableschema in wipeout:
+            yield self.removeTableData(txn, tableschema)
+            print "Removed rows in table %s" % (tableschema,)
+            
+        if calendaruserproxy.ProxyDBService is not None:
+            calendaruserproxy.ProxyDBService.clean() #@UndefinedVariable
+            print "Removed all proxies"
+        else:
+            print "No proxy database to clean."
+        
+        fp = FilePath(config.AttachmentsRoot)
+        if fp.exists():
+            for child in fp.children():
+                child.remove()
+            print "Removed attachments."
+        else:
+            print "No attachments path to delete."
+
+    @inlineCallbacks
+    def removeTableData(self, txn, tableschema):
+        yield Delete(
+            From=tableschema,
+            Where=None  # Deletes all rows
+        ).on(txn)
+
+
 class DBInspectService(Service, object):
     """
     Service which runs, exports the appropriate records, then stops the reactor.
@@ -341,33 +417,36 @@ class DBInspectService(Service, object):
     @inlineCallbacks
     def runCommandByPosition(self, position):
         try:
-            name = self.commands[position]
+            yield self.runCommandByName(self.commands[position])
         except IndexError:
             print "Position %d not available" % (position,)
             returnValue(None)
-        
-        yield self.runCommandByName(name)
 
     @inlineCallbacks
     def runCommandByName(self, name):
-        if name in self.commandMap:
-            txn = self.store.newTransaction()
-            txn._directory = self.directoryService()
-            try:
-                yield self.commandMap[name]().doIt(txn)
-                yield txn.commit()
-            except Exception, e:
-                yield txn.abort()
-                print "Command '%s' failed because of: %s" % (name, e,)
-                traceback.print_exc()
-        else:
+        try:
+            yield self.runCommand(self.commandMap[name])
+        except IndexError:
             print "Unknown command: '%s'" % (name,)
+
+    @inlineCallbacks
+    def runCommand(self, cmd):
+        txn = self.store.newTransaction()
+        txn._directory = self.directoryService()
+        try:
+            yield cmd().doIt(txn)
+            yield txn.commit()
+        except Exception, e:
+            yield txn.abort()
+            print "Command '%s' failed because of: %s" % (cmd.name(), e,)
+            traceback.print_exc()
 
     def printCommands(self):
         
         print "\n<---- Commands ---->"
         for ctr, name in enumerate(self.commands):
             print "%d. %s" % (ctr+1, name,)
+        print "P. Purge\n"
         print "Q. Quit\n"
 
     @inlineCallbacks
@@ -381,13 +460,16 @@ class DBInspectService(Service, object):
             cmd = raw_input("Command: ")
             if cmd.lower() == 'q':
                 break
-            try:
-                position = int(cmd)
-            except ValueError:
-                print "Invalid command. Try again.\n"
-                continue
+            if cmd.lower() == 'p':
+                yield self.runCommand(Purge)
+            else:
+                try:
+                    position = int(cmd)
+                except ValueError:
+                    print "Invalid command. Try again.\n"
+                    continue
             
-            yield self.runCommandByPosition(position-1)
+                yield self.runCommandByPosition(position-1)
 
         self.reactor.stop()
 
@@ -399,6 +481,11 @@ class DBInspectService(Service, object):
         """
         if self._directory is None:
             self._directory = directoryFromConfig(self.config)
+            proxydbClass = namedClass(config.ProxyDBService.type)
+            try:
+                calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
+            except IOError:
+                print "Could not start proxydb service"
         return self._directory
 
 
@@ -423,7 +510,6 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     options = DBInspectOptions()
     options.parseOptions(argv[1:])
     def makeService(store):
-        from twistedcaldav.config import config
         return DBInspectService(store, options, reactor, config)
     utilityMain(options['config'], makeService, reactor)
 

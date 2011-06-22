@@ -1094,6 +1094,9 @@ class Delete(_DMLStatement):
     """
 
     def __init__(self, From, Where, Return=None):
+        """
+        If Where is None then all rows will be deleted.
+        """
         self.From = From
         self.Where = Where
         self.Return = Return
@@ -1104,8 +1107,9 @@ class Delete(_DMLStatement):
         allTables = self.From.tables()
         result.text += 'delete from '
         result.append(self.From.subSQL(metadata, allTables))
-        result.text += ' where '
-        result.append(self.Where.subSQL(metadata, allTables))
+        if self.Where is not None:
+            result.text += ' where '
+            result.append(self.Where.subSQL(metadata, allTables))
         return self._returningClause(metadata, result, allTables)
 
 
