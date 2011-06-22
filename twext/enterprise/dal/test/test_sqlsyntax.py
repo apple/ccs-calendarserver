@@ -560,7 +560,7 @@ class GenerationTests(TestCase):
         enough, as the code needs to actually retrieve the values from the out
         parameters.
         """
-        conn, pool, factory = self.simulateOracleConnection()
+        conn, _ignore_pool, factory = self.simulateOracleConnection()
         i = Insert({self.schema.FOO.BAR: 40,
                     self.schema.FOO.BAZ: 50},
                    Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ))
@@ -704,6 +704,12 @@ class GenerationTests(TestCase):
                    Where=self.schema.FOO.BAR == 12).toSQL(),
             SQLFragment(
                 "delete from FOO where BAR = ?", [12])
+        )
+
+        self.assertEquals(
+            Delete(self.schema.FOO,
+                   Where=None).toSQL(),
+            SQLFragment("delete from FOO")
         )
 
 
@@ -895,7 +901,7 @@ class GenerationTests(TestCase):
         other statement types as well, specifically those with 'returning'
         clauses.
         """
-        conn, pool, factory = self.simulateOracleConnection()
+        conn, _ignore_pool, factory = self.simulateOracleConnection()
         # Add 2 cursor variable values so that these will be used by
         # FakeVariable.getvalue.
         factory.varvals.extend([None, None])
