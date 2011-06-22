@@ -307,6 +307,56 @@ class EventsByUID(Cmd):
         returnValue(tuple(rows))
 
 
+class EventsByContent(Cmd):
+    
+    _name = "Get Event Data by Searching its Text Data"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        
+        uid = raw_input("Search for: ")
+        rows = yield self.getData(txn, uid)
+        if rows:
+            for owner, calendar, resource_id, resource, created, modified, data in rows:
+                shortname = UserNameFromUID(txn, owner)
+                table = tables.Table()
+                table.addRow(("User Name:", shortname,))
+                table.addRow(("Calendar:", calendar,))
+                table.addRow(("Resource Name:", resource))
+                table.addRow(("Resource ID:", resource_id))
+                table.addRow(("Created", created))
+                table.addRow(("Modified", modified))
+                print "\n"
+                table.printTable()
+                print data
+        else:
+            print "Could not find icalendar data"
+
+    @inlineCallbacks
+    def getData(self, txn, text):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_ID,
+                co.RESOURCE_NAME,
+                co.CREATED,
+                co.MODIFIED,
+                co.ICALENDAR_TEXT,
+            ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            Where=(co.ICALENDAR_TEXT.Contains(Parameter("Text"))),
+        ).on(txn, **{"Text": text}))
+        returnValue(tuple(rows))
+
+
 class Purge(Cmd):
     
     _name = "Purge all data from tables"
@@ -407,6 +457,7 @@ class DBInspectService(Service, object):
         self.registerCommand(Events)
         self.registerCommand(Event)
         self.registerCommand(EventsByUID)
+        self.registerCommand(EventsByContent)
         self.doDBInspect()
 
 
