@@ -77,6 +77,10 @@ class DBInspectOptions(Options):
         super(DBInspectOptions, self).__init__()
         self.outputName = '-'
 
+def UserNameFromUID(txn, uid):
+    record = txn._directory.recordWithGUID(uid)
+    return record.shortNames[0] if record else "(%s)" % (uid,)
+    
 class Cmd(object):
     
     _name = None
@@ -102,9 +106,8 @@ class CalendarHomes(Cmd):
         table = tables.Table()
         table.addHeader(("Owner UID", "Short Name"))
         for uid in sorted(uids):
-            record = txn._directory.recordWithGUID(uid)
-            shortname = record.shortNames[0] if record else "-"
-            if record is None:
+            shortname = UserNameFromUID(txn, uid)
+            if shortname.startswith("("):
                 missing += 1
             table.addRow((
                 uid,
@@ -138,8 +141,7 @@ class Calendars(Cmd):
         table = tables.Table()
         table.addHeader(("Owner UID", "Short Name", "Calendar", "Resources"))
         for uid, calname, count in sorted(uids, key=lambda x:(x[0], x[1])):
-            record = txn._directory.recordWithGUID(uid)
-            shortname = record.shortNames[0] if record else "-"
+            shortname = UserNameFromUID(txn, uid)
             table.addRow((
                 uid,
                 shortname,
@@ -184,8 +186,7 @@ class Events(Cmd):
         table = tables.Table()
         table.addHeader(("Owner UID", "Short Name", "Calendar", "ID", "Type", "UID"))
         for uid, calname, id, caltype, caluid in sorted(uids, key=lambda x:(x[0], x[1])):
-            record = txn._directory.recordWithGUID(uid)
-            shortname = record.shortNames[0] if record else "-"
+            shortname = UserNameFromUID(txn, uid)
             table.addRow((
                 uid,
                 shortname,
@@ -263,13 +264,13 @@ class EventsByUID(Cmd):
         uid = raw_input("UID: ")
         rows = yield self.getData(txn, uid)
         if rows:
-            for owner, calendar, resource, created, modified, data in rows:
-                record = txn._directory.recordWithGUID(owner)
-                shortname = record.shortNames[0] if record else "-"
+            for owner, calendar, resource_id, resource, created, modified, data in rows:
+                shortname = UserNameFromUID(txn, owner)
                 table = tables.Table()
                 table.addRow(("User Name:", shortname,))
                 table.addRow(("Calendar:", calendar,))
-                table.addRow(("Resource:", resource))
+                table.addRow(("Resource Name:", resource))
+                table.addRow(("Resource ID:", resource_id))
                 table.addRow(("Created", created))
                 table.addRow(("Modified", modified))
                 print "\n"
@@ -287,6 +288,7 @@ class EventsByUID(Cmd):
             [
                 ch.OWNER_UID,
                 cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_ID,
                 co.RESOURCE_NAME,
                 co.CREATED,
                 co.MODIFIED,
