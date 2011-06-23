@@ -305,8 +305,9 @@ def setRunState(options, enableCalDAV, enableCardDAV):
     """
 
     if enableCalDAV or enableCardDAV:
-        log("Starting service via serveradmin")
-        ret = subprocess.call([SERVER_ADMIN, "start", "calendar"])
+        serviceName = "calendar" if enableCalDAV else "addressbook"
+        log("Starting service via serveradmin start %s" % (serviceName,))
+        ret = subprocess.call([SERVER_ADMIN, "start", serviceName])
         log("serveradmin exited with %d" % (ret,))
 
 
