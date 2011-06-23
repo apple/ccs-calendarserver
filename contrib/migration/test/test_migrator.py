@@ -338,6 +338,80 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         self.assertEquals(newCombined, expected)
 
 
+    def test_mergeAuthentication(self):
+
+        # Ensure caldavd Authentication config for wiki gets reset because
+        # the port number has changed for the wiki rpc url
+
+        oldCalDAV = {
+            "Authentication": {
+                "Wiki" : {
+                    "UseSSL" : False,
+                    "Enabled" : True,
+                    "Hostname" : "127.0.0.1",
+                    "URL" : "http://127.0.0.1/RPC2",
+                },
+            },
+        }
+        oldCardDAV = { "Is this ignored?" : True }
+        expected = {
+            "Authentication": {
+                "Wiki" : {
+                    "Enabled" : True,
+                },
+            },
+            "BindHTTPPorts": [8008, 8800],
+            "BindSSLPorts": [8443, 8843],
+            "EnableSSL" : False,
+            "HTTPPort": 8008,
+            "RedirectHTTPToHTTPS": False,
+            "SSLAuthorityChain": "",
+            "SSLCertificate": "",
+            "SSLPort": 8443,
+            "SSLPrivateKey": "",
+        }
+        newCombined = { }
+        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(newCombined, expected)
+
+        # If the port is :8089, leave the wiki config as is, since it's
+        # already set for Lio
+
+        oldCalDAV = {
+            "Authentication": {
+                "Wiki" : {
+                    "UseSSL" : False,
+                    "Enabled" : True,
+                    "Hostname" : "127.0.0.1",
+                    "URL" : "http://127.0.0.1:8089/RPC2",
+                },
+            },
+        }
+        oldCardDAV = { "Is this ignored?" : True }
+        expected = {
+            "Authentication": {
+                "Wiki" : {
+                    "UseSSL" : False,
+                    "Enabled" : True,
+                    "Hostname" : "127.0.0.1",
+                    "URL" : "http://127.0.0.1:8089/RPC2",
+                },
+            },
+            "BindHTTPPorts": [8008, 8800],
+            "BindSSLPorts": [8443, 8843],
+            "EnableSSL" : False,
+            "HTTPPort": 8008,
+            "RedirectHTTPToHTTPS": False,
+            "SSLAuthorityChain": "",
+            "SSLCertificate": "",
+            "SSLPort": 8443,
+            "SSLPrivateKey": "",
+        }
+        newCombined = { }
+        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(newCombined, expected)
+
+
     def test_examinePreviousSystem(self):
         """
         Set up a virtual system in various configurations, then ensure the
