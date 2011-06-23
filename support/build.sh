@@ -712,9 +712,9 @@ dependencies () {
     "PyGreSQL" "pgdb" "${pg}" \
     "${pypi}/P/PyGreSQL/${pg}.tar.gz";
 
-  py_dependency -v 10.1 -r 30159 \
+  py_dependency -v 11 -r 31512 \
     "Twisted" "twisted" "Twisted" \
-    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-10.1.0";
+    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-11.0.0";
 
   local du="python-dateutil-1.5";
   py_dependency -m "35f3732db3f2cc4afdc68a8533b60a52" \
