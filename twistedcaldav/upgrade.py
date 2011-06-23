@@ -928,8 +928,7 @@ class PostDBImportService(Service, object):
         owner = LocalCalendarUser(cua, ownerPrincipal,
             inbox, ownerPrincipal.scheduleInboxURL())
 
-        data = yield inboxItem.iCalendarText()
-        calendar = Component.fromString(data)
+        calendar = yield inboxItem.iCalendar()
         try:
             method = calendar.propertyValue("METHOD")
         except ValueError:

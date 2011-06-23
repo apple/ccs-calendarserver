@@ -962,9 +962,8 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
                     continue
 
                 # Get the access filtered view of the data
-                caldata = yield child.iCalendarTextFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
                 try:
-                    subcalendar = VCalendar.fromString(caldata)
+                    subcalendar = yield child.iCalendarFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
                 except ValueError:
                     continue
                 assert subcalendar.name() == "VCALENDAR"
@@ -1631,9 +1630,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         return succeed(self._newStoreObject.size())
 
 
-    def text(self):
-        return self._newStoreObject.text()
-
     def component(self):
         return self._newStoreObject.component()
 
@@ -1643,9 +1639,9 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             log.debug("Resource not found: %s" % (self,))
             raise HTTPError(responsecode.NOT_FOUND)
 
-        output = yield self.text()
+        output = yield self.component()
 
-        response = Response(200, {}, output)
+        response = Response(200, {}, str(output))
         response.headers.setHeader("content-type", self.contentType())
         returnValue(response)
 
@@ -1800,7 +1796,11 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         returnValue(txn)
 
 
-    iCalendarText = _CommonObjectResource.text
+    @inlineCallbacks
+    def iCalendarText(self):
+        data = yield self.iCalendar()
+        returnValue(str(data))
+
     iCalendar = _CommonObjectResource.component
 
 
@@ -2054,7 +2054,12 @@ class AddressBookObjectResource(_CommonObjectResource):
 
     _componentFromStream = VCard.fromString
 
-    vCardText = _CommonObjectResource.text
+    @inlineCallbacks
+    def vCardText(self):
+        data = yield self.vCard()
+        returnValue(str(data))
+
+    vCard = _CommonObjectResource.component
 
 
 class _NotificationChildHelper(object):

@@ -1522,15 +1522,15 @@ class CalDAVResource (
 
 
     @inlineCallbacks
-    def iCalendarTextFiltered(self, isowner, accessUID=None):
+    def iCalendarFiltered(self, isowner, accessUID=None):
 
         # Now "filter" the resource calendar data
         caldata = PrivateEventFilter(self.accessMode, isowner).filter(
-            (yield self.iCalendarText())
+            (yield self.iCalendar())
         )
         if accessUID:
             caldata = PerUserDataFilter(accessUID).filter(caldata)
-        returnValue(str(caldata))
+        returnValue(caldata)
 
 
     def iCalendarText(self):

@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -365,14 +365,6 @@ class ICalendarObject(IDataStoreObject):
         Retrieve the calendar component for this calendar object.
 
         @return: a C{VCALENDAR} L{VComponent}.
-        """
-
-    def iCalendarText():
-        """
-        Retrieve the iCalendar text data for this calendar object.
-
-        @return: a string containing iCalendar data for a single
-            calendar object.
         """
 
     def uid():

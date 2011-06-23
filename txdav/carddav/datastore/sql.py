@@ -271,10 +271,7 @@ class AddressBookObject(CommonObjectResource):
 
     @inlineCallbacks
     def component(self):
-        returnValue(VCard.fromString((yield self.vCardText())))
-
-
-    vCardText = CommonObjectResource.text
+        returnValue(VCard.fromString((yield self._text())))
 
 
     # IDataStoreObject

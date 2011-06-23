@@ -927,7 +927,7 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         raise NotImplementedError
 
 
-    def text(self):
+    def _text(self):
         raise NotImplementedError
 
 

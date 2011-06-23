@@ -435,7 +435,7 @@ class CommonStoreTransaction(object):
 
         results = (yield self.eventsOlderThan(cutoff, batchSize=batchSize))
         count = 0
-        for uid, calendarName, eventName, maxDate in results:
+        for uid, calendarName, eventName, _ignore_maxDate in results:
             home = (yield self.calendarHomeWithUID(uid))
             calendar = (yield home.childWithName(calendarName))
             (yield calendar.removeObjectResourceWithName(eventName))
@@ -2407,7 +2407,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @inlineCallbacks
-    def text(self):
+    def _text(self):
         if self._objectText is None:
             text = (
                 yield self._textByIDQuery.on(self._txn,

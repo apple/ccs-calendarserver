@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1020,7 +1020,7 @@ END:VCALENDAR
         L{ICalendarObject.iCalendarText} returns a C{str} describing the same
         data provided by L{ICalendarObject.component}.
         """
-        text = yield (yield self.calendarObjectUnderTest()).iCalendarText()
+        text = yield (yield self.calendarObjectUnderTest())._text()
         self.assertIsInstance(text, str)
         self.failUnless(text.startswith("BEGIN:VCALENDAR\r\n"))
         self.assertIn("\r\nUID:uid1\r\n", text)
@@ -1349,7 +1349,7 @@ END:VCALENDAR
                 (yield self.calendarObjectUnderTest()).properties()[propertyName],
                 propertyContent)
             obj = yield self.calendarObjectUnderTest()
-            event1_text = yield obj.iCalendarText()
+            event1_text = yield obj._text()
             event1_text_withDifferentSubject = event1_text.replace(
                 "SUMMARY:CalDAV protocol updates",
                 "SUMMARY:Changed"

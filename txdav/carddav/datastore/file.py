@@ -223,7 +223,7 @@ class AddressBookObject(CommonObjectResource):
     def component(self):
         if self._component is not None:
             return self._component
-        text = self.text()
+        text = self._text()
 
         try:
             component = VComponent.fromString(text)
@@ -235,7 +235,7 @@ class AddressBookObject(CommonObjectResource):
         return component
 
 
-    def text(self):
+    def _text(self):
         if self._component is not None:
             return str(self._component)
         try:
@@ -260,8 +260,6 @@ class AddressBookObject(CommonObjectResource):
                 % (self._path.path,)
             )
         return text
-
-    vCardText = text
 
     def uid(self):
         if not hasattr(self, "_uid"):

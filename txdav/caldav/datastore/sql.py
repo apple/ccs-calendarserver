@@ -614,10 +614,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     @inlineCallbacks
     def component(self):
-        returnValue(VComponent.fromString((yield self.iCalendarText())))
-
-
-    iCalendarText = CommonObjectResource.text
+        returnValue(VComponent.fromString((yield self._text())))
 
 
     @inlineCallbacks

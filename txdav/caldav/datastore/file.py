@@ -342,7 +342,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     def component(self):
-        text = self.text()
+        text = self._text()
 
         try:
             component = VComponent.fromString(text)
@@ -356,7 +356,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         return component
 
 
-    def text(self):
+    def _text(self):
         if self._component is not None:
             return str(self._component)
         try:
@@ -389,8 +389,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     % (self._path.path,)
                 )
         return text
-
-    iCalendarText = text
 
     def uid(self):
         if not hasattr(self, "_uid"):
