@@ -85,7 +85,7 @@ tmp="$(mktemp "/tmp/calendarserver_test.XXXXX")";
 
 echo "";
 echo "Running pyflakes...";
-cd "${wd}" && ./pyflakes . | tee "${tmp}" 2>&1;
+cd "${wd}" && ./pyflakes | tee "${tmp}" 2>&1;
 if [ -s "${tmp}" ]; then
   echo "**** Pyflakes says you have some code to clean up. ****";
   exit 1;
