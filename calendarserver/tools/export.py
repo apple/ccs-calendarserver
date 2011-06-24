@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_export -*-
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -310,5 +310,3 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         from twistedcaldav.config import config
         return ExporterService(store, options, output, reactor, config)
     utilityMain(options['config'], makeService, reactor)
-
-
