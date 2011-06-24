@@ -17,7 +17,6 @@
 from __future__ import with_statement
 import gettext
 import inspect
-import datetime
 import os
 import struct
 import array

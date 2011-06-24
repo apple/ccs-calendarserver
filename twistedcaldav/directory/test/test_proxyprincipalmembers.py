@@ -573,4 +573,4 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         yield self._addProxy(principal, proxyType, proxyPrincipal)
         memberships = yield proxyPrincipal._calendar_user_proxy_index().getMemberships(proxyPrincipal.principalUID())
         for uid in memberships:
-            subPrincipal = provisioningResource.principalForUID(uid)
+            provisioningResource.principalForUID(uid)

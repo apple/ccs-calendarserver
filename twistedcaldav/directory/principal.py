@@ -61,7 +61,6 @@ from twistedcaldav.resource import CalendarPrincipalCollectionResource, Calendar
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.directory.wiki import getWikiACL
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 log = Logger()
