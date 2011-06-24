@@ -898,6 +898,7 @@ class MailHandler(LoggingMixIn):
             addressWithToken = "%s+%s@%s" % (pre, token, post)
 
             organizerProperty = calendar.getOrganizerProperty()
+            organizerEmailAddress = organizerProperty.parameterValue("EMAIL", None)
             organizerValue = organizerProperty.value()
             organizerProperty.setValue("mailto:%s" % (addressWithToken,))
 
@@ -910,8 +911,8 @@ class MailHandler(LoggingMixIn):
             # The email's From will include the originator's real name email
             # address if available.  Otherwise it will be the server's email
             # address (without # + addressing)
-            if originator.startswith("mailto:"):
-                orgEmail = fromAddr = originator[7:]
+            if organizerEmailAddress:
+                orgEmail = fromAddr = organizerEmailAddress
             else:
                 fromAddr = serverAddress
                 orgEmail = None
@@ -927,10 +928,15 @@ class MailHandler(LoggingMixIn):
 
         else: # REPLY
             inviteState = "reply"
-            originator = originator.lower()
-            if not originator.startswith("mailto:"):
-                raise ValueError("Originator address '%s' must be mailto: for REPLY." % (originator,))
-            formattedFrom = fromAddr = originator = originator[7:]
+
+            # Look up the attendee property corresponding to the originator
+            # of this reply
+            originatorAttendeeProperty = calendar.getAttendeeProperty([originator])
+            formattedFrom = fromAddr = originator = ""
+            if originatorAttendeeProperty:
+                originatorAttendeeEmailAddress = originatorAttendeeProperty.parameterValue("EMAIL", None)
+                if originatorAttendeeEmailAddress:
+                    formattedFrom = fromAddr = originator = originatorAttendeeEmailAddress
 
             organizerMailto = str(calendar.getOrganizer())
             if not organizerMailto.lower().startswith("mailto:"):

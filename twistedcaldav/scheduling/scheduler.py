@@ -174,7 +174,7 @@ class Scheduler(object):
                 originatorPrincipal = (yield self.request.locateResource(originatorPrincipalURL))
                 if originatorPrincipal:
                     # Pick the canonical CUA:
-                    self.originator = originatorPrincipal.canonicalCalendarUserAddress()
+                    originator = originatorPrincipal.canonicalCalendarUserAddress()
 
         if not originator:
             log.err("%s request must have Originator" % (self.method,))

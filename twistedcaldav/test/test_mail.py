@@ -258,7 +258,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "CFDD5E46-4F74-478A-9311-B3FF905449C3",
-                "mailto:organizer@example.com",
+                "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A",
                 "mailto:attendee@example.com",
                 "new",
                 "organizer@example.com",
@@ -288,7 +288,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "CFDD5E46-4F74-478A-9311-B3FF905449C3",
-                "mailto:organizer@example.com",
+                "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A",
                 "mailto:attendee@example.com",
                 "update",
                 "organizer@example.com",
@@ -317,7 +317,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 None,
-                "mailto:attendee@example.com",
+                "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A",
                 "mailto:organizer@example.com",
                 "reply",
                 "organizer@example.com",

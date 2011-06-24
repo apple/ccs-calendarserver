@@ -946,7 +946,7 @@ class ImplicitScheduler(object):
         local_organizer = type(self.organizerAddress) in (LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,)
 
         if config.Scheduling.iMIP.Enabled and self.organizerAddress.cuaddr.lower().startswith("mailto:"):
-            return True
+            return is_server
 
         if not local_organizer and is_server:
             # Coerce ORGANIZER to SCHEDULE-AGENT=NONE
