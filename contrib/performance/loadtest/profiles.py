@@ -31,13 +31,13 @@ from vobject.icalendar import VEvent
 from protocol.caldav.definitions import caldavxml
 
 from twisted.python import context
-from twisted.python.log import msg, err
+from twisted.python.log import msg
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred, succeed, fail
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
-from stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean, median
+from stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean
 from loadtest.logger import SummarizingMixin
 from loadtest.ical import IncorrectResponseCode
 

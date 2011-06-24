@@ -29,7 +29,7 @@ from collections import namedtuple
 from zope.interface import providedBy
 
 from twisted.python.components import proxyForInterface
-from twisted.internet.interfaces import IReactorCore, IReactorTime, IReactorTCP
+from twisted.internet.interfaces import IReactorTCP
 from twisted.protocols.policies import WrappingFactory, TrafficLoggingProtocol
 
 

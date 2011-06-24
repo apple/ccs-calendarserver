@@ -24,7 +24,6 @@ from datetime import datetime
 
 from twisted.python.filepath import FilePath
 from twisted.python.usage import UsageError, Options, portCoerce
-from twisted.python.reflect import namedAny
 from twisted.internet.protocol import ProcessProtocol
 from twisted.protocols.basic import LineReceiver
 from twisted.internet.defer import (

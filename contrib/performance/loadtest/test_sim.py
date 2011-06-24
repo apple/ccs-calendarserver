@@ -15,20 +15,14 @@
 #
 ##
 
-from operator import setitem
 from plistlib import writePlistToString
 
-from zope.interface.verify import verifyClass
-
-from twisted.python.log import LogPublisher, theLogPublisher, msg
+from twisted.python.log import msg
 from twisted.python.usage import UsageError
 from twisted.python.filepath import FilePath
 from twisted.trial.unittest import TestCase
-from twisted.internet.defer import succeed
-from twisted.internet.task import Clock
 
-from twistedcaldav.directory.idirectory import IDirectoryService
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.directory import DirectoryRecord
 
 from stats import NormalDistribution
 from loadtest.ical import SnowLeopard
@@ -37,7 +31,7 @@ from loadtest.population import (
     SmoothRampUp, ClientType, PopulationParameters, Populator, CalendarClientSimulator,
     ProfileType, SimpleStatistics)
 from loadtest.sim import (
-    Arrival, SimOptions, LoadSimulator, LagTrackingReactor, main)
+    Arrival, SimOptions, LoadSimulator, LagTrackingReactor)
 
 VALID_CONFIG = {
     'server': 'tcp:127.0.0.1:8008',

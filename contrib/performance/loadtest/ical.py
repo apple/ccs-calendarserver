@@ -16,8 +16,6 @@
 ##
 
 from uuid import uuid4
-from operator import getitem
-from pprint import pformat
 from datetime import timedelta, datetime
 from urlparse import urlparse, urlunparse
 
@@ -31,7 +29,7 @@ from vobject.icalendar import VEvent, dateTimeToString
 from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
 from twisted.python.failure import Failure
-from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.http_headers import Headers
 from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT
@@ -691,7 +689,6 @@ class SnowLeopard(BaseClient):
         """
         outbox = self.root + 'calendars/__uids__/%s/outbox/' % (
             self.user.encode('utf-8'),)
-        headers = Headers()
 
         if mask:
             maskStr = u'\r\n'.join(['X-CALENDARSERVER-MASK-UID:' + uid

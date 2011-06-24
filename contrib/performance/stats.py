@@ -216,7 +216,7 @@ def quantize(data):
     discrete buckets (eg, as would be suitable for constructing a
     histogram of the values).
     """
-    buckets = {}
+    #buckets = {}
     return []
 
 
