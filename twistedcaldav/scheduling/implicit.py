@@ -336,14 +336,9 @@ class ImplicitScheduler(object):
                     (caldav_namespace, "invalid-originator"),
                     "Originator not enabled",
                 ))
-    
-            # Pick the first mailto cu address or the first other type
-            for item in self.originatorPrincipal.calendarUserAddresses():
-                if not self.originator:
-                    self.originator = item
-                if item.startswith("mailto:"):
-                    self.originator = item
-                    break
+
+            # Pick the canonical CUA:
+            self.originator = self.originatorPrincipal.canonicalCalendarUserAddress()
 
         # Get the ORGANIZER and verify it is the same for all components
         try:

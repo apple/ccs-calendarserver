@@ -869,6 +869,29 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
 
         return addresses
 
+    def canonicalCalendarUserAddress(self):
+        """
+        Return a CUA for this principal, preferring in this order:
+            urn:uuid: form
+            mailto: form
+            first in calendarUserAddresses( ) list
+        """
+
+        cua = ""
+        for candidate in self.calendarUserAddresses():
+            # Pick the first one, but urn:uuid: and mailto: can override
+            if not cua:
+                cua = candidate
+            # But always immediately choose the urn:uuid: form
+            if candidate.startswith("urn:uuid:"):
+                cua = candidate
+                break
+            # Prefer mailto: if no urn:uuid:
+            elif candidate.startswith("mailto:"):
+                cua = candidate
+        return cua
+
+
     def enabledAsOrganizer(self):
         if self.record.recordType == DirectoryService.recordType_users:
             return True

@@ -431,6 +431,14 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 record.enabledForCalendaring = False
                 self.failIf(recordResource.calendarUserAddresses())
 
+    def test_canonicalCalendarUserAddress(self):
+        """
+        DirectoryPrincipalResource.canonicalCalendarUserAddress()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            if record.enabledForCalendaring:
+                self.failUnless(recordResource.canonicalCalendarUserAddress().startswith("urn:uuid:"))
+
     def test_addressBookHomeURLs(self):
         """
         DirectoryPrincipalResource.addressBookHomeURLs(),
