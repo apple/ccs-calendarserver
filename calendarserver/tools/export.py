@@ -39,7 +39,7 @@ import sys
 import itertools
 
 from twisted.python.text import wordWrap
-from twisted.python.usage import Options
+from twisted.python.usage import Options, UsageError
 from twisted.python import log
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -298,15 +298,22 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     """
     if reactor is None:
         from twisted.internet import reactor
+
     options = ExportOptions()
-    options.parseOptions(argv[1:])
+    try:
+        options.parseOptions(argv[1:])
+    except UsageError, e:
+        usage(e)
+
     try:
         output = options.openOutput()
     except IOError, e:
         stderr.write("Unable to open output file for writing: %s\n" %
                      (e))
         sys.exit(1)
+
     def makeService(store):
         from twistedcaldav.config import config
         return ExporterService(store, options, output, reactor, config)
-    utilityMain(options['config'], makeService, reactor)
+
+    utilityMain(options["config"], makeService, reactor)
