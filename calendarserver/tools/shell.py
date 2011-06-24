@@ -23,8 +23,10 @@ Interactive shell for navigating the data store.
 import os
 import sys
 
+from twisted.python import log
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
+from twisted.conch.stdio import runWithProtocol as shellWithProtocol, ConsoleManhole
 from twisted.application.service import Service
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
@@ -67,7 +69,7 @@ class ShellOptions(Options):
         super(ShellOptions, self).__init__()
 
 
-class ShellService(Service):
+class ShellService(Service, object):
     def __init__(self, store, options, reactor, config):
         super(ShellService, self).__init__()
         self.store   = store
@@ -80,18 +82,19 @@ class ShellService(Service):
         Start the service.
         """
         super(ShellService, self).startService()
-        self.shell()
+        shellWithProtocol(ShellProtocol)
+        self.reactor.stop()
 
     def stopService(self):
         """
         Stop the service.
         """
 
-    def shell(self):
-        """
-        Interactive shell
-        """
-        print "This is a shell, yo."
+
+class ShellProtocol(ConsoleManhole):
+    """
+    Data store shell protocol.
+    """
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
@@ -110,5 +113,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     def makeService(store):
         from twistedcaldav.config import config
         return ShellService(store, options, reactor, config)
+
+    print "Initializing shell..."
 
     utilityMain(options["config"], makeService, reactor)
