@@ -96,6 +96,11 @@ class ShellProtocol(HistoricRecvLine):
     """
     Data store shell protocol.
     """
+
+    # FIXME:
+    # * Received lines are being echoed; find out why and stop it.
+    # * Backspace transposes characters in the terminal.
+
     ps = ("ds% ", "... ")
 
     def connectionMade(self):
@@ -143,6 +148,9 @@ class ShellProtocol(HistoricRecvLine):
 
     def handle_QUIT(self):
         self.terminal.loseConnection()
+
+    def lineReceived(self, line):
+        print "---> %s" % (line,)
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
