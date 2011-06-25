@@ -23,10 +23,11 @@ Interactive shell for navigating the data store.
 import os
 import sys
 
-from twisted.python import log
+#from twisted.python import log
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
-from twisted.conch.stdio import runWithProtocol as shellWithProtocol, ConsoleManhole
+from twisted.conch.stdio import runWithProtocol as shellWithProtocol
+from twisted.conch.recvline import HistoricRecvLine
 from twisted.application.service import Service
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
@@ -91,10 +92,57 @@ class ShellService(Service, object):
         """
 
 
-class ShellProtocol(ConsoleManhole):
+class ShellProtocol(HistoricRecvLine):
     """
     Data store shell protocol.
     """
+    ps = ("ds% ", "... ")
+
+    def connectionMade(self):
+        HistoricRecvLine.connectionMade(self)
+
+        CTRL_C         = "\x03"
+        CTRL_D         = "\x04"
+        CTRL_L         = "\x0c"
+        CTRL_BACKSLASH = "\x1c"
+
+        self.keyHandlers[CTRL_C        ] = self.handle_INT
+        self.keyHandlers[CTRL_D        ] = self.handle_EOF
+        self.keyHandlers[CTRL_L        ] = self.handle_FF
+        self.keyHandlers[CTRL_BACKSLASH] = self.handle_QUIT
+
+    def handle_INT(self):
+        """
+        Handle ^C as an interrupt keystroke by resetting the current input
+        variables to their initial state.
+        """
+        self.pn = 0
+        self.lineBuffer = []
+        self.lineBufferIndex = 0
+        self.interpreter.resetBuffer()
+
+        self.terminal.nextLine()
+        self.terminal.write("KeyboardInterrupt")
+        self.terminal.nextLine()
+        self.terminal.write(self.ps[self.pn])
+
+    def handle_EOF(self):
+        if self.lineBuffer:
+            self.terminal.write("\a")
+        else:
+            self.handle_QUIT()
+
+    def handle_FF(self):
+        """
+        Handle a "form feed" byte - generally used to request a screen
+        refresh/redraw.
+        """
+        self.terminal.eraseDisplay()
+        self.terminal.cursorHome()
+        self.drawInputLine()
+
+    def handle_QUIT(self):
+        self.terminal.loseConnection()
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
