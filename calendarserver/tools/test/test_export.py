@@ -35,7 +35,7 @@ from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
 
 from calendarserver.tools import export
 from calendarserver.tools.export import ExportOptions, main
-from calendarserver.tools.export import HomeExporter
+from calendarserver.tools.export import DirectoryExporter, UIDExporter
 
 from twisted.python.filepath import FilePath
 from twistedcaldav.test.util import patchConfig
@@ -91,30 +91,43 @@ class CommandLine(TestCase):
         self.assertEquals(len(err.getvalue()), 0)
 
 
-    def test_oneHome(self):
+    def test_oneRecord(self):
         """
-        One '--record' option will result in a single HomeExporter object with
-        no calendars in its list.
+        One '--record' option will result in a single L{DirectoryExporter}
+        object with no calendars in its list.
         """
         eo = ExportOptions()
         eo.parseOptions(["--record", "users:bob"])
         self.assertEquals(len(eo.exporters), 1)
         exp = eo.exporters[0]
-        self.assertIsInstance(exp, HomeExporter)
+        self.assertIsInstance(exp, DirectoryExporter)
         self.assertEquals(exp.recordType, "users")
         self.assertEquals(exp.shortName, "bob")
         self.assertEquals(exp.collections, [])
 
 
+    def test_oneUID(self):
+        """
+        One '--uid' option will result in a single L{UIDExporter} object with no
+        calendars in its list.
+        """
+        eo = ExportOptions()
+        eo.parseOptions(["--uid", "bob's your guid"])
+        self.assertEquals(len(eo.exporters), 1)
+        exp = eo.exporters[0]
+        self.assertIsInstance(exp, UIDExporter)
+        self.assertEquals(exp.uid, "bob's your guid")
+
+
     def test_homeAndCollections(self):
         """
-        The --collection option adds calendars to the last calendar that was
-        exported.
+        The --collection option adds specific calendars to the last home that
+        was exported.
         """
         eo = ExportOptions()
         eo.parseOptions(["--record", "users:bob",
                          "--collection", "work stuff",
-                         "--record", "users:jethro",
+                         "--uid", "jethroUID",
                          "--collection=fun stuff"])
         self.assertEquals(len(eo.exporters), 2)
         exp = eo.exporters[0]
@@ -122,8 +135,7 @@ class CommandLine(TestCase):
         self.assertEquals(exp.shortName, "bob")
         self.assertEquals(exp.collections, ["work stuff"])
         exp = eo.exporters[1]
-        self.assertEquals(exp.recordType, "users")
-        self.assertEquals(exp.shortName, "jethro")
+        self.assertEquals(exp.uid, "jethroUID")
         self.assertEquals(exp.collections, ["fun stuff"])
 
 
