@@ -22,6 +22,7 @@ Interactive shell for navigating the data store.
 
 import os
 import sys
+import posixpath
 from shlex import shlex
 
 #from twisted.python import log
@@ -30,6 +31,8 @@ from twisted.python.usage import Options, UsageError
 from twisted.conch.stdio import runWithProtocol as shellWithProtocol
 from twisted.conch.recvline import HistoricRecvLine
 from twisted.application.service import Service
+
+from txdav.common.icommondatastore import NotFoundError
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
@@ -103,6 +106,23 @@ class Directory(object):
     def __str__(self):
         return "/" + "/".join(self.path)
 
+    def goto(self, path):
+        path = list(path)
+
+        if path[0].startswith("/"):
+            path[0] = path[0][1:]
+            subdir = RootDirectory()
+        else:
+            subdir = self.subdir(path.pop(0))
+
+        if path:
+            return subdir.goto(path)
+        else:
+            return subdir
+
+    def subdir(self, name):
+        raise NotImplementedError()
+
 
 class RootDirectory(Directory):
     """
@@ -110,6 +130,9 @@ class RootDirectory(Directory):
     """
     def __init__(self):
         Directory.__init__(self, ())
+
+    def subdir(self, name):
+        raise NotFoundError("%s/%s" % (self, name))
 
 
 class ShellProtocol(HistoricRecvLine):
@@ -183,7 +206,7 @@ class ShellProtocol(HistoricRecvLine):
             tokens.append(token)
 
         if tokens:
-            cmd = tokens.pop()
+            cmd = tokens.pop(0)
             m = getattr(self, "cmd_%s" % (cmd,), None)
             if m:
                 m(tokens)
@@ -195,6 +218,16 @@ class ShellProtocol(HistoricRecvLine):
             print "Unknown arguments: %s" % (tokens,)
             return
         print self.wd
+
+    def cmd_cd(self, tokens):
+        if tokens:
+            dirname = tokens.pop(0)
+        if tokens:
+            print "Unknown arguments: %s" % (tokens,)
+            return
+
+        path = posixpath.split(dirname)
+        self.wd = self.wd.goto(path)
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
