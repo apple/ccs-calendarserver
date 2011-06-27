@@ -145,6 +145,12 @@ class ExportOptions(Options):
 
 
 
+class UIDExporter(object):
+    """
+    """
+
+
+
 class DirectoryExporter(object):
     """
     An exporter that constructs a list of calendars based on the directory
