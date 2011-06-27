@@ -121,13 +121,13 @@ class CommandLine(TestCase):
 
     def test_homeAndCollections(self):
         """
-        The --collection option adds calendars to the last calendar that was
-        exported.
+        The --collection option adds specific calendars to the last home that
+        was exported.
         """
         eo = ExportOptions()
         eo.parseOptions(["--record", "users:bob",
                          "--collection", "work stuff",
-                         "--record", "users:jethro",
+                         "--uid", "jethroUID",
                          "--collection=fun stuff"])
         self.assertEquals(len(eo.exporters), 2)
         exp = eo.exporters[0]
@@ -135,8 +135,7 @@ class CommandLine(TestCase):
         self.assertEquals(exp.shortName, "bob")
         self.assertEquals(exp.collections, ["work stuff"])
         exp = eo.exporters[1]
-        self.assertEquals(exp.recordType, "users")
-        self.assertEquals(exp.shortName, "jethro")
+        self.assertEquals(exp.uid, "jethroUID")
         self.assertEquals(exp.collections, ["fun stuff"])
 
 

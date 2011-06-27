@@ -94,6 +94,14 @@ class ExportOptions(Options):
         self.outputName = '-'
 
 
+    def opt_uid(self, uid):
+        """
+        Add a calendar home directly by its UID (which is usually a directory
+        service's GUID).
+        """
+        self.exporters.append(UIDExporter(uid))
+
+
     def opt_record(self, recordName):
         """
         Add a directory record's calendar home (format: 'recordType:shortName').
@@ -145,35 +153,26 @@ class ExportOptions(Options):
 
 
 
-class UIDExporter(object):
+class _ExporterBase(object):
     """
-    """
-
-
-
-class DirectoryExporter(object):
-    """
-    An exporter that constructs a list of calendars based on the directory
-    services record ID of the home.
+    Base exporter implementation that works from a home UID.
 
     @ivar collections: A list of the names of collections that this exporter
         should enumerate.
 
     @type collections: C{list} of C{str}
 
-    @ivar recordType: The directory record type to export.  For example:
-        'users'.
-
-    @type recordType: C{str}
-
-    @ivar shortName: The shortName of the directory record to export, according
-        to C{recordType}.
     """
 
-    def __init__(self, recordType, shortName):
+    def __init__(self):
         self.collections = []
-        self.recordType = recordType
-        self.shortName = shortName
+
+
+    def getHomeUID(self, exportService):
+        """
+        Subclasses must implement this.
+        """
+        raise NotImplementedError()
 
 
     @inlineCallbacks
@@ -182,9 +181,8 @@ class DirectoryExporter(object):
         Enumerate all calendars based on the directory record and/or calendars
         for this calendar home.
         """
-        directory = exportService.directoryService()
-        record = directory.recordWithShortName(self.recordType, self.shortName)
-        home = yield txn.calendarHomeWithUID(record.guid, True)
+        uid = self.getHomeUID(exportService)
+        home = yield txn.calendarHomeWithUID(uid, True)
         result = []
         if self.collections:
             for collection in self.collections:
@@ -194,6 +192,58 @@ class DirectoryExporter(object):
                 if collection.name() != 'inbox':
                     result.append(collection)
         returnValue(result)
+
+
+
+class UIDExporter(_ExporterBase):
+    """
+    An exporter that constructs a list of calendars based on the UID of the
+    home, and an optional list of calendar names.
+
+    @ivar uid: The UID of a calendar home to export.
+
+    @type uid: C{str}
+    """
+
+    def __init__(self, uid):
+        super(UIDExporter, self).__init__()
+        self.uid = uid
+
+
+    def getHomeUID(self, exportService):
+        return self.uid
+
+
+
+class DirectoryExporter(_ExporterBase):
+    """
+    An exporter that constructs a list of calendars based on the directory
+    services record ID of the home, and an optional list of calendar names.
+
+    @ivar recordType: The directory record type to export.  For example:
+        'users'.
+
+    @type recordType: C{str}
+
+    @ivar shortName: The shortName of the directory record to export, according
+        to C{recordType}.
+
+    @type shortName: C{str}
+    """
+
+    def __init__(self, recordType, shortName):
+        super(DirectoryExporter, self).__init__()
+        self.recordType = recordType
+        self.shortName = shortName
+
+
+    def getHomeUID(self, exportService):
+        """
+        Retrieve the home UID.
+        """
+        directory = exportService.directoryService()
+        record = directory.recordWithShortName(self.recordType, self.shortName)
+        return record.guid
 
 
 
