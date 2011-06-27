@@ -20,6 +20,28 @@ from contrib.migration.calendarmigrator import (
 )
 import contrib.migration.calendarmigrator
 
+class FakeUser(object):
+    pw_uid = 6543
+
+
+class FakeGroup(object):
+    gr_gid = 7654
+
+
+class FakePwd(object):
+    def getpwnam(self, nam):
+        if nam != 'calendar':
+            raise RuntimeError("Only 'calendar' user supported for testing.")
+        return FakeUser()
+
+
+class FakeGrp(object):
+    def getgrnam(self, nam):
+        if nam != 'calendar':
+            raise RuntimeError("Only 'calendar' group supported for testing.")
+        return FakeGroup()
+
+
 class MigrationTests(twistedcaldav.test.util.TestCase):
     """
     Calendar Server Migration Tests
@@ -27,7 +49,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
 
     def setUp(self):
         # Disable logging during tests
+
         self.patch(contrib.migration.calendarmigrator, "log", lambda _: None)
+        self.patch(contrib.migration.calendarmigrator, "pwd", FakePwd())
+        self.patch(contrib.migration.calendarmigrator, "grp", FakeGrp())
 
 
     def test_mergeSSL(self):
@@ -480,7 +505,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Library/CalendarServer/Documents", # Old Cal DocRoot value
                 "/Library/CalendarServer/Data", # Old Cal DataRoot value
                 "/Library/AddressBookServer/Documents", # Old AB DocRoot value
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             )
         ),
 
@@ -539,7 +564,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Library/CalendarServer/Documents", # Old Cal DocRoot value
                 "/Library/CalendarServer/Data", # Old Cal DataRoot value
                 "/Library/AddressBookServer/Documents", # Old AB DocRoot value
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             )
         ),
 
@@ -598,7 +623,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/NonStandard/CalendarServer/Documents", # Old Cal DocRoot Value
                 "/NonStandard/CalendarServer/Data", # Old Cal DataRoot Value
                 "/NonStandard/AddressBookServer/Documents", # Old AB DocRoot Value
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             )
         ),
 
@@ -657,7 +682,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Volumes/External/CalendarServer/Documents", # Old Cal DocRoot Value
                 "/Volumes/External/CalendarServer/Data", # Old Cal DataRoot Value
                 "/Library/AddressBookServer/Documents", # Old AB DocRoot Value
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             )
         ),
 
@@ -701,7 +726,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 None, # Old Cal DocRoot value
                 None, # Old Cal DataRoot value
                 "/Library/AddressBookServer/Documents", # Old AB DocRoot value
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             )
         ),
 
@@ -749,7 +774,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "Documents", # Old Cal DocRoot value
                 "Data", # Old Cal DataRoot value
                 None, # Old AB Docs
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             )
         ),
 
@@ -797,7 +822,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Volumes/External/Calendar/Documents", # Old Cal DocRoot value
                 "/Volumes/External/Calendar/Data", # Old Cal DataRoot value
                 None, # Old AB Docs
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             )
         ),
 
@@ -845,7 +870,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "Documents", # Old Cal DocRoot value
                 "Data", # Old Cal DocRoot value
                 None, # Old AB Docs
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             )
         ),
 
@@ -896,7 +921,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Volumes/External/CalendarDocuments/", # Old Cal DocRoot value
                 "/CalendarData", # Old Cal DocRoot value
                 None, # Old AB Docs
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             )
         ),
 
@@ -987,7 +1012,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Library/CalendarServer/Documents", # oldCalDocumentRootValue
                 "/Library/CalendarServer/Data", # oldCalDataRootValue
                 "/Library/AddressBookServer/Documents", # oldABDocumentRootValue
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
                 "/Volumes/new/Library/Server/Calendar and Contacts",
@@ -997,11 +1022,11 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             ),
             [   # expected DiskAccessor history
                 ('ditto', '/Volumes/old/Library/CalendarServer/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Documents'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', 93, 93),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', FakeUser.pw_uid, FakeGroup.gr_gid),
                 ('ditto', '/Volumes/old/Library/CalendarServer/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', 93, 93),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
                 ('ditto', '/Volumes/old/Library/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks', 93, 93),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
@@ -1062,7 +1087,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/NonStandard/CalendarServer/Documents", # oldCalDocumentRootValue
                 "/NonStandard/CalendarServer/Data", # oldCalDataRootValue
                 "/NonStandard/AddressBookServer/Documents", # oldABDocumentRootValue
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
                 "/Volumes/new/Library/Server/Calendar and Contacts",
@@ -1072,11 +1097,11 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             ),
             [
                 ('ditto', '/Volumes/old/NonStandard/CalendarServer/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Documents'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', 93, 93),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', FakeUser.pw_uid, FakeGroup.gr_gid),
                 ('ditto', '/Volumes/old/NonStandard/CalendarServer/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', 93, 93),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
                 ('ditto', '/Volumes/old/NonStandard/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks', 93, 93),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
@@ -1137,7 +1162,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Volumes/External/CalendarServer/Documents", # oldCalDocumentRootValue
                 "/Volumes/External/CalendarServer/Data", # oldCalDataRootValue
                 "/Library/AddressBookServer/Documents", # oldABDocumentRootValue
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
                 "/Volumes/new/Library/Server/Calendar and Contacts",
@@ -1147,7 +1172,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             ),
             [
                 ('ditto', '/Volumes/old/Library/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Documents/addressbooks'),
-                ('chown-recursive', '/Volumes/External/CalendarServer/Documents/addressbooks', 93, 93),
+                ('chown-recursive', '/Volumes/External/CalendarServer/Documents/addressbooks', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
@@ -1198,7 +1223,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "Documents", # oldCalDocumentRootValue
                 "Data", # oldCalDataRootValue
                 None, # oldABDocumentRootValue
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
                 "/Volumes/new/Library/Server/Calendar and Contacts",
@@ -1208,9 +1233,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             ),
             [
                 ('ditto', '/Volumes/old/Library/Server/Calendar and Contacts/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Documents'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', 93, 93),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', FakeUser.pw_uid, FakeGroup.gr_gid),
                 ('ditto', '/Volumes/old/Library/Server/Calendar and Contacts/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', 93, 93),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
@@ -1261,7 +1286,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "Documents", # oldCalDocumentRootValue
                 "Data", # oldCalDataRootValue
                 None, # oldABDocumentRootValue
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
                 "/Volumes/External/Library/Server/Calendar and Contacts",
@@ -1322,7 +1347,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Volumes/External/CalendarDocuments/", # oldCalDocumentRootValue
                 "/CalendarData", # oldCalDataRootValue
                 None, # oldABDocumentRootValue
-                93, 93, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
                 "/Volumes/External/Library/Server/Calendar and Contacts",
@@ -1332,7 +1357,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             ),
             [
                 ('ditto', '/Volumes/old/CalendarData', '/Volumes/External/Library/Server/Calendar and Contacts/Data'),
-                ('chown-recursive', '/Volumes/External/Library/Server/Calendar and Contacts/Data', 93, 93),
+                ('chown-recursive', '/Volumes/External/Library/Server/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
