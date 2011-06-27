@@ -122,7 +122,6 @@ class ShellProtocol(HistoricRecvLine):
     # * Backspace transposes characters in the terminal.
 
     ps = ("ds% ", "... ")
-    wd = RootDirectory()
 
     def connectionMade(self):
         HistoricRecvLine.connectionMade(self)
@@ -137,7 +136,7 @@ class ShellProtocol(HistoricRecvLine):
         self.keyHandlers[CTRL_L        ] = self.handle_FF
         self.keyHandlers[CTRL_BACKSLASH] = self.handle_QUIT
 
-        wd = RootDirectory()
+        self.wd = RootDirectory()
 
     def handle_INT(self):
         """
