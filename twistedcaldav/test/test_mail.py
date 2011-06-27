@@ -243,14 +243,14 @@ END:VCALENDAR
         data = (
             # Initial invite
             (
-                """BEGIN:VCALENDAR
+                u"""BEGIN:VCALENDAR
 VERSION:2.0
 METHOD:REQUEST
 BEGIN:VEVENT
 UID:CFDD5E46-4F74-478A-9311-B3FF905449C3
 DTSTART:20100325T154500Z
 DTEND:20100325T164500Z
-ATTENDEE;CN=The Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:attendee@example.com
+ATTENDEE;CN=Th\xe9 Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:attendee@example.com
 ATTENDEE;CN=The Organizer;CUTYPE=INDIVIDUAL;EMAIL=organizer@example.com;PARTSTAT=ACCEPTED:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
 ORGANIZER;CN=The Organizer;EMAIL=organizer@example.com:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
 SUMMARY:testing outbound( )
@@ -264,7 +264,7 @@ END:VCALENDAR
                 "organizer@example.com",
                 "The Organizer",
                 [
-                    (u'The Attendee', u'attendee@example.com'),
+                    (u'Th\xe9 Attendee', u'attendee@example.com'),
                     (u'The Organizer', u'organizer@example.com')
                 ],
                 "The Organizer <organizer@example.com>",

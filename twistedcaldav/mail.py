@@ -537,8 +537,9 @@ class MailGatewayService(service.MultiService):
         it happens after we've shed privileges
         """
         service.MultiService.startService(self)
-        if self.mailer is not None:
-            self.mailer.purge()
+        mailer = getattr(self, "mailer", None)
+        if mailer is not None:
+            mailer.purge()
 
 
 class MailGatewayServiceMaker(LoggingMixIn):
@@ -853,7 +854,7 @@ class MailHandler(LoggingMixIn):
         for attendeeProp in calendar.getAllAttendeeProperties():
             cutype = attendeeProp.parameterValue('CUTYPE', None)
             if cutype == "INDIVIDUAL":
-                cn = attendeeProp.parameterValue("CN", None)
+                cn = attendeeProp.parameterValue("CN", None).decode("utf-8")
                 cuaddr = normalizeCUAddr(attendeeProp.value())
                 if cuaddr.startswith("mailto:"):
                     mailto = cuaddr[7:]
