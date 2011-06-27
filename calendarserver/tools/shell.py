@@ -121,7 +121,7 @@ class Directory(object):
             return subdir
 
     def subdir(self, name):
-        raise NotImplementedError()
+        raise NotFoundError("%s/%s" % (self, name))
 
 
 class RootDirectory(Directory):
@@ -132,6 +132,9 @@ class RootDirectory(Directory):
         Directory.__init__(self, ())
 
     def subdir(self, name):
+        if not name:
+            return self
+
         raise NotFoundError("%s/%s" % (self, name))
 
 
@@ -198,6 +201,8 @@ class ShellProtocol(HistoricRecvLine):
         print "-> %s" % (line,)
 
         lexer = shlex(line)
+        lexer.whitespace_split = True
+
         tokens = []
         while True:
             token = lexer.get_token()
@@ -207,9 +212,15 @@ class ShellProtocol(HistoricRecvLine):
 
         if tokens:
             cmd = tokens.pop(0)
+            #print "Arguments: %r" % (tokens,)
+
             m = getattr(self, "cmd_%s" % (cmd,), None)
             if m:
-                m(tokens)
+                try:
+                    m(tokens)
+                finally:
+                    sys.stderr.flush()
+                    sys.stdout.flush()
             else:
                 print "Unknown command: %s" % (cmd,)
 
@@ -227,7 +238,11 @@ class ShellProtocol(HistoricRecvLine):
             return
 
         path = posixpath.split(dirname)
-        self.wd = self.wd.goto(path)
+        try:
+            self.wd = self.wd.goto(path)
+        except NotFoundError:
+            print "Not such directory: %s" % (dirname,)
+            raise
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
