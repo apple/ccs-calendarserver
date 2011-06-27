@@ -35,7 +35,7 @@ from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
 
 from calendarserver.tools import export
 from calendarserver.tools.export import ExportOptions, main
-from calendarserver.tools.export import HomeExporter
+from calendarserver.tools.export import DirectoryExporter
 
 from twisted.python.filepath import FilePath
 from twistedcaldav.test.util import patchConfig
@@ -93,14 +93,14 @@ class CommandLine(TestCase):
 
     def test_oneHome(self):
         """
-        One '--record' option will result in a single HomeExporter object with
-        no calendars in its list.
+        One '--record' option will result in a single DirectoryExporter object
+        with no calendars in its list.
         """
         eo = ExportOptions()
         eo.parseOptions(["--record", "users:bob"])
         self.assertEquals(len(eo.exporters), 1)
         exp = eo.exporters[0]
-        self.assertIsInstance(exp, HomeExporter)
+        self.assertIsInstance(exp, DirectoryExporter)
         self.assertEquals(exp.recordType, "users")
         self.assertEquals(exp.shortName, "bob")
         self.assertEquals(exp.collections, [])

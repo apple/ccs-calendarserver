@@ -78,7 +78,7 @@ class ExportOptions(Options):
     """
     Command-line options for 'calendarserver_export'
 
-    @ivar exporters: a list of L{HomeExporter} objects which can identify the
+    @ivar exporters: a list of L{DirectoryExporter} objects which can identify the
         calendars to export, given a directory service.  This list is built by
         parsing --record and --collection options.
     """
@@ -99,7 +99,7 @@ class ExportOptions(Options):
         Add a directory record's calendar home (format: 'recordType:shortName').
         """
         recordType, shortName = recordName.split(":", 1)
-        self.exporters.append(HomeExporter(recordType, shortName))
+        self.exporters.append(DirectoryExporter(recordType, shortName))
 
     opt_r = opt_record
 
@@ -145,10 +145,10 @@ class ExportOptions(Options):
 
 
 
-class HomeExporter(object):
+class DirectoryExporter(object):
     """
-    An exporter that constructs a list of calendars based on the UID or
-    directory services record ID of the home.
+    An exporter that constructs a list of calendars based on the directory
+    services record ID of the home.
 
     @ivar collections: A list of the names of collections that this exporter
         should enumerate.
