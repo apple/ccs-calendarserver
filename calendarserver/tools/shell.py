@@ -22,6 +22,7 @@ Interactive shell for navigating the data store.
 
 import os
 import sys
+from shlex import shlex
 
 #from twisted.python import log
 from twisted.python.text import wordWrap
@@ -92,6 +93,25 @@ class ShellService(Service, object):
         """
 
 
+class Directory(object):
+    """
+    Location in virtual data hierarchy.
+    """
+    def __init__(self, path):
+        self.path = path
+
+    def __str__(self):
+        return "/" + "/".join(self.path)
+
+
+class RootDirectory(Directory):
+    """
+    Root of virtual data hierarchy.
+    """
+    def __init__(self):
+        Directory.__init__(self, ())
+
+
 class ShellProtocol(HistoricRecvLine):
     """
     Data store shell protocol.
@@ -102,6 +122,7 @@ class ShellProtocol(HistoricRecvLine):
     # * Backspace transposes characters in the terminal.
 
     ps = ("ds% ", "... ")
+    wd = RootDirectory()
 
     def connectionMade(self):
         HistoricRecvLine.connectionMade(self)
@@ -115,6 +136,8 @@ class ShellProtocol(HistoricRecvLine):
         self.keyHandlers[CTRL_D        ] = self.handle_EOF
         self.keyHandlers[CTRL_L        ] = self.handle_FF
         self.keyHandlers[CTRL_BACKSLASH] = self.handle_QUIT
+
+        wd = RootDirectory()
 
     def handle_INT(self):
         """
@@ -150,7 +173,29 @@ class ShellProtocol(HistoricRecvLine):
         self.terminal.loseConnection()
 
     def lineReceived(self, line):
-        print "---> %s" % (line,)
+        print "-> %s" % (line,)
+
+        lexer = shlex(line)
+        tokens = []
+        while True:
+            token = lexer.get_token()
+            if not token:
+                break
+            tokens.append(token)
+
+        if tokens:
+            cmd = tokens.pop()
+            m = getattr(self, "cmd_%s" % (cmd,), None)
+            if m:
+                m(tokens)
+            else:
+                print "Unknown command: %s" % (cmd,)
+
+    def cmd_pwd(self, tokens):
+        if tokens:
+            print "Unknown arguments: %s" % (tokens,)
+            return
+        print self.wd
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
