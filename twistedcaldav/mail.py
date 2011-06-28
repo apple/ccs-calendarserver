@@ -1248,7 +1248,7 @@ class MailHandler(LoggingMixIn):
         results['month'] = dtStart.getMonth()
         results['day'] = dtStart.getDay()
 
-        summary = component.propertyValue("SUMMARY")
+        summary = component.propertyValue("SUMMARY").decode("utf-8")
         if summary is None:
             summary = ""
         results['summary'] = summary
