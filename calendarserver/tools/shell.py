@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- test-case-name: calendarserver.tools.test.test_export -*-
 ##
 # Copyright (c) 2011 Apple Inc. All rights reserved.
 #
@@ -94,85 +93,6 @@ class ShellService(Service, object):
         """
         Stop the service.
         """
-
-
-class Directory(object):
-    """
-    Location in virtual data hierarchy.
-    """
-    def __init__(self, path):
-        assert type(path) is tuple
-
-        self.path = path
-
-    def __str__(self):
-        return "/" + "/".join(self.path)
-
-    def locate(self, path):
-        if not path:
-            return RootDirectory()
-
-        path = list(path)
-
-        if path[0].startswith("/"):
-            path[0] = path[0][1:]
-            subdir = RootDirectory()
-        else:
-            name = path.pop(0)
-            subdir = self.subdir(name)
-
-        if path:
-            return subdir.locate(path)
-        else:
-            return subdir
-
-    def subdir(self, name):
-        if not name:
-            return self
-        if name == ".":
-            return self
-        if name == "..":
-            return self.locate(self.path[:-1])
-
-        raise NotFoundError("Directory %r has no subdirectory %r" % (str(self), name))
-
-    def list(self):
-        return ()
-
-
-class UIDDirectory(Directory):
-    """
-    Directory containing all principals by UID.
-    """
-    def subdir(self, name):
-        return Directory.subdir(self, name)
-
-
-class RootDirectory(Directory):
-    """
-    Root of virtual data hierarchy.
-    """
-    _childClasses = {
-        "uids": UIDDirectory,
-    }
-
-    def __init__(self):
-        Directory.__init__(self, ())
-
-        self._children = {}
-
-    def subdir(self, name):
-        if name in self._children:
-            return self._children[name]
-
-        if name in self._childClasses:
-            self._children[name] = self._childClasses[name](self.path + (name,))
-            return self._children[name]
-
-        return Directory.subdir(self, name)
-
-    def list(self):
-        return ("%s/" % (n,) for n in self._childClasses)
 
 
 class ShellProtocol(HistoricRecvLine):
@@ -293,6 +213,85 @@ class ShellProtocol(HistoricRecvLine):
 
         for name in self.wd.list():
             print name
+
+
+class Directory(object):
+    """
+    Location in virtual data hierarchy.
+    """
+    def __init__(self, path):
+        assert type(path) is tuple
+
+        self.path = path
+
+    def __str__(self):
+        return "/" + "/".join(self.path)
+
+    def locate(self, path):
+        if not path:
+            return RootDirectory()
+
+        path = list(path)
+
+        if path[0].startswith("/"):
+            path[0] = path[0][1:]
+            subdir = RootDirectory()
+        else:
+            name = path.pop(0)
+            subdir = self.subdir(name)
+
+        if path:
+            return subdir.locate(path)
+        else:
+            return subdir
+
+    def subdir(self, name):
+        if not name:
+            return self
+        if name == ".":
+            return self
+        if name == "..":
+            return self.locate(self.path[:-1])
+
+        raise NotFoundError("Directory %r has no subdirectory %r" % (str(self), name))
+
+    def list(self):
+        return ()
+
+
+class UIDDirectory(Directory):
+    """
+    Directory containing all principals by UID.
+    """
+    def subdir(self, name):
+        return Directory.subdir(self, name)
+
+
+class RootDirectory(Directory):
+    """
+    Root of virtual data hierarchy.
+    """
+    _childClasses = {
+        "uids": UIDDirectory,
+    }
+
+    def __init__(self):
+        Directory.__init__(self, ())
+
+        self._children = {}
+
+    def subdir(self, name):
+        if name in self._children:
+            return self._children[name]
+
+        if name in self._childClasses:
+            self._children[name] = self._childClasses[name](self.path + (name,))
+            return self._children[name]
+
+        return Directory.subdir(self, name)
+
+    def list(self):
+        return ("%s/" % (n,) for n in self._childClasses)
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
