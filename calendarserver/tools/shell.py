@@ -22,7 +22,7 @@ Interactive shell for navigating the data store.
 
 import os
 import sys
-import posixpath
+import traceback
 from shlex import shlex
 
 #from twisted.python import log
@@ -101,41 +101,78 @@ class Directory(object):
     Location in virtual data hierarchy.
     """
     def __init__(self, path):
+        assert type(path) is tuple
+
         self.path = path
 
     def __str__(self):
         return "/" + "/".join(self.path)
 
-    def goto(self, path):
+    def locate(self, path):
+        if not path:
+            return RootDirectory()
+
         path = list(path)
 
         if path[0].startswith("/"):
             path[0] = path[0][1:]
             subdir = RootDirectory()
         else:
-            subdir = self.subdir(path.pop(0))
+            name = path.pop(0)
+            subdir = self.subdir(name)
 
         if path:
-            return subdir.goto(path)
+            return subdir.locate(path)
         else:
             return subdir
 
     def subdir(self, name):
-        raise NotFoundError("%s/%s" % (self, name))
+        if not name:
+            return self
+        if name == ".":
+            return self
+        if name == "..":
+            return self.locate(self.path[:-1])
+
+        raise NotFoundError("Directory %r has no subdirectory %r" % (str(self), name))
+
+    def list(self):
+        return ()
+
+
+class UIDDirectory(Directory):
+    """
+    Directory containing all principals by UID.
+    """
+    def subdir(self, name):
+        return Directory.subdir(self, name)
 
 
 class RootDirectory(Directory):
     """
     Root of virtual data hierarchy.
     """
+    _childClasses = {
+        "uids": UIDDirectory,
+    }
+
     def __init__(self):
         Directory.__init__(self, ())
 
-    def subdir(self, name):
-        if not name:
-            return self
+        self._children = {}
 
-        raise NotFoundError("%s/%s" % (self, name))
+    def subdir(self, name):
+        if name in self._children:
+            return self._children[name]
+
+        if name in self._childClasses:
+            self._children[name] = self._childClasses[name](self.path + (name,))
+            return self._children[name]
+
+        return Directory.subdir(self, name)
+
+    def list(self):
+        return ("%s/" % (n,) for n in self._childClasses)
 
 
 class ShellProtocol(HistoricRecvLine):
@@ -218,9 +255,11 @@ class ShellProtocol(HistoricRecvLine):
             if m:
                 try:
                     m(tokens)
-                finally:
-                    sys.stderr.flush()
-                    sys.stdout.flush()
+                except Exception, e:
+                    print "Error: %s" % (e,)
+                    print "-"*80
+                    traceback.print_exc()
+                    print "-"*80
             else:
                 print "Unknown command: %s" % (cmd,)
 
@@ -233,16 +272,27 @@ class ShellProtocol(HistoricRecvLine):
     def cmd_cd(self, tokens):
         if tokens:
             dirname = tokens.pop(0)
+        else:
+            return
+
         if tokens:
             print "Unknown arguments: %s" % (tokens,)
             return
 
-        path = posixpath.split(dirname)
+        path = dirname.split("/")
         try:
-            self.wd = self.wd.goto(path)
+            self.wd = self.wd.locate(path)
         except NotFoundError:
-            print "Not such directory: %s" % (dirname,)
+            print "No such directory: %s" % (dirname,)
             raise
+
+    def cmd_ls(self, tokens):
+        if tokens:
+            print "Unknown arguments: %s" % (tokens,)
+            return
+
+        for name in self.wd.list():
+            print name
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
