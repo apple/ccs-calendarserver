@@ -24,7 +24,8 @@ from vobject.icalendar import dateTimeToString
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred
 from twisted.trial.unittest import TestCase
-from twisted.web.http import OK, MULTI_STATUS
+from twisted.web.http import OK, NO_CONTENT, CREATED, MULTI_STATUS
+from twisted.web.http_headers import Headers
 from twisted.web.client import ResponseDone
 from twisted.internet.protocol import ProtocolToConsumerAdapter
 
@@ -800,13 +801,17 @@ END:VCALENDAR
 
 class MemoryResponse(object):
     def __init__(self, version, code, phrase, headers, bodyProducer):
-        self.bodyProducer = bodyProducer
+        self.version = version
+        self.code = code
+        self.phrase = phrase
+        self.headers = headers
         self.length = bodyProducer.length
+        self._bodyProducer = bodyProducer
 
 
     def deliverBody(self, protocol):
-        protocol.makeConnection(self.bodyProducer)
-        d = self.bodyProducer.startProducing(ProtocolToConsumerAdapter(protocol))
+        protocol.makeConnection(self._bodyProducer)
+        d = self._bodyProducer.startProducing(ProtocolToConsumerAdapter(protocol))
         d.addCallback(lambda ignored: protocol.connectionLost(Failure(ResponseDone())))
 
 
@@ -952,6 +957,9 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         """
         requests = self.interceptRequests()
 
+        calendar = Calendar(caldavxml.calendar, u'calendar', u'/mumble/', None)
+        self.client._calendars[calendar.url] = calendar
+
         vcalendar = list(readComponents(EVENT))[0]
         d = self.client.addEvent(u'/mumble/frotz.ics', vcalendar)
 
@@ -959,10 +967,11 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
 
         # iCal PUTs the new VCALENDAR object.
         expectedResponseCode, method, url, headers, body = req
-        self.assertEquals(method, 'PUT')
-        self.assertEquals(url, 'http://127.0.0.1/mumble/frotz.ics')
+        self.assertEqual(expectedResponseCode, CREATED)
+        self.assertEqual(method, 'PUT')
+        self.assertEqual(url, 'http://127.0.0.1/mumble/frotz.ics')
         self.assertIsInstance(url, str)
-        self.assertEquals(headers.getRawHeaders('content-type'), ['text/calendar'])
+        self.assertEqual(headers.getRawHeaders('content-type'), ['text/calendar'])
 
         consumer = MemoryConsumer()
         finished = body.startProducing(consumer)
@@ -971,7 +980,15 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
                 list(readComponents(consumer.value()))[0],
                 vcalendar)
         finished.addCallback(cbFinished)
-        return finished
+
+        def requested(ignored):
+            response = MemoryResponse(
+                ('HTTP', '1', '1'), CREATED, "Created", Headers({}),
+                StringProducer(""))
+            result.callback(response)
+        finished.addCallback(requested)
+
+        return d
 
 
     def test_deleteEvent(self):
@@ -992,12 +1009,20 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         result, req = requests.pop()
 
         expectedResponseCode, method, url = req
-        self.assertEquals(method, 'DELETE')
-        self.assertEquals(url, 'http://127.0.0.1' + event.url)
+
+        self.assertEqual(expectedResponseCode, NO_CONTENT)
+        self.assertEqual(method, 'DELETE')
+        self.assertEqual(url, 'http://127.0.0.1' + event.url)
         self.assertIsInstance(url, str)
 
         self.assertNotIn(event.url, self.client._events)
         self.assertNotIn(u'bar.ics', calendar.events)
+
+        response = MemoryResponse(
+            ('HTTP', '1', '1'), NO_CONTENT, "No Content", None,
+            StringProducer(""))
+        result.callback(response)
+        return d
 
 
     def assertComponentsEqual(self, first, second):
@@ -1091,7 +1116,7 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
 
         calendar = Calendar(None, 'calendar', '/something/', None)
         self.client._calendars[calendar.url] = calendar
-        d = self.client._updateCalendar(calendar)
+        self.client._updateCalendar(calendar)
         result, req = requests.pop(0)
         expectedResponseCode, method, url, headers, body = req
         self.assertEqual('PROPFIND', method)
@@ -1182,6 +1207,15 @@ SUMMARY:Availability for urn:uuid:user05, urn:uuid:user10
 END:VFREEBUSY
 END:VCALENDAR
 """.replace('\n', '\r\n') % {'uid': uid, 'dtstamp': dtstamp},consumer.value())
+
         finished.addCallback(cbFinished)
-        return finished
+
+        def requested(ignored):
+            response = MemoryResponse(
+                ('HTTP', '1', '1'), OK, "Ok", Headers({}),
+                StringProducer(""))
+            result.callback(response)
+        finished.addCallback(requested)
+
+        return d
 
