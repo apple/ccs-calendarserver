@@ -69,7 +69,6 @@ class DistributionTests(TestCase):
     def test_workdistribution(self):
         tzname = "US/Eastern"
         tzinfo = pytz.timezone(tzname)
-        print tzinfo
         dist = WorkDistribution(["mon", "wed", "thu", "sat"], 10, 20, tzname)
         dist._helperDistribution = UniformDiscreteDistribution([35 * 60 * 60 + 30 * 60])
         dist.now = lambda tz=None: datetime(2011, 5, 29, 18, 5, 36, tzinfo=tz)
