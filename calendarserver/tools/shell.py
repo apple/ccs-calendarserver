@@ -27,6 +27,7 @@ from shlex import shlex
 #from twisted.python import log
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
+from twisted.internet.defer import succeed, maybeDeferred
 from twisted.conch.stdio import runWithProtocol as shellWithProtocol
 from twisted.conch.recvline import HistoricRecvLine
 from twisted.application.service import Service
@@ -156,42 +157,59 @@ class ShellProtocol(HistoricRecvLine):
     def handle_QUIT(self):
         self.terminal.loseConnection()
 
+    def prompt(self):
+        pass
+
     def lineReceived(self, line):
-        print "-> %s" % (line,)
+        try:
+            lexer = shlex(line)
+            lexer.whitespace_split = True
 
-        lexer = shlex(line)
-        lexer.whitespace_split = True
+            tokens = []
+            while True:
+                token = lexer.get_token()
+                if not token:
+                    break
+                tokens.append(token)
 
-        tokens = []
-        while True:
-            token = lexer.get_token()
-            if not token:
-                break
-            tokens.append(token)
+            if tokens:
+                cmd = tokens.pop(0)
+                #print "Arguments: %r" % (tokens,)
 
-        if tokens:
-            cmd = tokens.pop(0)
-            #print "Arguments: %r" % (tokens,)
+                m = getattr(self, "cmd_%s" % (cmd,), None)
+                if m:
+                    def onError(f):
+                        print "Error: %s" % (f.getErrorMessage(),)
+                        print "-"*80
+                        f.printTraceback()
+                        print "-"*80
 
-            m = getattr(self, "cmd_%s" % (cmd,), None)
-            if m:
-                try:
-                    m(tokens)
-                except Exception, e:
-                    print "Error: %s" % (e,)
-                    print "-"*80
-                    traceback.print_exc()
-                    print "-"*80
-            else:
-                print "Unknown command: %s" % (cmd,)
+                    d = maybeDeferred(m, tokens)
+                    d.addCallback(lambda _: self.prompt)
+                    d.addErrback(onError)
+                    return d
+                else:
+                    print "Unknown command: %s" % (cmd,)
+
+        except Exception, e:
+            print "Error: %s" % (e,)
+            print "-"*80
+            traceback.print_exc()
+            print "-"*80
 
     def cmd_pwd(self, tokens):
+        """
+        Print working directory.
+        """
         if tokens:
             print "Unknown arguments: %s" % (tokens,)
             return
         print self.wd
 
     def cmd_cd(self, tokens):
+        """
+        Change working directory.
+        """
         if tokens:
             dirname = tokens.pop(0)
         else:
@@ -202,13 +220,23 @@ class ShellProtocol(HistoricRecvLine):
             return
 
         path = dirname.split("/")
-        try:
-            self.wd = self.wd.locate(path)
-        except NotFoundError:
+
+        def notFound(f):
+            f.trap(NotFoundError)
             print "No such directory: %s" % (dirname,)
-            raise
+
+        def setWD(wd):
+            self.wd = wd
+
+        d = self.wd.locate(path)
+        d.addCallback(setWD)
+        d.addErrback(notFound)
+        return d
 
     def cmd_ls(self, tokens):
+        """
+        List working directory.
+        """
         if tokens:
             print "Unknown arguments: %s" % (tokens,)
             return
@@ -216,7 +244,25 @@ class ShellProtocol(HistoricRecvLine):
         for name in self.wd.list():
             print name
 
+    def cmd_info(self, tokens):
+        """
+        Print information about working directory.
+        """
+        d = self.wd.describe()
+        d.addCallback(lambda x: sys.stdout.write(x))
+        return d
+
+    def cmd_exit(self, tokens):
+        """
+        Exit the shell.
+        """
+        self.terminal.loseConnection()
+        # FIXME: This is insufficient.
+
     def cmd_python(self, tokens):
+        """
+        Switch to a python prompt.
+        """
         # Crazy idea #19568: switch to an interactive python prompt
         # with self exposed in globals.
         raise NotImplementedError()
@@ -235,33 +281,36 @@ class Directory(object):
     def __str__(self):
         return "/" + "/".join(self.path)
 
+    def describe(self):
+        return succeed(str(self))
+
     def locate(self, path):
         if not path:
-            return RootDirectory(self.store)
+            return succeed(RootDirectory(self.store))
 
         name = path[0]
         if not name:
-            return self.locate(path[1:])
+            return succeed(self.locate(path[1:]))
 
         path = list(path)
 
         if name.startswith("/"):
             path[0] = path[0][1:]
-            subdir = RootDirectory(self.store)
+            subdir = succeed(RootDirectory(self.store))
         else:
             path.pop(0)
             subdir = self.subdir(name)
 
         if path:
-            return subdir.locate(path)
+            return subdir.addCallback(lambda path: locate(path))
         else:
             return subdir
 
     def subdir(self, name):
         if not name:
-            return self
+            return succeed(self)
         if name == ".":
-            return self
+            return succeed(self)
         if name == "..":
             return RootDirectory(self.store).locate(self.path[:-1])
 
@@ -286,11 +335,11 @@ class RootDirectory(Directory):
 
     def subdir(self, name):
         if name in self._children:
-            return self._children[name]
+            return succeed(self._children[name])
 
         if name in self._childClasses:
             self._children[name] = self._childClasses[name](self.store, self.path + (name,))
-            return self._children[name]
+            return succeed(self._children[name])
 
         return Directory.subdir(self, name)
 
@@ -304,12 +353,16 @@ class UIDDirectory(Directory):
     """
     def subdir(self, name):
         txn = self.store.newTransaction()
-        home = txn.calendarHomeWithUID(name)
 
-        if home:
-            return HomeDirectory(self.store, self.path + (name,), name)
+        def gotHome(home):
+            if home:
+                return HomeDirectory(self.store, self.path + (name,), home)
 
-        return Directory.subdir(self, name)
+            return Directory.subdir(self, name)
+
+        d = txn.calendarHomeWithUID(name)
+        d.addCallback(gotHome)
+        return d
 
     def list(self):
         for (txn, home) in self.store.eachCalendarHome():
@@ -324,6 +377,18 @@ class HomeDirectory(Directory):
         Directory.__init__(self, store, path)
 
         self.home = home
+
+    def describe(self):
+        return succeed(
+            """Calendar home for UID: %(uid)s\n"""
+            """Quota: %(quotaUsed)s of %(quotaMax)s (%(quotaPercent).2s%%)\n"""
+            % {
+                "uid"          : self.home.uid(),
+                "quotaUsed"    : self.home.quotaUsed(),
+                "quotaMax"     : self.home.quotaAllowedBytes(),
+                "quotaPercent" : self.home.quotaUsed() / self.home.quotaAllowedBytes(),
+            }
+        )
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
