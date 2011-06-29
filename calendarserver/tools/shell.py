@@ -86,7 +86,7 @@ class ShellService(Service, object):
         Start the service.
         """
         super(ShellService, self).startService()
-        shellWithProtocol(ShellProtocol)
+        shellWithProtocol(lambda: ShellProtocol(self.store))
         self.reactor.stop()
 
     def stopService(self):
@@ -106,6 +106,10 @@ class ShellProtocol(HistoricRecvLine):
 
     ps = ("ds% ", "... ")
 
+    def __init__(self, store):
+        HistoricRecvLine.__init__(self)
+        self.wd = RootDirectory(store)
+
     def connectionMade(self):
         HistoricRecvLine.connectionMade(self)
 
@@ -118,8 +122,6 @@ class ShellProtocol(HistoricRecvLine):
         self.keyHandlers[CTRL_D        ] = self.handle_EOF
         self.keyHandlers[CTRL_L        ] = self.handle_FF
         self.keyHandlers[CTRL_BACKSLASH] = self.handle_QUIT
-
-        self.wd = RootDirectory()
 
     def handle_INT(self):
         """
@@ -219,9 +221,10 @@ class Directory(object):
     """
     Location in virtual data hierarchy.
     """
-    def __init__(self, path):
+    def __init__(self, store, path):
         assert type(path) is tuple
 
+        self.store = store
         self.path = path
 
     def __str__(self):
@@ -229,13 +232,13 @@ class Directory(object):
 
     def locate(self, path):
         if not path:
-            return RootDirectory()
+            return RootDirectory(self.store)
 
         path = list(path)
 
         if path[0].startswith("/"):
             path[0] = path[0][1:]
-            subdir = RootDirectory()
+            subdir = RootDirectory(self.store)
         else:
             name = path.pop(0)
             subdir = self.subdir(name)
@@ -259,39 +262,59 @@ class Directory(object):
         return ()
 
 
-class UIDDirectory(Directory):
-    """
-    Directory containing all principals by UID.
-    """
-    def subdir(self, name):
-        return Directory.subdir(self, name)
-
-
 class RootDirectory(Directory):
     """
     Root of virtual data hierarchy.
     """
-    _childClasses = {
-        "uids": UIDDirectory,
-    }
-
-    def __init__(self):
-        Directory.__init__(self, ())
+    def __init__(self, store):
+        Directory.__init__(self, store, ())
 
         self._children = {}
+
+        self._childClasses = {
+            "uids": UIDDirectory,
+        }
 
     def subdir(self, name):
         if name in self._children:
             return self._children[name]
 
         if name in self._childClasses:
-            self._children[name] = self._childClasses[name](self.path + (name,))
+            self._children[name] = self._childClasses[name](self.store, self.path + (name,))
             return self._children[name]
 
         return Directory.subdir(self, name)
 
     def list(self):
         return ("%s/" % (n,) for n in self._childClasses)
+
+
+class UIDDirectory(Directory):
+    """
+    Directory containing all principals by UID.
+    """
+    def subdir(self, name):
+        txn = self.store.newTransaction()
+        home = txn.calendarHomeWithUID(name)
+
+        if home:
+            return HomeDirectory(self.store, self.path + (name,), name)
+
+        return Directory.subdir(self, name)
+
+    def list(self):
+        for (txn, home) in self.store.eachCalendarHome():
+            yield home.uid()
+
+
+class HomeDirectory(Directory):
+    """
+    Home directory.
+    """
+    def __init__(self, store, path, home):
+        Directory.__init__(self, store, path)
+
+        self.home = home
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
