@@ -216,6 +216,11 @@ class ShellProtocol(HistoricRecvLine):
         for name in self.wd.list():
             print name
 
+    def cmd_python(self, tokens):
+        # Crazy idea #19568: switch to an interactive python prompt
+        # with self exposed in globals.
+        raise NotImplementedError()
+
 
 class Directory(object):
     """
@@ -234,13 +239,17 @@ class Directory(object):
         if not path:
             return RootDirectory(self.store)
 
+        name = path[0]
+        if not name:
+            return self.locate(path[1:])
+
         path = list(path)
 
-        if path[0].startswith("/"):
+        if name.startswith("/"):
             path[0] = path[0][1:]
             subdir = RootDirectory(self.store)
         else:
-            name = path.pop(0)
+            path.pop(0)
             subdir = self.subdir(name)
 
         if path:
@@ -254,7 +263,7 @@ class Directory(object):
         if name == ".":
             return self
         if name == "..":
-            return self.locate(self.path[:-1])
+            return RootDirectory(self.store).locate(self.path[:-1])
 
         raise NotFoundError("Directory %r has no subdirectory %r" % (str(self), name))
 
