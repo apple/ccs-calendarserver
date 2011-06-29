@@ -208,7 +208,7 @@ class StubClient(BaseClient):
 
 
     def deleteEvent(self, href):
-        event = self._events.pop(href)
+        del self._events[href]
         calendar, uid = href.rsplit('/', 1)
         del self._calendars[calendar + '/'].events[uid]
 
