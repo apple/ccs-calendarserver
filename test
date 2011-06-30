@@ -72,8 +72,10 @@ trial="$(type -p trial)";
 
 if [ $# -gt 0 ]; then
   test_modules="$@";
+  flaky=false;
 else
   test_modules="calendarserver twistedcaldav twext txdav contrib ${m_twisted}";
+  flaky=true;
 fi;
 
 find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
@@ -83,11 +85,13 @@ cd "${wd}" && "${python}" "${trial}" --temp-directory="${wd}/data/trial" --rterr
 
 tmp="$(mktemp "/tmp/calendarserver_test.XXXXX")";
 
-echo "";
-echo "Running pyflakes...";
-cd "${wd}" && ./pyflakes $(echo ${test_modules} | sed 's|\.|/|g' | sed 's|\([^.][^p][^y]\)$|\1.py|') | tee "${tmp}" 2>&1;
-if [ -s "${tmp}" ]; then
-  echo "**** Pyflakes says you have some code to clean up. ****";
-  exit 1;
+if ${flaky}; then
+  echo "";
+  echo "Running pyflakes...";
+  cd "${wd}" && ./pyflakes ${test_modules} | tee "${tmp}" 2>&1;
+  if [ -s "${tmp}" ]; then
+    echo "**** Pyflakes says you have some code to clean up. ****";
+    exit 1;
+  fi;
+  rm -f "${tmp}";
 fi;
-rm -f "${tmp}";
