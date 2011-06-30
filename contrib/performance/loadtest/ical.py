@@ -29,6 +29,7 @@ from vobject.icalendar import VEvent, dateTimeToString
 from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
 from twisted.python.failure import Failure
+from twisted.python.util import FancyEqMixin
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.http_headers import Headers
@@ -64,6 +65,19 @@ class IncorrectResponseCode(Exception):
     def __init__(self, expected, response):
         self.expected = expected
         self.response = response
+
+
+
+class XMPPPush(object, FancyEqMixin):
+    """
+    This represents an XMPP PubSub location where push notifications for
+    particular calendar home might be received.
+    """
+    compareAttributes = ('server', 'uri')
+
+    def __init__(self, server, uri):
+        self.server = server
+        self.uri = uri
 
 
 
@@ -177,6 +191,11 @@ class SnowLeopard(BaseClient):
         # part of), values are Event instances.
         self._events = {}
 
+        # Keep track of XMPP parameters for calendar homes we encounter.  This
+        # dictionary has calendar home URLs as keys and XMPPPush instances as
+        # values.
+        self.xmpp = {}
+
         # Allow events to go out into the world.
         self.catalog = {
             "eventChanged": Periodical(),
@@ -232,9 +251,13 @@ class SnowLeopard(BaseClient):
             csxml.notification,
             csxml.dropbox_home,
             ])
-    def _extractCalendars(self, response):
+    def _extractCalendars(self, response, calendarHome=None):
         """
-        Parse 
+        Parse a calendar home PROPFIND response and create local state
+        representing the calendars it contains.
+
+        If XMPP push is enabled, also look for and record information about
+        that from the response.
         """
         calendars = []
         principals = self._parseMultiStatus(response)
@@ -242,6 +265,14 @@ class SnowLeopard(BaseClient):
         # XXX Here, it would be really great to somehow use
         # CalDAVClientLibrary.client.principal.CalDAVPrincipal.listCalendars
         for principal in principals:
+
+            if principal == calendarHome:
+                text = principals[principal].getTextProperties()
+                server = text[csxml.xmpp_server]
+                uri = text[csxml.xmpp_uri]
+                if server and uri:
+                    self.xmpp[principal] = XMPPPush(server, uri)
+
             nodes = principals[principal].getNodeProperties()
             for nodeType in nodes[davxml.resourcetype].getchildren():
                 if nodeType.tag in self._CALENDAR_TYPES:
@@ -308,7 +339,7 @@ class SnowLeopard(BaseClient):
                     'depth': ['1']}),
             StringProducer(self._STARTUP_CALENDARHOME_PROPFIND))
         d.addCallback(readBody)
-        d.addCallback(self._extractCalendars)
+        d.addCallback(self._extractCalendars, '/' + calendarHomeSet)
         return d
 
 

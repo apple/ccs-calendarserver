@@ -34,7 +34,7 @@ from protocol.webdav.definitions import davxml
 from protocol.caldav.definitions import caldavxml
 from protocol.caldav.definitions import csxml
 
-from loadtest.ical import Event, Calendar, SnowLeopard
+from loadtest.ical import XMPPPush, Event, Calendar, SnowLeopard
 from httpclient import MemoryConsumer, StringProducer
 
 EVENT_UID = 'D94F247D-7433-43AF-B84B-ADD684D023B0'
@@ -172,16 +172,14 @@ PRINCIPAL_PROPFIND_RESPONSE = """\
 </multistatus>
 """
 
-
-CALENDAR_HOME_PROPFIND_RESPONSE = """\
+_CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE = """\
 <?xml version='1.0' encoding='UTF-8'?>
 <multistatus xmlns='DAV:'>
   <response>
     <href>/calendars/__uids__/user01/</href>
     <propstat>
       <prop>
-        <xmpp-server xmlns='http://calendarserver.org/ns/'/>
-        <xmpp-uri xmlns='http://calendarserver.org/ns/'/>
+        %(xmpp)s
         <displayname>User 01</displayname>
         <resourcetype>
           <collection/>
@@ -798,6 +796,18 @@ END:VCALENDAR
 </multistatus>
 """
 
+CALENDAR_HOME_PROPFIND_RESPONSE = _CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE % {
+    "xmpp": """\
+        <xmpp-server xmlns='http://calendarserver.org/ns/'/>
+        <xmpp-uri xmlns='http://calendarserver.org/ns/'/>""",
+    }
+
+CALENDAR_HOME_PROPFIND_RESPONSE_WITH_XMPP = _CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE % {
+    "xmpp": """\
+        <xmpp-server xmlns='http://calendarserver.org/ns/'>xmpp.example.invalid:1952</xmpp-server>
+        <xmpp-uri xmlns='http://calendarserver.org/ns/'>xmpp:pubsub.xmpp.example.invalid?pubsub;node=/CalDAV/another.example.invalid/user01/</xmpp-uri>""",
+    }
+
 
 class MemoryResponse(object):
     def __init__(self, version, code, phrase, headers, bodyProducer):
@@ -883,7 +893,9 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         PROPFIND response body and returns a list of calendar objects
         constructed from the data extracted from the response.
         """
-        calendars = self.client._extractCalendars(CALENDAR_HOME_PROPFIND_RESPONSE)
+        home = "/calendars/__uids__/user01/"
+        calendars = self.client._extractCalendars(
+            CALENDAR_HOME_PROPFIND_RESPONSE, home)
         calendars.sort(key=lambda cal: cal.resourceType)
         dropbox, notification, calendar, inbox, outbox = calendars
 
@@ -911,6 +923,23 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         self.assertEquals(outbox.name, None)
         self.assertEquals(outbox.url, "/calendars/__uids__/user01/outbox/")
         self.assertEquals(outbox.ctag, None)
+
+        self.assertEqual({}, self.client.xmpp)
+
+
+    def test_extractCalendarsXMPP(self):
+        """
+        If there is XMPP push information in a calendar home PROPFIND response,
+        L{SnowLeopard._extractCalendars} finds it and records it.
+        """
+        home = "/calendars/__uids__/user01/"
+        calendars = self.client._extractCalendars(
+            CALENDAR_HOME_PROPFIND_RESPONSE_WITH_XMPP, home)
+        self.assertEqual({
+                home: XMPPPush(
+                    "xmpp.example.invalid:1952",
+                    "xmpp:pubsub.xmpp.example.invalid?pubsub;node=/CalDAV/another.example.invalid/user01/")},
+                         self.client.xmpp)
 
 
     def test_changeEventAttendee(self):
