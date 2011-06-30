@@ -270,13 +270,11 @@ def exportToFile(calendars, fileobj):
                 calendar.ownerCalendarHome().uid(), True)
             for sub in evt.subcomponents():
                 if sub.name() != 'VTIMEZONE':
-                    # Omit all VTIMEZONE components, since PyCalendar will
-                    # helpfully re-include all necessary VTIMEZONEs when we call
-                    # __str__; see pycalendar.calendar.PyCalendar.generate() and
-                    # .includeTimezones().
+                    # Omit all VTIMEZONE components here - we will include them later
+                    # when we serialize the whole calendar.
                     comp.addComponent(sub)
 
-    fileobj.write(str(comp))
+    fileobj.write(comp.getText())
 
 
 
