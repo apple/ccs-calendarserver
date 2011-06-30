@@ -48,7 +48,7 @@ from pycalendar.calendar import PyCalendar
 from pycalendar.componentbase import PyCalendarComponentBase
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
-from pycalendar.exceptions import PyCalendarInvalidData
+from pycalendar.exceptions import PyCalendarError
 from pycalendar.period import PyCalendarPeriod
 from pycalendar.property import PyCalendarProperty
 from pycalendar.timezone import PyCalendarTimezone
@@ -343,7 +343,7 @@ class Component (object):
         cal = PyCalendar()
         try:
             result = cal.parse(stream)
-        except PyCalendarInvalidData:
+        except PyCalendarError:
             result = None
         if not result:
             stream.seek(0)
@@ -421,6 +421,9 @@ class Component (object):
             self._parent = None
 
     def __str__ (self):
+        """
+        NB This does not automatically include timezones in VCALENDAR objects.
+        """
         return str(self._pycalendar)
 
     def __repr__(self):
@@ -436,6 +439,17 @@ class Component (object):
         if not isinstance(other, Component):
             return False
         return self._pycalendar == other._pycalendar
+
+    def getText(self):
+        """
+        Serialize the calendar object. For a VCALENDAR always ensure the proper set of
+        timezones are included.
+        """
+        
+        if self.name() == "VCALENDAR":
+            return self._pycalendar.getText(includeTimezones=True)
+        else:
+            return self._pycalendar.getText()
 
     # FIXME: Should this not be in __eq__?
     def same(self, other):
@@ -1239,9 +1253,11 @@ class Component (object):
 
         return self._resource_type
 
-    def validCalendarForCalDAV(self):
+    def validCalendarData(self, doFix=True, doRaise=True):
         """
-        @raise InvalidICalendarDataError: if the given calendar data is not valid.
+        @return: tuple of fixed, unfixed issues
+        @raise InvalidICalendarDataError: if the given calendar data is not valid and
+            cannot be fixed.
         """
         if self.name() != "VCALENDAR":
             log.debug("Not a calendar: %s" % (self,))
@@ -1250,34 +1266,30 @@ class Component (object):
             log.debug("Unknown resource type: %s" % (self,))
             raise InvalidICalendarDataError("Unknown resource type")
 
-        version = self.propertyValue("VERSION")
-        if version != "2.0":
-            msg = "Not a version 2.0 iCalendar (version=%s)" % (version,)
-            log.debug(msg)
-            raise InvalidICalendarDataError(msg)
+        # Do underlying iCalendar library validation with data fix
+        fixed, unfixed = self._pycalendar.validate(doFix=doFix)
+        if unfixed:
+            log.debug("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
+            if doRaise:
+                raise InvalidICalendarDataError("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
+        if fixed:
+            log.debug("Calendar data had fixable problems:\n  %s" % ("\n  ".join(fixed),))
+        
+        return fixed, unfixed
 
-    def validateForCalDAV(self):
+    def validCalendarForCalDAV(self, methodAllowed):
         """
+        @param methodAllowed:     True if METHOD property is allowed, False otherwise.
         @raise InvalidICalendarDataError: if the given calendar component is not valid for
             use as a X{CalDAV} resource.
         """
-        self.validCalendarForCalDAV()
 
         # Disallowed in CalDAV-Access-08, section 4.1
-        if self.hasProperty("METHOD"):
+        if not methodAllowed and self.hasProperty("METHOD"):
             msg = "METHOD property is not allowed in CalDAV iCalendar data"
             log.debug(msg)
             raise InvalidICalendarDataError(msg)
 
-        self.validateComponentsForCalDAV(False)
-
-    def validateComponentsForCalDAV(self, method, fix=False):
-        """
-        @param method:     True if METHOD property is allowed, False otherwise.
-        @param fix:        True to try and fix bogus data
-        @raise InvalidICalendarDataError: if the given calendar component is not valid for
-            use as a X{CalDAV} resource.
-        """
         #
         # Must not contain more than one type of iCalendar component, except for
         # the required timezone components, and component UIDs must match
@@ -1292,12 +1304,6 @@ class Component (object):
         #master_recurring = False
         
         for subcomponent in self.subcomponents():
-            # Disallowed in CalDAV-Access-08, section 4.1
-            if not method and subcomponent.hasProperty("METHOD"):
-                msg = "METHOD property is not allowed in CalDAV iCalendar data"
-                log.debug(msg)
-                raise InvalidICalendarDataError(msg)
-        
             if subcomponent.name() == "VTIMEZONE":
                 timezones.add(subcomponent.propertyValue("TZID"))
             elif subcomponent.name() in ignoredComponents:
@@ -1363,42 +1369,6 @@ class Component (object):
                 else:
                     component_rids.add(rid)
 
-                # Check for mismatch in DTSTART and UNTIL value type
-                # If they're not both date or both date-time, raise error
-                if (subcomponent.hasProperty("DTSTART") and
-                    subcomponent.hasProperty("RRULE")):
-                    dtValue = subcomponent.propertyValue("DTSTART")
-                    dtutc = dtValue.duplicateAsUTC()
-                    # Using properties("RRULE") rather than getRRuleSet() here
-                    # because the dateutil rrule's _until values are datetime
-                    # even if the UNTIL is a date (and therefore we can't
-                    # check validity without doing the following):
-                    rrules = subcomponent._pycalendar.getRecurrenceSet()
-                    for rrule in rrules.getRules():
-                        if rrule.getUseUntil():
-                            if rrule.getUntil().isDateOnly() ^ dtValue.isDateOnly():
-                                msg = "Calendar resources must have matching type for DTSTART and UNTIL"
-                                log.debug(msg)
-                                if fix:
-                                    log.debug("Fixing mismatch")
-                                    rrule.getUntil().setDateOnly(dtValue.isDateOnly())
-                                    if not dtValue.isDateOnly():
-                                        rrule.getUntil().setHHMMSS(dtutc.getHours(), dtutc.getMinutes(), dtutc.getSeconds())
-                                        rrule.getUntil().setTimezone(PyCalendarTimezone(utc=True))
-                                    rrules.changed()
-                                else:
-                                    raise InvalidICalendarDataError(msg)
-
-                # Check for VEVENT - DTEND and DURATION cannot appear together
-                if (subcomponent.name() == "VEVENT" and
-                    subcomponent.hasProperty("DTEND") and
-                    subcomponent.hasProperty("DURATION")):
-                    if fix:
-                        # Remove the DTEND
-                        subcomponent.removeProperty("DTEND")
-                    else:
-                        raise InvalidICalendarDataError(msg)
-                    
                 timezone_refs.update(subcomponent.timezoneIDs())
         
         #
@@ -1508,7 +1478,7 @@ class Component (object):
                 return False
             
             # First make sure components are all of the same time (excluding VTIMEZONE)
-            self.validateComponentsForCalDAV(True)
+            self.validCalendarForCalDAV(methodAllowed=True)
             
             # Next we could check the iTIP status for each type of method/component pair, however
             # we can also leave that up to the server except for the REQUEST/VFREEBUSY case which

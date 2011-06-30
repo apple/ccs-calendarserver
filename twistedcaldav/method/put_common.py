@@ -463,7 +463,7 @@ class StoreCalendarObjectResource(object):
             message = "Empty resource not allowed in calendar collection"
         else:
             try:
-                self.calendar.validCalendarForCalDAV()
+                self.calendar.validCalendarData()
             except ValueError, e:
                 result = False
                 message = "Invalid calendar data: %s" % (e,)
@@ -479,10 +479,7 @@ class StoreCalendarObjectResource(object):
         result = True
         message = ""
         try:
-            if self.isiTIP:
-                self.calendar.validateComponentsForCalDAV(True)
-            else:
-                self.calendar.validateForCalDAV()
+            self.calendar.validCalendarForCalDAV(methodAllowed=self.isiTIP)
         except ValueError, e:
             result = False
             message = "Calendar data does not conform to CalDAV requirements: %s" % (e,)

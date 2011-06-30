@@ -2037,10 +2037,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         """
 
 
-    def _doValidate(self, component):
-        raise NotImplementedError
-
-
     # IDataStoreObject
     def contentType(self):
         raise NotImplementedError()
@@ -2095,9 +2091,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     """
-    @ivar _path: The path of the file on disk
-
-    @type _path: L{FilePath}
+    Base class for object resources.
     """
 
     compareAttributes = (

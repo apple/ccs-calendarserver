@@ -144,9 +144,6 @@ class AddressBook(CommonHomeChild):
             ),
         )
 
-    def _doValidate(self, component):
-        component.validForCardDAV()
-
     def contentType(self):
         """
         The content type of Addresbook objects is text/vcard.
@@ -181,8 +178,8 @@ class AddressBookObject(CommonObjectResource):
             self.name(), component
         )
 
-        self._component = component
-        # FIXME: needs to clear text cache
+        componentText = str(component)
+        self._objectText = componentText
 
         def do():
             # Mark all properties as dirty, so they can be added back
@@ -194,7 +191,6 @@ class AddressBookObject(CommonObjectResource):
                 backup = hidden(self._path.temporarySibling())
                 self._path.moveTo(backup)
 
-            componentText = str(component)
             fh = self._path.open("w")
             try:
                 # FIXME: concurrency problem; if this write is interrupted
@@ -221,23 +217,38 @@ class AddressBookObject(CommonObjectResource):
 
 
     def component(self):
-        if self._component is not None:
-            return self._component
+        """
+        Read address data and validate/fix it. Do not raise a store error here if there are unfixable
+        errors as that could prevent the overall request to fail. Instead we will hand bad data off to
+        the caller - that is not ideal but in theory we should have checked everything on the way in and
+        only allowed in good data.
+        """
         text = self._text()
-
         try:
             component = VComponent.fromString(text)
         except InvalidVCardDataError, e:
+            # This is a really bad situation, so do raise
             raise InternalDataStoreError(
                 "File corruption detected (%s) in file: %s"
                 % (e, self._path.path)
             )
+
+        # Fix any bogus data we can
+        fixed, unfixed = component.validVCardData(doFix=True, doRaise=False)
+
+        if unfixed:
+            self.log_error("Address data at %s had unfixable problems:\n  %s" % (self._path.path, "\n  ".join(unfixed),))
+        
+        if fixed:
+            self.log_error("Address data at %s had fixable problems:\n  %s" % (self._path.path, "\n  ".join(fixed),))
+
         return component
 
 
     def _text(self):
-        if self._component is not None:
-            return str(self._component)
+        if self._objectText is not None:
+            return self._objectText
+
         try:
             fh = self._path.open()
         except IOError, e:
@@ -259,6 +270,8 @@ class AddressBookObject(CommonObjectResource):
                 "File corruption detected (improper start) in file: %s"
                 % (self._path.path,)
             )
+        
+        self._objectText = text
         return text
 
     def uid(self):

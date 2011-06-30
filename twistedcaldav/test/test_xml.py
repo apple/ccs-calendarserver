@@ -30,7 +30,8 @@ class XML (twistedcaldav.test.util.TestCase):
     calendar_file = os.path.join(os.path.dirname(__file__), "data", "Holidays",
                                  "C3184A66-1ED0-11D9-A5E0-000A958A3252.ics")
     calendar = Component.fromStream(file(calendar_file))
-    calendar.validateForCalDAV()
+    calendar.validCalendarData()
+    calendar.validCalendarForCalDAV(methodAllowed=False)
 
     def test_ComponentFilter(self):
         """

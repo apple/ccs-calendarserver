@@ -927,6 +927,7 @@ VERSION:2.0
 BEGIN:VEVENT
 DTSTART:20110101T120000Z
 DTEND:20110101T120100Z
+DTSTAMP:20080601T120000Z
 UID:event-with-some-per-user-data
 ATTENDEE:urn:uuid:home1
 ORGANIZER:urn:uuid:home1
@@ -937,6 +938,7 @@ BEGIN:X-CALENDARSERVER-PERINSTANCE
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:somebody else
+TRIGGER:-PT20M
 END:VALARM
 END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
@@ -946,6 +948,7 @@ BEGIN:X-CALENDARSERVER-PERINSTANCE
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:the owner
+TRIGGER:-PT20M
 END:VALARM
 END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
@@ -959,12 +962,14 @@ VERSION:2.0
 BEGIN:VEVENT
 DTSTART:20110101T120000Z
 DTEND:20110101T120100Z
+DTSTAMP:20080601T120000Z
 UID:event-with-some-per-user-data
 ATTENDEE:urn:uuid:home1
 ORGANIZER:urn:uuid:home1
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:the owner
+TRIGGER:-PT20M
 END:VALARM
 END:VEVENT
 END:VCALENDAR
@@ -977,12 +982,14 @@ VERSION:2.0
 BEGIN:VEVENT
 DTSTART:20110101T120000Z
 DTEND:20110101T120100Z
+DTSTAMP:20080601T120000Z
 UID:event-with-some-per-user-data
 ATTENDEE:urn:uuid:home1
 ORGANIZER:urn:uuid:home1
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:somebody else
+TRIGGER:-PT20M
 END:VALARM
 END:VEVENT
 END:VCALENDAR
@@ -1008,8 +1015,11 @@ END:VCALENDAR
         filtered per-user data.
         """
         obj = yield self.setUpPerUser()
+        temp = yield obj.component()
+        obj._component = temp.duplicate()
         otherComp = (yield obj.filteredComponent("some-other-user"))
         self.assertEquals(otherComp, self.asSeenByOther())
+        obj._component = temp.duplicate()
         ownerComp = (yield obj.filteredComponent("home1"))
         self.assertEquals(ownerComp, self.asSeenByOwner())
 
@@ -1431,7 +1441,7 @@ END:VCALENDAR
         now that logic lives in the protocol layer, so this testing method
         replicates it.
         """
-        uuid, rev = token.split("_", 1)
+        _ignore_uuid, rev = token.split("_", 1)
         rev = int(rev)
         return rev
 

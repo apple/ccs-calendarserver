@@ -300,7 +300,7 @@ class Scheduler(object):
     def checkCalendarData(self):
         # Must be a valid calendar
         try:
-            self.calendar.validCalendarForCalDAV()
+            self.calendar.validCalendarData()
         except ValueError, e:
             log.err("%s request calendar component is not valid:%s %s" % (self.method, e, self.calendar,))
             raise HTTPError(ErrorResponse(

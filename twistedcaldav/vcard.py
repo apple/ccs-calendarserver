@@ -27,14 +27,17 @@ __all__ = [
 import cStringIO as StringIO
 import codecs
 
+from twext.python.log import Logger
 from twext.web2.stream import IStream
 from twext.web2.dav.util import allDataFromStream
 
 from pycalendar.attribute import PyCalendarAttribute
 from pycalendar.componentbase import PyCalendarComponentBase
-from pycalendar.exceptions import PyCalendarInvalidData
+from pycalendar.exceptions import PyCalendarError
 from pycalendar.vcard.card import Card
 from pycalendar.vcard.property import Property as pyProperty
+
+log = Logger()
 
 vCardProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
 
@@ -197,7 +200,7 @@ class Component (object):
         """
         try:
             results = Card.parseMultiple(stream)
-        except PyCalendarInvalidData:
+        except PyCalendarError:
             results = None
         if not results:
             stream.seek(0)
@@ -235,7 +238,7 @@ class Component (object):
         cal = Card()
         try:
             result = cal.parse(stream)
-        except PyCalendarInvalidData:
+        except PyCalendarError:
             result = None
         if not result:
             stream.seek(0)
@@ -408,6 +411,26 @@ class Component (object):
             self._resource_uid = self.propertyValue("UID")
 
         return self._resource_uid
+
+    def validVCardData(self, doFix=True, doRaise=True):
+        """
+        @return: tuple of fixed, unfixed issues
+        @raise InvalidVCardDataError: if the given vcard data is not valid.
+        """
+        if self.name() != "VCARD":
+            log.debug("Not a vcard: %s" % (self,))
+            raise InvalidVCardDataError("Not a vcard")
+
+        # Do underlying vCard library validation with data fix
+        fixed, unfixed = self._pycard.validate(doFix=doFix)
+        if unfixed:
+            log.debug("vCard data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
+            if doRaise:
+                raise InvalidVCardDataError("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
+        if fixed:
+            log.debug("vCard data had fixable problems:\n  %s" % ("\n  ".join(fixed),))
+        
+        return fixed, unfixed
 
     def validForCardDAV(self):
         """

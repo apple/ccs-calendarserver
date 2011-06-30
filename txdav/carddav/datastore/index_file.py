@@ -589,6 +589,7 @@ class AddressBookIndex(AbstractSQLDatabase):
                 # FIXME: This is blocking I/O
                 try:
                     vcard = Component.fromStream(stream)
+                    vcard.validVCardData()
                     vcard.validForCardDAV()
                 except ValueError:
                     log.err("Non-addressbook resource: %s" % (name,))

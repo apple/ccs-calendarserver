@@ -390,16 +390,6 @@ class CalendarData (CalDAVElement):
                 # optimize them originals away
                 self.children = (data,)
 
-                # Verify that we have valid calendar data, but don't call
-                # validateForCalDAV() on the result, since some responses may
-                # require a calendar-data element with iCalendar data not meant
-                # for use as a CalDAV resource.
-                #try:
-                #    self.calendar()
-                #except ValueError, e:
-                #    log.err("Invalid iCalendar data (%s): %r" % (e, data))
-                #    raise
-
         if "content-type" in attributes:
             self.content_type = attributes["content-type"]
         else:

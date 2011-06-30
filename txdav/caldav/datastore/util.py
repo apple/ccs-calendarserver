@@ -64,12 +64,10 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting):
         pass
 
     try:
-        # FIXME: This is a bad way to do this test, there should be a
+        # FIXME: This is a bad way to do this test (== 'inbox'), there should be a
         # Calendar-level API for it.
-        if calendar.name() == 'inbox':
-            component.validateComponentsForCalDAV(True)
-        else:
-            component.validateForCalDAV()
+        component.validCalendarData()
+        component.validCalendarForCalDAV(methodAllowed=calendar.name() == 'inbox')
     except InvalidICalendarDataError, e:
         raise InvalidObjectResourceError(e)
 

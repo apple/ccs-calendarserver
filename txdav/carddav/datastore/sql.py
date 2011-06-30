@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.common.icommondatastore import InternalDataStoreError
 
 """
 SQL backend for CardDAV storage.
@@ -35,7 +36,7 @@ from twext.web2.http_headers import MimeType
 
 from twistedcaldav import carddavxml, customxml
 from twistedcaldav.memcacher import Memcacher
-from twistedcaldav.vcard import Component as VCard
+from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
 from txdav.common.datastore.sql_legacy import \
     PostgresLegacyABIndexEmulator, SQLLegacyAddressBookInvites,\
@@ -177,10 +178,6 @@ class AddressBook(CommonHomeChild):
         )
 
 
-    def _doValidate(self, component):
-        component.validForCardDAV()
-
-
     def contentType(self):
         """
         The content type of Addresbook objects is text/vcard.
@@ -271,13 +268,39 @@ class AddressBookObject(CommonObjectResource):
 
     @inlineCallbacks
     def component(self):
-        returnValue(VCard.fromString((yield self._text())))
+        """
+        Read address data and validate/fix it. Do not raise a store error here if there are unfixable
+        errors as that could prevent the overall request to fail. Instead we will hand bad data off to
+        the caller - that is not ideal but in theory we should have checked everything on the way in and
+        only allowed in good data.
+        """
+        text = yield self._text()
+
+        try:
+            component = VCard.fromString(text)
+        except InvalidVCardDataError, e:
+            # This is a really bad situation, so do raise
+            raise InternalDataStoreError(
+                "Data corruption detected (%s) in id: %s"
+                % (e, self._resourceID)
+            )
+
+        # Fix any bogus data we can
+        fixed, unfixed = component.validVCardData(doFix=True, doRaise=False)
+
+        if unfixed:
+            self.log_error("Address data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
+        
+        if fixed:
+            self.log_error("Address data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
+
+        returnValue(component)
 
 
     # IDataStoreObject
     def contentType(self):
         """
-        The content type of Addressbook objects is text/x-vcard.
+        The content type of Addressbook objects is text/vcard.
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
 

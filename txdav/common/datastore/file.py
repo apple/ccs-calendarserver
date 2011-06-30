@@ -857,9 +857,6 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         """
         pass
 
-    def _doValidate(self, component):
-        raise NotImplementedError
-
     def addNotifier(self, notifier):
         if self._notifiers is None:
             self._notifiers = ()
@@ -906,7 +903,7 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         self._name = name
         self._parentCollection = parent
         self._transaction = parent._transaction
-        self._component = None
+        self._objectText = None
 
 
     @property
@@ -1087,11 +1084,6 @@ class NotificationCollection(CommonHomeChild):
     def removeNotificationObjectWithUID(self, uid):
         name = uid + ".xml"
         self.removeNotificationObjectWithName(name)
-
-    def _doValidate(self, component):
-        # Nothing to do - notifications are always generated internally by the server
-        # so they better be valid all the time!
-        pass
 
 
 class NotificationObject(CommonObjectResource):

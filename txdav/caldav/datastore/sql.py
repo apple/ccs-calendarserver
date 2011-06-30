@@ -39,7 +39,7 @@ from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime,\
     parseSQLTimestamp, pyCalendarTodatetime
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, InvalidICalendarDataError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
 
@@ -71,7 +71,8 @@ from txdav.caldav.datastore.util import CalendarObjectBase
 from txdav.caldav.icalendarstore import QuotaExceeded
 
 from txdav.caldav.datastore.util import StorageTransportBase
-from txdav.common.icommondatastore import IndexedSearchException
+from txdav.common.icommondatastore import IndexedSearchException,\
+    InternalDataStoreError
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
@@ -614,7 +615,33 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     @inlineCallbacks
     def component(self):
-        returnValue(VComponent.fromString((yield self._text())))
+        """
+        Read calendar data and validate/fix it. Do not raise a store error here if there are unfixable
+        errors as that could prevent the overall request to fail. Instead we will hand bad data off to
+        the caller - that is not ideal but in theory we should have checked everything on the way in and
+        only allowed in good data.
+        """
+        text = yield self._text()
+
+        try:
+            component = VComponent.fromString(text)
+        except InvalidICalendarDataError, e:
+            # This is a really bad situation, so do raise
+            raise InternalDataStoreError(
+                "Data corruption detected (%s) in id: %s"
+                % (e, self._resourceID)
+            )
+
+        # Fix any bogus data we can
+        fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
+
+        if unfixed:
+            self.log_error("Calendar data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
+        
+        if fixed:
+            self.log_error("Calendar data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
+
+        returnValue(component)
 
 
     @inlineCallbacks
