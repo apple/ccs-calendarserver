@@ -57,6 +57,10 @@ caldav_implicit_compliance = (
     "inbox-availability",
 )
 
+caldav_query_extended_compliance = (
+    "calendar-query-extended",
+)
+
 class CalDAVElement (davxml.WebDAVElement):
     """
     CalDAV XML element.
@@ -387,16 +391,6 @@ class CalendarData (CalDAVElement):
                 # optimize them originals away
                 self.children = (data,)
 
-                # Verify that we have valid calendar data, but don't call
-                # validateForCalDAV() on the result, since some responses may
-                # require a calendar-data element with iCalendar data not meant
-                # for use as a CalDAV resource.
-                #try:
-                #    self.calendar()
-                #except ValueError, e:
-                #    log.err("Invalid iCalendar data (%s): %r" % (e, data))
-                #    raise
-
         if "content-type" in attributes:
             self.content_type = attributes["content-type"]
         else:
@@ -637,7 +631,10 @@ class ComponentFilter (CalDAVElement):
         (caldav_namespace, "comp-filter"    ): (0, None),
         (caldav_namespace, "prop-filter"    ): (0, None),
     }
-    allowed_attributes = { "name": True }
+    allowed_attributes = {
+        "name": True,
+        "test": False,
+    }
 
 class PropertyFilter (CalDAVElement):
     """
@@ -652,7 +649,10 @@ class PropertyFilter (CalDAVElement):
         (caldav_namespace, "text-match"     ): (0, 1),
         (caldav_namespace, "param-filter"   ): (0, None),
     }
-    allowed_attributes = { "name": True }
+    allowed_attributes = {
+        "name": True,
+        "test": False,
+    }
 
 class ParameterFilter (CalDAVElement):
     """
@@ -698,7 +698,8 @@ class TextMatch (CalDAVTextElement):
 
     allowed_attributes = {
         "caseless": False,
-        "negate-condition": False
+        "negate-condition": False,
+        "match-type": False,
     }
 
 class TimeZone (CalDAVTimeZoneElement):

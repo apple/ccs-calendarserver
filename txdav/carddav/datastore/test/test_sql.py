@@ -25,8 +25,8 @@ from twext.web2.dav.element.rfc2518 import GETContentLanguage, ResourceType
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial import unittest
 
-from twistedcaldav import memcacher, carddavxml
-from twistedcaldav.config import config
+from twistedcaldav import carddavxml
+
 from twistedcaldav.vcard import Component as VCard
 from twistedcaldav.vcard import Component as VComponent
 
@@ -47,10 +47,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
-        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
-        self.patch(memcacher.Memcacher, "allowTestCache", True)
-
         yield super(AddressBookSQLStorageTests, self).setUp()
         self._sqlStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()

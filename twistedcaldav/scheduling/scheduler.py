@@ -1,4 +1,4 @@
-##
+
 # Copyright (c) 2005-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -173,13 +173,8 @@ class Scheduler(object):
             if originatorPrincipalURL:
                 originatorPrincipal = (yield self.request.locateResource(originatorPrincipalURL))
                 if originatorPrincipal:
-                    # Pick the first mailto cu address or the first other type
-                    for item in originatorPrincipal.calendarUserAddresses():
-                        if not originator:
-                            originator = item
-                        if item.startswith("mailto:"):
-                            originator = item
-                            break
+                    # Pick the canonical CUA:
+                    originator = originatorPrincipal.canonicalCalendarUserAddress()
 
         if not originator:
             log.err("%s request must have Originator" % (self.method,))
@@ -305,7 +300,7 @@ class Scheduler(object):
     def checkCalendarData(self):
         # Must be a valid calendar
         try:
-            self.calendar.validCalendarForCalDAV()
+            self.calendar.validCalendarData()
         except ValueError, e:
             log.err("%s request calendar component is not valid:%s %s" % (self.method, e, self.calendar,))
             raise HTTPError(ErrorResponse(

@@ -41,6 +41,7 @@ init_build () {
          do_get="true";
        do_setup="true";
          do_run="true";
+      do_bundle="false";
     force_setup="false";
   disable_setup="false";
      print_path="false";
@@ -340,8 +341,10 @@ svn_get () {
       svn checkout -r "${revision}" "${uri}@${revision}" "${path}";
     }
 
-    if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
-      local cache_file="${cache_deps}/${name}-$(echo "${uri}" | hash)@r${revision}.tgz";
+    if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ] \
+        && [ -n "${hash}" ]; then
+      local cacheid="${name}-$(echo "${uri}" | hash)";
+      local cache_file="${cache_deps}/${cacheid}@r${revision}.tgz";
 
       mkdir -p "${cache_deps}";
 
@@ -372,10 +375,12 @@ py_build () {
   if "${do_setup}"; then
     echo "Building ${name}...";
     cd "${path}";
-    if ! "${python}" ./setup.py -q build --build-lib "build/${py_platform_libdir}" "$@"; then
+    if ! "${python}" ./setup.py -q build \
+        --build-lib "build/${py_platform_libdir}" "$@"; then
       if "${optional}"; then
         echo "WARNING: ${name} failed to build.";
-        echo "WARNING: ${name} is not required to run the server; continuing without it.";
+        echo "WARNING: ${name} is not required to run the server;"\
+             "continuing without it.";
       else
         return $?;
       fi;
@@ -394,7 +399,13 @@ py_install () {
     echo "";
     echo "Installing ${name}...";
     cd "${path}";
-    "${python}" ./setup.py install "${install_flag}${install}";
+    if "${do_bundle}"; then
+      # Since we've built our own Python, an option-free installation is the
+      # best bet.
+      "${python}" ./setup.py install;
+    else
+      "${python}" ./setup.py install "${install_flag}${install}";
+    fi;
     cd /;
   fi;
 }
@@ -403,16 +414,15 @@ py_install () {
 # Declare a dependency on a Python project.
 py_dependency () {
   local optional="false"; # Is this dependency optional?
-  local override="false"; # Do I need to get this dependency even if
-                          # the system already has it?
-  local  inplace="";      # Do development in-place; don't run
-                          # setup.py to build, and instead add the
-                          # source directory plus the given relative
-                          # path directly to sys.path.  twisted and
-                          # vobject are developed often enough that
-                          # this is convenient.
-  local skip_egg="false"; # Skip even the 'egg_info' step, because
-                          # nothing needs to be built.
+  local override="false"; # Do I need to get this dependency even if the system
+                          # already has it?
+  local  inplace="";      # Do development in-place; don't run setup.py to
+                          # build, and instead add the source directory plus the
+                          # given relative path directly to sys.path.  twisted
+                          # and vobject are developed often enough that this is
+                          # convenient.
+  local skip_egg="false"; # Skip even the 'egg_info' step, because nothing needs
+                          # to be built.
   local revision="0";     # Revision (if svn)
   local get_type="www";   # Protocol to use
   local  version="";      # Minimum version required
@@ -441,7 +451,8 @@ py_dependency () {
   # args
   local         name="$1"; shift; # the name of the package (for display)
   local       module="$1"; shift; # the name of the python module.
-  local distribution="$1"; shift; # the name of the directory to put the distribution into.
+  local distribution="$1"; shift; # the name of the directory to put the
+                                  # distribution into.
   local      get_uri="$1"; shift; # what URL should be fetched?
 
   local srcdir="${top}/${distribution}"
@@ -455,7 +466,7 @@ py_dependency () {
       if "${do_setup}" && "${override}" && ! "${skip_egg}"; then
         echo;
         if py_have_module setuptools; then
-          echo "Building ${name}... [overrides system, building egg-info metadata only]";
+          echo "Building ${name}... [overrides system, building egg-info only]";
           cd "${srcdir}";
           "${python}" ./setup.py -q egg_info 2>&1 | (
             grep -i -v 'Unrecognized .svn/entries' || true);
@@ -489,6 +500,8 @@ py_dependency () {
   fi;
 }
 
+# Run 'make' with the given command line, prepending a -j option appropriate to
+# the number of CPUs on the current machine, if that can be determined.
 jmake () {
   case "$(uname -s)" in
     Darwin|Linux)
@@ -525,25 +538,48 @@ c_dependency () {
 
   # Extra arguments are processed below, as arguments to './configure'.
 
-  srcdir="${top}/${path}";
+  if "${do_bundle}"; then
+    local dstroot="${install}";
+    srcdir="${install}/src/${path}";
+  else
+    srcdir="${top}/${path}";
+    local dstroot="${srcdir}/_root";
+  fi;
 
   www_get ${f_hash} "${name}" "${srcdir}" "${uri}";
 
+
+  export              PATH="${dstroot}/bin:${PATH}";
+  export    C_INCLUDE_PATH="${dstroot}/include:${C_INCLUDE_PATH:-}";
+  export   LD_LIBRARY_PATH="${dstroot}/lib:${LD_LIBRARY_PATH:-}";
+  export          CPPFLAGS="-I${dstroot}/include ${CPPFLAGS:-} ";
+  export           LDFLAGS="-L${dstroot}/lib ${LDFLAGS:-} ";
+  export DYLD_LIBRARY_PATH="${dstroot}/lib:${DYLD_LIBRARY_PATH:-}";
+
   if "${do_setup}" && (
-      "${force_setup}" || [ ! -d "${srcdir}/_root" ]); then
+      "${force_setup}" || "${do_bundle}" || [ ! -d "${dstroot}" ]); then
     echo "Building ${name}...";
     cd "${srcdir}";
-    ./configure --prefix="${srcdir}/_root" "$@";
+    ./configure --prefix="${dstroot}" "$@";
     jmake;
     jmake install;
   fi;
+}
 
-  export              PATH="${PATH}:${srcdir}/_root/bin";
-  export    C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:${srcdir}/_root/include";
-  export   LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${srcdir}/_root/lib";
-  export          CPPFLAGS="${CPPFLAGS:-} -I${srcdir}/_root/include";
-  export           LDFLAGS="${LDFLAGS:-} -L${srcdir}/_root/lib";
-  export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${srcdir}/_root/lib";
+# Used only when bundling: write out, into the bundle, an 'environment.sh' file
+# that contains all the environment variables necessary to invoke commands in
+# the deployed bundle.
+
+write_environment () {
+  local dstroot="${install}";
+  cat > "${dstroot}/environment.sh" << __EOF__
+export              PATH="${dstroot}/bin:\${PATH}";
+export    C_INCLUDE_PATH="${dstroot}/include:\${C_INCLUDE_PATH:-}";
+export   LD_LIBRARY_PATH="${dstroot}/lib:\${LD_LIBRARY_PATH:-}";
+export          CPPFLAGS="-I${dstroot}/include \${CPPFLAGS:-} ";
+export           LDFLAGS="-L${dstroot}/lib \${LDFLAGS:-} ";
+export DYLD_LIBRARY_PATH="${dstroot}/lib:\${DYLD_LIBRARY_PATH:-}";
+__EOF__
 }
 
 
@@ -560,6 +596,25 @@ dependencies () {
   # Dependencies compiled from C source code
   #
 
+
+  if "${do_bundle}"; then
+    # First a bit of bootstrapping: fill out the standard directory structure.
+    for topdir in bin lib include share src; do
+      mkdir -p "${install}/${topdir}";
+    done;
+
+    # Normally we depend on the system Python, but a bundle install should be as
+    # self-contained as possible.
+    local pyfn="Python-2.7.1";
+    c_dependency -m "aa27bc25725137ba155910bd8e5ddc4f" \
+        "Python" "${pyfn}" \
+        "http://www.python.org/ftp/python/2.7.1/${pyfn}.tar.bz2" \
+        --enable-shared;
+    # Be sure to use the Python we just built.
+    export PYTHON="$(type -p python)";
+    init_py;
+  fi;
+
   if ! type memcached > /dev/null 2>&1; then
     local le="libevent-1.4.13-stable";
     local mc="memcached-1.4.5";
@@ -568,8 +623,7 @@ dependencies () {
       "http://monkey.org/~provos/${le}.tar.gz";
     c_dependency -m "583441a25f937360624024f2881e5ea8" \
       "memcached" "${mc}" \
-      "http://memcached.googlecode.com/files/${mc}.tar.gz" \
-      --enable-threads --with-libevent="${top}/${le}/_root";
+      "http://memcached.googlecode.com/files/${mc}.tar.gz";
   fi;
 
   if ! type postgres > /dev/null 2>&1; then
@@ -599,6 +653,12 @@ dependencies () {
 
   # Sourceforge mirror hostname.
   local sf="superb-sea2.dl.sourceforge.net";
+  local st="setuptools-0.6c11";
+  local pypi="http://pypi.python.org/packages/source";
+
+  py_dependency -m "7df2a529a074f613b509fb44feefe74e" \
+    "setuptools" "setuptools" "${st}" \
+    "$pypi/s/setuptools/setuptools-0.6c11.tar.gz";
 
   local zi="zope.interface-3.3.0";
   py_dependency -m "93668855e37b4691c5c956665c33392c" \
@@ -614,7 +674,7 @@ dependencies () {
   local po="pyOpenSSL-0.10";
   py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
     "PyOpenSSL" "OpenSSL" "${po}" \
-    "http://pypi.python.org/packages/source/p/pyOpenSSL/${po}.tar.gz";
+    "${pypi}/p/pyOpenSSL/${po}.tar.gz";
 
   if type krb5-config > /dev/null 2>&1; then
     py_dependency -r 4241 \
@@ -639,21 +699,22 @@ dependencies () {
           "http://${sf}/project/cx-oracle/5.1/${cx}.tar.gz";
   fi;
 
-  if [ "${py_version}" != "${py_version##2.5}" ] && ! py_have_module select26; then
+  if [ "${py_version}" != "${py_version##2.5}" ] && \
+      ! py_have_module select26; then
     local s26="select26-0.1a3";
     py_dependency -m "01b8929e7cfc4a8deb777b92e3115c15" \
       "select26" "select26" "${s26}" \
-      "http://pypi.python.org/packages/source/s/select26/${s26}.tar.gz";
+      "${pypi}/s/select26/${s26}.tar.gz";
   fi;
 
   local pg="PyGreSQL-4.0";
   py_dependency -v 4.0 -m "1aca50e59ff4cc56abe9452a9a49c5ff" -o \
     "PyGreSQL" "pgdb" "${pg}" \
-    "http://pypi.python.org/packages/source/P/PyGreSQL/${pg}.tar.gz";
+    "${pypi}/P/PyGreSQL/${pg}.tar.gz";
 
-  py_dependency -v 10.1 -r 30159 \
+  py_dependency -v 11 -r 31512 \
     "Twisted" "twisted" "Twisted" \
-    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-10.1.0";
+    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-11.0.0";
 
   local du="python-dateutil-1.5";
   py_dependency -m "35f3732db3f2cc4afdc68a8533b60a52" \
@@ -663,7 +724,7 @@ dependencies () {
   local ld="python-ldap-2.3.13";
   py_dependency -v "2.3.13" -m "895223d32fa10bbc29aa349bfad59175" \
     "python-ldap" "python-ldap" "${ld}" \
-    "http://pypi.python.org/packages/source/p/python-ldap/${ld}.tar.gz";
+    "${pypi}/p/python-ldap/${ld}.tar.gz";
 
   # XXX actually vObject should be imported in-place.
   py_dependency -fe -i "" -r 219 \
@@ -671,29 +732,37 @@ dependencies () {
     "http://svn.osafoundation.org/vobject/trunk";
 
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 161 \
+  py_dependency -fe -i "src" -r 169 \
     "pycalendar" "pycalendar" "pycalendar" \
-    "http://svn.mulberrymail.com/repos/PyCalendar/branches/server-stable";
+    "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
 
   #
   # Tool dependencies.  The code itself doesn't depend on these, but
   # they are useful to developers.
   #
 
-  py_dependency -v 0.1.2 -m "aa9852ad81822723adcd9f96838de14e" \
+  py_dependency -o -v 0.1.2 -m "aa9852ad81822723adcd9f96838de14e" \
     "SQLParse" "sqlparse" "sqlparse-0.1.2" \
     "http://python-sqlparse.googlecode.com/files/sqlparse-0.1.2.tar.gz";
 
-  py_dependency -v 0.4.0 -m "630a72510aae8758f48cf60e4fa17176" \
+  py_dependency -o -v 0.4.0 -m "630a72510aae8758f48cf60e4fa17176" \
     "Pyflakes" "pyflakes" "pyflakes-0.4.0" \
-    "http://pypi.python.org/packages/source/p/pyflakes/pyflakes-0.4.0.tar.gz";
+    "${pypi}/p/pyflakes/pyflakes-0.4.0.tar.gz";
+ 
+  py_dependency -o -r HEAD \
+    "CalDAVClientLibrary" "CalDAVClientLibrary" "CalDAVClientLibrary" \
+    "${svn_uri_base}/CalDAVClientLibrary/trunk";
 
-  svn_get "CalDAVTester" "${top}/CalDAVTester" "${svn_uri_base}/CalDAVTester/trunk" HEAD;
+  # Can't add "-v 2011g" to args because the version check expects numbers.
+  py_dependency -o -m "9ffda6e87b5f067a7ca37c54629c9e58" \
+    "pytz" "pytz" "pytz-2011g" \
+    "http://pypi.python.org/packages/source/p/pytz/pytz-2011g.tar.gz";
 
-  svn_get "CalDAVClientLibrary" "${top}/CalDAVClientLibrary" "${svn_uri_base}/CalDAVClientLibrary/trunk" HEAD;
+  svn_get "CalDAVTester" "${top}/CalDAVTester" \
+      "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
   local pd="pydoctor-0.3";
-  py_dependency -m "b000aa1fb458fe25952dadf26049ae68" \
+  py_dependency -o -m "b000aa1fb458fe25952dadf26049ae68" \
     "pydoctor" "pydoctor" "${pd}" \
     "http://launchpadlibrarian.net/42323121/${pd}.tar.gz";
 

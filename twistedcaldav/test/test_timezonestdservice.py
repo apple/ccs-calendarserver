@@ -30,7 +30,7 @@ class TestTimezoneInfo (twistedcaldav.test.util.TestCase):
     def test_generateXML(self):
         
         hashed = hashlib.md5("test").hexdigest()
-        info = TimezoneInfo("America/New_York", "20110517T120000Z", hashed)
+        info = TimezoneInfo("America/New_York", ("US/Eastern",), "20110517T120000Z", hashed)
         
         node = Element("root")
         info.generateXML(node)
@@ -39,12 +39,13 @@ class TestTimezoneInfo (twistedcaldav.test.util.TestCase):
         self.assertTrue(timezone is not None)
         self.assertEqual(timezone.findtext("tzid"), "America/New_York")
         self.assertEqual(timezone.findtext("dtstamp"), "20110517T120000Z")
+        self.assertEqual(timezone.findtext("alias"), "US/Eastern")
         self.assertEqual(timezone.findtext("md5"), hashed)
 
     def test_parseXML(self):
         
         hashed = hashlib.md5("test").hexdigest()
-        info1 = TimezoneInfo("America/New_York", "20110517T120000Z", hashed)
+        info1 = TimezoneInfo("America/New_York", ("US/Eastern",), "20110517T120000Z", hashed)
         
         node = Element("root")
         info1.generateXML(node)
@@ -53,6 +54,7 @@ class TestTimezoneInfo (twistedcaldav.test.util.TestCase):
         info2 = TimezoneInfo.readXML(timezone)
 
         self.assertEqual(info2.tzid, "America/New_York")
+        self.assertEqual(info2.aliases, ("US/Eastern",))
         self.assertEqual(info2.dtstamp, "20110517T120000Z")
         self.assertEqual(info2.md5, hashed)
 
@@ -98,15 +100,36 @@ class TestPrimaryTimezoneDatabase (twistedcaldav.test.util.TestCase):
         self.assertEqual(db1.dtstamp, db2.dtstamp)
         self.assertEqual(len(db1.timezones), len(db2.timezones))
         
-    def testGetEmpty(self):
+    def testList(self):
         
         xmlfile = self.mktemp()
         db = PrimaryTimezoneDatabase(TimezoneCache.getDBPath(), xmlfile)
         db.createNewDatabase()
         self.assertTrue(os.path.exists(xmlfile))
         
-        tz1 = db.getTimezones(())
-        self.assertTrue(str(tz1).find("VTIMEZONE") == -1)
+        tzids = set([tz.tzid for tz in db.listTimezones(None)])
+        self.assertTrue("America/New_York" in tzids)
+        self.assertTrue("US/Eastern" not in tzids)
+        
+    def testListChangedSince(self):
+        
+        xmlfile = self.mktemp()
+        db = PrimaryTimezoneDatabase(TimezoneCache.getDBPath(), xmlfile)
+        db.createNewDatabase()
+        self.assertTrue(os.path.exists(xmlfile))
+        
+        tzids = set([tz.tzid for tz in db.listTimezones(db.dtstamp)])
+        self.assertTrue(len(tzids) == 0)
+        
+    def testGetNone(self):
+        
+        xmlfile = self.mktemp()
+        db = PrimaryTimezoneDatabase(TimezoneCache.getDBPath(), xmlfile)
+        db.createNewDatabase()
+        self.assertTrue(os.path.exists(xmlfile))
+        
+        tz = db.getTimezone("Bogus")
+        self.assertEqual(tz, None)
         
     def testGetOne(self):
         
@@ -115,19 +138,12 @@ class TestPrimaryTimezoneDatabase (twistedcaldav.test.util.TestCase):
         db.createNewDatabase()
         self.assertTrue(os.path.exists(xmlfile))
         
-        tz1 = db.getTimezones(("America/New_York",))
+        # Original
+        tz1 = db.getTimezone("America/New_York")
         self.assertTrue(str(tz1).find("VTIMEZONE") != -1)
         self.assertTrue(str(tz1).find("TZID:America/New_York") != -1)
         
-    def testGetMultiple(self):
-        
-        xmlfile = self.mktemp()
-        db = PrimaryTimezoneDatabase(TimezoneCache.getDBPath(), xmlfile)
-        db.createNewDatabase()
-        self.assertTrue(os.path.exists(xmlfile))
-        
-        tz1 = db.getTimezones(("America/New_York","America/Los_Angeles","America/Bogus",))
+        # Alias
+        tz1 = db.getTimezone("US/Eastern")
         self.assertTrue(str(tz1).find("VTIMEZONE") != -1)
-        self.assertTrue(str(tz1).find("TZID:America/New_York") != -1)
-        self.assertTrue(str(tz1).find("TZID:America/Los_Angeles") != -1)
-        self.assertTrue(str(tz1).find("TZID:America/Bogus") == -1)
+        self.assertTrue(str(tz1).find("TZID:US/Eastern") != -1)

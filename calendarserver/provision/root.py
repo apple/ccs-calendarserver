@@ -323,10 +323,13 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         if segments[0] in ("inbox", "timezones"):
             request.checkedSACL = True
 
-        elif (len(segments) > 2 and (segments[1] == "wikis" or
-            (segments[1] == "__uids__" and segments[2].startswith("wiki-")))):
-
-            # This is a wiki-related resource. SACLs are not checked.
+        elif (len(segments) > 2 and segments[0] == "calendars" and
+            (
+                segments[1] == "wikis" or
+                (segments[1] == "__uids__" and segments[2].startswith("wiki-"))
+            )
+        ):
+            # This is a wiki-related calendar resource. SACLs are not checked.
             request.checkedSACL = True
 
             # The authzuser value is set to that of the wiki principal if
@@ -368,7 +371,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 request.extendedLogItems = {}
             request.extendedLogItems["xff"] = remote_ip[0]
 
-        if request.method == "PROPFIND" and not getattr(request, "notInCache", False) and len(segments) > 1:
+        if config.EnableResponseCache and request.method == "PROPFIND" and not getattr(request, "notInCache", False) and len(segments) > 1:
             try:
                 authnUser, authzUser = (yield self.authenticate(request))
                 request.authnUser = authnUser

@@ -43,6 +43,7 @@ from twistedcaldav.directory.principal import (
     DirectoryPrincipalProvisioningResource)
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
+from txdav.common.datastore.test.util import deriveQuota
 from txdav.common.datastore.file import CommonDataStore
 
 
@@ -80,15 +81,13 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         self.xmlFile = FilePath(config.DataRoot).child("accounts.xml")
         self.xmlFile.setContent(xmlFile.getContent())
 
-        # *temporarily* set up an augment service so this directory service will
-        # work.
-        self.patch(augment, "AugmentService", augment.AugmentXMLDB(
-                xmlFiles=(augmentsFile.path,)
-            )
-        )
 
         self.directoryService = XMLDirectoryService(
-            {'xmlFile' : "accounts.xml"}
+            {
+                "xmlFile" : "accounts.xml",
+                "augmentService" :
+                    augment.AugmentXMLDB( xmlFiles=(augmentsFile.path,)),
+            }
         )
 
         # FIXME: see FIXME in DirectoryPrincipalProvisioningResource.__init__;
@@ -105,13 +104,15 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         addressbooks.)  By default returns a L{CommonDataStore}, but this is a
         hook for subclasses to override to provide different data stores.
         """
-        return CommonDataStore(FilePath(config.DocumentRoot), None, True, False)
+        return CommonDataStore(FilePath(config.DocumentRoot), None, True, False,
+                               quota=deriveQuota(self.id()))
 
 
     def setupCalendars(self):
         """
-        Set up the resource at /calendars (a L{DirectoryCalendarHomeProvisioningResource}),
-        and assign it as C{self.calendarCollection}.
+        Set up the resource at /calendars (a
+        L{DirectoryCalendarHomeProvisioningResource}), and assign it as
+        C{self.calendarCollection}.
         """
 
         # Need a data store
@@ -585,6 +586,19 @@ class InMemoryMemcacheProtocol(object):
             return succeed(False)
 
 
+
+def patchConfig(testCase, **kw):
+    """
+    Patch the global configuration (including running the appropriate hooks) for
+    the duration of the given test.
+    """
+    preserved = {}
+    for k in kw:
+        preserved[k] = config.get(k, None)
+    def reUpdate():
+        config.update(preserved)
+    testCase.addCleanup(reUpdate)
+    config.update(kw)
 
 
 

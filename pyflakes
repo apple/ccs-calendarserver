@@ -9,7 +9,7 @@ flakes="$(cd "${wd}/../pyflakes-0.4.0" && pwd)";
 export PYTHONPATH="${flakes}:${PYTHONPATH:-}";
 
 if [ $# -eq 0 ]; then
-  set - calendarserver twext twisted twistedcaldav txdav;
+  set - calendarserver twext twisted twistedcaldav txdav contrib;
 fi;
 
 tmp="$(mktemp -t pyflakes)";

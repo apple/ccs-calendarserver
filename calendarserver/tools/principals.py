@@ -35,7 +35,6 @@ from twext.web2.dav.davxml import sname2qname, qname2sname
 
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
-from twistedcaldav.directory import augment
 
 from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached,  booleanArgument, checkDirectory
 
@@ -806,9 +805,10 @@ def updateRecord(create, directory, recordType, **kwargs):
     else:
         record = directory.updateRecord(recordType, **kwargs)
 
-    augmentRecord = (yield augment.AugmentService.getAugmentRecord(kwargs['guid'], recordType))
+    augmentService = directory.serviceForRecordType(recordType).augmentService
+    augmentRecord = (yield augmentService.getAugmentRecord(kwargs['guid'], recordType))
     augmentRecord.autoSchedule = autoSchedule
-    (yield augment.AugmentService.addAugmentRecords([augmentRecord]))
+    (yield augmentService.addAugmentRecords([augmentRecord]))
     directory.updateRecord(recordType, **kwargs)
 
     returnValue(record)

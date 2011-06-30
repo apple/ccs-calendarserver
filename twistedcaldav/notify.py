@@ -689,7 +689,7 @@ class XMPPNotifier(LoggingMixIn):
             iq = IQ(self.xmlStream)
             pubsubElement = iq.addElement('pubsub', defaultUri=self.pubsubNS)
             publishElement = pubsubElement.addElement('publish')
-            publishElement['node'] = nodeName
+            publishElement['node'] = nodeName.decode("utf-8")
             if self.settings["NodeConfiguration"]["pubsub#deliver_payloads"] == '1':
                 itemElement = publishElement.addElement('item')
                 itemElement.addElement('plistfrag', defaultUri='plist-apple')
@@ -742,7 +742,7 @@ class XMPPNotifier(LoggingMixIn):
             iq = IQ(self.xmlStream)
             pubsubElement = iq.addElement('pubsub', defaultUri=self.pubsubNS)
             child = pubsubElement.addElement('create')
-            child['node'] = nodeName
+            child['node'] = nodeName.decode("utf-8")
             d = iq.send(to=self.settings['ServiceAddress'])
             d.addCallback(self.createNodeSuccess, nodeName, publish)
             d.addErrback(self.createNodeFailure, nodeName, publish)
@@ -794,7 +794,7 @@ class XMPPNotifier(LoggingMixIn):
             child = iq.addElement('pubsub',
                 defaultUri=self.pubsubNS+"#owner")
             child = child.addElement('configure')
-            child['node'] = nodeName
+            child['node'] = nodeName.decode("utf-8")
             d = iq.send(to=self.settings['ServiceAddress'])
             d.addCallback(self.requestConfigurationFormSuccess, nodeName,
                 publish)
@@ -829,7 +829,7 @@ class XMPPNotifier(LoggingMixIn):
                         filledPubSub = filledIq.addElement('pubsub',
                             defaultUri=self.pubsubNS+"#owner")
                         filledConfigure = filledPubSub.addElement('configure')
-                        filledConfigure['node'] = nodeName
+                        filledConfigure['node'] = nodeName.decode("utf-8")
                         filledForm = filledConfigure.addElement('x',
                             defaultUri='jabber:x:data')
                         filledForm['type'] = 'submit'
@@ -859,7 +859,7 @@ class XMPPNotifier(LoggingMixIn):
                             cancelPubSub = cancelIq.addElement('pubsub',
                                 defaultUri=self.pubsubNS+"#owner")
                             cancelConfig = cancelPubSub.addElement('configure')
-                            cancelConfig['node'] = nodeName
+                            cancelConfig['node'] = nodeName.decode("utf-8")
                             cancelX = cancelConfig.addElement('x',
                                 defaultUri='jabber:x:data')
                             cancelX['type'] = 'cancel'
@@ -940,7 +940,7 @@ class XMPPNotifier(LoggingMixIn):
             pubsubElement = iq.addElement('pubsub',
                 defaultUri=self.pubsubNS+"#owner")
             publishElement = pubsubElement.addElement('delete')
-            publishElement['node'] = nodeName
+            publishElement['node'] = nodeName.decode("utf-8")
             self.sendDebug("Deleting (%s)" % (nodeName,), iq)
             d = iq.send(to=self.settings['ServiceAddress'])
             d.addCallback(self.deleteNodeSuccess, nodeName)

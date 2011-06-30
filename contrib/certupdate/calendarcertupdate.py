@@ -18,11 +18,10 @@
 # Apple's written consent.
 
 import datetime
-import os
 import subprocess
 import sys
 
-from plistlib import readPlist, readPlistFromString, writePlist
+from plistlib import readPlist, writePlist
 
 LOG = "/var/log/caldavd/certupdate.log"
 SERVICE_NAME = "calendar"

@@ -461,6 +461,63 @@ class GenerationTests(TestCase):
                 "select character_length(MYTEXT) from TEXTUAL"))
 
 
+    def test_startswith(self):
+        """
+        Test for the string starts with comparison.
+        (Note that this should be updated to use different techniques
+        as necessary in different databases.)
+        """
+        self.assertEquals(
+            Select([
+                self.schema.TEXTUAL.MYTEXT],
+                From=self.schema.TEXTUAL,
+                Where=self.schema.TEXTUAL.MYTEXT.StartsWith("test"),
+            ).toSQL(),
+            SQLFragment(
+                "select MYTEXT from TEXTUAL where MYTEXT like (? || ?)",
+                ["test", "%"]
+            )
+        )
+
+
+    def test_endswith(self):
+        """
+        Test for the string starts with comparison.
+        (Note that this should be updated to use different techniques
+        as necessary in different databases.)
+        """
+        self.assertEquals(
+            Select([
+                self.schema.TEXTUAL.MYTEXT],
+                From=self.schema.TEXTUAL,
+                Where=self.schema.TEXTUAL.MYTEXT.EndsWith("test"),
+            ).toSQL(),
+            SQLFragment(
+                "select MYTEXT from TEXTUAL where MYTEXT like (? || ?)",
+                ["%", "test"]
+            )
+        )
+
+
+    def test_contains(self):
+        """
+        Test for the string starts with comparison.
+        (Note that this should be updated to use different techniques
+        as necessary in different databases.)
+        """
+        self.assertEquals(
+            Select([
+                self.schema.TEXTUAL.MYTEXT],
+                From=self.schema.TEXTUAL,
+                Where=self.schema.TEXTUAL.MYTEXT.Contains("test"),
+            ).toSQL(),
+            SQLFragment(
+                "select MYTEXT from TEXTUAL where MYTEXT like (? || (? || ?))",
+                ["%", "test", "%"]
+            )
+        )
+
+
     def test_insert(self):
         """
         L{Insert.toSQL} generates an 'insert' statement with all the relevant
@@ -560,7 +617,7 @@ class GenerationTests(TestCase):
         enough, as the code needs to actually retrieve the values from the out
         parameters.
         """
-        conn, pool, factory = self.simulateOracleConnection()
+        conn, _ignore_pool, factory = self.simulateOracleConnection()
         i = Insert({self.schema.FOO.BAR: 40,
                     self.schema.FOO.BAZ: 50},
                    Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ))
@@ -704,6 +761,12 @@ class GenerationTests(TestCase):
                    Where=self.schema.FOO.BAR == 12).toSQL(),
             SQLFragment(
                 "delete from FOO where BAR = ?", [12])
+        )
+
+        self.assertEquals(
+            Delete(self.schema.FOO,
+                   Where=None).toSQL(),
+            SQLFragment("delete from FOO")
         )
 
 
@@ -895,7 +958,7 @@ class GenerationTests(TestCase):
         other statement types as well, specifically those with 'returning'
         clauses.
         """
-        conn, pool, factory = self.simulateOracleConnection()
+        conn, _ignore_pool, factory = self.simulateOracleConnection()
         # Add 2 cursor variable values so that these will be used by
         # FakeVariable.getvalue.
         factory.varvals.extend([None, None])

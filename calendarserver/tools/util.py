@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
+"""
+Utility functionality shared between calendarserver tools.
+"""
 
 __all__ = [
     "loadConfig",
@@ -34,9 +38,10 @@ from twext.python.log import Logger
 
 
 from calendarserver.provision.root import RootResource
+
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.notify import NotifierFactory
@@ -124,13 +129,14 @@ def getDirectory():
 
     # Load augment/proxy db classes now
     augmentClass = namedClass(config.AugmentService.type)
-    augment.AugmentService = augmentClass(**config.AugmentService.params)
+    augmentService = augmentClass(**config.AugmentService.params)
 
     proxydbClass = namedClass(config.ProxyDBService.type)
     calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
 
     # Wait for directory service to become available
     BaseDirectoryService = namedClass(config.DirectoryService.type)
+    config.DirectoryService.params.augmentService = augmentService
     directory = BaseDirectoryService(config.DirectoryService.params)
     while not directory.isAvailable():
         sleep(5)
@@ -140,6 +146,7 @@ def getDirectory():
 
     if config.ResourceService.Enabled:
         resourceClass = namedClass(config.ResourceService.type)
+        config.ResourceService.params.augmentService = augmentService
         resourceDirectory = resourceClass(config.ResourceService.params)
         resourceDirectory.realmName = directory.realmName
         directories.append(resourceDirectory)
@@ -269,4 +276,6 @@ def checkDirectory(dirpath, description, access=None, create=None):
             "Insufficient permissions for server on %s directory: %s"
             % (description, dirpath)
         )
+
+
 

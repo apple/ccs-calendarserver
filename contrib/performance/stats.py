@@ -14,6 +14,14 @@
 # limitations under the License.
 ##
 
+import random, time, datetime
+
+import pytz
+
+from zope.interface import Interface, implements
+
+from twisted.python.util import FancyEqMixin
+
 import sqlparse
 
 NANO = 1000000000.0
@@ -200,3 +208,157 @@ class Bytes(_Statistic):
 
     def summarize(self, samples):
         return _Statistic.summarize(self, self.squash(samples))
+
+
+def quantize(data):
+    """
+    Given some continuous data, quantize it into appropriately sized
+    discrete buckets (eg, as would be suitable for constructing a
+    histogram of the values).
+    """
+    #buckets = {}
+    return []
+
+
+class IPopulation(Interface):
+    def sample():
+        pass
+
+
+class UniformDiscreteDistribution(object, FancyEqMixin):
+    """
+    
+    """
+    implements(IPopulation)
+
+    compareAttributes = ['_values']
+
+    def __init__(self, values):
+        self._values = values
+        self._refill()
+
+
+    def _refill(self):
+        self._remaining = self._values[:]
+        random.shuffle(self._remaining)
+
+
+    def sample(self):
+        if not self._remaining:
+            self._refill()
+        return self._remaining.pop()
+
+
+
+class LogNormalDistribution(object, FancyEqMixin):
+    """
+    """
+    implements(IPopulation)
+
+    compareAttributes = ['_mu', '_sigma']
+
+    def __init__(self, mu, sigma):
+        self._mu = mu
+        self._sigma = sigma
+
+
+    def sample(self):
+        return random.lognormvariate(self._mu, self._sigma)
+
+
+
+class NearFutureDistribution(object, FancyEqMixin):
+    compareAttributes = ['_offset']
+
+    def __init__(self):
+        self._offset = LogNormalDistribution(7, 0.8)
+
+
+    def sample(self):
+        return time.time() + self._offset.sample()
+
+
+
+class NormalDistribution(object, FancyEqMixin):
+    compareAttributes = ['_mu', '_sigma']
+
+    def __init__(self, mu, sigma):
+        self._mu = mu
+        self._sigma = sigma
+
+
+    def sample(self):
+        return random.normalvariate(self._mu, self._sigma)
+
+
+
+class UniformIntegerDistribution(object, FancyEqMixin):
+    compareAttributes = ['_min', '_max']
+
+    def __init__(self, min, max):
+        self._min = min
+        self._max = max
+
+
+    def sample(self):
+        return int(random.uniform(self._min, self._max))
+
+
+NUM_WEEKDAYS = 7
+
+class WorkDistribution(object, FancyEqMixin):
+    compareAttributes = ["_daysOfWeek", "_beginHour", "_endHour"]
+
+    _weekdayNames = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+    now = staticmethod(datetime.datetime.now)
+
+    def __init__(self, daysOfWeek=["mon", "tue", "wed", "thu", "fri"], beginHour=8, endHour=17, tzname="UTC"):
+        self._daysOfWeek = [self._weekdayNames.index(day) for day in daysOfWeek]
+        self._beginHour = beginHour
+        self._endHour = endHour
+        self._tzinfo = pytz.timezone(tzname)
+        self._helperDistribution = NormalDistribution(
+            # Mean 6 workdays in the future
+            60 * 60 * 8 * 6,
+            # Standard deviation of 4 workdays
+            60 * 60 * 8 * 4)
+
+
+    def astimestamp(self, dt):
+        return time.mktime(dt.timetuple())
+
+
+    def _findWorkAfter(self, when):
+        """
+        Return a two-tuple of the start and end of work hours following
+        C{when}.  If C{when} falls within work hours, then the start time will
+        be equal to when.
+        """
+        # Find a workday that follows the timestamp
+        weekday = when.weekday()
+        for i in range(NUM_WEEKDAYS):
+            day = when + datetime.timedelta(days=i)
+            if (weekday + i) % NUM_WEEKDAYS in self._daysOfWeek:
+                # Joy, a day on which work might occur.  Find the first hour on
+                # this day when work may start.
+                begin = day.replace(
+                    hour=self._beginHour, minute=0, second=0, microsecond=0)
+                end = begin.replace(hour=self._endHour)
+                if end > when:
+                    return begin, end
+
+
+    def sample(self):
+        offset = datetime.timedelta(seconds=self._helperDistribution.sample())
+        beginning = self.now(self._tzinfo)
+        while offset:
+            start, end = self._findWorkAfter(beginning)
+            if end - start > offset:
+                result = start + offset
+                return self.astimestamp(
+                    result.replace(
+                        minute=result.minute // 15 * 15,
+                        second=0, microsecond=0))
+            offset -= (end - start)
+            beginning = end

@@ -55,9 +55,13 @@ else:
 
         def setUp(self):
             super(OpenDirectory, self).setUp()
-            augment.AugmentService = augment.AugmentXMLDB(xmlFiles=())
             try:
-                self._service = OpenDirectoryService({"node" : "/Search"})
+                self._service = OpenDirectoryService(
+                    {
+                        "node" : "/Search",
+                        "augmentService": augment.AugmentXMLDB(xmlFiles=()),
+                    }
+                )
             except ImportError, e:
                 raise SkipTest("OpenDirectory module is not available: %s" % (e,))
 
@@ -451,10 +455,10 @@ else:
 
         def setUp(self):
             super(OpenDirectorySubset, self).setUp()
-            augment.AugmentService = augment.AugmentXMLDB(xmlFiles=())
             self._service = OpenDirectoryService(
                 {
                     "node" : "/Search",
                     "recordTypes" : (DirectoryService.recordType_users, DirectoryService.recordType_groups),
+                    "augmentService" : augment.AugmentXMLDB(xmlFiles=()),
                 }
             )

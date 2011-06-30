@@ -45,7 +45,7 @@ from twisted.internet.tcp import Connection
 from twisted.python.reflect import namedClass
 
 from twistedcaldav.bind import doBind
-from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
@@ -191,11 +191,15 @@ def storeFromConfig(config, txnFactory):
     if txnFactory is not None:
         return CommonSQLDataStore(
             txnFactory, notifierFactory, FilePath(config.AttachmentsRoot),
-            config.EnableCalDAV, config.EnableCardDAV
+            config.EnableCalDAV, config.EnableCardDAV,
+            quota=config.UserQuota
         )
     else:
-        return CommonFileDataStore(FilePath(config.DocumentRoot),
-            notifierFactory, config.EnableCalDAV, config.EnableCardDAV) 
+        return CommonFileDataStore(
+            FilePath(config.DocumentRoot),
+            notifierFactory, config.EnableCalDAV, config.EnableCardDAV,
+            quota=config.UserQuota
+        ) 
 
 
 
@@ -212,7 +216,7 @@ def directoryFromConfig(config):
     log.info("Configuring augment service of type: %s" % (augmentClass,))
 
     try:
-        augment.AugmentService = augmentClass(**config.AugmentService.params)
+        augmentService = augmentClass(**config.AugmentService.params)
     except IOError:
         log.error("Could not start augment service")
         raise
@@ -228,6 +232,7 @@ def directoryFromConfig(config):
     log.info("Configuring directory service of type: %s"
         % (config.DirectoryService.type,))
 
+    config.DirectoryService.params.augmentService = augmentService
     baseDirectory = directoryClass(config.DirectoryService.params)
 
     # Wait for the directory to become available
@@ -244,6 +249,7 @@ def directoryFromConfig(config):
 
         log.info("Configuring resource service of type: %s" % (resourceClass,))
 
+        config.ResourceService.params.augmentService = augmentService
         resourceDirectory = resourceClass(config.ResourceService.params)
         resourceDirectory.realmName = baseDirectory.realmName
         directories.append(resourceDirectory)

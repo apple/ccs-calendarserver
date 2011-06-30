@@ -51,8 +51,7 @@ from twext.web2.dav.idav import IDAVPrincipalCollectionResource
 from twext.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource,\
     davPrivilegeSet
 from twext.web2.dav.resource import TwistedACLInheritable
-from twext.web2.dav.util import joinURL, parentForURL, normalizeURL,\
-    unimplemented
+from twext.web2.dav.util import joinURL, parentForURL, normalizeURL
 from twext.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
@@ -878,7 +877,7 @@ class CalDAVResource (
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        
+
         isVirt = self.isVirtualShare()
         if isVirt:
             parent = (yield self.locateParent(request, self._share.hosturl))
@@ -928,32 +927,20 @@ class CalDAVResource (
             returnValue(None)
 
 
-    def isOwner(self, request, adminprincipals=False, readprincipals=False):
+    @inlineCallbacks
+    def isOwner(self, request):
         """
-        Determine whether the DAV:owner of this resource matches the currently authorized principal
-        in the request. Optionally test for admin or read principals and allow those.
+        Determine whether the DAV:owner of this resource matches the currently
+        authorized principal in the request, or if the user is a read-only or
+        read-write administrator.
         """
+        current = self.currentPrincipal(request)
+        if current in config.AllAdminPrincipalObjects:
+            returnValue(True)
+        if davxml.Principal((yield self.owner(request))) == current:
+            returnValue(True)
+        returnValue(False)
 
-        def _gotOwner(owner):
-            current = self.currentPrincipal(request)
-            if davxml.Principal(owner) == current:
-                return True
-            
-            if adminprincipals:
-                for principal in config.AdminPrincipals:
-                    if davxml.Principal(davxml.HRef(principal)) == current:
-                        return True
-
-            if readprincipals:
-                for principal in config.AdminPrincipals:
-                    if davxml.Principal(davxml.HRef(principal)) == current:
-                        return True
-                
-            return False
-
-        d = self.owner(request)
-        d.addCallback(_gotOwner)
-        return d
 
     ##
     # DAVResource
@@ -1535,15 +1522,15 @@ class CalDAVResource (
 
 
     @inlineCallbacks
-    def iCalendarTextFiltered(self, isowner, accessUID=None):
+    def iCalendarFiltered(self, isowner, accessUID=None):
 
         # Now "filter" the resource calendar data
         caldata = PrivateEventFilter(self.accessMode, isowner).filter(
-            (yield self.iCalendarText())
+            (yield self.iCalendar())
         )
         if accessUID:
             caldata = PerUserDataFilter(accessUID).filter(caldata)
-        returnValue(str(caldata))
+        returnValue(caldata)
 
 
     def iCalendarText(self):
@@ -2094,7 +2081,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         @return: a C{int} containing the maximum allowed bytes if this
             collection is quota-controlled, or C{None} if not quota controlled.
         """
-        return config.UserQuota if config.UserQuota != 0 else None
+        return self._newStoreHome.quotaAllowedBytes()
 
     def currentQuotaUse(self, request):
         """
@@ -2602,7 +2589,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if defaultAddressBookProperty and len(defaultAddressBookProperty.children) == 1:
                 defaultAddressBook = str(defaultAddressBookProperty.children[0])
                 adbk = (yield request.locateResource(str(defaultAddressBook)))
-                if adbk is not None and adbk.exists() and isAddressBookCollectionResource(adbk):
+                if adbk is not None and isAddressBookCollectionResource(adbk) and adbk.exists() and not adbk.isVirtualShare():
                     returnValue(defaultAddressBookProperty) 
             
             # Default is not valid - we have to try to pick one
@@ -2624,7 +2611,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if len(new_adbk) == 1:
                 adbkURI = str(new_adbk[0])
                 adbk = (yield request.locateResource(str(new_adbk[0])))
-            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk):
+            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk) or adbk.isVirtualShare():
                 # Validate that href's point to a valid addressbook.
                 raise HTTPError(ErrorResponse(
                     responsecode.CONFLICT,
@@ -2685,7 +2672,7 @@ class AddressBookHomeResource (CommonHomeResource):
         defaultAddressBookURL = joinURL(self.url(), "addressbook")
         defaultAddressBook = (yield self.makeRegularChild("addressbook"))
         if defaultAddressBook is None or not defaultAddressBook.exists():
-            getter = iter((yield self._newStoreHome.addressbooks()))
+            getter = iter((yield self._newStoreHome.addressbooks()))  # These are only unshared children
             # FIXME: the back-end should re-provision a default addressbook here.
             # Really, the dead property shouldn't be necessary, and this should
             # be entirely computed by a back-end method like 'defaultAddressBook()'

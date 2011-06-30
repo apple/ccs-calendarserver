@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.ical import InvalidICalendarDataError
 
 """
 File calendar store.
@@ -31,13 +32,12 @@ import hashlib
 
 from errno import ENOENT
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.interfaces import ITransport
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
+
 from twisted.python.failure import Failure
 
 from txdav.base.propertystore.xattr import PropertyStore
 
-from twext.python.vcomponent import InvalidICalendarDataError
 from twext.python.vcomponent import VComponent
 from twext.web2.dav import davxml
 from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
@@ -55,13 +55,14 @@ from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.caldav.datastore.index_file import Index as OldIndex,\
     IndexSchedule as OldInboxIndex
 from txdav.caldav.datastore.util import (
-    validateCalendarComponent, dropboxIDFromCalendarObject
+    validateCalendarComponent, dropboxIDFromCalendarObject, CalendarObjectBase,
+    StorageTransportBase
 )
 
 from txdav.common.datastore.file import (
     CommonDataStore, CommonStoreTransaction, CommonHome, CommonHomeChild,
-    CommonObjectResource
-, CommonStubResource)
+    CommonObjectResource, CommonStubResource)
+from txdav.caldav.icalendarstore import QuotaExceeded
 
 from txdav.common.icommondatastore import (NoSuchObjectResourceError,
     InternalDataStoreError)
@@ -86,7 +87,8 @@ class CalendarHome(CommonHome):
     _notifierPrefix = "CalDAV"
 
     def __init__(self, uid, path, calendarStore, transaction, notifiers):
-        super(CalendarHome, self).__init__(uid, path, calendarStore, transaction, notifiers)
+        super(CalendarHome, self).__init__(uid, path, calendarStore,
+                                           transaction, notifiers)
 
         self._childClass = Calendar
 
@@ -262,7 +264,7 @@ class Calendar(CommonHomeChild):
 
 
 
-class CalendarObject(CommonObjectResource):
+class CalendarObject(CommonObjectResource, CalendarObjectBase):
     """
     @ivar _path: The path of the .ics file on disk
 
@@ -300,8 +302,8 @@ class CalendarObject(CommonObjectResource):
             self.name(), component
         )
 
-        self._component = component
-        # FIXME: needs to clear text cache
+        componentText = str(component)
+        self._objectText = componentText
 
         def do():
             # Mark all properties as dirty, so they can be added back
@@ -313,7 +315,6 @@ class CalendarObject(CommonObjectResource):
                 backup = hidden(self._path.temporarySibling())
                 self._path.moveTo(backup)
             
-            componentText = str(component)
             fh = self._path.open("w")
             try:
                 # FIXME: concurrency problem; if this write is interrupted
@@ -340,25 +341,38 @@ class CalendarObject(CommonObjectResource):
 
 
     def component(self):
-        if self._component is not None:
-            return self._component
-        text = self.text()
-
+        """
+        Read calendar data and validate/fix it. Do not raise a store error here if there are unfixable
+        errors as that could prevent the overall request to fail. Instead we will hand bad data off to
+        the caller - that is not ideal but in theory we should have checked everything on the way in and
+        only allowed in good data.
+        """
+        text = self._text()
         try:
             component = VComponent.fromString(text)
-            # Fix any bogus data we can
-            component.validateComponentsForCalDAV(False, fix=True)
         except InvalidICalendarDataError, e:
+            # This is a really bad situation, so do raise
             raise InternalDataStoreError(
                 "File corruption detected (%s) in file: %s"
                 % (e, self._path.path)
             )
+
+        # Fix any bogus data we can
+        fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
+
+        if unfixed:
+            self.log_error("Calendar data at %s had unfixable problems:\n  %s" % (self._path.path, "\n  ".join(unfixed),))
+        
+        if fixed:
+            self.log_error("Calendar data at %s had fixable problems:\n  %s" % (self._path.path, "\n  ".join(fixed),))
+
         return component
 
 
-    def text(self):
-        if self._component is not None:
-            return str(self._component)
+    def _text(self):
+        if self._objectText is not None:
+            return self._objectText
+
         try:
             fh = self._path.open()
         except IOError, e:
@@ -388,9 +402,9 @@ class CalendarObject(CommonObjectResource):
                     "File corruption detected (improper start) in file: %s"
                     % (self._path.path,)
                 )
+        
+        self._objectText = text
         return text
-
-    iCalendarText = text
 
     def uid(self):
         if not hasattr(self, "_uid"):
@@ -497,14 +511,14 @@ class CalendarObject(CommonObjectResource):
         # FIXME: rollback, tests for rollback
 
         attachment = (yield self.attachmentWithName(name))
-        old_size = attachment.size()
+        oldSize = attachment.size()
 
         (yield self._dropboxPath()).child(name).remove()
         if name in self._attachments:
             del self._attachments[name]
 
         # Adjust quota
-        self._calendar._home.adjustQuotaUsedBytes(-old_size)
+        self._calendar._home.adjustQuotaUsedBytes(-oldSize)
 
 
     @inlineCallbacks
@@ -580,9 +594,7 @@ class CalendarObject(CommonObjectResource):
 
 
 
-class AttachmentStorageTransport(object):
-
-    implements(ITransport)
+class AttachmentStorageTransport(StorageTransportBase):
 
     def __init__(self, attachment, contentType):
         """
@@ -592,9 +604,10 @@ class AttachmentStorageTransport(object):
         @param attachment: The attachment whose data is being filled out.
         @type attachment: L{Attachment}
         """
-        self._attachment = attachment
-        self._contentType = contentType
-        self._file = self._attachment._path.open("w")
+        super(AttachmentStorageTransport, self).__init__(
+            attachment, contentType)
+        self._path = self._attachment._path.temporarySibling()
+        self._file = self._path.open("w")
 
 
     def write(self, data):
@@ -603,20 +616,30 @@ class AttachmentStorageTransport(object):
 
 
     def loseConnection(self):
-        
-        old_size = self._attachment.size()
-
+        home = self._attachment._calendarObject._calendar._home
+        oldSize = self._attachment.size()
+        newSize = self._file.tell()
         # FIXME: do anything
         self._file.close()
 
+        if home.quotaAllowedBytes() < (home.quotaUsedBytes()
+                                       + (newSize - oldSize)):
+            self._path.remove()
+            return fail(QuotaExceeded())
+
+        self._path.moveTo(self._attachment._path)
+
         md5 = hashlib.md5(self._attachment._path.getContent()).hexdigest()
         props = self._attachment.properties()
-        props[contentTypeKey] = GETContentType(generateContentType(self._contentType))
+        props[contentTypeKey] = GETContentType(
+            generateContentType(self._contentType)
+        )
         props[md5key] = TwistedGETContentMD5.fromString(md5)
 
         # Adjust quota
-        self._attachment._calendarObject._calendar._home.adjustQuotaUsedBytes(self._attachment.size() - old_size)
+        home.adjustQuotaUsedBytes(newSize - oldSize)
         props.flush()
+        return succeed(None)
 
 
 
@@ -644,7 +667,7 @@ class Attachment(FileMetaDataMixin):
 
     def properties(self):
         uid = self._calendarObject._parentCollection._home.uid()
-        return PropertyStore(uid, lambda :self._path)
+        return PropertyStore(uid, lambda: self._path)
 
 
     def store(self, contentType):

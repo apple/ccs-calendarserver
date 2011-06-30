@@ -58,6 +58,7 @@ def validateAddressBookComponent(addressbookObject, vcard, component, inserting)
         pass
 
     try:
+        component.validVCardData()
         component.validForCardDAV()
     except InvalidVCardDataError, e:
         raise InvalidObjectResourceError(e)

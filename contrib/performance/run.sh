@@ -20,6 +20,6 @@ pushd ~/Projects/CalendarServer/trunk
 source support/shell.sh
 popd
 
-export PYTHONPATH=$PYTHONPATH:~/Projects/CalDAVClientLibrary/trunk/src
+export PYTHONPATH=$PYTHONPATH:~/Projects/CalendarServer/CalDAVClientLibrary/src
 
 exec "$@"

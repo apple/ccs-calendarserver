@@ -44,7 +44,7 @@ usage () {
     echo;
   fi;
 
-  echo "Usage: ${program} [-hvgsfnpdkrR] [-K key] [-iI dst] [-t type] [-S statsdirectory] [-P plugin]";
+  echo "Usage: ${program} [-hvgsfnpdkrR] [-K key] [-iIb dst] [-t type] [-S statsdirectory] [-P plugin]";
   echo "Options:";
   echo "	-h  Print this help and exit";
   echo "	-v  Be verbose";
@@ -59,6 +59,7 @@ usage () {
   echo "	-K  Print value of configuration key and exit";
   echo "	-i  Perform a system install into dst; implies -s";
   echo "	-I  Perform a home install into dst; implies -s";
+  echo "	-b  Perform a bundled install (include all dependencies) into dst; implies -s";
   echo "	-t  Select the server process type (Master, Slave or Combined) [${service_type}]";
   echo "	-S  Write a pstats object for each process to the given directory when the server is stopped.";
   echo "	-P  Select the twistd plugin name [${plugin_name}]";
@@ -74,7 +75,7 @@ usage () {
 # functions in build.sh.
 parse_options () {
   OPTIND=1;
-  while getopts "ahvgsfnpdkrK:i:I:t:S:P:R:" option; do
+  while getopts "ahvgsfnpdkrK:i:I:b:t:S:P:R:" option; do
     case "${option}" in
       '?') usage; ;;
       'h') usage -; exit 0; ;;
@@ -90,9 +91,32 @@ parse_options () {
       'S')       profile="-p ${OPTARG}"; ;;
       'g') do_get="true" ; do_setup="false"; do_run="false"; ;;
       's') do_get="true" ; do_setup="true" ; do_run="false"; ;;
-      'p') do_get="false"; do_setup="false"; do_run="false"; print_path="true"; ;;
-      'i') do_get="true" ; do_setup="true" ; do_run="false"; install="${OPTARG}"; install_flag="--root="; ;;
-      'I') do_get="true" ; do_setup="true" ; do_run="false"; install="${wd}/build/dst"; install_flag="--root="; install_home="${OPTARG}"; ;;
+      'p')
+        do_get="false"; do_setup="false"; do_run="false"; print_path="true";
+        ;;
+      'i')
+        do_get="true";
+        do_setup="true";
+        do_run="false";
+        install="${OPTARG}";
+        install_flag="--root=";
+        ;;
+      'I')
+        do_get="true";
+        do_setup="true";
+        do_run="false";
+        install="${wd}/build/dst";
+        install_flag="--root=";
+        install_home="${OPTARG}";
+        ;;
+      'b')
+        do_bundle="true";
+        do_get="true";
+        do_setup="true";
+        do_run="false";
+        install="${OPTARG}";
+        install_flag="--root=";
+        ;;
       'n') do_get="false" ; do_setup="false"; ;;
     esac;
   done;
@@ -208,6 +232,10 @@ run_main () {
 
   if [ -n "${install_home:-}" ]; then
     do_home_install;
+  fi;
+
+  if "${do_bundle}"; then
+    write_environment;
   fi;
 
   # Finally, run the server.

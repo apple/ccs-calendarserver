@@ -139,7 +139,7 @@ def multiget_common(self, request, multiget, collection_type):
             disabled = True
             
         # Check private events access status
-        isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+        isowner = (yield self.isOwner(request))
 
     elif self.isAddressBookCollection():
         requestURIis = "addressbook"
@@ -352,7 +352,7 @@ def multiget_common(self, request, multiget, collection_type):
                         filteredaces = (yield parent.inheritedACEsforChildren(request))
 
                         # Check private events access status
-                        isowner = (yield parent.isOwner(request, adminprincipals=True, readprincipals=True))
+                        isowner = (yield parent.isOwner(request))
                 else:
                     name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
                     if (resource_uri != request.uri) or not self.exists():
@@ -376,7 +376,7 @@ def multiget_common(self, request, multiget, collection_type):
                     filteredaces = (yield parent.inheritedACEsforChildren(request))
 
                     # Check private events access status
-                    isowner = (yield parent.isOwner(request, adminprincipals=True, readprincipals=True))
+                    isowner = (yield parent.isOwner(request))
         
                 # Check privileges - must have at least DAV:read
                 try:

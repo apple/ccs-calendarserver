@@ -30,13 +30,13 @@ from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twext.python.clsprop import classproperty
 from twext.python.log import Logger, LoggingMixIn
 
-from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, pyCalendarTodatetime
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.query import (
-    calendarqueryfilter, calendarquery, addressbookquery)
+    calendarqueryfilter, calendarquery, addressbookquery, expression,
+    addressbookqueryfilter)
 from twistedcaldav.query.sqlgenerator import sqlgenerator
 from twistedcaldav.sharing import Invite
 
@@ -860,8 +860,23 @@ class RealSQLBehaviorMixin(object):
     """
 
     ISOP = " = "
-    CONTAINSOP = " LIKE "
-    NOTCONTAINSOP = " NOT LIKE "
+    STARTSWITHOP = ENDSWITHOP = CONTAINSOP = " LIKE "
+    NOTSTARTSWITHOP = NOTENDSWITHOP = NOTCONTAINSOP = " NOT LIKE "
+
+    def containsArgument(self, arg):
+        return "%%%s%%" % (arg,)
+
+    def startswithArgument(self, arg):
+        return "%s%%" % (arg,)
+
+    def endswithArgument(self, arg):
+        return "%%%s" % (arg,)
+
+class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
+    """
+    Query generator for CalDAV indexed searches.
+    """
+
     FIELDS = {
         "TYPE": "CALENDAR_OBJECT.ICALENDAR_TYPE",
         "UID":  "CALENDAR_OBJECT.ICALENDAR_UID",
@@ -891,6 +906,62 @@ class RealSQLBehaviorMixin(object):
         self.substitutions = []
         self.usedtimespan = False
 
+        # For SQL data DB we need to restrict the query to just the targeted calendar resource-id if provided
+        if self.calendarid:
+            
+            test = expression.isExpression("CALENDAR_OBJECT.CALENDAR_RESOURCE_ID", str(self.calendarid), True)
+
+            # Since timerange expression already have the calendar resource-id test in them, do not
+            # add the additional term to those. When the additional term is added, add it as the first
+            # component in the AND expression to hopefully get the DB to use its index first
+
+            # Top-level timerange expression already has calendar resource-id restriction in it
+            if isinstance(self.expression, expression.timerangeExpression):
+                pass
+            
+            # Top-level OR - check each component
+            elif isinstance(self.expression, expression.orExpression):
+                
+                def _hasTopLevelTimerange(testexpr):
+                    if isinstance(testexpr, expression.timerangeExpression):
+                        return True
+                    elif isinstance(testexpr, expression.andExpression):
+                        return any([isinstance(expr, expression.timerangeExpression) for expr in testexpr.expressions])
+                    else:
+                        return False
+                        
+                hasTimerange = any([_hasTopLevelTimerange(expr) for expr in self.expression.expressions])
+
+                if hasTimerange:
+                    # AND each of the non-timerange expressions
+                    trexpressions = []
+                    orexpressions = []
+                    for expr in self.expression.expressions:
+                        if _hasTopLevelTimerange(expr):
+                            trexpressions.append(expr)
+                        else:
+                            orexpressions.append(expr)
+                    
+                    if orexpressions:
+                        self.expression.expressions = tuple(trexpressions) + (
+                            test.andWith(expression.orExpression(orexpressions)),
+                        )
+                else:
+                    # AND the whole thing
+                    self.expression = test.andWith(self.expression)    
+
+            
+            # Top-level AND - only add additional expression if timerange not present
+            elif isinstance(self.expression, expression.andExpression):
+                hasTimerange = any([isinstance(expr, expression.timerangeExpression) for expr in self.expression.expressions])
+                if not hasTimerange:
+                    # AND the whole thing
+                    self.expression = test.andWith(self.expression)    
+            
+            # Just AND the entire thing
+            else:
+                self.expression = test.andWith(self.expression)
+
         # Generate ' where ...' partial statement
         self.sout.write(self.WHERE)
         self.generateExpression(self.expression)
@@ -909,11 +980,6 @@ class RealSQLBehaviorMixin(object):
         select = select % tuple(self.substitutions)
 
         return select, self.arguments
-
-
-    def containsArgument(self, arg):
-        return "%%%s%%" % (arg,)
-
 
 
 class FormatParamStyleMixin(object):
@@ -940,7 +1006,7 @@ class FormatParamStyleMixin(object):
 
 
 
-class postgresqlgenerator(FormatParamStyleMixin, RealSQLBehaviorMixin,
+class postgresqlgenerator(FormatParamStyleMixin, CalDAVSQLBehaviorMixin,
                           sqlgenerator):
     """
     Query generator for PostgreSQL indexed searches.
@@ -952,17 +1018,17 @@ def fixbools(sqltext):
 
 
 
-class oraclesqlgenerator(RealSQLBehaviorMixin, sqlgenerator):
+class oraclesqlgenerator(CalDAVSQLBehaviorMixin, sqlgenerator):
     """
     Query generator for Oracle indexed searches.
     """
-    TIMESPANTEST = fixbools(RealSQLBehaviorMixin.TIMESPANTEST)
-    TIMESPANTEST_NOEND = fixbools(RealSQLBehaviorMixin.TIMESPANTEST_NOEND)
-    TIMESPANTEST_NOSTART = fixbools(RealSQLBehaviorMixin.TIMESPANTEST_NOSTART)
+    TIMESPANTEST = fixbools(CalDAVSQLBehaviorMixin.TIMESPANTEST)
+    TIMESPANTEST_NOEND = fixbools(CalDAVSQLBehaviorMixin.TIMESPANTEST_NOEND)
+    TIMESPANTEST_NOSTART = fixbools(CalDAVSQLBehaviorMixin.TIMESPANTEST_NOSTART)
     TIMESPANTEST_TAIL_PIECE = fixbools(
-        RealSQLBehaviorMixin.TIMESPANTEST_TAIL_PIECE)
+        CalDAVSQLBehaviorMixin.TIMESPANTEST_TAIL_PIECE)
     TIMESPANTEST_JOIN_ON_PIECE = fixbools(
-        RealSQLBehaviorMixin.TIMESPANTEST_JOIN_ON_PIECE)
+        CalDAVSQLBehaviorMixin.TIMESPANTEST_JOIN_ON_PIECE)
 
 
 
@@ -1259,22 +1325,15 @@ class PostgresLegacyInboxIndexEmulator(PostgresLegacyIndexEmulator):
 
 # CARDDAV
 
-class oraclesqladbkgenerator(sqlgenerator):
+class CardDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
     """
-    Query generator for Oracle indexed searches.
+    Query generator for CardDAV indexed searches.
     """
 
-    ISOP = " = "
-    CONTAINSOP = " LIKE "
-    NOTCONTAINSOP = " NOT LIKE "
     FIELDS = {
         "UID":  "ADDRESSBOOK_OBJECT.VCARD_UID",
     }
     RESOURCEDB = "ADDRESSBOOK_OBJECT"
-
-    def containsArgument(self, arg):
-        return "%%%s%%" % (arg,)
-
 
     def generate(self):
         """
@@ -1291,6 +1350,13 @@ class oraclesqladbkgenerator(sqlgenerator):
         self.arguments = []
         self.substitutions = []
 
+        # For SQL data DB we need to restrict the query to just the targeted calendar resource-id if provided
+        if self.calendarid:
+            
+            # AND the whole thing
+            test = expression.isExpression("ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID", str(self.calendarid), True)
+            self.expression = test.andWith(self.expression)    
+
         # Generate ' where ...' partial statement
         self.sout.write(self.WHERE)
         self.generateExpression(self.expression)
@@ -1305,11 +1371,14 @@ class oraclesqladbkgenerator(sqlgenerator):
 
 
 
-class postgresqladbkgenerator(FormatParamStyleMixin, oraclesqladbkgenerator):
+class postgresqladbkgenerator(FormatParamStyleMixin, CardDAVSQLBehaviorMixin, sqlgenerator):
     """
-    Query generator for PostgreSQL indexed searches.  Inherit 'real' database
-    behavior from L{oracleadbkgenerator}, and %s-style formatting from
-    L{FormatParamStyleMixin}.
+    Query generator for PostgreSQL indexed searches.
+    """
+
+class oraclesqladbkgenerator(CardDAVSQLBehaviorMixin, sqlgenerator):
+    """
+    Query generator for Oracle indexed searches.
     """
 
 
@@ -1356,7 +1425,7 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
 
 
     def searchValid(self, filter):
-        if isinstance(filter, carddavxml.Filter):
+        if isinstance(filter, addressbookqueryfilter.Filter):
             qualifiers = addressbookquery.sqladdressbookquery(filter)
         else:
             qualifiers = None
@@ -1379,7 +1448,7 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
         else:
             generator = postgresqladbkgenerator
         # Make sure we have a proper Filter element and get the partial SQL statement to use.
-        if isinstance(filter, carddavxml.Filter):
+        if isinstance(filter, addressbookqueryfilter.Filter):
             qualifiers = addressbookquery.sqladdressbookquery(
                 filter, self.addressbook._resourceID, generator=generator)
         else:
@@ -1392,10 +1461,10 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
             )
         else:
             rowiter = yield Select(
-                [schema.ADDRESSBOOK_OBJECT.RESOURCE_NAME,
-                 schema.ADDRESSBOOK_OBJECT.VCARD_UID],
-                From=schema.ADDRESSBOOK_OBJECT,
-                Where=schema.ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID ==
+                [self._objectSchema.RESOURCE_NAME,
+                 self._objectSchema.VCARD_UID],
+                From=self._objectSchema,
+                Where=self._objectSchema.ADDRESSBOOK_RESOURCE_ID ==
                 self.addressbook._resourceID
             ).on(self.addressbook._txn)
 

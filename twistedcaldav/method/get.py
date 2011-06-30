@@ -82,7 +82,7 @@ def http_GET(self, request):
                 if self.accessMode:
             
                     # Non DAV:owner's have limited access to the data
-                    isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+                    isowner = (yield self.isOwner(request))
                     
                     # Now "filter" the resource calendar data
                     caldata = PrivateEventFilter(self.accessMode, isowner).filter(caldata)

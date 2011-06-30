@@ -22,7 +22,6 @@ benchmarking tools.
 
 import sys
 from xml.etree import ElementTree
-from xml.etree import ElementPath
 
 def main():
     conf = ElementTree.parse(file(sys.argv[1]))

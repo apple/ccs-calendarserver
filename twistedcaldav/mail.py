@@ -529,6 +529,19 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
 # Service
 #
 
+class MailGatewayService(service.MultiService):
+
+    def startService(self):
+        """
+        Purge old database tokens -- doing this in startService so that
+        it happens after we've shed privileges
+        """
+        service.MultiService.startService(self)
+        mailer = getattr(self, "mailer", None)
+        if mailer is not None:
+            mailer.purge()
+
+
 class MailGatewayServiceMaker(LoggingMixIn):
     implements(IPlugin, service.IServiceMaker)
 
@@ -543,7 +556,7 @@ class MailGatewayServiceMaker(LoggingMixIn):
             config.Memcached.MaxClients,
         )
 
-        multiService = service.MultiService()
+        mailGatewayService = MailGatewayService()
 
         settings = config.Scheduling['iMIP']
         if settings['Enabled']:
@@ -560,18 +573,19 @@ class MailGatewayServiceMaker(LoggingMixIn):
                 # TODO: raise error?
                 self.log_error("Invalid iMIP type in configuration: %s" %
                     (mailType,))
-                return multiService
+                return mailGatewayService
 
-            client.setServiceParent(multiService)
-
+            client.setServiceParent(mailGatewayService)
 
             # Set up /inbox -- server POSTs to it to send out iMIP invites
-            IScheduleService(settings, mailer).setServiceParent(multiService)
+            IScheduleService(settings, mailer).setServiceParent(mailGatewayService)
 
         else:
+            mailer = None
             self.log_info("Mail Gateway Service not enabled")
 
-        return multiService
+        mailGatewayService.mailer = mailer
+        return mailGatewayService
 
 
 class IScheduleService(service.MultiService, LoggingMixIn):
@@ -609,9 +623,14 @@ class MailHandler(LoggingMixIn):
         if dataRoot is None:
             dataRoot = config.DataRoot
         self.db = MailGatewayTokensDatabase(dataRoot)
-        days = config.Scheduling['iMIP']['InvitationDaysToLive']
+        self.days = config.Scheduling['iMIP']['InvitationDaysToLive']
+
+    def purge(self):
+        """
+        Purge old database tokens
+        """
         self.db.purgeOldTokens(datetime.date.today() -
-            datetime.timedelta(days=days))
+            datetime.timedelta(days=self.days))
 
     def checkDSN(self, message):
         # returns (isDSN, Action, icalendar attachment)
@@ -835,7 +854,7 @@ class MailHandler(LoggingMixIn):
         for attendeeProp in calendar.getAllAttendeeProperties():
             cutype = attendeeProp.parameterValue('CUTYPE', None)
             if cutype == "INDIVIDUAL":
-                cn = attendeeProp.parameterValue("CN", None)
+                cn = attendeeProp.parameterValue("CN", None).decode("utf-8")
                 cuaddr = normalizeCUAddr(attendeeProp.value())
                 if cuaddr.startswith("mailto:"):
                     mailto = cuaddr[7:]
@@ -880,6 +899,7 @@ class MailHandler(LoggingMixIn):
             addressWithToken = "%s+%s@%s" % (pre, token, post)
 
             organizerProperty = calendar.getOrganizerProperty()
+            organizerEmailAddress = organizerProperty.parameterValue("EMAIL", None)
             organizerValue = organizerProperty.value()
             organizerProperty.setValue("mailto:%s" % (addressWithToken,))
 
@@ -892,8 +912,8 @@ class MailHandler(LoggingMixIn):
             # The email's From will include the originator's real name email
             # address if available.  Otherwise it will be the server's email
             # address (without # + addressing)
-            if originator.startswith("mailto:"):
-                orgEmail = fromAddr = originator[7:]
+            if organizerEmailAddress:
+                orgEmail = fromAddr = organizerEmailAddress
             else:
                 fromAddr = serverAddress
                 orgEmail = None
@@ -909,10 +929,15 @@ class MailHandler(LoggingMixIn):
 
         else: # REPLY
             inviteState = "reply"
-            originator = originator.lower()
-            if not originator.startswith("mailto:"):
-                raise ValueError("Originator address '%s' must be mailto: for REPLY." % (originator,))
-            formattedFrom = fromAddr = originator = originator[7:]
+
+            # Look up the attendee property corresponding to the originator
+            # of this reply
+            originatorAttendeeProperty = calendar.getAttendeeProperty([originator])
+            formattedFrom = fromAddr = originator = ""
+            if originatorAttendeeProperty:
+                originatorAttendeeEmailAddress = originatorAttendeeProperty.parameterValue("EMAIL", None)
+                if originatorAttendeeEmailAddress:
+                    formattedFrom = fromAddr = originator = originatorAttendeeEmailAddress
 
             organizerMailto = str(calendar.getOrganizer())
             if not organizerMailto.lower().startswith("mailto:"):
@@ -1223,7 +1248,7 @@ class MailHandler(LoggingMixIn):
         results['month'] = dtStart.getMonth()
         results['day'] = dtStart.getDay()
 
-        summary = component.propertyValue("SUMMARY")
+        summary = component.propertyValue("SUMMARY").decode("utf-8")
         if summary is None:
             summary = ""
         results['summary'] = summary

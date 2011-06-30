@@ -52,8 +52,8 @@ import time
 from twisted.cred.credentials import UsernamePassword
 from twistedcaldav.directory.cachingdirectory import (CachingDirectoryService,
     CachingDirectoryRecord)
-from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryConfigurationError
+from twistedcaldav.directory.augment import AugmentRecord
 from twisted.internet.defer import succeed
 
 class LdapDirectoryService(CachingDirectoryService):
@@ -74,6 +74,7 @@ class LdapDirectoryService(CachingDirectoryService):
         """
 
         defaults = {
+            "augmentService" : None,
             "cacheTimeout": 1,
             "negativeCaching": False,
             "restrictEnabledRecords": False,
@@ -98,6 +99,8 @@ class LdapDirectoryService(CachingDirectoryService):
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
                     "recordName": "uid", # uniquely identifies user records
+                    "loginEnabledAttr" : "loginEnabled", # attribute controlling login
+                    "loginEnabledValue" : "yes", # value of above attribute
                 },
                 "groups": {
                     "rdn": "ou=Group",
@@ -141,6 +144,7 @@ class LdapDirectoryService(CachingDirectoryService):
         super(LdapDirectoryService, self).__init__(params["cacheTimeout"],
                                                    params["negativeCaching"])
 
+        self.augmentService = params["augmentService"]
         self.realmName = params["uri"]
         self.uri = params["uri"]
         self.tls = params["tls"]
@@ -172,6 +176,8 @@ class LdapDirectoryService(CachingDirectoryService):
             attrSet.add(self.groupSchema["nestedGroupsAttr"])
         if self.groupSchema["memberIdAttr"]:
             attrSet.add(self.groupSchema["memberIdAttr"])
+        if self.rdnSchema["users"]["loginEnabledAttr"]:
+            attrSet.add(self.rdnSchema["users"]["loginEnabledAttr"])
         self.attrList = list(attrSet)
 
         self.typeRDNs = {}
@@ -246,6 +252,7 @@ class LdapDirectoryService(CachingDirectoryService):
             self.authLDAP = self.createLDAPConnection()
         self.log_debug("Authenticating %s" % (dn,))
         self.authLDAP.bind_s(dn, password)
+        self.log_debug("Authentication succeeded for %s" % (dn,))
 
 
     @property
@@ -388,9 +395,10 @@ class LdapDirectoryService(CachingDirectoryService):
         firstName = None
         lastName = None
         emailAddresses = set()
-        calendarUserAddresses = set()
         enabledForCalendaring = None
+        enabledForAddressBooks = None
         uid = None
+        enabledForLogin = True
 
         # First check for and add guid
         guidAttr = self.rdnSchema["guidAttr"]
@@ -400,6 +408,7 @@ class LdapDirectoryService(CachingDirectoryService):
         # Find or build email
         emailAddresses = self._getMultipleLdapAttributes(attrs, "mail")
         emailSuffix = self.rdnSchema[recordType]["emailSuffix"]
+
 
         if len(emailAddresses) == 0 and emailSuffix is not None:
             emailPrefix = self._getUniqueLdapAttribute(attrs,
@@ -413,16 +422,28 @@ class LdapDirectoryService(CachingDirectoryService):
                 "displayName", "gecos")
             firstName = self._getUniqueLdapAttribute(attrs, "givenName")
             lastName = self._getUniqueLdapAttribute(attrs, "sn", "surname")
-            calendarUserAddresses = emailAddresses
             enabledForCalendaring = True
+            enabledForAddressBooks = True
+
+            # Check login control attribute
+            loginEnabledAttr = self.rdnSchema[recordType]["loginEnabledAttr"]
+            if loginEnabledAttr:
+                loginEnabledValue = self.rdnSchema[recordType]["loginEnabledValue"]
+                enabledForLogin = self._getUniqueLdapAttribute(attrs,
+                    loginEnabledAttr) == loginEnabledValue
+
         elif recordType == self.recordType_groups:
             fullName = self._getUniqueLdapAttribute(attrs, "cn")
             enabledForCalendaring = False
+            enabledForAddressBooks = False
+            enabledForLogin = False
+
         elif recordType in (self.recordType_resources,
             self.recordType_locations):
             fullName = self._getUniqueLdapAttribute(attrs, "cn")
-            calendarUserAddresses = emailAddresses
             enabledForCalendaring = True
+            enabledForAddressBooks = False
+            enabledForLogin = False
 
         record = LdapDirectoryRecord(
             service                 = self,
@@ -434,19 +455,23 @@ class LdapDirectoryService(CachingDirectoryService):
             firstName               = firstName,
             lastName                = lastName,
             emailAddresses          = emailAddresses,
-            calendarUserAddresses   = calendarUserAddresses,
-            enabledForCalendaring   = enabledForCalendaring,
             uid                     = uid,
             dn                      = dn,
             attrs                   = attrs,
         )
 
-        # Look up augment information
-        # TODO: this needs to be deferred but for now we hard code the
-        # deferred result because we know it is completing immediately.
-        d = augment.AugmentService.getAugmentRecord(record.guid,
-            recordType)
-        d.addCallback(lambda x:record.addAugmentInformation(x))
+        # Generate an augment record based on information retrieved from LDAP
+        augmentRecord = AugmentRecord(
+            guid,
+            enabled=True,
+            serverID="", # TODO: add to LDAP?
+            partitionID="", # TODO: add to LDAP?
+            enabledForCalendaring=enabledForCalendaring,
+            autoSchedule=False, # TODO: add to LDAP?
+            enabledForAddressBooks=enabledForAddressBooks, # TODO: add to LDAP?
+            enabledForLogin=enabledForLogin,
+        )
+        record.addAugmentInformation(augmentRecord)
 
         return record
 
@@ -544,9 +569,9 @@ class LdapDirectoryService(CachingDirectoryService):
         Carries out the work of a principal-property-search against LDAP
         Returns a deferred list of directory records.
         """
-
         records = []
 
+        self.log_debug("Peforming principal property search for %s" % (fields,))
         recordTypes = [recordType] if recordType else self.recordTypes()
         for recordType in recordTypes:
             filter = buildFilter(self.attributeMapping, fields, operand=operand)
@@ -560,11 +585,13 @@ class LdapDirectoryService(CachingDirectoryService):
                     (ldap.dn.dn2str(base), filter))
                 results = self.ldap.search_s(ldap.dn.dn2str(base),
                     ldap.SCOPE_SUBTREE, filter, self.attrList)
+                self.log_debug("LDAP search returned %d results" % (len(results),))
 
                 for dn, attrs in results:
                     # Skip if group restriction is in place and guid is not
                     # a member
-                    if self.restrictedGUIDs is not None:
+                    if (recordType != self.recordType_groups and
+                        self.restrictedGUIDs is not None):
                         guidAttr = self.rdnSchema["guidAttr"]
                         if guidAttr:
                             guid = self._getUniqueLdapAttribute(attrs, guidAttr)
@@ -574,6 +601,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     record = self._ldapResultToRecord(dn, attrs, recordType)
                     records.append(record)
 
+        self.log_debug("Principal property search matched %d records" % (len(records),))
         return succeed(records)
 
 
@@ -618,8 +646,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         self, service, recordType,
         guid, shortNames, authIDs, fullName,
         firstName, lastName, emailAddresses,
-        calendarUserAddresses, enabledForCalendaring, uid,
-        dn, attrs
+        uid, dn, attrs
     ):
         super(LdapDirectoryRecord, self).__init__(
             service               = service,
@@ -631,8 +658,6 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
             firstName             = firstName,
             lastName              = lastName,
             emailAddresses        = emailAddresses,
-            calendarUserAddresses = calendarUserAddresses,
-            enabledForCalendaring = enabledForCalendaring,
             uid                   = uid,
         )
 
@@ -824,3 +849,4 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
                 raise DirectoryConfigurationError(msg)
 
         return super(LdapDirectoryRecord, self).verifyCredentials(credentials)
+

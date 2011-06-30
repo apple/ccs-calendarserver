@@ -15,33 +15,36 @@
 #
 ##
 
-from sys import argv
+from xml.parsers.expat import ExpatError
+from sys import argv, stdout
 from random import Random
 from plistlib import readPlist
 from collections import namedtuple
 
 from twisted.python import context
 from twisted.python.filepath import FilePath
-from twisted.python.log import addObserver, removeObserver
+from twisted.python.log import startLogging, addObserver, removeObserver
 from twisted.python.usage import UsageError, Options
 from twisted.python.reflect import namedAny
 
 from loadtest.ical import SnowLeopard
 from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.population import (
-    Populator, ClientType, PopulationParameters, SmoothRampUp,
+    Populator, ProfileType, ClientType, PopulationParameters, SmoothRampUp,
     CalendarClientSimulator)
 
 
 class _DirectoryRecord(object):
-    def __init__(self, uid, password):
+    def __init__(self, uid, password, commonName, email):
         self.uid = uid
         self.password = password
+        self.commonName = commonName
+        self.email = email
 
 
-def recordsFromTextFile(path):
+def recordsFromCSVFile(path):
     return [
-        _DirectoryRecord(*line.split())
+        _DirectoryRecord(*line.decode('utf-8').split(u','))
         for line
         in FilePath(path).getContent().splitlines()]
 
@@ -87,9 +90,19 @@ class SimOptions(Options):
             raise UsageError("--config %s: %s" % (path, e.strerror))
         try:
             self.config = readPlist(configFile)
-        except Exception, e:
-            raise UsageError(
-                "--config %s: %s" % (path, str(e)))
+        except ExpatError, e:
+            raise UsageError("--config %s: %s" % (path, e)) 
+
+
+    def opt_logfile(self, filename):
+        """
+        Enable normal logging to some file.  - for stdout.
+        """
+        if filename == "-":
+            fObj = stdout
+        else:
+            fObj = file(filename, "a")
+        startLogging(fObj, setStdout=False)
 
 
     def opt_debug(self):
@@ -121,7 +134,6 @@ class SimOptions(Options):
             raise UsageError("Specify a configuration file using --config <path>")
 
 
-Server = namedtuple('Server', 'host port')
 Arrival = namedtuple('Arrival', 'factory parameters')
 
 
@@ -130,7 +142,7 @@ class LoadSimulator(object):
     A L{LoadSimulator} simulates some configuration of calendar
     clients.
 
-    @type server: L{Server}
+    @type server: C{str}
     @type arrival: L{Arrival}
     @type parameters: L{PopulationParameters}
 
@@ -160,17 +172,14 @@ class LoadSimulator(object):
         except UsageError, e:
             raise SystemExit(str(e))
 
+        server = 'http://127.0.0.1:8008/'
         if 'server' in options.config:
-            server = Server( 
-                options.config['server']['host'],
-                options.config['server']['port'])
-        else:
-            server = Server('127.0.0.1', 8008)
+            server = options.config['server']
 
         if 'arrival' in options.config:
-            params = options.config['arrival']
-            factory = namedAny(params.pop('factory'))
-            arrival = Arrival(factory, params)
+            arrival = Arrival(
+                namedAny(options.config['arrival']['factory']), 
+                options.config['arrival']['params'])
         else:
             arrival = Arrival(
                 SmoothRampUp, dict(groups=10, groupSize=1, interval=3))
@@ -182,7 +191,9 @@ class LoadSimulator(object):
                     clientConfig["weight"],
                     ClientType(
                         namedAny(clientConfig["software"]),
-                        [namedAny(profile)
+                        [ProfileType(
+                                namedAny(profile["class"]),
+                                cls._convertParams(profile["params"]))
                          for profile in clientConfig["profiles"]]))
         if not parameters.clients:
             parameters.addClient(
@@ -202,6 +213,30 @@ class LoadSimulator(object):
         return cls(server, arrival, parameters,
                    observers=observers, records=records)
 
+    @classmethod
+    def _convertParams(cls, params):
+        """
+        Find parameter values which should be more structured than plistlib is
+        capable of constructing and replace them with the more structured form.
+
+        Specifically, find keys that end with C{"Distribution"} and convert
+        them into some kind of distribution object using the associated
+        dictionary of keyword arguments.
+        """
+        for k, v in params.iteritems():
+            if k.endswith('Distribution'):
+                params[k] = cls._convertDistribution(v)
+        return params
+
+
+    @classmethod
+    def _convertDistribution(cls, value):
+        """
+        Construct and return a new distribution object using the type and
+        params specified by C{value}.
+        """
+        return namedAny(value['type'])(**value['params'])
+
 
     @classmethod
     def main(cls, args=None):
@@ -210,12 +245,9 @@ class LoadSimulator(object):
 
 
     def createSimulator(self):
-        host = self.server.host
-        port = self.server.port
         populator = Populator(Random())
         return CalendarClientSimulator(
-            self.records, populator, self.parameters, self.reactor,
-            host, port)
+            self.records, populator, self.parameters, self.reactor, self.server)
 
 
     def createArrivalPolicy(self):

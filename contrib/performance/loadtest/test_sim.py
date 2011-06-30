@@ -15,39 +15,33 @@
 #
 ##
 
-from operator import setitem
 from plistlib import writePlistToString
 
-from zope.interface.verify import verifyClass
-
-from twisted.python.log import LogPublisher, theLogPublisher, msg
+from twisted.python.log import msg
 from twisted.python.usage import UsageError
 from twisted.python.filepath import FilePath
 from twisted.trial.unittest import TestCase
-from twisted.internet.defer import succeed
-from twisted.internet.task import Clock
 
-from twistedcaldav.directory.idirectory import IDirectoryService
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.directory import DirectoryRecord
 
+from stats import NormalDistribution
 from loadtest.ical import SnowLeopard
 from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.population import (
     SmoothRampUp, ClientType, PopulationParameters, Populator, CalendarClientSimulator,
-    SimpleStatistics)
+    ProfileType, SimpleStatistics)
 from loadtest.sim import (
-    Server, Arrival, SimOptions, LoadSimulator, LagTrackingReactor, main)
+    Arrival, SimOptions, LoadSimulator, LagTrackingReactor)
 
 VALID_CONFIG = {
-    'server': {
-        'host': '127.0.0.1',
-        'port': 8008,
-        },
+    'server': 'tcp:127.0.0.1:8008',
     'arrival': {
         'factory': 'loadtest.population.SmoothRampUp',
-        'groups': 10,
-        'groupSize': 1,
-        'interval': 3,
+        'params': {
+            'groups': 10,
+            'groupSize': 1,
+            'interval': 3,
+            },
         },
     }
 
@@ -120,7 +114,7 @@ class CalendarClientSimulatorTests(TestCase):
         """
         calsim = CalendarClientSimulator(
             [self._user('alice'), self._user('bob'), self._user('carol')],
-            Populator(None), None, None, 'example.org', 1234)
+            Populator(None), None, None, 'http://example.org:1234/')
         users = sorted([
                 calsim._createUser(0)[0],
                 calsim._createUser(1)[0],
@@ -136,7 +130,7 @@ class CalendarClientSimulatorTests(TestCase):
         """
         calsim = CalendarClientSimulator(
             [self._user('alice')],
-            Populator(None), None, None, 'example.org', 1234)
+            Populator(None), None, None, 'http://example.org:1234/')
         user, auth = calsim._createUser(0)
         self.assertEqual(
             auth.passwd.find_user_password('Test Realm', 'http://example.org:1234/')[1],
@@ -202,16 +196,14 @@ class LoadSimulatorTests(TestCase):
         with its own reactor and host and port information from the
         configuration file.
         """
-        host = '127.0.0.7'
-        port = 1243
+        server = 'http://127.0.0.7:1243/'
         reactor = object()
-        sim = LoadSimulator(Server(host, port), None, None, reactor=reactor)
+        sim = LoadSimulator(server, None, None, reactor=reactor)
         calsim = sim.createSimulator()
         self.assertIsInstance(calsim, CalendarClientSimulator)
         self.assertIsInstance(calsim.reactor, LagTrackingReactor)
         self.assertIdentical(calsim.reactor._reactor, reactor)
-        self.assertEquals(calsim.host, host)
-        self.assertEquals(calsim.port, port)
+        self.assertEquals(calsim.server, server)
 
 
     def test_loadAccountsFromFile(self):
@@ -219,10 +211,10 @@ class LoadSimulatorTests(TestCase):
         L{LoadSimulator.
         """
         accounts = FilePath(self.mktemp())
-        accounts.setContent("foo bar\nbaz quux\n")
+        accounts.setContent("foo,bar,baz,quux\nfoo2,bar2,baz2,quux2\n")
         config = VALID_CONFIG.copy()
         config["accounts"] = {
-            "loader": "loadtest.sim.recordsFromTextFile",
+            "loader": "loadtest.sim.recordsFromCSVFile",
             "params": {
                 "path": accounts.path},
             }
@@ -232,8 +224,12 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(2, len(sim.records))
         self.assertEqual(sim.records[0].uid, 'foo')
         self.assertEqual(sim.records[0].password, 'bar')
-        self.assertEqual(sim.records[1].uid, 'baz')
-        self.assertEqual(sim.records[1].password, 'quux')
+        self.assertEqual(sim.records[0].commonName, 'baz')
+        self.assertEqual(sim.records[0].email, 'quux')
+        self.assertEqual(sim.records[1].uid, 'foo2')
+        self.assertEqual(sim.records[1].password, 'bar2')
+        self.assertEqual(sim.records[1].commonName, 'baz2')
+        self.assertEqual(sim.records[1].email, 'quux2')
 
 
     def test_loadServerConfig(self):
@@ -243,13 +239,9 @@ class LoadSimulatorTests(TestCase):
         """
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({
-                    "server": {
-                        "host": "127.0.0.1",
-                        "port": 1234,
-                        },
-                    }))
+                    "server": "https://127.0.0.3:8432/"}))
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
-        self.assertEquals(sim.server, Server("127.0.0.1", 1234))
+        self.assertEquals(sim.server, "https://127.0.0.3:8432/")
 
 
     def test_loadArrivalConfig(self):
@@ -261,9 +253,11 @@ class LoadSimulatorTests(TestCase):
         config.setContent(writePlistToString({
                     "arrival": {
                         "factory": "loadtest.population.SmoothRampUp",
-                        "groups": 10,
-                        "groupSize": 1,
-                        "interval": 3,
+                        "params": {
+                            "groups": 10,
+                            "groupSize": 1,
+                            "interval": 3,
+                            },
                         },
                     }))
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
@@ -302,12 +296,25 @@ class LoadSimulatorTests(TestCase):
         config.setContent(writePlistToString({
                     "clients": [{
                             "software": "loadtest.ical.SnowLeopard",
-                            "profiles": ["loadtest.profiles.Eventer"],
+                            "profiles": [{
+                                    "params": {
+                                        "interval": 25,
+                                        "eventStartDistribution": {
+                                            "type": "stats.NormalDistribution",
+                                            "params": {
+                                                "mu": 123,
+                                                "sigma": 456,
+                                                }}},
+                                    "class": "loadtest.profiles.Eventer"}],
                             "weight": 3,
                             }]}))
+                            
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         expectedParameters = PopulationParameters()
-        expectedParameters.addClient(3, ClientType(SnowLeopard, [Eventer]))
+        expectedParameters.addClient(
+            3, ClientType(SnowLeopard, [ProfileType(Eventer, {
+                            "interval": 25,
+                            "eventStartDistribution": NormalDistribution(123, 456)})]))
         self.assertEquals(sim.parameters, expectedParameters)
 
         
@@ -338,6 +345,7 @@ class LoadSimulatorTests(TestCase):
         self.assertEquals(len(sim.observers), 1)
         self.assertIsInstance(sim.observers[0], SimpleStatistics)
 
+
     def test_observeRunReport(self):
         """
         Each log observer is added to the log publisher before the
@@ -346,7 +354,7 @@ class LoadSimulatorTests(TestCase):
         """
         observers = [Observer()]
         sim = LoadSimulator(
-            Server('example.com', 123), 
+            "http://example.com:123/",
             Arrival(lambda reactor: NullArrival(), {}),
             None, observers, reactor=Reactor())
         sim.run()

@@ -20,6 +20,8 @@ Store test utility functions
 """
 
 import gc
+from hashlib import md5
+from random import Random
 from zope.interface.verify import verifyObject
 from zope.interface.exceptions import BrokenMethodImplementation,\
     DoesNotImplement
@@ -76,6 +78,7 @@ class SQLStoreBuilder(object):
 
         @return: a L{Deferred} which fires with an L{IDataStore}.
         """
+        disableMemcacheForTest(testCase)
         dbRoot = CachingFilePath(self.SHARED_DB_PATH)
         attachmentRoot = dbRoot.child("attachments")
         if self.sharedService is None:
@@ -125,11 +128,12 @@ class SQLStoreBuilder(object):
             attachmentRoot.createDirectory()
         except OSError:
             pass
-        cp = ConnectionPool(self.sharedService.produceConnection)
-        store = CommonDataStore(
-            cp.connection, notifierFactory, attachmentRoot
-        )
         currentTestID = testCase.id()
+        cp = ConnectionPool(self.sharedService.produceConnection)
+        quota = deriveQuota(currentTestID)
+        store = CommonDataStore(
+            cp.connection, notifierFactory, attachmentRoot, quota=quota
+        )
         store.label = currentTestID
         cp.startService()
         def stopIt():
@@ -179,6 +183,31 @@ class SQLStoreBuilder(object):
 
 theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore
+
+
+
+def deriveQuota(testID):
+    """
+    Derive a distinctive quota number for a specific test, based on its ID.
+    This generates a quota which is small enough that tests may trivially exceed
+    it if they wish to do so, but distinctive enough that it may be compared
+    without the risk of testing only a single value for quota.
+
+    Since SQL stores are generally built during test construction, it's awkward
+    to have tests which specifically construct a store to inspect quota-related
+    state; this allows us to have the test and the infrastructure agree on a
+    number.
+
+    @param testID: The identifier for a test, as returned by L{TestCase.id}.
+
+    @type testID: C{str}
+    """
+    h = md5(testID)
+    seed = int(h.hexdigest(), 16)
+    r = Random(seed)
+    baseline = 2000
+    fuzz = r.randint(1, 1000)
+    return baseline + fuzz
 
 
 
@@ -423,3 +452,24 @@ class StubNotifierFactory(object):
 
     def reset(self):
         self.history = []
+
+
+
+def disableMemcacheForTest(aTest):
+    """
+    Disable all memcache logic for the duration of a test; we shouldn't be
+    starting or connecting to any memcache stuff for most tests.
+    """
+
+    # These imports are local so that they don't accidentally leak to anything
+    # else in this module; nothing else in this module should ever touch global
+    # configuration. -glyph
+
+    from twistedcaldav.config import config
+    from twistedcaldav.memcacher import Memcacher
+
+    aTest.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
+    aTest.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
+    aTest.patch(Memcacher, "allowTestCache", True)
+
+

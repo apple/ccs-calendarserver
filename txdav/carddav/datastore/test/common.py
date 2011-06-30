@@ -594,7 +594,7 @@ class CommonTests(CommonCommonTests):
         L{IAddressBookObject.iAddressBookText} returns a C{str} describing the same
         data provided by L{IAddressBookObject.component}.
         """
-        text = yield (yield self.addressbookObjectUnderTest()).vCardText()
+        text = yield (yield self.addressbookObjectUnderTest())._text()
         self.assertIsInstance(text, str)
         self.failUnless(text.startswith("BEGIN:VCARD\r\n"))
         self.assertIn("\r\nUID:uid1\r\n", text)
@@ -906,7 +906,7 @@ class CommonTests(CommonCommonTests):
                 ],
                 propertyContent)
             obj = yield self.addressbookObjectUnderTest()
-            vcard1_text = yield obj.vCardText()
+            vcard1_text = yield obj._text()
             vcard1_text_withDifferentNote = vcard1_text.replace(
                 "NOTE:CardDAV protocol updates",
                 "NOTE:Changed"

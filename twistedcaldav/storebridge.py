@@ -25,7 +25,11 @@ from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError
 from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
 from twext.web2.http import HTTPError, StatusResponse, Response
 from twext.web2.http_headers import ETag, MimeType
-from twext.web2.responsecode import FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED, BAD_REQUEST, OK
+from twext.web2.responsecode import (
+    FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED,
+    BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE
+)
+
 from twext.web2.stream import ProducerStream, readStream, MemoryStream
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.internet.protocol import Protocol
@@ -43,13 +47,16 @@ from twistedcaldav.ical import Component as VCalendar, Property as VProperty,\
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
-from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
+from twistedcaldav.notifications import (
+    NotificationCollectionResource, NotificationResource
+)
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource
 from twistedcaldav.schedule import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from urlparse import urlsplit
 import time
@@ -938,7 +945,7 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         filteredaces = (yield self.inheritedACEsforChildren(request))
 
         tzids = set()
-        isowner = (yield self.isOwner(request, adminprincipals=True, readprincipals=True))
+        isowner = (yield self.isOwner(request))
         accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
         for name, uid, type in (yield maybeDeferred(self.index().bruteForceSearch)): #@UnusedVariable
@@ -955,9 +962,8 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
                     continue
 
                 # Get the access filtered view of the data
-                caldata = yield child.iCalendarTextFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
                 try:
-                    subcalendar = VCalendar.fromString(caldata)
+                    subcalendar = yield child.iCalendarFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
                 except ValueError:
                     continue
                 assert subcalendar.name() == "VCALENDAR"
@@ -1517,12 +1523,18 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
         creating = (self._newStoreAttachment is None)
         if creating:
-            self._newStoreAttachment = self._newStoreObject =  (yield self._newStoreCalendarObject.createAttachmentWithName(
-                self.attachmentName,
-            ))
+            self._newStoreAttachment = self._newStoreObject = (
+                yield self._newStoreCalendarObject.createAttachmentWithName(
+                    self.attachmentName))
         t = self._newStoreAttachment.store(content_type)
         yield readStream(request.stream, t.write)
-        yield t.loseConnection()
+        try:
+            yield t.loseConnection()
+        except QuotaExceeded:
+            raise HTTPError(
+                ErrorResponse(INSUFFICIENT_STORAGE_SPACE,
+                              (dav_namespace, "quota-not-exceeded"))
+            )
         returnValue(CREATED if creating else NO_CONTENT)
 
 
@@ -1618,9 +1630,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         return succeed(self._newStoreObject.size())
 
 
-    def text(self):
-        return self._newStoreObject.text()
-
     def component(self):
         return self._newStoreObject.component()
 
@@ -1630,9 +1639,9 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             log.debug("Resource not found: %s" % (self,))
             raise HTTPError(responsecode.NOT_FOUND)
 
-        output = yield self.text()
+        output = yield self.component()
 
-        response = Response(200, {}, output)
+        response = Response(200, {}, str(output))
         response.headers.setHeader("content-type", self.contentType())
         returnValue(response)
 
@@ -1709,65 +1718,44 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         returnValue(NO_CONTENT)
 
 
+
+class _MetadataProperty(object):
+    """
+    A python property which can be set either on a _newStoreObject or on some
+    metadata if no new store object exists yet.
+    """
+
+    def __init__(self, name):
+        self.name = name
+
+
+    def __get__(self, oself, type=None):
+        if oself._newStoreObject:
+            return getattr(oself._newStoreObject, self.name)
+        else:
+            return oself._metadata.get(self.name, None)
+
+
+    def __set__(self, oself, value):
+        if oself._newStoreObject:
+            setattr(oself._newStoreObject, self.name, value)
+        else:
+            oself._metadata[self.name] = value
+
+
+
 class _CalendarObjectMetaDataMixin(object):
     """
     Dynamically create the required meta-data for an object resource 
     """
 
-    def _get_accessMode(self):
-        return self._newStoreObject.accessMode if self._newStoreObject else self._metadata.get("accessMode", None)
+    accessMode        = _MetadataProperty("accessMode")
+    isScheduleObject  = _MetadataProperty("isScheduleObject")
+    scheduleTag       = _MetadataProperty("scheduleTag")
+    scheduleEtags     = _MetadataProperty("scheduleEtags")
+    hasPrivateComment = _MetadataProperty("hasPrivateComment")
 
-    def _set_accessMode(self, value):
-        if self._newStoreObject:
-            self._newStoreObject.accessMode = value
-        else:
-            self._metadata["accessMode"] = value
 
-    accessMode = property(_get_accessMode, _set_accessMode)
-
-    def _get_isScheduleObject(self):
-        return self._newStoreObject.isScheduleObject if self._newStoreObject else self._metadata.get("isScheduleObject", None)
-
-    def _set_isScheduleObject(self, value):
-        if self._newStoreObject:
-            self._newStoreObject.isScheduleObject = value
-        else:
-            self._metadata["isScheduleObject"] = value
-
-    isScheduleObject = property(_get_isScheduleObject, _set_isScheduleObject)
-
-    def _get_scheduleTag(self):
-        return self._newStoreObject.scheduleTag if self._newStoreObject else self._metadata.get("scheduleTag", None)
-
-    def _set_scheduleTag(self, value):
-        if self._newStoreObject:
-            self._newStoreObject.scheduleTag = value
-        else:
-            self._metadata["scheduleTag"] = value
-
-    scheduleTag = property(_get_scheduleTag, _set_scheduleTag)
-
-    def _get_scheduleEtags(self):
-        return self._newStoreObject.scheduleEtags if self._newStoreObject else self._metadata.get("scheduleEtags", None)
-
-    def _set_scheduleEtags(self, value):
-        if self._newStoreObject:
-            self._newStoreObject.scheduleEtags = value
-        else:
-            self._metadata["scheduleEtags"] = value
-
-    scheduleEtags = property(_get_scheduleEtags, _set_scheduleEtags)
-
-    def _get_hasPrivateComment(self):
-        return self._newStoreObject.hasPrivateComment if self._newStoreObject else self._metadata.get("hasPrivateComment", None)
-
-    def _set_hasPrivateComment(self, value):
-        if self._newStoreObject:
-            self._newStoreObject.hasPrivateComment = value
-        else:
-            self._metadata["hasPrivateComment"] = value
-
-    hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
 
 class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource):
     """
@@ -1808,7 +1796,11 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         returnValue(txn)
 
 
-    iCalendarText = _CommonObjectResource.text
+    @inlineCallbacks
+    def iCalendarText(self):
+        data = yield self.iCalendar()
+        returnValue(str(data))
+
     iCalendar = _CommonObjectResource.component
 
 
@@ -1864,7 +1856,10 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         isinbox = self._newStoreObject._calendar.name() == "inbox"
 
         # Do If-Schedule-Tag-Match behavior first
-        if not isinbox:
+        # Important: this should only ever be done when storeRemove is called
+        # directly as a result of an HTTP DELETE to ensure the proper If-
+        # header is used in this test.
+        if not isinbox and implicitly:
             self.validIfScheduleMatch(request)
 
         scheduler = None
@@ -2059,7 +2054,12 @@ class AddressBookObjectResource(_CommonObjectResource):
 
     _componentFromStream = VCard.fromString
 
-    vCardText = _CommonObjectResource.text
+    @inlineCallbacks
+    def vCardText(self):
+        data = yield self.vCard()
+        returnValue(str(data))
+
+    vCard = _CommonObjectResource.component
 
 
 class _NotificationChildHelper(object):

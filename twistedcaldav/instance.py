@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -165,16 +165,14 @@ class InstanceList(object):
         if len(self.instances) > max_allowed_instances:
             raise TooManyInstancesError()
 
-    def _addMasterEventComponent(self, component, limit):
+    def _getMasterEventDetails(self, component):
         """
-        Add the specified master VEVENT Component to the instance list, expanding it
-        within the supplied time range.
-        @param component: the Component to expand
-        @param limit: the end L{PyCalendarDateTime} for expansion
+        Logic here comes from RFC4791 Section 9.9
         """
+
         start = component.getStartDateUTC()
         if start is None:
-            return
+            return None
         rulestart = component.propertyValue("DTSTART")
 
         end = component.getEndDateUTC()
@@ -189,6 +187,21 @@ class InstanceList(object):
             end = start + duration
         else:
             duration = differenceDateTime(start, end)
+        
+        return (rulestart, start, end, duration,)
+
+    def _addMasterEventComponent(self, component, limit):
+        """
+        Add the specified master VEVENT Component to the instance list, expanding it
+        within the supplied time range.
+        @param component: the Component to expand
+        @param limit: the end L{PyCalendarDateTime} for expansion
+        """
+        
+        details = self._getMasterEventDetails(component)
+        if details is None:
+            return
+        rulestart, start, end, duration = details
 
         self._addMasterComponent(component, limit, rulestart, start, end, duration)
 
@@ -202,22 +215,57 @@ class InstanceList(object):
         
         #TODO: This does not take into account THISANDPRIOR - only THISANDFUTURE
         
-        start = component.getStartDateUTC()
-        if start is None:
+        details = self._getMasterEventDetails(component)
+        if details is None:
             return
-
-        end = component.getEndDateUTC()
-        duration = None
-        if end is None:
-            if not start.isDateOnly():
-                # Timed event with zero duration
-                duration = PyCalendarDuration(days=0)
-            else:
-                # All day event default duration is one day
-                duration = PyCalendarDuration(days=1)
-            end = start + duration
+        _ignore_rulestart, start, end, _ignore_duration = details
 
         self._addOverrideComponent(component, limit, start, end, got_master)
+
+    def _getMasterToDoDetails(self, component):
+        """
+        Logic here comes from RFC4791 Section 9.9
+        """
+
+        dtstart = component.getStartDateUTC()
+        dtend = component.getEndDateUTC()
+        dtdue = component.getDueDateUTC()
+
+        # DTSTART and DURATION or DUE case
+        if dtstart is not None:
+            rulestart = component.propertyValue("DTSTART")
+            start = dtstart
+            if dtend is not None:
+                end = dtend
+            elif dtdue is not None:
+                end = dtdue
+            else:
+                end = dtstart
+        
+        # DUE case
+        elif dtdue is not None:
+            rulestart = component.propertyValue("DUE")
+            start = end = dtdue
+        
+        # Fall back to COMPLETED or CREATED - cannot be recurring
+        else:
+            rulestart = None
+            from twistedcaldav.ical import maxDateTime, minDateTime
+            dtcreated = component.getCreatedDateUTC()
+            dtcompleted = component.getCompletedDateUTC()
+            if dtcompleted:
+                end = dtcompleted
+                start = dtcreated if dtcreated else dtend
+            elif dtcreated:
+                start = dtcreated
+                end = maxDateTime
+            else:
+                start = minDateTime
+                end = maxDateTime
+
+        duration = differenceDateTime(start, end)
+
+        return (rulestart, start, end, duration,)
 
     def _addMasterToDoComponent(self, component, limit):
         """
@@ -226,21 +274,12 @@ class InstanceList(object):
         @param component: the Component to expand
         @param limit: the end L{PyCalendarDateTime} for expansion
         """
-        start = component.getStartDateUTC()
-        due = component.getDueDateUTC()
-
-        if start is None and due is None:
+        details = self._getMasterToDoDetails(component)
+        if details is None:
             return
+        rulestart, start, end, duration = details
 
-        rulestart = component.propertyValue("DTSTART")
-        if start is None:
-            start = due
-            rulestart = component.propertyValue("DUE")
-        elif due is None:
-            due = start
-        duration = differenceDateTime(start, due)
-
-        self._addMasterComponent(component, limit, rulestart, start, due, duration)
+        self._addMasterComponent(component, limit, rulestart, start, end, duration)
 
     def _addOverrideToDoComponent(self, component, limit, got_master):
         """
@@ -252,23 +291,17 @@ class InstanceList(object):
         
         #TODO: This does not take into account THISANDPRIOR - only THISANDFUTURE
         
-        start = component.getStartDateUTC()
-        due = component.getDueDateUTC()
-
-        if start is None and due is None:
+        details = self._getMasterToDoDetails(component)
+        if details is None:
             return
+        _ignore_rulestart, start, end, _ignore_duration = details
 
-        if start is None:
-            start = due
-        elif due is None:
-            due = start
-
-        self._addOverrideComponent(component, limit, start, due, got_master)
+        self._addOverrideComponent(component, limit, start, end, got_master)
 
     def _addMasterComponent(self, component, limit, rulestart, start, end, duration):
         
         rrules = component.getRecurrenceSet()
-        if rrules is not None:
+        if rrules is not None and rulestart is not None:
             # Do recurrence set expansion
             expanded = []
             limited = rrules.expand(rulestart, PyCalendarPeriod(start, limit), expanded)

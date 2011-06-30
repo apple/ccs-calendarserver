@@ -305,8 +305,9 @@ def setRunState(options, enableCalDAV, enableCardDAV):
     """
 
     if enableCalDAV or enableCardDAV:
-        log("Starting service via serveradmin")
-        ret = subprocess.call([SERVER_ADMIN, "start", "calendar"])
+        serviceName = "calendar" if enableCalDAV else "addressbook"
+        log("Starting service via serveradmin start %s" % (serviceName,))
+        ret = subprocess.call([SERVER_ADMIN, "start", serviceName])
         log("serveradmin exited with %d" % (ret,))
 
 
@@ -444,16 +445,28 @@ def mergePlist(caldav, carddav, combined):
         if key in caldav:
             combined[key] = caldav[key]
 
-    # "Wiki" is a new authentication in v2.x; copy all "Authentication" sub-keys    # over, and "Wiki" will be picked up from the new plist:
+    # Copy all "Authentication" sub-keys
     if "Authentication" in caldav:
+        if "Authentication" not in combined:
+            combined["Authentication"] = { }
         for key in caldav["Authentication"]:
             combined["Authentication"][key] = caldav["Authentication"][key]
+
+        # Examine the Wiki URL -- if it's using :8089 then we leave the Wiki
+        # section as is.  Otherwise, reset it so that it picks up the coded
+        # default
+        if "Wiki" in combined["Authentication"]:
+            if "URL" in combined["Authentication"]["Wiki"]:
+                url = combined["Authentication"]["Wiki"]["URL"]
+                if ":8089" not in url:
+                    combined["Authentication"]["Wiki"] = { "Enabled" : True }
+
 
     # Strip out any unknown params from the DirectoryService:
     if "DirectoryService" in caldav:
         combined["DirectoryService"] = caldav["DirectoryService"]
         for key in combined["DirectoryService"]["params"].keys():
-            if key not in ("node", "cacheTimeout", "xmlFile"):
+            if key in ("requireComputerRecord",):
                 del combined["DirectoryService"]["params"][key]
 
     # Merge ports

@@ -52,7 +52,6 @@ from twistedcaldav.authkerb import NegotiateCredentials
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory import augment
 from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
 from twistedcaldav.directory.common import uidsResourceName
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -62,7 +61,6 @@ from twistedcaldav.resource import CalendarPrincipalCollectionResource, Calendar
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.directory.wiki import getWikiACL
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
 log = Logger()
@@ -71,18 +69,9 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
     def defaultAccessControlList(self):
         return authReadACL
 
-    @inlineCallbacks
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
 
-        wikiACL = (yield getWikiACL(self, request))
-        if wikiACL is not None:
-            # ACL depends on wiki server...
-            log.debug("Wiki ACL: %s" % (wikiACL.toxml(),))
-            returnValue(wikiACL)
-        else:
-            # ...otherwise permissions are fixed, and are not subject to
-            # inheritance rules, etc.
-            returnValue(self.defaultAccessControlList())
+        return succeed(self.defaultAccessControlList())
 
 
 
@@ -790,9 +779,9 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     @inlineCallbacks
     def setAutoSchedule(self, autoSchedule):
         self.record.autoSchedule = autoSchedule
-        augmentRecord = (yield augment.AugmentService.getAugmentRecord(self.record.guid, self.record.recordType))
+        augmentRecord = (yield self.record.service.augmentService.getAugmentRecord(self.record.guid, self.record.recordType))
         augmentRecord.autoSchedule = autoSchedule
-        (yield augment.AugmentService.addAugmentRecords([augmentRecord]))
+        (yield self.record.service.augmentService.addAugmentRecords([augmentRecord]))
 
     def getAutoSchedule(self):
         return self.record.autoSchedule
@@ -878,6 +867,29 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
                 addresses.add("https://%s:%s%s" % (config.ServerHostName, config.SSLPort, uri))
 
         return addresses
+
+    def canonicalCalendarUserAddress(self):
+        """
+        Return a CUA for this principal, preferring in this order:
+            urn:uuid: form
+            mailto: form
+            first in calendarUserAddresses( ) list
+        """
+
+        cua = ""
+        for candidate in self.calendarUserAddresses():
+            # Pick the first one, but urn:uuid: and mailto: can override
+            if not cua:
+                cua = candidate
+            # But always immediately choose the urn:uuid: form
+            if candidate.startswith("urn:uuid:"):
+                cua = candidate
+                break
+            # Prefer mailto: if no urn:uuid:
+            elif candidate.startswith("mailto:"):
+                cua = candidate
+        return cua
+
 
     def enabledAsOrganizer(self):
         if self.record.recordType == DirectoryService.recordType_users:

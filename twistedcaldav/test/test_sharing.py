@@ -18,15 +18,19 @@
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
 from twext.web2.http_headers import MimeType
+from twext.web2.iweb import IResource
 from twext.web2.stream import MemoryStream
 from twext.web2.test.test_server import SimpleRequest
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase, norequest
-from twistedcaldav.memcacher import Memcacher
+from twistedcaldav.sharing import SharedCollectionMixin, SHARETYPE_DIRECT, WikiDirectoryService
+
 from twistedcaldav.resource import CalDAVResource
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
+from zope.interface import implements
+
 
 sharedOwnerType = davxml.ResourceType.sharedownercalendar #@UndefinedVariable
 regularCalendarType = davxml.ResourceType.calendar #@UndefinedVariable
@@ -542,14 +546,89 @@ class SharingTests(HomeTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite())
 
 
+    @inlineCallbacks
+    def test_wikiACL(self):
+        """
+        Ensure shareeAccessControlList( ) honors the access granted by the wiki
+        to the sharee, so that delegates of the sharee get the same level of
+        access.
+        """
+
+        def stubWikiAccessMethod(userID, wikiID):
+            return access
+
+        class StubCollection(object):
+            def __init__(self):
+                self._isVirtualShare = True
+                self._shareePrincipal = StubUserPrincipal()
+            def isCalendarCollection(self):
+                return True
+
+        class StubShare(object):
+            def __init__(self):
+                self.sharetype = SHARETYPE_DIRECT
+                self.hosturl = "/wikifoo"
+
+        class TestCollection(SharedCollectionMixin, StubCollection):
+            pass
+
+        class StubRecord(object):
+            def __init__(self, recordType, name, guid):
+                self.recordType = recordType
+                self.shortNames = [name]
+                self.guid = guid
+
+        class StubUserPrincipal(object):
+            def __init__(self):
+                self.record = StubRecord(
+                    "users",
+                    "testuser",
+                    "4F364813-0415-45CB-9FD4-DBFEF7A0A8E0"
+                )
+            def principalURL(self):
+                return "/principals/__uids__/%s/" % (self.record.guid,)
+
+        class StubWikiPrincipal(object):
+            def __init__(self):
+                self.record = StubRecord(
+                    WikiDirectoryService.recordType_wikis,
+                    "wikifoo",
+                    "foo"
+                )
+
+        class StubWikiResource(object):
+            implements(IResource)
+
+            def locateChild(self, req, segments):
+                pass
+            def renderHTTP(req):
+                pass
+            def ownerPrincipal(self, req):
+                return succeed(StubWikiPrincipal())
+
+
+        collection = TestCollection()
+        collection._share = StubShare()
+        self.site.resource.putChild("wikifoo", StubWikiResource())
+        request = SimpleRequest(self.site, "GET", "/wikifoo")
+
+        # Simulate the wiki server granting Read access
+        access = "read"
+        acl = (yield collection.shareeAccessControlList(request,
+            wikiAccessMethod=stubWikiAccessMethod))
+        self.assertFalse("<write/>" in acl.toxml())
+
+        # Simulate the wiki server granting Read-Write access
+        access = "write"
+        acl = (yield collection.shareeAccessControlList(request,
+            wikiAccessMethod=stubWikiAccessMethod))
+        self.assertTrue("<write/>" in acl.toxml())
+
 
 class DatabaseSharingTests(SharingTests):
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
-        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
-        self.patch(Memcacher, "allowTestCache", True)
         self.calendarStore = yield buildStore(self, StubNotifierFactory())
         yield super(DatabaseSharingTests, self).setUp()
 

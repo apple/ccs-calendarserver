@@ -15,11 +15,19 @@
 #
 ##
 
+from datetime import datetime
+
 from vobject import readComponents
 from vobject.base import Component, ContentLine
+from vobject.icalendar import dateTimeToString
 
+from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred
 from twisted.trial.unittest import TestCase
+from twisted.web.http import OK, NO_CONTENT, CREATED, MULTI_STATUS
+from twisted.web.http_headers import Headers
+from twisted.web.client import ResponseDone
+from twisted.internet.protocol import ProtocolToConsumerAdapter
 
 from protocol.url import URL
 from protocol.webdav.definitions import davxml
@@ -27,7 +35,7 @@ from protocol.caldav.definitions import caldavxml
 from protocol.caldav.definitions import csxml
 
 from loadtest.ical import Event, Calendar, SnowLeopard
-from httpclient import MemoryConsumer
+from httpclient import MemoryConsumer, StringProducer
 
 EVENT_UID = 'D94F247D-7433-43AF-B84B-ADD684D023B0'
 
@@ -790,14 +798,48 @@ END:VCALENDAR
 </multistatus>
 """
 
-class SnowLeopardTests(TestCase):
+
+class MemoryResponse(object):
+    def __init__(self, version, code, phrase, headers, bodyProducer):
+        self.version = version
+        self.code = code
+        self.phrase = phrase
+        self.headers = headers
+        self.length = bodyProducer.length
+        self._bodyProducer = bodyProducer
+
+
+    def deliverBody(self, protocol):
+        protocol.makeConnection(self._bodyProducer)
+        d = self._bodyProducer.startProducing(ProtocolToConsumerAdapter(protocol))
+        d.addCallback(lambda ignored: protocol.connectionLost(Failure(ResponseDone())))
+
+
+
+class SnowLeopardMixin:
+    """
+    Mixin for L{TestCase}s for L{SnowLeopard}.
+    """
+    def setUp(self):
+        self.user = "user91"
+        self.client = SnowLeopard(None, "http://127.0.0.1/", self.user, None)
+
+
+    def interceptRequests(self):
+        requests = []
+        def request(*args):
+            result = Deferred()
+            requests.append((result, args))
+            return result
+        self.client._request = request
+        return requests
+
+
+
+class SnowLeopardTests(SnowLeopardMixin, TestCase):
     """
     Tests for L{SnowLeopard}.
     """
-    def setUp(self):
-        self.client = SnowLeopard(None, "127.0.0.1", 80, None, None)
-
-
     def test_parsePrincipalPROPFINDResponse(self):
         """
         L{Principal._parsePROPFINDResponse} accepts an XML document
@@ -871,16 +913,6 @@ class SnowLeopardTests(TestCase):
         self.assertEquals(outbox.ctag, None)
 
 
-    def interceptRequests(self):
-        requests = []
-        def request(*args):
-            result = Deferred()
-            requests.append((result, args))
-            return result
-        self.client._request = request
-        return requests
-
-
     def test_changeEventAttendee(self):
         """
         SnowLeopard.changeEventAttendee removes one attendee from an
@@ -902,7 +934,7 @@ class SnowLeopardTests(TestCase):
         # iCal PUTs the new VCALENDAR object.
         expectedResponseCode, method, url, headers, body = req
         self.assertEquals(method, 'PUT')
-        self.assertEquals(url, 'http://127.0.0.1:80' + event.url)
+        self.assertEquals(url, 'http://127.0.0.1' + event.url)
         self.assertIsInstance(url, str)
         self.assertEquals(headers.getRawHeaders('content-type'), ['text/calendar'])
 
@@ -925,6 +957,9 @@ class SnowLeopardTests(TestCase):
         """
         requests = self.interceptRequests()
 
+        calendar = Calendar(caldavxml.calendar, u'calendar', u'/mumble/', None)
+        self.client._calendars[calendar.url] = calendar
+
         vcalendar = list(readComponents(EVENT))[0]
         d = self.client.addEvent(u'/mumble/frotz.ics', vcalendar)
 
@@ -932,10 +967,11 @@ class SnowLeopardTests(TestCase):
 
         # iCal PUTs the new VCALENDAR object.
         expectedResponseCode, method, url, headers, body = req
-        self.assertEquals(method, 'PUT')
-        self.assertEquals(url, 'http://127.0.0.1:80/mumble/frotz.ics')
+        self.assertEqual(expectedResponseCode, CREATED)
+        self.assertEqual(method, 'PUT')
+        self.assertEqual(url, 'http://127.0.0.1/mumble/frotz.ics')
         self.assertIsInstance(url, str)
-        self.assertEquals(headers.getRawHeaders('content-type'), ['text/calendar'])
+        self.assertEqual(headers.getRawHeaders('content-type'), ['text/calendar'])
 
         consumer = MemoryConsumer()
         finished = body.startProducing(consumer)
@@ -944,7 +980,15 @@ class SnowLeopardTests(TestCase):
                 list(readComponents(consumer.value()))[0],
                 vcalendar)
         finished.addCallback(cbFinished)
-        return finished
+
+        def requested(ignored):
+            response = MemoryResponse(
+                ('HTTP', '1', '1'), CREATED, "Created", Headers({}),
+                StringProducer(""))
+            result.callback(response)
+        finished.addCallback(requested)
+
+        return d
 
 
     def test_deleteEvent(self):
@@ -965,12 +1009,20 @@ class SnowLeopardTests(TestCase):
         result, req = requests.pop()
 
         expectedResponseCode, method, url = req
-        self.assertEquals(method, 'DELETE')
-        self.assertEquals(url, 'http://127.0.0.1:80' + event.url)
+
+        self.assertEqual(expectedResponseCode, NO_CONTENT)
+        self.assertEqual(method, 'DELETE')
+        self.assertEqual(url, 'http://127.0.0.1' + event.url)
         self.assertIsInstance(url, str)
 
         self.assertNotIn(event.url, self.client._events)
         self.assertNotIn(u'bar.ics', calendar.events)
+
+        response = MemoryResponse(
+            ('HTTP', '1', '1'), NO_CONTENT, "No Content", None,
+            StringProducer(""))
+        result.callback(response)
+        return d
 
 
     def assertComponentsEqual(self, first, second):
@@ -1003,3 +1055,167 @@ class SnowLeopardTests(TestCase):
         self.assertEquals(
             first.singletonparams, second.singletonparams,
             "ContentLine singletonparams not equal")
+
+
+
+class UpdateCalendarTests(SnowLeopardMixin, TestCase):
+    """
+    Tests for L{SnowLeopard._updateCalendar}.
+    """
+
+    _CALENDAR_PROPFIND_RESPONSE_BODY = """\
+<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
+  <response>
+    <href>/something/anotherthing.ics</href>
+    <propstat>
+      <prop>
+        <resourcetype>
+          <collection/>
+        </resourcetype>
+        <getetag>"None"</getetag>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+    <propstat>
+      <prop>
+      </prop>
+      <status>HTTP/1.1 404 Not Found</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/something/else.ics</href>
+    <propstat>
+      <prop>
+        <resourcetype>
+          <collection/>
+        </resourcetype>
+        <getetag>"None"</getetag>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+   </response>
+</multistatus>
+"""
+    _CALENDAR_REPORT_RESPONSE_BODY = """\
+<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
+  <response>
+    <href>/something/anotherthing.ics</href>
+    <status>HTTP/1.1 404 Not Found</status>
+  </response>
+</multistatus>
+"""
+    def test_eventMissing(self):
+        """
+        If an event included in the calendar PROPFIND response no longer exists
+        by the time a REPORT is issued for that event, the 404 is handled and
+        the rest of the normal update logic for that event is skipped.
+        """
+        requests = self.interceptRequests()
+
+        calendar = Calendar(None, 'calendar', '/something/', None)
+        self.client._calendars[calendar.url] = calendar
+        self.client._updateCalendar(calendar)
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, headers, body = req
+        self.assertEqual('PROPFIND', method)
+        self.assertEqual('http://127.0.0.1/something/', url)
+        self.assertEqual(MULTI_STATUS, expectedResponseCode)
+
+        result.callback(
+            MemoryResponse(
+                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)))
+        
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, headers, body = req
+        self.assertEqual('REPORT', method)
+        self.assertEqual('http://127.0.0.1/something/', url)
+        self.assertEqual(MULTI_STATUS, expectedResponseCode)
+
+        # Someone else comes along and gets rid of the event
+        del self.client._events["/something/anotherthing.ics"]
+
+        result.callback(
+            MemoryResponse(
+                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY)))
+
+        # Verify that processing proceeded to the response after the one with a
+        # 404 status.
+        self.assertIn('/something/else.ics', self.client._events)
+
+
+
+class VFreeBusyTests(SnowLeopardMixin, TestCase):
+    """
+    Tests for L{SnowLeopard.requestAvailability}.
+    """
+    def test_requestAvailability(self):
+        """
+        L{SnowLeopard.requestAvailability} accepts a date range and a set of
+        account uuids and issues a VFREEBUSY request.  It returns a Deferred
+        which fires with a dict mapping account uuids to availability range
+        information.
+        """
+        self.client.uuid = u'urn:uuid:user01'
+        self.client.email = u'mailto:user01@example.com'
+        requests = self.interceptRequests()
+
+        start = datetime(2011, 6, 10, 10, 45, 0)
+        end = datetime(2011, 6, 10, 11, 15, 0)
+        d = self.client.requestAvailability(
+            start, end, [u"urn:uuid:user05", u"urn:uuid:user10"])
+
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, headers, body = req
+
+        self.assertEqual(OK, expectedResponseCode)
+        self.assertEqual('POST', method)
+        self.assertEqual(
+            'http://127.0.0.1/calendars/__uids__/%s/outbox/' % (self.user,),
+            url)
+
+        self.assertEqual(headers.getRawHeaders('originator'), ['mailto:user01@example.com'])
+        self.assertEqual(headers.getRawHeaders('recipient'), ['urn:uuid:user05, urn:uuid:user10'])
+        self.assertEqual(headers.getRawHeaders('content-type'), ['text/calendar'])
+
+        consumer = MemoryConsumer()
+        finished = body.startProducing(consumer)
+        def cbFinished(ignored):
+            vevent = list(readComponents(consumer.value()))[0]
+            uid = vevent.contents[u'vfreebusy'][0].contents[u'uid'][0].value.encode('utf-8')
+            dtstamp = vevent.contents[u'vfreebusy'][0].contents[u'dtstamp'][0].value
+            dtstamp = dateTimeToString(dtstamp, False)
+            self.assertEqual(
+"""\
+BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+VERSION:2.0
+METHOD:REQUEST
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VFREEBUSY
+UID:%(uid)s
+DTEND:20110611T000000Z
+ATTENDEE:urn:uuid:user05
+ATTENDEE:urn:uuid:user10
+DTSTART:20110610T000000Z
+DTSTAMP:%(dtstamp)s
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Availability for urn:uuid:user05, urn:uuid:user10
+END:VFREEBUSY
+END:VCALENDAR
+""".replace('\n', '\r\n') % {'uid': uid, 'dtstamp': dtstamp},consumer.value())
+
+        finished.addCallback(cbFinished)
+
+        def requested(ignored):
+            response = MemoryResponse(
+                ('HTTP', '1', '1'), OK, "Ok", Headers({}),
+                StringProducer(""))
+            result.callback(response)
+        finished.addCallback(requested)
+
+        return d
+

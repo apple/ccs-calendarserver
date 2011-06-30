@@ -43,6 +43,17 @@ class ChangeIPTestCase(TestCase):
                     },
                 },
             },
+            "Scheduling" : {
+                "iMIP" : {
+                    "Receiving" : {
+                        "Server" : "original_hostname",
+                    },
+                    "Sending" : {
+                        "Server" : "original_hostname",
+                        "Address" : "user@original_hostname",
+                    },
+                },
+            },
         }
 
         updatePlist(plist, "10.1.1.1", "10.1.1.2", "original_hostname",
@@ -68,6 +79,17 @@ class ChangeIPTestCase(TestCase):
                         "XMPPNotifier" : {
                             "Host" : "new_hostname",
                             "JID" : "com.apple.notificationuser@new_hostname",
+                        },
+                    },
+                },
+                "Scheduling" : {
+                    "iMIP" : {
+                        "Receiving" : {
+                            "Server" : "new_hostname",
+                        },
+                        "Sending" : {
+                            "Server" : "new_hostname",
+                            "Address" : "user@new_hostname",
                         },
                     },
                 },

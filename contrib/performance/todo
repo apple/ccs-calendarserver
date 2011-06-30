@@ -1,4 +1,0 @@
-description of each benchmark on the website
-investigate the performance regression near r6270 to see if it is real
-benchmarks for larger calendars (more events)
-extend report to know about linear scaling, quadratic scaling, etc perhaps

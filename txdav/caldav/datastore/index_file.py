@@ -1046,7 +1046,8 @@ class Index (CalendarIndex):
             # FIXME: This is blocking I/O
             try:
                 calendar = Component.fromStream(stream)
-                calendar.validateForCalDAV()
+                calendar.validCalendarData()
+                calendar.validCalendarForCalDAV(methodAllowed=False)
             except ValueError:
                 log.err("Non-calendar resource: %s" % (name,))
             else:
@@ -1149,8 +1150,8 @@ class IndexSchedule (CalendarIndex):
             # FIXME: This is blocking I/O
             try:
                 calendar = Component.fromStream(stream)
-                calendar.validCalendarForCalDAV()
-                calendar.validateComponentsForCalDAV(True)
+                calendar.validCalendarData()
+                calendar.validCalendarForCalDAV(methodAllowed=True)
             except ValueError:
                 log.err("Non-calendar resource: %s" % (name,))
             else:

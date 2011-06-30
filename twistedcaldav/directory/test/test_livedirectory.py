@@ -67,9 +67,6 @@ if runLDAPTests or runODTests:
     from twistedcaldav.directory.test.test_xmlfile import augmentsFile
     from twisted.internet.defer import inlineCallbacks
 
-    augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
-
-
     class LiveDirectoryTests(object):
 
         def test_ldapRecordWithShortName(self):
@@ -153,6 +150,8 @@ if runLDAPTests or runODTests:
 
             def setUp(self):
                 params = {
+                    "augmentService":
+                        augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
                     "uri": "ldap://%s" % (testServer,),
                     "rdnSchema": {
                         "base": base,

@@ -86,6 +86,21 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
         self.assertEqual(membershipsB, set(("A",)))
 
     @inlineCallbacks
+    def test_normalDBNonAscii(self):
+    
+        # Get the DB
+        db_path = os.path.abspath(self.mktemp())
+        db = ProxySqliteDB(db_path)
+        principalID = "Test \xe4\xbd\x90\xe8\x97\xa4"
+        yield db.setGroupMembers(principalID, ("B", "C", "D",))
+        
+        membersA = yield db.getMembers(principalID)
+        membershipsB = yield db.getMemberships("B")
+        
+        self.assertEqual(membersA, set(("B", "C", "D",)))
+        self.assertEqual(membershipsB, set((principalID,)))
+
+    @inlineCallbacks
     def test_DBIndexed(self):
     
         # Get the DB

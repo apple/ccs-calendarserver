@@ -25,6 +25,7 @@
 .Op Fl -admin Ar username
 .Op Fl -config Ar file
 .Op Fl -host Ar hostname
+.Op Fl -node Ar pubsub-node-name
 .Op Fl -port Ar port-number
 .Op Fl -ssl
 .Op Fl -verbose
@@ -44,6 +45,8 @@ Display usage information.
 Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
 .It Fl H, -host Ar HOSTNAME
 Connect to the specified calendar server.  If not passed on the command line, the host name is looked up in the configuration file.
+.It Fl n, -node Ar NODENAME
+Bypass the auto-discovery of pubsub nodes and specify one explicitly.  Useful on calendar servers which don't support the push-transports DAV property.  When using this option, the host and port options instead refer to the XMPP server host and port numbers.
 .It Fl p, -port Ar NUMBER
 Connect to the specified port number.  If not passed on the command line, the port number is looked up in the configuration file.
 .It Fl s, -ssl

@@ -79,6 +79,8 @@ DEFAULT_SERVICE_PARAMS = {
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
                 "recordName": "userid", # uniquely identifies user records
+                "loginEnabledAttr" : "loginEnabled", # attribute controlling login
+                "loginEnabledValue" : "yes", # value of above attribute
             },
             "groups": {
                 "rdn": "ou=Group",
@@ -436,9 +438,10 @@ DEFAULT_CONFIG = {
     #
     # Standard (or draft) WebDAV extensions
     #
-    "EnableAddMember"         : True,  # POST ;add-member extension
-    "EnableSyncReport"        : True,  # REPORT collection-sync
-    "EnableWellKnown"         : True,  # /.well-known resource
+    "EnableAddMember"             : True,  # POST ;add-member extension
+    "EnableSyncReport"            : True,  # REPORT collection-sync
+    "EnableWellKnown"             : True,  # /.well-known resource
+    "EnableCalendarQueryExtended" : True,  # Extended calendar-query REPORT
 
     #
     # Non-standard CalDAV extensions
@@ -450,16 +453,16 @@ DEFAULT_CONFIG = {
     "TimezoneService"         : {    # New standard timezone service
         "Enabled"       : True,      # Overall on/off switch
         "Mode"          : "primary", # Can be "primary" or "secondary"
-        "BasePath"      : None,      # Path to zoneinfo - if None use default package path
+        "BasePath"      : "",        # Path to zoneinfo - if None use default package path
                                      # secondary service MUST define its own writeable path
-        "XMLInfoPath"   : None,      # Path to db cache info - if None use default package path
+        "XMLInfoPath"   : "",        # Path to db cache info - if None use default package path
                                      # secondary service MUST define its own writeable path if
                                      # not None
         
         "SecondaryService" : {
             # Only one of these should be used when a secondary service is used
-            "Host"                  : None,      # Domain/IP of secondary service to discover
-            "URI"                   : None,      # HTTP(s) URI to secondary service
+            "Host"                  : "",        # Domain/IP of secondary service to discover
+            "URI"                   : "",        # HTTP(s) URI to secondary service
 
             "UpdateIntervalMinutes" : 24 * 60,
         }
@@ -485,7 +488,7 @@ DEFAULT_CONFIG = {
 
     # CardDAV Features
     "DirectoryAddressBook": {
-        "Enabled": True,
+        "Enabled": False,
         "type":    "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
         "params":  directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
         "name":    "directory",
@@ -495,7 +498,7 @@ DEFAULT_CONFIG = {
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
 
     "GlobalAddressBook": {
-        "Enabled":                   True,
+        "Enabled":                   False,
         "Name":                      "global-addressbook",
         "EnableAnonymousReadAccess": False,
     },
@@ -1061,6 +1064,19 @@ def _updateACLs(configDict):
 
     log.debug("Nav ACL: %s" % (configDict.ProvisioningResourceACL.toxml(),))
 
+    def principalObjects(urls):
+        for principalURL in urls:
+            yield davxml.Principal(davxml.HRef(principalURL))
+
+    # Should be sets, except WebDAVElement isn't hashable.
+    a = configDict.AdminPrincipalObjects = list(
+        principalObjects(configDict.AdminPrincipals))
+    b = configDict.ReadPrincipalObjects = list(
+        principalObjects(configDict.ReadPrincipals))
+    configDict.AllAdminPrincipalObjects = a + b
+
+
+
 def _updateRejectClients(configDict):
     #
     # Compile RejectClients expressions for speed
@@ -1208,6 +1224,8 @@ def _updateCompliance(configDict):
             compliance += customxml.calendarserver_sharing_compliance
             # TODO: This is only needed whilst we do not support scheduling in shared calendars
             compliance += customxml.calendarserver_sharing_no_scheduling_compliance
+        if configDict.EnableCalendarQueryExtended:
+            compliance += caldavxml.caldav_query_extended_compliance
     else:
         compliance = ()
 

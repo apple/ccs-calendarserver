@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,21 +30,25 @@ import cStringIO as StringIO
 
 class sqlgenerator(object):
     
-    FROM           =" from "
-    WHERE          =" where "
-    RESOURCEDB     = "RESOURCE"
-    TIMESPANDB     = "TIMESPAN"
-    TRANSPARENCYDB = "TRANSPARENCY"
-    PERUSERDB      = "PERUSER"
-    NOTOP          = "NOT "
-    ANDOP          = " AND "
-    OROP           = " OR "
-    CONTAINSOP     = " GLOB "
-    NOTCONTAINSOP  = " NOT GLOB "
-    ISOP           = " == "
-    ISNOTOP        = " != "
-    INOP           = " IN "
-    NOTINOP        = " NOT IN "
+    FROM             =" from "
+    WHERE            =" where "
+    RESOURCEDB       = "RESOURCE"
+    TIMESPANDB       = "TIMESPAN"
+    TRANSPARENCYDB   = "TRANSPARENCY"
+    PERUSERDB        = "PERUSER"
+    NOTOP            = "NOT "
+    ANDOP            = " AND "
+    OROP             = " OR "
+    CONTAINSOP       = " GLOB "
+    NOTCONTAINSOP    = " NOT GLOB "
+    ISOP             = " == "
+    ISNOTOP          = " != "
+    STARTSWITHOP     = " GLOB "
+    NOTSTARTSWITHOP  = " NOT GLOB "
+    ENDSWITHOP       = " GLOB "
+    NOTENDSWITHOP    = " NOT GLOB "
+    INOP             = " IN "
+    NOTINOP          = " NOT IN "
 
     FIELDS         = {
         "TYPE": "RESOURCE.TYPE",
@@ -187,6 +191,30 @@ class sqlgenerator(object):
             self.sout.write(self.ISNOTOP)
             self.addArgument(expr.text)
         
+        # STARTSWITH
+        elif isinstance(expr, expression.startswithExpression):
+            self.sout.write(expr.field)
+            self.sout.write(self.STARTSWITHOP)
+            self.addArgument(self.startswithArgument(expr.text))
+        
+        # NOT STARTSWITH
+        elif isinstance(expr, expression.notstartswithExpression):
+            self.sout.write(expr.field)
+            self.sout.write(self.NOTSTARTSWITHOP)
+            self.addArgument(self.startswithArgument(expr.text))
+        
+        # ENDSWITH
+        elif isinstance(expr, expression.endswithExpression):
+            self.sout.write(expr.field)
+            self.sout.write(self.ENDSWITHOP)
+            self.addArgument(self.endswithArgument(expr.text))
+        
+        # NOT ENDSWITH
+        elif isinstance(expr, expression.notendswithExpression):
+            self.sout.write(expr.field)
+            self.sout.write(self.NOTENDSWITHOP)
+            self.addArgument(self.endswithArgument(expr.text))
+        
         # IN
         elif isinstance(expr, expression.inExpression):
             self.sout.write(expr.field)
@@ -258,6 +286,12 @@ class sqlgenerator(object):
 
     def containsArgument(self, arg):
         return "*%s*" % (arg,)
+
+    def startswithArgument(self, arg):
+        return "%s*" % (arg,)
+
+    def endswithArgument(self, arg):
+        return "*%s" % (arg,)
 
 if __name__ == "__main__":
     

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# -*- test-case-name: calendarserver.tools.test.test_purge -*-
 ##
 # Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
@@ -19,12 +19,18 @@
 import os
 import sys
 from errno import ENOENT, EACCES
-
 from getopt import getopt, GetoptError
+
+from pycalendar.datetime import PyCalendarDateTime
 
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
+
+from twext.python.log import Logger
+from twext.web2.dav import davxml
+from twext.web2.responsecode import NO_CONTENT
+
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config, ConfigurationError
@@ -33,16 +39,11 @@ from twistedcaldav.directory.directory import DirectoryRecord
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.query import calendarqueryfilter
 
-from twext.python.log import Logger
-from twext.web2.dav import davxml
-from twext.web2.responsecode import NO_CONTENT
-
-from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
 from calendarserver.tap.util import FakeRequest
 from calendarserver.tap.util import getRootResource
+
+from calendarserver.tools.cmdline import utilityMain
 from calendarserver.tools.principals import removeProxy
-from calendarserver.tools.util import loadConfig
-from pycalendar.datetime import PyCalendarDateTime
 
 log = Logger()
 
@@ -205,26 +206,6 @@ class PurgePrincipalService(WorkerService):
 
 
 
-def shared_main(configFileName, serviceClass):
-
-    try:
-        loadConfig(configFileName)
-
-        config.ProcessType = "Utility"
-        config.UtilityServiceClass = serviceClass
-
-        maker = CalDAVServiceMaker()
-        options = CalDAVOptions
-        service = maker.makeService(options)
-
-        reactor.addSystemEventTrigger("during", "startup", service.startService)
-        reactor.addSystemEventTrigger("before", "shutdown", service.stopService)
-
-    except ConfigurationError, e:
-        sys.stderr.write("Error: %s\n" % (e,))
-        return
-
-    reactor.run()
 
 def main_purge_events():
 
@@ -295,7 +276,7 @@ def main_purge_events():
     PurgeOldEventsService.dryrun = dryrun
     PurgeOldEventsService.verbose = verbose
 
-    shared_main(
+    utilityMain(
         configFileName,
         PurgeOldEventsService,
     )
@@ -357,7 +338,7 @@ def main_purge_orphaned_attachments():
     PurgeOrphanedAttachmentsService.dryrun = dryrun
     PurgeOrphanedAttachmentsService.verbose = verbose
 
-    shared_main(
+    utilityMain(
         configFileName,
         PurgeOrphanedAttachmentsService,
     )
@@ -406,7 +387,7 @@ def main_purge_principals():
     PurgePrincipalService.verbose = verbose
 
 
-    shared_main(
+    utilityMain(
         configFileName,
         PurgePrincipalService
     )

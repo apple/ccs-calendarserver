@@ -32,15 +32,16 @@ try_python () {
 
   if [ -z "${python}" ]; then
     return 1;
-  fi
+  fi;
+
   if ! type "${python}" > /dev/null 2>&1; then
     return 1;
-  fi
+  fi;
 
   local py_version="$(py_version "${python}")";
   if [ "${py_version/./}" -lt "25" ]; then
     return 1;
-  fi
+  fi;
   return 0;
 }
 
@@ -67,9 +68,9 @@ detect_python_version () {
       if try_python "${p}"; then
         echo "${p}";
         return 0;
-      fi
-    done
-  done
+      fi;
+    done;
+  done;
   return 1;
 }
 
@@ -192,3 +193,4 @@ init_py () {
 }
 
 init_py;
+

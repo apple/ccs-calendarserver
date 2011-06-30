@@ -29,7 +29,6 @@ __all__ = [
     "compareDateTime",
     "differenceDateTime",
     "timeRangesOverlap",
-    "periodEnd",
     "normalizePeriodList",
     "clipPeriod"
 ]

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,15 +48,18 @@ def calendarquery(filter, fields):
     assert vcalfilter.filter_name == "VCALENDAR"
     
     if len(vcalfilter.filters) > 0:
+        # Determine logical expression grouping
+        logical = expression.andExpression if vcalfilter.filter_test == "allof" else expression.orExpression
+        
         # Only comp-filters are handled
         for _ignore in [x for x in vcalfilter.filters if not isinstance(x, calendarqueryfilter.ComponentFilter)]:
             raise ValueError
         
-        return compfilterListExpression(vcalfilter.filters, fields)
+        return compfilterListExpression(vcalfilter.filters, fields, logical)
     else:
         return expression.allExpression()
 
-def compfilterListExpression(compfilters, fields):
+def compfilterListExpression(compfilters, fields, logical):
     """
     Create an expression for a list of comp-filter elements.
     
@@ -67,7 +70,7 @@ def compfilterListExpression(compfilters, fields):
     if len(compfilters) == 1:
         return compfilterExpression(compfilters[0], fields)
     else:
-        return expression.orExpression([compfilterExpression(c, fields) for c in compfilters])
+        return logical([compfilterExpression(c, fields) for c in compfilters])
 
 def compfilterExpression(compfilter, fields):
     """
@@ -81,7 +84,10 @@ def compfilterExpression(compfilter, fields):
     if not compfilter.defined:
         # Test for TYPE != <<component-type name>>
         return expression.isnotExpression(fields["TYPE"], compfilter.filter_name, True)
-        
+    
+    # Determine logical expression grouping
+    logical = expression.andExpression if compfilter.filter_test == "allof" else expression.orExpression
+    
     expressions = []
     if isinstance(compfilter.filter_name, str):
         expressions.append(expression.isExpression(fields["TYPE"], compfilter.filter_name, True))
@@ -98,7 +104,7 @@ def compfilterExpression(compfilter, fields):
     for p in [x for x in compfilter.filters if isinstance(x, calendarqueryfilter.PropertyFilter)]:
         props.append(propfilterExpression(p, fields))
     if len(props) > 1:
-        propsExpression = expression.orExpression[props]
+        propsExpression = logical(props)
     elif len(props) == 1:
         propsExpression = props[0]
     else:
@@ -109,7 +115,7 @@ def compfilterExpression(compfilter, fields):
     for _ignore in [x for x in compfilter.filters if isinstance(x, calendarqueryfilter.ComponentFilter)]:
         raise ValueError
     if len(comps) > 1:
-        compsExpression = expression.orExpression[comps]
+        compsExpression = logical(comps)
     elif len(comps) == 1:
         compsExpression = comps[0]
     else:
@@ -117,7 +123,7 @@ def compfilterExpression(compfilter, fields):
 
     # Now build compound expression
     if ((propsExpression is not None) and (compsExpression is not None)):
-        expressions.append(expression.orExpression([propsExpression, compsExpression]))
+        expressions.append(logical([propsExpression, compsExpression]))
     elif propsExpression is not None:
         expressions.append(propsExpression)
     elif compsExpression is not None:
@@ -143,6 +149,9 @@ def propfilterExpression(propfilter, fields):
         # Test for <<field>> != "*"
         return expression.isExpression(fields["UID"], "", True)
     
+    # Determine logical expression grouping
+    logical = expression.andExpression if propfilter.filter_test == "allof" else expression.orExpression
+    
     # Handle time-range - we cannot do this with our Index right now
     if propfilter.qualifier and isinstance(propfilter.qualifier, calendarqueryfilter.TimeRange):
         raise ValueError
@@ -150,17 +159,22 @@ def propfilterExpression(propfilter, fields):
     # Handle text-match
     tm = None
     if propfilter.qualifier and isinstance(propfilter.qualifier, calendarqueryfilter.TextMatch):
-        if propfilter.qualifier.negate:
-            tm = expression.notcontainsExpression(fields[propfilter.filter_name], propfilter.qualifier.text, propfilter.qualifier.caseless)
-        else:
-            tm = expression.containsExpression(fields[propfilter.filter_name], propfilter.qualifier.text, propfilter.qualifier.caseless)
+        if propfilter.qualifier.match_type == "equals":
+            tm = expression.isnotExpression if propfilter.qualifier.negate else expression.isExpression
+        elif propfilter.qualifier.match_type == "contains":
+            tm = expression.notcontainsExpression if propfilter.qualifier.negate else expression.containsExpression
+        elif propfilter.qualifier.match_type == "starts-with":
+            tm = expression.notstartswithExpression if propfilter.qualifier.negate else expression.startswithExpression
+        elif propfilter.qualifier.match_type == "ends-with":
+            tm = expression.notendswithExpression if propfilter.qualifier.negate else expression.endswithExpression
+        tm = tm(fields[propfilter.filter_name], propfilter.qualifier.text, propfilter.qualifier.caseless)
     
     # Handle embedded parameters - we do not right now as our Index does not handle them
     params = []
     for _ignore in propfilter.filters:
         raise ValueError
     if len(params) > 1:
-        paramsExpression = expression.orExpression[params]
+        paramsExpression = logical(params)
     elif len(params) == 1:
         paramsExpression = params[0]
     else:
@@ -168,7 +182,7 @@ def propfilterExpression(propfilter, fields):
 
     # Now build return expression
     if (tm is not None) and (paramsExpression is not None):
-        return expression.andExpression([tm, paramsExpression])
+        return logical([tm, paramsExpression])
     elif tm is not None:
         return tm
     elif paramsExpression is not None:

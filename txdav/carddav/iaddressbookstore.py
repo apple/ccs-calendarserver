@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.carddav.datastore,txdav.carddav.datastore.test.test_sql.AddressBookSQLStorageTests -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -255,14 +255,6 @@ class IAddressBookObject(IDataStoreObject):
         Retrieve the addressbook component for this addressbook object.
 
         @return: a C{VCARD} L{VComponent}.
-        """
-
-    def vCardText():
-        """
-        Retrieve the vCard text data for this addressbook object.
-
-        @return: a string containing vCard data for a single
-            addressbook object.
         """
 
     def uid():

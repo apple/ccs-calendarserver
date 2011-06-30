@@ -522,6 +522,8 @@
     <!-- Directory searching -->
     <key>DirectoryAddressBook</key>
     <dict>
+	<key>Enabled</key>
+	<true/>
         <key>params</key>
         <dict>
             <key>queryUserRecords</key>

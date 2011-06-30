@@ -25,6 +25,7 @@ import email
 from twistedcaldav.mail import MailHandler
 from twistedcaldav.mail import MailGatewayTokensDatabase
 import os
+import datetime
 
 
 def echo(*args):
@@ -37,6 +38,32 @@ class MailHandlerTests(TestCase):
         TestCase.setUp(self)
         self.handler = MailHandler(dataRoot=":memory:")
         self.dataDir = os.path.join(os.path.dirname(__file__), "data", "mail")
+
+
+    def test_purge(self):
+        """
+        Ensure that purge( ) cleans out old tokens
+        """
+
+        # Insert an "old" token
+        token = "test_token"
+        organizer = "me@example.com"
+        attendee = "you@example.com"
+        icaluid = "123"
+        pastDate = datetime.date(2009,1,1)
+        self.handler.db._db_execute(
+            """
+            insert into TOKENS (TOKEN, ORGANIZER, ATTENDEE, ICALUID, DATESTAMP)
+            values (:1, :2, :3, :4, :5)
+            """, token, organizer, attendee, icaluid, pastDate
+        )
+        self.handler.db._db_commit()
+
+        # purge, and make sure we don't see that token anymore
+        self.handler.purge()
+        retrieved = self.handler.db.getToken(organizer, attendee, icaluid)
+        self.assertEquals(retrieved, None)
+
 
     def test_iconPath(self):
         iconPath = self.handler.getIconPath({'day':'1', 'month':'1'}, False, language='en')
@@ -216,28 +243,28 @@ END:VCALENDAR
         data = (
             # Initial invite
             (
-                """BEGIN:VCALENDAR
+                u"""BEGIN:VCALENDAR
 VERSION:2.0
 METHOD:REQUEST
 BEGIN:VEVENT
 UID:CFDD5E46-4F74-478A-9311-B3FF905449C3
 DTSTART:20100325T154500Z
 DTEND:20100325T164500Z
-ATTENDEE;CN=The Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:attendee@example.com
+ATTENDEE;CN=Th\xe9 Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:attendee@example.com
 ATTENDEE;CN=The Organizer;CUTYPE=INDIVIDUAL;EMAIL=organizer@example.com;PARTSTAT=ACCEPTED:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
 ORGANIZER;CN=The Organizer;EMAIL=organizer@example.com:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
-SUMMARY:testing outbound( )
+SUMMARY:t\xe9sting outbound( )
 END:VEVENT
 END:VCALENDAR
 """,
                 "CFDD5E46-4F74-478A-9311-B3FF905449C3",
-                "mailto:organizer@example.com",
+                "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A",
                 "mailto:attendee@example.com",
                 "new",
                 "organizer@example.com",
                 "The Organizer",
                 [
-                    (u'The Attendee', u'attendee@example.com'),
+                    (u'Th\xe9 Attendee', u'attendee@example.com'),
                     (u'The Organizer', u'organizer@example.com')
                 ],
                 "The Organizer <organizer@example.com>",
@@ -261,7 +288,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "CFDD5E46-4F74-478A-9311-B3FF905449C3",
-                "mailto:organizer@example.com",
+                "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A",
                 "mailto:attendee@example.com",
                 "update",
                 "organizer@example.com",
@@ -290,7 +317,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 None,
-                "mailto:attendee@example.com",
+                "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A",
                 "mailto:organizer@example.com",
                 "reply",
                 "organizer@example.com",

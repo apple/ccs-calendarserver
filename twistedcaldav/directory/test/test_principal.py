@@ -53,11 +53,12 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(ProvisionedPrincipals, self).setUp()
 
-        augment.AugmentService = augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
         self.directoryServices = (
             XMLDirectoryService(
                 {
                     'xmlFile' : xmlFile,
+                    'augmentService' :
+                        augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
                 }
             ),
         )
@@ -429,6 +430,14 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 # Verify that if not enabled for calendaring, no CUAs:
                 record.enabledForCalendaring = False
                 self.failIf(recordResource.calendarUserAddresses())
+
+    def test_canonicalCalendarUserAddress(self):
+        """
+        DirectoryPrincipalResource.canonicalCalendarUserAddress()
+        """
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            if record.enabledForCalendaring:
+                self.failUnless(recordResource.canonicalCalendarUserAddress().startswith("urn:uuid:"))
 
     def test_addressBookHomeURLs(self):
         """

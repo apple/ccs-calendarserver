@@ -16,9 +16,7 @@
 ##
 
 from uuid import uuid4
-from operator import getitem
-from pprint import pformat
-from datetime import datetime
+from datetime import timedelta, datetime
 from urlparse import urlparse, urlunparse
 
 from xml.etree import ElementTree
@@ -31,7 +29,7 @@ from vobject.icalendar import VEvent, dateTimeToString
 from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
 from twisted.python.failure import Failure
-from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.http_headers import Headers
 from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT
@@ -143,7 +141,7 @@ class SnowLeopard(BaseClient):
     # The default interval, used if none is specified in external
     # configuration.  This is also the actual value used by Snow
     # Leopard iCal.
-    CALENDAR_HOME_POLL_INTERVAL = 60 * 15
+    CALENDAR_HOME_POLL_INTERVAL = 15 * 60
 
     _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody('sl_startup_principal_propfind')
     _STARTUP_PRINCIPALS_REPORT = loadRequestBody('sl_startup_principals_report')
@@ -159,10 +157,10 @@ class SnowLeopard(BaseClient):
 
     email = None
 
-    def __init__(self, reactor, host, port, user, auth, calendarHomePollInterval=None):
+    def __init__(self, reactor, root, user, auth, calendarHomePollInterval=None):
         self.reactor = reactor
         self.agent = AuthHandlerAgent(Agent(self.reactor), auth)
-        self.root = 'http://%s:%d/' % (host, port)
+        self.root = root
         self.user = user
 
         if calendarHomePollInterval is None:
@@ -268,7 +266,7 @@ class SnowLeopard(BaseClient):
         d = self._request(
             MULTI_STATUS,
             'PROPFIND',
-            self.root + principalURL[1:],
+            self.root + principalURL[1:].encode('utf-8'),
             Headers({
                     'content-type': ['text/xml'],
                     'depth': ['0']}),
@@ -350,14 +348,15 @@ class SnowLeopard(BaseClient):
                 response = yield self._eventReport(url, responseHref)
                 body = yield readBody(response)
                 res = self._parseMultiStatus(body)[responseHref]
-                text = res.getTextProperties()
-                etag = text[davxml.getetag]
-                try:
-                    scheduleTag = text[caldavxml.schedule_tag]
-                except KeyError:
-                    scheduleTag = None
-                body = text[caldavxml.calendar_data]
-                self.eventChanged(responseHref, etag, scheduleTag, body)
+                if res.getStatus() is None or " 404 " not in res.getStatus():
+                    text = res.getTextProperties()
+                    etag = text[davxml.getetag]
+                    try:
+                        scheduleTag = text[caldavxml.schedule_tag]
+                    except KeyError:
+                        scheduleTag = None
+                    body = text[caldavxml.calendar_data]
+                    self.eventChanged(responseHref, etag, scheduleTag, body)
 
 
     def eventChanged(self, href, etag, scheduleTag, body):
@@ -392,7 +391,6 @@ class SnowLeopard(BaseClient):
         def ebCalendars(reason):
             reason.trap(IncorrectResponseCode)
         d.addErrback(ebCalendars)
-        d.addErrback(err, "Unexpected failure during calendar home poll")
         return d
 
 
@@ -466,7 +464,8 @@ class SnowLeopard(BaseClient):
         """
         pollCalendarHome = LoopingCall(
             self._checkCalendarsForEvents, calendarHome)
-        pollCalendarHome.start(self.calendarHomePollInterval, now=False)
+        return pollCalendarHome.start(self.calendarHomePollInterval, now=False)
+
 
     def _newOperation(self, label, deferred):
         before = self.reactor.seconds()
@@ -492,11 +491,12 @@ class SnowLeopard(BaseClient):
             hrefs = principal.getHrefProperties()
             calendarHome = hrefs[caldavxml.calendar_home_set].toString()
             yield self._checkCalendarsForEvents(calendarHome)
-            self._calendarCheckLoop(calendarHome)
-        yield self._newOperation("startup", startup())
+            returnValue(calendarHome)
+        calendarHome = yield self._newOperation("startup", startup())
 
-        # XXX Oops, should probably stop sometime.
-        yield Deferred()
+        # This completes when the calendar home poll loop completes, which
+        # currently it never will except due to an unexpected error.
+        yield self._calendarCheckLoop(calendarHome)
 
 
     def _makeSelfAttendee(self):
@@ -559,25 +559,11 @@ class SnowLeopard(BaseClient):
         d.addCallback(narrowed)
         def specific(ignored):
             # Now learn about the attendee's availability
-            uid = vevent.contents[u'vevent'][0].contents[u'uid'][0].value
-            start = vevent.contents[u'vevent'][0].contents[u'dtstart'][0].value
-            end = vevent.contents[u'vevent'][0].contents[u'dtend'][0].value
-            now = datetime.now()
-            d = self._request(
-                OK, 'POST', self.root + 'calendars/__uids__/' + self.user + '/outbox/',
-                Headers({
-                        'content-type': ['text/calendar'],
-                        'originator': [self.email],
-                        'recipient': ['mailto:' + email]}),
-                StringProducer(self._POST_AVAILABILITY % {
-                        'attendee': 'mailto:' + email,
-                        'organizer': self.email,
-                        'vfreebusy-uid': str(uuid4()).upper(),
-                        'event-uid': uid.encode('utf-8'),
-                        'start': dateTimeToString(start, convertToUTC=True),
-                        'end': dateTimeToString(end, convertToUTC=True),
-                        'now': dateTimeToString(now, convertToUTC=True)}))
-            d.addCallback(readBody)
+            return self.requestAvailability(
+                vevent.contents[u'vevent'][0].contents[u'dtstart'][0].value,
+                vevent.contents[u'vevent'][0].contents[u'dtend'][0].value,
+                [self.email, u'mailto:' + email],
+                [vevent.contents[u'vevent'][0].contents[u'uid'][0].value])
             return d
         d.addCallback(specific)
         def availability(ignored):
@@ -681,6 +667,78 @@ class SnowLeopard(BaseClient):
         return d
 
 
+    def requestAvailability(self, start, end, users, mask=set()):
+        """
+        Issue a VFREEBUSY request for I{roughly} the given date range for the
+        given users.  The date range is quantized to one day.  Because of this
+        it is an error for the range to span more than 24 hours.
+
+        @param start: A C{datetime} instance giving the beginning of the
+            desired range.
+
+        @param end: A C{datetime} instance giving the end of the desired range.
+
+        @param users: An iterable of user UUIDs which will be included in the
+            request.
+
+        @param mask: An iterable of event UIDs which are to be ignored for the
+            purposes of this availability lookup.
+
+        @return: A C{Deferred} which fires with a C{dict}.  Keys in the dict
+            are user UUIDs (those requested) and values are something else.
+        """
+        outbox = self.root + 'calendars/__uids__/%s/outbox/' % (
+            self.user.encode('utf-8'),)
+
+        if mask:
+            maskStr = u'\r\n'.join(['X-CALENDARSERVER-MASK-UID:' + uid
+                                    for uid in mask]) + u'\r\n'
+        else:
+            maskStr = u''
+        maskStr = maskStr.encode('utf-8')
+
+        attendeeStr = '\r\n'.join(['ATTENDEE:' + uuid.encode('utf-8')
+                                   for uuid in users]) + '\r\n'
+
+        # iCal issues 24 hour wide vfreebusy requests, starting and ending at 4am.
+        if start.date() != end.date():
+            msg("Availability request spanning multiple days (%r to %r), "
+                "dropping the end date." % (start, end))
+
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(hours=24)
+
+        start = dateTimeToString(start, convertToUTC=True)
+        end = dateTimeToString(end, convertToUTC=True)
+        now = dateTimeToString(datetime.now(), convertToUTC=True)
+
+        # XXX Why does it not end up UTC sometimes?
+        if not start.endswith('Z'):
+            start = start + 'Z'
+        if not end.endswith('Z'):
+            end = end + 'Z'
+        if not now.endswith('Z'):
+            now = now + 'Z'
+
+        d = self._request(
+            OK, 'POST', outbox,
+            Headers({
+                    'content-type': ['text/calendar'],
+                    'originator': [self.email],
+                    'recipient': [u', '.join(users).encode('utf-8')]}),
+            StringProducer(self._POST_AVAILABILITY % {
+                    'attendees': attendeeStr,
+                    'summary': (u'Availability for %s' % (', '.join(users),)).encode('utf-8'),
+                    'organizer': self.email.encode('utf-8'),
+                    'vfreebusy-uid': str(uuid4()).upper(),
+                    'event-mask': maskStr,
+                    'start': start,
+                    'end': end,
+                    'now': now}))
+        d.addCallback(readBody)
+        return d
+
+
 
 class RequestLogger(object):
     format = u"%(user)s request %(code)s%(success)s[%(duration)5.2f s] %(method)8s %(url)s"
@@ -689,12 +747,19 @@ class RequestLogger(object):
 
     def observe(self, event):
         if event.get("type") == "response":
-            event['url'] = urlunparse(('', '') + urlparse(event['url'])[2:])
+            formatArgs = dict(
+                user=event['user'],
+                method=event['method'],
+                url=urlunparse(('', '') + urlparse(event['url'])[2:]),
+                code=event['code'],
+                duration=event['duration'],
+                )
+                
             if event['success']:
-                event['success'] = self.success
+                formatArgs['success'] = self.success
             else:
-                event['success'] = self.failure
-            print (self.format % event).encode('utf-8')
+                formatArgs['success'] = self.failure
+            print (self.format % formatArgs).encode('utf-8')
 
 
     def report(self):

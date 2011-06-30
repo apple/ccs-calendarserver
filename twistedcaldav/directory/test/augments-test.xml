@@ -58,4 +58,15 @@ limitations under the License.
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
   </record>
+  <record>
+    <uid>FC674703-8008-4A77-B80E-0DB55A9CE620</uid>
+    <enable-login>false</enable-login>
+  </record>
+  <record>
+    <uid>B473DC32-1B0D-45EE-9BAC-DA878AE9CE74</uid>
+    <enable-login>true</enable-login>
+  </record>
+  <record>
+    <uid>9F2B176D-B3F5-483A-AA63-0A1FC6E6D54B</uid>
+  </record>
 </augments>

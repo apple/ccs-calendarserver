@@ -93,12 +93,39 @@ NotifierPrefixes = {
 }
 
 class CommonDataStore(Service, object):
+    """
+    Shared logic for SQL-based data stores, between calendar and addressbook
+    storage.
+
+    @ivar sqlTxnFactory: A 0-arg factory callable that produces an
+        L{IAsyncTransaction}.
+
+    @ivar notifierFactory: a L{twistedcaldav.notify.NotifierFactory} (or
+        similar) that produces new notifiers for homes and collections.
+
+    @ivar attachmentsPath: a L{FilePath} indicating a directory where
+        attachments may be stored.
+
+    @ivar enableCalendars: a boolean, C{True} if this data store should provide
+        L{ICalendarStore}, C{False} if not.
+
+    @ivar enableAddressBooks: a boolean, C{True} if this data store should
+        provide L{IAddressbookStore}, C{False} if not.
+
+    @ivar label: A string, used for tagging debug messages in the case where
+        there is more than one store.  (Useful mostly for unit tests.)
+
+    @ivar quota: the amount of space granted to each calendar home (in bytes)
+        for storing attachments.
+
+    @type quota: C{int}
+    """
 
     implements(ICalendarStore)
 
     def __init__(self, sqlTxnFactory, notifierFactory, attachmentsPath,
                  enableCalendars=True, enableAddressBooks=True,
-                 label="unlabeled"):
+                 label="unlabeled", quota=(2 ** 20)):
         assert enableCalendars or enableAddressBooks
 
         self.sqlTxnFactory = sqlTxnFactory
@@ -107,6 +134,7 @@ class CommonDataStore(Service, object):
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
         self.label = label
+        self.quota = quota
 
 
     def eachCalendarHome(self):
@@ -407,7 +435,7 @@ class CommonStoreTransaction(object):
 
         results = (yield self.eventsOlderThan(cutoff, batchSize=batchSize))
         count = 0
-        for uid, calendarName, eventName, maxDate in results:
+        for uid, calendarName, eventName, _ignore_maxDate in results:
             home = (yield self.calendarHomeWithUID(uid))
             calendar = (yield home.childWithName(calendarName))
             (yield calendar.removeObjectResourceWithName(eventName))
@@ -498,6 +526,10 @@ class CommonHome(LoggingMixIn):
             self._revisionBindJoinTable["REV:%s" % (key,)] = value
         for key, value in self._bindTable.iteritems():
             self._revisionBindJoinTable["BIND:%s" % (key,)] = value
+
+
+    def quotaAllowedBytes(self):
+        return self._txn.store().quota
 
 
     @classproperty
@@ -1304,6 +1336,10 @@ class _SharedSyncLogic(object):
 class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
     """
     Common ancestor class of AddressBooks and Calendars.
+
+    @ivar _owned: Is this calendar or addressbook referencing its sharer (owner)
+        home? (i.e. C{True} if L{ownerCalendarHome} will actually return the
+        sharer, C{False} or if it will return a sharee.)
     """
 
     compareAttributes = (
@@ -2001,10 +2037,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         """
 
 
-    def _doValidate(self, component):
-        raise NotImplementedError
-
-
     # IDataStoreObject
     def contentType(self):
         raise NotImplementedError()
@@ -2059,9 +2091,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     """
-    @ivar _path: The path of the file on disk
-
-    @type _path: L{FilePath}
+    Base class for object resources.
     """
 
     compareAttributes = (
@@ -2371,7 +2401,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @inlineCallbacks
-    def text(self):
+    def _text(self):
         if self._objectText is None:
             text = (
                 yield self._textByIDQuery.on(self._txn,

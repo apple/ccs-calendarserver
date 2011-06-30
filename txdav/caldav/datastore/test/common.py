@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@
 """
 Tests for common calendar store API functions.
 """
+
+from StringIO import StringIO
 
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue,\
     maybeDeferred
@@ -49,6 +51,9 @@ from txdav.caldav.icalendarstore import (
 
 
 from twistedcaldav.customxml import InviteNotification, InviteSummary
+from txdav.caldav.icalendarstore import IAttachmentStorageTransport
+from txdav.caldav.icalendarstore import QuotaExceeded
+from txdav.common.datastore.test.util import deriveQuota
 from twistedcaldav.ical import Component
 
 storePath = FilePath(__file__).parent().child("calendar_store")
@@ -860,10 +865,14 @@ class CommonTests(CommonCommonTests):
         self.assertIsInstance(calendar.created(), int)
         self.assertIsInstance(calendar.modified(), int)
 
-        self.assertEqual(calendar.accessMode, CommonTests.metadata1["accessMode"])
-        self.assertEqual(calendar.isScheduleObject, CommonTests.metadata1["isScheduleObject"])
-        self.assertEqual(calendar.scheduleEtags, CommonTests.metadata1["scheduleEtags"])
-        self.assertEqual(calendar.hasPrivateComment, CommonTests.metadata1["hasPrivateComment"])
+        self.assertEqual(calendar.accessMode,
+                         CommonTests.metadata1["accessMode"])
+        self.assertEqual(calendar.isScheduleObject,
+                         CommonTests.metadata1["isScheduleObject"])
+        self.assertEqual(calendar.scheduleEtags,
+                         CommonTests.metadata1["scheduleEtags"])
+        self.assertEqual(calendar.hasPrivateComment,
+                         CommonTests.metadata1["hasPrivateComment"])
 
         calendar.accessMode = Component.ACCESS_PRIVATE
         calendar.isScheduleObject = True
@@ -912,13 +921,116 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(component.resourceUID(), "uid1")
 
 
+    perUserComponent = lambda self: VComponent.fromString("""BEGIN:VCALENDAR
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20110101T120000Z
+DTEND:20110101T120100Z
+DTSTAMP:20080601T120000Z
+UID:event-with-some-per-user-data
+ATTENDEE:urn:uuid:home1
+ORGANIZER:urn:uuid:home1
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+X-CALENDARSERVER-PERUSER-UID:some-other-user
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:somebody else
+TRIGGER:-PT20M
+END:VALARM
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+BEGIN:X-CALENDARSERVER-PERUSER
+X-CALENDARSERVER-PERUSER-UID:home1
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:the owner
+TRIGGER:-PT20M
+END:VALARM
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+
+
+    asSeenByOwner = lambda self: VComponent.fromString("""BEGIN:VCALENDAR
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20110101T120000Z
+DTEND:20110101T120100Z
+DTSTAMP:20080601T120000Z
+UID:event-with-some-per-user-data
+ATTENDEE:urn:uuid:home1
+ORGANIZER:urn:uuid:home1
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:the owner
+TRIGGER:-PT20M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+
+
+    asSeenByOther = lambda self: VComponent.fromString("""BEGIN:VCALENDAR
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20110101T120000Z
+DTEND:20110101T120100Z
+DTSTAMP:20080601T120000Z
+UID:event-with-some-per-user-data
+ATTENDEE:urn:uuid:home1
+ORGANIZER:urn:uuid:home1
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:somebody else
+TRIGGER:-PT20M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+
+
+    @inlineCallbacks
+    def setUpPerUser(self):
+        """
+        Set up state for testing of per-user components.
+        """
+        cal = yield self.calendarUnderTest()
+        yield cal.createCalendarObjectWithName(
+            "per-user-stuff.ics",
+            self.perUserComponent())
+        returnValue((yield cal.calendarObjectWithName("per-user-stuff.ics")))
+
+
+    @inlineCallbacks
+    def test_filteredComponent(self):
+        """
+        L{ICalendarObject.filteredComponent} returns a L{VComponent} that has
+        filtered per-user data.
+        """
+        obj = yield self.setUpPerUser()
+        temp = yield obj.component()
+        obj._component = temp.duplicate()
+        otherComp = (yield obj.filteredComponent("some-other-user"))
+        self.assertEquals(otherComp, self.asSeenByOther())
+        obj._component = temp.duplicate()
+        ownerComp = (yield obj.filteredComponent("home1"))
+        self.assertEquals(ownerComp, self.asSeenByOwner())
+
+
     @inlineCallbacks
     def test_iCalendarText(self):
         """
         L{ICalendarObject.iCalendarText} returns a C{str} describing the same
         data provided by L{ICalendarObject.component}.
         """
-        text = yield (yield self.calendarObjectUnderTest()).iCalendarText()
+        text = yield (yield self.calendarObjectUnderTest())._text()
         self.assertIsInstance(text, str)
         self.failUnless(text.startswith("BEGIN:VCALENDAR\r\n"))
         self.assertIn("\r\nUID:uid1\r\n", text)
@@ -1247,7 +1359,7 @@ class CommonTests(CommonCommonTests):
                 (yield self.calendarObjectUnderTest()).properties()[propertyName],
                 propertyContent)
             obj = yield self.calendarObjectUnderTest()
-            event1_text = yield obj.iCalendarText()
+            event1_text = yield obj._text()
             event1_text_withDifferentSubject = event1_text.replace(
                 "SUMMARY:CalDAV protocol updates",
                 "SUMMARY:Changed"
@@ -1329,7 +1441,7 @@ END:VCALENDAR
         now that logic lives in the protocol layer, so this testing method
         replicates it.
         """
-        uuid, rev = token.split("_", 1)
+        _ignore_uuid, rev = token.split("_", 1)
         rev = int(rev)
         return rev
 
@@ -1442,6 +1554,7 @@ END:VCALENDAR
             "new.attachment",
         )
         t = attachment.store(MimeType("text", "x-fixture"))
+        self.assertProvides(IAttachmentStorageTransport, t)
         t.write("new attachment")
         t.write(" text")
         yield t.loseConnection()
@@ -1490,6 +1603,108 @@ END:VCALENDAR
             result = yield self.calendarObjectUnderTest()
             returnValue(result)
         return self.createAttachmentTest(refresh)
+
+
+    @inlineCallbacks
+    def test_quotaAllowedBytes(self):
+        """
+        L{ICalendarHome.quotaAllowedBytes} should return the configuration value
+        passed to the calendar store's constructor.
+        """
+        expected = deriveQuota(self.id())
+        home = yield self.homeUnderTest()
+        actual = home.quotaAllowedBytes()
+        self.assertEquals(expected, actual)
+
+
+    @inlineCallbacks
+    def test_quotaTransportAddress(self):
+        """
+        Since L{IAttachmentStorageTransport} is a subinterface of L{ITransport},
+        it must provide peer and host addresses.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        name = 'a-fun-attachment'
+        attachment = yield obj.createAttachmentWithName(name)
+        transport = attachment.store(MimeType("test", "x-something"))
+        peer = transport.getPeer()
+        host = transport.getHost()
+        self.assertIdentical(peer.attachment, attachment)
+        self.assertIdentical(host.attachment, attachment)
+        self.assertIn(name, repr(peer))
+        self.assertIn(name, repr(host))
+
+
+    @inlineCallbacks
+    def exceedQuotaTest(self, getit):
+        """
+        If too many bytes are passed to the transport returned by
+        L{ICalendarObject.createAttachmentWithName},
+        L{IAttachmentStorageTransport.loseConnection} will return a L{Deferred}
+        that fails with L{QuotaExceeded}.
+        """
+        home = yield self.homeUnderTest()
+        attachment = yield getit() 
+        t = attachment.store(MimeType("text", "x-fixture"))
+        sample = "all work and no play makes jack a dull boy"
+        chunk = (sample * (home.quotaAllowedBytes() / len(sample)))
+
+        t.write(chunk)
+        t.writeSequence([chunk, chunk])
+
+        d = t.loseConnection()
+        yield self.failUnlessFailure(d, QuotaExceeded)
+
+
+    @inlineCallbacks
+    def test_exceedQuotaNew(self):
+        """
+        When quota is exceeded on a new attachment, that attachment will no
+        longer exist.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        yield self.exceedQuotaTest(
+            lambda: obj.createAttachmentWithName("too-big.attachment")
+        )
+        self.assertEquals((yield obj.attachments()), [])
+        yield self.commit()
+        obj = yield self.calendarObjectUnderTest()
+        self.assertEquals((yield obj.attachments()), [])
+
+
+    @inlineCallbacks
+    def test_exceedQuotaReplace(self):
+        """
+        When quota is exceeded while replacing an attachment, that attachment's
+        contents will not be replaced.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        create = lambda: obj.createAttachmentWithName("exists.attachment")
+        get = lambda: obj.attachmentWithName("exists.attachment")
+        attachment = yield create()
+        t = attachment.store(MimeType("text", "x-fixture"))
+        sampleData = "a reasonably sized attachment"
+        t.write(sampleData)
+        yield t.loseConnection()
+        yield self.exceedQuotaTest(get)
+        def checkOriginal():
+            catch = StringIO()
+            catch.dataReceived = catch.write
+            lost = []
+            catch.connectionLost = lost.append
+            attachment.retrieve(catch)
+            expected = sampleData
+            # note: 60 is less than len(expected); trimming is just to make
+            # the error message look sane when the test fails.
+            actual = catch.getvalue()[:60]
+            self.assertEquals(actual, expected)
+        checkOriginal()
+        yield self.commit()
+        # Make sure that things go back to normal after a commit of that
+        # transaction.
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield get()
+        checkOriginal()
 
 
     def test_removeAttachmentWithName(self, refresh=lambda x:x):
@@ -1555,7 +1770,7 @@ END:VCALENDAR
         yield self.calendarObjectUnderTest()
         txn = self.lastTransaction
         yield self.commit()
-        
+
         yield self.failUnlessFailure(
             maybeDeferred(txn.commit),
             AlreadyFinishedError

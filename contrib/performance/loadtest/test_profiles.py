@@ -30,6 +30,7 @@ from twisted.web.http import NO_CONTENT, PRECONDITION_FAILED
 from twisted.web.client import Response
 
 from loadtest.profiles import Eventer, Inviter, Accepter
+from loadtest.population import Populator, CalendarClientSimulator
 from loadtest.ical import IncorrectResponseCode, Calendar, Event, BaseClient
 
 SIMPLE_EVENT = """\
@@ -150,8 +151,24 @@ END:VCALENDAR
 """
 
 
+class AnyUser(object):
+    def __getitem__(self, index):
+        return _AnyRecord(index)
+
+
+class _AnyRecord(object):
+    def __init__(self, index):
+        self.uid = u"user%02d" % (index,)
+        self.password = u"user%02d" % (index,)
+        self.commonName = u"User %02d" % (index,)
+        self.email = u"user%02d@example.com" % (index,)
+
 
 class Deterministic(object):
+    def __init__(self, value=None):
+        self.value = value
+
+
     def gauss(self, mean, stddev):
         """
         Pretend to return a value from a gaussian distribution with mu
@@ -163,6 +180,10 @@ class Deterministic(object):
 
     def choice(self, sequence):
         return sequence[0]
+
+
+    def sample(self):
+        return self.value
 
 
 
@@ -187,7 +208,7 @@ class StubClient(BaseClient):
 
 
     def deleteEvent(self, href):
-        event = self._events.pop(href)
+        del self._events[href]
         calendar, uid = href.rsplit('/', 1)
         del self._calendars[calendar + '/'].events[uid]
 
@@ -219,10 +240,25 @@ class StubClient(BaseClient):
 
 
 
+class SequentialDistribution(object):
+    def __init__(self, values):
+        self.values = values
+
+
+    def sample(self):
+        return self.values.pop(0)
+
+
+
 class InviterTests(TestCase):
     """
     Tests for loadtest.profiles.Inviter.
     """
+    def setUp(self):
+        self.sim = CalendarClientSimulator(
+            AnyUser(), Populator(None), None, None, None)
+
+
     def _simpleAccount(self, userNumber, eventText):
         vevent = list(readComponents(eventText))[0]
         calendar = Calendar(
@@ -245,7 +281,7 @@ class InviterTests(TestCase):
         vevent, event, calendar, client = self._simpleAccount(
             userNumber, SIMPLE_EVENT)
         calendar.resourceType = caldavxml.schedule_inbox
-        inviter = Inviter(None, client, userNumber)
+        inviter = Inviter(None, self.sim, client, userNumber)
         inviter._invite()
         self.assertNotIn(u'attendee', vevent.contents[u'vevent'][0].contents)
 
@@ -257,7 +293,7 @@ class InviterTests(TestCase):
         """
         userNumber = 13
         client = StubClient(userNumber)
-        inviter = Inviter(None, client, userNumber)
+        inviter = Inviter(None, self.sim, client, userNumber)
         inviter._invite()
         self.assertEquals(client._events, {})
         self.assertEquals(client._calendars, {})
@@ -273,7 +309,7 @@ class InviterTests(TestCase):
         vevent, event, calendar, client = self._simpleAccount(
             userNumber, SIMPLE_EVENT)
         event.vevent = event.etag = event.scheduleTag = None
-        inviter = Inviter(None, client, userNumber)
+        inviter = Inviter(None, self.sim, client, userNumber)
         inviter._invite()
         self.assertEquals(client._events, {event.url: event})
         self.assertEquals(client._calendars, {calendar.url: calendar})
@@ -287,8 +323,8 @@ class InviterTests(TestCase):
         userNumber = 16
         vevent, event, calendar, client = self._simpleAccount(
             userNumber, SIMPLE_EVENT)
-        inviter = Inviter(Clock(), client, userNumber)
-        inviter.random = Deterministic()
+        inviter = Inviter(Clock(), self.sim, client, userNumber)
+        inviter.setParameters(inviteeDistanceDistribution=Deterministic(1))
         inviter._invite()
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
         self.assertEquals(len(attendees), 1)
@@ -312,11 +348,10 @@ class InviterTests(TestCase):
             selfNumber, SIMPLE_EVENT)
 
         otherNumber = 20
-        values = [selfNumber, otherNumber]
+        values = [selfNumber - selfNumber, otherNumber - selfNumber]
 
-        inviter = Inviter(Clock(), client, selfNumber)
-        inviter.random = Deterministic()
-        inviter.random.gauss = lambda mu, sigma: values.pop(0)
+        inviter = Inviter(Clock(), self.sim, client, selfNumber)
+        inviter.setParameters(inviteeDistanceDistribution=SequentialDistribution(values))
         inviter._invite()
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
         self.assertEquals(len(attendees), 1)
@@ -342,11 +377,10 @@ class InviterTests(TestCase):
         invitee = vevent.contents[u'vevent'][0].contents[u'attendee'][0]
         inviteeNumber = int(invitee.params[u'CN'][0].split()[1])
         anotherNumber = inviteeNumber + 5
-        values = [inviteeNumber, anotherNumber]
+        values = [inviteeNumber - selfNumber, anotherNumber - selfNumber]
 
-        inviter = Inviter(Clock(), client, selfNumber)
-        inviter.random = Deterministic()
-        inviter.random.gauss = lambda mu, sigma: values.pop(0)
+        inviter = Inviter(Clock(), self.sim, client, selfNumber)
+        inviter.setParameters(inviteeDistanceDistribution=SequentialDistribution(values))
         inviter._invite()
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
         self.assertEquals(len(attendees), 3)
@@ -368,10 +402,9 @@ class InviterTests(TestCase):
         selfNumber = 1
         vevent, event, calendar, client = self._simpleAccount(
             selfNumber, INVITED_EVENT)
-        inviter = Inviter(Clock(), client, selfNumber)
-        inviter.random = Deterministic()
+        inviter = Inviter(Clock(), self.sim, client, selfNumber)
         # Always return a user number which has already been invited.
-        inviter.random.gauss = lambda mu, sigma: 2
+        inviter.setParameters(inviteeDistanceDistribution=Deterministic(2 - selfNumber))
         inviter._invite()
         attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
         self.assertEquals(len(attendees), 2)
@@ -386,7 +419,7 @@ class InviterTests(TestCase):
         selfNumber = 2
         vevent, event, calendar, client = self._simpleAccount(
             selfNumber, INVITED_EVENT)
-        inviter = Inviter(None, client, selfNumber)
+        inviter = Inviter(None, self.sim, client, selfNumber)
         # Try to send an invitation, but with only one event on the
         # calendar, of which we are not the organizer.  It should be
         # unchanged afterwards.
@@ -402,13 +435,18 @@ class AccepterTests(TestCase):
     """
     Tests for loadtest.profiles.Accepter.
     """
+    def setUp(self):
+        self.sim = CalendarClientSimulator(
+            AnyUser(), Populator(None), None, None, None)
+
+
     def test_ignoreEventOnUnknownCalendar(self):
         """
         If an event on an unknown calendar changes, it is ignored.
         """
         userNumber = 13
         client = StubClient(userNumber)
-        accepter = Accepter(None, client, userNumber)
+        accepter = Accepter(None, self.sim, client, userNumber)
         accepter.eventChanged('/some/calendar/1234.ics')
 
 
@@ -423,7 +461,7 @@ class AccepterTests(TestCase):
             caldavxml.schedule_inbox, u'inbox', calendarURL, None)
         client = StubClient(userNumber)
         client._calendars[calendarURL] = calendar
-        accepter = Accepter(None, client, userNumber)
+        accepter = Accepter(None, self.sim, client, userNumber)
         accepter.eventChanged(calendarURL + '1234.ics')
 
 
@@ -442,7 +480,7 @@ class AccepterTests(TestCase):
         client._calendars[calendarURL] = calendar
         event = Event(calendarURL + u'1234.ics', None, vevent)
         client._events[event.url] = event
-        accepter = Accepter(None, client, userNumber)
+        accepter = Accepter(None, self.sim, client, userNumber)
         accepter.eventChanged(event.url)
 
 
@@ -465,7 +503,7 @@ class AccepterTests(TestCase):
         client._calendars[calendarURL] = calendar
         event = Event(calendarURL + u'1234.ics', None, vevent)
         client._events[event.url] = event
-        accepter = Accepter(clock, client, userNumber)
+        accepter = Accepter(clock, self.sim, client, userNumber)
         accepter.random = Deterministic()
         accepter.random.gauss = lambda mu, sigma: randomDelay
         accepter.eventChanged(event.url)
@@ -503,9 +541,8 @@ class AccepterTests(TestCase):
         inboxEvent = Event(inboxURL + u'4321.ics', None, vevent)
         client._setEvent(inboxEvent.url, inboxEvent)
 
-        accepter = Accepter(clock, client, userNumber)
-        accepter.random = Deterministic()
-        accepter.random.gauss = lambda mu, sigma: randomDelay
+        accepter = Accepter(clock, self.sim, client, userNumber)
+        accepter.setParameters(Deterministic(randomDelay))
         accepter.eventChanged(event.url)
         clock.advance(randomDelay)
 
@@ -540,9 +577,8 @@ class AccepterTests(TestCase):
         client._calendars[calendarURL] = calendar
         event = Event(calendarURL + u'1234.ics', None, vevent)
         client._events[event.url] = event
-        accepter = Accepter(clock, client, userNumber)
-        accepter.random = Deterministic()
-        accepter.random.gauss = lambda mu, sigma: randomDelay
+        accepter = Accepter(clock, self.sim, client, userNumber)
+        accepter.setParameters(Deterministic(randomDelay))
         accepter.eventChanged(event.url)
         clock.advance(randomDelay)
 
@@ -584,9 +620,8 @@ class AccepterTests(TestCase):
         event = Event(calendarURL + u'1234.ics', None, vevent)
         client._setEvent(event.url, event)
 
-        accepter = Accepter(clock, client, userNumber)
-        accepter.random = Deterministic()
-        accepter.random.gauss = lambda mu, sigma: randomDelay
+        accepter = Accepter(clock, self.sim, client, userNumber)
+        accepter.setParameters(Deterministic(randomDelay))
 
         client.rescheduled.add(event.url)
 
@@ -602,6 +637,11 @@ class EventerTests(TestCase):
     Tests for loadtest.profiles.Eventer, a profile which adds new
     events on calendars.
     """
+    def setUp(self):
+        self.sim = CalendarClientSimulator(
+            AnyUser(), Populator(None), None, None, None)
+
+
     def test_doNotAddEventOnInbox(self):
         """
         When the only calendar is a schedule inbox, no attempt is made
@@ -612,7 +652,7 @@ class EventerTests(TestCase):
         client = StubClient(21)
         client._calendars.update({calendar.url: calendar})
 
-        eventer = Eventer(None, client, None)
+        eventer = Eventer(None, self.sim, client, None)
         eventer._addEvent()
 
         self.assertEquals(client._events, {})
@@ -628,7 +668,7 @@ class EventerTests(TestCase):
         client = StubClient(31)
         client._calendars.update({calendar.url: calendar})
 
-        eventer = Eventer(Clock(), client, None)
+        eventer = Eventer(Clock(), self.sim, client, None)
         eventer._addEvent()
 
         self.assertEquals(len(client._events), 1)

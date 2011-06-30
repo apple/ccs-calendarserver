@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -168,7 +168,7 @@ def main():
                 child = calendarCollection.getChild(name)
 
                 #sys.stdout.write("+")
-                child.iCalendarText()
+                child._text()
 
                 readProperties(child)
 

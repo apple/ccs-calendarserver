@@ -1,4 +1,4 @@
-from stats import mean, median, stddev, mad
+from stats import mean, median
 
 class SummarizingMixin(object):
     def printHeader(self, fields):

@@ -20,20 +20,44 @@ Tools for generating a population of CalendarServer users based on
 certain usage parameters.
 """
 
+from tempfile import mkdtemp
 from itertools import izip
 
+from twisted.python.filepath import FilePath
 from twisted.python.util import FancyEqMixin
 from twisted.python.log import msg, err
 
 from stats import mean, median, stddev, mad
+from loadtest.trafficlogger import loggedReactor
 from loadtest.logger import SummarizingMixin
 from loadtest.ical import SnowLeopard, RequestLogger
 from loadtest.profiles import Eventer, Inviter, Accepter
 
+
+class ProfileType(object, FancyEqMixin):
+    """
+    @ivar profileType: A L{ProfileBase} subclass, or an L{ICalendarUserProfile}
+        implementation.
+
+    @ivar params: A C{dict} which will be passed to C{profileType} as keyword
+        arguments to create a new profile instance.
+    """
+    compareAttributes = ("profileType", "params")
+
+    def __init__(self, profileType, params):
+        self.profileType = profileType
+        self.params = params
+
+
+    def __call__(self, reactor, simulator, client, number):
+        return self.profileType(reactor, simulator, client, number, **self.params)
+
+
+
 class ClientType(object, FancyEqMixin):
     """
     @ivar clientType: An L{ICalendarClient} implementation
-    @ivar profileTypes: A list of L{ICalendarUserProfile} implementations
+    @ivar profileTypes: A list of L{ProfileType} instances
     """
     compareAttributes = ("clientType", "profileTypes")
 
@@ -112,14 +136,17 @@ class Populator(object):
 
 
 class CalendarClientSimulator(object):
-    def __init__(self, records, populator, parameters, reactor, host, port):
+    def __init__(self, records, populator, parameters, reactor, server):
         self._records = records
         self.populator = populator
         self.reactor = reactor
-        self.host = host
-        self.port = port
+        self.server = server
         self._pop = self.populator.populate(parameters)
         self._user = 0
+
+
+    def getUserRecord(self, index):
+        return self._records[index]
 
 
     def _nextUserNumber(self):
@@ -135,9 +162,9 @@ class CalendarClientSimulator(object):
         auth = HTTPDigestAuthHandler()
         auth.add_password(
             realm="Test Realm",
-            uri="http://%s:%d/" % (self.host, self.port),
-            user=user,
-            passwd=record.password)
+            uri=self.server,
+            user=user.encode('utf-8'),
+            passwd=record.password.encode('utf-8'))
         return user, auth
 
 
@@ -147,22 +174,40 @@ class CalendarClientSimulator(object):
             user, auth = self._createUser(number)
 
             clientType = self._pop.next()
+            reactor = loggedReactor(self.reactor)
             client = clientType.clientType(
-                self.reactor, self.host, self.port, user, auth)
+                reactor, self.server, user, auth)
             d = client.run()
-            d.addCallbacks(self._clientSuccess, self._clientFailure)
+            d.addErrback(self._clientFailure, reactor)
 
             for profileType in clientType.profileTypes:
-                profileType(self.reactor, client, number).run()
+                d = profileType(reactor, self, client, number).run()
+                d.addErrback(self._profileFailure, profileType, reactor)
         msg(type="status", clientCount=self._user - 1)
 
 
-    def _clientSuccess(self, result):
-        pass
+    def _dumpLogs(self, loggingReactor, reason):
+        path = FilePath(mkdtemp())
+        logstate = loggingReactor.getLogFiles()
+        i = 0
+        for i, log in enumerate(logstate.finished):
+            path.child('%03d.log' % (i,)).setContent(log.getvalue())
+        for i, log in enumerate(logstate.active, i):
+            path.child('%03d.log' % (i,)).setContent(log.getvalue())
+        path.child('reason.log').setContent(reason.getTraceback())
+        return path
 
 
-    def _clientFailure(self, reason):
-        err(reason, "Client stopped with error")
+    def _clientFailure(self, reason, reactor):
+        where = self._dumpLogs(reactor, reason)
+        err(reason, "Client stopped with error; recent traffic in %r" % (
+                where.path,))
+
+
+    def _profileFailure(self, reason, profileType, reactor):
+        where = self._dumpLogs(reactor, reason)
+        err(reason, "Profile stopped with error; recent traffic in %r" % (
+                where.path,))
 
 
 
@@ -242,7 +287,6 @@ def main():
     import random
 
     from twisted.internet import reactor
-    from twisted.internet.task import LoopingCall
     from twisted.python.log import addObserver
 
     from twisted.python.failure import startDebugMode

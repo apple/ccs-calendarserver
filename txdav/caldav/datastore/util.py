@@ -28,6 +28,10 @@ from twext.python.vcomponent import VComponent
 from txdav.common.icommondatastore import InvalidObjectResourceError, \
     NoSuchObjectResourceError, InternalDataStoreError
 
+from twistedcaldav.datafilters.privateevents import PrivateEventFilter
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
+from zope.interface.declarations import implements
+from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from twext.python.log import Logger
 log = Logger()
 
@@ -60,12 +64,10 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting):
         pass
 
     try:
-        # FIXME: This is a bad way to do this test, there should be a
+        # FIXME: This is a bad way to do this test (== 'inbox'), there should be a
         # Calendar-level API for it.
-        if calendar.name() == 'inbox':
-            component.validateComponentsForCalDAV(True)
-        else:
-            component.validateForCalDAV()
+        component.validCalendarData()
+        component.validCalendarForCalDAV(methodAllowed=calendar.name() == 'inbox')
     except InvalidICalendarDataError, e:
         raise InvalidObjectResourceError(e)
 
@@ -214,4 +216,106 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
 
     # No migration for notifications, since they weren't present in earlier
     # released versions of CalendarServer.
+
+
+class CalendarObjectBase(object):
+    """
+    Base logic shared between file- and sql-based L{ICalendarObject}
+    implementations.
+    """
+
+    @inlineCallbacks
+    def filteredComponent(self, accessUID, asAdmin=False):
+        """
+        Filter this calendar object's iCalendar component as it would be
+        perceived by a particular user, accounting for per-user iCalendar data
+        and private events, and return a L{Deferred} that fires with that
+        object.
+
+        Unlike the result of C{component()}, which contains storage-specific
+        iCalendar properties, this is a valid iCalendar object which could be
+        serialized and displayed to other iCalendar-processing software.
+
+        @param accessUID: the UID of the principal who is accessing this
+            component.
+        @type accessUID: C{str} (UTF-8 encoded)
+
+        @param asAdmin: should the given UID be treated as an administrator?  If
+            this is C{True}, the resulting component will have an unobscured
+            view of private events, even if the given UID is not actually the
+            owner of said events.  (However, per-instance overridden values will
+            still be seen as the given C{accessUID}.)
+
+        @return: a L{Deferred} which fires with a
+            L{twistedcaldav.ical.Component}.
+        """
+        component = yield self.component()
+        calendar = self.calendar()
+        isOwner = asAdmin or (calendar._owned and
+                              calendar.ownerCalendarHome().uid() == accessUID)
+        for filter in [PrivateEventFilter(self.accessMode, isOwner),
+                       PerUserDataFilter(accessUID)]:
+            component = filter.filter(component)
+        returnValue(component)
+
+
+
+class StorageTransportAddress(object):
+    """
+    Peer / host address for L{IAttachmentStorageTransport} implementations.
+
+    @ivar attachment: the L{IAttachment} being stored.
+
+    @type attachment: L{IAttachment} provider
+
+    @ivar isHost: is this a host address or peer address?
+
+    @type isHost: C{bool}
+    """
+
+    def __init__(self, attachment, isHost):
+        """
+        Initialize with the attachment being stored.
+        """
+        self.attachment = attachment
+        self.isHost = isHost
+
+
+    def __repr__(self):
+        if self.isHost:
+            host = " (host)"
+        else:
+            host = ""
+        return '<Storing Attachment: %r%s>' % (self.attachment.name(), host)
+
+
+
+class StorageTransportBase(object):
+    """
+    Base logic shared between file- and sql-based L{IAttachmentStorageTransport}
+    implementations.
+    """
+
+    implements(IAttachmentStorageTransport)
+
+    def __init__(self, attachment, contentType):
+        """
+        Create a storage transport with a reference to an L{IAttachment} and a
+        L{twext.web2.http_headers.MimeType}.
+        """
+        self._attachment = attachment
+        self._contentType = contentType
+
+
+    def getPeer(self):
+        return StorageTransportAddress(self._attachment, False)
+
+
+    def getHost(self):
+        return StorageTransportAddress(self._attachment, True)
+
+
+    def writeSequence(self, seq):
+        return self.write(''.join(seq))
+
 

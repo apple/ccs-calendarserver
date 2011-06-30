@@ -128,6 +128,37 @@ class WikiDirectoryRecord(DirectoryRecord):
         self.enabled = True
 
 
+@inlineCallbacks
+def getWikiAccess(userID, wikiID):
+    """
+    Ask the wiki server we're paired with what level of access the userID has
+    for the given wikiID.  Possible values are "read", "write", and "admin"
+    (which we treat as "write").
+    """
+    wikiConfig = config.Authentication.Wiki
+    proxy = Proxy(wikiConfig["URL"])
+    try:
+
+        log.debug("Looking up Wiki ACL for: user [%s], wiki [%s]" % (userID,
+            wikiID))
+        access = (yield proxy.callRemote(wikiConfig["WikiMethod"],
+            userID, wikiID))
+
+        log.debug("Wiki ACL result: user [%s], wiki [%s], access [%s]" % (userID,
+            wikiID, access))
+        returnValue(access)
+
+    except Fault, fault:
+
+        log.debug("Wiki ACL result: user [%s], wiki [%s], FAULT [%s]" % (userID,
+            wikiID, fault))
+
+        if fault.faultCode == 2: # non-existent user
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, fault.faultString))
+
+        else: # fault.faultCode == 12, non-existent wiki
+            raise HTTPError(StatusResponse(responsecode.NOT_FOUND, fault.faultString))
+
 
 @inlineCallbacks
 def getWikiACL(resource, request):
@@ -151,7 +182,6 @@ def getWikiACL(resource, request):
     if hasattr(request, 'wikiACL'):
         returnValue(request.wikiACL)
 
-    wikiConfig = config.Authentication.Wiki
     userID = "unauthenticated"
     wikiID = resource.record.shortNames[0]
 
@@ -164,16 +194,8 @@ def getWikiACL(resource, request):
         # TODO: better error handling
         pass
 
-    proxy = Proxy(wikiConfig["URL"])
     try:
-
-        log.debug("Looking up Wiki ACL for: user [%s], wiki [%s]" % (userID,
-            wikiID))
-        access = (yield proxy.callRemote(wikiConfig["WikiMethod"],
-            userID, wikiID))
-
-        log.debug("Wiki ACL result: user [%s], wiki [%s], access [%s]" % (userID,
-            wikiID, access))
+        access = (yield getWikiAccess(userID, wikiID))
 
         # The ACL we returns has ACEs for the end-user and the wiki principal
         # in case authzUser is the wiki principal.
@@ -245,18 +267,6 @@ def getWikiACL(resource, request):
                     "You are not allowed to access this wiki"
                 )
             )
-
-
-    except Fault, fault:
-
-        log.debug("Wiki ACL result: user [%s], wiki [%s], FAULT [%s]" % (userID,
-            wikiID, fault))
-
-        if fault.faultCode == 2: # non-existent user
-            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, fault.faultString))
-
-        else: # fault.faultCode == 12, non-existent wiki
-            raise HTTPError(StatusResponse(responsecode.NOT_FOUND, fault.faultString))
 
     except HTTPError:
         # pass through the HTTPError we might have raised above

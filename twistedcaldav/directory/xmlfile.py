@@ -32,7 +32,6 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twistedcaldav.config import config
 
 from twistedcaldav.config import fullServerPath
-from twistedcaldav.directory import augment
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser, XMLAccountRecord
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
@@ -70,6 +69,7 @@ class XMLDirectoryService(DirectoryService):
             ),
             'realmName' : '/Search',
             'statSeconds' : 15,
+            'augmentService' : None,
         }
         ignored = None
         params = self.getParams(params, defaults, ignored)
@@ -77,6 +77,7 @@ class XMLDirectoryService(DirectoryService):
         self._recordTypes = params['recordTypes']
         self.realmName = params['realmName']
         self.statSeconds = params['statSeconds']
+        self.augmentService = params['augmentService']
 
         super(XMLDirectoryService, self).__init__()
 
@@ -169,7 +170,7 @@ class XMLDirectoryService(DirectoryService):
                             shortNames    = tuple(xmlAccountRecord.shortNames),
                             xmlPrincipal  = xmlAccountRecord,
                         )
-                        d = augment.AugmentService.getAugmentRecord(record.guid,
+                        d = self.augmentService.getAugmentRecord(record.guid,
                             record.recordType)
                         d.addCallback(lambda x:record.addAugmentInformation(x))
 

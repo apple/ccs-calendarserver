@@ -33,11 +33,11 @@ from protocol.caldav.definitions import caldavxml
 from twisted.python import context
 from twisted.python.log import msg
 from twisted.python.failure import Failure
-from twisted.internet.defer import succeed, fail
+from twisted.internet.defer import Deferred, succeed, fail
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
-from stats import mean, median
+from stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean
 from loadtest.logger import SummarizingMixin
 from loadtest.ical import IncorrectResponseCode
 
@@ -49,10 +49,16 @@ class ProfileBase(object):
     """
     random = random
 
-    def __init__(self, reactor, client, userNumber):
+    def __init__(self, reactor, simulator, client, userNumber, **params):
         self._reactor = reactor
+        self._sim = simulator
         self._client = client
         self._number = userNumber
+        self.setParameters(**params)
+
+
+    def setParameters(self):
+        pass
 
 
     def _calendarsOfType(self, calendarType):
@@ -104,16 +110,35 @@ class CannotAddAttendee(Exception):
     """
 
 
+def loopWithDistribution(reactor, distribution, function):
+    result = Deferred()
+
+    def repeat(ignored):
+        reactor.callLater(distribution.sample(), iterate)
+
+    def iterate():
+        d = function()
+        d.addCallbacks(repeat, result.errback)
+
+    repeat(None)
+    return result
+
+
 
 class Inviter(ProfileBase):
     """
     A Calendar user who invites and de-invites other users to events.
     """
+    def setParameters(self,
+                      sendInvitationDistribution=NormalDistribution(600, 60),
+                      inviteeDistanceDistribution=UniformDiscreteDistribution(range(-10, 11))):
+        self._sendInvitationDistribution = sendInvitationDistribution
+        self._inviteeDistanceDistribution = inviteeDistanceDistribution
+
+
     def run(self):
-        self._call = LoopingCall(self._invite)
-        self._call.clock = self._reactor
-        # XXX Base this on something real
-        self._call.start(20)
+        return loopWithDistribution(
+            self._reactor, self._sendInvitationDistribution, self._invite)
 
 
     def _addAttendee(self, event, attendees):
@@ -121,26 +146,29 @@ class Inviter(ProfileBase):
         Create a new attendee to add to the list of attendees for the
         given event.
         """
-        invitees = set([u'urn:uuid:user%02d' % (self._number,)])
+        selfRecord = self._sim.getUserRecord(self._number)
+        invitees = set([u'urn:uuid:%s' % (selfRecord.uid,)])
         for att in attendees:
             invitees.add(att.value)
 
         for i in range(10):
-            invitee = max(1, int(self.random.gauss(self._number, 3)))
-            uuid = u'urn:uuid:user%02d' % (invitee,)
+            invitee = max(
+                1, self._number + self._inviteeDistanceDistribution.sample())
+            try:
+                record = self._sim.getUserRecord(invitee)
+            except IndexError:
+                continue
+            uuid = u'urn:uuid:%s' % (record.uid,)
             if uuid not in invitees:
                 break
         else:
             return fail(CannotAddAttendee("Can't find uninvited user to invite."))
 
-        user = u'User %02d' % (invitee,)
-        email = u'user%02d@example.com' % (invitee,)
-
         attendee = ContentLine(
             name=u'ATTENDEE', params=[
-                [u'CN', user],
+                [u'CN', record.commonName],
                 [u'CUTYPE', u'INDIVIDUAL'],
-                [u'EMAIL', email],
+                [u'EMAIL', record.email],
                 [u'PARTSTAT', u'NEEDS-ACTION'],
                 [u'ROLE', u'REQ-PARTICIPANT'],
                 [u'RSVP', u'TRUE'],
@@ -201,20 +229,24 @@ class Inviter(ProfileBase):
                     lambda reason: reason.trap(CannotAddAttendee))
                 return self._newOperation("invite", d)
 
+        # Oops, either no events or no calendars to play with.
+        return succeed(None)
+
 
 
 class Accepter(ProfileBase):
     """
     A Calendar user who accepts invitations to events.
     """
-
-    def __init__(self, reactor, client, userNumber):
-        ProfileBase.__init__(self, reactor, client, userNumber)
+    def setParameters(self, acceptDelayDistribution=NormalDistribution(1200, 60)):
         self._accepting = set()
+        self._acceptDelayDistribution = acceptDelayDistribution
 
 
     def run(self):
         self._subscription = self._client.catalog["eventChanged"].subscribe(self.eventChanged)
+        # TODO: Propagate errors from eventChanged and _acceptInvitation to this Deferred
+        return Deferred()
 
 
     def eventChanged(self, href):
@@ -236,8 +268,7 @@ class Accepter(ProfileBase):
         for attendee in attendees:
             if self._isSelfAttendee(attendee):
                 if attendee.params[u'PARTSTAT'][0] == 'NEEDS-ACTION':
-                    # XXX Base this on something real
-                    delay = self.random.gauss(10, 2)
+                    delay = self._acceptDelayDistribution.sample()
                     self._accepting.add(href)
                     self._reactor.callLater(
                         delay, self._acceptInvitation, href, attendee)
@@ -330,12 +361,22 @@ SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
 """))[0]
+    def setParameters(
+        self, interval=25,
+        eventStartDistribution=NearFutureDistribution(),
+        eventDurationDistribution=UniformDiscreteDistribution([
+                15 * 60, 30 * 60,
+                45 * 60, 60 * 60,
+                120 * 60])):
+        self._interval = interval
+        self._eventStartDistribution = eventStartDistribution
+        self._eventDurationDistribution = eventDurationDistribution
+
 
     def run(self):
         self._call = LoopingCall(self._addEvent)
         self._call.clock = self._reactor
-        # XXX Base this on something real
-        self._call.start(25)
+        return self._call.start(self._interval)
 
 
     def _addEvent(self):
@@ -351,10 +392,12 @@ END:VCALENDAR
             vevent = vcalendar.contents[u'vevent'][0]
             tz = vevent.contents[u'created'][0].value.tzinfo
             dtstamp = datetime.now(tz)
+            dtstart = datetime.fromtimestamp(self._eventStartDistribution.sample(), tz)
+            dtend = dtstart + timedelta(seconds=self._eventDurationDistribution.sample())
             vevent.contents[u'created'][0].value = dtstamp
             vevent.contents[u'dtstamp'][0].value = dtstamp
-            vevent.contents[u'dtstart'][0].value = dtstamp
-            vevent.contents[u'dtend'][0].value = dtstamp + timedelta(hours=1)
+            vevent.contents[u'dtstart'][0].value = dtstart
+            vevent.contents[u'dtend'][0].value = dtend
             vevent.contents[u'uid'][0].value = unicode(uuid4())
 
             href = '%s%s.ics' % (

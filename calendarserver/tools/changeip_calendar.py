@@ -103,6 +103,7 @@ def updatePlist(plist, oldIP, newIP, oldHostname, newHostname, verbose=False):
         ("Notifications", "Services", "XMPPNotifier", "ServiceAddress"),
         ("Scheduling", "iMIP", "Receiving", "Server"),
         ("Scheduling", "iMIP", "Sending", "Server"),
+        ("Scheduling", "iMIP", "Sending", "Address"),
         ("ServerHostName",),
     )
 

@@ -26,10 +26,8 @@ from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 from txdav.base.propertystore.test.base import (
     PropertyStoreTest, propertyName, propertyValue)
 
-from twistedcaldav import memcacher
 from twisted.internet.defer import gatherResults
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from twistedcaldav.config import config
 
 try:
     from txdav.base.propertystore.sql import PropertyStore
@@ -45,10 +43,6 @@ class PropertyStoreTest(PropertyStoreTest):
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
-        self.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
-        self.patch(memcacher.Memcacher, "allowTestCache", True)
-
         self.notifierFactory = StubNotifierFactory()
         self.store = yield buildStore(self, self.notifierFactory)
         self.addCleanup(self.maybeCommitLast)

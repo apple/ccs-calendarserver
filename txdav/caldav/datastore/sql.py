@@ -31,7 +31,6 @@ from twext.web2.http_headers import MimeType, generateContentType
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.error import ConnectionLost
-from twisted.internet.interfaces import ITransport
 from twisted.python import hashlib
 from twisted.python.failure import Failure
 
@@ -40,7 +39,7 @@ from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime,\
     parseSQLTimestamp, pyCalendarTodatetime
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, InvalidICalendarDataError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
 
@@ -67,7 +66,13 @@ from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import utcNowSQL
 from twext.enterprise.dal.syntax import Len
-from txdav.common.icommondatastore import IndexedSearchException
+
+from txdav.caldav.datastore.util import CalendarObjectBase
+from txdav.caldav.icalendarstore import QuotaExceeded
+
+from txdav.caldav.datastore.util import StorageTransportBase
+from txdav.common.icommondatastore import IndexedSearchException,\
+    InternalDataStoreError
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
@@ -103,6 +108,7 @@ class CalendarHome(CommonHome):
         super(CalendarHome, self).__init__(transaction, ownerUID, notifiers)
         self._shares = SQLLegacyCalendarShares(self)
 
+
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
     calendarWithName = CommonHome.childWithName
@@ -113,7 +119,7 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
-        
+
         objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
         for objectResource in objectResources:
             if ok_object and objectResource._resourceID == ok_object._resourceID:
@@ -121,18 +127,18 @@ class CalendarHome(CommonHome):
             matched_type = "schedule" if objectResource.isScheduleObject else "calendar"
             if type == "schedule" or matched_type == "schedule":
                 returnValue(True)
-            
+
         returnValue(False)
 
     @inlineCallbacks
     def getCalendarResourcesForUID(self, uid, allow_shared=False):
-        
+
         results = []
         objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
         for objectResource in objectResources:
             if allow_shared or objectResource._parentCollection._owned:
                 results.append(objectResource)
-            
+
         returnValue(results)
 
 
@@ -305,7 +311,7 @@ def _pathToName(path):
 
 
 
-class CalendarObject(CommonObjectResource):
+class CalendarObject(CommonObjectResource, CalendarObjectBase):
     implements(ICalendarObject)
 
     _objectTable = CALENDAR_OBJECT_TABLE
@@ -314,7 +320,7 @@ class CalendarObject(CommonObjectResource):
     def __init__(self, calendar, name, uid, resourceID=None, metadata=None):
 
         super(CalendarObject, self).__init__(calendar, name, uid, resourceID)
-        
+
         if metadata is None:
             metadata = {}
         self.accessMode = metadata.get("accessMode", "")
@@ -406,7 +412,7 @@ class CalendarObject(CommonObjectResource):
             expand = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             doInstanceIndexing = True
         else:
-            
+
             # If migrating or re-creating or config option for delayed indexing is off, always index
             if reCreate or self._txn._migrating or not config.FreeBusyIndexDelayedExpand:
                 doInstanceIndexing = True
@@ -453,11 +459,11 @@ class CalendarObject(CommonObjectResource):
             else:
                 raise
 
-        # Now coerce indexing to off if needed 
+        # Now coerce indexing to off if needed
         if not doInstanceIndexing:
             instances = None
             recurrenceLimit = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-            
+
         co = schema.CALENDAR_OBJECT
         tr = schema.TIME_RANGE
         tpy = schema.TRANSPARENCY
@@ -470,13 +476,13 @@ class CalendarObject(CommonObjectResource):
             organizer = component.getOrganizer()
             if not organizer:
                 organizer = ""
-    
+
             # CALENDAR_OBJECT table update
             self._uid = component.resourceUID()
             self._md5 = hashlib.md5(componentText).hexdigest()
             self._size = len(componentText)
 
-            # Special - if migrating we need to preserve the original md5    
+            # Special - if migrating we need to preserve the original md5
             if self._txn._migrating and hasattr(component, "md5"):
                 self._md5 = component.md5
 
@@ -494,7 +500,7 @@ class CalendarObject(CommonObjectResource):
                     # server dropbox collections and only then set the read mode
                     self._attachment = _ATTACHMENTS_MODE_READ
                     self._dropboxID = (yield self.dropboxID())
-    
+
             values = {
                 co.CALENDAR_RESOURCE_ID            : self._calendar._resourceID,
                 co.RESOURCE_NAME                   : self._name,
@@ -513,7 +519,7 @@ class CalendarObject(CommonObjectResource):
                 co.PRIVATE_COMMENTS                : self._private_comments,
                 co.MD5                             : self._md5
             }
-    
+
             if inserting:
                 self._resourceID, self._created, self._modified = (
                     yield Insert(
@@ -539,12 +545,12 @@ class CalendarObject(CommonObjectResource):
                 co.RECURRANCE_MAX :
                     pyCalendarTodatetime(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None,
             }
-    
+
             yield Update(
                 values,
                 Where=co.RESOURCE_ID == self._resourceID
             ).on(self._txn)
-            
+
             # Need to wipe the existing time-range for this and rebuild
             yield Delete(
                 From=tr,
@@ -580,7 +586,7 @@ class CalendarObject(CommonObjectResource):
                         tpy.USER_ID                : useruid,
                         tpy.TRANSPARENT            : transp,
                     }).on(self._txn))
-    
+
             # Special - for unbounded recurrence we insert a value for "infinity"
             # that will allow an open-ended time-range to always match it.
             if component.isRecurringUnbounded():
@@ -609,10 +615,33 @@ class CalendarObject(CommonObjectResource):
 
     @inlineCallbacks
     def component(self):
-        returnValue(VComponent.fromString((yield self.iCalendarText())))
+        """
+        Read calendar data and validate/fix it. Do not raise a store error here if there are unfixable
+        errors as that could prevent the overall request to fail. Instead we will hand bad data off to
+        the caller - that is not ideal but in theory we should have checked everything on the way in and
+        only allowed in good data.
+        """
+        text = yield self._text()
 
+        try:
+            component = VComponent.fromString(text)
+        except InvalidICalendarDataError, e:
+            # This is a really bad situation, so do raise
+            raise InternalDataStoreError(
+                "Data corruption detected (%s) in id: %s"
+                % (e, self._resourceID)
+            )
 
-    iCalendarText = CommonObjectResource.text
+        # Fix any bogus data we can
+        fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
+
+        if unfixed:
+            self.log_error("Calendar data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
+        
+        if fixed:
+            self.log_error("Calendar data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
+
+        returnValue(component)
 
 
     @inlineCallbacks
@@ -622,7 +651,7 @@ class CalendarObject(CommonObjectResource):
 
     def getMetadata(self):
         metadata = {}
-        metadata["accessMode"] = self.accessMode 
+        metadata["accessMode"] = self.accessMode
         metadata["isScheduleObject"] = self.isScheduleObject
         metadata["scheduleTag"] = self.scheduleTag
         metadata["scheduleEtags"] = self.scheduleEtags
@@ -671,7 +700,7 @@ class CalendarObject(CommonObjectResource):
 
     @inlineCallbacks
     def createAttachmentWithName(self, name):
-        
+
         # We need to know the resource_ID of the home collection of the owner (not sharee)
         # of this event
         sharerHomeID = (yield self._parentCollection.sharerHomeID())
@@ -683,7 +712,7 @@ class CalendarObject(CommonObjectResource):
         yield attachment.remove()
 
     def attachmentWithName(self, name):
-        return Attachment.attachmentWithName(self._txn, self._dropboxID, name)
+        return Attachment.loadWithName(self._txn, self._dropboxID, name)
 
     def attendeesCanManageAttachments(self):
         return self._attachment == _ATTACHMENTS_MODE_WRITE
@@ -731,56 +760,73 @@ class CalendarObject(CommonObjectResource):
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
 
-class AttachmentStorageTransport(object):
 
-    implements(ITransport)
 
-    def __init__(self, attachment, contentType):
-        self.attachment = attachment
-        self.contentType = contentType
-        self.buf = ''
-        self.hash = hashlib.md5()
+class AttachmentStorageTransport(StorageTransportBase):
+
+    def __init__(self, attachment, contentType, creating=False):
+        super(AttachmentStorageTransport, self).__init__(
+            attachment, contentType)
+        self._buf = ''
+        self._hash = hashlib.md5()
+        self._creating = creating
 
 
     @property
     def _txn(self):
-        return self.attachment._txn
+        return self._attachment._txn
 
 
     def write(self, data):
-        self.buf += data
-        self.hash.update(data)
+        if isinstance(data, buffer):
+            data = str(data)
+        self._buf += data
+        self._hash.update(data)
 
 
     @inlineCallbacks
     def loseConnection(self):
 
-        old_size = self.attachment.size()
+        # FIXME: this should be synchronously accessible; IAttachment should
+        # have a method for getting its parent just as CalendarObject/Calendar
+        # do.
 
-        self.attachment._path.setContent(self.buf)
-        self.attachment._contentType = self.contentType
-        self.attachment._md5 = self.hash.hexdigest()
-        self.attachment._size = len(self.buf)
+        # FIXME: If this method isn't called, the transaction should be
+        # prevented from committing successfully.  It's not valid to have an
+        # attachment that doesn't point to a real file.
+
+        home = (yield self._txn.calendarHomeWithResourceID(
+                    self._attachment._ownerHomeID))
+
+        oldSize = self._attachment.size()
+
+        if home.quotaAllowedBytes() < ((yield home.quotaUsedBytes())
+                                       + (len(self._buf) - oldSize)):
+            if self._creating:
+                yield self._attachment._internalRemove()
+            raise QuotaExceeded()
+
+        self._attachment._path.setContent(self._buf)
+        self._attachment._contentType = self._contentType
+        self._attachment._md5 = self._hash.hexdigest()
+        self._attachment._size = len(self._buf)
         att = schema.ATTACHMENT
-        self.attachment._created, self.attachment._modified = map(
+        self._attachment._created, self._attachment._modified = map(
             sqltime,
             (yield Update(
                 {
-                    att.CONTENT_TYPE : generateContentType(self.contentType),
-                    att.SIZE         : self.attachment._size,
-                    att.MD5          : self.attachment._md5,
+                    att.CONTENT_TYPE : generateContentType(self._contentType),
+                    att.SIZE         : self._attachment._size,
+                    att.MD5          : self._attachment._md5,
                     att.MODIFIED     : utcNowSQL
                 },
-                Where=att.PATH == self.attachment.name(),
+                Where=att.PATH == self._attachment.name(),
                 Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
         )
 
-        home = (
-            yield self._txn.calendarHomeWithResourceID(
-                self.attachment._ownerHomeID))
         if home:
             # Adjust quota
-            yield home.adjustQuotaUsedBytes(self.attachment.size() - old_size)
+            yield home.adjustQuotaUsedBytes(self._attachment.size() - oldSize)
 
             # Send change notification to home
             yield home.notifyChanged()
@@ -794,12 +840,13 @@ class Attachment(object):
 
     implements(IAttachment)
 
-    def __init__(self, txn, dropboxID, name, ownerHomeID=None):
+    def __init__(self, txn, dropboxID, name, ownerHomeID=None, justCreated=False):
         self._txn = txn
         self._dropboxID = dropboxID
         self._name = name
         self._ownerHomeID = ownerHomeID
         self._size = 0
+        self._justCreated = justCreated
 
 
     @classmethod
@@ -823,7 +870,7 @@ class Attachment(object):
             pass
 
         # Now create the DB entry
-        attachment = cls(txn, dropboxID, name, ownerHomeID)
+        attachment = cls(txn, dropboxID, name, ownerHomeID, True)
         att = schema.ATTACHMENT
         yield Insert({
             att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
@@ -838,8 +885,8 @@ class Attachment(object):
 
     @classmethod
     @inlineCallbacks
-    def attachmentWithName(cls, txn, dropboxID, name):
-        attachment = Attachment(txn, dropboxID, name)
+    def loadWithName(cls, txn, dropboxID, name):
+        attachment = cls(txn, dropboxID, name)
         attachment = (yield attachment.initFromStore())
         returnValue(attachment)
 
@@ -886,7 +933,7 @@ class Attachment(object):
 
 
     def store(self, contentType):
-        return AttachmentStorageTransport(self, contentType)
+        return AttachmentStorageTransport(self, contentType, self._justCreated)
 
 
     def retrieve(self, protocol):
@@ -903,17 +950,26 @@ class Attachment(object):
 
     @inlineCallbacks
     def remove(self):
-        old_size = self._size
+        oldSize = self._size
         self._txn.postCommit(self._path.remove)
-        yield self._removeStatement.on(self._txn, dropboxID=self._dropboxID,
-                                       path=self._name)
+        yield self._internalRemove()
         # Adjust quota
         home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
         if home:
-            yield home.adjustQuotaUsedBytes(-old_size)
+            yield home.adjustQuotaUsedBytes(-oldSize)
 
             # Send change notification to home
             yield home.notifyChanged()
+
+
+    def _internalRemove(self):
+        """
+        Just delete the row; don't do any accounting / bookkeeping.  (This is
+        for attachments that have failed to be created due to errors during
+        storage.)
+        """
+        return self._removeStatement.on(self._txn, dropboxID=self._dropboxID,
+                                        path=self._name)
 
 
     # IDataStoreObject

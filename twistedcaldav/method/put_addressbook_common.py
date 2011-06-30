@@ -198,8 +198,18 @@ class StoreAddressObjectResource(object):
                             "Could not parse vCard",
                         ))
                         
-                # Valid vcard data for CalDAV check
+                # Valid vcard data check
                 result, message = self.validAddressDataCheck()
+                if not result:
+                    log.err(message)
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (carddav_namespace, "valid-address-data"),
+                        description=message
+                    ))
+                    
+                # Valid vcard data for CalDAV check
+                result, message = self.validCardDAVDataCheck()
                 if not result:
                     log.err(message)
                     raise HTTPError(ErrorResponse(
@@ -283,8 +293,8 @@ class StoreAddressObjectResource(object):
         
     def validAddressDataCheck(self):
         """
-        Check that the vcard data is valid vCard.
-        @return:         tuple: (True/False if the vcard data is valid,
+        Check that the calendar data is valid iCalendar.
+        @return:         tuple: (True/False if the calendar data is valid,
                                  log message string).
         """
         result = True
@@ -294,10 +304,26 @@ class StoreAddressObjectResource(object):
             message = "Empty resource not allowed in vcard collection"
         else:
             try:
-                self.vcard.validForCardDAV()
+                self.vcard.validVCardData()
             except ValueError, e:
                 result = False
                 message = "Invalid vcard data: %s" % (e,)
+        
+        return result, message
+    
+    def validCardDAVDataCheck(self):
+        """
+        Check that the vcard data is valid vCard.
+        @return:         tuple: (True/False if the vcard data is valid,
+                                 log message string).
+        """
+        result = True
+        message = ""
+        try:
+            self.vcard.validForCardDAV()
+        except ValueError, e:
+            result = False
+            message = "vCard data does not conform to CardDAV requirements: %s" % (e,)
         
         return result, message
     

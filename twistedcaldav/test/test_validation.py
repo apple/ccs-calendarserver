@@ -48,8 +48,10 @@ class TestCopyMoveValidation(TestCase):
     def _getSampleCalendar(self):
         return Component.fromString("""BEGIN:VCALENDAR
 VERSION:2.0
+PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
 BEGIN:VEVENT
 UID:12345-67890
+DTSTAMP:20071114T000000Z
 DTSTART:20071114T000000Z
 ORGANIZER:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com

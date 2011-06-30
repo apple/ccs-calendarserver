@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -184,6 +184,11 @@ class FilterChildBase(FilterBase):
             self.filter_name = self.filter_name.encode("utf-8")
         self.defined = not self.qualifier or not isinstance(qualifier, IsNotDefined)
 
+        filter_test = xml_element.attributes.get("test", "allof")
+        if filter_test not in ("anyof", "allof"):
+            raise ValueError("Test must be only one of anyof, allof")
+        self.filter_test = filter_test
+
     def match(self, item, access=None):
         """
         Returns True if the given calendar item (either a component, property or parameter value)
@@ -197,10 +202,11 @@ class FilterChildBase(FilterBase):
         if self.qualifier and not self.qualifier.match(item, access): return False
 
         if len(self.filters) > 0:
+            allof = self.filter_test == "allof"
             for filter in self.filters:
-                if filter._match(item, access):
-                    return True
-            return False
+                if allof != filter._match(item, access):
+                    return not allof
+            return allof
         else:
             return True
 
@@ -224,10 +230,11 @@ class ComponentFilter (FilterChildBase):
         if self.qualifier and not self.qualifier.matchinstance(item, self.instances): return False
 
         if len(self.filters) > 0:
+            allof = self.filter_test == "allof"
             for filter in self.filters:
-                if filter._match(item, access):
-                    return True
-            return False
+                if allof != filter._match(item, access):
+                    return not allof
+            return allof
         else:
             return True
 
@@ -489,6 +496,18 @@ class TextMatch (FilterBase):
         else:
             self.negate = False
 
+        if "match-type" in xml_element.attributes:
+            self.match_type = xml_element.attributes["match-type"]
+            if self.match_type not in (
+                "equals",
+                "contains",
+                "starts-with",
+                "ends-with",
+            ):
+                self.match_type = "contains"
+        else:
+            self.match_type = "contains"
+
     def match(self, item, access):
         """
         Match the text for the item.
@@ -508,25 +527,29 @@ class TextMatch (FilterBase):
 
         def _textCompare(s):
             if self.caseless:
-                if s.lower().find(test) != -1:
-                    return True, not self.negate
+                s = s.lower()
+
+            if self.match_type == "equals":
+                return s == test
+            elif self.match_type == "contains":
+                return s.find(test) != -1 
+            elif self.match_type == "starts-with":
+                return s.startswith(test)
+            elif self.match_type == "ends-with":
+                return s.endswith(test)
             else:
-                if s.find(test) != -1:
-                    return True, not self.negate
-            return False, False
+                return False
 
         for value in values:
             # NB Its possible that we have a text list value which appears as a Python list,
             # so we need to check for that and iterate over the list.
             if isinstance(value, list):
                 for subvalue in value:
-                    matched, result = _textCompare(unicode(subvalue, "utf-8"))
-                    if matched:
-                        return result
+                    if _textCompare(unicode(subvalue, "utf-8")):
+                        return not self.negate
             else:
-                matched, result = _textCompare(unicode(value, "utf-8"))
-                if matched:
-                    return result
+                if _textCompare(unicode(value, "utf-8")):
+                    return not self.negate
         
         return self.negate
 

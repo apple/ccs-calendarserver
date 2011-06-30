@@ -38,6 +38,7 @@ from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.caldav.datastore.file import CalendarStore, CalendarHome
 from txdav.caldav.datastore.file import Calendar, CalendarObject
 
+from txdav.common.datastore.test.util import deriveQuota
 from txdav.caldav.datastore.test.common import (
     CommonTests, event4_text, event1modified_text)
 
@@ -64,8 +65,10 @@ def setUpCalendarStore(test):
     calendarPath.parent().makedirs()
     storePath.copyTo(calendarPath)
 
-    test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory)
-    test.txn = test.calendarStore.newTransaction(test.id() + "(old)")
+    testID = test.id()
+    test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory,
+                                       quota=deriveQuota(testID))
+    test.txn = test.calendarStore.newTransaction(testID + "(old)")
     assert test.calendarStore is not None, "No calendar store?"
 
 
@@ -75,6 +78,7 @@ def setUpHome1(test):
     setUpCalendarStore(test)
     test.home1 = yield test.txn.calendarHomeWithUID("home1")
     assert test.home1 is not None, "No calendar home?"
+
 
 
 @inlineCallbacks
@@ -372,23 +376,6 @@ class CalendarTest(unittest.TestCase):
         self.assertEquals(
             (yield self.calendar1.calendarObjectWithName("1.ics")).component(),
             originalComponent
-        )
-
-
-    @inlineCallbacks
-    def test_modifyCalendarObjectCaches(self):
-        """
-        Modifying a calendar object should cache the modified component in
-        memory, to avoid unnecessary parsing round-trips.
-        """
-        self.addCleanup(self.txn.commit)
-        modifiedComponent = VComponent.fromString(event1modified_text)
-        (yield self.calendar1.calendarObjectWithName("1.ics")).setComponent(
-            modifiedComponent
-        )
-        self.assertIdentical(
-            modifiedComponent,
-            (yield self.calendar1.calendarObjectWithName("1.ics")).component()
         )
 
 
