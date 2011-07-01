@@ -228,7 +228,7 @@ _CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE = """\
           </privilege>
         </current-user-privilege-set>
         <push-transports xmlns='http://calendarserver.org/ns/'/>
-        <pushkey xmlns='http://calendarserver.org/ns/'/>
+        <pushkey xmlns='http://calendarserver.org/ns/'>/Some/Unique/Value</pushkey>
       </prop>
       <status>HTTP/1.1 200 OK</status>
     </propstat>
@@ -938,7 +938,9 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         self.assertEqual({
                 home: XMPPPush(
                     "xmpp.example.invalid:1952",
-                    "xmpp:pubsub.xmpp.example.invalid?pubsub;node=/CalDAV/another.example.invalid/user01/")},
+                    "xmpp:pubsub.xmpp.example.invalid?pubsub;node=/CalDAV/another.example.invalid/user01/",
+                    "/Some/Unique/Value"
+                    )},
                          self.client.xmpp)
 
 

@@ -73,11 +73,12 @@ class XMPPPush(object, FancyEqMixin):
     This represents an XMPP PubSub location where push notifications for
     particular calendar home might be received.
     """
-    compareAttributes = ('server', 'uri')
+    compareAttributes = ('server', 'uri', 'pushkey')
 
-    def __init__(self, server, uri):
+    def __init__(self, server, uri, pushkey):
         self.server = server
         self.uri = uri
+        self.pushkey = pushkey
 
 
 
@@ -135,7 +136,6 @@ class BaseClient(object):
 
     def changeEventAttendee(self, href, oldAttendee, newAttendee):
         raise NotImplementedError("%r does not implement changeEventAttendee" % (self.__class__,))
-
 
 
 class SnowLeopard(BaseClient):
@@ -270,8 +270,9 @@ class SnowLeopard(BaseClient):
                 text = principals[principal].getTextProperties()
                 server = text[csxml.xmpp_server]
                 uri = text[csxml.xmpp_uri]
+                pushkey = text[csxml.pushkey]
                 if server and uri:
-                    self.xmpp[principal] = XMPPPush(server, uri)
+                    self.xmpp[principal] = XMPPPush(server, uri, pushkey)
 
             nodes = principals[principal].getNodeProperties()
             for nodeType in nodes[davxml.resourcetype].getchildren():
@@ -522,6 +523,7 @@ class SnowLeopard(BaseClient):
             hrefs = principal.getHrefProperties()
             calendarHome = hrefs[caldavxml.calendar_home_set].toString()
             yield self._checkCalendarsForEvents(calendarHome)
+
             returnValue(calendarHome)
         calendarHome = yield self._newOperation("startup", startup())
 
