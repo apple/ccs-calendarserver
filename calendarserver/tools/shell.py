@@ -302,7 +302,7 @@ class Directory(object):
             subdir = self.subdir(name)
 
         if path:
-            return subdir.addCallback(lambda path: locate(path))
+            return subdir.addCallback(lambda path: self.locate(path))
         else:
             return subdir
 
