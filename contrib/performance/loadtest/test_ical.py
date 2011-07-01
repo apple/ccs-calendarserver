@@ -933,7 +933,7 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         L{SnowLeopard._extractCalendars} finds it and records it.
         """
         home = "/calendars/__uids__/user01/"
-        calendars = self.client._extractCalendars(
+        self.client._extractCalendars(
             CALENDAR_HOME_PROPFIND_RESPONSE_WITH_XMPP, home)
         self.assertEqual({
                 home: XMPPPush(
