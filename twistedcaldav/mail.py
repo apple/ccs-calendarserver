@@ -852,7 +852,7 @@ class MailHandler(LoggingMixIn):
         # readable email message (not modifying the calendar body)
         attendees = []
         for attendeeProp in calendar.getAllAttendeeProperties():
-            cutype = attendeeProp.parameterValue('CUTYPE', None)
+            cutype = attendeeProp.parameterValue("CUTYPE", "INDIVIDUAL")
             if cutype == "INDIVIDUAL":
                 cn = attendeeProp.parameterValue("CN", None).decode("utf-8")
                 cuaddr = normalizeCUAddr(attendeeProp.value())

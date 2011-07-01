@@ -252,6 +252,7 @@ DTSTART:20100325T154500Z
 DTEND:20100325T164500Z
 ATTENDEE;CN=Th\xe9 Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:attendee@example.com
 ATTENDEE;CN=The Organizer;CUTYPE=INDIVIDUAL;EMAIL=organizer@example.com;PARTSTAT=ACCEPTED:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
+ATTENDEE;CN=An Attendee without CUTYPE;EMAIL=nocutype@example.com;PARTSTAT=ACCEPTED:urn:uuid:4DB528DC-3E60-44FA-9546-2A00FCDCFFAB
 ORGANIZER;CN=The Organizer;EMAIL=organizer@example.com:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
 SUMMARY:t\xe9sting outbound( )
 END:VEVENT
@@ -265,7 +266,8 @@ END:VCALENDAR
                 "The Organizer",
                 [
                     (u'Th\xe9 Attendee', u'attendee@example.com'),
-                    (u'The Organizer', u'organizer@example.com')
+                    (u'The Organizer', u'organizer@example.com'),
+                    (u'An Attendee without CUTYPE', u'nocutype@example.com'),
                 ],
                 "The Organizer <organizer@example.com>",
                 "attendee@example.com",
