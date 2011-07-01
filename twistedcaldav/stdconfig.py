@@ -448,7 +448,27 @@ DEFAULT_CONFIG = {
     #
     "EnableDropBox"           : False, # Calendar Drop Box
     "EnablePrivateEvents"     : False, # Private Events
-    "EnableTimezoneService"   : False, # Timezone service
+    "EnableTimezoneService"   : False, # Old Timezone service
+    
+    "TimezoneService"         : {    # New standard timezone service
+        "Enabled"       : True,      # Overall on/off switch
+        "Mode"          : "primary", # Can be "primary" or "secondary"
+        "BasePath"      : "",        # Path to zoneinfo - if None use default package path
+                                     # secondary service MUST define its own writeable path
+        "XMLInfoPath"   : "",        # Path to db cache info - if None use default package path
+                                     # secondary service MUST define its own writeable path if
+                                     # not None
+        
+        "SecondaryService" : {
+            # Only one of these should be used when a secondary service is used
+            "Host"                  : "",        # Domain/IP of secondary service to discover
+            "URI"                   : "",        # HTTP(s) URI to secondary service
+
+            "UpdateIntervalMinutes" : 24 * 60,
+        }
+    },
+    
+    "EnableTimezonesByReference" : False, # Strip out VTIMEZONES that are known
 
     "EnableBatchUpload"       : True,     # POST batch uploads
     "MaxResourcesBatchUpload" : 100,      # Maximum number of resources in a batch POST
@@ -808,6 +828,7 @@ RELATIVE_PATHS = [
     ("ServerRoot", "RunRoot"),
     ("DataRoot", "DatabaseRoot"),
     ("DataRoot", "AttachmentsRoot"),
+    ("DataRoot", ("TimezoneService", "BasePath",)),
     ("ConfigRoot", "SudoersFile"),
     ("LogRoot", "AccessLogFile"),
     ("LogRoot", "ErrorLogFile"),

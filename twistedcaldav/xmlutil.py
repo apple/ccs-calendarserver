@@ -16,13 +16,19 @@
 
 from __future__ import with_statement
 
+import cStringIO as StringIO
 import xml.etree.ElementTree as XML
+
 try:
     from xml.etree.ElementTree import ParseError as XMLParseError
 except ImportError:
     from xml.parsers.expat import ExpatError as XMLParseError
 
 # Utilities for working with ElementTree
+
+def readXMLString(xmldata, expectedRootTag=None):
+    io = StringIO.StringIO(xmldata)
+    return readXML(io, expectedRootTag)
 
 def readXML(xmlfile, expectedRootTag=None):
     """

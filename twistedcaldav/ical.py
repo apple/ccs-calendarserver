@@ -38,9 +38,11 @@ from twext.python.log import Logger
 from twext.web2.stream import IStream
 from twext.web2.dav.util import allDataFromStream
 
+from twistedcaldav.config import config
 from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.timezones import hasTZ, TimezoneException
 
 from pycalendar import definitions
 from pycalendar.attribute import PyCalendarAttribute
@@ -440,16 +442,13 @@ class Component (object):
             return False
         return self._pycalendar == other._pycalendar
 
-    def getText(self):
+    def getTextWithTimezones(self, includeTimezones):
         """
-        Serialize the calendar object. For a VCALENDAR always ensure the proper set of
-        timezones are included.
+        Return text representation and include timezones if the option is on
         """
+        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
         
-        if self.name() == "VCALENDAR":
-            return self._pycalendar.getText(includeTimezones=True)
-        else:
-            return self._pycalendar.getText()
+        return self._pycalendar.getText(includeTimezones=includeTimezones)
 
     # FIXME: Should this not be in __eq__?
     def same(self, other):
@@ -1253,6 +1252,27 @@ class Component (object):
 
         return self._resource_type
 
+    def stripKnownTimezones(self):
+        """
+        Remove timezones that this server knows about
+        """
+        
+        changed = False
+        for subcomponent in tuple(self.subcomponents()):
+            if subcomponent.name() == "VTIMEZONE":
+                tzid = subcomponent.propertyValue("TZID")
+                try:
+                    hasTZ(tzid)
+                except TimezoneException:
+                    # tzid not available - do not strip
+                    pass
+                else:
+                    # tzid known - strip component out
+                    self.removeComponent(subcomponent)
+                    changed = True
+
+        return changed
+
     def validCalendarData(self, doFix=True, doRaise=True):
         """
         @return: tuple of fixed, unfixed issues
@@ -1374,11 +1394,12 @@ class Component (object):
         #
         # Make sure required timezone components are present
         #
-        for timezone_ref in timezone_refs:
-            if timezone_ref not in timezones:
-                msg = "Timezone ID %s is referenced but not defined: %s" % (timezone_ref, self,)
-                log.debug(msg)
-                raise InvalidICalendarDataError(msg)
+        if not config.EnableTimezonesByReference:
+            for timezone_ref in timezone_refs:
+                if timezone_ref not in timezones:
+                    msg = "Timezone ID %s is referenced but not defined: %s" % (timezone_ref, self,)
+                    log.debug(msg)
+                    raise InvalidICalendarDataError(msg)
         
         #
         # FIXME:
@@ -2373,6 +2394,61 @@ def tzexpand(tzdata, start, end):
         results.append((
             tzstart.getText(),
             PyCalendarUTCOffsetValue(tzoffsetto).getText(),
+        ))
+    
+    return results
+
+def tzexpandlocal(tzdata, start, end):
+    """
+    Expand a timezone to get onset(local)/utc-offset-from/utc-offset-to/name observance tuples within the specified
+    time range.
+
+    @param tzdata: the iCalendar data containing a VTIMEZONE.
+    @type tzdata: L{PyCalendar}
+    @param start: date for the start of the expansion.
+    @type start: C{date}
+    @param end: date for the end of the expansion.
+    @type end: C{date}
+    
+    @return: a C{list} of tuples
+    """
+    
+    icalobj = Component(None, pycalendar=tzdata)
+    tzcomp = None
+    for comp in icalobj.subcomponents():
+        if comp.name() == "VTIMEZONE":
+            tzcomp = comp
+            break
+    else:
+        raise InvalidICalendarDataError("No VTIMEZONE component in %s" % (tzdata,))
+
+    tzexpanded = tzcomp._pycalendar.expandAll(start, end, with_name=True)
+    
+    results = []
+    
+    # Always need to ensure the start appears in the result
+    start.setDateOnly(False)
+    if tzexpanded:
+        if start != tzexpanded[0][0]:
+            results.append((
+                str(start),
+                PyCalendarUTCOffsetValue(tzexpanded[0][1]).getText(),
+                PyCalendarUTCOffsetValue(tzexpanded[0][1]).getText(),
+                tzexpanded[0][3],
+            ))
+    else:
+        results.append((
+            str(start),
+            PyCalendarUTCOffsetValue(tzcomp._pycalendar.getTimezoneOffsetSeconds(start)).getText(),
+            PyCalendarUTCOffsetValue(tzcomp._pycalendar.getTimezoneOffsetSeconds(start)).getText(),
+            tzcomp.getTZName(),
+        ))
+    for tzstart, tzoffsetfrom, tzoffsetto, name in tzexpanded:
+        results.append((
+            tzstart.getText(),
+            PyCalendarUTCOffsetValue(tzoffsetfrom).getText(),
+            PyCalendarUTCOffsetValue(tzoffsetto).getText(),
+            name,
         ))
     
     return results

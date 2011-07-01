@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ from twext.web2.http import Response
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
+from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.resource import isPseudoCalendarCollectionResource,\
@@ -87,7 +88,7 @@ def http_GET(self, request):
                     caldata = PrivateEventFilter(self.accessMode, isowner).filter(caldata)
         
                 response = Response()
-                response.stream = MemoryStream(str(caldata))
+                response.stream = MemoryStream(caldata.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference))
                 response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
         
                 # Add Schedule-Tag header if property is present

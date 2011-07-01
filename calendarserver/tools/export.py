@@ -274,7 +274,7 @@ def exportToFile(calendars, fileobj):
                     # when we serialize the whole calendar.
                     comp.addComponent(sub)
 
-    fileobj.write(comp.getText())
+    fileobj.write(comp.getTextWithTimezones(True))
 
 
 

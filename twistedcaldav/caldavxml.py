@@ -31,6 +31,7 @@ from twext.web2.dav import davxml
 
 from twext.python.log import Logger
 
+from twistedcaldav.config import config
 from twistedcaldav.ical import Component as iComponent
 
 log = Logger()
@@ -334,7 +335,7 @@ class CalendarData (CalDAVElement):
             return clazz(davxml.PCDATAElement(calendar))
         elif isinstance(calendar, iComponent):
             assert calendar.name() == "VCALENDAR", "Not a calendar: %r" % (calendar,)
-            return clazz(davxml.PCDATAElement(str(calendar)))
+            return clazz(davxml.PCDATAElement(calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference)))
         else:
             raise ValueError("Not a calendar: %s" % (calendar,))
 

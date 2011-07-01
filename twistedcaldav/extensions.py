@@ -639,8 +639,9 @@ class DirectoryRenderingMixIn(object):
             lastModified = child.lastModified()
             rtypes = []
             fullrtype = child.resourceType()
-            for rtype in fullrtype.children:
-                rtypes.append(rtype.name)
+            if fullrtype is not None:
+                for rtype in fullrtype.children:
+                    rtypes.append(rtype.name)
             if rtypes:
                 rtypes = "(%s)" % (", ".join(rtypes),)
             if child.isCollection():
