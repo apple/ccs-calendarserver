@@ -171,11 +171,11 @@ class SnowLeopard(BaseClient):
 
     email = None
 
-    def __init__(self, reactor, root, user, auth, calendarHomePollInterval=None):
+    def __init__(self, reactor, root, record, auth, calendarHomePollInterval=None):
         self.reactor = reactor
         self.agent = AuthHandlerAgent(Agent(self.reactor), auth)
         self.root = root
-        self.user = user
+        self.record = record
 
         if calendarHomePollInterval is None:
             calendarHomePollInterval = self.CALENDAR_HOME_POLL_INTERVAL
@@ -206,7 +206,7 @@ class SnowLeopard(BaseClient):
         if headers is None:
             headers = Headers({})
         headers.setRawHeaders('User-Agent', [self.USER_AGENT])
-        msg(type="request", method=method, url=url, user=self.user)
+        msg(type="request", method=method, url=url, user=self.record.uid)
         d = self.agent.request(method, url, headers, body)
         before = self.reactor.seconds()
         def report(response):
@@ -222,7 +222,7 @@ class SnowLeopard(BaseClient):
             msg(
                 type="response", success=success, method=method,
                 headers=headers, body=body, code=response.code,
-                user=self.user, duration=(after - before), url=url)
+                user=self.record.uid, duration=(after - before), url=url)
 
             if success:
                 return response
@@ -460,7 +460,7 @@ class SnowLeopard(BaseClient):
     @inlineCallbacks
     def startup(self):
         # Orient ourselves, or something
-        principal = yield self._principalPropfind(self.user)
+        principal = yield self._principalPropfind(self.record.uid)
 
         hrefs = principal.getHrefProperties()
 
@@ -501,12 +501,12 @@ class SnowLeopard(BaseClient):
 
     def _newOperation(self, label, deferred):
         before = self.reactor.seconds()
-        msg(type="operation", phase="start", user=self.user, label=label)
+        msg(type="operation", phase="start", user=self.record.uid, label=label)
         def finished(passthrough):
             success = not isinstance(passthrough, Failure)
             after = self.reactor.seconds()
             msg(type="operation", phase="end", duration=after - before,
-                user=self.user, label=label, success=success)
+                user=self.record.uid, label=label, success=success)
             return passthrough
         deferred.addBoth(finished)
         return deferred
@@ -535,7 +535,7 @@ class SnowLeopard(BaseClient):
     def _makeSelfAttendee(self):
         attendee = ContentLine(
             name=u'ATTENDEE', params=[
-                [u'CN', self.user],
+                [u'CN', self.record.commonName],
                 [u'CUTYPE', u'INDIVIDUAL'],
                 [u'PARTSTAT', u'ACCEPTED'],
                 ],
@@ -548,7 +548,7 @@ class SnowLeopard(BaseClient):
     def _makeSelfOrganizer(self):
         organizer = ContentLine(
             name=u'ORGANIZER', params=[
-                [u'CN', self.user],
+                [u'CN', self.record.commonName],
                 ],
             value=self.uuid,
             encoded=True)
@@ -721,7 +721,7 @@ class SnowLeopard(BaseClient):
             are user UUIDs (those requested) and values are something else.
         """
         outbox = self.root + 'calendars/__uids__/%s/outbox/' % (
-            self.user.encode('utf-8'),)
+            self.record.uid.encode('utf-8'),)
 
         if mask:
             maskStr = u'\r\n'.join(['X-CALENDARSERVER-MASK-UID:' + uid
@@ -812,7 +812,11 @@ def main():
 
     addObserver(RequestLogger().observe)
 
-    client = SnowLeopard(reactor, 'http://127.0.0.1:8008/', 'user01', auth)
+    client = SnowLeopard(
+        reactor, 'http://127.0.0.1:8008/', 
+        _DirectoryRecord(
+            u'user01', u'user01', u'User 01', u'user01@example.org'),
+        auth)
     d = client.run()
     d.addErrback(err, "Snow Leopard client run() problem")
     d.addCallback(lambda ignored: reactor.stop())

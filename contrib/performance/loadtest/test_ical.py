@@ -35,6 +35,7 @@ from protocol.caldav.definitions import caldavxml
 from protocol.caldav.definitions import csxml
 
 from loadtest.ical import XMPPPush, Event, Calendar, SnowLeopard
+from loadtest.sim import _DirectoryRecord
 from httpclient import MemoryConsumer, StringProducer
 
 EVENT_UID = 'D94F247D-7433-43AF-B84B-ADD684D023B0'
@@ -831,8 +832,9 @@ class SnowLeopardMixin:
     Mixin for L{TestCase}s for L{SnowLeopard}.
     """
     def setUp(self):
-        self.user = "user91"
-        self.client = SnowLeopard(None, "http://127.0.0.1/", self.user, None)
+        self.record = _DirectoryRecord(
+            u"user91", u"user91", u"User 91", u"user91@example.org")
+        self.client = SnowLeopard(None, "http://127.0.0.1/", self.record, None)
 
 
     def interceptRequests(self):
@@ -1205,7 +1207,7 @@ class VFreeBusyTests(SnowLeopardMixin, TestCase):
         self.assertEqual(OK, expectedResponseCode)
         self.assertEqual('POST', method)
         self.assertEqual(
-            'http://127.0.0.1/calendars/__uids__/%s/outbox/' % (self.user,),
+            'http://127.0.0.1/calendars/__uids__/%s/outbox/' % (self.record.uid,),
             url)
 
         self.assertEqual(headers.getRawHeaders('originator'), ['mailto:user01@example.com'])

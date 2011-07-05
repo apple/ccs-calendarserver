@@ -90,13 +90,13 @@ class ProfileBase(object):
 
         before = self._reactor.seconds()
         msg(type="operation", phase="start",
-            user=self._client.user, label=label, lag=lag)
+            user=self._client.record.uid, label=label, lag=lag)
 
         def finished(passthrough):
             success = not isinstance(passthrough, Failure)
             after = self._reactor.seconds()
             msg(type="operation", phase="end", duration=after - before,
-                user=self._client.user, label=label, success=success)
+                user=self._client.record.uid, label=label, success=success)
             return passthrough
         deferred.addBoth(finished)
         return deferred

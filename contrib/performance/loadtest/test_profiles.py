@@ -32,6 +32,7 @@ from twisted.web.client import Response
 from loadtest.profiles import Eventer, Inviter, Accepter
 from loadtest.population import Populator, CalendarClientSimulator
 from loadtest.ical import IncorrectResponseCode, Calendar, Event, BaseClient
+from loadtest.sim import _DirectoryRecord
 
 SIMPLE_EVENT = """\
 BEGIN:VCALENDAR
@@ -197,7 +198,9 @@ class StubClient(BaseClient):
     def __init__(self, number):
         self._events = {}
         self._calendars = {}
-        self.user = u"user%02d" % (number,)
+        self.record = _DirectoryRecord(
+            u"user%02d" % (number,), u"user%02d" % (number,),
+            u"User %02d" % (number,), u"user%02d@example.org" % (number,))
         self.email = u"mailto:user%02d@example.com" % (number,)
         self.rescheduled = set()
 

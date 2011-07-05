@@ -176,7 +176,7 @@ class CalendarClientSimulator(object):
             clientType = self._pop.next()
             reactor = loggedReactor(self.reactor)
             client = clientType.clientType(
-                reactor, self.server, user, auth)
+                reactor, self.server, self.getUserRecord(number), auth)
             d = client.run()
             d.addErrback(self._clientFailure, reactor)
 
