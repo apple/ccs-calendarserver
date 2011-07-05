@@ -812,7 +812,7 @@ def main():
 
     addObserver(RequestLogger().observe)
 
-    client = SnowLeopard(reactor, '127.0.0.1', 8008, 'user01', auth)
+    client = SnowLeopard(reactor, 'http://127.0.0.1:8008/', 'user01', auth)
     d = client.run()
     d.addErrback(err, "Snow Leopard client run() problem")
     d.addCallback(lambda ignored: reactor.stop())
