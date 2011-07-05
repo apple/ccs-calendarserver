@@ -153,7 +153,7 @@ class Inviter(ProfileBase):
 
         for i in range(10):
             invitee = max(
-                1, self._number + self._inviteeDistanceDistribution.sample())
+                0, self._number + self._inviteeDistanceDistribution.sample())
             try:
                 record = self._sim.getUserRecord(invitee)
             except IndexError:
