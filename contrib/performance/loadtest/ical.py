@@ -30,7 +30,7 @@ from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
 from twisted.python.failure import Failure
 from twisted.python.util import FancyEqMixin
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.http_headers import Headers
 from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT
@@ -45,6 +45,8 @@ from httpclient import StringProducer, readBody
 from httpauth import AuthHandlerAgent
 
 from subscribe import Periodical
+
+from calendarserver.tools.notifications import PubSubClientFactory
 
 def loadRequestBody(label):
     return FilePath(__file__).sibling('request-data').child(label + '.request').getContent()
@@ -138,6 +140,28 @@ class BaseClient(object):
         raise NotImplementedError("%r does not implement changeEventAttendee" % (self.__class__,))
 
 
+class _PubSubClientFactory(PubSubClientFactory):
+    def __init__(self, client, *args, **kwargs):
+        PubSubClientFactory.__init__(self, *args, **kwargs)
+        self._client = client
+
+    def initFailed(self, reason):
+        print 'XMPP initialization failed', reason
+
+    def authFailed(self, reason):
+        print 'XMPP Authentication failed', reason
+
+    def handleMessageEventItems(self, iq):
+        item = iq.firstChildElement().firstChildElement()
+        if item:
+            node = item.getAttribute("node")
+            if node:
+                url, name, kind = self.nodes.get(node, (None, None, None))
+                if url is not None:
+                    self._client._checkCalendarsForEvents(url)
+
+
+
 class SnowLeopard(BaseClient):
     """
     Implementation of the SnowLeopard iCal network behavior.
@@ -190,6 +214,9 @@ class SnowLeopard(BaseClient):
         # because they start with the uri of the calendar they are
         # part of), values are Event instances.
         self._events = {}
+
+        # Keep track of which calendar homes are being polled
+        self._checking = set()
 
         # Keep track of XMPP parameters for calendar homes we encounter.  This
         # dictionary has calendar home URLs as keys and XMPPPush instances as
@@ -412,6 +439,9 @@ class SnowLeopard(BaseClient):
 
 
     def _checkCalendarsForEvents(self, calendarHomeSet):
+        if calendarHomeSet in self._checking:
+            return
+        self._checking.add(calendarHomeSet)
         d = self._calendarHomePropfind(calendarHomeSet)
         @inlineCallbacks
         def cbCalendars(calendars):
@@ -423,6 +453,10 @@ class SnowLeopard(BaseClient):
         def ebCalendars(reason):
             reason.trap(IncorrectResponseCode)
         d.addErrback(ebCalendars)
+        def cleanupChecking(passthrough):
+            self._checking.remove(calendarHomeSet)
+            return passthrough
+        d.addBoth(cleanupChecking)
         return d
 
 
@@ -512,6 +546,27 @@ class SnowLeopard(BaseClient):
         return deferred
 
 
+    def _monitorPubSub(self, home, params):
+        """
+        Start monitoring the
+        """
+        host, port = params.server.split(':')
+        port = int(port)
+
+        service, stuff = params.uri.split('?')
+        service = service.split(':', 1)[1]
+        node = stuff.split('=', 1)[1]
+
+        # XXX What is the domain of the 2nd argument supposed to be?  The
+        # hostname we use to connect, or the same as the email address in the
+        # user record?
+        factory = _PubSubClientFactory(
+            self, "%s@%s" % (self.record.uid, host),
+            self.record.password, service,
+            {params.pushkey: (home, home, "Calendar home")}, False)
+        self.reactor.connectTCP(host, port, factory)
+
+
     @inlineCallbacks
     def run(self):
         """
@@ -523,13 +578,20 @@ class SnowLeopard(BaseClient):
             hrefs = principal.getHrefProperties()
             calendarHome = hrefs[caldavxml.calendar_home_set].toString()
             yield self._checkCalendarsForEvents(calendarHome)
-
             returnValue(calendarHome)
         calendarHome = yield self._newOperation("startup", startup())
 
-        # This completes when the calendar home poll loop completes, which
-        # currently it never will except due to an unexpected error.
-        yield self._calendarCheckLoop(calendarHome)
+        # Start monitoring PubSub notifications, if possible.
+        # _checkCalendarsForEvents populates self.xmpp if it finds
+        # anything.
+        if calendarHome in self.xmpp:
+            self._monitorPubSub(calendarHome, self.xmpp[calendarHome])
+            # Run indefinitely.
+            yield Deferred()
+        else:
+            # This completes when the calendar home poll loop completes, which
+            # currently it never will except due to an unexpected error.
+            yield self._calendarCheckLoop(calendarHome)
 
 
     def _makeSelfAttendee(self):
