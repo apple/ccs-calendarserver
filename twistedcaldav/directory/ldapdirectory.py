@@ -75,7 +75,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
         defaults = {
             "augmentService" : None,
-            "cacheTimeout": 1,
+            "cacheTimeout": 1, # Minutes
             "negativeCaching": False,
             "restrictEnabledRecords": False,
             "restrictToGroup": "",
@@ -99,7 +99,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
                     "recordName": "uid", # uniquely identifies user records
-                    "loginEnabledAttr" : "loginEnabled", # attribute controlling login
+                    "loginEnabledAttr" : "", # attribute controlling login
                     "loginEnabledValue" : "yes", # value of above attribute
                 },
                 "groups": {
@@ -425,13 +425,6 @@ class LdapDirectoryService(CachingDirectoryService):
             enabledForCalendaring = True
             enabledForAddressBooks = True
 
-            # Check login control attribute
-            loginEnabledAttr = self.rdnSchema[recordType]["loginEnabledAttr"]
-            if loginEnabledAttr:
-                loginEnabledValue = self.rdnSchema[recordType]["loginEnabledValue"]
-                enabledForLogin = self._getUniqueLdapAttribute(attrs,
-                    loginEnabledAttr) == loginEnabledValue
-
         elif recordType == self.recordType_groups:
             fullName = self._getUniqueLdapAttribute(attrs, "cn")
             enabledForCalendaring = False
@@ -460,18 +453,36 @@ class LdapDirectoryService(CachingDirectoryService):
             attrs                   = attrs,
         )
 
-        # Generate an augment record based on information retrieved from LDAP
-        augmentRecord = AugmentRecord(
-            guid,
-            enabled=True,
-            serverID="", # TODO: add to LDAP?
-            partitionID="", # TODO: add to LDAP?
-            enabledForCalendaring=enabledForCalendaring,
-            autoSchedule=False, # TODO: add to LDAP?
-            enabledForAddressBooks=enabledForAddressBooks, # TODO: add to LDAP?
-            enabledForLogin=enabledForLogin,
-        )
-        record.addAugmentInformation(augmentRecord)
+        if self.augmentService is not None:
+            # Look up augment information
+            # TODO: this needs to be deferred but for now we hard code
+            # the deferred result because we know it is completing
+            # immediately.
+            d = self.augmentService.getAugmentRecord(record.guid,
+                recordType)
+            d.addCallback(lambda x:record.addAugmentInformation(x))
+
+        else:
+            # Generate augment record based on information retrieved from LDAP
+            augmentRecord = AugmentRecord(
+                guid,
+                enabled=True,
+                serverID="", # TODO: add to LDAP?
+                partitionID="", # TODO: add to LDAP?
+                enabledForCalendaring=enabledForCalendaring,
+                autoSchedule=False, # TODO: add to LDAP?
+                enabledForAddressBooks=enabledForAddressBooks, # TODO: add to LDAP?
+                enabledForLogin=enabledForLogin,
+            )
+            record.addAugmentInformation(augmentRecord)
+
+        # Override with LDAP login control if attribute specified
+        if recordType == self.recordType_users:
+            loginEnabledAttr = self.rdnSchema[recordType]["loginEnabledAttr"]
+            if loginEnabledAttr:
+                loginEnabledValue = self.rdnSchema[recordType]["loginEnabledValue"]
+                record.enabledForLogin = self._getUniqueLdapAttribute(attrs,
+                    loginEnabledAttr) == loginEnabledValue
 
         return record
 
