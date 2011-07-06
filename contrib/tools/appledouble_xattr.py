@@ -15,8 +15,10 @@
 # limitations under the License.
 ##
 
+from zlib import decompress
 import struct
 import sys
+import zlib
 
 # A lot of this is copied from python/plat-mac/applesingle.py,
 # with data structure information taken from
@@ -61,7 +63,7 @@ XATTR_ENTRY_LENGTH = 11
 
 class AppleDouble(object):
 
-    def __init__(self, fileobj, verbose=False):
+    def __init__(self, fileobj, verbose=False, dezlib=False):
         
         self.xattrs = {}
 
@@ -121,6 +123,13 @@ class AppleDouble(object):
                     xattr_name = data[XATTR_ENTRY_LENGTH:XATTR_ENTRY_LENGTH+xattr_name_len]
                     fileobj.seek(xattr_offset)
                     xattr_value = fileobj.read(xattr_length)
+                    
+                    if dezlib:
+                        try:
+                            xattr_value = decompress(xattr_value)
+                        except zlib.error:
+                            pass
+
                     if verbose:
                         print "\n    Xattr Entry"
                         print '    Offset:      0x%02X' % (xattr_offset,)
@@ -136,15 +145,20 @@ class AppleDouble(object):
 
 def _test():
     if len(sys.argv) < 2:
-        print 'Usage: appledouble_xattr.py [-v] appledoublefile'
+        print 'Usage: appledouble_xattr.py [-v] [-z] appledoublefile'
         sys.exit(1)
-    if sys.argv[1] == '-v':
+    if '-v' in sys.argv[1:]:
         verbose = True
-        del sys.argv[1]
+        sys.argv.remove('-v')
     else:
         verbose = False
+    if '-z' in sys.argv[1:]:
+        dezlib = True
+        sys.argv.remove('-z')
+    else:
+        dezlib = False
 
-    adfile = AppleDouble(open(sys.argv[1]), verbose=verbose)
+    adfile = AppleDouble(open(sys.argv[1]), verbose=verbose, dezlib=dezlib)
     for k, v in adfile.xattrs.items():
         print "%s: %s" % (k, v)
 
