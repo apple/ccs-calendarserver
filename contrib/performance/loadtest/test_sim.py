@@ -296,6 +296,7 @@ class LoadSimulatorTests(TestCase):
         config.setContent(writePlistToString({
                     "clients": [{
                             "software": "loadtest.ical.SnowLeopard",
+                            "params": {"foo": "bar"},
                             "profiles": [{
                                     "params": {
                                         "interval": 25,
@@ -312,7 +313,7 @@ class LoadSimulatorTests(TestCase):
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         expectedParameters = PopulationParameters()
         expectedParameters.addClient(
-            3, ClientType(SnowLeopard, [ProfileType(Eventer, {
+            3, ClientType(SnowLeopard, {"foo": "bar"}, [ProfileType(Eventer, {
                             "interval": 25,
                             "eventStartDistribution": NormalDistribution(123, 456)})]))
         self.assertEquals(sim.parameters, expectedParameters)
@@ -329,7 +330,7 @@ class LoadSimulatorTests(TestCase):
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         expectedParameters = PopulationParameters()
         expectedParameters.addClient(
-            1, ClientType(SnowLeopard, [Eventer, Inviter, Accepter]))
+            1, ClientType(SnowLeopard, {}, [Eventer, Inviter, Accepter]))
         self.assertEquals(sim.parameters, expectedParameters)
 
 

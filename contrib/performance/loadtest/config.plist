@@ -93,6 +93,24 @@
 	<key>software</key>
 	<string>loadtest.ical.SnowLeopard</string>
 
+	<!-- Arguments to use to initialize the SnowLeopard instance. -->
+	<key>params</key>
+	<dict>
+	  <!-- SnowLeopard can poll the calendar home at some interval.  This
+               is in seconds. -->
+	  <key>calendarHomePollInterval</key>
+	  <integer>900</integer>
+
+	  <!-- If the server advertises xmpp push, SnowLeopard can wait for
+	       notifications about calendar home changes instead of polling for
+	       them periodically.  If this option is true, then look for the
+	       server advertisement for xmpp push and use it if possible.
+	       Still fall back to polling if there is no xmpp push
+	       advertised. -->
+	  <key>supportPush</key>
+	  <true/>
+	</dict>
+
 	<!-- The profiles define certain types of user behavior on top of the
 	     client software being simulated.  -->
 	<key>profiles</key>

@@ -195,7 +195,7 @@ class SnowLeopard(BaseClient):
 
     email = None
 
-    def __init__(self, reactor, root, record, auth, calendarHomePollInterval=None):
+    def __init__(self, reactor, root, record, auth, calendarHomePollInterval=None, supportPush=True):
         self.reactor = reactor
         self.agent = AuthHandlerAgent(Agent(self.reactor), auth)
         self.root = root
@@ -204,6 +204,8 @@ class SnowLeopard(BaseClient):
         if calendarHomePollInterval is None:
             calendarHomePollInterval = self.CALENDAR_HOME_POLL_INTERVAL
         self.calendarHomePollInterval = calendarHomePollInterval
+
+        self.supportPush = supportPush
 
         # Keep track of the calendars on this account, keys are
         # Calendar URIs, values are Calendar instances.
@@ -584,7 +586,7 @@ class SnowLeopard(BaseClient):
         # Start monitoring PubSub notifications, if possible.
         # _checkCalendarsForEvents populates self.xmpp if it finds
         # anything.
-        if calendarHome in self.xmpp:
+        if self.supportPush and calendarHome in self.xmpp:
             self._monitorPubSub(calendarHome, self.xmpp[calendarHome])
             # Run indefinitely.
             yield Deferred()

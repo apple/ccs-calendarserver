@@ -61,9 +61,18 @@ class ClientType(object, FancyEqMixin):
     """
     compareAttributes = ("clientType", "profileTypes")
 
-    def __init__(self, clientType, profileTypes):
+    def __init__(self, clientType, clientParams, profileTypes):
         self.clientType = clientType
+        self.clientParams = clientParams
         self.profileTypes = profileTypes
+
+
+    def new(self, reactor, serverAddress, userRecord, authInfo):
+        """
+        Create a new instance of this client type.
+        """
+        return self.clientType(
+            reactor, serverAddress, userRecord, authInfo, **self.clientParams)
 
 
 
@@ -175,7 +184,7 @@ class CalendarClientSimulator(object):
 
             clientType = self._pop.next()
             reactor = loggedReactor(self.reactor)
-            client = clientType.clientType(
+            client = clientType.new(
                 reactor, self.server, self.getUserRecord(number), auth)
             d = client.run()
             d.addErrback(self._clientFailure, reactor)

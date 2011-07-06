@@ -191,13 +191,14 @@ class LoadSimulator(object):
                     clientConfig["weight"],
                     ClientType(
                         namedAny(clientConfig["software"]),
+                        cls._convertParams(clientConfig["params"]),
                         [ProfileType(
                                 namedAny(profile["class"]),
                                 cls._convertParams(profile["params"]))
                          for profile in clientConfig["profiles"]]))
         if not parameters.clients:
             parameters.addClient(
-                1, ClientType(SnowLeopard, [Eventer, Inviter, Accepter]))
+                1, ClientType(SnowLeopard, {}, [Eventer, Inviter, Accepter]))
 
         observers = []
         if 'observers' in options.config:
