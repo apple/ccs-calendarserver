@@ -208,7 +208,9 @@ class LoadSimulatorTests(TestCase):
 
     def test_loadAccountsFromFile(self):
         """
-        L{LoadSimulator.
+        L{LoadSimulator.fromCommandLine} takes an account loader from the
+        config file and uses it to create user records for use in the
+        simulation.
         """
         accounts = FilePath(self.mktemp())
         accounts.setContent("foo,bar,baz,quux\nfoo2,bar2,baz2,quux2\n")
@@ -230,6 +232,17 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(sim.records[1].password, 'bar2')
         self.assertEqual(sim.records[1].commonName, 'baz2')
         self.assertEqual(sim.records[1].email, 'quux2')
+
+
+    def test_specifyRuntime(self):
+        """
+        L{LoadSimulator.fromCommandLine} recognizes the I{--runtime} option to
+        specify a limit on how long the simulation will run.
+        """
+        config = FilePath(self.mktemp())
+        config.setContent(VALID_CONFIG_PLIST)
+        sim = LoadSimulator.fromCommandLine(['--config', config.path, '--runtime', '123'])
+        self.assertEqual(123, sim.runtime)
 
 
     def test_loadServerConfig(self):

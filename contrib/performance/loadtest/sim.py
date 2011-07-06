@@ -79,6 +79,11 @@ class SimOptions(Options):
     """
     config = None
 
+    optParameters = [
+        ("runtime", "t", None,
+         "Specify the limit limit (seconds) on the time to run the simulation.",
+         int)]
+
     def opt_config(self, path):
         """
         ini-syntax configuration file from which to read simulation
@@ -150,7 +155,8 @@ class LoadSimulator(object):
         user information about the accounts on the server being put
         under load.
     """
-    def __init__(self, server, arrival, parameters, observers=None, records=None, reactor=None):
+    def __init__(self, server, arrival, parameters, observers=None,
+                 records=None, reactor=None, runtime=None):
         if reactor is None:
             from twisted.internet import reactor
         self.server = server
@@ -159,6 +165,7 @@ class LoadSimulator(object):
         self.observers = observers
         self.records = records
         self.reactor = LagTrackingReactor(reactor)
+        self.runtime = runtime
 
 
     @classmethod
@@ -212,7 +219,8 @@ class LoadSimulator(object):
             records.extend(namedAny(loader)(**params))
 
         return cls(server, arrival, parameters,
-                   observers=observers, records=records)
+                   observers=observers, records=records,
+                   runtime=options['runtime'])
 
     @classmethod
     def _convertParams(cls, params):
@@ -263,6 +271,8 @@ class LoadSimulator(object):
         sim = self.createSimulator()
         arrivalPolicy = self.createArrivalPolicy()
         arrivalPolicy.run(sim)
+        if self.runtime is not None:
+            self.reactor.callLater(self.runtime, self.reactor.stop)
         self.reactor.run()
         for obs in self.observers:
             obs.report()
