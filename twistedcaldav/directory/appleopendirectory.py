@@ -70,13 +70,14 @@ class OpenDirectoryService(CachingDirectoryService):
             'node' : '/Search',
             'restrictEnabledRecords' : False,
             'restrictToGroup' : '',
-            'cacheTimeout' : 1,
+            'cacheTimeout' : 1, # Minutes
             'negativeCaching' : False,
             'recordTypes' : (
                 self.recordType_users,
                 self.recordType_groups,
             ),
             'augmentService' : None,
+            'proxyCache' : None,
         }
         ignored = ('requireComputerRecord',)
         params = self.getParams(params, defaults, ignored)
@@ -95,6 +96,7 @@ class OpenDirectoryService(CachingDirectoryService):
             raise
 
         self.augmentService = params['augmentService']
+        self.proxyCache = params['proxyCache']
         self.realmName = params['node']
         self.directory = directory
         self.node = params['node']

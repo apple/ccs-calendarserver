@@ -506,6 +506,26 @@ class SlaveSpawnerService(Service):
             self.monitor.addProcess("mailgateway", mailGatewayArgv,
                                env=PARENT_ENVIRONMENT)
 
+        if config.ProxyCaching.Enabled:
+            self.maker.log_info("Adding proxy caching service")
+
+            proxyCacherArgv = [
+                sys.executable,
+                sys.argv[0],
+            ]
+            if config.UserName:
+                proxyCacherArgv.extend(("-u", config.UserName))
+            if config.GroupName:
+                proxyCacherArgv.extend(("-g", config.GroupName))
+            proxyCacherArgv.extend((
+                "--reactor=%s" % (config.Twisted.reactor,),
+                "-n", self.maker.proxyCacherTapName,
+                "-f", self.configPath,
+            ))
+
+            self.monitor.addProcess("proxycache", proxyCacherArgv,
+                               env=PARENT_ENVIRONMENT)
+
 
 
 class CalDAVServiceMaker (LoggingMixIn):
@@ -520,6 +540,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     #
     mailGatewayTapName = "caldav_mailgateway"
     notifierTapName = "caldav_notifier"
+    proxyCacherTapName = "caldav_proxycacher"
 
 
     def makeService(self, options):

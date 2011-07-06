@@ -48,14 +48,14 @@ DEFAULT_SERVICE_PARAMS = {
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
-        "cacheTimeout": 1,
+        "cacheTimeout": 1, # Minutes
         "negativeCaching": False,
         "restrictEnabledRecords": False,
         "restrictToGroup": "",
         "recordTypes": ("users", "groups"),
     },
     "twistedcaldav.directory.ldapdirectory.LdapDirectoryService": {
-        "cacheTimeout": 1,
+        "cacheTimeout": 1, # Minutes
         "negativeCaching": False,
         "restrictEnabledRecords": False,
         "restrictToGroup": "",
@@ -125,7 +125,7 @@ DEFAULT_RESOURCE_PARAMS = {
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
-        "cacheTimeout": 1,
+        "cacheTimeout": 1, # Minutes
         "negativeCaching": False,
         "restrictEnabledRecords": False,
         "restrictToGroup": "",
@@ -734,6 +734,12 @@ DEFAULT_CONFIG = {
         "Options": [
             "-c standard_conforming_strings=on",
         ],
+    },
+
+    "ProxyCaching" : {
+        "Enabled": False,
+        "MemcachedPool" : "ProxyDB",
+        "UpdateSeconds" : 300,
     },
 
     "EnableKeepAlive": True,

@@ -41,7 +41,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed
 from twext.web2.auth.digest import DigestedCredentials
 from twext.web2 import responsecode
-from twext.web2.http import HTTPError
+from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav import davxml
 from twext.web2.dav.util import joinURL
 from twext.web2.dav.noneprops import NonePropertyStore
@@ -663,6 +663,25 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
     @inlineCallbacks
     def proxyFor(self, read_write, resolve_memberships=True):
+
+        cache = getattr(self.record.service, "proxyCache", None)
+        if cache is not None:
+            log.debug("proxyFor is using proxyCache")
+            if not (yield cache.checkMarker()):
+                raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
+                    "Proxy membership cache not yet populated"))
+
+            principals = set()
+            proxyType = "write" if read_write else "read"
+            delegatorUIDs = (yield cache.getProxyFor(self.record.guid, proxyType))
+            if delegatorUIDs:
+                for uid in delegatorUIDs:
+                    principal = self.parent.principalForUID(uid)
+                    if principal is not None:
+                        principals.add(principal)
+            returnValue(principals)
+
+        # Slower, non cached method:
         proxyFors = set()
 
         if resolve_memberships:
@@ -731,6 +750,28 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
     @inlineCallbacks
     def groupMemberships(self, infinity=False):
+
+        cache = getattr(self.record.service, "proxyCache", None)
+        if cache is not None:
+            # We only need to worry about groups participating in delegation
+            log.debug("groupMemberships is using proxyCache")
+            if not (yield cache.checkMarker()):
+                raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
+                    "Proxy membership cache not yet populated"))
+            groups = set()
+            for proxyType in ("read", "write"):
+                delegatorUIDs = (yield cache.getProxyFor(self.record.guid,
+                    proxyType))
+                if delegatorUIDs:
+                    for uid in delegatorUIDs:
+                        principal = self.parent.principalForUID(uid)
+                        if principal is not None:
+                            group = principal.getChild("calendar-proxy-%s" %
+                                (proxyType,))
+                            groups.add(group)
+            returnValue(groups)
+
+        # Slower, fetching-many-groups method:
         groups = self._getRelatives("groups", infinity=infinity)
 
         if config.EnableProxyPrincipals:

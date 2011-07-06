@@ -260,7 +260,7 @@
             <key>recordName</key>
             <string>uid</string>
             <key>loginEnabledAttr</key>
-            <string>loginEnabled</string>
+            <string></string>
             <key>loginEnabledValue</key>
             <string>yes</string>
           </dict>
@@ -896,6 +896,17 @@
       	<!-- <string>-c log_statement=all</string> -->
       	<!-- <string>-c log_line_prefix='%p.%x '</string> -->
       </array>
+    </dict>
+
+    <!-- Proxy Membership Caching -->
+    <key>ProxyCaching</key>
+    <dict>
+      <key>Enabled</key>
+      <false/>
+      <key>MemcachedPool</key>
+      <string>ProxyDB</string>
+      <key>UpdateSeconds</key>
+      <integer>300</integer>
     </dict>
 
     <!--

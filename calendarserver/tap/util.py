@@ -222,6 +222,14 @@ def directoryFromConfig(config):
         raise
 
     #
+    # Setup the proxy cacher
+    #
+    if config.ProxyCaching.Enabled:
+        proxyCache = calendaruserproxy.ProxyMemberCache(config.ProxyCaching.MemcachedPool)
+    else:
+        proxyCache = None
+
+    #
     # Setup the Directory
     #
     directories = []
@@ -233,6 +241,7 @@ def directoryFromConfig(config):
         % (config.DirectoryService.type,))
 
     config.DirectoryService.params.augmentService = augmentService
+    config.DirectoryService.params.proxyCache = proxyCache
     baseDirectory = directoryClass(config.DirectoryService.params)
 
     # Wait for the directory to become available
@@ -250,6 +259,7 @@ def directoryFromConfig(config):
         log.info("Configuring resource service of type: %s" % (resourceClass,))
 
         config.ResourceService.params.augmentService = augmentService
+        config.ResourceService.params.proxyCache = proxyCache
         resourceDirectory = resourceClass(config.ResourceService.params)
         resourceDirectory.realmName = baseDirectory.realmName
         directories.append(resourceDirectory)

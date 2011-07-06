@@ -492,6 +492,26 @@ class DirectoryRecord(LoggingMixIn):
     def members(self):
         return ()
 
+    def expandedMembers(self, members=None, seen=None):
+        """
+        Return the complete, flattened set of members of a group, including
+        all sub-groups.
+        """
+        if members is None:
+            members = set()
+        if seen is None:
+            seen = set()
+
+        if self not in seen:
+            seen.add(self)
+            for member in self.members():
+                members.add(member)
+                if member.recordType == self.service.recordType_groups:
+                    member.expandedMembers(members=members, seen=seen)
+
+        return members
+
+
     def groups(self):
         return ()
 

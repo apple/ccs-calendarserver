@@ -17,6 +17,7 @@
 from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue,\
     succeed
 from twext.web2.dav import davxml
+from twext.web2.http import HTTPError
 
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile
@@ -28,6 +29,7 @@ import twistedcaldav.test.util
 from twistedcaldav.config import config
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
+
 
 class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     """
@@ -574,3 +576,285 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         memberships = yield proxyPrincipal._calendar_user_proxy_index().getMemberships(proxyPrincipal.principalUID())
         for uid in memberships:
             provisioningResource.principalForUID(uid)
+
+
+    @inlineCallbacks
+    def test_proxyMemberCache(self):
+        """
+        Ensure we get back what we put in
+        """
+        cache = calendaruserproxy.ProxyMemberCache("ProxyDB")
+
+        yield cache.setMembers("a", ["b", "c", "d"]) # has members
+        members = (yield cache.getMembers("a"))
+        self.assertEquals(members, set(["b", "c", "d"]))
+
+        yield cache.setMembers("b", []) # has no members
+        members = (yield cache.getMembers("b"))
+        self.assertEquals(members, set())
+
+        members = (yield cache.getMembers("c")) # wasn't specified at all
+        self.assertEquals(members, None)
+
+
+        yield cache.setProxyFor("a", "read", ["b", "c", "d"]) # has members
+        proxyFor = (yield cache.getProxyFor("a", "read"))
+        self.assertEquals(proxyFor, set(["b", "c", "d"]))
+
+        yield cache.setProxyFor("b", "read", []) # has no members
+        proxyFor = (yield cache.getProxyFor("b", "read"))
+        self.assertEquals(proxyFor, set())
+
+        proxyFor = (yield cache.getProxyFor("c", "read"))
+        # wasn't specified at all
+        self.assertEquals(proxyFor, None)
+
+
+    @inlineCallbacks
+    def test_expandedGroupMembersFromCache(self):
+        """
+        Put proxy data directly into cache, then make sure
+        CalendarUserProxyPrincipalResour.expandedGroupMembers( ) goes to the
+        cache for that info.
+        """
+
+        cdaboo = "5A985493-EE2C-4665-94CF-4DFEA3A89500"
+        lecroy = "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0"
+
+        cache = calendaruserproxy.ProxyMemberCache("ProxyDB")
+
+        delegator = self._getPrincipalByShortName(DirectoryService.recordType_users, "wsanchez")
+
+        # Having a proxyCache assigned to the directory service is the
+        # trigger to use such a cache:
+        self.directoryService.proxyCache = cache
+
+        proxyGroup = delegator.getChild("calendar-proxy-write")
+        yield cache.setMembers(proxyGroup.uid, [cdaboo, lecroy])
+        yield cache.createMarker()
+
+        members = (yield proxyGroup.expandedGroupMembers())
+        self.assertEquals(
+            set([p.record.guid for p in members]),
+            set([cdaboo, lecroy])
+        )
+
+
+    @inlineCallbacks
+    def test_proxyMemberCacheUpdater(self):
+        """
+        Let the ProxyMemberCacheUpdater populate the cache, then make
+        sure CalendarUserProxyPrincipalResource.expandedGroupMembers( ) goes
+        to the cache for that info.
+        """
+        cache = calendaruserproxy.ProxyMemberCache("ProxyDB")
+        updater = calendaruserproxy.ProxyMemberCacheUpdater(
+            calendaruserproxy.ProxyDBService, self.directoryService,
+            cache=cache)
+        yield updater.updateCache()
+
+        delegator = self._getPrincipalByShortName(DirectoryService.recordType_locations, "apollo")
+
+        # Having a proxyCache assigned to the directory service is the
+        # trigger to use such a cache:
+        self.directoryService.proxyCache = cache
+
+        proxyGroup = delegator.getChild("calendar-proxy-write")
+
+        members = (yield proxyGroup.expandedGroupMembers())
+        self.assertEquals(
+            set([p.record.guid for p in members]),
+            set(['8B4288F6-CC82-491D-8EF9-642EF4F3E7D0',
+                 '6423F94A-6B76-4A3A-815B-D52CFD77935D',
+                 '5A985493-EE2C-4665-94CF-4DFEA3A89500',
+                 '5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1',
+                 'both_coasts',
+                 'left_coast',
+                 'right_coast'])
+        )
+
+        delegates = (
+
+            # record name
+            # read-write delegators
+            # read-only delegators
+            # groups delegate is in (which is now just the "sub principals")
+
+            ("wsanchez",
+             set(["mercury", "apollo", "orion", "gemini"]),
+             set(["non_calendar_proxy"]),
+             set(['apollo#calendar-proxy-write',
+                  'gemini#calendar-proxy-write',
+                  'mercury#calendar-proxy-write',
+                  'non_calendar_proxy#calendar-proxy-read',
+                  'orion#calendar-proxy-write']),
+            ),
+            ("cdaboo",
+             set(["apollo", "orion", "non_calendar_proxy"]),
+             set(["non_calendar_proxy"]),
+             set(['apollo#calendar-proxy-write',
+                  'non_calendar_proxy#calendar-proxy-read',
+                  'non_calendar_proxy#calendar-proxy-write',
+                  'orion#calendar-proxy-write']),
+            ),
+            ("lecroy",
+             set(["apollo", "mercury", "non_calendar_proxy"]),
+             set(),
+             set(['apollo#calendar-proxy-write',
+                  'mercury#calendar-proxy-write',
+                  'non_calendar_proxy#calendar-proxy-write']),
+            ),
+            ("usera",
+             set(),
+             set(),
+             set(),
+            ),
+            ("userb",
+             set(['7423F94A-6B76-4A3A-815B-D52CFD77935D']),
+             set(),
+             set(['7423F94A-6B76-4A3A-815B-D52CFD77935D#calendar-proxy-write']),
+            ),
+            ("userc",
+             set(['7423F94A-6B76-4A3A-815B-D52CFD77935D']),
+             set(),
+             set(['7423F94A-6B76-4A3A-815B-D52CFD77935D#calendar-proxy-write']),
+            ),
+        )
+
+        for name, write, read, groups in delegates:
+            delegate = self._getPrincipalByShortName(DirectoryService.recordType_users, name)
+
+            proxyFor = (yield delegate.proxyFor(True))
+            self.assertEquals(
+                set([p.record.guid for p in proxyFor]),
+                write,
+            )
+            proxyFor = (yield delegate.proxyFor(False))
+            self.assertEquals(
+                set([p.record.guid for p in proxyFor]),
+                read,
+            )
+            groupsIn = (yield delegate.groupMemberships())
+            self.assertEquals(
+                set([p.uid for p in groupsIn]),
+                groups,
+            )
+
+        #
+        # Remove proxy assignments and see that the appropriate memcached
+        # keys are updated/deleted
+        #
+        usera = self._getPrincipalByShortName(DirectoryService.recordType_users,
+                                              "usera")
+        userb = self._getPrincipalByShortName(DirectoryService.recordType_users,
+                                              "userb")
+        userc = self._getPrincipalByShortName(DirectoryService.recordType_users,
+                                              "userc")
+        useraProxyGroup = usera.getChild("calendar-proxy-write")
+
+        # First, make sure there are two in the usera write proxy group
+        members = (yield cache.getMembers(useraProxyGroup.uid))
+        self.assertEquals(members, set([userb.record.guid, userc.record.guid]))
+        members = (yield useraProxyGroup.expandedGroupMembers())
+        self.assertEquals(
+            set([p.record.shortNames[0] for p in members]),
+            set(["userb", "userc"])
+        )
+        # ...and that userc is a write proxy for usera, talking directly to
+        # the cache, and by going through principal.proxyFor( )
+        proxyFor = (yield cache.getProxyFor(userc.record.guid, "write"))
+        self.assertEquals(proxyFor, set([usera.record.guid]))
+        proxyFor = (yield userc.proxyFor(True))
+        self.assertEquals(set([p.record.shortNames[0] for p in proxyFor]),
+                          set(["usera"]))
+
+        # Remove userb as a proxy
+        yield self._removeProxy(
+            DirectoryService.recordType_users, "usera",
+            "calendar-proxy-write",
+            DirectoryService.recordType_users, "userb",
+        )
+        yield updater.updateCache()
+
+        # Next, there should only be one in the group
+        members = (yield cache.getMembers(useraProxyGroup.uid))
+        self.assertEquals(
+            members,
+            set([userc.record.guid])
+        )
+        members = (yield useraProxyGroup.expandedGroupMembers())
+        self.assertEquals(
+            set([p.record.shortNames[0] for p in members]),
+            set(["userc"])
+        )
+        yield self._removeProxy(
+            DirectoryService.recordType_users, "usera",
+            "calendar-proxy-write",
+            DirectoryService.recordType_users, "userc",
+        )
+        yield updater.updateCache()
+
+        # Finally the group is empty and the key should be deleted
+        members = (yield cache.getMembers(useraProxyGroup.uid))
+        self.assertEquals(members, None)
+        members = (yield useraProxyGroup.expandedGroupMembers())
+        self.assertEquals(members, set())
+
+        # ...and userc is not a write proxy for usera
+        proxyFor = (yield cache.getProxyFor(userc.record.guid, "write"))
+        self.assertEquals(proxyFor, None)
+        proxyFor = (yield userc.proxyFor(True))
+        self.assertEquals(proxyFor, set())
+
+
+    def test_expandedMembers(self):
+        """
+        Make sure expandedMembers( ) returns a complete, flattened set of
+        members of a group, including all sub-groups.
+        """
+        bothCoasts = self.directoryService.recordWithShortName(
+            DirectoryService.recordType_groups, "both_coasts")
+        self.assertEquals(
+            set([r.guid for r in bothCoasts.expandedMembers()]),
+            set(['8B4288F6-CC82-491D-8EF9-642EF4F3E7D0',
+                 '6423F94A-6B76-4A3A-815B-D52CFD77935D',
+                 '5A985493-EE2C-4665-94CF-4DFEA3A89500',
+                 '5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1',
+                 'left_coast',
+                 'right_coast'])
+        )
+
+    @inlineCallbacks
+    def test_proxyCacheMarker(self):
+        """
+        If the proxy member cache is not populated (as noted by the existence
+        of a special memcached key), a 503 should be raised
+        """
+        cache = calendaruserproxy.ProxyMemberCache("ProxyDB")
+        # Having a proxyCache assigned to the directory service is the
+        # trigger to use such a cache:
+        self.directoryService.proxyCache = cache
+
+        userc = self._getPrincipalByShortName(DirectoryService.recordType_users, "userc")
+
+        try:
+            yield userc.proxyFor(True)
+        except HTTPError:
+            pass
+        else:
+            self.fail("HTTPError was unexpectedly not raised")
+
+        try:
+            yield userc.groupMemberships(True)
+        except HTTPError:
+            pass
+        else:
+            self.fail("HTTPError was unexpectedly not raised")
+
+        usercProxyGroup = userc.getChild("calendar-proxy-write")
+        try:
+            yield usercProxyGroup.expandedGroupMembers()
+        except HTTPError:
+            pass
+        else:
+            self.fail("HTTPError was unexpectedly not raised")

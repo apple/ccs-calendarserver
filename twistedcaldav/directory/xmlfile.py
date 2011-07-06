@@ -70,6 +70,7 @@ class XMLDirectoryService(DirectoryService):
             'realmName' : '/Search',
             'statSeconds' : 15,
             'augmentService' : None,
+            'proxyCache' : None,
         }
         ignored = None
         params = self.getParams(params, defaults, ignored)
@@ -78,6 +79,7 @@ class XMLDirectoryService(DirectoryService):
         self.realmName = params['realmName']
         self.statSeconds = params['statSeconds']
         self.augmentService = params['augmentService']
+        self.proxyCache = params['proxyCache']
 
         super(XMLDirectoryService, self).__init__()
 
@@ -588,6 +590,7 @@ class XMLDirectoryRecord(DirectoryRecord):
     def members(self):
         for recordType, shortName in self._members:
             yield self.service.recordWithShortName(recordType, shortName)
+
 
     def groups(self):
         for shortName in self._groups:
