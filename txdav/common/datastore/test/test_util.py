@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.python.modules import getModule
-import re
 
 """
 Tests for L{txdav.common.datastore.util}.
@@ -22,12 +20,11 @@ Tests for L{txdav.common.datastore.util}.
 
 from twext.python.filepath import CachingFilePath
 from twext.web2.http_headers import MimeType
-
 from twisted.application.service import Service, MultiService
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol
+from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
-
 from txdav.caldav.datastore.test.common import CommonTests
 from txdav.carddav.datastore.test.common import CommonTests as ABCommonTests
 from txdav.common.datastore.file import CommonDataStore
@@ -36,6 +33,7 @@ from txdav.common.datastore.test.util import theStoreBuilder, \
     populateAddressBooksFrom, resetAddressBookMD5s
 from txdav.common.datastore.util import UpgradeToDatabaseService,\
     UpgradeDatabaseSchemaService
+import re
 
 class HomeMigrationTests(TestCase):
     """
