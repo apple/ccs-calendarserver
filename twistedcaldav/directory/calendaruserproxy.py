@@ -873,11 +873,15 @@ class ProxyMemberCache(Memcacher, LoggingMixIn):
     (where <GUID> will be that of a sub-principal, e.g.
     5A985493-EE2C-4665-94CF-4DFEA3A89500#calendar-proxy-write)
 
-    "proxy-read-memberships:<GUID>" : comma-separate list of principals
+    "read-proxy-for:<GUID>" : comma-separate list of principals
     who have granted read access to GUID
 
-    "proxy-write-memberships:<GUID>" : comma-separate list of principals
+    "write-proxy-for:<GUID>" : comma-separate list of principals
     who have granted read-write access to GUID
+
+    "proxy-cache-populated" : gets set to "true" after the cache is populated,
+    so clients know they can now use it.  Note, this needs to be made robust
+    in the face of memcached evictions.
 
     """
 
