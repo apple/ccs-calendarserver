@@ -16,14 +16,14 @@
 
 from getopt import getopt, GetoptError
 import os
+import re
 import subprocess
 import sys
 
 CONNECTNAME   = "_postgres"
 USERNAME      = "caldav"
 DATABASENAME  = "caldav"
-SCHEMAFILE    = "/usr/share/caldavd/lib/python/txdav/common/datastore/sql_schema_v1.sql"
-SCHEMAVERSION = 3
+SCHEMAFILE    = "/usr/share/caldavd/lib/python/txdav/common/datastore/sql_schema/current.sql"
 
 # Executables:
 CREATEDB      = "/usr/bin/createdb"
@@ -233,19 +233,30 @@ def main():
     except BootstrapError, e:
         version = 0
 
-    if version == SCHEMAVERSION:
-        print "Latest schema version (%d) is installed" % (version,)
-
-    elif version == 0: # No schema installed
-        installSchema(verbose=verbose)
-        version = getSchemaVersion(verbose=verbose)
-        print "Successfully installed schema version %d" % (version,)
-
-    else: # upgrade needed
-        error(
-            "Schema needs to be upgraded from %d to %d" %
-            (version, SCHEMAVERSION)
-        )
+    # Retrieve the version number from the schema file
+    try:
+        data = open(SCHEMAFILE).read()
+    except IOError:
+        print "Unable to open the schema file: %s" % (SCHEMAFILE,)
+    else:
+        found = re.search("insert into CALENDARSERVER values \('VERSION', '(\d)+'\);", data)
+        if found is None:
+            print "Schema is missing required schema VERSION insert statement: %s" % (SCHEMAFILE,)
+        else:
+            required_version = int(found.group(1))
+            if version == required_version:
+                print "Latest schema version (%d) is installed" % (version,)
+        
+            elif version == 0: # No schema installed
+                installSchema(verbose=verbose)
+                version = getSchemaVersion(verbose=verbose)
+                print "Successfully installed schema version %d" % (version,)
+        
+            else: # upgrade needed
+                error(
+                    "Schema needs to be upgraded from %d to %d" %
+                    (version, required_version)
+                )
 
 if __name__ == "__main__":
     main()

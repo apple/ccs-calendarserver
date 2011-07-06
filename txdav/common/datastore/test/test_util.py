@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twisted.python.modules import getModule
+import re
 
 """
 Tests for L{txdav.common.datastore.util}.
@@ -32,7 +34,8 @@ from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import theStoreBuilder, \
     populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s,\
     populateAddressBooksFrom, resetAddressBookMD5s
-from txdav.common.datastore.util import UpgradeToDatabaseService
+from txdav.common.datastore.util import UpgradeToDatabaseService,\
+    UpgradeDatabaseSchemaService
 
 class HomeMigrationTests(TestCase):
     """
@@ -225,4 +228,83 @@ class HomeMigrationTests(TestCase):
             object = (yield adbk.addressbookObjectWithName(name))
             self.assertEquals(object.md5(), md5)
 
+class SchemaUpgradeTests(TestCase):
+    """
+    Tests for L{UpgradeDatabaseSchemaService}.
+    """
 
+    def test_scanUpgradeFiles(self):
+        
+        upgrader = UpgradeDatabaseSchemaService(None, None)
+
+        upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema1")
+        files = upgrader.scanForUpgradeFiles()
+        self.assertEqual(files, 
+            [(3, 4, upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_4.sql"))],
+        )
+
+        upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema2")
+        files = upgrader.scanForUpgradeFiles()
+        self.assertEqual(files, 
+            [
+                (3, 4, upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_4.sql")),
+                (3, 5, upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_5.sql")),
+                (4, 5, upgrader.schemaLocation.child("upgrades").child("upgrade_from_4_to_5.sql")),
+            ]
+        )
+
+    def test_determineUpgradeSequence(self):
+        
+        upgrader = UpgradeDatabaseSchemaService(None, None)
+
+        upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema1")
+        files = upgrader.scanForUpgradeFiles()
+        upgrades = upgrader.determineUpgradeSequence(3, 4, files)
+        self.assertEqual(upgrades, 
+            [upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_4.sql")],
+        )
+        self.assertRaises(RuntimeError, upgrader.determineUpgradeSequence, 3, 5, files)
+
+        upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema2")
+        files = upgrader.scanForUpgradeFiles()
+        upgrades = upgrader.determineUpgradeSequence(3, 5, files)
+        self.assertEqual(upgrades, 
+            [upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_5.sql")]
+        )
+        upgrades = upgrader.determineUpgradeSequence(4, 5, files)
+        self.assertEqual(upgrades, 
+            [upgrader.schemaLocation.child("upgrades").child("upgrade_from_4_to_5.sql")]
+        )
+
+        upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema3")
+        files = upgrader.scanForUpgradeFiles()
+        upgrades = upgrader.determineUpgradeSequence(3, 5, files)
+        self.assertEqual(upgrades, 
+            [
+                upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_4.sql"),
+                upgrader.schemaLocation.child("upgrades").child("upgrade_from_4_to_5.sql"),
+            ]
+        )
+
+    def test_upgradeAvailability(self):
+        """
+        Make sure that each old schema has a valid upgrade path to the current one.
+        """
+        
+        upgrader = UpgradeDatabaseSchemaService(None, None)
+        files = upgrader.scanForUpgradeFiles()
+        
+        def _getSchemaVersion(fp):
+            schema = fp.getContent()
+            found = re.search("insert into CALENDARSERVER values \('VERSION', '(\d)+'\);", schema)
+            if found is None:
+                self.fail("Could not determine schema version for: %s" % (fp,))
+            return int(found.group(1))
+            
+            
+        current_version = _getSchemaVersion(upgrader.schemaLocation.child("current.sql"))
+        
+        for child in upgrader.schemaLocation.child("old").globChildren("*.sql"):
+            old_version = _getSchemaVersion(child)
+            upgrades = upgrader.determineUpgradeSequence(old_version, current_version, files)
+            self.assertNotEqual(len(upgrades), 0)

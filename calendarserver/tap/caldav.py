@@ -59,7 +59,8 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
-from txdav.common.datastore.util import UpgradeToDatabaseService
+from txdav.common.datastore.util import UpgradeToDatabaseService,\
+    UpgradeDatabaseSchemaService
 
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
@@ -961,9 +962,12 @@ class CalDAVServiceMaker (LoggingMixIn):
             store = storeFromConfig(config, cp.connection)
             mainService = createMainService(cp, store)
             upgradeSvc = UpgradeFileSystemFormatService(config,
-                UpgradeToDatabaseService.wrapService(
-                    CachingFilePath(config.DocumentRoot),
-                    PostDBImportService(config, store, mainService),
+                UpgradeDatabaseSchemaService.wrapService(
+                    UpgradeToDatabaseService.wrapService(
+                        CachingFilePath(config.DocumentRoot),
+                        PostDBImportService(config, store, mainService),
+                        store, uid=uid, gid=gid
+                    ),
                     store, uid=uid, gid=gid
                 )
             )

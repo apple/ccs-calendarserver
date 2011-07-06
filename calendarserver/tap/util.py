@@ -82,7 +82,7 @@ from calendarserver.webcal.resource import WebCalendarResource
 
 from txdav.common.datastore.sql import CommonDataStore as CommonSQLDataStore
 from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
-from txdav.common.datastore.sql import v1_schema
+from txdav.common.datastore.sql import current_sql_schema
 from twext.python.filepath import CachingFilePath
 from urllib import quote
 
@@ -112,7 +112,7 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
     # Construct a PostgresService exactly as the parent would, so that we
     # can establish connection information.
     return PostgresService(
-        dbRoot, subServiceFactory, v1_schema,
+        dbRoot, subServiceFactory, current_sql_schema,
         databaseName=config.Postgres.DatabaseName,
         logFile=config.Postgres.LogFile,
         socketDir=config.RunRoot,

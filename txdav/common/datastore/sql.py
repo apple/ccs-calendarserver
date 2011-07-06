@@ -78,7 +78,7 @@ from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
     pyCalendarTodatetime
 
-v1_schema = getModule(__name__).filePath.sibling("sql_schema_v1.sql").getContent()
+current_sql_schema = getModule(__name__).filePath.sibling("sql_schema").child("current.sql").getContent()
 
 log = Logger()
 
@@ -218,6 +218,26 @@ class CommonStoreTransaction(object):
     def __repr__(self):
         return 'PG-TXN<%s>' % (self._label,)
 
+
+    @classproperty
+    def _schemaVersion(cls): #@NoSelf
+        cs = schema.CALENDARSERVER
+        return Select(
+            [cs.VALUE,],
+            From=cs,
+            Where=cs.NAME == "VERSION",
+        )
+
+    @inlineCallbacks
+    def schemaVersion(self):
+        result = yield self._schemaVersion.on(self)
+        if result and len(result) == 1:
+            try:
+                returnValue(int(result[0][0]))
+            except ValueError:
+                pass
+        raise RuntimeError("Database schema version cannot be determined.")
+        
 
     @memoizedKey('uid', '_calendarHomes')
     def calendarHomeWithUID(self, uid, create=False):

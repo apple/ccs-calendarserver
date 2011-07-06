@@ -31,7 +31,7 @@ def _populateSchema():
     """
     Generate the global L{SchemaSyntax}.
     """
-    pathObj = getModule(__name__).filePath.sibling("sql_schema_v1.sql")
+    pathObj = getModule(__name__).filePath.sibling("sql_schema").child("current.sql")
     return SchemaSyntax(schemaFromPath(pathObj))
 
 

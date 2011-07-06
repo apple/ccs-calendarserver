@@ -36,7 +36,7 @@ from twisted.internet.task import deferLater
 from twisted.python import log
 from twisted.application.service import Service
 
-from txdav.common.datastore.sql import CommonDataStore, v1_schema
+from txdav.common.datastore.sql import CommonDataStore, current_sql_schema
 from txdav.base.datastore.subpostgres import PostgresService
 from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
 from txdav.base.propertystore.base import PropertyName
@@ -89,7 +89,7 @@ class SQLStoreBuilder(object):
                 ).chainDeferred(ready)
                 return Service()
             self.sharedService = PostgresService(
-                dbRoot, getReady, v1_schema, resetSchema=True,
+                dbRoot, getReady, current_sql_schema, resetSchema=True,
                 databaseName="caldav",
                 testMode=True
             )

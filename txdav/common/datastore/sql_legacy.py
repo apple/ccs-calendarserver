@@ -855,7 +855,7 @@ class RealSQLBehaviorMixin(object):
     """
     Class attributes for 'real' SQL behavior; avoid idiosyncracies of SQLite,
     use standard SQL constructions, and depend on the full schema in
-    sql_schema_vX.sql rather than the partial one in twistedcaldav which depends
+    sql_schema/current.sql rather than the partial one in twistedcaldav which depends
     on the placement of the database in the filesystem for some information.
     """
 

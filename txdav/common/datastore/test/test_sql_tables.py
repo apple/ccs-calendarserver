@@ -35,7 +35,8 @@ class SampleSomeColumns(TestCase):
     """
 
     def test_addressbookObjectResourceID(self):
-        self.assertEquals(schema.ADDRESSBOOK_OBJECT.RESOURCE_ID.model.name,
+        ao = schema.ADDRESSBOOK_OBJECT
+        self.assertEquals(ao.RESOURCE_ID.model.name,
                           "RESOURCE_ID")
 
 
