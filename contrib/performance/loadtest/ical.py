@@ -557,7 +557,7 @@ class SnowLeopard(BaseClient):
 
         service, stuff = params.uri.split('?')
         service = service.split(':', 1)[1]
-        node = stuff.split('=', 1)[1]
+        #node = stuff.split('=', 1)[1]
 
         # XXX What is the domain of the 2nd argument supposed to be?  The
         # hostname we use to connect, or the same as the email address in the
@@ -878,8 +878,8 @@ def main():
 
     client = SnowLeopard(
         reactor, 'http://127.0.0.1:8008/', 
-        _DirectoryRecord(
-            u'user01', u'user01', u'User 01', u'user01@example.org'),
+        #_DirectoryRecord(
+        #    u'user01', u'user01', u'User 01', u'user01@example.org'),
         auth)
     d = client.run()
     d.addErrback(err, "Snow Leopard client run() problem")
