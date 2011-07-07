@@ -114,7 +114,8 @@ def doSetup():
                                "images/*/*.jpg",
                              ],
                              "txdav.common.datastore": [
-                               "*.sql",
+                               "sql_schema/*.sql",
+                               "sql_schema/*/*.sql",
                              ],
                            },
         scripts          = [
