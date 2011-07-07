@@ -150,6 +150,7 @@ class ScheduleViaISchedule(DeliveryService):
         if serverURI not in self.otherServers:
             self.otherServers[serverURI] = IScheduleServerRecord(uri=joinURL(serverURI, "/ischedule"))
             self.otherServers[serverURI].unNormalizeAddresses = not recipient.principal.server().isImplicit
+            self.otherServers[serverURI].moreHeaders.append(recipient.principal.server().secretHeader())
         
         return self.otherServers[serverURI]
 
@@ -286,6 +287,10 @@ class IScheduleRequest(object):
             self.headers.addRawHeader('Recipient', utf8String(recipient.cuaddr))
         self.headers.setHeader('Content-Type', MimeType("text", "calendar", params={"charset":"utf-8"}))
 
+        # Add any additional headers
+        for name, value in self.server.moreHeaders:
+            self.headers.addRawHeader(name, value)
+            
         if self.refreshOnly:
             self.headers.addRawHeader("X-CALENDARSERVER-ITIP-REFRESHONLY", "T")
 

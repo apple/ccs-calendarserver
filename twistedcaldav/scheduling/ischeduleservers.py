@@ -140,6 +140,7 @@ class IScheduleServerRecord (object):
         self.domains = []
         self.client_hosts = []
         self.unNormalizeAddresses = True
+        self.moreHeaders = []
         
         if uri:
             self.uri = uri

@@ -15,12 +15,12 @@
 ##
 
 from twext.python.log import Logger
-
+from twisted.internet.abstract import isIPAddress
 from twistedcaldav.client.pool import installPool
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.xmlutil import readXML
-import urlparse
 import socket
+import urlparse
 
 """
 XML based server configuration file handling.
@@ -40,6 +40,8 @@ __all__ = [
 
 log = Logger()
 
+SERVER_SECRET_HEADER = "X-CALENDARSERVER-ISCHEDULE"
+
 class ServersDB(object):
     """
     Represents the set of servers within the same domain.
@@ -51,7 +53,7 @@ class ServersDB(object):
         self._xmlFile = None
         self._thisServer = None
 
-    def load(self, xmlFile=None):
+    def load(self, xmlFile=None, ignoreIPLookupFailures=False):
         if self._xmlFile is None or xmlFile is not None:
             self._servers = {}
             if xmlFile:
@@ -61,7 +63,7 @@ class ServersDB(object):
                     config.ConfigRoot,
                     config.Servers.ConfigFile
                 )
-        self._servers = ServersParser.parse(self._xmlFile)
+        self._servers = ServersParser.parse(self._xmlFile, ignoreIPLookupFailures=ignoreIPLookupFailures)
         for server in self._servers.values():
             if server.thisServer:
                 self._thisServer = server
@@ -98,11 +100,13 @@ class Server(object):
         self.uri = None
         self.thisServer = False
         self.ips = set()
+        self.allowed_from_ips = set()
+        self.shared_secret = None
         self.partitions = {}
         self.partitions_ips = set()
         self.isImplicit = True
     
-    def check(self):
+    def check(self, ignoreIPLookupFailures=False):
         # Check whether this matches the current server
         parsed_uri = urlparse.urlparse(self.uri)
         if parsed_uri.hostname == config.ServerHostName:
@@ -117,17 +121,41 @@ class Server(object):
         try:
             _ignore_host, _ignore_aliases, ips = socket.gethostbyname_ex(parsed_uri.hostname)
         except socket.gaierror, e:
-            log.error("Unable to lookup ip-addr for server '%s': %s" % (parsed_uri.hostname, str(e)))
-            ips = ()
+            msg = "Unable to lookup ip-addr for server '%s': %s" % (parsed_uri.hostname, str(e))
+            log.error(msg)
+            if ignoreIPLookupFailures:
+                ips = ()
+            else:
+                raise ValueError(msg)
         self.ips = set(ips)
 
+        actual_ips = set()
+        for item in self.allowed_from_ips:
+            if not isIPAddress(item):
+                try:
+                    _ignore_host, _ignore_aliases, ips = socket.gethostbyname_ex(item)
+                except socket.gaierror, e:
+                    msg = "Unable to lookup ip-addr for allowed-from '%s': %s" % (item, str(e))
+                    log.error(msg)
+                    if not ignoreIPLookupFailures:
+                        raise ValueError(msg)
+                else:
+                    actual_ips.update(ips)
+            else:
+                actual_ips.add(item)
+        self.allowed_from_ips = actual_ips
+            
         for uri in self.partitions.values():
             parsed_uri = urlparse.urlparse(uri)
             try:
                 _ignore_host, _ignore_aliases, ips = socket.gethostbyname_ex(parsed_uri.hostname)
             except socket.gaierror, e:
-                log.error("Unable to lookup ip-addr for partition '%s': %s" % (parsed_uri.hostname, str(e)))
-                ips = ()
+                msg = "Unable to lookup ip-addr for partition '%s': %s" % (parsed_uri.hostname, str(e))
+                log.error(msg)
+                if ignoreIPLookupFailures:
+                    ips = ()
+                else:
+                    raise ValueError(msg)
             self.partitions_ips.update(ips)
     
     def checkThisIP(self, ip):
@@ -135,6 +163,35 @@ class Server(object):
         Check that the passed in IP address corresponds to this server or one of its partitions.
         """
         return (ip in self.ips) or (ip in self.partitions_ips)
+
+    def hasAllowedFromIP(self):
+        return len(self.allowed_from_ips) > 0
+
+    def checkAllowedFromIP(self, ip):
+        return ip in self.allowed_from_ips
+
+    def checkSharedSecret(self, request):
+        
+        # Get header from the request
+        request_secret = request.headers.getRawHeaders(SERVER_SECRET_HEADER)
+        
+        if request_secret is not None and self.shared_secret is None:
+            log.error("iSchedule request included unexpected %s header" % (SERVER_SECRET_HEADER,))
+            return False
+        elif request_secret is None and self.shared_secret is not None:
+            log.error("iSchedule request did not include required %s header" % (SERVER_SECRET_HEADER,))
+            return False
+        elif (request_secret[0] if request_secret else None) != self.shared_secret:
+            log.error("iSchedule request %s header did not match" % (SERVER_SECRET_HEADER,))
+            return False
+        else:
+            return True
+
+    def secretHeader(self):
+        """
+        Return a tuple of header name, header value
+        """
+        return (SERVER_SECRET_HEADER, self.shared_secret,)
 
     def addPartition(self, id, uri):
         self.partitions[id] = uri
@@ -158,6 +215,8 @@ ELEMENT_SERVERS                 = "servers"
 ELEMENT_SERVER                  = "server"
 ELEMENT_ID                      = "id"
 ELEMENT_URI                     = "uri"
+ELEMENT_ALLOWED_FROM            = "allowed-from"
+ELEMENT_SHARED_SECRET           = "shared-secret"
 ELEMENT_PARTITIONS              = "partitions"
 ELEMENT_PARTITION               = "partition"
 ATTR_IMPLICIT                   = "implicit"
@@ -169,7 +228,7 @@ class ServersParser(object):
     Servers configuration file parser.
     """
     @staticmethod
-    def parse(xmlFile):
+    def parse(xmlFile, ignoreIPLookupFailures=False):
 
         results = {}
 
@@ -192,6 +251,10 @@ class ServersParser(object):
                     server.id = node.text
                 elif node.tag == ELEMENT_URI:
                     server.uri = node.text
+                elif node.tag == ELEMENT_ALLOWED_FROM:
+                    server.allowed_from_ips.add(node.text)
+                elif node.tag == ELEMENT_SHARED_SECRET:
+                    server.shared_secret = node.text
                 elif node.tag == ELEMENT_PARTITIONS:
                     ServersParser._parsePartition(xmlFile, node, server)
                 else:
@@ -200,7 +263,7 @@ class ServersParser(object):
             if server.id is None or server.uri is None:
                 log.error("Invalid partition '%s' in servers file: '%s'" % (child.tag, xmlFile,), raiseException=RuntimeError)
 
-            server.check()
+            server.check(ignoreIPLookupFailures=ignoreIPLookupFailures)
             results[server.id] = server
 
         return results

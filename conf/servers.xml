@@ -27,6 +27,9 @@ limitations under the License.
   <server>
     <id>B</id>
     <uri>https://caldav2.example.com:8843</uri>
+    <allowed-from>127.0.0.1</allowed-from>
+    <allowed-from>example.local</allowed-from>
+    <shared-secret>ABC</shared-secret>
     <partitions>
     	<partition>
     		<id>00001</id>

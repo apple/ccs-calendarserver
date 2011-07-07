@@ -14,10 +14,11 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.servers import Servers
+from twext.web2.test.test_server import SimpleRequest
+from twistedcaldav.config import config
+from twistedcaldav.servers import Servers, SERVER_SECRET_HEADER
 from twistedcaldav.test.util import TestCase
 import StringIO as StringIO
-from twistedcaldav.config import config
 
 class ServerTests(TestCase):
 
@@ -26,6 +27,8 @@ class ServerTests(TestCase):
   <server>
     <id>00001</id>
     <uri>http://caldav1.example.com:8008</uri>
+    <allowed-from>127.0.0.1</allowed-from>
+    <shared-secret>foobar</shared-secret>
   </server>
   <server>
     <id>00002</id>
@@ -43,21 +46,57 @@ class ServerTests(TestCase):
   </server>
 </servers>
 """
-        
-    def test_read_ok(self):
-        
+
+    data2 = """<?xml version="1.0" encoding="utf-8"?>
+<servers>
+  <server>
+    <id>00001</id>
+    <uri>http://caldav1.example.com:8008</uri>
+    <allowed-from>localhost</allowed-from>
+    <shared-secret>foobar</shared-secret>
+  </server>
+  <server>
+    <id>00002</id>
+    <uri>https://caldav2.example.com:8843</uri>
+    <partitions>
+        <partition>
+            <id>A</id>
+            <uri>https://machine1.example.com:8443</uri>
+        </partition>
+        <partition>
+            <id>B</id>
+            <uri>https://machine2.example.com:8443</uri>
+        </partition>
+    </partitions>
+  </server>
+</servers>
+"""
+
+    def _setupServers(self, data=data1):
         self.patch(config, "ServerHostName", "caldav1.example.com")
         self.patch(config, "HTTPPort", 8008)
 
-        xmlFile = StringIO.StringIO(ServerTests.data1)
+        xmlFile = StringIO.StringIO(data)
         servers = Servers
-        servers.load(xmlFile)
+        servers.load(xmlFile, ignoreIPLookupFailures=True)
+
+        return servers
+
+    def test_read_ok(self):
+        
+        servers = self._setupServers()
 
         self.assertTrue(servers.getServerById("00001") is not None)
         self.assertTrue(servers.getServerById("00002") is not None)
 
         self.assertEqual(servers.getServerById("00001").uri, "http://caldav1.example.com:8008")
         self.assertEqual(servers.getServerById("00002").uri, "https://caldav2.example.com:8843")
+
+        self.assertEqual(servers.getServerById("00001").allowed_from_ips, set(("127.0.0.1",)))
+        self.assertEqual(servers.getServerById("00002").allowed_from_ips, set())
+
+        self.assertEqual(servers.getServerById("00001").shared_secret, "foobar")
+        self.assertEqual(servers.getServerById("00002").shared_secret, None)
 
         self.assertEqual(len(servers.getServerById("00001").partitions), 0)
         self.assertEqual(len(servers.getServerById("00002").partitions), 2)
@@ -67,12 +106,7 @@ class ServerTests(TestCase):
 
     def test_this_server(self):
         
-        self.patch(config, "ServerHostName", "caldav1.example.com")
-        self.patch(config, "HTTPPort", 8008)
-        
-        xmlFile = StringIO.StringIO(ServerTests.data1)
-        servers = Servers
-        servers.load(xmlFile)
+        servers = self._setupServers()
 
         self.assertTrue(servers.getServerById("00001").thisServer)
         self.assertFalse(servers.getServerById("00002").thisServer)
@@ -83,7 +117,56 @@ class ServerTests(TestCase):
         
         xmlFile = StringIO.StringIO(ServerTests.data1)
         servers = Servers
-        servers.load(xmlFile)
+        servers.load(xmlFile, ignoreIPLookupFailures=True)
 
         self.assertFalse(servers.getServerById("00001").thisServer)
         self.assertTrue(servers.getServerById("00002").thisServer)
+
+    def test_check_this_ip(self):
+
+        servers = self._setupServers()
+        servers.getServerById("00001").ips = set(("127.0.0.2",))
+        servers.getServerById("00002").ips = set(("127.0.0.3",))
+        
+        self.assertTrue(servers.getServerById("00001").checkThisIP("127.0.0.2"))
+        self.assertFalse(servers.getServerById("00001").checkThisIP("127.0.0.3"))
+
+    def test_check_allowed_from(self):
+
+        for servers in (self._setupServers(), self._setupServers(data=self.data2),):
+            self.assertTrue(servers.getServerById("00001").hasAllowedFromIP())
+            self.assertFalse(servers.getServerById("00002").hasAllowedFromIP())
+
+            self.assertTrue(servers.getServerById("00001").checkAllowedFromIP("127.0.0.1"))
+            self.assertFalse(servers.getServerById("00001").checkAllowedFromIP("127.0.0.2"))
+            self.assertFalse(servers.getServerById("00001").checkAllowedFromIP("127.0.0.3"))
+            self.assertFalse(servers.getServerById("00002").checkAllowedFromIP("127.0.0.1"))
+            self.assertFalse(servers.getServerById("00002").checkAllowedFromIP("127.0.0.2"))
+            self.assertFalse(servers.getServerById("00002").checkAllowedFromIP("127.0.0.3"))
+
+    def test_check_shared_secret(self):
+
+        servers = self._setupServers()
+        
+        request = SimpleRequest(None, "POST", "/ischedule")
+        request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar")
+        self.assertTrue(servers.getServerById("00001").checkSharedSecret(request))
+        
+        request = SimpleRequest(None, "POST", "/ischedule")
+        request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar1")
+        self.assertFalse(servers.getServerById("00001").checkSharedSecret(request))
+        
+        request = SimpleRequest(None, "POST", "/ischedule")
+        self.assertFalse(servers.getServerById("00001").checkSharedSecret(request))
+        
+        request = SimpleRequest(None, "POST", "/ischedule")
+        request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar")
+        self.assertFalse(servers.getServerById("00002").checkSharedSecret(request))
+        
+        request = SimpleRequest(None, "POST", "/ischedule")
+        request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar1")
+        self.assertFalse(servers.getServerById("00002").checkSharedSecret(request))
+        
+        request = SimpleRequest(None, "POST", "/ischedule")
+        self.assertTrue(servers.getServerById("00002").checkSharedSecret(request))
+        

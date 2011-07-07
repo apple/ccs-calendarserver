@@ -940,7 +940,7 @@ class IScheduleScheduler(RemoteScheduler):
         if expected_uri is None:
             expected_uri = principal.serverURI()
         expected_uri = urlparse.urlparse(expected_uri)
-    
+        
         # Get the request IP and map to hostname.
         clientip = self.request.remoteAddr.host
         
@@ -952,6 +952,13 @@ class IScheduleScheduler(RemoteScheduler):
         if Servers.getThisServer().checkThisIP(clientip):
             matched = True
     
+        # Checked allowed IPs - if any were defined we only check against them, we do not
+        # go on to check the expected server host ip
+        elif Servers.getThisServer().hasAllowedFromIP():
+            matched = Servers.getThisServer().checkAllowedFromIP(clientip)
+            if not matched:
+                log.error("Invalid iSchedule connection from client: %s" % (clientip,))
+
         # Next compare as dotted IP
         elif isIPAddress(expected_uri.hostname):
             if clientip == expected_uri.hostname:
@@ -967,7 +974,12 @@ class IScheduleScheduler(RemoteScheduler):
                         break
             except socket.herror, e:
                 log.debug("iSchedule cannot lookup client ip '%s': %s" % (clientip, str(e),))
-                
+        
+        # Check possible shared secret
+        if matched and not Servers.getThisServer().checkSharedSecret(self.request):
+            log.err("Invalid iSchedule shared secret")
+            matched = False
+
         if not matched:
             log.err("Originator not on allowed server: %s" % (self.originator,))
             raise HTTPError(ErrorResponse(
