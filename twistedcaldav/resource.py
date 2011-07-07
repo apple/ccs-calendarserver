@@ -2075,7 +2075,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         @return: a C{True} if this resource has quota root, C{False} otherwise.
         """
-        return self._newStoreHome.quotaAllowedBytes() is None
+        return self._newStoreHome.quotaAllowedBytes() is not None
 
 
     def quotaRoot(self, request):
