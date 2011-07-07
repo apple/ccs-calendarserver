@@ -29,10 +29,10 @@ from twisted.web.http_headers import Headers
 from twisted.web.client import ResponseDone
 from twisted.internet.protocol import ProtocolToConsumerAdapter
 
-from protocol.url import URL
-from protocol.webdav.definitions import davxml
-from protocol.caldav.definitions import caldavxml
-from protocol.caldav.definitions import csxml
+from caldavclientlibrary.protocol.url import URL
+from caldavclientlibrary.protocol.webdav.definitions import davxml
+from caldavclientlibrary.protocol.caldav.definitions import caldavxml
+from caldavclientlibrary.protocol.caldav.definitions import csxml
 
 from loadtest.ical import XMPPPush, Event, Calendar, SnowLeopard
 from loadtest.sim import _DirectoryRecord

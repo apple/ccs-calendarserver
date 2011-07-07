@@ -36,10 +36,10 @@ from twisted.web.http_headers import Headers
 from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT
 from twisted.web.client import Agent
 
-from protocol.webdav.propfindparser import PropFindParser
-from protocol.webdav.definitions import davxml
-from protocol.caldav.definitions import caldavxml
-from protocol.caldav.definitions import csxml
+from caldavclientlibrary.protocol.webdav.propfindparser import PropFindParser
+from caldavclientlibrary.protocol.webdav.definitions import davxml
+from caldavclientlibrary.protocol.caldav.definitions import caldavxml
+from caldavclientlibrary.protocol.caldav.definitions import csxml
 
 from httpclient import StringProducer, readBody
 from httpauth import AuthHandlerAgent

@@ -28,7 +28,7 @@ from vobject import readComponents
 from vobject.base import Component, ContentLine
 from vobject.icalendar import VEvent
 
-from protocol.caldav.definitions import caldavxml
+from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 
 from twisted.python import context
 from twisted.python.log import msg

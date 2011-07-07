@@ -21,7 +21,7 @@ Tests for loadtest.profiles.
 
 from vobject import readComponents
 
-from protocol.caldav.definitions import caldavxml
+from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 
 from twisted.trial.unittest import TestCase
 from twisted.internet.task import Clock

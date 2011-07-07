@@ -20,8 +20,7 @@ from twisted.python.log import msg
 from twisted.web.http_headers import Headers
 from twisted.web.http import UNAUTHORIZED
 
-# CalDAVClientLibrary
-from protocol.http.authentication.digest import Digest
+from caldavclientlibrary.protocol.http.authentication.digest import Digest
 
 class BasicChallenge(object):
     def __init__(self, realm):
