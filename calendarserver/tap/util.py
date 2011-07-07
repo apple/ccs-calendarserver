@@ -188,18 +188,21 @@ def storeFromConfig(config, txnFactory):
         )
     else:
         notifierFactory = None
+    quota = config.UserQuota
+    if quota == 0:
+        quota = None
     if txnFactory is not None:
         return CommonSQLDataStore(
             txnFactory, notifierFactory, FilePath(config.AttachmentsRoot),
             config.EnableCalDAV, config.EnableCardDAV,
-            quota=config.UserQuota
+            quota=quota
         )
     else:
         return CommonFileDataStore(
             FilePath(config.DocumentRoot),
             notifierFactory, config.EnableCalDAV, config.EnableCardDAV,
-            quota=config.UserQuota
-        ) 
+            quota=quota
+        )
 
 
 
