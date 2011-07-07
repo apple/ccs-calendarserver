@@ -211,12 +211,34 @@ def deriveQuota(testCase):
 
     @type testID: C{str}
     """
-    h = md5(testCase.id())
-    seed = int(h.hexdigest(), 16)
-    r = Random(seed)
-    baseline = 2000
-    fuzz = r.randint(1, 1000)
-    return baseline + fuzz
+    testID = testCase.id()
+    testMethodName = testID.split(".")[-1]
+    method = getattr(testCase, testMethodName)
+    notSet = object()
+    specialQuota = getattr(method, _SPECIAL_QUOTA, notSet)
+    if specialQuota is notSet:
+        h = md5(testID)
+        seed = int(h.hexdigest(), 16)
+        r = Random(seed)
+        baseline = 2000
+        fuzz = r.randint(1, 1000)
+        return baseline + fuzz
+    else:
+        return specialQuota
+
+
+
+_SPECIAL_QUOTA = "__special_quota__"
+
+def withSpecialQuota(quotaValue):
+    """
+    Test method decorator that will cause L{deriveQuota} to return a different
+    value for test cases that run that test method.
+    """
+    def thunk(function):
+        setattr(function, _SPECIAL_QUOTA, quotaValue)
+        return function
+    return thunk
 
 
 
