@@ -800,8 +800,9 @@ class AttachmentStorageTransport(StorageTransportBase):
 
         oldSize = self._attachment.size()
 
-        if home.quotaAllowedBytes() < ((yield home.quotaUsedBytes())
-                                       + (len(self._buf) - oldSize)):
+        allowed = home.quotaAllowedBytes()
+        if allowed is not None and allowed < ((yield home.quotaUsedBytes())
+                                              + (len(self._buf) - oldSize)):
             if self._creating:
                 yield self._attachment._internalRemove()
             raise QuotaExceeded()

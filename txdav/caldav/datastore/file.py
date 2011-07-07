@@ -621,9 +621,9 @@ class AttachmentStorageTransport(StorageTransportBase):
         newSize = self._file.tell()
         # FIXME: do anything
         self._file.close()
-
-        if home.quotaAllowedBytes() < (home.quotaUsedBytes()
-                                       + (newSize - oldSize)):
+        allowed = home.quotaAllowedBytes()
+        if allowed is not None and allowed < (home.quotaUsedBytes()
+                                              + (newSize - oldSize)):
             self._path.remove()
             return fail(QuotaExceeded())
 
