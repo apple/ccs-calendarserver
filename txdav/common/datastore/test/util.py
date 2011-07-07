@@ -49,6 +49,9 @@ from twistedcaldav.vcard import Component as ABComponent
 md5key = PropertyName.fromElement(TwistedGETContentMD5)
 
 def allInstancesOf(cls):
+    """
+    Use L{gc.get_referrers} to retrieve all instances of a given class.
+    """
     for o in gc.get_referrers(cls):
         if isinstance(o, cls):
             yield o
@@ -56,6 +59,12 @@ def allInstancesOf(cls):
 
 
 def dumpConnectionStatus():
+    """
+    Dump all L{DiagnosticConnectionWrapper} objects to standard output.  This
+    function is useful for diagnosing connection leaks that corrupt state
+    between tests.  (It is currently not invoked anywhere, but may be useful if
+    these types of bugs crop up in the future.)
+    """
     print '+++ ALL CONNECTIONS +++'
     for connection in allInstancesOf(DiagnosticConnectionWrapper):
         print connection.label, connection.state
