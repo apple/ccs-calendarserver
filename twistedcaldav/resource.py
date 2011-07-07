@@ -2062,26 +2062,31 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     def isCollection(self):
         return True
 
+
     def quotaSize(self, request):
         # FIXME: tests, workingness
         return succeed(0)
 
+
     def hasQuotaRoot(self, request):
         """
-        Always get quota root value from config.
+        Is this resource a quota root?  This returns True if the backend is
+        enforcing quota.
 
         @return: a C{True} if this resource has quota root, C{False} otherwise.
         """
-        return config.UserQuota != 0
-    
+        return self._newStoreHome.quotaAllowedBytes() is None
+
+
     def quotaRoot(self, request):
         """
-        Always get quota root value from config.
+        Retrieve the number of total allowed bytes from the backend.
 
         @return: a C{int} containing the maximum allowed bytes if this
             collection is quota-controlled, or C{None} if not quota controlled.
         """
         return self._newStoreHome.quotaAllowedBytes()
+
 
     def currentQuotaUse(self, request):
         """

@@ -54,6 +54,7 @@ from twistedcaldav.customxml import InviteNotification, InviteSummary
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.test.util import deriveQuota
+from txdav.common.datastore.test.util import withSpecialQuota
 from twistedcaldav.ical import Component
 
 storePath = FilePath(__file__).parent().child("calendar_store")
@@ -1611,10 +1612,23 @@ END:VCALENDAR
         L{ICalendarHome.quotaAllowedBytes} should return the configuration value
         passed to the calendar store's constructor.
         """
-        expected = deriveQuota(self.id())
+        expected = deriveQuota(self)
         home = yield self.homeUnderTest()
         actual = home.quotaAllowedBytes()
         self.assertEquals(expected, actual)
+
+
+    @withSpecialQuota(None)
+    @inlineCallbacks
+    def test_quotaUnlimited(self):
+        """
+        When L{ICalendarHome.quotaAllowedBytes} returns C{None}, quota is
+        unlimited; any sized attachment can be stored.
+        """
+        home = yield self.homeUnderTest()
+        allowed = home.quotaAllowedBytes()
+        self.assertIdentical(allowed, None)
+        yield self.test_createAttachment()
 
 
     @inlineCallbacks

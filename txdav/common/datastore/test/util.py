@@ -49,6 +49,9 @@ from twistedcaldav.vcard import Component as ABComponent
 md5key = PropertyName.fromElement(TwistedGETContentMD5)
 
 def allInstancesOf(cls):
+    """
+    Use L{gc.get_referrers} to retrieve all instances of a given class.
+    """
     for o in gc.get_referrers(cls):
         if isinstance(o, cls):
             yield o
@@ -56,6 +59,12 @@ def allInstancesOf(cls):
 
 
 def dumpConnectionStatus():
+    """
+    Dump all L{DiagnosticConnectionWrapper} objects to standard output.  This
+    function is useful for diagnosing connection leaks that corrupt state
+    between tests.  (It is currently not invoked anywhere, but may be useful if
+    these types of bugs crop up in the future.)
+    """
     print '+++ ALL CONNECTIONS +++'
     for connection in allInstancesOf(DiagnosticConnectionWrapper):
         print connection.label, connection.state
@@ -130,7 +139,7 @@ class SQLStoreBuilder(object):
             pass
         currentTestID = testCase.id()
         cp = ConnectionPool(self.sharedService.produceConnection)
-        quota = deriveQuota(currentTestID)
+        quota = deriveQuota(testCase)
         store = CommonDataStore(
             cp.connection, notifierFactory, attachmentRoot, quota=quota
         )
@@ -186,7 +195,7 @@ buildStore = theStoreBuilder.buildStore
 
 
 
-def deriveQuota(testID):
+def deriveQuota(testCase):
     """
     Derive a distinctive quota number for a specific test, based on its ID.
     This generates a quota which is small enough that tests may trivially exceed
@@ -198,16 +207,38 @@ def deriveQuota(testID):
     state; this allows us to have the test and the infrastructure agree on a
     number.
 
-    @param testID: The identifier for a test, as returned by L{TestCase.id}.
+    @param testCase: The identifier for a test, as returned by L{TestCase.id}.
 
     @type testID: C{str}
     """
-    h = md5(testID)
-    seed = int(h.hexdigest(), 16)
-    r = Random(seed)
-    baseline = 2000
-    fuzz = r.randint(1, 1000)
-    return baseline + fuzz
+    testID = testCase.id()
+    testMethodName = testID.split(".")[-1]
+    method = getattr(testCase, testMethodName)
+    notSet = object()
+    specialQuota = getattr(method, _SPECIAL_QUOTA, notSet)
+    if specialQuota is notSet:
+        h = md5(testID)
+        seed = int(h.hexdigest(), 16)
+        r = Random(seed)
+        baseline = 2000
+        fuzz = r.randint(1, 1000)
+        return baseline + fuzz
+    else:
+        return specialQuota
+
+
+
+_SPECIAL_QUOTA = "__special_quota__"
+
+def withSpecialQuota(quotaValue):
+    """
+    Test method decorator that will cause L{deriveQuota} to return a different
+    value for test cases that run that test method.
+    """
+    def thunk(function):
+        setattr(function, _SPECIAL_QUOTA, quotaValue)
+        return function
+    return thunk
 
 
 

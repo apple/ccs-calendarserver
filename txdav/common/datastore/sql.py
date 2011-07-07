@@ -116,9 +116,9 @@ class CommonDataStore(Service, object):
         there is more than one store.  (Useful mostly for unit tests.)
 
     @ivar quota: the amount of space granted to each calendar home (in bytes)
-        for storing attachments.
+        for storing attachments, or C{None} if quota should not be enforced.
 
-    @type quota: C{int}
+    @type quota: C{int} or C{NoneType}
     """
 
     implements(ICalendarStore)

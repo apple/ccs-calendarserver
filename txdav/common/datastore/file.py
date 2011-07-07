@@ -82,14 +82,14 @@ class CommonDataStore(DataStore):
         stores all calendar and addressbook data for a group of UIDs.
 
     @ivar quota: the amount of space granted to each calendar home (in bytes)
-        for storing attachments.
+        for storing attachments, or C{None} if quota should not be enforced.
 
-    @type quota: C{int}
+    @type quota: C{int} or C{NoneType}
     """
     implements(ICalendarStore)
 
     def __init__(self, path, notifierFactory, enableCalendars=True,
-        enableAddressBooks=True, quota=(2 ** 20)):
+                 enableAddressBooks=True, quota=(2 ** 20)):
         """
         Create a store.
 
