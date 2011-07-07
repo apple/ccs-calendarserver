@@ -1611,7 +1611,7 @@ END:VCALENDAR
         L{ICalendarHome.quotaAllowedBytes} should return the configuration value
         passed to the calendar store's constructor.
         """
-        expected = deriveQuota(self.id())
+        expected = deriveQuota(self)
         home = yield self.homeUnderTest()
         actual = home.quotaAllowedBytes()
         self.assertEquals(expected, actual)

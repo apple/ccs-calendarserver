@@ -67,7 +67,7 @@ def setUpCalendarStore(test):
 
     testID = test.id()
     test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory,
-                                       quota=deriveQuota(testID))
+                                       quota=deriveQuota(test))
     test.txn = test.calendarStore.newTransaction(testID + "(old)")
     assert test.calendarStore is not None, "No calendar store?"
 

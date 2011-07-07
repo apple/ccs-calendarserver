@@ -406,7 +406,7 @@ class WrappingTests(TestCase):
             "PUT", "wsanchez"
         )
         self.requestUnderTest.stream = MemoryStream(
-            "x" * deriveQuota(self.id()) * 2)
+            "x" * deriveQuota(self) * 2)
         try:
             result = yield calendarObject.http_PUT(self.requestUnderTest)
         except HTTPError, he:

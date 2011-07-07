@@ -139,7 +139,7 @@ class SQLStoreBuilder(object):
             pass
         currentTestID = testCase.id()
         cp = ConnectionPool(self.sharedService.produceConnection)
-        quota = deriveQuota(currentTestID)
+        quota = deriveQuota(testCase)
         store = CommonDataStore(
             cp.connection, notifierFactory, attachmentRoot, quota=quota
         )
@@ -195,7 +195,7 @@ buildStore = theStoreBuilder.buildStore
 
 
 
-def deriveQuota(testID):
+def deriveQuota(testCase):
     """
     Derive a distinctive quota number for a specific test, based on its ID.
     This generates a quota which is small enough that tests may trivially exceed
@@ -207,11 +207,11 @@ def deriveQuota(testID):
     state; this allows us to have the test and the infrastructure agree on a
     number.
 
-    @param testID: The identifier for a test, as returned by L{TestCase.id}.
+    @param testCase: The identifier for a test, as returned by L{TestCase.id}.
 
     @type testID: C{str}
     """
-    h = md5(testID)
+    h = md5(testCase.id())
     seed = int(h.hexdigest(), 16)
     r = Random(seed)
     baseline = 2000
