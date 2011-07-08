@@ -29,6 +29,7 @@ import twistedcaldav.test.util
 from twistedcaldav.config import config
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
+from twisted.internet.task import Clock
 
 
 class ProxyPrincipals (twistedcaldav.test.util.TestCase):
@@ -630,14 +631,22 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         self.directoryService.proxyCache = cache
 
         proxyGroup = delegator.getChild("calendar-proxy-write")
-        yield cache.setMembers(proxyGroup.uid, [cdaboo, lecroy])
-        yield cache.createMarker()
+        yield cache.setMembers(proxyGroup.uid, [cdaboo, lecroy],
+            expireSeconds=10)
+        yield cache.createMarker(expireSeconds=20)
 
         members = (yield proxyGroup.expandedGroupMembers())
         self.assertEquals(
             set([p.record.guid for p in members]),
             set([cdaboo, lecroy])
         )
+
+        # Now go 10 seconds in the future and the key will be expired
+        # Note the marker is set to expire later, otherwise the
+        # expandedGroupMembers( ) call would get a 503
+        cache._memcacheProtocol.advanceClock(10)
+        members = (yield proxyGroup.expandedGroupMembers())
+        self.assertEquals(members, set())
 
 
     @inlineCallbacks
@@ -649,7 +658,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         """
         cache = calendaruserproxy.ProxyMemberCache("ProxyDB")
         updater = calendaruserproxy.ProxyMemberCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30,
             cache=cache)
         yield updater.updateCache()
 
@@ -858,3 +867,37 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             pass
         else:
             self.fail("HTTPError was unexpectedly not raised")
+
+
+    def _updateMethod(self):
+        """
+        Update a counter in the following test
+        """
+        self.count += 1
+
+    @inlineCallbacks
+    def test_proxyCacherService(self):
+        """
+        Instantiate a ProxyCacherService and make sure its update method
+        fires at the right interval, in this case 30 seconds.  The updateMethod
+        keyword arg is purely for testing purposes, so we can directly detect
+        it getting called in this test.
+        """
+        clock = Clock()
+        self.count = 0
+        service = calendaruserproxy.ProxyCacherService(
+            calendaruserproxy.ProxyDBService,
+            self.directoryService, "Testing", 30, 60, reactor=clock,
+            updateMethod=self._updateMethod)
+
+        yield service.startService()
+
+        self.assertEquals(self.count, 1)
+        clock.advance(29)
+        self.assertEquals(self.count, 1)
+        clock.advance(1)
+        self.assertEquals(self.count, 2)
+
+        service.stopService()
+
+

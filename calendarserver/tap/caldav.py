@@ -506,7 +506,7 @@ class SlaveSpawnerService(Service):
             self.monitor.addProcess("mailgateway", mailGatewayArgv,
                                env=PARENT_ENVIRONMENT)
 
-        if config.ProxyCaching.Enabled:
+        if config.ProxyCaching.Enabled and config.ProxyCaching.EnableUpdater:
             self.maker.log_info("Adding proxy caching service")
 
             proxyCacherArgv = [

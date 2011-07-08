@@ -47,21 +47,29 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
 
         def __init__(self):
             self._cache = {}
-
+            self._clock = 0
 
         def add(self, key, value, expireTime=0):
             if key not in self._cache:
-                self._cache[key] = value
+                if not expireTime:
+                    expireTime = 99999
+                self._cache[key] = (value, self._clock + expireTime)
                 return succeed(True)
             else:
                 return succeed(False)
 
         def set(self, key, value, expireTime=0):
-            self._cache[key] = value
+            if not expireTime:
+                expireTime = 99999
+            self._cache[key] = (value, self._clock + expireTime)
             return succeed(True)
 
         def get(self, key):
-            return succeed((0, self._cache.get(key, None),))
+            value, expires = self._cache.get(key, (None, 0))
+            if self._clock >= expires:
+                return succeed((0, None,))
+            else:
+                return succeed((0, value,))
 
         def delete(self, key):
             try:
@@ -73,6 +81,9 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         def flush_all(self):
             self._cache = {}
             return succeed(True)
+
+        def advanceClock(self, seconds):
+            self._clock += seconds
             
     #TODO: an sqlite based cacher that can be used for multiple instance servers
     # in the absence of memcached. This is not ideal and we may want to not implement

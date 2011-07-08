@@ -740,6 +740,8 @@ DEFAULT_CONFIG = {
         "Enabled": False,
         "MemcachedPool" : "ProxyDB",
         "UpdateSeconds" : 300,
+        "ExpireSeconds" : 3600,
+        "EnableUpdater" : True,
     },
 
     "EnableKeepAlive": True,

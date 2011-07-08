@@ -886,9 +886,10 @@ class ProxyMemberCache(Memcacher, LoggingMixIn):
     """
 
 
-    def setMembers(self, guid, members):
+    def setMembers(self, guid, members, expireSeconds=0):
         self.log_debug("set proxy-members %s : %s" % (guid, members))
-        return self.set("proxy-members:%s" % (str(guid),), str(",".join(members)))
+        return self.set("proxy-members:%s" % (str(guid),), str(",".join(members)), expire_time=expireSeconds)
+
     def getMembers(self, guid):
         self.log_debug("get proxy-members %s" % (guid,))
         def _value(value):
@@ -905,11 +906,12 @@ class ProxyMemberCache(Memcacher, LoggingMixIn):
     def deleteMembers(self, guid):
         return self.delete("proxy-members:%s" % (str(guid),))
 
-    def setProxyFor(self, guid, proxyType, memberships):
+    def setProxyFor(self, guid, proxyType, memberships, expireSeconds=0):
         self.log_debug("set %s-proxy-for %s : %s" %
             (proxyType, guid, memberships))
         return self.set("%s-proxy-for:%s" %
-            (proxyType, str(guid)), str(",".join(memberships)))
+            (proxyType, str(guid)), str(",".join(memberships)),
+            expire_time=expireSeconds)
 
     def getProxyFor(self, guid, proxyType):
         self.log_debug("get %s-proxy-for %s" % (proxyType, guid))
@@ -927,8 +929,9 @@ class ProxyMemberCache(Memcacher, LoggingMixIn):
     def deleteProxyFor(self, guid, proxyType):
         return self.delete("%s-proxy-for:%s" % (proxyType, str(guid),))
 
-    def createMarker(self):
-        return self.set("proxy-cache-populated", "true")
+    def createMarker(self, expireSeconds=0):
+        return self.set("proxy-cache-populated", "true",
+            expire_time=expireSeconds)
 
     def checkMarker(self):
         def _value(value):
@@ -936,6 +939,7 @@ class ProxyMemberCache(Memcacher, LoggingMixIn):
         d = self.get("proxy-cache-populated")
         d.addCallback(_value)
         return d
+
 
 class ProxyMemberCacheUpdater(LoggingMixIn):
     """
@@ -946,7 +950,8 @@ class ProxyMemberCacheUpdater(LoggingMixIn):
     TODO: Implement location/resource
     """
 
-    def __init__(self, proxyDB, directory, cache=None, namespace=None):
+    def __init__(self, proxyDB, directory, expireSeconds, cache=None,
+        namespace=None):
         self.proxyDB = proxyDB
         self.directory = directory
         if cache is None:
@@ -958,6 +963,7 @@ class ProxyMemberCacheUpdater(LoggingMixIn):
             "read" : { },
             "write" : { },
         }
+        self.expireSeconds = expireSeconds
 
     @inlineCallbacks
     def updateCache(self):
@@ -1001,7 +1007,8 @@ class ProxyMemberCacheUpdater(LoggingMixIn):
                         guids = set([r.guid for r in members])
                         combinedGUIDs.update(guids)
 
-            self.cache.setMembers(proxyGroup, combinedGUIDs)
+            self.cache.setMembers(proxyGroup, combinedGUIDs,
+                expireSeconds=self.expireSeconds)
             numProxyGroupsUpdated += 1
 
             if proxyGroup in self.previousProxyGroups:
@@ -1019,7 +1026,8 @@ class ProxyMemberCacheUpdater(LoggingMixIn):
 
         for proxyType in ("read", "write"):
             for guid, memberships in currentProxyFor[proxyType].iteritems():
-                self.cache.setProxyFor(guid, proxyType, memberships)
+                self.cache.setProxyFor(guid, proxyType, memberships,
+                    expireSeconds=self.expireSeconds)
                 numProxiesUpdated[proxyType] += 1
                 if self.previousProxyFor[proxyType].has_key(guid):
                     # whatever remains in previousProxyFor needs to be deleted
@@ -1028,15 +1036,18 @@ class ProxyMemberCacheUpdater(LoggingMixIn):
 
         self.log_debug("%d proxyGroups updated" % (numProxyGroupsUpdated,))
         for proxyType in ("read", "write"):
-            self.log_debug("%d %s proxies updated" % (numProxiesUpdated[proxyType], proxyType))
+            self.log_debug("%d %s proxies updated" %
+                (numProxiesUpdated[proxyType], proxyType))
 
         # Delete obsolete memcached keys
         for proxyGroup in self.previousProxyGroups:
-            self.log_debug("Deleting proxyGroup members for %s" % (proxyGroup,))
+            self.log_debug("Deleting proxyGroup members for %s" %
+                (proxyGroup,))
             self.cache.deleteMembers(proxyGroup)
         for proxyType in ("read", "write"):
             for guid in self.previousProxyFor[proxyType].iterkeys():
-                self.log_debug("Deleting %s proxyFor members for %s" % (proxyType, guid,))
+                self.log_debug("Deleting %s proxyFor members for %s" %
+                    (proxyType, guid,))
                 self.cache.deleteProxyFor(guid, proxyType)
 
         self.previousProxyGroups = currentProxyGroups
@@ -1044,7 +1055,7 @@ class ProxyMemberCacheUpdater(LoggingMixIn):
 
         # Put a special key into memcached to let workers know proxyCache is
         # populated
-        self.cache.createMarker()
+        self.cache.createMarker(expireSeconds=self.expireSeconds)
 
 
 class ProxyCacherOptions(Options):
@@ -1139,28 +1150,36 @@ class ProxyCacherService(service.Service, LoggingMixIn):
     Service to update the proxy cache at a configured interval
     """
 
-    def __init__(self, proxyDB, directory, namespace, seconds, reactor=None):
+    def __init__(self, proxyDB, directory, namespace, updateSeconds,
+        expireSeconds, reactor=None, updateMethod=None):
+
         self.updater = ProxyMemberCacheUpdater(proxyDB, directory,
-            namespace=namespace)
+            expireSeconds, namespace=namespace)
+
         if reactor is None:
             from twisted.internet import reactor
         self.reactor = reactor
-        self.seconds = seconds
+        self.updateSeconds = updateSeconds
         self.nextUpdate = None
+        if updateMethod:
+            self.updateMethod = updateMethod
+        else:
+            self.updateMethod = self.updater.updateCache
 
     def startService(self):
         self.log_warn("Starting proxy cacher service")
         service.Service.startService(self)
-        self.update()
+        return self.update()
 
     @inlineCallbacks
     def update(self):
         self.nextUpdate = None
         try:
-            yield self.updater.updateCache()
+            yield self.updateMethod()
         finally:
             self.log_debug("Scheduling next proxy cacher update")
-            self.nextUpdate = self.reactor.callLater(self.seconds, self.update)
+            self.nextUpdate = self.reactor.callLater(self.updateSeconds,
+                self.update)
 
     def stopService(self):
         self.log_warn("Stopping proxy cacher service")
@@ -1204,7 +1223,9 @@ class ProxyCacherServiceMaker(LoggingMixIn):
 
         proxyCacherService = ProxyCacherService(proxyDB, directory,
             config.ProxyCaching.MemcachedPool,
-            config.ProxyCaching.UpdateSeconds)
+            config.ProxyCaching.UpdateSeconds,
+            config.ProxyCaching.ExpireSeconds
+            )
 
         return proxyCacherService
 

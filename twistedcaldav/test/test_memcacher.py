@@ -125,3 +125,26 @@ class MemcacherTestCase(TestCase):
             self.assertTrue("\n" not in key)
             self.assertTrue("\t" not in key)
             self.assertTrue("\r" not in key)
+
+    @inlineCallbacks
+    def test_expiration(self):
+
+        config.ProcessType = "Single"
+        cacher = Memcacher("testing")
+
+        # Expire this key in 10 seconds
+        result = yield cacher.set("akey", "avalue", 10)
+        self.assertTrue(result)
+
+        result = yield cacher.get("akey")
+        self.assertEquals("avalue", result)
+
+        # Advance time 9 seconds, key still there
+        cacher._memcacheProtocol.advanceClock(9)
+        result = yield cacher.get("akey")
+        self.assertEquals("avalue", result)
+
+        # Advance time 1 more second, key expired
+        cacher._memcacheProtocol.advanceClock(1)
+        result = yield cacher.get("akey")
+        self.assertEquals(None, result)
