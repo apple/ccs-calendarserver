@@ -245,6 +245,10 @@ class StatisticsBase(object):
         pass
 
 
+    def failures(self):
+        return []
+
+
 
 class SimpleStatistics(StatisticsBase):
     def __init__(self):

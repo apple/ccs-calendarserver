@@ -19,7 +19,9 @@
 Implementation of specific end-user behaviors.
 """
 
-import random
+from __future__ import division
+
+import sys, random
 from uuid import uuid4
 
 from datetime import datetime, timedelta
@@ -37,7 +39,7 @@ from twisted.internet.defer import Deferred, succeed, fail
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
-from stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean
+from stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean, median
 from loadtest.logger import SummarizingMixin
 from loadtest.ical import IncorrectResponseCode
 
@@ -429,9 +431,12 @@ class OperationLogger(SummarizingMixin):
         ('avglag (ms)', 8, '%8.4f'),
         ]
 
-    def __init__(self):
+    def __init__(self, outfile=None):
         self._perOperationTimes = {}
         self._perOperationLags = {}
+        if outfile is None:
+            outfile = sys.stdout
+        self._outfile = outfile
 
 
     def observe(self, event):
@@ -441,7 +446,10 @@ class OperationLogger(SummarizingMixin):
                 event['lag'] = ''
             else:
                 event['lag'] = self.lagFormat % (lag * 1000.0,)
-            print (self.formats[event[u'phase']] % event).encode('utf-8')
+
+            self._outfile.write(
+                (self.formats[event[u'phase']] % event).encode('utf-8') + '\n')
+
             if event[u'phase'] == u'end':
                 dataset = self._perOperationTimes.setdefault(event[u'label'], [])
                 dataset.append((event[u'success'], event[u'duration']))
@@ -464,6 +472,27 @@ class OperationLogger(SummarizingMixin):
             [fmt for (label, width, fmt) in self._fields],
             sorted(self._perOperationTimes.items()))
 
-        # TODO
-        # Check for >1 sec mean/median/something scheduling latency
-        #           >1% operation failure rate
+    _LATENCY_REASON = "Median %(operation)s scheduling lag greater than %(cutoff)sms"
+    _FAILED_REASON = "Greater than %(cutoff).0f%% %(operation)s failed"
+
+    def failures(self):
+        reasons = []
+
+        # Maximum allowed median scheduling latency, seconds
+        lagCutoff = 1.0
+
+        # Maximum allowed ratio of failed operations
+        failCutoff = 0.01
+
+        for operation, lags in self._perOperationLags.iteritems():
+            if median(lags) > lagCutoff:
+                reasons.append(self._LATENCY_REASON % dict(
+                        operation=operation.upper(), cutoff=lagCutoff * 1000))
+
+        for operation, times in self._perOperationTimes.iteritems():
+            failures =  len([success for (success, duration) in times if not success])
+            if failures / len(times) > failCutoff:
+                reasons.append(self._FAILED_REASON % dict(
+                        operation=operation.upper(), cutoff=failCutoff * 100))
+
+        return reasons

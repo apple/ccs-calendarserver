@@ -19,6 +19,8 @@
 Tests for loadtest.profiles.
 """
 
+from StringIO import StringIO
+
 from vobject import readComponents
 
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
@@ -29,7 +31,7 @@ from twisted.internet.defer import succeed, fail
 from twisted.web.http import NO_CONTENT, PRECONDITION_FAILED
 from twisted.web.client import Response
 
-from loadtest.profiles import Eventer, Inviter, Accepter
+from loadtest.profiles import Eventer, Inviter, Accepter, OperationLogger
 from loadtest.population import Populator, CalendarClientSimulator
 from loadtest.ical import IncorrectResponseCode, Calendar, Event, BaseClient
 from loadtest.sim import _DirectoryRecord
@@ -677,3 +679,58 @@ class EventerTests(TestCase):
         self.assertEquals(len(client._events), 1)
 
         # XXX Vary the event period/interval and the uid
+
+
+
+class OperationLoggerTests(TestCase):
+    """
+    Tests for L{OperationLogger}.
+    """
+    def test_noFailures(self):
+        """
+        If the median lag is below 1 second and the failure rate is below 1%,
+        L{OperationLogger.failures} returns an empty list.
+        """
+        logger = OperationLogger(outfile=StringIO())
+        logger.observe(dict(
+                type='operation', phase='start', user='user01',
+                label='testing', lag=0.5))
+        logger.observe(dict(
+                type='operation', phase='end', user='user01',
+                duration=0.35, label='testing', success=True))
+        self.assertEqual([], logger.failures())
+
+
+    def test_lagLimitExceeded(self):
+        """
+        If the median scheduling lag for any operation in the simulation
+        exceeds 1 second, L{OperationLogger.failures} returns a list containing
+        a string describing that issue.
+        """
+        logger = OperationLogger(outfile=StringIO())
+        for lag in [100.0, 1100.0, 1200.0]:
+            logger.observe(dict(
+                    type='operation', phase='start', user='user01',
+                    label='testing', lag=lag))
+        self.assertEqual(
+            ["Median TESTING scheduling lag greater than 1000.0ms"],
+            logger.failures())
+
+
+    def test_failureLimitExceeded(self):
+        """
+        If the failure rate for any operation exceeds 1%,
+        L{OperationLogger.failures} returns a list containing a string
+        describing that issue.
+        """
+        logger = OperationLogger(outfile=StringIO())
+        for i in range(98):
+            logger.observe(dict(
+                    type='operation', phase='end', user='user01',
+                    duration=0.25, label='testing', success=True))
+        logger.observe(dict(
+                type='operation', phase='end', user='user01',
+                duration=0.25, label='testing', success=False))
+        self.assertEqual(
+            ["Greater than 1% TESTING failed"],
+            logger.failures())

@@ -862,6 +862,10 @@ class RequestLogger(object):
         pass
 
 
+    def failures(self):
+        return []
+
+
     
 def main():
     from urllib2 import HTTPDigestAuthHandler

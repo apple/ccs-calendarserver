@@ -273,7 +273,14 @@ class LoadSimulator(object):
         if self.runtime is not None:
             self.reactor.callLater(self.runtime, self.reactor.stop)
         self.reactor.run()
+        failures = []
         for obs in self.observers:
             obs.report()
+            failures.extend(obs.failures())
+        if failures:
+            print 'FAIL'
+            print '\n'.join(failures)
+        else:
+            print 'PASS'
 
 main = LoadSimulator.main
