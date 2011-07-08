@@ -81,7 +81,7 @@ class SimOptions(Options):
 
     optParameters = [
         ("runtime", "t", None,
-         "Specify the limit limit (seconds) on the time to run the simulation.",
+         "Specify the limit (seconds) on the time to run the simulation.",
          int)]
 
     def opt_config(self, path):
