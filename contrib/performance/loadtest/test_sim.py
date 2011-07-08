@@ -162,6 +162,9 @@ class Observer(object):
         self.reported = True
 
 
+    def failures(self):
+        return []
+
 
 class NullArrival(object):
     def run(self, sim):

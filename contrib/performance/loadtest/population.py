@@ -20,6 +20,8 @@ Tools for generating a population of CalendarServer users based on
 certain usage parameters.
 """
 
+from __future__ import division
+
 from tempfile import mkdtemp
 from itertools import izip
 
@@ -314,11 +316,48 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             [fmt for (label, width, fmt) in self._fields],
             sorted(self._perMethodTimes.items()))
 
+    _FAILED_REASON = "Greater than %(cutoff)0.f%% %(method)s failed"
+    _THREESEC_REASON = "Greater than %(cutoff)0.f%% %(method)s exceeded 3 second response time"
+    _FIVESEC_REASON = "Greater than %(cutoff)0.f%% %(method)s exceeded 5 second response time"
+
+    def failures(self):
         # TODO
-        # Check for >1% request failure rate
-        #           >1% >5sec response rate
-        #           >5% >3sec response rate
-        # 
+        reasons = []
+
+        # Upper limit on ratio of failed requests to total requests
+        failCutoff = 0.01
+
+        # Upper limit on ratio of >3sec requests to total requests
+        threeSecCutoff = 0.05
+
+        # Upper limit on ratio of >5sec requests to total requests
+        fiveSecCutoff = 0.01
+
+        failures = 0
+        threeSec = 0
+        fiveSec = 0
+
+        for (method, times) in self._perMethodTimes.iteritems():
+            for success, duration in times:
+                if not success:
+                    failures += 1
+                if duration > 5:
+                    fiveSec += 1
+                elif duration > 3:
+                    threeSec += 1
+
+            checks = [
+                (failures, failCutoff, self._FAILED_REASON),
+                (threeSec, threeSecCutoff, self._THREESEC_REASON),
+                (fiveSec, fiveSecCutoff, self._FIVESEC_REASON),
+                ]
+
+            for count, cutoff, reason in checks:
+                if count / len(times) > cutoff:
+                    reasons.append(reason % dict(
+                            method=method, cutoff=cutoff * 100))
+
+        return reasons
         
 
 
