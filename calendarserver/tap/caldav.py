@@ -506,24 +506,24 @@ class SlaveSpawnerService(Service):
             self.monitor.addProcess("mailgateway", mailGatewayArgv,
                                env=PARENT_ENVIRONMENT)
 
-        if config.ProxyCaching.Enabled and config.ProxyCaching.EnableUpdater:
-            self.maker.log_info("Adding proxy caching service")
+        if config.GroupCaching.Enabled and config.GroupCaching.EnableUpdater:
+            self.maker.log_info("Adding group caching service")
 
-            proxyCacherArgv = [
+            groupMembershipCacherArgv = [
                 sys.executable,
                 sys.argv[0],
             ]
             if config.UserName:
-                proxyCacherArgv.extend(("-u", config.UserName))
+                groupMembershipCacherArgv.extend(("-u", config.UserName))
             if config.GroupName:
-                proxyCacherArgv.extend(("-g", config.GroupName))
-            proxyCacherArgv.extend((
+                groupMembershipCacherArgv.extend(("-g", config.GroupName))
+            groupMembershipCacherArgv.extend((
                 "--reactor=%s" % (config.Twisted.reactor,),
-                "-n", self.maker.proxyCacherTapName,
+                "-n", self.maker.groupMembershipCacherTapName,
                 "-f", self.configPath,
             ))
 
-            self.monitor.addProcess("proxycache", proxyCacherArgv,
+            self.monitor.addProcess("groupcacher", groupMembershipCacherArgv,
                                env=PARENT_ENVIRONMENT)
 
 
@@ -540,7 +540,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     #
     mailGatewayTapName = "caldav_mailgateway"
     notifierTapName = "caldav_notifier"
-    proxyCacherTapName = "caldav_proxycacher"
+    groupMembershipCacherTapName = "caldav_groupcacher"
 
 
     def makeService(self, options):

@@ -70,7 +70,7 @@ class XMLDirectoryService(DirectoryService):
             'realmName' : '/Search',
             'statSeconds' : 15,
             'augmentService' : None,
-            'proxyCache' : None,
+            'groupMembershipCache' : None,
         }
         ignored = None
         params = self.getParams(params, defaults, ignored)
@@ -79,7 +79,7 @@ class XMLDirectoryService(DirectoryService):
         self.realmName = params['realmName']
         self.statSeconds = params['statSeconds']
         self.augmentService = params['augmentService']
-        self.proxyCache = params['proxyCache']
+        self.groupMembershipCache = params['groupMembershipCache']
 
         super(XMLDirectoryService, self).__init__()
 

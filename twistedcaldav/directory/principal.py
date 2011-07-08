@@ -664,28 +664,24 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     @inlineCallbacks
     def proxyFor(self, read_write, resolve_memberships=True):
 
-        cache = getattr(self.record.service, "proxyCache", None)
-        if cache is not None:
-            log.debug("proxyFor is using proxyCache")
-            if not (yield cache.checkMarker()):
-                raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
-                    "Proxy membership cache not yet populated"))
-
-            principals = set()
-            proxyType = "write" if read_write else "read"
-            delegatorUIDs = (yield cache.getProxyFor(self.record.guid, proxyType))
-            if delegatorUIDs:
-                for uid in delegatorUIDs:
-                    principal = self.parent.principalForUID(uid)
-                    if principal is not None:
-                        principals.add(principal)
-            returnValue(principals)
-
-        # Slower, non cached method:
         proxyFors = set()
 
         if resolve_memberships:
-            memberships = self._getRelatives("groups", infinity=True)
+            cache = getattr(self.record.service, "groupMembershipCache", None)
+            if cache:
+                log.debug("proxyFor is using groupMembershipCache")
+                if not (yield cache.checkMarker()):
+                    raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
+                        "Group membership cache not yet populated"))
+                guids = (yield self.record.cachedGroups())
+                memberships = set()
+                for guid in guids:
+                    principal = self.parent.principalForUID(guid)
+                    if principal:
+                        memberships.add(principal)
+            else:
+                memberships = self._getRelatives("groups", infinity=True)
+
             for membership in memberships:
                 results = (yield membership.proxyFor(read_write, False))
                 proxyFors.update(results)
@@ -751,28 +747,20 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     @inlineCallbacks
     def groupMemberships(self, infinity=False):
 
-        cache = getattr(self.record.service, "proxyCache", None)
-        if cache is not None:
-            # We only need to worry about groups participating in delegation
-            log.debug("groupMemberships is using proxyCache")
+        cache = getattr(self.record.service, "groupMembershipCache", None)
+        if cache:
+            log.debug("groupMemberships is using groupMembershipCache")
             if not (yield cache.checkMarker()):
                 raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
-                    "Proxy membership cache not yet populated"))
+                    "Group membership cache not yet populated"))
+            guids = (yield self.record.cachedGroups())
             groups = set()
-            for proxyType in ("read", "write"):
-                delegatorUIDs = (yield cache.getProxyFor(self.record.guid,
-                    proxyType))
-                if delegatorUIDs:
-                    for uid in delegatorUIDs:
-                        principal = self.parent.principalForUID(uid)
-                        if principal is not None:
-                            group = principal.getChild("calendar-proxy-%s" %
-                                (proxyType,))
-                            groups.add(group)
-            returnValue(groups)
-
-        # Slower, fetching-many-groups method:
-        groups = self._getRelatives("groups", infinity=infinity)
+            for guid in guids:
+                principal = self.parent.principalForUID(guid)
+                if principal:
+                    groups.add(principal)
+        else:
+            groups = self._getRelatives("groups", infinity=infinity)
 
         if config.EnableProxyPrincipals:
             # Get proxy group UIDs and map to principal resources

@@ -36,7 +36,7 @@ from zope.interface import implements
 from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
 from twext.web2.dav.auth import IPrincipalCredentials
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, inlineCallbacks
 
 from twext.python.log import LoggingMixIn
 
@@ -45,6 +45,14 @@ from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryReco
 from twistedcaldav.directory.util import uuidFromName
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav import servers
+from twistedcaldav.memcacher import Memcacher
+from twistedcaldav import memcachepool
+from twisted.python.reflect import namedClass
+from twisted.python.usage import Options, UsageError
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
+from twisted.application import service
+from twisted.plugin import IPlugin
+from zope.interface import implements
 
 class DirectoryService(LoggingMixIn):
     implements(IDirectoryService, ICredentialsChecker)
@@ -340,6 +348,317 @@ class DirectoryService(LoggingMixIn):
         """
         raise NotImplementedError("Subclass must implement createRecords")
 
+    @inlineCallbacks
+    def cacheGroupMembership(self, guids):
+        """
+        Update the "which groups is each principal in" cache.  The only groups
+        that the server needs to worry about are the ones which have been
+        delegated to.  So instead of faulting in all groups a principal is in,
+        we pre-fault in all the delgated-to groups and build an index to
+        quickly look up principal membership.
+
+        guids is the set of every guid that's been directly delegated to, and
+        can be a mixture of users and groups.
+        """
+        groups = set()
+        for guid in guids:
+            record = self.recordWithGUID(guid)
+            if record is not None and record.recordType == self.recordType_groups:
+                groups.add(record)
+
+        members = { }
+        for group in groups:
+            groupMembers = group.expandedMembers()
+            for member in groupMembers:
+                if member.recordType == self.recordType_users:
+                    memberships = members.setdefault(member.guid, set())
+                    memberships.add(group.guid)
+
+        for member, groups in members.iteritems():
+            yield self.groupMembershipCache.setGroupsFor(member, groups)
+
+        self.groupMembershipCache.createMarker()
+
+
+class GroupMembershipCache(Memcacher, LoggingMixIn):
+    """
+    Caches group membership information
+
+    This cache is periodically updated by a side car so that worker processes
+    never have to ask the directory service directly for group membership
+    information.
+
+    Keys in this cache are:
+
+    "group-membership-cache-populated" : gets set to "true" after the cache
+    is populated, so clients know they can now use it.  Note, this needs to
+    be made robust in the face of memcached evictions.
+
+    "groups-for:<GUID>" : comma-separated list of groups that GUID is a member
+    of
+
+    """
+
+    def __init__(self, namespace, pickle=False, no_invalidation=False,
+        key_normalization=True, expireSeconds=0):
+
+        super(GroupMembershipCache, self).__init__(namespace, pickle=pickle,
+            no_invalidation=no_invalidation,
+            key_normalization=key_normalization)
+
+        self.expireSeconds = expireSeconds
+
+    def setGroupsFor(self, guid, memberships):
+        self.log_debug("set groups-for %s : %s" % (guid, memberships))
+        return self.set("groups-for:%s" %
+            (str(guid)), str(",".join(memberships)),
+            expire_time=self.expireSeconds)
+
+    def getGroupsFor(self, guid):
+        self.log_debug("get groups-for %s" % (guid,))
+        def _value(value):
+            if value:
+                return set(value.split(","))
+            else:
+                return set()
+        d = self.get("groups-for:%s" % (str(guid),))
+        d.addCallback(_value)
+        return d
+
+    def deleteGroupsFor(self, guid, proxyType):
+        return self.delete("groups-for:%s" % (str(guid),))
+
+    def createMarker(self):
+        return self.set("proxy-cache-populated", "true",
+            expire_time=self.expireSeconds)
+
+    def checkMarker(self):
+        def _value(value):
+            return value == "true"
+        d = self.get("proxy-cache-populated")
+        d.addCallback(_value)
+        return d
+
+
+class GroupMembershipCacheUpdater(LoggingMixIn):
+    """
+    Responsible for updating memcached with group memberships.  This will run
+    in a sidecar.  There are two sources of proxy data to pull from: the local
+    proxy database, and the location/resource info in the directory system.
+
+    TODO: Implement location/resource
+    """
+
+    def __init__(self, proxyDB, directory, expireSeconds, cache=None,
+        namespace=None):
+        self.proxyDB = proxyDB
+        self.directory = directory
+        if cache is None:
+            assert namespace is not None, "namespace must be specified if GroupMembershipCache is not provided"
+            cache = GroupMembershipCache(namespace, expireSeconds=expireSeconds)
+        self.cache = cache
+
+    @inlineCallbacks
+    def updateCache(self):
+        """
+        Iterate the proxy database to retrieve all the principals who have been
+        delegated to.  Fault these principals in.  For any of these principals
+        that are groups, expand the members of that group and store those in
+        the cache
+        """
+        # TODO: add memcached eviction protection
+
+        self.log_debug("Updating group membership cache")
+
+        guids = set()
+
+        proxyGroups = (yield self.proxyDB.getAllGroups())
+        for proxyGroup in proxyGroups:
+
+            # Protect against bogus entries in proxy db:
+            if "#" not in proxyGroup:
+                continue
+
+            for guid in (yield self.proxyDB.getMembers(proxyGroup)):
+                guids.add(guid)
+
+
+        yield self.directory.cacheGroupMembership(guids)
+
+
+class GroupMembershipCacherOptions(Options):
+    optParameters = [[
+        "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
+    ]]
+
+    def __init__(self, *args, **kwargs):
+        super(GroupMembershipCacherOptions, self).__init__(*args, **kwargs)
+
+        self.overrides = {}
+
+    def _coerceOption(self, configDict, key, value):
+        """
+        Coerce the given C{val} to type of C{configDict[key]}
+        """
+        if key in configDict:
+            if isinstance(configDict[key], bool):
+                value = value == "True"
+
+            elif isinstance(configDict[key], (int, float, long)):
+                value = type(configDict[key])(value)
+
+            elif isinstance(configDict[key], (list, tuple)):
+                value = value.split(',')
+
+            elif isinstance(configDict[key], dict):
+                raise UsageError(
+                    "Dict options not supported on the command line"
+                )
+
+            elif value == 'None':
+                value = None
+
+        return value
+
+    def _setOverride(self, configDict, path, value, overrideDict):
+        """
+        Set the value at path in configDict
+        """
+        key = path[0]
+
+        if len(path) == 1:
+            overrideDict[key] = self._coerceOption(configDict, key, value)
+            return
+
+        if key in configDict:
+            if not isinstance(configDict[key], dict):
+                raise UsageError(
+                    "Found intermediate path element that is not a dictionary"
+                )
+
+            if key not in overrideDict:
+                overrideDict[key] = {}
+
+            self._setOverride(
+                configDict[key], path[1:],
+                value, overrideDict[key]
+            )
+
+
+    def opt_option(self, option):
+        """
+        Set an option to override a value in the config file. True, False, int,
+        and float options are supported, as well as comma seperated lists. Only
+        one option may be given for each --option flag, however multiple
+        --option flags may be specified.
+        """
+
+        if "=" in option:
+            path, value = option.split('=')
+            self._setOverride(
+                DEFAULT_CONFIG,
+                path.split('/'),
+                value,
+                self.overrides
+            )
+        else:
+            self.opt_option('%s=True' % (option,))
+
+    opt_o = opt_option
+
+    def postOptions(self):
+        config.load(self['config'])
+        config.updateDefaults(self.overrides)
+        self.parent['pidfile'] = None
+
+
+
+class GroupMembershipCacherService(service.Service, LoggingMixIn):
+    """
+    Service to update the group membership cache at a configured interval
+    """
+
+    def __init__(self, proxyDB, directory, namespace, updateSeconds,
+        expireSeconds, reactor=None, updateMethod=None):
+
+        self.updater = GroupMembershipCacheUpdater(proxyDB, directory,
+            expireSeconds, namespace=namespace)
+
+        if reactor is None:
+            from twisted.internet import reactor
+        self.reactor = reactor
+        self.updateSeconds = updateSeconds
+        self.nextUpdate = None
+        if updateMethod:
+            self.updateMethod = updateMethod
+        else:
+            self.updateMethod = self.updater.updateCache
+
+    def startService(self):
+        self.log_warn("Starting group membership cacher service")
+        service.Service.startService(self)
+        return self.update()
+
+    @inlineCallbacks
+    def update(self):
+        self.nextUpdate = None
+        try:
+            yield self.updateMethod()
+        finally:
+            self.log_debug("Scheduling next group membership update")
+            self.nextUpdate = self.reactor.callLater(self.updateSeconds,
+                self.update)
+
+    def stopService(self):
+        self.log_warn("Stopping group membership cacher service")
+        service.Service.stopService(self)
+        if self.nextUpdate is not None:
+            self.nextUpdate.cancel()
+
+
+class GroupMembershipCacherServiceMaker(LoggingMixIn):
+    """
+    Configures and returns a GroupMembershipCacherService
+    """
+    implements(IPlugin, service.IServiceMaker)
+
+    tapname = "caldav_groupcacher"
+    description = "Group Membership Cacher"
+    options = GroupMembershipCacherOptions
+
+    def makeService(self, options):
+
+        # Setup the directory
+        from calendarserver.tap.util import directoryFromConfig
+        directory = directoryFromConfig(config)
+
+        # Setup the ProxyDB Service
+        proxydbClass = namedClass(config.ProxyDBService.type)
+
+        self.log_warn("Configuring proxydb service of type: %s" % (proxydbClass,))
+
+        try:
+            proxyDB = proxydbClass(**config.ProxyDBService.params)
+        except IOError:
+            self.log_error("Could not start proxydb service")
+            raise
+
+        # Setup memcached pools
+        memcachepool.installPools(
+            config.Memcached.Pools,
+            config.Memcached.MaxClients,
+        )
+
+        cacherService = GroupMembershipCacherService(proxyDB, directory,
+            config.GroupCaching.MemcachedPool,
+            config.GroupCaching.UpdateSeconds,
+            config.GroupCaching.ExpireSeconds
+            )
+
+        return cacherService
+
+
+
 class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)
 
@@ -514,6 +833,15 @@ class DirectoryRecord(LoggingMixIn):
 
     def groups(self):
         return ()
+
+
+    def cachedGroups(self):
+        """
+        Return the set of groups (guids) this record is a member of, based on
+        the data cached by cacheGroupMembership( )
+        """
+        return self.service.groupMembershipCache.getGroupsFor(self.guid)
+
 
     def verifyCredentials(self, credentials):
         return False

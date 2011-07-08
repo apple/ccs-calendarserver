@@ -50,6 +50,7 @@ from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisio
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
+from twistedcaldav.directory.directory import GroupMembershipCache
 from twistedcaldav.directory.internal import InternalDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.sudo import SudoDirectoryService
@@ -225,12 +226,14 @@ def directoryFromConfig(config):
         raise
 
     #
-    # Setup the proxy cacher
+    # Setup the group membership cacher
     #
-    if config.ProxyCaching.Enabled:
-        proxyCache = calendaruserproxy.ProxyMemberCache(config.ProxyCaching.MemcachedPool)
+    if config.GroupCaching.Enabled:
+        groupMembershipCache = GroupMembershipCache(
+            config.GroupCaching.MemcachedPool,
+            expireSeconds=config.GroupCaching.ExpireSeconds)
     else:
-        proxyCache = None
+        groupMembershipCache = None
 
     #
     # Setup the Directory
@@ -244,7 +247,7 @@ def directoryFromConfig(config):
         % (config.DirectoryService.type,))
 
     config.DirectoryService.params.augmentService = augmentService
-    config.DirectoryService.params.proxyCache = proxyCache
+    config.DirectoryService.params.groupMembershipCache = groupMembershipCache
     baseDirectory = directoryClass(config.DirectoryService.params)
 
     # Wait for the directory to become available
@@ -262,7 +265,7 @@ def directoryFromConfig(config):
         log.info("Configuring resource service of type: %s" % (resourceClass,))
 
         config.ResourceService.params.augmentService = augmentService
-        config.ResourceService.params.proxyCache = proxyCache
+        config.ResourceService.params.groupMembershipCache = groupMembershipCache
         resourceDirectory = resourceClass(config.ResourceService.params)
         resourceDirectory.realmName = baseDirectory.realmName
         directories.append(resourceDirectory)
@@ -302,7 +305,7 @@ def directoryFromConfig(config):
         internalDirectory = InternalDirectoryService(baseDirectory.realmName)
         directories.append(internalDirectory)
 
-    directory = AggregateDirectoryService(directories)
+    directory = AggregateDirectoryService(directories, groupMembershipCache)
 
     if sudoDirectory:
         directory.userRecordTypes.insert(0,

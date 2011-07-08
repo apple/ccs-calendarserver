@@ -75,7 +75,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
         defaults = {
             "augmentService" : None,
-            "proxyCache" : None,
+            "groupMembershipCache" : None,
             "cacheTimeout": 1, # Minutes
             "negativeCaching": False,
             "restrictEnabledRecords": False,
@@ -146,7 +146,7 @@ class LdapDirectoryService(CachingDirectoryService):
                                                    params["negativeCaching"])
 
         self.augmentService = params["augmentService"]
-        self.proxyCache = params["proxyCache"]
+        self.groupMembershipCache = params["groupMembershipCache"]
         self.realmName = params["uri"]
         self.uri = params["uri"]
         self.tls = params["tls"]

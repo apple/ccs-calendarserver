@@ -77,7 +77,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 self.recordType_groups,
             ),
             'augmentService' : None,
-            'proxyCache' : None,
+            'groupMembershipCache' : None,
         }
         ignored = ('requireComputerRecord',)
         params = self.getParams(params, defaults, ignored)
@@ -96,7 +96,7 @@ class OpenDirectoryService(CachingDirectoryService):
             raise
 
         self.augmentService = params['augmentService']
-        self.proxyCache = params['proxyCache']
+        self.groupMembershipCache = params['groupMembershipCache']
         self.realmName = params['node']
         self.directory = directory
         self.node = params['node']
@@ -307,23 +307,8 @@ class OpenDirectoryService(CachingDirectoryService):
 
         return guids
 
-    def proxiesForGUID(self, recordType, guid):
-        
-        # Lookup in index
-        try:
-            # TODO:
-            return ()
-        except KeyError:
-            return ()
 
-    def readOnlyProxiesForGUID(self, recordType, guid):
-        
-        # Lookup in index
-        try:
-            # TODO:
-            return ()
-        except KeyError:
-            return ()
+
 
     _ODFields = {
         'fullName' : {

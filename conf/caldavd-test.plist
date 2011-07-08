@@ -898,8 +898,8 @@
       </array>
     </dict>
 
-    <!-- Proxy Membership Caching -->
-    <key>ProxyCaching</key>
+    <!-- Group Membership Caching -->
+    <key>GroupCaching</key>
     <dict>
       <key>Enabled</key>
       <false/>

@@ -151,7 +151,7 @@ def getDirectory():
         resourceDirectory.realmName = directory.realmName
         directories.append(resourceDirectory)
 
-    aggregate = MyDirectoryService(directories)
+    aggregate = MyDirectoryService(directories, None)
 
     #
     # Wire up the resource hierarchy
