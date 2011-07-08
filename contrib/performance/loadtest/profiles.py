@@ -463,3 +463,7 @@ class OperationLogger(SummarizingMixin):
         self.printData(
             [fmt for (label, width, fmt) in self._fields],
             sorted(self._perOperationTimes.items()))
+
+        # TODO
+        # Check for >1 sec mean/median/something scheduling latency
+        #           >1% operation failure rate
