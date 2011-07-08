@@ -263,6 +263,13 @@ class SimpleStatistics(StatisticsBase):
 
 
 class ReportStatistics(StatisticsBase, SummarizingMixin):
+    """
+
+    @ivar _users: A C{set} containing all user UIDs which have been observed in
+        events.  When generating the final report, the size of this set is
+        reported as the number of users in the simulation.
+
+    """
     _fields = [
         ('operation', 10, '%10s'),
         ('count', 8, '%8s'),
@@ -274,15 +281,27 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
     def __init__(self):
         self._perMethodTimes = {}
+        self._users = set()
+
+
+    def countUsers(self):
+        return len(self._users)
 
 
     def eventReceived(self, event):
         dataset = self._perMethodTimes.setdefault(event['method'], [])
         dataset.append((event['success'], event['duration']))
+        self._users.add(event['user'])
+
+
+    def printMiscellaneous(self, items):
+        for k, v in sorted(items.iteritems()):
+            print k.title(), ':', v
 
 
     def report(self):
         print
+        self.printMiscellaneous({'users': self.countUsers()})
         self.printHeader([
                 (label, width)
                 for (label, width, fmt)
@@ -290,6 +309,14 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self.printData(
             [fmt for (label, width, fmt) in self._fields],
             sorted(self._perMethodTimes.items()))
+
+        # TODO
+        # Check for >1% request failure rate
+        #           >1% >5sec response rate
+        #           >5% >3sec response rate
+        # 
+        
+
 
 
 def main():
