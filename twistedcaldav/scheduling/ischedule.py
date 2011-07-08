@@ -138,6 +138,7 @@ class ScheduleViaISchedule(DeliveryService):
         if partition not in self.partitionedServers:
             self.partitionedServers[partition] = IScheduleServerRecord(uri=joinURL(partition, "/ischedule"))
             self.partitionedServers[partition].unNormalizeAddresses = False
+            self.partitionedServers[partition].moreHeaders.append(recipient.principal.server().secretHeader())
         
         return self.partitionedServers[partition]
 
