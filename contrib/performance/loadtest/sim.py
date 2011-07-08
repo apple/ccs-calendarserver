@@ -86,8 +86,7 @@ class SimOptions(Options):
 
     def opt_config(self, path):
         """
-        ini-syntax configuration file from which to read simulation
-        parameters.
+        Configuration plist file name from which to read simulation parameters.
         """
         try:
             configFile = FilePath(path).open()
