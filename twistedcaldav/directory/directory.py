@@ -404,9 +404,9 @@ class DirectoryService(LoggingMixIn):
             # Update ownership
             uid = gid = -1
             if config.UserName:
-                uid = pwd.getpwname(config.UserName).pw_uid
+                uid = pwd.getpwnam(config.UserName).pw_uid
             if config.GroupName:
-                gid = grp.getgrname(config.GroupName).gr_gid
+                gid = grp.getgrnam(config.GroupName).gr_gid
             os.chown(snapshotFile.path, uid, gid)
 
         self.log_debug("Storing group memberships in memcached")
