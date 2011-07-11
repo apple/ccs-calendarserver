@@ -28,15 +28,19 @@ __all__ = [
     "UnknownRecordTypeError",
 ]
 
+import os
 import sys
 import types
+import pwd, grp
+import cPickle as pickle
+
 
 from zope.interface import implements
 
 from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
 from twext.web2.dav.auth import IPrincipalCredentials
-from twisted.internet.defer import succeed, inlineCallbacks
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.python.log import LoggingMixIn
 
@@ -47,6 +51,7 @@ from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav import servers
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav import memcachepool
+from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twisted.python.usage import Options, UsageError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
@@ -349,7 +354,7 @@ class DirectoryService(LoggingMixIn):
         raise NotImplementedError("Subclass must implement createRecords")
 
     @inlineCallbacks
-    def cacheGroupMembership(self, guids):
+    def cacheGroupMembership(self, guids, fast=False):
         """
         Update the "which groups is each principal in" cache.  The only groups
         that the server needs to worry about are the ones which have been
@@ -360,24 +365,58 @@ class DirectoryService(LoggingMixIn):
         guids is the set of every guid that's been directly delegated to, and
         can be a mixture of users and groups.
         """
-        groups = set()
-        for guid in guids:
-            record = self.recordWithGUID(guid)
-            if record is not None and record.recordType == self.recordType_groups:
-                groups.add(record)
 
-        members = { }
-        for group in groups:
-            groupMembers = group.expandedMembers()
-            for member in groupMembers:
-                if member.recordType == self.recordType_users:
-                    memberships = members.setdefault(member.guid, set())
-                    memberships.add(group.guid)
+        dataRoot = FilePath(config.DataRoot)
+        snapshotFile = dataRoot.child("memberships_cache")
 
+        if not snapshotFile.exists():
+            fast = False
+
+        if fast:
+            # If there is an on-disk snapshot of the membership information,
+            # load that and put into memcached, bypassing the faulting in of
+            # any records, so that the server can start up quickly.
+
+            self.log_debug("Loading group memberships from snapshot")
+            members = pickle.loads(snapshotFile.getContent())
+
+        else:
+            self.log_debug("Loading group memberships from directory")
+            groups = set()
+            for guid in guids:
+                record = self.recordWithGUID(guid)
+                if record is not None and record.recordType == self.recordType_groups:
+                    groups.add(record)
+
+            members = { }
+            for group in groups:
+                groupMembers = group.expandedMembers()
+                for member in groupMembers:
+                    if member.recordType == self.recordType_users:
+                        memberships = members.setdefault(member.guid, set())
+                        memberships.add(group.guid)
+
+            # Store snapshot
+            self.log_debug("Taking snapshot of group memberships to %s" %
+                (snapshotFile.path,))
+            snapshotFile.setContent(pickle.dumps(members))
+
+            # Update ownership
+            uid = gid = -1
+            if config.UserName:
+                uid = pwd.getpwname(config.UserName).pw_uid
+            if config.GroupName:
+                gid = grp.getgrname(config.GroupName).gr_gid
+            os.chown(snapshotFile.path, uid, gid)
+
+        self.log_debug("Storing group memberships in memcached")
         for member, groups in members.iteritems():
+            # self.log_debug("%s is in %s" % (member, groups))
             yield self.groupMembershipCache.setGroupsFor(member, groups)
 
-        self.groupMembershipCache.createMarker()
+        self.log_debug("Group memberships cache updated")
+
+        returnValue((fast, len(members)))
 
 
 class GroupMembershipCache(Memcacher, LoggingMixIn):
@@ -425,19 +464,6 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
         d.addCallback(_value)
         return d
 
-    def deleteGroupsFor(self, guid, proxyType):
-        return self.delete("groups-for:%s" % (str(guid),))
-
-    def createMarker(self):
-        return self.set("proxy-cache-populated", "true",
-            expire_time=self.expireSeconds)
-
-    def checkMarker(self):
-        def _value(value):
-            return value == "true"
-        d = self.get("proxy-cache-populated")
-        d.addCallback(_value)
-        return d
 
 
 class GroupMembershipCacheUpdater(LoggingMixIn):
@@ -459,7 +485,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         self.cache = cache
 
     @inlineCallbacks
-    def updateCache(self):
+    def updateCache(self, fast=False):
         """
         Iterate the proxy database to retrieve all the principals who have been
         delegated to.  Fault these principals in.  For any of these principals
@@ -482,8 +508,8 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             for guid in (yield self.proxyDB.getMembers(proxyGroup)):
                 guids.add(guid)
 
+        returnValue((yield self.directory.cacheGroupMembership(guids, fast=fast)))
 
-        yield self.directory.cacheGroupMembership(guids)
 
 
 class GroupMembershipCacherOptions(Options):
@@ -616,6 +642,7 @@ class GroupMembershipCacherService(service.Service, LoggingMixIn):
             self.nextUpdate.cancel()
 
 
+
 class GroupMembershipCacherServiceMaker(LoggingMixIn):
     """
     Configures and returns a GroupMembershipCacherService
@@ -656,7 +683,6 @@ class GroupMembershipCacherServiceMaker(LoggingMixIn):
             )
 
         return cacherService
-
 
 
 class DirectoryRecord(LoggingMixIn):

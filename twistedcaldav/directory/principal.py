@@ -41,7 +41,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed
 from twext.web2.auth.digest import DigestedCredentials
 from twext.web2 import responsecode
-from twext.web2.http import HTTPError, StatusResponse
+from twext.web2.http import HTTPError
 from twext.web2.dav import davxml
 from twext.web2.dav.util import joinURL
 from twext.web2.dav.noneprops import NonePropertyStore
@@ -670,9 +670,6 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             cache = getattr(self.record.service, "groupMembershipCache", None)
             if cache:
                 log.debug("proxyFor is using groupMembershipCache")
-                if not (yield cache.checkMarker()):
-                    raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
-                        "Group membership cache not yet populated"))
                 guids = (yield self.record.cachedGroups())
                 memberships = set()
                 for guid in guids:
@@ -750,9 +747,6 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         cache = getattr(self.record.service, "groupMembershipCache", None)
         if cache:
             log.debug("groupMemberships is using groupMembershipCache")
-            if not (yield cache.checkMarker()):
-                raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
-                    "Group membership cache not yet populated"))
             guids = (yield self.record.cachedGroups())
             groups = set()
             for guid in guids:

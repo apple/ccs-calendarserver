@@ -24,11 +24,14 @@ from cPickle import loads as unpickle, UnpicklingError
 from twext.web2.dav.fileop import rmdir
 from twext.web2.dav import davxml
 from twext.python.log import Logger
+from twisted.python.reflect import namedClass
+
 
 from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
-from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.directory.directory import DirectoryService, GroupMembershipCacheUpdater
+from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.ical import Component
@@ -44,7 +47,7 @@ from twisted.internet.defer import inlineCallbacks, succeed, returnValue
 
 from txdav.caldav.datastore.index_file import db_basename
 
-from calendarserver.tap.util import getRootResource, FakeRequest
+from calendarserver.tap.util import getRootResource, FakeRequest, directoryFromConfig
 
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.resources import migrateResources
@@ -809,8 +812,13 @@ class UpgradeFileSystemFormatService(Service, object):
 
 class PostDBImportService(Service, object):
     """
-    Service for processing non-implicit inbox items after data has been
-    imported into the DB
+    Service which runs after database import but before workers are spawned
+    (except memcached will be running at this point)
+
+    The jobs carried out here are:
+
+        1. Populating the group-membership cache
+        2. Processing non-implicit inbox items
     """
 
     def __init__(self, config, store, service):
@@ -821,11 +829,28 @@ class PostDBImportService(Service, object):
         self.store = store
         self.config = config
 
+    @inlineCallbacks
     def startService(self):
         """
         Start the service.
         """
-        self.processInboxItems()
+
+        # Populate the group membership cache
+        if (self.config.GroupCaching.Enabled and
+            self.config.GroupCaching.EnableUpdater):
+            proxydb = calendaruserproxy.ProxyDBService
+            if proxydb is None:
+                proxydbClass = namedClass(self.config.ProxyDBService.type)
+                proxydb = proxydbClass(**self.config.ProxyDBService.params)
+            directory = directoryFromConfig(self.config)
+
+            updater = GroupMembershipCacheUpdater(proxydb,
+                directory, self.config.GroupCaching.ExpireSeconds,
+                namespace=self.config.GroupCaching.MemcachedPool)
+            yield updater.updateCache(fast=True)
+
+        # Process old inbox items
+        yield self.processInboxItems()
 
 
     @inlineCallbacks

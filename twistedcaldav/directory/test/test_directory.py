@@ -16,7 +16,7 @@
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.task import Clock
-from twext.web2.http import HTTPError
+from twisted.python.filepath import FilePath
 
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile
@@ -26,7 +26,8 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-   
+
+import cPickle as pickle
 
 def StubCheckSACL(cls, username, service):
     services = {
@@ -134,34 +135,6 @@ class GroupMembershipTests (TestCase):
 
         service.stopService()
 
-
-
-    @inlineCallbacks
-    def test_groupMembershipCacheMarker(self):
-        """
-        If the group member cache is not populated (as noted by the existence
-        of a special memcached key), a 503 should be raised
-        """
-        cache = GroupMembershipCache("ProxyDB")
-        # Having a groupMembershipCache assigned to the directory service is the
-        # trigger to use such a cache:
-        self.directoryService.groupMembershipCache = cache
-
-        userc = self._getPrincipalByShortName(DirectoryService.recordType_users, "userc")
-
-        try:
-            yield userc.proxyFor(True)
-        except HTTPError:
-            pass
-        else:
-            self.fail("HTTPError was unexpectedly not raised")
-
-        try:
-            yield userc.groupMemberships(True)
-        except HTTPError:
-            pass
-        else:
-            self.fail("HTTPError was unexpectedly not raised")
 
 
     def test_expandedMembers(self):
@@ -298,3 +271,79 @@ class GroupMembershipTests (TestCase):
                 set(uids),
                 groups,
             )
+
+
+    @inlineCallbacks
+    def test_groupMembershipCacheSnapshot(self):
+        """
+        The group membership cache creates a snapshot (a pickle file) of
+        the member -> groups dictionary, and can quickly refresh memcached
+        from that snapshot when restarting the server.
+        """
+        cache = GroupMembershipCache("ProxyDB", 60)
+        # Having a groupMembershipCache assigned to the directory service is the
+        # trigger to use such a cache:
+        self.directoryService.groupMembershipCache = cache
+
+        updater = GroupMembershipCacheUpdater(
+            calendaruserproxy.ProxyDBService, self.directoryService, 30,
+            cache=cache)
+
+        dataRoot = FilePath(config.DataRoot)
+        snapshotFile = dataRoot.child("memberships_cache")
+
+        # Snapshot doesn't exist initially
+        self.assertFalse(snapshotFile.exists())
+
+        # Try a fast update (as when the server starts up for the very first
+        # time), but since the snapshot doesn't exist we fault in from the
+        # directory (fast now is False), and snapshot will get created
+        fast, numMembers = (yield updater.updateCache(fast=True))
+        self.assertEquals(fast, False)
+        self.assertEquals(numMembers, 4)
+        self.assertTrue(snapshotFile.exists())
+
+        # Try another fast update where the snapshot already exists (as in a
+        # server-restart scenario), which will only read from the snapshot
+        # as indicated by the return value for "fast"
+        fast, numMembers = (yield updater.updateCache(fast=True))
+        self.assertEquals(fast, True)
+        self.assertEquals(numMembers, 4)
+
+        # Try an update which faults in from the directory (fast=False)
+        fast, numMembers = (yield updater.updateCache(fast=False))
+        self.assertEquals(fast, False)
+        self.assertEquals(numMembers, 4)
+
+        # Verify the snapshot contains the pickled dictionary we expect
+        members = pickle.loads(snapshotFile.getContent())
+        self.assertEquals(
+            members,
+            {
+                "5A985493-EE2C-4665-94CF-4DFEA3A89500":
+                    set([
+                        "non_calendar_group",
+                        "recursive1_coasts",
+                        "recursive2_coasts",
+                        "both_coasts"
+                    ]),
+                "6423F94A-6B76-4A3A-815B-D52CFD77935D":
+                    set([
+                        "left_coast",
+                        "recursive1_coasts",
+                        "recursive2_coasts",
+                        "both_coasts"
+                    ]),
+                "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1":
+                    set([
+                        "left_coast",
+                        "both_coasts"
+                    ]),
+                "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0":
+                    set([
+                        "non_calendar_group",
+                        "left_coast",
+                        "both_coasts"
+                    ])
+            }
+        )
