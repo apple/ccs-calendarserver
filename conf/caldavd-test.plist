@@ -90,9 +90,6 @@
         Data Store
       -->
 
-    <key>UseDatabase</key>
-    <true/>
-
     <!-- Server root -->
     <key>ServerRoot</key>
     <string>./data</string>
@@ -634,19 +631,19 @@
 
           <!-- XMPP host and port to contact -->
           <key>Host</key>
-          <string>ical-living-on.apple.com</string>
+          <string>xmpp.host.name</string>
           <key>Port</key>
-          <integer>5219</integer>
+          <integer>5222</integer>
 
           <!-- Jabber ID and password for the server -->
           <key>JID</key>
-          <string>com.apple.notificationuser@ical-living-on.apple.com</string>
+          <string>jid@xmpp.host.name/resource</string>
           <key>Password</key>
-          <string>dF38JUO38dGXBzFV</string>
+          <string>password_goes_here</string>
 
           <!-- PubSub service address -->
           <key>ServiceAddress</key>
-          <string>pubsub.ical-living-on.apple.com</string>
+          <string>pubsub.xmpp.host.name</string>
 
           <!-- Apple-specific config -->
           <key>CalDAV</key>
