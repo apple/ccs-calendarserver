@@ -15,7 +15,8 @@
 ##
 
 """
-Benchmark a server's handling of VFREEBUSY requests.
+Benchmark a server's handling of VFREEBUSY requests with a varying number of
+events on the target's calendar.
 """
 
 from urllib2 import HTTPDigestAuthHandler
@@ -59,7 +60,7 @@ END:VTIMEZONE
 END:VCALENDAR
 """
 
-vfreebusy = """\
+VFREEBUSY = """\
 BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
 VERSION:2.0
@@ -68,8 +69,7 @@ PRODID:-//Apple Inc.//iCal 4.0.3//EN
 BEGIN:VFREEBUSY
 UID:81F582C8-4E7F-491C-85F4-E541864BE0FA
 DTEND:20100730T150000Z
-ATTENDEE:urn:uuid:user02
-DTSTART:20100730T140000Z
+%(attendees)sDTSTART:20100730T140000Z
 X-CALENDARSERVER-MASK-UID:EC75A61B-08A3-44FD-BFBB-2457BBD0D490
 DTSTAMP:20100729T174751Z
 ORGANIZER:mailto:user01@example.com
@@ -137,7 +137,8 @@ def measure(host, port, dtrace, events, samples):
     method = 'POST'
     uri = 'http://%s:%d/calendars/__uids__/%s/outbox/' % (host, port, user)
     headers = Headers({"content-type": ["text/calendar"]})
-    body = StringProducer(vfreebusy)
+    body = StringProducer(VFREEBUSY % {
+            "attendees": "ATTENDEE:urn:uuid:user02\n"})
 
     samples = yield sample(
         dtrace, samples,

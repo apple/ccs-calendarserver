@@ -28,13 +28,15 @@ SOURCE=~/Projects/CalendarServer/trunk
 # The plist the server will respect.
 CONF=$SOURCE/conf/caldavd-dev.plist
 
-# Names of benchmarks we can run.
-BENCHMARKS="find_calendars find_events event_move event_delete_attendee event_add_attendee event_change_date event_change_summary event_delete vfreebusy event bounded_recurrence unbounded_recurrence event_autoaccept bounded_recurrence_autoaccept unbounded_recurrence_autoaccept"
+# Names of benchmarks we can run.  Since ordering makes a difference to how
+# benchmarks are split across multiple hosts, new benchmarks should be appended
+# to this list, not inserted earlier on.
+BENCHMARKS="find_calendars find_events event_move event_delete_attendee event_add_attendee event_change_date event_change_summary event_delete vfreebusy event bounded_recurrence unbounded_recurrence event_autoaccept bounded_recurrence_autoaccept unbounded_recurrence_autoaccept vfreebusy_vary_attendees"
 
 # Custom scaling parameters for benchmarks that merit it.  Be careful
 # not to exceed the 99 user limit for benchmarks where the scaling
 # parameter represents a number of users!
-SCALE_PARAMETERS="--parameters find_events:1,10,100,1000,10000"
+SCALE_PARAMETERS="--parameters find_events:1,10,100,1000,10000 --parameters vfreebusy_vary_attendees:1,9,30"
 
 # Names of metrics we can collect.
 STATISTICS=(HTTP SQL read write pagein pageout)
