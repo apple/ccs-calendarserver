@@ -85,6 +85,12 @@ class CommonDataStore(DataStore):
         for storing attachments, or C{None} if quota should not be enforced.
 
     @type quota: C{int} or C{NoneType}
+
+    @ivar _propertyStoreClass: The class (or callable object / factory) that
+        produces an L{IPropertyStore} provider for a path.  This has the
+        signature of the L{XattrPropertyStore} type: take 2 arguments
+        C{(default-user-uid, path-factory)}, return an L{IPropertyStore}
+        provider.
     """
     implements(ICalendarStore)
 
