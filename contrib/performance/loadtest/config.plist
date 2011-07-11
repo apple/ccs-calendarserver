@@ -41,8 +41,12 @@
       <!-- Keyword arguments may be passed to the loader. -->
       <key>params</key>
       <dict>
+        <!-- recordsFromCSVFile interprets the path relative to the
+             config.plist, to make it independent of the script's working
+             directory while still allowing a relative path.  This isn't
+             a great solution. -->
 	<key>path</key>
-	<string>loadtest/accounts.csv</string>
+	<string>accounts.csv</string>
       </dict>
     </dict>
 

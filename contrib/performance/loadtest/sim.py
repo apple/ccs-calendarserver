@@ -43,10 +43,11 @@ class _DirectoryRecord(object):
 
 
 def recordsFromCSVFile(path):
+    pathObj = FilePath(__file__).parent().preauthChild(path)
     return [
         _DirectoryRecord(*line.decode('utf-8').split(u','))
         for line
-        in FilePath(path).getContent().splitlines()]
+        in pathObj.getContent().splitlines()]
 
 
 class LagTrackingReactor(object):
