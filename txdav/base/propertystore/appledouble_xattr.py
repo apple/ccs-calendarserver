@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+# -*- test-case-name: txdav.base.propertystore.test.test_appledouble -*- ##
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,8 @@
 # limitations under the License.
 ##
 
-from zlib import decompress
+
 import struct
-import sys
-import zlib
 
 # A lot of this is copied from python/plat-mac/applesingle.py,
 # with data structure information taken from
@@ -57,110 +55,104 @@ XATTR_OFFSET = FINDER_INFO_LENGTH + 2
 
 XATTR_HDR_MAGIC = 0x41545452    # ATTR
 XATTR_HEADER = ">llllllllhh"
-XATTR_HEADER_LENGTH = 36
+XATTR_HEADER_LENGTH = struct.calcsize(XATTR_HEADER)
 XATTR_ENTRY = ">llhb"
-XATTR_ENTRY_LENGTH = 11
+XATTR_ENTRY_LENGTH = struct.calcsize(XATTR_ENTRY)
 
-class AppleDouble(object):
 
-    def __init__(self, fileobj, verbose=False, dezlib=False):
-        
-        self.xattrs = {}
+def attrsFromFile(fileobj, debugFile=None):
+    """
+    Parse the extended attributes from a file.
+    """
 
-        # Get the top-level header
-        header = fileobj.read(AS_HEADER_LENGTH)
+    attrs = {}
+
+    # Get the top-level header
+    header = fileobj.read(AS_HEADER_LENGTH)
+    try:
+        magic, version, _ignore, nentry = struct.unpack(
+            AS_HEADER_FORMAT, header
+        )
+    except ValueError, arg:
+        raise ValueError("Unpack header error: %s" % (arg,))
+    if debugFile is not None:
+        debugFile.write('Magic:   0x%8.8x\n' % (magic,))
+        debugFile.write('Version: 0x%8.8x\n' % (version,))
+        debugFile.write('Entries: %d\n' % (nentry,))
+    if magic != AS_MAGIC:
+        raise ValueError(
+            "Unknown AppleDouble magic number 0x%8.8x" % (magic,)
+        )
+    if version != AS_VERSION:
+        raise ValueError(
+            "Unknown AppleDouble version number 0x%8.8x" % (version,)
+        )
+    if nentry <= 0:
+        raise ValueError("AppleDouble file contains no forks")
+
+    # Get each entry
+    headers = [fileobj.read(AS_ENTRY_LENGTH) for _ignore in xrange(nentry)]
+    for hdr in headers:
         try:
-            magic, version, _ignore, nentry = struct.unpack(AS_HEADER_FORMAT, header)
+            restype, offset, length = struct.unpack(AS_ENTRY_FORMAT, hdr)
         except ValueError, arg:
-            raise ValueError("Unpack header error: %s" % (arg,))
-        if verbose:
-            print 'Magic:   0x%8.8x' % (magic,)
-            print 'Version: 0x%8.8x' % (version,)
-            print 'Entries: %d' % (nentry,)
-        if magic != AS_MAGIC:
-            raise ValueError("Unknown AppleDouble magic number 0x%8.8x" % (magic,))
-        if version != AS_VERSION:
-            raise ValueError("Unknown AppleDouble version number 0x%8.8x" % (version,))
-        if nentry <= 0:
-            raise ValueError("AppleDouble file contains no forks")
+            raise ValueError("Unpack entry error: %s" % (arg,))
+        if debugFile is not None:
+            debugFile.write("\n-- Fork %d, offset %d, length %d\n" %
+                            (restype, offset, length))
 
-        # Get each entry
-        headers = [fileobj.read(AS_ENTRY_LENGTH) for _ignore in xrange(nentry)]
-        for hdr in headers:
-            try:
-                restype, offset, length = struct.unpack(AS_ENTRY_FORMAT, hdr)
-            except ValueError, arg:
-                raise ValueError("Unpack entry error: %s" % (arg,))
-            if verbose:
-                print "\n-- Fork %d, offset %d, length %d" % (restype, offset, length)
-                
-            # Look for the FINDERINFO entry with extra bits
-            if restype == AS_FINDERINFO and length > FINDER_INFO_LENGTH:
-                
-                # Get the xattr header
-                fileobj.seek(offset+XATTR_OFFSET)
-                data = fileobj.read(length-XATTR_OFFSET)
-                if len(data) != length-XATTR_OFFSET:
-                    raise ValueError("Short read: expected %d bytes got %d" % (length-XATTR_OFFSET, len(data)))
-                magic, _ignore_tag, total_size, data_start, data_length, \
-                _ignore_reserved1, _ignore_reserved2, _ignore_reserved3, \
-                flags, num_attrs = struct.unpack(XATTR_HEADER, data[:XATTR_HEADER_LENGTH])
-                if magic != XATTR_HDR_MAGIC:
-                    raise ValueError("No xattrs found")
-                if verbose:
-                    print "\n  Xattr Header"
-                    print '  Magic:       0x%08X' % (magic,)
-                    print '  Total Size:  %d' % (total_size,)
-                    print '  Data Start:  0x%02X' % (data_start,)
-                    print '  Data Length: %d' % (data_length,)
-                    print '  Flags:       0x%02X' % (flags,)
-                    print '  Number:      %d' % (num_attrs,)
-                
-                # Get each xattr entry
-                data = data[XATTR_HEADER_LENGTH:]
-                for _ignore in xrange(num_attrs):
-                    xattr_offset, xattr_length, xattr_flags, xattr_name_len = struct.unpack(XATTR_ENTRY, data[:XATTR_ENTRY_LENGTH])
-                    xattr_name = data[XATTR_ENTRY_LENGTH:XATTR_ENTRY_LENGTH+xattr_name_len]
-                    fileobj.seek(xattr_offset)
-                    xattr_value = fileobj.read(xattr_length)
-                    
-                    if dezlib:
-                        try:
-                            xattr_value = decompress(xattr_value)
-                        except zlib.error:
-                            pass
+        # Look for the FINDERINFO entry with extra bits
+        if restype == AS_FINDERINFO and length > FINDER_INFO_LENGTH:
 
-                    if verbose:
-                        print "\n    Xattr Entry"
-                        print '    Offset:      0x%02X' % (xattr_offset,)
-                        print '    Length:      %d' % (xattr_length,)
-                        print '    Flags:       0x%02X' % (xattr_flags,)
-                        print '    Name:        %s' % (xattr_name,)
-                        print '    Value:        %s' % (xattr_value,)
-                    self.xattrs[xattr_name] = xattr_value
-                    
-                    # Skip over entry taking padding into account
-                    advance = (XATTR_ENTRY_LENGTH + xattr_name_len + 3) & ~3
-                    data = data[advance:]
+            # Get the xattr header
+            fileobj.seek(offset + XATTR_OFFSET)
+            data = fileobj.read(length - XATTR_OFFSET)
+            if len(data) != length-XATTR_OFFSET:
+                raise ValueError("Short read: expected %d bytes got %d" %
+                                 (length-XATTR_OFFSET, len(data)))
+            magic, _ignore_tag, total_size, data_start, data_length, \
+            _ignore_reserved1, _ignore_reserved2, _ignore_reserved3, \
+            flags, num_attrs = struct.unpack(XATTR_HEADER,
+                                             data[:XATTR_HEADER_LENGTH])
+            if magic != XATTR_HDR_MAGIC:
+                raise ValueError("No xattrs found")
 
-def _test():
-    if len(sys.argv) < 2:
-        print 'Usage: appledouble_xattr.py [-v] [-z] appledoublefile'
-        sys.exit(1)
-    if '-v' in sys.argv[1:]:
-        verbose = True
-        sys.argv.remove('-v')
-    else:
-        verbose = False
-    if '-z' in sys.argv[1:]:
-        dezlib = True
-        sys.argv.remove('-z')
-    else:
-        dezlib = False
+            if debugFile is not None:
+                debugFile.write("\n  Xattr Header\n")
+                debugFile.write('  Magic:       0x%08X\n' % (magic,))
+                debugFile.write('  Total Size:  %d\n' % (total_size,))
+                debugFile.write('  Data Start:  0x%02X\n' % (data_start,))
+                debugFile.write('  Data Length: %d\n' % (data_length,))
+                debugFile.write('  Flags:       0x%02X\n' % (flags,))
+                debugFile.write('  Number:      %d\n' % (num_attrs,))
 
-    adfile = AppleDouble(open(sys.argv[1]), verbose=verbose, dezlib=dezlib)
-    for k, v in adfile.xattrs.items():
-        print "%s: %s" % (k, v)
+            # Get each xattr entry
+            data = data[XATTR_HEADER_LENGTH:]
+            for _ignore in xrange(num_attrs):
+                [xattr_offset, xattr_length,
+                 xattr_flags, xattr_name_len] = struct.unpack(
+                     XATTR_ENTRY, data[:XATTR_ENTRY_LENGTH]
+                 )
+                xattr_name = data[XATTR_ENTRY_LENGTH:
+                                  XATTR_ENTRY_LENGTH+xattr_name_len]
+                fileobj.seek(xattr_offset)
+                xattr_value = fileobj.read(xattr_length)
 
-if __name__ == '__main__':
-    _test()
+                if debugFile is not None:
+                    debugFile.write("\n    Xattr Entry\n")
+                    debugFile.write('    Offset:      0x%02X\n' %
+                                    (xattr_offset,))
+                    debugFile.write('    Length:      %d\n' %
+                                    (xattr_length,))
+                    debugFile.write('    Flags:       0x%02X\n' %
+                                    (xattr_flags,))
+                    debugFile.write('    Name:        %s\n' % (xattr_name,))
+                    debugFile.write('    Value:        %s\n' %
+                                    (xattr_value,))
+                attrs[xattr_name] = xattr_value
+
+                # Skip over entry taking padding into account
+                advance = (XATTR_ENTRY_LENGTH + xattr_name_len + 3) & ~3
+                data = data[advance:]
+    return attrs
+
