@@ -15,16 +15,29 @@
 # limitations under the License.
 ##
 
+"""
+Utilities, mostly related to upgrading, common to calendar and addresbook
+data stores.
+"""
+
+import os
+import re
+import errno
+import xattr
+
 from twext.python.log import LoggingMixIn
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.modules import getModule
+from twisted.python.runtime import platform
+
 from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
 from txdav.carddav.datastore.util import migrateHome as migrateAddressbookHome
 from txdav.common.datastore.file import CommonDataStore as FileStore, TOPPATHS
-import os
-import re
+from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
+from txdav.base.propertystore.appledouble_xattr import (
+    PropertyStore as AppleDoubleStore)
 
 
 class UpgradeToDatabaseService(Service, LoggingMixIn, object):
@@ -60,8 +73,39 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         # not hard coded.
         for homeType in TOPPATHS:
             if path.child(homeType).exists():
+                if platform.isMacOSX():
+                    appropriateStoreClass = XattrPropertyStore
+                else:
+                    attrs = xattr.xattr(path.path)
+                    try:
+                        attrs.get('user.should-not-be-set')
+                    except IOError, ioe:
+                        if ioe.errno == errno.ENODATA:
+                            # xattrs are supported and enabled on the filesystem
+                            # where the calendar data lives.  this takes some
+                            # doing (you have to edit fstab), so this means
+                            # we're trying to migrate some 2.x data from a
+                            # previous linux installation.
+                            appropriateStoreClass = XattrPropertyStore
+                        elif ioe.errno == errno.EOPNOTSUPP:
+                            # The operation wasn't supported.  This is what will
+                            # usually happen on a naively configured filesystem,
+                            # so this means we're most likely trying to migrate
+                            # some data from an untarred archive created on an
+                            # OS X installation using xattrs.
+                            appropriateStoreClass = AppleDoubleStore
+                        else:
+                            # No need to check for ENOENT and the like; we just
+                            # checked above to make sure the parent exists.
+                            # Other errors are not anticipated here, so fail
+                            # fast.
+                            raise
+
+                    appropriateStoreClass = AppleDoubleStore
+
                 self = cls(
-                    FileStore(path, None, True, True),
+                    FileStore(path, None, True, True,
+                              propertyStoreClass=appropriateStoreClass),
                     store, service, uid=uid, gid=gid,
                 )
                 return self
