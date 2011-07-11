@@ -1,4 +1,4 @@
-# -*- test-case-name: txdav.base.propertystore.test.test_xattr,txdav.caldav.datastore,txdav.carddav.datastore -*-
+# -*- test-case-name: txdav.base.propertystore.test.test_xattr -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -34,22 +34,20 @@ from xattr import xattr
 
 from twext.web2.dav.davxml import WebDAVDocument
 
-from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName, validKey
+from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName,\
+        validKey
 from txdav.idav import PropertyStoreError
 from twisted.python.reflect import namedAny
 
+#
+# RFC 2518 Section 12.13.1 says that removal of non-existing property is not an
+# error.  python-xattr on Linux fails with ENODATA in this case.  On OS X, the
+# xattr library fails with ENOATTR, which some versions of CPython do not
+# expose.  Its value is 93.
+#
 
-#
-# RFC 2518 Section 12.13.1 says that removal of non-existing property
-# is not an error.  python-xattr on Linux fails with ENODATA in this
-# case.  On OS X, the xattr library fails with ENOATTR, which CPython
-# does not expose.  Its value is 93.
-#
 if sys.platform is "darwin":
-    if hasattr(errno, "ENOATTR"):
-        _ERRNO_NO_ATTR = errno.ENOATTR
-    else:
-        _ERRNO_NO_ATTR = 93
+    _ERRNO_NO_ATTR = getattr(errno, "ENOATTR", 93)
 else:
     _ERRNO_NO_ATTR = errno.ENODATA
 
@@ -68,9 +66,9 @@ class PropertyStore(AbstractPropertyStore):
         "twext.web2.dav.xattrprops.xattrPropertyStore.deadPropertyXattrPrefix"
     )
 
-    # There is a 127 character limit for xattr keys so we need to compress/expand
-    # overly long namespaces to help stay under that limit now that GUIDs are also
-    # encoded in the keys.
+    # There is a 127 character limit for xattr keys so we need to
+    # compress/expand overly long namespaces to help stay under that limit now
+    # that GUIDs are also encoded in the keys.
     _namespaceCompress = {
         "urn:ietf:params:xml:ns:caldav"                       :"CALDAV:",
         "urn:ietf:params:xml:ns:carddav"                      :"CARDDAV:",
@@ -79,13 +77,17 @@ class PropertyStore(AbstractPropertyStore):
         "http://twistedmatrix.com/xml_namespace/dav/"         :"TD:",
         "http://twistedmatrix.com/xml_namespace/dav/private/" :"TDP:",
     }
-    _namespaceExpand = dict([ (v, k) for k, v in _namespaceCompress.iteritems() ])
+
+    _namespaceExpand = dict(
+        [ (v, k) for k, v in _namespaceCompress.iteritems() ]
+    )
 
     def __init__(self, defaultuser, pathFactory):
         """
         Initialize a L{PropertyStore}.
 
-        @param pathFactory: a 0-arg callable that returns the L{CachingFilePath} to set extended attributes on.
+        @param pathFactory: a 0-arg callable that returns the L{CachingFilePath}
+            to set extended attributes on.
         """
         super(PropertyStore, self).__init__(defaultuser)
 
@@ -109,7 +111,11 @@ class PropertyStore(AbstractPropertyStore):
     def _encodeKey(self, effective, compressNamespace=True):
 
         qname, uid = effective
-        namespace = self._namespaceCompress.get(qname.namespace, qname.namespace) if compressNamespace else qname.namespace
+        if compressNamespace:
+            namespace = self._namespaceCompress.get(qname.namespace,
+                                                    qname.namespace)
+        else:
+            namespace = qname.namespace
         result = urllib.quote("{%s}%s" % (namespace, qname.name), safe="{}:")
         if uid and uid != self._defaultUser:
             result = uid + result
@@ -160,17 +166,20 @@ class PropertyStore(AbstractPropertyStore):
             # Check for uncompressed namespace
             if  effectiveKey[0].namespace in self._namespaceCompress:
                 try:
-                    data = self.attrs[self._encodeKey(effectiveKey, compressNamespace=False)]
+                    data = self.attrs[self._encodeKey(effectiveKey,
+                                                      compressNamespace=False)]
                 except IOError, e:
                     raise KeyError(key)
 
                 try:
                     # Write it back using the compressed format
                     self.attrs[self._encodeKey(effectiveKey)] = data
-                    del self.attrs[self._encodeKey(effectiveKey, compressNamespace=False)]
+                    del self.attrs[self._encodeKey(effectiveKey,
+                                                   compressNamespace=False)]
                 except IOError, e:
-                    msg = "Unable to upgrade property to compressed namespace: %s" % (
-                        key.toString()
+                    msg = (
+                        "Unable to upgrade property "
+                        "to compressed namespace: %s" % (key.toString())
                     )
                     self.log_error(msg)
                     raise PropertyStoreError(msg)
@@ -258,7 +267,8 @@ class PropertyStore(AbstractPropertyStore):
                 yield effectivekey[0]
 
     def _removeResource(self):
-        # xattrs are removed when the underlying file is deleted so just clear out cached changes
+        # xattrs are removed when the underlying file is deleted so just clear
+        # out cached changes
         self.removed.clear()
         self.modified.clear()
 

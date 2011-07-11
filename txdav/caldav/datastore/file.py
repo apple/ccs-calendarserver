@@ -36,8 +36,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
 
 from twisted.python.failure import Failure
 
-from txdav.base.propertystore.xattr import PropertyStore
-
 from twext.python.vcomponent import VComponent
 from twext.web2.dav import davxml
 from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
@@ -666,8 +664,10 @@ class Attachment(FileMetaDataMixin):
 
 
     def properties(self):
-        uid = self._calendarObject._parentCollection._home.uid()
-        return PropertyStore(uid, lambda: self._path)
+        home = self._calendarObject._parentCollection._home
+        uid = home.uid()
+        propStoreClass = home._dataStore._propertyStoreClass
+        return propStoreClass(uid, lambda: self._path)
 
 
     def store(self, contentType):

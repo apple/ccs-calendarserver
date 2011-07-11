@@ -50,7 +50,7 @@ from txdav.base.datastore.util import cached
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
-from txdav.base.propertystore.xattr import PropertyStore
+from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
 
 from errno import EEXIST, ENOENT
 from zope.interface import implements, directlyProvides
@@ -85,11 +85,18 @@ class CommonDataStore(DataStore):
         for storing attachments, or C{None} if quota should not be enforced.
 
     @type quota: C{int} or C{NoneType}
+
+    @ivar _propertyStoreClass: The class (or callable object / factory) that
+        produces an L{IPropertyStore} provider for a path.  This has the
+        signature of the L{XattrPropertyStore} type: take 2 arguments
+        C{(default-user-uid, path-factory)}, return an L{IPropertyStore}
+        provider.
     """
     implements(ICalendarStore)
 
     def __init__(self, path, notifierFactory, enableCalendars=True,
-                 enableAddressBooks=True, quota=(2 ** 20)):
+                 enableAddressBooks=True, quota=(2 ** 20),
+                 propertyStoreClass=XattrPropertyStore):
         """
         Create a store.
 
@@ -102,6 +109,7 @@ class CommonDataStore(DataStore):
         self.enableAddressBooks = enableAddressBooks
         self._notifierFactory = notifierFactory
         self._transactionClass = CommonStoreTransaction
+        self._propertyStoreClass = propertyStoreClass
         self.quota = quota
 
 
@@ -488,7 +496,9 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         # FIXME: needs tests for actual functionality
         # FIXME: needs to be cached
         # FIXME: transaction tests
-        props = PropertyStore(self.uid(), lambda : self._path)
+        props = self._dataStore._propertyStoreClass(
+            self.uid(), lambda : self._path
+        )
         self._transaction.addOperation(props.flush, "flush home properties")
         return props
 
@@ -840,7 +850,8 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     def properties(self):
         # FIXME: needs direct tests - only covered by store tests
         # FIXME: transactions
-        props = PropertyStore(self._home.uid(), lambda: self._path)
+        propStoreClass = self._home._dataStore._propertyStoreClass
+        props = propStoreClass(self._home.uid(), lambda: self._path)
         self.initPropertyStore(props)
 
         self._transaction.addOperation(props.flush,
@@ -933,8 +944,13 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
     @cached
     def properties(self):
-        uid = self._parentCollection._home.uid()
-        props = PropertyStore(uid, lambda : self._path) if self._parentCollection.objectResourcesHaveProperties() else NonePropertyStore(uid)
+        home = self._parentCollection._home
+        uid = home.uid()
+        if self._parentCollection.objectResourcesHaveProperties():
+            propStoreClass = home._dataStore._propertyStoreClass
+            props = propStoreClass(uid, lambda : self._path)
+        else:
+            props = NonePropertyStore(uid)
         self.initPropertyStore(props)
         self._transaction.addOperation(props.flush, "object properties flush")
         return props
