@@ -18,6 +18,8 @@
 
 import struct
 
+from txdav.base.propertystore.xattr import PropertyStore as XattrPropStore
+
 # A lot of this is copied from python/plat-mac/applesingle.py,
 # with data structure information taken from
 # http://www.opensource.apple.com/source/Libc/Libc-391/darwin/copyfile.c
@@ -158,4 +160,23 @@ def attrsFromFile(fileobj, debugFile=None):
                 advance = (XATTR_ENTRY_LENGTH + xattr_name_len + 3) & ~3
                 data = data[advance:]
     return attrs
+
+
+
+class PropertyStore(XattrPropStore):
+    """
+    A property store that will read extended attributes from AppleDouble data in
+    "._"-prefixed files alongside their data.
+    """
+
+    # In this case, this prefix will _always_ be the MacOS prefix.  If you're
+    # using this on some other OS, then you're importing some data from MacOS;
+    # no Linux or BSD 'tar' will create AppleDouble files in the first place.
+
+    deadPropertyXattrPrefix = "WebDAV:"
+
+    @property
+    def attrs(self):
+        return attrsFromFile(self.path.sibling("._"+self.path.basename()).open())
+
 
