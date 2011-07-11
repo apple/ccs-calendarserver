@@ -809,6 +809,8 @@ CALENDAR_HOME_PROPFIND_RESPONSE_WITH_XMPP = _CALENDAR_HOME_PROPFIND_RESPONSE_TEM
         <xmpp-uri xmlns='http://calendarserver.org/ns/'>xmpp:pubsub.xmpp.example.invalid?pubsub;node=/CalDAV/another.example.invalid/user01/</xmpp-uri>""",
     }
 
+CALENDAR_HOME_PROPFIND_RESPONSE_XMPP_MISSING = _CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE % {"xmpp": ""}
+
 
 class MemoryResponse(object):
     def __init__(self, version, code, phrase, headers, bodyProducer):
@@ -944,6 +946,13 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
                     "/Some/Unique/Value"
                     )},
                          self.client.xmpp)
+
+
+    def test_handleMissingXMPP(self):
+        home = "/calendars/__uids__/user01/"
+        self.client._extractCalendars(
+            CALENDAR_HOME_PROPFIND_RESPONSE_XMPP_MISSING, home)
+        self.assertEqual({}, self.client.xmpp)
 
 
     def test_changeEventAttendee(self):

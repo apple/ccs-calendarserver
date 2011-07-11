@@ -297,11 +297,15 @@ class SnowLeopard(BaseClient):
 
             if principal == calendarHome:
                 text = principals[principal].getTextProperties()
-                server = text[csxml.xmpp_server]
-                uri = text[csxml.xmpp_uri]
-                pushkey = text[csxml.pushkey]
-                if server and uri:
-                    self.xmpp[principal] = XMPPPush(server, uri, pushkey)
+                try:
+                    server = text[csxml.xmpp_server]
+                    uri = text[csxml.xmpp_uri]
+                    pushkey = text[csxml.pushkey]
+                except KeyError:
+                    pass
+                else:
+                    if server and uri:
+                        self.xmpp[principal] = XMPPPush(server, uri, pushkey)
 
             nodes = principals[principal].getNodeProperties()
             for nodeType in nodes[davxml.resourcetype].getchildren():
