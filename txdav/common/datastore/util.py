@@ -38,7 +38,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         Create an L{UpgradeToDatabaseService} if there are still file-based
         calendar or addressbook homes remaining in the given path.
 
-        @param path: a path pointing at the document root.
+        @param path: a path pointing at the document root, where the file-based
+            data-store is located.
         @type path: L{CachingFilePath}
 
         @param service: the service to wrap.  This service should be started
