@@ -750,7 +750,7 @@ dependencies () {
     "${pypi}/p/pyflakes/pyflakes-0.4.0.tar.gz";
  
   py_dependency -o -r HEAD \
-    "CalDAVClientLibrary" "CalDAVClientLibrary" "CalDAVClientLibrary" \
+    "CalDAVClientLibrary" "caldavclientlibrary" "CalDAVClientLibrary" \
     "${svn_uri_base}/CalDAVClientLibrary/trunk";
 
   # Can't add "-v 2011g" to args because the version check expects numbers.
