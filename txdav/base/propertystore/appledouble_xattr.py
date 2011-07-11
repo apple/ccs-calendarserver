@@ -167,6 +167,12 @@ class PropertyStore(XattrPropStore):
     """
     A property store that will read extended attributes from AppleDouble data in
     "._"-prefixed files alongside their data.
+
+    Note that this is read-only but will not attempt to prevent write operations
+    (since some operations attempt to transparently upgrade things by writing
+    back properties, and we don't want to disrupt that operation).  Its only
+    real purpose is to facilitate importing data with the file->database
+    migration code.
     """
 
     # In this case, this prefix will _always_ be the MacOS prefix.  If you're
