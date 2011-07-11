@@ -89,7 +89,8 @@ class CommonDataStore(DataStore):
     implements(ICalendarStore)
 
     def __init__(self, path, notifierFactory, enableCalendars=True,
-                 enableAddressBooks=True, quota=(2 ** 20)):
+                 enableAddressBooks=True, quota=(2 ** 20),
+                 propertyStoreClass=XattrPropertyStore):
         """
         Create a store.
 
@@ -102,7 +103,7 @@ class CommonDataStore(DataStore):
         self.enableAddressBooks = enableAddressBooks
         self._notifierFactory = notifierFactory
         self._transactionClass = CommonStoreTransaction
-        self._propertyStoreClass = XattrPropertyStore
+        self._propertyStoreClass = propertyStoreClass
         self.quota = quota
 
 
