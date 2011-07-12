@@ -562,7 +562,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         dropboxPath = (yield self._dropboxPath())
         returnValue(
             [Attachment(self, name, dropboxPath)
-            for name in dropboxPath.listdir()]
+             for name in dropboxPath.listdir()
+             if not name.startswith(".")]
         )
 
 
