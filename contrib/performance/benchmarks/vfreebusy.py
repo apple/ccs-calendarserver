@@ -68,8 +68,8 @@ METHOD:REQUEST
 PRODID:-//Apple Inc.//iCal 4.0.3//EN
 BEGIN:VFREEBUSY
 UID:81F582C8-4E7F-491C-85F4-E541864BE0FA
-DTEND:20100730T150000Z
-%(attendees)sDTSTART:20100730T140000Z
+DTEND:%(end)s
+%(attendees)sDTSTART:%(start)s
 X-CALENDARSERVER-MASK-UID:EC75A61B-08A3-44FD-BFBB-2457BBD0D490
 DTSTAMP:20100729T174751Z
 ORGANIZER:mailto:user01@example.com
@@ -81,7 +81,13 @@ END:VCALENDAR
 def formatDate(d):
     return ''.join(filter(str.isalnum, d.isoformat()))
 
+
 def makeEvent(i):
+    # Backwards compat interface, don't delete it for a little while.
+    return makeEventNear(datetime(2010, 7, 30, 11, 15, 00), i)
+
+
+def makeEventNear(base, i):
     s = """\
 BEGIN:VEVENT
 UID:%(UID)s
@@ -94,7 +100,6 @@ SUMMARY:STUFF IS THINGS
 TRANSP:OPAQUE
 END:VEVENT
 """
-    base = datetime(2010, 7, 30, 11, 15, 00)
     interval = timedelta(hours=2)
     duration = timedelta(hours=1)
     return event % {
@@ -107,8 +112,8 @@ END:VEVENT
         }
 
 
-def makeEvents(n):
-    return [makeEvent(i) for i in range(n)]
+def makeEvents(base, n):
+    return [makeEventNear(base, i) for i in range(n)]
 
 
 @inlineCallbacks
@@ -131,14 +136,23 @@ def measure(host, port, dtrace, events, samples):
         agent, host, port, user, password, root, principal, calendar)
 
     base = "/calendars/users/%s/%s/foo-%%d.ics" % (user, calendar)
-    for i, cal in enumerate(makeEvents(events)):
+    baseTime = datetime.now().replace(minute=15, second=0, microsecond=0)
+    for i, cal in enumerate(makeEvents(baseTime, events)):
         yield account.writeData(base % (i,), cal, "text/calendar")
 
     method = 'POST'
     uri = 'http://%s:%d/calendars/__uids__/%s/outbox/' % (host, port, user)
-    headers = Headers({"content-type": ["text/calendar"]})
+    headers = Headers({
+            "content-type": ["text/calendar"],
+            "originator": ["mailto:%s@example.com" % (user,)],
+            "recipient": ["urn:uuid:%s, urn:uuid:user02" % (user,)]})
     body = StringProducer(VFREEBUSY % {
-            "attendees": "ATTENDEE:urn:uuid:user02\n"})
+            "attendees": "".join([
+                    "ATTENDEE:urn:uuid:%s\n" % (user,),
+                    "ATTENDEE:urn:uuid:user02\n"]),
+            "start": formatDate(baseTime.replace(hour=0, minute=0)) + 'Z',
+            "end": formatDate(
+                baseTime.replace(hour=0, minute=0) + timedelta(days=1)) + 'Z'})
 
     samples = yield sample(
         dtrace, samples,

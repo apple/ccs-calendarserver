@@ -19,6 +19,7 @@ Benchmark a server's handling of VFREEBUSY requests with a varying number of
 attendees in the request.
 """
 
+from datetime import datetime, timedelta
 from urllib2 import HTTPDigestAuthHandler
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -31,11 +32,12 @@ from httpauth import AuthHandlerAgent
 from httpclient import StringProducer
 from benchlib import CalDAVAccount, sample
 
-from benchmarks.vfreebusy import VFREEBUSY, makeEvent
+from benchmarks.vfreebusy import VFREEBUSY, formatDate, makeEventNear
 
 @inlineCallbacks
 def measure(host, port, dtrace, attendees, samples):
-    user = password = "user01"
+    userNumber = 1
+    user = password = "user%02d" % (userNumber,)
     root = "/"
     principal = "/"
     calendar = "vfreebusy-vary-attendees-benchmark"
@@ -46,7 +48,7 @@ def measure(host, port, dtrace, attendees, samples):
 
     # Set up authentication info for our own user and all the other users that
     # may need an event created on one of their calendars.
-    for i in [1] + targets:
+    for i in [userNumber] + targets:
         targetUser = "user%02d" % (i,)
         for path in ["calendars/users/%s/" % (targetUser,),
                      "calendars/__uids__/%s/" % (targetUser,)]:
@@ -58,6 +60,7 @@ def measure(host, port, dtrace, attendees, samples):
     agent = AuthHandlerAgent(Agent(reactor), authinfo)
 
     # Set up events on about half of the target accounts
+    baseTime = datetime.now().replace(minute=45, second=0, microsecond=0)
     for i in targets[::2]:
         targetUser = "user%02d" % (i,)
         account = CalDAVAccount(
@@ -68,19 +71,26 @@ def measure(host, port, dtrace, attendees, samples):
         cal = "/calendars/users/%s/%s/" % (targetUser, calendar)
         yield account.deleteResource(cal)
         yield account.makeCalendar(cal)
-        yield account.writeData(cal + "foo.ics", makeEvent(i), "text/calendar")
+        yield account.writeData(cal + "foo.ics", makeEventNear(baseTime, i), "text/calendar")
 
     # And now issue the actual VFREEBUSY request
     method = 'POST'
     uri = 'http://%s:%d/calendars/__uids__/%s/outbox/' % (host, port, user)
-    headers = Headers({"content-type": ["text/calendar"]})
+    headers = Headers({
+            "content-type": ["text/calendar"],
+            "originator": ["mailto:%s@example.com" % (user,)],
+            "recipient": [", ".join(["urn:uuid:user%02d" % (i,) for i in [userNumber] + targets])]})
     body = StringProducer(VFREEBUSY % {
             "attendees": "".join([
                     "ATTENDEE:urn:uuid:user%02d\n" % (i,)
-                    for i in targets])})
+                    for i in [userNumber] + targets]),
+            "start": formatDate(baseTime.replace(hour=0, minute=0)) + 'Z',
+            "end": formatDate(
+                baseTime.replace(hour=0, minute=0) + timedelta(days=1)) + 'Z'})
 
     samples = yield sample(
         dtrace, samples,
         agent, lambda: (method, uri, headers, body),
         OK)
+
     returnValue(samples)
