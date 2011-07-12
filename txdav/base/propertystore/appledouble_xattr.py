@@ -151,8 +151,8 @@ def attrsFromFile(fileobj, debugFile=None):
                                     (xattr_length,))
                     debugFile.write('    Flags:       0x%02X\n' %
                                     (xattr_flags,))
-                    debugFile.write('    Name:        %s\n' % (xattr_name,))
-                    debugFile.write('    Value:        %s\n' %
+                    debugFile.write('    Name:        %r\n' % (xattr_name,))
+                    debugFile.write('    Value:       %r\n' %
                                     (xattr_value,))
                 attrs[xattr_name] = xattr_value
 
