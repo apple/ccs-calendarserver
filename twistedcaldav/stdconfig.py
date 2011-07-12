@@ -451,7 +451,7 @@ DEFAULT_CONFIG = {
     "EnableTimezoneService"   : False, # Old Timezone service
     
     "TimezoneService"         : {    # New standard timezone service
-        "Enabled"       : True,      # Overall on/off switch
+        "Enabled"       : False,     # Overall on/off switch
         "Mode"          : "primary", # Can be "primary" or "secondary"
         "BasePath"      : "",        # Path to zoneinfo - if None use default package path
                                      # secondary service MUST define its own writeable path
