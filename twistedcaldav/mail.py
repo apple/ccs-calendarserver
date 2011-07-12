@@ -854,7 +854,9 @@ class MailHandler(LoggingMixIn):
         for attendeeProp in calendar.getAllAttendeeProperties():
             cutype = attendeeProp.parameterValue("CUTYPE", "INDIVIDUAL")
             if cutype == "INDIVIDUAL":
-                cn = attendeeProp.parameterValue("CN", None).decode("utf-8")
+                cn = attendeeProp.parameterValue("CN", None)
+                if cn is not None:
+                    cn = cn.decode("utf-8")
                 cuaddr = normalizeCUAddr(attendeeProp.value())
                 if cuaddr.startswith("mailto:"):
                     mailto = cuaddr[7:]
@@ -922,7 +924,7 @@ class MailHandler(LoggingMixIn):
                 cn = 'Calendar Server'
                 orgCN = orgEmail
             else:
-                orgCN = cn
+                orgCN = cn.decode("utf-8")
             formattedFrom = "%s <%s>" % (cn, fromAddr)
 
             # Reply-to address will be the server+token address
