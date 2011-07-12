@@ -24,21 +24,10 @@ if __name__ == "__main__":
     if "PYTHONPATH" in globals():
         sys.path.insert(0, PYTHONPATH)
     else:
-        from os.path import dirname, abspath, join
-        from subprocess import Popen, PIPE
-
-        home = dirname(dirname(abspath(__file__)))
-        run = join(home, "run")
-
-        child = Popen((run, "-p"), stdout=PIPE)
-        path, stderr = child.communicate()
-
-        path = path.rstrip("\n")
-
-        if child.wait() == 0:
-            sys.path[0:0] = path.split(":")
-
-        sys.argv[1:1] = ["-f", join(home, "conf", "caldavd-dev.plist")]
+        try:
+            import _calendarserver_preamble
+        except ImportError:
+            sys.exc_clear()
 
     from calendarserver.tools.purge import main_purge_principals
     main_purge_principals()
