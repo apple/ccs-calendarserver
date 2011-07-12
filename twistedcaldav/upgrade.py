@@ -468,7 +468,7 @@ def upgrade_to_1(config):
 
                 log.warn("Done processing calendar homes")
 
-    migrateResourceInfo(config, directory, uid, gid)
+    # migrateResourceInfo(config, directory, uid, gid)
     createMailTokensDatabase(config, uid, gid)
 
     if errorOccurred:
