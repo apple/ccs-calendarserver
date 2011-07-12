@@ -577,3 +577,13 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             provisioningResource.principalForUID(uid)
 
 
+    @inlineCallbacks
+    def test_getAllMembers(self):
+        """
+        getAllMembers( ) returns the unique set of guids that have been
+        delegated-to directly
+        """
+        self.assertEquals(
+            set((yield calendaruserproxy.ProxyDBService.getAllMembers())),
+            set([u'6423F94A-6B76-4A3A-815B-D52CFD77935D', u'8A985493-EE2C-4665-94CF-4DFEA3A89500', u'9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2', u'both_coasts', u'left_coast', u'non_calendar_group', u'recursive1_coasts', u'recursive2_coasts'])
+        )

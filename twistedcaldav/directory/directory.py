@@ -496,18 +496,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
 
         self.log_debug("Updating group membership cache")
 
-        guids = set()
-
-        proxyGroups = (yield self.proxyDB.getAllGroups())
-        for proxyGroup in proxyGroups:
-
-            # Protect against bogus entries in proxy db:
-            if "#" not in proxyGroup:
-                continue
-
-            for guid in (yield self.proxyDB.getMembers(proxyGroup)):
-                guids.add(guid)
-
+        guids = set((yield self.proxyDB.getAllMembers()))
         returnValue((yield self.directory.cacheGroupMembership(guids, fast=fast)))
 
 

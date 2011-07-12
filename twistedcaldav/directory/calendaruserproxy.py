@@ -787,8 +787,11 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
         yield super(ProxyDB, self).clean()
 
     @inlineCallbacks
-    def getAllGroups(self):
-        returnValue([row[0] for row in (yield self.query("select DISTINCT GROUPNAME from GROUPS"))])
+    def getAllMembers(self):
+        """
+        Retrieve all members that have been directly delegated to
+        """
+        returnValue([row[0] for row in (yield self.query("select DISTINCT MEMBER from GROUPS"))])
 
 ProxyDBService = None   # Global proxyDB service
 
