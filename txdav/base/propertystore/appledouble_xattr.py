@@ -183,6 +183,10 @@ class PropertyStore(XattrPropStore):
 
     @property
     def attrs(self):
-        return attrsFromFile(self.path.sibling("._"+self.path.basename()).open())
+        try:
+            return attrsFromFile(self.path.sibling("._"+self.path.basename()).open())
+        except IOError:
+            return {}
+
 
 

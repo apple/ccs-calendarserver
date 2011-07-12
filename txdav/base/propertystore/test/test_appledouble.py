@@ -119,3 +119,16 @@ class PropertyStoreTests(TestCase):
                          GETContentType("text/example"))
 
 
+    def test_propertyFreeFile(self):
+        """
+        Not all files have extended attributes or the associated AppleDouble
+        file.  Make sure that retrieving the 'attrs' attribute yields an empty
+        dictionary in that case.
+        """
+        sample = FilePath(self.mktemp())
+        sample.setContent("")
+        props = PropertyStore("nobody", lambda : sample)
+        self.assertEqual(props.attrs, {})
+
+
+
