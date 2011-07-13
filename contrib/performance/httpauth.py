@@ -44,6 +44,8 @@ class DigestChallenge(object):
 
     def response(self, uri, method, keyring):
         username, password = keyring.passwd.find_user_password(self.realm, uri)
+        if username is None:
+            raise RuntimeError("Credentials for realm=%s uri=%s not found" % (self.realm, uri))
         digest = Digest(username, password, [])
         digest.fields.update(self.fields)
         authorization = []

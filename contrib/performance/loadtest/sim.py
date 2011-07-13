@@ -217,6 +217,7 @@ class LoadSimulator(object):
             loader = options.config['accounts']['loader']
             params = options.config['accounts']['params']
             records.extend(namedAny(loader)(**params))
+            print 'Loaded', len(records), 'accounts.'
 
         return cls(server, arrival, parameters,
                    observers=observers, records=records,
