@@ -292,7 +292,7 @@ END:VCALENDAR
                     (u'An Attendee without CUTYPE', u'nocutype@example.com'),
                     (None, u'nocn@example.com'),
                 ],
-                "Th\xc3\xa9 Organizer <organizer@example.com>",
+                u"Th\xe9 Organizer <organizer@example.com>",
                 "attendee@example.com",
             ),
 

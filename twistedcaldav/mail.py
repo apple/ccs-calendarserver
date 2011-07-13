@@ -933,10 +933,14 @@ class MailHandler(LoggingMixIn):
                 orgEmail = None
             cn = calendar.getOrganizerProperty().parameterValue('CN', None)
             if cn is None:
-                cn = 'Calendar Server'
+                cn = u'Calendar Server'
                 orgCN = orgEmail
             else:
-                orgCN = cn.decode("utf-8")
+                orgCN = cn = cn.decode("utf-8")
+
+            # a unicode cn (rather than an encode string value) means the
+            # from address will get properly encoded per rfc2047 within the
+            # MIMEMultipart in generateEmail
             formattedFrom = "%s <%s>" % (cn, fromAddr)
 
             # Reply-to address will be the server+token address
