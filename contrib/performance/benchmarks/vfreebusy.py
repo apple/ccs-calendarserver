@@ -136,7 +136,7 @@ def measure(host, port, dtrace, events, samples):
         agent, host, port, user, password, root, principal, calendar)
 
     base = "/calendars/users/%s/%s/foo-%%d.ics" % (user, calendar)
-    baseTime = datetime.now().replace(minute=15, second=0, microsecond=0)
+    baseTime = datetime.now().replace(hour=12, minute=15, second=0, microsecond=0)
     for i, cal in enumerate(makeEvents(baseTime, events)):
         yield account.writeData(base % (i,), cal, "text/calendar")
 
