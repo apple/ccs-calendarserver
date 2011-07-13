@@ -71,7 +71,7 @@ from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 
-from calendarserver.tap.util import getRootResource
+from calendarserver.tap.util import getRootResource, directoryFromConfig
 
 
 __all__ = [
@@ -624,6 +624,7 @@ class MailHandler(LoggingMixIn):
             dataRoot = config.DataRoot
         self.db = MailGatewayTokensDatabase(dataRoot)
         self.days = config.Scheduling['iMIP']['InvitationDaysToLive']
+        self.directory = directoryFromConfig(config)
 
     def purge(self):
         """
@@ -714,7 +715,7 @@ class MailHandler(LoggingMixIn):
         self.log_warn("Mail gateway processing DSN %s" % (msgId,))
         return fn(organizer, attendee, calendar, msgId)
 
-    def processReply(self, msg, fn):
+    def processReply(self, msg, injectFunction, testMode=False):
         # extract the token from the To header
         name, addr = email.utils.parseaddr(msg['To'])
         if addr:
@@ -744,15 +745,25 @@ class MailHandler(LoggingMixIn):
                 break
         else:
             # No icalendar attachment
-            self.log_error("Mail gateway didn't find an icalendar attachment in message %s" % (msg['Message-ID'],))
+            self.log_warn("Mail gateway didn't find an icalendar attachment in message %s" % (msg['Message-ID'],))
 
-            if not organizer.startswith("mailto:"):
+            toAddr = None
+            fromAddr = attendee[7:]
+
+            if organizer.startswith("mailto:"):
+                toAddr = organizer[7:]
+            elif organizer.startswith("urn:uuid:"):
+                guid = organizer[9:]
+                record = self.directory.recordWithGUID(guid)
+                if record and record.emailAddresses:
+                    toAddr = list(record.emailAddresses)[0]
+
+            if toAddr is None:
                 self.log_error("Don't have an email address for the organizer; ignoring reply.")
                 return
 
-            # Forward this email to organizer
-            toAddr = organizer[7:]
-            fromAddr = attendee[7:]
+            if testMode:
+                return (toAddr, fromAddr)
 
             settings = config.Scheduling["iMIP"]["Sending"]
             if settings["UseSSL"]:
@@ -775,6 +786,7 @@ class MailHandler(LoggingMixIn):
                 requireTransportSecurity=settings["UseSSL"],
             )
 
+            self.log_warn("Mail gateway forwarding reply back to organizer")
             _reactor.connectTCP(settings["Server"], settings["Port"], factory)
             return deferred
 
@@ -810,7 +822,7 @@ class MailHandler(LoggingMixIn):
             # the appropriate ATTENDEE.  This will require a new localizable
             # email template for the message.
 
-        return fn(organizer, attendee, calendar, msg['Message-ID'])
+        return injectFunction(organizer, attendee, calendar, msg['Message-ID'])
 
 
     def inbound(self, message, fn=injectMessage):

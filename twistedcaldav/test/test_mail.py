@@ -24,6 +24,7 @@ from twisted.internet.defer import inlineCallbacks
 import email
 from twistedcaldav.mail import MailHandler
 from twistedcaldav.mail import MailGatewayTokensDatabase
+from twistedcaldav.directory.directory import DirectoryRecord
 import os
 import datetime
 
@@ -195,10 +196,10 @@ END:VCALENDAR
         self.assertEquals(result, None)
 
         # Make sure a known token *is* processed
-        self.handler.db.createToken("mailto:user01@example.com", "mailto:xyzzy@example.com", icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
+        self.handler.db.createToken("urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66", "mailto:xyzzy@example.com", icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
         organizer, attendee, calendar, msgId = self.handler.processReply(msg,
             echo)
-        self.assertEquals(organizer, 'mailto:user01@example.com')
+        self.assertEquals(organizer, 'urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66')
         self.assertEquals(attendee, 'mailto:xyzzy@example.com')
         self.assertEquals(msgId, '<1983F777-BE86-4B98-881E-06D938E60920@example.com>')
 
@@ -207,20 +208,20 @@ END:VCALENDAR
             file(os.path.join(self.dataDir, 'reply_missing_organizer')).read()
         )
         # stick the token in the database first
-        self.handler.db.createToken("mailto:user01@example.com", "mailto:xyzzy@example.com", icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
+        self.handler.db.createToken("urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66", "mailto:xyzzy@example.com", icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
 
         organizer, attendee, calendar, msgId = self.handler.processReply(msg,
             echo)
         organizerProp = calendar.mainComponent().getOrganizerProperty()
         self.assertTrue(organizerProp is not None)
-        self.assertEquals(organizer, "mailto:user01@example.com")
+        self.assertEquals(organizer, "urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66")
 
     def test_processReplyMissingAttendee(self):
         msg = email.message_from_string(
             file(os.path.join(self.dataDir, 'reply_missing_attendee')).read()
         )
         # stick the token in the database first
-        self.handler.db.createToken("mailto:user01@example.com", "mailto:xyzzy@example.com", icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
+        self.handler.db.createToken("urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66", "mailto:xyzzy@example.com", icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
 
         organizer, attendee, calendar, msgId = self.handler.processReply(msg,
             echo)
@@ -230,6 +231,26 @@ END:VCALENDAR
         # schedule-status
         attendeeProp = calendar.mainComponent().getAttendeeProperty([attendee])
         self.assertEquals(attendeeProp.parameterValue("SCHEDULE-STATUS"), iTIPRequestStatus.SERVICE_UNAVAILABLE)
+
+    def test_processReplyMissingAttachment(self):
+
+        # Fake a directory record
+        record = DirectoryRecord(self.handler.directory, "users",
+            "9DC04A70-E6DD-11DF-9492-0800200C9A66", shortNames=("user01",),
+            emailAddresses=("user01@example.com",))
+        record.enabled = True
+        self.handler.directory._tmpRecords["guids"]["9DC04A70-E6DD-11DF-9492-0800200C9A66"] = record
+
+        msg = email.message_from_string(
+            file(os.path.join(self.dataDir, 'reply_missing_attachment')).read()
+        )
+        # stick the token in the database first
+        self.handler.db.createToken("urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66", "mailto:xyzzy@example.com", icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C", token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f")
+
+        self.assertEquals(
+            self.handler.processReply(msg, echo, testMode=True),
+            ("user01@example.com", "xyzzy@example.com")
+        )
 
 
     @inlineCallbacks
