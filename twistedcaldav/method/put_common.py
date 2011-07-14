@@ -309,7 +309,7 @@ class StoreCalendarObjectResource(object):
                         ErrorResponse(
                             responsecode.FORBIDDEN,
                             MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),
-                            "Too many attendees in calenbdar data",
+                            "Too many attendees in calendar data",
                         )
                     )
 
