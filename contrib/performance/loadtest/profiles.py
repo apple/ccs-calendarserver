@@ -490,7 +490,7 @@ class OperationLogger(SummarizingMixin):
                         operation=operation.upper(), cutoff=lagCutoff * 1000))
 
         for operation, times in self._perOperationTimes.iteritems():
-            failures =  len([success for (success, duration) in times if not success])
+            failures = len([success for (success, duration) in times if not success])
             if failures / len(times) > failCutoff:
                 reasons.append(self._FAILED_REASON % dict(
                         operation=operation.upper(), cutoff=failCutoff * 100))
