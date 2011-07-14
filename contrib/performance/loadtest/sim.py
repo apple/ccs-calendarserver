@@ -272,9 +272,14 @@ class LoadSimulator(object):
     def run(self):
         for obs in self.observers:
             addObserver(obs.observe)
-            self.reactor.addSystemEventTrigger(
-                'before', 'shutdown', removeObserver, obs.observe)
         sim = self.createSimulator()
+
+        def stop():
+            for obs in self.observers:
+                removeObserver(obs.observe)
+            sim.stop()
+        self.reactor.addSystemEventTrigger('before', 'shutdown', stop)
+
         arrivalPolicy = self.createArrivalPolicy()
         arrivalPolicy.run(sim)
         if self.runtime is not None:

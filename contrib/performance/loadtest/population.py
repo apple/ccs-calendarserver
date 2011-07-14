@@ -154,6 +154,7 @@ class CalendarClientSimulator(object):
         self.server = server
         self._pop = self.populator.populate(parameters)
         self._user = 0
+        self._stopped = False
 
 
     def getUserRecord(self, index):
@@ -177,6 +178,16 @@ class CalendarClientSimulator(object):
             user=user.encode('utf-8'),
             passwd=record.password.encode('utf-8'))
         return user, auth
+
+
+    def stop(self):
+        """
+        Indicate that the simulation is over.  CalendarClientSimulator doesn't
+        actively react to this, but it does cause all future failures to be
+        disregarded (as some are expected, as the simulation will always stop
+        while some requests are in flight).
+        """
+        self._stopped = True
 
 
     def add(self, numClients):
@@ -210,15 +221,17 @@ class CalendarClientSimulator(object):
 
 
     def _clientFailure(self, reason, reactor):
-        where = self._dumpLogs(reactor, reason)
-        err(reason, "Client stopped with error; recent traffic in %r" % (
-                where.path,))
+        if not self._stopped:
+            where = self._dumpLogs(reactor, reason)
+            err(reason, "Client stopped with error; recent traffic in %r" % (
+                    where.path,))
 
 
     def _profileFailure(self, reason, profileType, reactor):
-        where = self._dumpLogs(reactor, reason)
-        err(reason, "Profile stopped with error; recent traffic in %r" % (
-                where.path,))
+        if not self._stopped:
+            where = self._dumpLogs(reactor, reason)
+            err(reason, "Profile stopped with error; recent traffic in %r" % (
+                    where.path,))
 
 
 

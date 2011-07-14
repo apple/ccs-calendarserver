@@ -20,6 +20,7 @@ from plistlib import writePlistToString
 from twisted.python.log import msg
 from twisted.python.usage import UsageError
 from twisted.python.filepath import FilePath
+from twisted.internet.defer import Deferred
 from twisted.trial.unittest import TestCase
 
 from twistedcaldav.directory.directory import DirectoryRecord
@@ -132,6 +133,43 @@ class CalendarClientSimulatorTests(TestCase):
         self.assertEqual(
             auth.passwd.find_user_password('Test Realm', 'http://example.org:1234/')[1],
             'password-' + user)
+
+
+    def test_stop(self):
+        """
+        After L{CalendarClientSimulator.stop} is called, failed clients and
+        profiles are not logged.
+        """
+        class BrokenClient(object):
+            def __init__(self, reactor, serverAddress, userInfo, auth, runResult):
+                self._runResult = runResult
+
+            def run(self):
+                return self._runResult
+                
+        class BrokenProfile(object):
+            def __init__(self, reactor, simulator, client, userNumber, runResult):
+                self._runResult = runResult
+
+            def run(self):
+                return self._runResult
+
+        clientRunResult = Deferred()
+        profileRunResult = Deferred()
+
+        params = PopulationParameters()
+        params.addClient(1, ClientType(
+                BrokenClient, {'runResult': clientRunResult},
+                [ProfileType(BrokenProfile, {'runResult': profileRunResult})]))
+        sim = CalendarClientSimulator(
+            [self._user('alice')], Populator(None), params, None, 'http://example.com:1234/')
+        sim.add(1)
+        sim.stop()
+        clientRunResult.errback(RuntimeError("Some fictional client problem"))
+        profileRunResult.errback(RuntimeError("Some fictional profile problem"))
+
+        self.assertEqual([], self.flushLoggedErrors())
+
 
 
 class Reactor(object):
