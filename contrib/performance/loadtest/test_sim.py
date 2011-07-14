@@ -297,6 +297,61 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(sim.records[98].commonName, 'User 99')
         self.assertEqual(sim.records[98].email, 'user99@example.com')
 
+    def test_generateRecordsDefaultPatterns(self):
+        """
+        L{LoadSimulator.fromCommandLine} takes an account loader from the
+        config file and uses it to generate user records for use in the
+        simulation.
+        """
+        config = VALID_CONFIG.copy()
+        config["accounts"] = {
+            "loader": "loadtest.sim.generateRecords",
+            "params": {
+                "count": 2
+            },
+        }
+        configpath = FilePath(self.mktemp())
+        configpath.setContent(writePlistToString(config))
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path])
+        self.assertEqual(2, len(sim.records))
+        self.assertEqual(sim.records[0].uid, 'user1')
+        self.assertEqual(sim.records[0].password, 'user1')
+        self.assertEqual(sim.records[0].commonName, 'User 1')
+        self.assertEqual(sim.records[0].email, 'user1@example.com')
+        self.assertEqual(sim.records[1].uid, 'user2')
+        self.assertEqual(sim.records[1].password, 'user2')
+        self.assertEqual(sim.records[1].commonName, 'User 2')
+        self.assertEqual(sim.records[1].email, 'user2@example.com')
+
+    def test_generateRecordsNonDefaultPatterns(self):
+        """
+        L{LoadSimulator.fromCommandLine} takes an account loader from the
+        config file and uses it to generate user records for use in the
+        simulation.
+        """
+        config = VALID_CONFIG.copy()
+        config["accounts"] = {
+            "loader": "loadtest.sim.generateRecords",
+            "params": {
+                "count": 3,
+                "uidPattern": "USER%03d",
+                "passwordPattern": "PASSWORD%03d",
+                "namePattern": "Test User %03d",
+                "emailPattern": "USER%03d@example2.com",
+            },
+        }
+        configpath = FilePath(self.mktemp())
+        configpath.setContent(writePlistToString(config))
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path])
+        self.assertEqual(3, len(sim.records))
+        self.assertEqual(sim.records[0].uid, 'USER001')
+        self.assertEqual(sim.records[0].password, 'PASSWORD001')
+        self.assertEqual(sim.records[0].commonName, 'Test User 001')
+        self.assertEqual(sim.records[0].email, 'USER001@example2.com')
+        self.assertEqual(sim.records[2].uid, 'USER003')
+        self.assertEqual(sim.records[2].password, 'PASSWORD003')
+        self.assertEqual(sim.records[2].commonName, 'Test User 003')
+        self.assertEqual(sim.records[2].email, 'USER003@example2.com')
 
     def test_specifyRuntime(self):
         """

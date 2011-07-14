@@ -42,6 +42,17 @@ class _DirectoryRecord(object):
         self.email = email
 
 
+def generateRecords(count, uidPattern="user%d", passwordPattern="user%d",
+    namePattern="User %d", emailPattern="user%d@example.com"):
+    for i in xrange(count):
+        i += 1
+        uid = uidPattern % (i,)
+        password = passwordPattern % (i,)
+        name = namePattern % (i,)
+        email = emailPattern % (i,)
+        yield _DirectoryRecord(uid, password, name, email)
+
+
 def recordsFromCSVFile(path):
     if path:
         pathObj = FilePath(path)
