@@ -43,10 +43,10 @@ class _DirectoryRecord(object):
 
 
 def recordsFromCSVFile(path):
-    if path.startswith('/'):
+    if path:
         pathObj = FilePath(path)
     else:
-        pathObj = FilePath(__file__).parent().preauthChild(path)
+        pathObj = FilePath(__file__).sibling("accounts.csv")
     return [
         _DirectoryRecord(*line.decode('utf-8').split(u','))
         for line
@@ -291,3 +291,6 @@ class LoadSimulator(object):
             print 'PASS'
 
 main = LoadSimulator.main
+
+if __name__ == '__main__':
+    main()

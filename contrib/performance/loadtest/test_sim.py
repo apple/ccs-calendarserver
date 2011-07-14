@@ -234,6 +234,32 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(sim.records[1].email, 'quux2')
 
 
+    def test_loadDefaultAccountsFromFile(self):
+        """
+        L{LoadSimulator.fromCommandLine} takes an account loader (with
+        empty path)from the config file and uses it to create user
+        records for use in the simulation.
+        """
+        config = VALID_CONFIG.copy()
+        config["accounts"] = {
+            "loader": "loadtest.sim.recordsFromCSVFile",
+            "params": {
+                "path": ""},
+            }
+        configpath = FilePath(self.mktemp())
+        configpath.setContent(writePlistToString(config))
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path])
+        self.assertEqual(99, len(sim.records))
+        self.assertEqual(sim.records[0].uid, 'user01')
+        self.assertEqual(sim.records[0].password, 'user01')
+        self.assertEqual(sim.records[0].commonName, 'User 01')
+        self.assertEqual(sim.records[0].email, 'user01@example.com')
+        self.assertEqual(sim.records[98].uid, 'user99')
+        self.assertEqual(sim.records[98].password, 'user99')
+        self.assertEqual(sim.records[98].commonName, 'User 99')
+        self.assertEqual(sim.records[98].email, 'user99@example.com')
+
+
     def test_specifyRuntime(self):
         """
         L{LoadSimulator.fromCommandLine} recognizes the I{--runtime} option to
