@@ -238,7 +238,8 @@ class Inviter(ProfileBase):
 
 class Accepter(ProfileBase):
     """
-    A Calendar user who accepts invitations to events.
+    A Calendar user who accepts invitations to events. As well as accepting requests, this
+    will also remove cancels and replies.
     """
     def setParameters(self, acceptDelayDistribution=NormalDistribution(1200, 60)):
         self._accepting = set()
@@ -258,8 +259,16 @@ class Accepter(ProfileBase):
             calendar = self._client._calendars[calendar]
         except KeyError:
             return
-        if calendar.resourceType != caldavxml.calendar:
+
+        if calendar.resourceType == caldavxml.schedule_inbox:
+            # Handle inbox differently
+            self.inboxEventChanged(calendar, href)
+        elif calendar.resourceType == caldavxml.calendar:
+            self.calendarEventChanged(calendar, href)
+        else:
             return
+
+    def calendarEventChanged(self, calendar, href):
         if href in self._accepting:
             return
 
@@ -274,6 +283,26 @@ class Accepter(ProfileBase):
                     self._accepting.add(href)
                     self._reactor.callLater(
                         delay, self._acceptInvitation, href, attendee)
+
+
+    def inboxEventChanged(self, calendar, href):
+        if href in self._accepting:
+            return
+
+        vevent = self._client._events[href].vevent
+        method = vevent.contents.get('method')[0].value
+        if method == "REPLY":
+            # Replies are immediately deleted
+            self._accepting.add(href)
+            self._reactor.callLater(
+                0, self._handleReply, href)
+
+        elif method == "CANCEL":
+            # Cancels are handled after a user delay
+            delay = self._acceptDelayDistribution.sample()
+            self._accepting.add(href)
+            self._reactor.callLater(
+                delay, self._handleCancel, href)
 
 
     def _acceptInvitation(self, href, attendee):
@@ -312,6 +341,35 @@ class Accepter(ProfileBase):
             return passthrough
         d.addBoth(finished)
         return self._newOperation("accept", d)
+
+
+    def _handleReply(self, href):
+        d = self._client.deleteEvent(href)
+        def finished(passthrough):
+            self._accepting.remove(href)
+            return passthrough
+        d.addBoth(finished)
+        return self._newOperation("clean reply", d)
+
+
+    def _handleCancel(self, href):
+
+        uid = self._client._events[href].getUID()
+        d = self._client.deleteEvent(href)
+
+        def removed(ignored):
+            # Find the corresponding event in any calendar and delete it.
+            for cal in self._client._calendars.itervalues():
+                if cal.resourceType == caldavxml.calendar:
+                    for event in cal.events.itervalues():
+                        if uid == event.getUID():
+                            return self._client.deleteEvent(event.url)
+        d.addCallback(removed)
+        def finished(passthrough):
+            self._accepting.remove(href)
+            return passthrough
+        d.addBoth(finished)
+        return self._newOperation("clean cancel", d)
 
 
     def _makeAcceptedAttendee(self, attendee):

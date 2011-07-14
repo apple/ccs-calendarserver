@@ -23,7 +23,7 @@ from StringIO import StringIO
 
 from vobject import readComponents
 
-from caldavclientlibrary.protocol.caldav.definitions import caldavxml
+from caldavclientlibrary.protocol.caldav.definitions import caldavxml, csxml
 
 from twisted.trial.unittest import TestCase
 from twisted.internet.task import Clock
@@ -463,7 +463,7 @@ class AccepterTests(TestCase):
         userNumber = 14
         calendarURL = '/some/calendar/'
         calendar = Calendar(
-            caldavxml.schedule_inbox, u'inbox', calendarURL, None)
+            csxml.dropbox_home, u'notification', calendarURL, None)
         client = StubClient(userNumber)
         client._calendars[calendarURL] = calendar
         accepter = Accepter(None, self.sim, client, userNumber)
