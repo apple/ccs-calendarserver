@@ -27,9 +27,9 @@ from twisted.python.log import startLogging, addObserver, removeObserver
 from twisted.python.usage import UsageError, Options
 from twisted.python.reflect import namedAny
 
-from loadtest.ical import SnowLeopard
-from loadtest.profiles import Eventer, Inviter, Accepter
-from loadtest.population import (
+from contrib.performance.loadtest.ical import SnowLeopard
+from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
+from contrib.performance.loadtest.population import (
     Populator, ProfileType, ClientType, PopulationParameters, SmoothRampUp,
     CalendarClientSimulator)
 

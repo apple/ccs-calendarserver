@@ -32,11 +32,11 @@
            returns a list of directory service records defining all of the
            client accounts to use.
 
-	   loadtest.sim.recordsFromCSVFile reads username, password, mailto
+	   contrib.performance.loadtest.sim.recordsFromCSVFile reads username, password, mailto
 	   triples from a CSV file and returns them as a list of faked
 	   directory service records. -->
       <key>loader</key>
-      <string>loadtest.sim.recordsFromCSVFile</string>
+      <string>contrib.performance.loadtest.sim.recordsFromCSVFile</string>
 
       <!-- Keyword arguments may be passed to the loader. -->
       <key>params</key>
@@ -46,7 +46,7 @@
              directory while still allowing a relative path.  This isn't
              a great solution. -->
 	<key>path</key>
-	<string>accounts.csv</string>
+	<string>contrib/performance/loadtest/accounts.csv</string>
       </dict>
     </dict>
 
@@ -57,19 +57,19 @@
 
       <!-- Specify a class which creates new clients and introduces them into the test.
 
-	   loadtest.population.SmoothRampUp introduces groups of new clients at
+	   contrib.performance.loadtest.population.SmoothRampUp introduces groups of new clients at
 	   fixed intervals up to a maximum.  The size of the group, interval,
 	   and maximum are configured by the parameters below.  The total
 	   number of clients is groups * groupSize, which needs to be no larger
 	   than the number of credentials created in the accounts section.  -->
       <key>factory</key>
-      <string>loadtest.population.SmoothRampUp</string>
+      <string>contrib.performance.loadtest.population.SmoothRampUp</string>
 
       <key>params</key>
       <dict>
 	<!-- groups gives the total number of groups of clients to introduce.-->
 	<key>groups</key>
-	<integer>60</integer>
+	<integer>99</integer>
 
 	<!-- groupSize is the number of clients in each group of clients.  It's
 	     really only a "smooth" ramp up if this is pretty small. -->
@@ -78,7 +78,7 @@
 
 	<!-- Number of seconds between the introduction of each group. -->
 	<key>interval</key>
-	<integer>13</integer>
+	<integer>3</integer>
       </dict>
 
     </dict>
@@ -95,7 +95,7 @@
 
 	<!-- Here is a Snow Leopard iCal simulator. -->
 	<key>software</key>
-	<string>loadtest.ical.SnowLeopard</string>
+	<string>contrib.performance.loadtest.ical.SnowLeopard</string>
 
 	<!-- Arguments to use to initialize the SnowLeopard instance. -->
 	<key>params</key>
@@ -103,7 +103,7 @@
 	  <!-- SnowLeopard can poll the calendar home at some interval.  This
                is in seconds. -->
 	  <key>calendarHomePollInterval</key>
-	  <integer>900</integer>
+	  <integer>30</integer>
 
 	  <!-- If the server advertises xmpp push, SnowLeopard can wait for
 	       notifications about calendar home changes instead of polling for
@@ -112,7 +112,7 @@
 	       Still fall back to polling if there is no xmpp push
 	       advertised. -->
 	  <key>supportPush</key>
-	  <true/>
+	  <false/>
 	</dict>
 
 	<!-- The profiles define certain types of user behavior on top of the
@@ -124,7 +124,7 @@
 	       new events at a random time on a random calendar. -->
 	  <dict>
 	    <key>class</key>
-	    <string>loadtest.profiles.Eventer</string>
+	    <string>contrib.performance.loadtest.profiles.Eventer</string>
 
 	    <key>params</key>
 	    <dict>
@@ -181,7 +181,7 @@
 	  <!-- This profile invites new attendees to existing events. -->
 	  <dict>
 	    <key>class</key>
-	    <string>loadtest.profiles.Inviter</string>
+	    <string>contrib.performance.loadtest.profiles.Inviter</string>
 	    
 	    <key>params</key>
 	    <dict>
@@ -232,7 +232,7 @@
 	  <!-- This profile accepts invitations to events. -->
 	  <dict>
 	    <key>class</key>
-	    <string>loadtest.profiles.Accepter</string>
+	    <string>contrib.performance.loadtest.profiles.Accepter</string>
 
 	    <key>params</key>
 	    <dict>
@@ -269,16 +269,16 @@
     <array>
       <!-- ReportStatistics generates an end-of-run summary of the HTTP
            requests made, their timings, and their results. -->
-      <string>loadtest.population.ReportStatistics</string>
+      <string>contrib.performance.loadtest.population.ReportStatistics</string>
 
       <!-- RequestLogger generates a realtime log of all HTTP requests made
            during the load test. -->
-      <string>loadtest.ical.RequestLogger</string>
+      <string>contrib.performance.loadtest.ical.RequestLogger</string>
 
       <!-- OperationLogger generates an end-of-run summary of the gross
            operations performed (logical operations which may span more than
            one HTTP request, such as inviting an attendee to an event). -->
-      <string>loadtest.profiles.OperationLogger</string>
+      <string>contrib.performance.loadtest.profiles.OperationLogger</string>
     </array>
 
   </dict>

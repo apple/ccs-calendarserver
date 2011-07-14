@@ -34,9 +34,9 @@ from caldavclientlibrary.protocol.webdav.definitions import davxml
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from caldavclientlibrary.protocol.caldav.definitions import csxml
 
-from loadtest.ical import XMPPPush, Event, Calendar, SnowLeopard
-from loadtest.sim import _DirectoryRecord
-from httpclient import MemoryConsumer, StringProducer
+from contrib.performance.loadtest.ical import XMPPPush, Event, Calendar, SnowLeopard
+from contrib.performance.loadtest.sim import _DirectoryRecord
+from contrib.performance.httpclient import MemoryConsumer, StringProducer
 
 EVENT_UID = 'D94F247D-7433-43AF-B84B-ADD684D023B0'
 

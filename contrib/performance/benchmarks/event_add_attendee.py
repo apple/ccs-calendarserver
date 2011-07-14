@@ -14,8 +14,8 @@
 # limitations under the License.
 ##
 
-from _event_change import measure as _measure
-from _event_create import makeAttendees
+from contrib.performance._event_change import measure as _measure
+from contrib.performance._event_create import makeAttendees
 
 
 def measure(host, port, dtrace, attendeeCount, samples):

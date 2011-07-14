@@ -25,19 +25,19 @@ from twisted.trial.unittest import TestCase
 
 from twistedcaldav.directory.directory import DirectoryRecord
 
-from stats import NormalDistribution
-from loadtest.ical import SnowLeopard
-from loadtest.profiles import Eventer, Inviter, Accepter
-from loadtest.population import (
+from contrib.performance.stats import NormalDistribution
+from contrib.performance.loadtest.ical import SnowLeopard
+from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
+from contrib.performance.loadtest.population import (
     SmoothRampUp, ClientType, PopulationParameters, Populator, CalendarClientSimulator,
     ProfileType, SimpleStatistics)
-from loadtest.sim import (
+from contrib.performance.loadtest.sim import (
     Arrival, SimOptions, LoadSimulator, LagTrackingReactor)
 
 VALID_CONFIG = {
     'server': 'tcp:127.0.0.1:8008',
     'arrival': {
-        'factory': 'loadtest.population.SmoothRampUp',
+        'factory': 'contrib.performance.loadtest.population.SmoothRampUp',
         'params': {
             'groups': 10,
             'groupSize': 1,
@@ -254,7 +254,7 @@ class LoadSimulatorTests(TestCase):
         accounts.setContent("foo,bar,baz,quux\nfoo2,bar2,baz2,quux2\n")
         config = VALID_CONFIG.copy()
         config["accounts"] = {
-            "loader": "loadtest.sim.recordsFromCSVFile",
+            "loader": "contrib.performance.loadtest.sim.recordsFromCSVFile",
             "params": {
                 "path": accounts.path},
             }
@@ -280,7 +280,7 @@ class LoadSimulatorTests(TestCase):
         """
         config = VALID_CONFIG.copy()
         config["accounts"] = {
-            "loader": "loadtest.sim.recordsFromCSVFile",
+            "loader": "contrib.performance.loadtest.sim.recordsFromCSVFile",
             "params": {
                 "path": ""},
             }
@@ -305,7 +305,7 @@ class LoadSimulatorTests(TestCase):
         """
         config = VALID_CONFIG.copy()
         config["accounts"] = {
-            "loader": "loadtest.sim.generateRecords",
+            "loader": "contrib.performance.loadtest.sim.generateRecords",
             "params": {
                 "count": 2
             },
@@ -331,7 +331,7 @@ class LoadSimulatorTests(TestCase):
         """
         config = VALID_CONFIG.copy()
         config["accounts"] = {
-            "loader": "loadtest.sim.generateRecords",
+            "loader": "contrib.performance.loadtest.sim.generateRecords",
             "params": {
                 "count": 3,
                 "uidPattern": "USER%03d",
@@ -384,7 +384,7 @@ class LoadSimulatorTests(TestCase):
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({
                     "arrival": {
-                        "factory": "loadtest.population.SmoothRampUp",
+                        "factory": "contrib.performance.loadtest.population.SmoothRampUp",
                         "params": {
                             "groups": 10,
                             "groupSize": 1,
@@ -427,18 +427,18 @@ class LoadSimulatorTests(TestCase):
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({
                     "clients": [{
-                            "software": "loadtest.ical.SnowLeopard",
+                            "software": "contrib.performance.loadtest.ical.SnowLeopard",
                             "params": {"foo": "bar"},
                             "profiles": [{
                                     "params": {
                                         "interval": 25,
                                         "eventStartDistribution": {
-                                            "type": "stats.NormalDistribution",
+                                            "type": "contrib.performance.stats.NormalDistribution",
                                             "params": {
                                                 "mu": 123,
                                                 "sigma": 456,
                                                 }}},
-                                    "class": "loadtest.profiles.Eventer"}],
+                                    "class": "contrib.performance.loadtest.profiles.Eventer"}],
                             "weight": 3,
                             }]}))
                             
@@ -473,7 +473,7 @@ class LoadSimulatorTests(TestCase):
         """
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({
-                    "observers": ["loadtest.population.SimpleStatistics"]}))
+                    "observers": ["contrib.performance.loadtest.population.SimpleStatistics"]}))
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         self.assertEquals(len(sim.observers), 1)
         self.assertIsInstance(sim.observers[0], SimpleStatistics)

@@ -23,7 +23,7 @@ from itertools import count
 from uuid import uuid4
 from datetime import datetime, timedelta
 
-from _event_create import (
+from contrib.performance._event_create import (
     makeAttendees, makeVCalendar, measure as _measure)
 
 

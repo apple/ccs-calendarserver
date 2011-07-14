@@ -21,7 +21,7 @@ Tests for some things in L{loadtest.population}.
 
 from twisted.trial.unittest import TestCase
 
-from loadtest.population import ReportStatistics
+from contrib.performance.loadtest.population import ReportStatistics
 
 class ReportStatisticsTests(TestCase):
     """

@@ -31,10 +31,10 @@ from twisted.internet.defer import succeed, fail
 from twisted.web.http import NO_CONTENT, PRECONDITION_FAILED
 from twisted.web.client import Response
 
-from loadtest.profiles import Eventer, Inviter, Accepter, OperationLogger
-from loadtest.population import Populator, CalendarClientSimulator
-from loadtest.ical import IncorrectResponseCode, Calendar, Event, BaseClient
-from loadtest.sim import _DirectoryRecord
+from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter, OperationLogger
+from contrib.performance.loadtest.population import Populator, CalendarClientSimulator
+from contrib.performance.loadtest.ical import IncorrectResponseCode, Calendar, Event, BaseClient
+from contrib.performance.loadtest.sim import _DirectoryRecord
 
 SIMPLE_EVENT = """\
 BEGIN:VCALENDAR

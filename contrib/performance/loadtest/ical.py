@@ -41,12 +41,13 @@ from caldavclientlibrary.protocol.webdav.definitions import davxml
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from caldavclientlibrary.protocol.caldav.definitions import csxml
 
-from httpclient import StringProducer, readBody
-from httpauth import AuthHandlerAgent
-
-from subscribe import Periodical
-
 from calendarserver.tools.notifications import PubSubClientFactory
+
+from contrib.performance.httpclient import StringProducer, readBody
+from contrib.performance.httpauth import AuthHandlerAgent
+
+from contrib.performance.loadtest.subscribe import Periodical
+
 
 def loadRequestBody(label):
     return FilePath(__file__).sibling('request-data').child(label + '.request').getContent()

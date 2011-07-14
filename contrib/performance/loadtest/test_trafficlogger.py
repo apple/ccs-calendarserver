@@ -22,7 +22,7 @@ from twisted.trial.unittest import TestCase
 from twisted.test.proto_helpers import StringTransport, MemoryReactor
 from twisted.protocols.wire import Discard
 
-from loadtest.trafficlogger import _TrafficLoggingFactory, loggedReactor
+from contrib.performance.loadtest.trafficlogger import _TrafficLoggingFactory, loggedReactor
 
 
 class IProbe(Interface):

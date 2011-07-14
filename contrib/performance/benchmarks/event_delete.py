@@ -27,11 +27,11 @@ from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
 from twisted.web.http import NO_CONTENT
 
-from httpauth import AuthHandlerAgent
-from httpclient import StringProducer
+from contrib.performance.httpauth import AuthHandlerAgent
+from contrib.performance.httpclient import StringProducer
 
-from benchlib import initialize, sample
-from event import makeEvent
+from contrib.performance.benchlib import initialize, sample
+from contrib.performance.benchmarks.event import makeEvent
 
 @inlineCallbacks
 def measure(host, port, dtrace, attendeeCount, samples):

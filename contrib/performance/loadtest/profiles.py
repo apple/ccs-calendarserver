@@ -39,9 +39,9 @@ from twisted.internet.defer import Deferred, succeed, fail
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
-from stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean, median
-from loadtest.logger import SummarizingMixin
-from loadtest.ical import IncorrectResponseCode
+from contrib.performance.stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean, median
+from contrib.performance.loadtest.logger import SummarizingMixin
+from contrib.performance.loadtest.ical import IncorrectResponseCode
 
 
 class ProfileBase(object):

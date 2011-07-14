@@ -21,7 +21,7 @@ Benchmark a change in the date boundaries of an event.
 
 import datetime
 
-import _event_change
+from contrib.performance import _event_change
 
 TIME_FORMAT = '%Y%m%dT%H%M%S'
 

@@ -28,11 +28,11 @@ from twisted.web.http_headers import Headers
 from twisted.web.client import Agent
 from twisted.internet import reactor
 
-from httpauth import AuthHandlerAgent
-from httpclient import StringProducer
-from benchlib import CalDAVAccount, sample
+from contrib.performance.httpauth import AuthHandlerAgent
+from contrib.performance.httpclient import StringProducer
+from contrib.performance.benchlib import CalDAVAccount, sample
 
-from benchmarks.vfreebusy import VFREEBUSY, formatDate, makeEventNear
+from contrib.performance.benchmarks.vfreebusy import VFREEBUSY, formatDate, makeEventNear
 
 @inlineCallbacks
 def measure(host, port, dtrace, attendees, samples):

@@ -29,11 +29,11 @@ from twisted.python.filepath import FilePath
 from twisted.python.util import FancyEqMixin
 from twisted.python.log import msg, err
 
-from stats import mean, median, stddev, mad
-from loadtest.trafficlogger import loggedReactor
-from loadtest.logger import SummarizingMixin
-from loadtest.ical import SnowLeopard, RequestLogger
-from loadtest.profiles import Eventer, Inviter, Accepter
+from contrib.performance.stats import mean, median, stddev, mad
+from contrib.performance.loadtest.trafficlogger import loggedReactor
+from contrib.performance.loadtest.logger import SummarizingMixin
+from contrib.performance.loadtest.ical import SnowLeopard, RequestLogger
+from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 
 
 class ProfileType(object, FancyEqMixin):

@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-import _event_change
+from contrib.performance import _event_change
 
 def measure(host, port, dtrace, attendeeCount, samples):
     def deleteAttendees(event, i):
