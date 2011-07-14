@@ -861,7 +861,7 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         I{/principals/__uids__/<uid>/} and returns a C{PropFindResult}
         representing the data from it.
         """
-        principals = self.client._parsePROPFINDResponse(PRINCIPAL_PROPFIND_RESPONSE)
+        principals = self.client._parseMultiStatus(PRINCIPAL_PROPFIND_RESPONSE)
         principal = principals['/principals/__uids__/user01/']
         self.assertEquals(
             principal.getHrefProperties(),
