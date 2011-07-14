@@ -43,7 +43,10 @@ class _DirectoryRecord(object):
 
 
 def recordsFromCSVFile(path):
-    pathObj = FilePath(__file__).parent().preauthChild(path)
+    if path.startswith('/'):
+        pathObj = FilePath(path)
+    else:
+        pathObj = FilePath(__file__).parent().preauthChild(path)
     return [
         _DirectoryRecord(*line.decode('utf-8').split(u','))
         for line
@@ -79,24 +82,16 @@ class SimOptions(Options):
     Command line configuration options for the load simulator.
     """
     config = None
+    _defaultConfig = FilePath(__file__).sibling("config.plist")
 
     optParameters = [
         ("runtime", "t", None,
          "Specify the limit (seconds) on the time to run the simulation.",
-         int)]
-
-    def opt_config(self, path):
-        """
-        Configuration plist file name from which to read simulation parameters.
-        """
-        try:
-            configFile = FilePath(path).open()
-        except IOError, e:
-            raise UsageError("--config %s: %s" % (path, e.strerror))
-        try:
-            self.config = readPlist(configFile)
-        except ExpatError, e:
-            raise UsageError("--config %s: %s" % (path, e)) 
+         int),
+        ("config", None, _defaultConfig,
+         "Configuration plist file name from which to read simulation parameters.",
+         FilePath),
+        ]
 
 
     def opt_logfile(self, filename):
@@ -135,8 +130,18 @@ class SimOptions(Options):
 
 
     def postOptions(self):
-        if self.config is None:
-            raise UsageError("Specify a configuration file using --config <path>")
+        try:
+            configFile = self['config'].open()
+        except IOError, e:
+            raise UsageError("--config %s: %s" % (
+                    self['config'].path, e.strerror))
+        try:
+            try:
+                self.config = readPlist(configFile)
+            except ExpatError, e:
+                raise UsageError("--config %s: %s" % (self['config'].path, e)) 
+        finally:
+            configFile.close()
 
 
 Arrival = namedtuple('Arrival', 'factory parameters')

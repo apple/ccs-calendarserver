@@ -49,16 +49,13 @@ VALID_CONFIG_PLIST = writePlistToString(VALID_CONFIG)
 
 
 class SimOptionsTests(TestCase):
-    def test_missingConfig(self):
+    def test_defaultConfig(self):
         """
-        If the I{config} option is not specified,
-        L{SimOptions.parseOptions} raises a L{UsageError} indicating
-        it is required.
+        If the I{config} option is not specified, the default config.plist in
+        the source tree is used.
         """
         options = SimOptions()
-        exc = self.assertRaises(UsageError, options.parseOptions, [])
-        self.assertEquals(
-            str(exc), "Specify a configuration file using --config <path>")
+        self.assertEqual(options['config'], FilePath(__file__).sibling('config.plist'))
 
 
     def test_configFileNotFound(self):
@@ -67,12 +64,12 @@ class SimOptionsTests(TestCase):
         L{SimOptions.parseOptions} raises a L{UsageError} indicating
         this.
         """
-        name = self.mktemp()
+        name = FilePath(self.mktemp())
         options = SimOptions()
         exc = self.assertRaises(
-            UsageError, options.parseOptions, ['--config', name])
+            UsageError, options.parseOptions, ['--config', name.path])
         self.assertEquals(
-            str(exc), "--config %s: No such file or directory" % (name,))
+            str(exc), "--config %s: No such file or directory" % (name.path,))
 
 
     def test_configFileNotParseable(self):
@@ -82,14 +79,14 @@ class SimOptionsTests(TestCase):
         L{SimOptions.parseOptions} raises a L{UsageError} indicating
         this.
         """
-        config = self.mktemp()
-        FilePath(config).setContent("some random junk")
+        config = FilePath(self.mktemp())
+        config.setContent("some random junk")
         options = SimOptions()
         exc = self.assertRaises(
-            UsageError, options.parseOptions, ['--config', config])
+            UsageError, options.parseOptions, ['--config', config.path])
         self.assertEquals(
             str(exc),
-            "--config %s: syntax error: line 1, column 0" % (config,))
+            "--config %s: syntax error: line 1, column 0" % (config.path,))
 
 
 
