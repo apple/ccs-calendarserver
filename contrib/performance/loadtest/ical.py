@@ -452,7 +452,13 @@ class SnowLeopard(BaseClient):
         @inlineCallbacks
         def cbCalendars(calendars):
             for cal in calendars:
-                if self._calendars.setdefault(cal.url, cal).ctag != cal.ctag or True:
+                if cal.url not in self._calendars:
+                    # Calendar seen for the first time - reload it
+                    self._calendars[cal.url] = cal
+                    yield self._updateCalendar(cal)
+                elif self._calendars[cal.url].ctag != cal.ctag:
+                    # Calendar changed - update to new ctag and reload
+                    self._calendars[cal.url].ctag = cal.ctag
                     yield self._updateCalendar(cal)
         d.addCallback(cbCalendars)
         d = self._newOperation("poll", d)
