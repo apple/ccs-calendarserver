@@ -333,11 +333,11 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         # Upper limit on ratio of >5sec requests to total requests
         fiveSecCutoff = 0.01
 
-        failures = 0
-        threeSec = 0
-        fiveSec = 0
-
         for (method, times) in self._perMethodTimes.iteritems():
+            failures = 0
+            threeSec = 0
+            fiveSec = 0
+
             for success, duration in times:
                 if not success:
                     failures += 1
@@ -358,7 +358,6 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
                             method=method, cutoff=cutoff * 100))
 
         return reasons
-        
 
 
 

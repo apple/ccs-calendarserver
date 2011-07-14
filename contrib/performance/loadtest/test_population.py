@@ -109,3 +109,26 @@ class ReportStatisticsTests(TestCase):
         self.assertEqual(
             ["Greater than 1% GET exceeded 5 second response time"],
             logger.failures())
+
+
+    def test_methodsCountedSeparately(self):
+        """
+        The counts for one method do not affect the results of another method.
+        """
+        logger = ReportStatistics()
+        for i in range(99):
+            logger.observe(dict(
+                    type='response', method='GET', success=True,
+                    duration=2.5, user='user01'))
+            logger.observe(dict(
+                    type='response', method='POST', success=True,
+                    duration=2.5, user='user01'))
+
+        logger.observe(dict(
+                type='response', method='GET', success=False,
+                duration=2.5, user='user01'))
+        logger.observe(dict(
+                type='response', method='POST', success=False,
+                duration=2.5, user='user01'))
+
+        self.assertEqual([], logger.failures())
