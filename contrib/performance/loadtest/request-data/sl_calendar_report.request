@@ -1,2 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<x0:calendar-multiget xmlns:x0="urn:ietf:params:xml:ns:caldav" xmlns:x1="DAV:"><x1:prop><x1:getetag/><x0:calendar-data/><x0:schedule-tag/></x1:prop><x1:href>%(href)s</x1:href></x0:calendar-multiget>
+<x0:calendar-multiget xmlns:x0="urn:ietf:params:xml:ns:caldav" xmlns:x1="DAV:">
+  <x1:prop>
+    <x1:getetag/>
+    <x0:calendar-data/>
+    <x0:schedule-tag/>
+  </x1:prop>
+%(hrefs)s
+</x0:calendar-multiget>

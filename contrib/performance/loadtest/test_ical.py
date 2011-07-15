@@ -971,10 +971,10 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         self.client._events[event.url] = event
         self.client.changeEventAttendee(event.url, old, new)
 
-        result, req = requests.pop(0)
+        _ignore_result, req = requests.pop(0)
 
         # iCal PUTs the new VCALENDAR object.
-        expectedResponseCode, method, url, headers, body = req
+        _ignore_expectedResponseCode, method, url, headers, body = req
         self.assertEquals(method, 'PUT')
         self.assertEquals(url, 'http://127.0.0.1' + event.url)
         self.assertIsInstance(url, str)
@@ -1146,8 +1146,87 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
     <href>/something/anotherthing.ics</href>
     <status>HTTP/1.1 404 Not Found</status>
   </response>
+  <response>
+    <href>/something/else.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"ef70beb4cb7da4b2e2950350b09e9a01"</getetag>
+        <calendar-data xmlns='urn:ietf:params:xml:ns:caldav'><![CDATA[BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VEVENT
+UID:CD54161A13AA8A4649D3781E@caldav.corp.apple.com
+DTSTART:20110715T140000Z
+DURATION:PT1H
+DTSTAMP:20110715T144217Z
+SUMMARY:Test2
+END:VEVENT
+END:VCALENDAR
+]]></calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
 </multistatus>
 """
+
+    _CALENDAR_REPORT_RESPONSE_BODY_1 = """\
+<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
+  <response>
+    <href>/something/anotherthing.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"ef70beb4cb7da4b2e2950350b09e9a01"</getetag>
+        <calendar-data xmlns='urn:ietf:params:xml:ns:caldav'><![CDATA[BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VEVENT
+UID:anotherthing@caldav.corp.apple.com
+DTSTART:20110715T140000Z
+DURATION:PT1H
+DTSTAMP:20110715T144217Z
+SUMMARY:Test1
+END:VEVENT
+END:VCALENDAR
+]]></calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>
+"""
+
+    _CALENDAR_REPORT_RESPONSE_BODY_2 = """\
+<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
+  <response>
+    <href>/something/else.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"ef70beb4cb7da4b2e2950350b09e9a01"</getetag>
+        <calendar-data xmlns='urn:ietf:params:xml:ns:caldav'><![CDATA[BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VEVENT
+UID:else@caldav.corp.apple.com
+DTSTART:20110715T140000Z
+DURATION:PT1H
+DTSTAMP:20110715T144217Z
+SUMMARY:Test2
+END:VEVENT
+END:VCALENDAR
+]]></calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>
+"""
+
     def test_eventMissing(self):
         """
         If an event included in the calendar PROPFIND response no longer exists
@@ -1160,7 +1239,7 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
         self.client._calendars[calendar.url] = calendar
         self.client._updateCalendar(calendar)
         result, req = requests.pop(0)
-        expectedResponseCode, method, url, headers, body = req
+        expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
         self.assertEqual('PROPFIND', method)
         self.assertEqual('http://127.0.0.1/something/', url)
         self.assertEqual(MULTI_STATUS, expectedResponseCode)
@@ -1171,7 +1250,7 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
                 StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)))
         
         result, req = requests.pop(0)
-        expectedResponseCode, method, url, headers, body = req
+        expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
         self.assertEqual('REPORT', method)
         self.assertEqual('http://127.0.0.1/something/', url)
         self.assertEqual(MULTI_STATUS, expectedResponseCode)
@@ -1188,6 +1267,58 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
         # 404 status.
         self.assertIn('/something/else.ics', self.client._events)
 
+
+    def test_multigetBatch(self):
+        """
+        If an event included in the calendar PROPFIND response no longer exists
+        by the time a REPORT is issued for that event, the 404 is handled and
+        the rest of the normal update logic for that event is skipped.
+        """
+        requests = self.interceptRequests()
+
+        self.patch(self.client, "MULTIGET_BATCH_SIZE", 1)
+
+        calendar = Calendar(None, 'calendar', '/something/', None)
+        self.client._calendars[calendar.url] = calendar
+        self.client._updateCalendar(calendar)
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
+        self.assertEqual('PROPFIND', method)
+        self.assertEqual('http://127.0.0.1/something/', url)
+        self.assertEqual(MULTI_STATUS, expectedResponseCode)
+
+        result.callback(
+            MemoryResponse(
+                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)))
+        
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
+        self.assertEqual('REPORT', method)
+        self.assertEqual('http://127.0.0.1/something/', url)
+        self.assertEqual(MULTI_STATUS, expectedResponseCode)
+
+        result.callback(
+            MemoryResponse(
+                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY_1)))
+
+        self.assertTrue(self.client._events['/something/anotherthing.ics'].etag is not None)
+        self.assertTrue(self.client._events['/something/else.ics'].etag is None)
+        
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
+        self.assertEqual('REPORT', method)
+        self.assertEqual('http://127.0.0.1/something/', url)
+        self.assertEqual(MULTI_STATUS, expectedResponseCode)
+
+        result.callback(
+            MemoryResponse(
+                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY_2)))
+
+        self.assertTrue(self.client._events['/something/anotherthing.ics'].etag is not None)
+        self.assertTrue(self.client._events['/something/else.ics'].etag is not None)
 
 
 class VFreeBusyTests(SnowLeopardMixin, TestCase):

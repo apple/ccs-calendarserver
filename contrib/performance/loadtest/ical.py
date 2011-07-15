@@ -181,6 +181,9 @@ class SnowLeopard(BaseClient):
     # configuration.  This is also the actual value used by Snow
     # Leopard iCal.
     CALENDAR_HOME_POLL_INTERVAL = 15 * 60
+    
+    # The maximum number of resources to retrieve in a single multiget
+    MULTIGET_BATCH_SIZE = 200
 
     _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody('sl_startup_principal_propfind')
     _STARTUP_PRINCIPALS_REPORT = loadRequestBody('sl_startup_principals_report')
@@ -190,6 +193,7 @@ class SnowLeopard(BaseClient):
 
     _CALENDAR_PROPFIND = loadRequestBody('sl_calendar_propfind')
     _CALENDAR_REPORT = loadRequestBody('sl_calendar_report')
+    _CALENDAR_REPORT_HREF = loadRequestBody('sl_calendar_report_href')
 
     _USER_LIST_PRINCIPAL_PROPERTY_SEARCH = loadRequestBody('sl_user_list_principal_property_search')
     _POST_AVAILABILITY = loadRequestBody('sl_post_availability')
@@ -396,6 +400,7 @@ class SnowLeopard(BaseClient):
         body = yield readBody(response)
 
         result = self._parseMultiStatus(body)
+        changed = []
         for responseHref in result:
             if responseHref == calendar.url:
                 continue
@@ -411,9 +416,17 @@ class SnowLeopard(BaseClient):
                 
             event = self._events[responseHref]
             if event.etag != etag:
-                response = yield self._eventReport(url, responseHref)
-                body = yield readBody(response)
-                res = self._parseMultiStatus(body)[responseHref]
+                changed.append(responseHref)
+            
+        while changed:
+            batchedHrefs = changed[:self.MULTIGET_BATCH_SIZE]
+            changed = changed[self.MULTIGET_BATCH_SIZE:]
+    
+            response = yield self._eventReport(url, batchedHrefs)
+            body = yield readBody(response)
+            multistatus = self._parseMultiStatus(body)
+            for responseHref in batchedHrefs:
+                res = multistatus[responseHref]
                 if res.getStatus() is None or " 404 " not in res.getStatus():
                     text = res.getTextProperties()
                     etag = text[davxml.getetag]
@@ -434,15 +447,16 @@ class SnowLeopard(BaseClient):
         self.catalog["eventChanged"].issue(href)
 
                 
-    def _eventReport(self, calendar, event):
-        # Next do a REPORT on each event that might have information
+    def _eventReport(self, calendar, events):
+        # Next do a REPORT on events that might have information
         # we don't know about.
+        hrefs = "".join([self._CALENDAR_REPORT_HREF % {'href': event} for event in events])
         return self._request(
             MULTI_STATUS,
             'REPORT',
             self.root + calendar,
             Headers({'content-type': ['text/xml']}),
-            StringProducer(self._CALENDAR_REPORT % {'href': event}))
+            StringProducer(self._CALENDAR_REPORT % {'hrefs': hrefs}))
 
 
     def _checkCalendarsForEvents(self, calendarHomeSet):
