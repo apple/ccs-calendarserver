@@ -144,7 +144,7 @@
 		     timestamps in the near future, limited to certain days of
 		     the week and certain hours of the day. -->
 		<key>type</key>
-		<string>stats.WorkDistribution</string>
+		<string>contrib.performance.stats.WorkDistribution</string>
 
 		<key>params</key>
 		<dict>
@@ -190,7 +190,7 @@
 	      <key>sendInvitationDistribution</key>
 	      <dict>
 		<key>type</key>
-		<string>stats.NormalDistribution</string>
+		<string>contrib.performance.stats.NormalDistribution</string>
 		<key>params</key>
 		<dict>
 		  <!-- mu gives the mean of the normal distribution (in
@@ -212,7 +212,7 @@
 	      <key>inviteeDistanceDistribution</key>
 	      <dict>
 		<key>type</key>
-		<string>stats.UniformIntegerDistribution</string>
+		<string>contrib.performance.stats.UniformIntegerDistribution</string>
 		<key>params</key>
 		<dict>
 		  <!-- The minimum value (inclusive) of the uniform
@@ -241,7 +241,7 @@
 	      <key>acceptDelayDistribution</key>
 	      <dict>
 		<key>type</key>
-		<string>stats.NormalDistribution</string>
+		<string>contrib.performance.stats.NormalDistribution</string>
 		<key>params</key>
 		<dict>
 		  <!-- mean -->
