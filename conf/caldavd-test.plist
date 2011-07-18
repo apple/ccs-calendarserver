@@ -160,7 +160,7 @@
     <!-- Maximum number of unique attendees per entire event -->
     <!-- 0 for no limit -->
     <key>MaxAttendeesPerInstance</key>
-    <integer>100</integer>
+    <integer>0</integer>
 
     <!-- Maximum number of instances allowed for a single RRULE -->
     <!-- 0 for no limit -->
