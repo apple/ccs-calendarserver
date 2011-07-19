@@ -81,6 +81,8 @@ else:
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
                 memberGUIDs           = [],
+                extProxies            = [],
+                extReadOnlyProxies    = [],
             )
             self.assertEquals(record.fullName, "")
 
@@ -97,6 +99,8 @@ else:
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
                 memberGUIDs           = [],
+                extProxies            = [],
+                extReadOnlyProxies    = [],
             )
 
             digestFields = {}
@@ -117,6 +121,8 @@ else:
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
                 memberGUIDs           = [],
+                extProxies            = [],
+                extReadOnlyProxies    = [],
             )
 
             digestFields = {

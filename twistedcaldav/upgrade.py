@@ -846,7 +846,8 @@ class PostDBImportService(Service, object):
 
             updater = GroupMembershipCacheUpdater(proxydb,
                 directory, self.config.GroupCaching.ExpireSeconds,
-                namespace=self.config.GroupCaching.MemcachedPool)
+                namespace=self.config.GroupCaching.MemcachedPool,
+                useExternalProxies=self.config.GroupCaching.UseExternalProxies)
             yield updater.updateCache(fast=True)
 
         # Process old inbox items

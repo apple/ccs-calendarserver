@@ -70,7 +70,8 @@ class LdapDirectoryService(CachingDirectoryService):
         """
         @param params: a dictionary containing the following keys:
             cacheTimeout, realmName, uri, tls, tlsCACertFile, tlsCACertDir,
-            tlsRequireCert, crendentials, rdnSchema, groupSchema
+            tlsRequireCert, credentials, rdnSchema, groupSchema, resourceSchema
+            partitionSchema
         """
 
         defaults = {
@@ -111,7 +112,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     "recordName": "cn", # uniquely identifies group records
                 },
                 "locations": {
-                    "rdn": "ou=Locations",
+                    "rdn": "ou=Places",
                     "attr": "cn", # used only to synthesize email address
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
@@ -129,6 +130,21 @@ class LdapDirectoryService(CachingDirectoryService):
                 "membersAttr": "member", # how members are specified
                 "nestedGroupsAttr": None, # how nested groups are specified
                 "memberIdAttr": None, # which attribute the above refer to
+            },
+            "resourceSchema": {
+                # Either set this attribute to retrieve the plist version
+                # of resource-info, as in a Leopard OD server, or...
+                "resourceInfoAttr": None,
+                # ...set the above to None and instead specify these
+                # individually:
+                "autoScheduleAttr": None,
+                "autoScheduleEnabledValue": "yes",
+                "proxyAttr": None, # list of GUIDs
+                "readOnlyProxyAttr": None, # list of GUIDs
+            },
+            "partitionSchema": {
+                "serverIdAttr": None, # maps to augments server-id
+                "partitionIdAttr": None, # maps to augments partition-id
             },
             "attributeMapping": { # maps internal record names to LDAP
                 "fullName" : "cn",
@@ -157,6 +173,8 @@ class LdapDirectoryService(CachingDirectoryService):
         self.authMethod = params["authMethod"]
         self.rdnSchema = params["rdnSchema"]
         self.groupSchema = params["groupSchema"]
+        self.resourceSchema = params["resourceSchema"]
+        self.partitionSchema = params["partitionSchema"]
         self.attributeMapping = params["attributeMapping"]
 
         self.base = ldap.dn.str2dn(self.rdnSchema["base"])
@@ -180,6 +198,18 @@ class LdapDirectoryService(CachingDirectoryService):
             attrSet.add(self.groupSchema["memberIdAttr"])
         if self.rdnSchema["users"]["loginEnabledAttr"]:
             attrSet.add(self.rdnSchema["users"]["loginEnabledAttr"])
+        if self.resourceSchema["resourceInfoAttr"]:
+            attrSet.add(self.resourceSchema["resourceInfoAttr"])
+        if self.resourceSchema["autoScheduleAttr"]:
+            attrSet.add(self.resourceSchema["autoScheduleAttr"])
+        if self.resourceSchema["proxyAttr"]:
+            attrSet.add(self.resourceSchema["proxyAttr"])
+        if self.resourceSchema["readOnlyProxyAttr"]:
+            attrSet.add(self.resourceSchema["readOnlyProxyAttr"])
+        if self.partitionSchema["serverIdAttr"]:
+            attrSet.add(self.partitionSchema["serverIdAttr"])
+        if self.partitionSchema["partitionIdAttr"]:
+            attrSet.add(self.partitionSchema["partitionIdAttr"])
         self.attrList = list(attrSet)
 
         self.typeRDNs = {}
@@ -214,6 +244,49 @@ class LdapDirectoryService(CachingDirectoryService):
 
     def recordTypes(self):
         return self._recordTypes
+
+
+    def listRecords(self, recordType):
+
+        # Build base for this record Type
+        base = self.typeRDNs[recordType] + self.base
+
+        # Build filter
+        filter = "(!(objectClass=organizationalUnit))"
+        typeFilter = self.rdnSchema[recordType]["filter"]
+        if typeFilter:
+            filter = "(&%s%s)" % (filter, typeFilter)
+
+        # Query the LDAP server
+        self.log_debug("Querying ldap for records matching base %s and filter %s for attributes %s." %
+            (ldap.dn.dn2str(base), filter, self.attrList))
+
+        results = self.ldap.search_s(ldap.dn.dn2str(base),
+            ldap.SCOPE_SUBTREE, filter, self.attrList)
+
+        records = []
+
+        for dn, attrs in results:
+
+            unrestricted = True
+            if self.restrictedGUIDs is not None:
+                guidAttr = self.rdnSchema["guidAttr"]
+                if guidAttr:
+                    guid = self._getUniqueLdapAttribute(attrs, guidAttr)
+                    if guid not in self.restrictedGUIDs:
+                        unrestricted = False
+
+            record = self._ldapResultToRecord(dn, attrs, recordType)
+            self.log_debug("Got LDAP record %s" % (record,))
+
+            if not unrestricted:
+                self.log_debug("%s is not enabled because it's not a member of group: %s" % (guid, self.restrictToGroup))
+                record.enabledForCalendaring = False
+                record.enabledForAddressBooks = False
+
+            records.append(record)
+
+        return records
 
 
     def createLDAPConnection(self):
@@ -274,7 +347,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 recordType = self.recordType_groups
                 base = self.typeRDNs[recordType] + self.base
                 filter = "(cn=%s)" % (self.restrictToGroup,)
-                self.log_info("Retrieving ldap record with base %s and filter %s." %
+                self.log_debug("Retrieving ldap record with base %s and filter %s." %
                     (ldap.dn.dn2str(base), filter))
                 result = self.ldap.search_s(ldap.dn.dn2str(base),
                     ldap.SCOPE_SUBTREE, filter, self.attrList)
@@ -326,7 +399,7 @@ class LdapDirectoryService(CachingDirectoryService):
             base = self.typeRDNs[recordType] + self.base
             filter = "(%s=%s)" % (self.rdnSchema["guidAttr"], groupGUID)
 
-            self.log_info("Retrieving ldap record with base %s and filter %s." %
+            self.log_debug("Retrieving ldap record with base %s and filter %s." %
                 (ldap.dn.dn2str(base), filter))
             result = self.ldap.search_s(ldap.dn.dn2str(base),
                 ldap.SCOPE_SUBTREE, filter, self.attrList)
@@ -417,6 +490,11 @@ class LdapDirectoryService(CachingDirectoryService):
                 self.rdnSchema[recordType]["attr"])
             emailAddresses.add(emailPrefix + emailSuffix)
 
+        proxyGUIDs = ()
+        readOnlyProxyGUIDs = ()
+        autoSchedule = False
+        memberGUIDs = set()
+
         # LDAP attribute -> principal matchings
         shortNames = (self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["recordName"]),)
         if recordType == self.recordType_users:
@@ -433,12 +511,67 @@ class LdapDirectoryService(CachingDirectoryService):
             enabledForAddressBooks = False
             enabledForLogin = False
 
+            if self.groupSchema["membersAttr"]:
+                members = self._getMultipleLdapAttributes(attrs, self.groupSchema["membersAttr"])
+                if members:
+                    if type(members) is str:
+                        members = set([members])
+                    memberGUIDs.update(members)
+            if self.groupSchema["nestedGroupsAttr"]:
+                members = self._getMultipleLdapAttributes(attrs, self.groupSchema["nestedGroupsAttr"])
+                if members:
+                    if type(members) is str:
+                        members = set([members])
+                    memberGUIDs.update(members)
+
+
         elif recordType in (self.recordType_resources,
             self.recordType_locations):
             fullName = self._getUniqueLdapAttribute(attrs, "cn")
             enabledForCalendaring = True
             enabledForAddressBooks = False
             enabledForLogin = False
+            if self.resourceSchema["resourceInfoAttr"]:
+                resourceInfo = self._getUniqueLdapAttribute(attrs,
+                    self.resourceSchema["resourceInfoAttr"])
+                if resourceInfo:
+                    try:
+                        (
+                            autoSchedule,
+                            proxy,
+                            readOnlyProxy
+                        ) = self.parseResourceInfo(
+                            resourceInfo,
+                            guid,
+                            recordType,
+                            shortNames[0]
+                        )
+                        if proxy:
+                            proxyGUIDs = (proxy,)
+                        if readOnlyProxy:
+                            readOnlyProxyGUIDs = (readOnlyProxy,)
+                    except ValueError, e:
+                        self.log_error("Unable to parse resource info (%s)" % (e,))
+            else: # the individual resource attributes might be specified
+                if self.resourceSchema["autoScheduleAttr"]:
+                    autoScheduleValue = self._getUniqueLdapAttribute(attrs,
+                        self.resourceSchema["autoScheduleAttr"])
+                    autoSchedule = (autoScheduleValue ==
+                        self.resourceSchema["autoScheduleEnabledValue"])
+                if self.resourceSchema["proxyAttr"]:
+                    proxyGUIDs = self._getMultipleLdapAttributes(attrs,
+                        self.resourceSchema["proxyAttr"])
+                if self.resourceSchema["readOnlyProxyAttr"]:
+                    readOnlyProxyGUIDs = self._getMultipleLdapAttributes(attrs,
+                        self.resourceSchema["readOnlyProxyAttr"])
+
+        serverID = partitionID = None
+        if self.partitionSchema["serverIdAttr"]:
+            serverID = self._getUniqueLdapAttribute(attrs,
+                self.partitionSchema["serverIdAttr"])
+        if self.partitionSchema["partitionIdAttr"]:
+            partitionID = self._getUniqueLdapAttribute(attrs,
+                self.partitionSchema["partitionIdAttr"])
 
         record = LdapDirectoryRecord(
             service                 = self,
@@ -452,6 +585,9 @@ class LdapDirectoryService(CachingDirectoryService):
             emailAddresses          = emailAddresses,
             uid                     = uid,
             dn                      = dn,
+            memberGUIDs             = memberGUIDs,
+            extProxies              = proxyGUIDs,
+            extReadOnlyProxies      = readOnlyProxyGUIDs,
             attrs                   = attrs,
         )
 
@@ -469,10 +605,10 @@ class LdapDirectoryService(CachingDirectoryService):
             augmentRecord = AugmentRecord(
                 guid,
                 enabled=True,
-                serverID="", # TODO: add to LDAP?
-                partitionID="", # TODO: add to LDAP?
+                serverID=serverID,
+                partitionID=partitionID,
                 enabledForCalendaring=enabledForCalendaring,
-                autoSchedule=False, # TODO: add to LDAP?
+                autoSchedule=autoSchedule,
                 enabledForAddressBooks=enabledForAddressBooks, # TODO: add to LDAP?
                 enabledForLogin=enabledForLogin,
             )
@@ -548,7 +684,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 return
 
             # Query the LDAP server
-            self.log_info("Retrieving ldap record with base %s and filter %s." %
+            self.log_debug("Retrieving ldap record with base %s and filter %s." %
                 (ldap.dn.dn2str(base), filter))
             result = self.ldap.search_s(ldap.dn.dn2str(base),
                 ldap.SCOPE_SUBTREE, filter, self.attrList)
@@ -659,7 +795,8 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         self, service, recordType,
         guid, shortNames, authIDs, fullName,
         firstName, lastName, emailAddresses,
-        uid, dn, attrs
+        uid, dn, memberGUIDs, extProxies, extReadOnlyProxies,
+        attrs
     ):
         super(LdapDirectoryRecord, self).__init__(
             service               = service,
@@ -671,12 +808,17 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
             firstName             = firstName,
             lastName              = lastName,
             emailAddresses        = emailAddresses,
+            extProxies            = extProxies,
+            extReadOnlyProxies    = extReadOnlyProxies,
             uid                   = uid,
         )
 
         # Save attributes of dn and attrs in case you might need them later
         self.dn = dn
         self.attrs = attrs
+
+        # Store copy of member guids
+        self._memberGUIDs = memberGUIDs
 
         # Identifiers of the members of this record if it is a group
         membersAttrs = []
@@ -797,6 +939,10 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
             self.log_warn(str(e))
 
         return groups
+
+
+    def memberGUIDs(self):
+        return set(self._memberGUIDs)
 
 
     def verifyCredentials(self, credentials):

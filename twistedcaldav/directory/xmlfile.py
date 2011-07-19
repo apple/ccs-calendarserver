@@ -596,6 +596,13 @@ class XMLDirectoryRecord(DirectoryRecord):
         for shortName in self._groups:
             yield self.service.recordWithShortName(DirectoryService.recordType_groups, shortName)
 
+    def memberGUIDs(self):
+        results = set()
+        for recordType, shortName in self._members:
+            record = self.service.recordWithShortName(recordType, shortName)
+            results.add(record.guid)
+        return results
+
     def verifyCredentials(self, credentials):
         if self.enabled:
             if isinstance(credentials, UsernamePassword):

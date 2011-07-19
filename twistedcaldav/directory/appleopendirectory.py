@@ -44,6 +44,7 @@ from twisted.python.reflect import namedModule
 
 
 
+
 class OpenDirectoryService(CachingDirectoryService):
     """
     OpenDirectory implementation of L{IDirectoryService}.
@@ -232,8 +233,134 @@ class OpenDirectoryService(CachingDirectoryService):
     def recordTypes(self):
         return self._recordTypes
 
+    def listRecords(self, recordType):
+        """
+        Retrieve all the records of recordType from the directory, but for
+        expediency don't index them or cache them locally, nor in memcached.
+        """
+
+        records = []
+
+        attrs = [
+            dsattributes.kDS1AttrGeneratedUID,
+            dsattributes.kDSNAttrRecordName,
+            dsattributes.kDS1AttrDistinguishedName,
+        ]
+
+        if recordType == DirectoryService.recordType_users:
+            ODRecordType = self._toODRecordTypes[recordType]
+
+        elif recordType in (
+            DirectoryService.recordType_resources,
+            DirectoryService.recordType_locations,
+        ):
+            attrs.append(dsattributes.kDSNAttrResourceInfo)
+            ODRecordType = self._toODRecordTypes[recordType]
+
+        elif recordType == DirectoryService.recordType_groups:
+            attrs.append(dsattributes.kDSNAttrGroupMembers)
+            attrs.append(dsattributes.kDSNAttrNestedGroups)
+            ODRecordType = dsattributes.kDSStdRecordTypeGroups
+
+        self.log_debug("Querying OD for all %s records" % (recordType,))
+        results = self.odModule.listAllRecordsWithAttributes_list(
+            self.directory, ODRecordType, attrs)
+        self.log_debug("Retrieved %d %s records" % (len(results), recordType,))
+
+        for key, value in results:
+            recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
+
+            # Skip if group restriction is in place and guid is not
+            # a member (but don't skip any groups)
+            if (recordType != self.recordType_groups and
+                self.restrictedGUIDs is not None):
+                if str(recordGUID) not in self.restrictedGUIDs:
+                    continue
+
+            recordShortNames = self._uniqueTupleFromAttribute(
+                value.get(dsattributes.kDSNAttrRecordName))
+            recordFullName = value.get(
+                dsattributes.kDS1AttrDistinguishedName)
+
+            proxyGUIDs = ()
+            readOnlyProxyGUIDs = ()
+            autoSchedule = False
+
+            if recordType in (
+                DirectoryService.recordType_resources,
+                DirectoryService.recordType_locations,
+            ):
+                resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
+                if resourceInfo is not None:
+                    if type(resourceInfo) is not str:
+                        resourceInfo = resourceInfo[0]
+                    try:
+                        (
+                            autoSchedule,
+                            proxy,
+                            readOnlyProxy
+                        ) = self.parseResourceInfo(
+                            resourceInfo,
+                            recordGUID,
+                            recordType,
+                            recordShortNames[0]
+                        )
+                    except ValueError:
+                        continue
+                    if proxy:
+                        proxyGUIDs = (proxy,)
+                    if readOnlyProxy:
+                        readOnlyProxyGUIDs = (readOnlyProxy,)
+
+            # Special case for groups, which have members.
+            if recordType == self.recordType_groups:
+                memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
+                if memberGUIDs is None:
+                    memberGUIDs = ()
+                elif type(memberGUIDs) is str:
+                    memberGUIDs = (memberGUIDs,)
+                nestedGUIDs = value.get(dsattributes.kDSNAttrNestedGroups)
+                if nestedGUIDs:
+                    if type(nestedGUIDs) is str:
+                        nestedGUIDs = (nestedGUIDs,)
+                    memberGUIDs += tuple(nestedGUIDs)
+            else:
+                memberGUIDs = ()
+
+            record = OpenDirectoryRecord(
+                service               = self,
+                recordType            = recordType,
+                guid                  = recordGUID,
+                nodeName              = "",
+                shortNames            = recordShortNames,
+                authIDs               = (),
+                fullName              = recordFullName,
+                firstName             = "",
+                lastName              = "",
+                emailAddresses        = "",
+                memberGUIDs           = memberGUIDs,
+                extProxies            = proxyGUIDs,
+                extReadOnlyProxies    = readOnlyProxyGUIDs,
+            )
+
+            # (Copied from below)
+            # Look up augment information
+            # TODO: this needs to be deferred but for now we hard code
+            # the deferred result because we know it is completing
+            # immediately.
+            d = self.augmentService.getAugmentRecord(record.guid,
+                recordType)
+            d.addCallback(lambda x:record.addAugmentInformation(x))
+            records.append(record)
+
+        self.log_debug("ListRecords returning %d %s records" % (len(records),
+            recordType))
+
+        return records
+
+
     def groupsForGUID(self, guid):
-        
+
         attrs = [
             dsattributes.kDS1AttrGeneratedUID,
         ]
@@ -454,6 +581,8 @@ class OpenDirectoryService(CachingDirectoryService):
                         lastName              = recordLastName,
                         emailAddresses        = recordEmailAddresses,
                         memberGUIDs           = (),
+                        extProxies            = (),
+                        extReadOnlyProxies    = (),
                     )
 
                     # (Copied from below)
@@ -731,6 +860,24 @@ class OpenDirectoryService(CachingDirectoryService):
             else:
                 memberGUIDs = ()
 
+            # Special case for resources and locations
+            autoSchedule = False
+            proxyGUIDs = ()
+            readOnlyProxyGUIDs = ()
+            if recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
+                resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
+                if resourceInfo is not None:
+                    if type(resourceInfo) is not str:
+                        resourceInfo = resourceInfo[0]
+                    try:
+                        autoSchedule, proxy, read_only_proxy = self.parseResourceInfo(resourceInfo, recordGUID, recordType, recordShortName)
+                    except ValueError:
+                        continue
+                    if proxy:
+                        proxyGUIDs = (proxy,)
+                    if read_only_proxy:
+                        readOnlyProxyGUIDs = (read_only_proxy,)
+
             record = OpenDirectoryRecord(
                 service               = self,
                 recordType            = recordType,
@@ -743,6 +890,8 @@ class OpenDirectoryService(CachingDirectoryService):
                 lastName              = recordLastName,
                 emailAddresses        = recordEmailAddresses,
                 memberGUIDs           = memberGUIDs,
+                extProxies            = proxyGUIDs,
+                extReadOnlyProxies    = readOnlyProxyGUIDs,
             )
 
             # Look up augment information
@@ -751,6 +900,10 @@ class OpenDirectoryService(CachingDirectoryService):
             d = self.augmentService.getAugmentRecord(record.guid,
                 recordType)
             d.addCallback(lambda x:record.addAugmentInformation(x))
+
+            # Override based on ResourceInfo
+            if autoSchedule:
+                record.autoSchedule = True
 
             if not unrestricted:
                 self.log_debug("%s is not enabled because it's not a member of group: %s" % (recordGUID, self.restrictToGroup))
@@ -831,6 +984,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
     def __init__(
         self, service, recordType, guid, nodeName, shortNames, authIDs,
         fullName, firstName, lastName, emailAddresses, memberGUIDs,
+        extProxies, extReadOnlyProxies,
     ):
         super(OpenDirectoryRecord, self).__init__(
             service               = service,
@@ -842,11 +996,14 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
             firstName             = firstName,
             lastName              = lastName,
             emailAddresses        = emailAddresses,
+            extProxies            = extProxies,
+            extReadOnlyProxies    = extReadOnlyProxies,
         )
         self.nodeName = nodeName
+
         self._memberGUIDs = tuple(memberGUIDs)
-        
         self._groupMembershipGUIDs = None
+
 
     def __repr__(self):
         if self.service.realmName == self.nodeName:
@@ -881,6 +1038,9 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
             record = self.service.recordWithGUID(guid)
             if record:
                 yield record
+
+    def memberGUIDs(self):
+        return set(self._memberGUIDs)
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):

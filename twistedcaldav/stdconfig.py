@@ -109,6 +109,13 @@ DEFAULT_SERVICE_PARAMS = {
             "nestedGroupsAttr": None, # how nested groups are specified
             "memberIdAttr": None, # which attribute the above refer to
         },
+        "resourceSchema": {
+            "resourceInfoAttr": None, # contains location/resource info
+        },
+        "partitionSchema": {
+            "serverIdAttr": None, # maps to augments server-id
+            "partitionIdAttr": None, # maps to augments partition-id
+        },
         "attributeMapping": { # maps internal record names to LDAP
             "fullName" : "cn",
             "emailAddresses" : "mail",
@@ -737,11 +744,12 @@ DEFAULT_CONFIG = {
     },
 
     "GroupCaching" : {
-        "Enabled": False,
+        "Enabled": True,
         "MemcachedPool" : "ProxyDB",
         "UpdateSeconds" : 300,
         "ExpireSeconds" : 3600,
         "EnableUpdater" : True,
+        "UseExternalProxies" : False,
     },
 
     "EnableKeepAlive": True,

@@ -298,6 +298,19 @@
           <key>memberIdAttr</key>
           <string>apple-generateduid</string>
         </dict>
+        <key>resourceSchema</key>
+        <dict>
+          <key>resourceInfoAttr</key>
+          <string>apple-resource-info</string>
+          <key>autoScheduleAttr</key>
+          <string></string>
+          <key>autoScheduleEnabledValue</key>
+          <string>yes</string>
+          <key>proxyAttr</key>
+          <string></string>
+          <key>readOnlyProxyAttr</key>
+          <string></string>
+        </dict>
       </dict>
     </dict>
     -->
@@ -911,6 +924,8 @@
       <integer>300</integer>
       <key>ExpireSeconds</key>
       <integer>3600</integer>
+      <key>UseExternalProxies</key>
+      <false/>
     </dict>
 
     <!--

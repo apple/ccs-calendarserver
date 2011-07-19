@@ -191,7 +191,53 @@ class GroupMembershipTests (TestCase):
 
         updater = GroupMembershipCacheUpdater(
             calendaruserproxy.ProxyDBService, self.directoryService, 30,
-            cache=cache)
+            cache=cache, useExternalProxies=False)
+
+        # Exercise getGroups()
+        groups = updater.getGroups()
+        self.assertEquals(
+            groups,
+            {
+                '9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1':
+                    set(['8B4288F6-CC82-491D-8EF9-642EF4F3E7D0']),
+                'admin':
+                    set(['9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1']),
+                'both_coasts':
+                    set(['left_coast', 'right_coast']),
+                'grunts':
+                    set(['5A985493-EE2C-4665-94CF-4DFEA3A89500',
+                         '5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1',
+                         '6423F94A-6B76-4A3A-815B-D52CFD77935D']),
+                'left_coast':
+                    set(['5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1',
+                         '6423F94A-6B76-4A3A-815B-D52CFD77935D',
+                         '8B4288F6-CC82-491D-8EF9-642EF4F3E7D0']),
+                'non_calendar_group':
+                    set(['5A985493-EE2C-4665-94CF-4DFEA3A89500',
+                         '8B4288F6-CC82-491D-8EF9-642EF4F3E7D0']),
+                'recursive1_coasts':
+                    set(['6423F94A-6B76-4A3A-815B-D52CFD77935D',
+                         'recursive2_coasts']),
+                'recursive2_coasts':
+                    set(['5A985493-EE2C-4665-94CF-4DFEA3A89500',
+                         'recursive1_coasts']),
+                'right_coast':
+                    set(['5A985493-EE2C-4665-94CF-4DFEA3A89500'])
+            }
+        )
+
+        # Exercise expandedMembers()
+        self.assertEquals(
+            updater.expandedMembers(groups, "both_coasts"),
+            set(['5A985493-EE2C-4665-94CF-4DFEA3A89500',
+                 '5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1',
+                 '6423F94A-6B76-4A3A-815B-D52CFD77935D',
+                 '8B4288F6-CC82-491D-8EF9-642EF4F3E7D0',
+                 'left_coast',
+                 'right_coast']
+            )
+        )
+
         yield updater.updateCache()
 
         delegates = (
@@ -274,6 +320,106 @@ class GroupMembershipTests (TestCase):
 
 
     @inlineCallbacks
+    def test_groupMembershipCacheUpdaterExternalProxies(self):
+        """
+        Exercise external proxy assignment support (assignments come from the
+        directory service itself)
+        """
+        cache = GroupMembershipCache("ProxyDB", 60)
+        # Having a groupMembershipCache assigned to the directory service is the
+        # trigger to use such a cache:
+        self.directoryService.groupMembershipCache = cache
+
+        # This time, we're setting some external proxy assignments for the
+        # "transporter" resource...
+        def fakeExternalProxies():
+            return [
+                (
+                    "transporter#calendar-proxy-write",
+                    set(["6423F94A-6B76-4A3A-815B-D52CFD77935D",
+                         "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0"])
+                ),
+                (
+                    "transporter#calendar-proxy-read",
+                    set(["5A985493-EE2C-4665-94CF-4DFEA3A89500"])
+                ),
+            ]
+
+        updater = GroupMembershipCacheUpdater(
+            calendaruserproxy.ProxyDBService, self.directoryService, 30,
+            cache=cache, useExternalProxies=True,
+            externalProxiesSource=fakeExternalProxies)
+
+        yield updater.updateCache()
+
+        delegates = (
+
+            # record name
+            # read-write delegators
+            # read-only delegators
+            # groups delegate is in (restricted to only those groups
+            #   participating in delegation)
+
+            ("wsanchez",
+             set(["mercury", "apollo", "orion", "gemini", "transporter"]),
+             set(["non_calendar_proxy"]),
+             set(['left_coast',
+                  'both_coasts',
+                  'recursive1_coasts',
+                  'recursive2_coasts',
+                  'gemini#calendar-proxy-write',
+                  'transporter#calendar-proxy-write',
+                ]),
+            ),
+            ("cdaboo",
+             set(["apollo", "orion", "non_calendar_proxy"]),
+             set(["non_calendar_proxy", "transporter"]),
+             set(['both_coasts',
+                  'non_calendar_group',
+                  'recursive1_coasts',
+                  'recursive2_coasts',
+                  'transporter#calendar-proxy-read',
+                ]),
+            ),
+            ("lecroy",
+             set(["apollo", "mercury", "non_calendar_proxy", "transporter"]),
+             set(),
+             set(['both_coasts',
+                  'left_coast',
+                  'non_calendar_group',
+                  'transporter#calendar-proxy-write',
+                ]),
+            ),
+        )
+
+        for name, write, read, groups in delegates:
+            delegate = self._getPrincipalByShortName(DirectoryService.recordType_users, name)
+
+            proxyFor = (yield delegate.proxyFor(True))
+            self.assertEquals(
+                set([p.record.guid for p in proxyFor]),
+                write,
+            )
+            proxyFor = (yield delegate.proxyFor(False))
+            self.assertEquals(
+                set([p.record.guid for p in proxyFor]),
+                read,
+            )
+            groupsIn = (yield delegate.groupMemberships())
+            uids = set()
+            for group in groupsIn:
+                try:
+                    uid = group.uid # a sub-principal
+                except AttributeError:
+                    uid = group.record.guid # a regular group
+                uids.add(uid)
+            self.assertEquals(
+                set(uids),
+                groups,
+            )
+
+
+    @inlineCallbacks
     def test_groupMembershipCacheSnapshot(self):
         """
         The group membership cache creates a snapshot (a pickle file) of
@@ -300,7 +446,7 @@ class GroupMembershipTests (TestCase):
         # directory (fast now is False), and snapshot will get created
         fast, numMembers = (yield updater.updateCache(fast=True))
         self.assertEquals(fast, False)
-        self.assertEquals(numMembers, 4)
+        self.assertEquals(numMembers, 8)
         self.assertTrue(snapshotFile.exists())
 
         # Try another fast update where the snapshot already exists (as in a
@@ -308,12 +454,12 @@ class GroupMembershipTests (TestCase):
         # as indicated by the return value for "fast"
         fast, numMembers = (yield updater.updateCache(fast=True))
         self.assertEquals(fast, True)
-        self.assertEquals(numMembers, 4)
+        self.assertEquals(numMembers, 8)
 
         # Try an update which faults in from the directory (fast=False)
         fast, numMembers = (yield updater.updateCache(fast=False))
         self.assertEquals(fast, False)
-        self.assertEquals(numMembers, 4)
+        self.assertEquals(numMembers, 8)
 
         # Verify the snapshot contains the pickled dictionary we expect
         members = pickle.loads(snapshotFile.getContent())
@@ -322,28 +468,46 @@ class GroupMembershipTests (TestCase):
             {
                 "5A985493-EE2C-4665-94CF-4DFEA3A89500":
                     set([
-                        "non_calendar_group",
-                        "recursive1_coasts",
-                        "recursive2_coasts",
-                        "both_coasts"
+                        u"non_calendar_group",
+                        u"recursive1_coasts",
+                        u"recursive2_coasts",
+                        u"both_coasts"
                     ]),
                 "6423F94A-6B76-4A3A-815B-D52CFD77935D":
                     set([
-                        "left_coast",
-                        "recursive1_coasts",
-                        "recursive2_coasts",
-                        "both_coasts"
+                        u"left_coast",
+                        u"recursive1_coasts",
+                        u"recursive2_coasts",
+                        u"both_coasts"
                     ]),
                 "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1":
                     set([
-                        "left_coast",
-                        "both_coasts"
+                        u"left_coast",
+                        u"both_coasts"
                     ]),
                 "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0":
                     set([
-                        "non_calendar_group",
-                        "left_coast",
-                        "both_coasts"
+                        u"non_calendar_group",
+                        u"left_coast",
+                        u"both_coasts"
+                    ]),
+                "left_coast":
+                     set([
+                         u"both_coasts"
+                     ]),
+                "recursive1_coasts":
+                     set([
+                         u"recursive1_coasts",
+                         u"recursive2_coasts"
+                     ]),
+                "recursive2_coasts":
+                    set([
+                        u"recursive1_coasts",
+                        u"recursive2_coasts"
+                    ]),
+                "right_coast":
+                    set([
+                        u"both_coasts"
                     ])
             }
         )
