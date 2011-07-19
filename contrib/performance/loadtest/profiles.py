@@ -96,6 +96,9 @@ class ProfileBase(object):
 
         def finished(passthrough):
             success = not isinstance(passthrough, Failure)
+            if not success:
+                passthrough.trap(IncorrectResponseCode)
+                passthrough = passthrough.response
             after = self._reactor.seconds()
             msg(type="operation", phase="end", duration=after - before,
                 user=self._client.record.uid, label=label, success=success)
@@ -153,7 +156,7 @@ class Inviter(ProfileBase):
         for att in attendees:
             invitees.add(att.value)
 
-        for i in range(10):
+        for _ignore_i in range(10):
             invitee = max(
                 0, self._number + self._inviteeDistanceDistribution.sample())
             try:
@@ -314,7 +317,7 @@ class Accepter(ProfileBase):
         def scheduleError(reason):
             reason.trap(IncorrectResponseCode)
             if reason.value.response.code != PRECONDITION_FAILED:
-                return reason
+                return reason.value.response.code
 
             # Download the event again and attempt to make the change
             # to the attendee list again.
@@ -347,9 +350,12 @@ class Accepter(ProfileBase):
         d = self._client.deleteEvent(href)
         def finished(passthrough):
             self._accepting.remove(href)
+            if isinstance(passthrough, Failure):
+                passthrough.trap(IncorrectResponseCode)
+                passthrough = passthrough.response
             return passthrough
         d.addBoth(finished)
-        return self._newOperation("clean reply", d)
+        return self._newOperation("reply done", d)
 
 
     def _handleCancel(self, href):
@@ -367,9 +373,12 @@ class Accepter(ProfileBase):
         d.addCallback(removed)
         def finished(passthrough):
             self._accepting.remove(href)
+            if isinstance(passthrough, Failure):
+                passthrough.trap(IncorrectResponseCode)
+                passthrough = passthrough.response
             return passthrough
         d.addBoth(finished)
-        return self._newOperation("clean cancel", d)
+        return self._newOperation("cancelled", d)
 
 
     def _makeAcceptedAttendee(self, attendee):
@@ -524,7 +533,7 @@ class OperationLogger(SummarizingMixin):
         print
         self.printHeader([
                 (label, width)
-                for (label, width, fmt)
+                for (label, width, _ignore_fmt)
                 in self._fields])
         self.printData(
             [fmt for (label, width, fmt) in self._fields],
@@ -548,7 +557,7 @@ class OperationLogger(SummarizingMixin):
                         operation=operation.upper(), cutoff=lagCutoff * 1000))
 
         for operation, times in self._perOperationTimes.iteritems():
-            failures = len([success for (success, duration) in times if not success])
+            failures = len([success for (success, _ignore_duration) in times if not success])
             if failures / len(times) > failCutoff:
                 reasons.append(self._FAILED_REASON % dict(
                         operation=operation.upper(), cutoff=failCutoff * 100))

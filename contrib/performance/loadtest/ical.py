@@ -157,7 +157,7 @@ class _PubSubClientFactory(PubSubClientFactory):
         if item:
             node = item.getAttribute("node")
             if node:
-                url, name, kind = self.nodes.get(node, (None, None, None))
+                url, _ignore_name, _ignore_kind = self.nodes.get(node, (None, None, None))
                 if url is not None:
                     self._client._checkCalendarsForEvents(url)
 
@@ -565,6 +565,8 @@ class SnowLeopard(BaseClient):
         msg(type="operation", phase="start", user=self.record.uid, label=label)
         def finished(passthrough):
             success = not isinstance(passthrough, Failure)
+            if not success:
+                passthrough.trap(IncorrectResponseCode)
             after = self.reactor.seconds()
             msg(type="operation", phase="end", duration=after - before,
                 user=self.record.uid, label=label, success=success)
@@ -580,7 +582,7 @@ class SnowLeopard(BaseClient):
         host, port = params.server.split(':')
         port = int(port)
 
-        service, stuff = params.uri.split('?')
+        service, _ignore_stuff = params.uri.split('?')
         service = service.split(':', 1)[1]
 
         # XXX What is the domain of the 2nd argument supposed to be?  The
