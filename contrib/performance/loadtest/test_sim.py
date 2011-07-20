@@ -150,6 +150,7 @@ class CalendarClientSimulatorTests(TestCase):
         class BrokenProfile(object):
             def __init__(self, reactor, simulator, client, userNumber, runResult):
                 self._runResult = runResult
+                self.enabled = True
 
             def run(self):
                 return self._runResult
