@@ -134,9 +134,13 @@ class Inviter(ProfileBase):
     """
     A Calendar user who invites and de-invites other users to events.
     """
-    def setParameters(self,
-                      sendInvitationDistribution=NormalDistribution(600, 60),
-                      inviteeDistanceDistribution=UniformDiscreteDistribution(range(-10, 11))):
+    def setParameters(
+        self,
+        enabled=True,
+        sendInvitationDistribution=NormalDistribution(600, 60),
+        inviteeDistanceDistribution=UniformDiscreteDistribution(range(-10, 11))
+    ):
+        self.enabled = enabled
         self._sendInvitationDistribution = sendInvitationDistribution
         self._inviteeDistanceDistribution = inviteeDistanceDistribution
 
@@ -244,7 +248,12 @@ class Accepter(ProfileBase):
     A Calendar user who accepts invitations to events. As well as accepting requests, this
     will also remove cancels and replies.
     """
-    def setParameters(self, acceptDelayDistribution=NormalDistribution(1200, 60)):
+    def setParameters(
+        self,
+        enabled=True,
+        acceptDelayDistribution=NormalDistribution(1200, 60)
+    ):
+        self.enabled = enabled
         self._accepting = set()
         self._acceptDelayDistribution = acceptDelayDistribution
 
@@ -430,13 +439,19 @@ SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
 """))[0]
+
     def setParameters(
-        self, interval=25,
+        self,
+        enabled=True,
+        interval=25,
         eventStartDistribution=NearFutureDistribution(),
         eventDurationDistribution=UniformDiscreteDistribution([
-                15 * 60, 30 * 60,
-                45 * 60, 60 * 60,
-                120 * 60])):
+            15 * 60, 30 * 60,
+            45 * 60, 60 * 60,
+            120 * 60
+        ])
+    ):
+        self.enabled = enabled
         self._interval = interval
         self._eventStartDistribution = eventStartDistribution
         self._eventDurationDistribution = eventDurationDistribution

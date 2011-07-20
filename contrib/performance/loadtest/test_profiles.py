@@ -277,6 +277,16 @@ class InviterTests(TestCase):
         return vevent, event, calendar, client
 
 
+    def test_enabled(self):
+        userNumber = 13
+        client = StubClient(userNumber)
+
+        inviter = Inviter(None, self.sim, client, userNumber, **{"enabled":False})
+        self.assertEqual(inviter.enabled, False)
+
+        inviter = Inviter(None, self.sim, client, userNumber, **{"enabled":True})
+        self.assertEqual(inviter.enabled, True)
+
     def test_doNotAddAttendeeToInbox(self):
         """
         When the only calendar with any events is a schedule inbox, no
@@ -445,6 +455,16 @@ class AccepterTests(TestCase):
             AnyUser(), Populator(None), None, None, None)
 
 
+    def test_enabled(self):
+        userNumber = 13
+        client = StubClient(userNumber)
+
+        accepter = Accepter(None, self.sim, client, userNumber, **{"enabled":False})
+        self.assertEqual(accepter.enabled, False)
+
+        accepter = Accepter(None, self.sim, client, userNumber, **{"enabled":True})
+        self.assertEqual(accepter.enabled, True)
+
     def test_ignoreEventOnUnknownCalendar(self):
         """
         If an event on an unknown calendar changes, it is ignored.
@@ -547,7 +567,7 @@ class AccepterTests(TestCase):
         client._setEvent(inboxEvent.url, inboxEvent)
 
         accepter = Accepter(clock, self.sim, client, userNumber)
-        accepter.setParameters(Deterministic(randomDelay))
+        accepter.setParameters(acceptDelayDistribution=Deterministic(randomDelay))
         accepter.eventChanged(event.url)
         clock.advance(randomDelay)
 
@@ -583,7 +603,7 @@ class AccepterTests(TestCase):
         event = Event(calendarURL + u'1234.ics', None, vevent)
         client._events[event.url] = event
         accepter = Accepter(clock, self.sim, client, userNumber)
-        accepter.setParameters(Deterministic(randomDelay))
+        accepter.setParameters(acceptDelayDistribution=Deterministic(randomDelay))
         accepter.eventChanged(event.url)
         clock.advance(randomDelay)
 
@@ -626,7 +646,7 @@ class AccepterTests(TestCase):
         client._setEvent(event.url, event)
 
         accepter = Accepter(clock, self.sim, client, userNumber)
-        accepter.setParameters(Deterministic(randomDelay))
+        accepter.setParameters(acceptDelayDistribution=Deterministic(randomDelay))
 
         client.rescheduled.add(event.url)
 
@@ -646,6 +666,16 @@ class EventerTests(TestCase):
         self.sim = CalendarClientSimulator(
             AnyUser(), Populator(None), None, None, None)
 
+
+    def test_enabled(self):
+        userNumber = 13
+        client = StubClient(userNumber)
+
+        eventer = Eventer(None, self.sim, client, None, **{"enabled":False})
+        self.assertEqual(eventer.enabled, False)
+
+        eventer = Eventer(None, self.sim, client, None, **{"enabled":True})
+        self.assertEqual(eventer.enabled, True)
 
     def test_doNotAddEventOnInbox(self):
         """

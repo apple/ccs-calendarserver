@@ -129,7 +129,7 @@ class Populator(object):
     def _cycle(self, elements):
         while True:
             for (weight, value) in elements:
-                for i in range(weight):
+                for _ignore_i in range(weight):
                     yield value
 
 
@@ -191,9 +191,9 @@ class CalendarClientSimulator(object):
 
 
     def add(self, numClients):
-        for n in range(numClients):
+        for _ignore_n in range(numClients):
             number = self._nextUserNumber()
-            user, auth = self._createUser(number)
+            _ignore_user, auth = self._createUser(number)
 
             clientType = self._pop.next()
             reactor = loggedReactor(self.reactor)
@@ -203,8 +203,10 @@ class CalendarClientSimulator(object):
             d.addErrback(self._clientFailure, reactor)
 
             for profileType in clientType.profileTypes:
-                d = profileType(reactor, self, client, number).run()
-                d.addErrback(self._profileFailure, profileType, reactor)
+                profile = profileType(reactor, self, client, number)
+                if profile.enabled:
+                    d = profile.run()
+                    d.addErrback(self._profileFailure, profileType, reactor)
         msg(type="status", clientCount=self._user - 1)
 
 
@@ -323,7 +325,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self.printMiscellaneous({'users': self.countUsers()})
         self.printHeader([
                 (label, width)
-                for (label, width, fmt)
+                for (label, width, _ignore_fmt)
                 in self._fields])
         self.printData(
             [fmt for (label, width, fmt) in self._fields],
