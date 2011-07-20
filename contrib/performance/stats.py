@@ -148,7 +148,7 @@ class SQLDuration(_Statistic):
         results = []
         for data in samples:
             if mode == "duration":
-                value = sum([interval for (sql, interval) in data]) / NANO
+                value = sum([interval for (_ignore_sql, interval) in data]) / NANO
             else:
                 value = len(data)
             results.append(value)
@@ -196,7 +196,7 @@ class SQLDuration(_Statistic):
     def transcript(self, samples):
         statements = []
         data = samples[len(samples) / 2]
-        for (sql, interval) in data:
+        for (sql, _ignore_interval) in data:
             statements.append(self.normalize(sql))
         return '\n'.join(statements) + '\n'
             
@@ -288,7 +288,11 @@ class NormalDistribution(object, FancyEqMixin):
 
 
     def sample(self):
-        return random.normalvariate(self._mu, self._sigma)
+        # Only return positive values or zero
+        v = random.normalvariate(self._mu, self._sigma)
+        while v < 0:
+            v = random.normalvariate(self._mu, self._sigma)
+        return v
 
 
 
