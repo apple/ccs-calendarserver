@@ -915,7 +915,7 @@
     <key>GroupCaching</key>
     <dict>
       <key>Enabled</key>
-      <false/>
+      <true/>
       <key>EnableUpdater</key>
       <true/>
       <key>MemcachedPool</key>

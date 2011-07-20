@@ -31,4 +31,64 @@ limitations under the License.
     <password>resource%02d</password>
     <name>Resource %02d</name>
   </resource>
+  <location>
+    <uid>mercury</uid>
+    <guid>mercury</guid>
+    <password>test</password>
+    <name>Mecury Conference Room, Building 1, 2nd Floor</name>
+  </location>
+  <location>
+    <uid>venus</uid>
+    <guid>venus</guid>
+    <password>test</password>
+    <name>Venus Conference Room, Building 1, 2nd Floor</name>
+  </location>
+  <location>
+    <uid>Earth</uid>
+    <guid>Earth</guid>
+    <password>test</password>
+    <name>Earth Conference Room, Building 1, 1st Floor</name>
+  </location>
+  <location>
+    <uid>mars</uid>
+    <guid>mars</guid>
+    <password>test</password>
+    <name>Mars Conference Room, Building 1, 1st Floor</name>
+  </location>
+  <location>
+    <uid>jupiter</uid>
+    <guid>jupiter</guid>
+    <password>test</password>
+    <name>Jupiter Conference Room, Building 2, 1st Floor</name>
+  </location>
+  <location>
+    <uid>neptune</uid>
+    <guid>neptune</guid>
+    <password>test</password>
+    <name>Neptune Conference Room, Building 2, 1st Floor</name>
+  </location>
+  <location>
+    <uid>pluto</uid>
+    <guid>pluto</guid>
+    <password>test</password>
+    <name>Pluto Conference Room, Building 2, 1st Floor</name>
+  </location>
+  <location>
+    <uid>saturn</uid>
+    <guid>saturn</guid>
+    <password>test</password>
+    <name>Saturn Conference Room, Building 2, 1st Floor</name>
+  </location>
+  <location>
+    <uid>uranus</uid>
+    <guid>uranus</guid>
+    <password>test</password>
+    <name>Uranus Conference Room, Building 3, 1st Floor</name>
+  </location>
+  <location>
+    <uid>delegatedroom</uid>
+    <guid>delegatedroom</guid>
+    <password>delegatedroom</password>
+    <name>Delegated Conference Room</name>
+  </location>
 </accounts>
