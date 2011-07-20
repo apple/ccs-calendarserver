@@ -963,8 +963,8 @@ class Component (object):
         for property in newcomp.properties("DURATION"):
             property.setValue(instance.end - instance.start)
         
-        # Add RECURRENCE-ID if not first instance
-        if not first:
+        # Add RECURRENCE-ID if not master instance
+        if not instance.isMasterInstance():
             newcomp.addProperty(Property("RECURRENCE-ID", instance.rid))
 
         return newcomp

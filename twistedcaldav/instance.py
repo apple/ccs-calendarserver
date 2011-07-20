@@ -83,6 +83,9 @@ class Instance(object):
         
         return triggers
     
+    def isMasterInstance(self):
+        return not self.overridden and self.start == self.component.getStartDateUTC()
+
 class InstanceList(object):
     
     def __init__(self, ignoreInvalidInstances=False):
