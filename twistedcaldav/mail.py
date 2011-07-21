@@ -780,7 +780,10 @@ class MailHandler(LoggingMixIn):
             msg["To"] = toAddr
             factory = ESMTPSenderFactory(
                 settings["Username"], settings["Password"],
-                fromAddr, toAddr, StringIO(str(msg)), deferred,
+                fromAddr, toAddr,
+                # per http://trac.calendarserver.org/ticket/416 ...
+                StringIO(msg.as_string().replace("\r\n","\n")),
+                deferred,
                 contextFactory=contextFactory,
                 requireAuthentication=False,
                 requireTransportSecurity=settings["UseSSL"],
