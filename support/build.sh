@@ -575,10 +575,10 @@ write_environment () {
   cat > "${dstroot}/environment.sh" << __EOF__
 export              PATH="${dstroot}/bin:\${PATH}";
 export    C_INCLUDE_PATH="${dstroot}/include:\${C_INCLUDE_PATH:-}";
-export   LD_LIBRARY_PATH="${dstroot}/lib:\${LD_LIBRARY_PATH:-}";
+export   LD_LIBRARY_PATH="${dstroot}/lib:\${LD_LIBRARY_PATH:-}:\$ORACLE_HOME";
 export          CPPFLAGS="-I${dstroot}/include \${CPPFLAGS:-} ";
 export           LDFLAGS="-L${dstroot}/lib \${LDFLAGS:-} ";
-export DYLD_LIBRARY_PATH="${dstroot}/lib:\${DYLD_LIBRARY_PATH:-}";
+export DYLD_LIBRARY_PATH="${dstroot}/lib:\${DYLD_LIBRARY_PATH:-}:\$ORACLE_HOME";
 __EOF__
 }
 
