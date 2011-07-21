@@ -328,7 +328,7 @@ class LdapDirectoryService(CachingDirectoryService):
         self.log_debug("Authenticating %s" % (dn,))
         try:
             self.authLDAP.simple_bind_s(dn, password)
-        except ldap.SERVER_DOWN, e:
+        except ldap.SERVER_DOWN:
             self.log_debug("Lost connection to LDAP server. Retrying.")
             self.authLDAP = self.createLDAPConnection()
             self.authLDAP.simple_bind_s(dn, password)
