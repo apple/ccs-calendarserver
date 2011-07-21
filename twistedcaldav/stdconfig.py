@@ -28,7 +28,7 @@ from twext.python.plistlib import PlistParser #@UnresolvedImport
 from twext.python.log import Logger, InvalidLogLevelError
 from twext.python.log import clearLogLevels, setLogLevelForNamespace
 
-from twistedcaldav import caldavxml, customxml, carddavxml
+from twistedcaldav import caldavxml, customxml, carddavxml, mkcolxml
 from twistedcaldav.config import ConfigProvider, ConfigurationError
 from twistedcaldav.config import config, _mergeData, fullServerPath
 from twistedcaldav.util import getPasswordFromKeychain
@@ -1247,6 +1247,9 @@ def _updateCompliance(configDict):
 
     if configDict.EnableCardDAV:
         compliance += carddavxml.carddav_compliance
+
+    if configDict.EnableCalDAV or configDict.EnableCardDAV:
+        compliance += mkcolxml.mkcol_compliance
 
     # Principal property search is always enabled
     compliance += customxml.calendarserver_principal_property_search_compliance
