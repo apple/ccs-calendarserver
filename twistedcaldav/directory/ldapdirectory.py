@@ -277,7 +277,7 @@ class LdapDirectoryService(CachingDirectoryService):
                         unrestricted = False
 
             record = self._ldapResultToRecord(dn, attrs, recordType)
-            self.log_debug("Got LDAP record %s" % (record,))
+            # self.log_debug("Got LDAP record %s" % (record,))
 
             if not unrestricted:
                 self.log_debug("%s is not enabled because it's not a member of group: %s" % (guid, self.restrictToGroup))
@@ -326,7 +326,13 @@ class LdapDirectoryService(CachingDirectoryService):
             self.log_debug("Creating authentication connection to LDAP")
             self.authLDAP = self.createLDAPConnection()
         self.log_debug("Authenticating %s" % (dn,))
-        self.authLDAP.bind_s(dn, password)
+        try:
+            self.authLDAP.simple_bind_s(dn, password)
+        except ldap.SERVER_DOWN, e:
+            self.log_debug("Lost connection to LDAP server. Retrying.")
+            self.authLDAP = self.createLDAPConnection()
+            self.authLDAP.simple_bind_s(dn, password)
+
         self.log_debug("Authentication succeeded for %s" % (dn,))
 
 
