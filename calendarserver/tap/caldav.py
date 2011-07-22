@@ -37,11 +37,9 @@ from zope.interface import implements
 from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
-from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
 from twisted.internet.defer import gatherResults, Deferred
 from twisted.internet import reactor as _reactor
-from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.protocol import ProcessProtocol
@@ -64,8 +62,6 @@ from txdav.common.datastore.util import UpgradeToDatabaseService,\
 
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
-from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav import memcachepool
@@ -569,26 +565,8 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             if config.ProcessType in ('Combined', 'Single'):
 
-                # Memcached is not needed for the "master" process
-                if config.ProcessType in ('Combined',):
-                    config.Memcached.Pools.Default.ClientEnabled = False
-
-                # Note: if the master process ever needs access to memcached
-                # we'll either have to start memcached prior to the
-                # updateProxyDB call below, or disable memcached
-                # client config only while updateProxyDB is running.
-
                 # Process localization string files
                 processLocalizationFiles(config.Localization)
-
-                # Make sure proxies get initialized
-                if config.ProxyLoadFromFile:
-                    def _doProxyUpdate():
-                        proxydbClass = namedClass(config.ProxyDBService.type)
-                        calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
-                        loader = XMLCalendarUserProxyLoader(config.ProxyLoadFromFile)
-                        return loader.updateProxyDB()
-                    addSystemEventTrigger("after", "startup", _doProxyUpdate)
 
             try:
                 service = serviceMethod(options)

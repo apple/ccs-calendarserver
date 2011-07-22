@@ -55,6 +55,8 @@ from twistedcaldav.directory.cachingdirectory import (CachingDirectoryService,
 from twistedcaldav.directory.directory import DirectoryConfigurationError
 from twistedcaldav.directory.augment import AugmentRecord
 from twisted.internet.defer import succeed
+from twext.web2.http import HTTPError, StatusResponse
+from twext.web2 import responsecode
 
 class LdapDirectoryService(CachingDirectoryService):
     """
@@ -322,16 +324,35 @@ class LdapDirectoryService(CachingDirectoryService):
         Perform simple bind auth, raising ldap.INVALID_CREDENTIALS if
         bad password
         """
-        if self.authLDAP is None:
-            self.log_debug("Creating authentication connection to LDAP")
-            self.authLDAP = self.createLDAPConnection()
-        self.log_debug("Authenticating %s" % (dn,))
-        try:
-            self.authLDAP.simple_bind_s(dn, password)
-        except ldap.SERVER_DOWN:
-            self.log_debug("Lost connection to LDAP server. Retrying.")
-            self.authLDAP = self.createLDAPConnection()
-            self.authLDAP.simple_bind_s(dn, password)
+        TRIES = 3
+
+        for i in xrange(TRIES):
+            self.log_debug("Authenticating %s" % (dn,))
+
+            if self.authLDAP is None:
+                self.log_debug("Creating authentication connection to LDAP")
+                self.authLDAP = self.createLDAPConnection()
+
+            try:
+                self.authLDAP.simple_bind_s(dn, password)
+                # Getting here means success, so break the retry loop
+                break
+
+            except ldap.INVALID_CREDENTIALS:
+                raise
+
+            except ldap.SERVER_DOWN:
+                self.log_error("Lost connection to LDAP server.")
+                self.authLDAP = None
+                # Fall through and retry if TRIES has been reached
+
+            except Exception, e:
+                self.log_error("LDAP authentication failed with %s." % (e,))
+                raise
+
+        else:
+            self.log_error("Giving up on LDAP authentication after %d tries.  Responding with 503." % (TRIES,))
+            raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "LDAP server unavailable"))
 
         self.log_debug("Authentication succeeded for %s" % (dn,))
 

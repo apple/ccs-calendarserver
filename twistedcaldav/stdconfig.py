@@ -745,7 +745,7 @@ DEFAULT_CONFIG = {
 
     "GroupCaching" : {
         "Enabled": True,
-        "MemcachedPool" : "ProxyDB",
+        "MemcachedPool" : "Default",
         "UpdateSeconds" : 300,
         "ExpireSeconds" : 3600,
         "EnableUpdater" : True,

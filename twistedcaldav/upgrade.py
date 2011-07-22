@@ -32,6 +32,7 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 from twistedcaldav.directory.directory import DirectoryService, GroupMembershipCacheUpdater
 from twistedcaldav.directory import calendaruserproxy
+from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.ical import Component
@@ -834,6 +835,14 @@ class PostDBImportService(Service, object):
         """
         Start the service.
         """
+
+        # Load proxy assignments from XML if specified
+        if self.config.ProxyLoadFromFile:
+            proxydbClass = namedClass(self.config.ProxyDBService.type)
+            calendaruserproxy.ProxyDBService = proxydbClass(
+                **self.config.ProxyDBService.params)
+            loader = XMLCalendarUserProxyLoader(self.config.ProxyLoadFromFile)
+            yield loader.updateProxyDB()
 
         # Populate the group membership cache
         if (self.config.GroupCaching.Enabled and
