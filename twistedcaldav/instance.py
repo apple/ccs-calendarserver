@@ -258,7 +258,7 @@ class InstanceList(object):
             dtcompleted = component.getCompletedDateUTC()
             if dtcompleted:
                 end = dtcompleted
-                start = dtcreated if dtcreated else dtend
+                start = dtcreated if dtcreated else end
             elif dtcreated:
                 start = dtcreated
                 end = maxDateTime
