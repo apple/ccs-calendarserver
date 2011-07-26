@@ -232,40 +232,65 @@ def setupMemcached(config):
     autoDisableMemcached(config)
 
 
-def checkDirectory(dirpath, description, access=None, create=None):
+def checkDirectory(dirpath, description, access=None, create=None, wait=False):
+    """
+    Make sure dirpath is an existing directory, and optionally ensure it has the
+    expected permissions.  Alternatively the function can create the directory or
+    can wait for someone else to create it.
+
+    @param dirpath: The directory path we're checking
+    @type dirpath: string
+    @param description: A description of what the directory path represents, used in
+        log messages
+    @type description: string
+    @param access: The type of access we're expecting, either os.W_OK or os.R_OK
+    @param create: A tuple of (file permissions mode, username, groupname) to use
+        when creating the directory.  If create=None then no attempt will be made
+        to create the directory.
+    @type create: tuple
+    @param wait: Wether the function should wait in a loop for the directory to be
+        created by someone else (or mounted, etc.)
+    @type wait: boolean
+    """
     if not os.path.exists(dirpath):
-        try:
-            mode, username, groupname = create
-        except TypeError:
-            raise ConfigurationError("%s does not exist: %s"
-                                     % (description, dirpath))
-        try:
-            os.mkdir(dirpath)
-        except (OSError, IOError), e:
-            log.error("Could not create %s: %s" % (dirpath, e))
-            raise ConfigurationError(
-                "%s does not exist and cannot be created: %s"
-                % (description, dirpath)
-            )
 
-        if username:
-            uid = getpwnam(username).pw_uid
+        if wait:
+            while not os.path.exists(dirpath):
+                log.error("Path does not exist: %s" % (dirpath,))
+                sleep(1)
         else:
-            uid = -1
+            try:
+                mode, username, groupname = create
+            except TypeError:
+                raise ConfigurationError("%s does not exist: %s"
+                                         % (description, dirpath))
+            try:
+                os.mkdir(dirpath)
+            except (OSError, IOError), e:
+                log.error("Could not create %s: %s" % (dirpath, e))
+                raise ConfigurationError(
+                    "%s does not exist and cannot be created: %s"
+                    % (description, dirpath)
+                )
 
-        if groupname:
-            gid = getgrnam(groupname).gr_gid
-        else:
-            gid = -1
+            if username:
+                uid = getpwnam(username).pw_uid
+            else:
+                uid = -1
 
-        try:
-            os.chmod(dirpath, mode)
-            os.chown(dirpath, uid, gid)
-        except (OSError, IOError), e:
-            log.error("Unable to change mode/owner of %s: %s"
-                           % (dirpath, e))
+            if groupname:
+                gid = getgrnam(groupname).gr_gid
+            else:
+                gid = -1
 
-        log.info("Created directory: %s" % (dirpath,))
+            try:
+                os.chmod(dirpath, mode)
+                os.chown(dirpath, uid, gid)
+            except (OSError, IOError), e:
+                log.error("Unable to change mode/owner of %s: %s"
+                               % (dirpath, e))
+
+            log.info("Created directory: %s" % (dirpath,))
 
     if not os.path.isdir(dirpath):
         raise ConfigurationError("%s is not a directory: %s"

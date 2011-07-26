@@ -297,8 +297,8 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         config.updateDefaults(self.overrides)
 
-    def checkDirectory(self, dirpath, description, access=None, create=None):
-        checkDirectory(dirpath, description, access=access, create=create)
+    def checkDirectory(self, dirpath, description, access=None, create=None, wait=False):
+        checkDirectory(dirpath, description, access=access, create=create, wait=wait)
 
     def checkConfiguration(self):
 
@@ -336,6 +336,7 @@ class CalDAVOptions (Options, LoggingMixIn):
             "Server root",
             # Require write access because one might not allow editing on /
             access=os.W_OK,
+            wait=True # Wait in a loop until ServerRoot exists
         )
 
         #
