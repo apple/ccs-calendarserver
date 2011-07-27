@@ -257,12 +257,23 @@
             <string></string>
             <key>filter</key>
             <string></string>
-            <key>recordName</key>
-            <string>uid</string>
             <key>loginEnabledAttr</key>
             <string></string>
             <key>loginEnabledValue</key>
             <string>yes</string>
+            <key>mapping</key>
+            <dict>
+              <key>recordName</key>
+              <string>uid</string>
+              <key>fullName</key>
+              <string>cn</string>
+              <key>emailAddresses</key>
+              <string>mail</string>
+              <key>firstName</key>
+              <string>givenName</string>
+              <key>lastName</key>
+              <string>sn</string>
+            </dict>
           </dict>
           <key>groups</key>
           <dict>
@@ -274,19 +285,19 @@
             <string></string>
             <key>filter</key>
             <string></string>
-            <key>recordName</key>
-            <string>cn</string>
-          </dict>
-          <key>attributeMapping</key>
-          <dict>
-            <key>fullName</key>
-            <string>cn</string>
-            <key>emailAddresses</key>
-            <string>mail</string>
-            <key>firstName</key>
-            <string>givenName</string>
-            <key>lastName</key>
-            <string>sn</string>
+            <key>mapping</key>
+            <dict>
+              <key>recordName</key>
+              <string>cn</string>
+              <key>fullName</key>
+              <string>cn</string>
+              <key>emailAddresses</key>
+              <string>mail</string>
+              <key>firstName</key>
+              <string>givenName</string>
+              <key>lastName</key>
+              <string>sn</string>
+            </dict>
           </dict>
         </dict>
         <key>groupSchema</key>

@@ -102,30 +102,54 @@ class LdapDirectoryService(CachingDirectoryService):
                     "attr": "uid", # used only to synthesize email address
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
-                    "recordName": "uid", # uniquely identifies user records
                     "loginEnabledAttr" : "", # attribute controlling login
                     "loginEnabledValue" : "yes", # value of above attribute
+                    "mapping" : { # maps internal record names to LDAP
+                        "recordName": "uid",
+                        "fullName" : "cn",
+                        "emailAddresses" : "mail",
+                        "firstName" : "givenName",
+                        "lastName" : "sn",
+                    },
                 },
                 "groups": {
                     "rdn": "ou=Group",
                     "attr": "cn", # used only to synthesize email address
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
-                    "recordName": "cn", # uniquely identifies group records
+                    "mapping" : { # maps internal record names to LDAP
+                        "recordName": "cn",
+                        "fullName" : "cn",
+                        "emailAddresses" : "mail",
+                        "firstName" : "givenName",
+                        "lastName" : "sn",
+                    },
                 },
                 "locations": {
                     "rdn": "ou=Places",
                     "attr": "cn", # used only to synthesize email address
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
-                    "recordName": "cn", # uniquely identifies location records
+                    "mapping" : { # maps internal record names to LDAP
+                        "recordName": "cn",
+                        "fullName" : "cn",
+                        "emailAddresses" : "mail",
+                        "firstName" : "givenName",
+                        "lastName" : "sn",
+                    },
                 },
                 "resources": {
                     "rdn": "ou=Resources",
                     "attr": "cn", # used only to synthesize email address
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
-                    "recordName": "cn", # uniquely identifies resource records
+                    "mapping" : { # maps internal record names to LDAP
+                        "recordName": "cn",
+                        "fullName" : "cn",
+                        "emailAddresses" : "mail",
+                        "firstName" : "givenName",
+                        "lastName" : "sn",
+                    },
                 },
             },
             "groupSchema": {
@@ -147,12 +171,6 @@ class LdapDirectoryService(CachingDirectoryService):
             "partitionSchema": {
                 "serverIdAttr": None, # maps to augments server-id
                 "partitionIdAttr": None, # maps to augments partition-id
-            },
-            "attributeMapping": { # maps internal record names to LDAP
-                "fullName" : "cn",
-                "emailAddresses" : "mail",
-                "firstName" : "givenName",
-                "lastName" : "sn",
             },
         }
         ignored = None
@@ -177,21 +195,24 @@ class LdapDirectoryService(CachingDirectoryService):
         self.groupSchema = params["groupSchema"]
         self.resourceSchema = params["resourceSchema"]
         self.partitionSchema = params["partitionSchema"]
-        self.attributeMapping = params["attributeMapping"]
 
         self.base = ldap.dn.str2dn(self.rdnSchema["base"])
 
         # Certain attributes (such as entryUUID) may be hidden and not
         # returned by default when queried for all attributes. Therefore it is
         # necessary to explicitly pass all the possible attributes list
-        # for ldap searches
-        attrSet = set(["mail", "uid", "userid", "cn", "commonName",
-                       "displayName", "gecos", "givenName", "sn", "surname"])
+        # for ldap searches.  Dynamically build the attribute list based on
+        # config.
+        attrSet = set()
+
         if self.rdnSchema["guidAttr"]:
             attrSet.add(self.rdnSchema["guidAttr"])
         for recordType in self.recordTypes():
             if self.rdnSchema[recordType]["attr"]:
                 attrSet.add(self.rdnSchema[recordType]["attr"])
+            for attr in self.rdnSchema[recordType]["mapping"].values():
+                if attr:
+                    attrSet.add(attr)
         if self.groupSchema["membersAttr"]:
             attrSet.add(self.groupSchema["membersAttr"])
         if self.groupSchema["nestedGroupsAttr"]:
@@ -508,7 +529,7 @@ class LdapDirectoryService(CachingDirectoryService):
             guid = self._getUniqueLdapAttribute(attrs, guidAttr)
 
         # Find or build email
-        emailAddresses = self._getMultipleLdapAttributes(attrs, "mail")
+        emailAddresses = self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["emailAddresses"])
         emailSuffix = self.rdnSchema[recordType]["emailSuffix"]
 
 
@@ -523,17 +544,16 @@ class LdapDirectoryService(CachingDirectoryService):
         memberGUIDs = set()
 
         # LDAP attribute -> principal matchings
-        shortNames = (self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["recordName"]),)
+        shortNames = (self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["recordName"]),)
         if recordType == self.recordType_users:
-            fullName = self._getUniqueLdapAttribute(attrs, "cn", "commonName",
-                "displayName", "gecos")
-            firstName = self._getUniqueLdapAttribute(attrs, "givenName")
-            lastName = self._getUniqueLdapAttribute(attrs, "sn", "surname")
+            fullName = self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["fullName"])
+            firstName = self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["firstName"])
+            lastName = self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["lastName"])
             enabledForCalendaring = True
             enabledForAddressBooks = True
 
         elif recordType == self.recordType_groups:
-            fullName = self._getUniqueLdapAttribute(attrs, "cn")
+            fullName = self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["fullName"])
             enabledForCalendaring = False
             enabledForAddressBooks = False
             enabledForLogin = False
@@ -554,7 +574,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
         elif recordType in (self.recordType_resources,
             self.recordType_locations):
-            fullName = self._getUniqueLdapAttribute(attrs, "cn")
+            fullName = self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["fullName"])
             enabledForCalendaring = True
             enabledForAddressBooks = False
             enabledForLogin = False
@@ -689,7 +709,7 @@ class LdapDirectoryService(CachingDirectoryService):
             elif indexType == self.INDEX_TYPE_SHORTNAME:
                 filter = "(&%s(%s=%s))" % (
                     filter,
-                    self.rdnSchema[recordType]["recordName"],
+                    self.rdnSchema[recordType]["mapping"]["recordName"],
                     indexKey
                 )
 
@@ -750,7 +770,7 @@ class LdapDirectoryService(CachingDirectoryService):
         self.log_debug("Peforming principal property search for %s" % (fields,))
         recordTypes = [recordType] if recordType else self.recordTypes()
         for recordType in recordTypes:
-            filter = buildFilter(self.attributeMapping, fields, operand=operand)
+            filter = buildFilter(self.rdnSchema[recordType]["mapping"], fields, operand=operand)
 
             if filter is not None:
 
@@ -776,6 +796,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
                     record = self._ldapResultToRecord(dn, attrs, recordType)
                     records.append(record)
+                    print dn, attrs, record
 
         self.log_debug("Principal property search matched %d records" % (len(records),))
         return succeed(records)

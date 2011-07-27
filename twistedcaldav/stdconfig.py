@@ -78,30 +78,54 @@ DEFAULT_SERVICE_PARAMS = {
                 "attr": "uid", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
-                "recordName": "userid", # uniquely identifies user records
-                "loginEnabledAttr" : "loginEnabled", # attribute controlling login
+                "loginEnabledAttr" : "", # attribute controlling login
                 "loginEnabledValue" : "yes", # value of above attribute
+                "mapping" : { # maps internal record names to LDAP
+                    "recordName": "uid",
+                    "fullName" : "cn",
+                    "emailAddresses" : "mail",
+                    "firstName" : "givenName",
+                    "lastName" : "sn",
+                },
             },
             "groups": {
                 "rdn": "ou=Group",
                 "attr": "cn", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
-                "recordName": "cn", # uniquely identifies group records
+                "mapping" : { # maps internal record names to LDAP
+                    "recordName": "cn",
+                    "fullName" : "cn",
+                    "emailAddresses" : "mail",
+                    "firstName" : "givenName",
+                    "lastName" : "sn",
+                },
             },
             "locations": {
-                "rdn": "ou=Locations",
+                "rdn": "ou=Places",
                 "attr": "cn", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
-                "recordName": "cn", # uniquely identifies location records
+                "mapping" : { # maps internal record names to LDAP
+                    "recordName": "cn",
+                    "fullName" : "cn",
+                    "emailAddresses" : "mail",
+                    "firstName" : "givenName",
+                    "lastName" : "sn",
+                },
             },
             "resources": {
                 "rdn": "ou=Resources",
                 "attr": "cn", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
-                "recordName": "cn", # uniquely identifies resource records
+                "mapping" : { # maps internal record names to LDAP
+                    "recordName": "cn",
+                    "fullName" : "cn",
+                    "emailAddresses" : "mail",
+                    "firstName" : "givenName",
+                    "lastName" : "sn",
+                },
             },
         },
         "groupSchema": {
@@ -115,12 +139,6 @@ DEFAULT_SERVICE_PARAMS = {
         "partitionSchema": {
             "serverIdAttr": None, # maps to augments server-id
             "partitionIdAttr": None, # maps to augments partition-id
-        },
-        "attributeMapping": { # maps internal record names to LDAP
-            "fullName" : "cn",
-            "emailAddresses" : "mail",
-            "firstName" : "givenName",
-            "lastName" : "sn",
         },
     },
 }

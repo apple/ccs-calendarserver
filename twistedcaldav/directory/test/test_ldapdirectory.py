@@ -132,30 +132,54 @@ else:
                         "attr": "uid", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
                         "filter": "(objectClass=apple-user)", # additional filter for this type
-                        "recordName": "uid", # uniquely identifies user records
                         "loginEnabledAttr" : "", # attribute controlling login
                         "loginEnabledValue" : "yes", # value of above attribute
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "uid",
+                            "fullName" : "cn",
+                            "emailAddresses" : "mail",
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
                     },
                     "groups": {
                         "rdn": "cn=groups",
                         "attr": "cn", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
                         "filter": "(objectClass=apple-group)", # additional filter for this type
-                        "recordName": "cn", # uniquely identifies group records
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : "mail",
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
                     },
                     "locations": {
                         "rdn": "cn=places",
                         "attr": "cn", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
                         "filter": "(objectClass=apple-resource)", # additional filter for this type
-                        "recordName": "cn", # uniquely identifies location records
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : "mail",
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
                     },
                     "resources": {
                         "rdn": "cn=resources",
                         "attr": "cn", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
                         "filter": "(objectClass=apple-resource)", # additional filter for this type
-                        "recordName": "cn", # uniquely identifies resource records
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : "mail",
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
                     },
                 },
                 "groupSchema": {
@@ -172,12 +196,6 @@ else:
                 "partitionSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
                     "partitionIdAttr": "partition-id", # maps to augments partition-id
-                },
-                "attributeMapping": { # maps internal record names to LDAP
-                    "fullName" : "cn",
-                    "emailAddresses" : "mail",
-                    "firstName" : "givenName",
-                    "lastName" : "sn",
                 },
             }
 
@@ -210,6 +228,7 @@ else:
             self.assertEquals(record.emailAddresses,
                 set(['alternate@example.com', 'odtestamanda@example.com']))
             self.assertEquals(record.shortNames, ('odtestamanda',))
+            self.assertEquals(record.fullName, 'Amanda Test')
             self.assertEquals(record.firstName, 'Amanda')
             self.assertEquals(record.lastName, 'Test')
             self.assertEquals(record.serverID, None)
