@@ -796,7 +796,6 @@ class LdapDirectoryService(CachingDirectoryService):
 
                     record = self._ldapResultToRecord(dn, attrs, recordType)
                     records.append(record)
-                    print dn, attrs, record
 
         self.log_debug("Principal property search matched %d records" % (len(records),))
         return succeed(records)
@@ -924,6 +923,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
                     # TODO: what about duplicates?
 
                     dn, attrs = result.pop()
+                    self.log_debug("Retrieved: %s %s" % (dn,attrs))
 
                     if recordType == self.service.recordType_users:
                         shortName = self.service._getUniqueLdapAttribute(attrs,
@@ -988,6 +988,12 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
 
         return groups
 
+    def cachedGroups(self):
+        """
+        Return the set of groups (guids) this record is a member of, based on
+        the data cached by cacheGroupMembership( )
+        """
+        return self.service.groupMembershipCache.getGroupsFor(self._memberId)
 
     def memberGUIDs(self):
         return set(self._memberGUIDs)
