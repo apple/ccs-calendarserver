@@ -533,7 +533,7 @@ class LdapDirectoryService(CachingDirectoryService):
         emailSuffix = self.rdnSchema[recordType]["emailSuffix"]
 
 
-        if len(emailAddresses) == 0 and emailSuffix is not None:
+        if len(emailAddresses) == 0 and emailSuffix:
             emailPrefix = self._getUniqueLdapAttribute(attrs,
                 self.rdnSchema[recordType]["attr"])
             emailAddresses.add(emailPrefix + emailSuffix)
