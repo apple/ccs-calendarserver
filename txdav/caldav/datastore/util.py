@@ -107,7 +107,16 @@ def dropboxIDFromCalendarObject(calendarObject):
             except IndexError:
                 pass
 
-    returnValue(calendarObject.uid() + ".dropbox")
+    # Return a "safe" version of the UID
+    uid = calendarObject.uid()
+    if uid.startswith("http://"):
+        uid = uid.replace("http://", "")
+    if uid.startswith("https://"):
+        uid = uid.replace("https://", "")
+    uid = uid.replace("/", "-")
+    uid = uid.replace(":", "")
+    uid = uid.replace(".", "")
+    returnValue(uid + ".dropbox")
 
 
 @inlineCallbacks

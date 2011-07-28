@@ -242,3 +242,31 @@ END:VCALENDAR
         )
 
 
+    @inlineCallbacks
+    def test_UIDbadPath(self):
+        
+        test_UIDs = (
+            ("12345/67890", "12345-67890"),
+            ("http://12345,67890", "12345,67890"),
+            ("https://12345,67890", "12345,67890"),
+            ("12345:67890", "1234567890"),
+            ("12345.67890", "1234567890"),
+            ("12345/6:7.890", "12345-67890"),
+        )
+
+        for uid, result in test_UIDs:
+            resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:%s
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""" % (uid,))
+    
+            self.assertEquals(
+                (yield dropboxIDFromCalendarObject(resource)),
+                "%s.dropbox" % (result,),
+            )
