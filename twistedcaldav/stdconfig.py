@@ -79,7 +79,9 @@ DEFAULT_SERVICE_PARAMS = {
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
                 "loginEnabledAttr" : "", # attribute controlling login
-                "loginEnabledValue" : "yes", # value of above attribute
+                "loginEnabledValue" : "yes", # "True" value of above attribute
+                "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
+                "calendarEnabledValue" : "yes", # "True" value of above attribute
                 "mapping" : { # maps internal record names to LDAP
                     "recordName": "uid",
                     "fullName" : "cn",
@@ -106,6 +108,8 @@ DEFAULT_SERVICE_PARAMS = {
                 "attr": "cn", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
+                "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
+                "calendarEnabledValue" : "yes", # "True" value of above attribute
                 "mapping" : { # maps internal record names to LDAP
                     "recordName": "cn",
                     "fullName" : "cn",
@@ -119,6 +123,8 @@ DEFAULT_SERVICE_PARAMS = {
                 "attr": "cn", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
+                "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
+                "calendarEnabledValue" : "yes", # "True" value of above attribute
                 "mapping" : { # maps internal record names to LDAP
                     "recordName": "cn",
                     "fullName" : "cn",

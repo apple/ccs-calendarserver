@@ -133,7 +133,9 @@ else:
                         "emailSuffix": None, # used only to synthesize email address
                         "filter": "(objectClass=apple-user)", # additional filter for this type
                         "loginEnabledAttr" : "", # attribute controlling login
-                        "loginEnabledValue" : "yes", # value of above attribute
+                        "loginEnabledValue" : "yes", # "True" value of above attribute
+                        "calendarEnabledAttr" : "enable-calendar", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
                         "mapping": { # maps internal record names to LDAP
                             "recordName": "uid",
                             "fullName" : "cn",
@@ -160,6 +162,8 @@ else:
                         "attr": "cn", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
                         "filter": "(objectClass=apple-resource)", # additional filter for this type
+                        "calendarEnabledAttr" : "", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
                         "mapping": { # maps internal record names to LDAP
                             "recordName": "cn",
                             "fullName" : "cn",
@@ -173,6 +177,8 @@ else:
                         "attr": "cn", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
                         "filter": "(objectClass=apple-resource)", # additional filter for this type
+                        "calendarEnabledAttr" : "", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
                         "mapping": { # maps internal record names to LDAP
                             "recordName": "cn",
                             "fullName" : "cn",
@@ -209,7 +215,7 @@ else:
             of LDAP attributes into an LdapDirectoryRecord
             """
 
-            # User
+            # User without enabled-for-calendaring specified
 
             dn = "uid=odtestamanda,cn=users,dc=example,dc=com"
             guid = '9DC04A70-E6DD-11DF-9492-0800200C9A66'
@@ -233,6 +239,25 @@ else:
             self.assertEquals(record.lastName, 'Test')
             self.assertEquals(record.serverID, None)
             self.assertEquals(record.partitionID, None)
+            self.assertFalse(record.enabledForCalendaring)
+
+            # User with enabled-for-calendaring specified
+
+            dn = "uid=odtestamanda,cn=users,dc=example,dc=com"
+            guid = '9DC04A70-E6DD-11DF-9492-0800200C9A66'
+            attrs = {
+                'uid': ['odtestamanda'],
+                'apple-generateduid': [guid],
+                'enable-calendar': ["yes"],
+                'sn': ['Test'],
+                'mail': ['odtestamanda@example.com', 'alternate@example.com'],
+                'givenName': ['Amanda'],
+                'cn': ['Amanda Test']
+            }
+
+            record = self.service._ldapResultToRecord(dn, attrs,
+                self.service.recordType_users)
+            self.assertTrue(record.enabledForCalendaring)
 
             # User with "podding" info
 

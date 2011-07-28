@@ -103,7 +103,9 @@ class LdapDirectoryService(CachingDirectoryService):
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
                     "loginEnabledAttr" : "", # attribute controlling login
-                    "loginEnabledValue" : "yes", # value of above attribute
+                    "loginEnabledValue" : "yes", # "True" value of above attribute
+                    "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
+                    "calendarEnabledValue" : "yes", # "True" value of above attribute
                     "mapping" : { # maps internal record names to LDAP
                         "recordName": "uid",
                         "fullName" : "cn",
@@ -130,6 +132,8 @@ class LdapDirectoryService(CachingDirectoryService):
                     "attr": "cn", # used only to synthesize email address
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
+                    "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
+                    "calendarEnabledValue" : "yes", # "True" value of above attribute
                     "mapping" : { # maps internal record names to LDAP
                         "recordName": "cn",
                         "fullName" : "cn",
@@ -143,6 +147,8 @@ class LdapDirectoryService(CachingDirectoryService):
                     "attr": "cn", # used only to synthesize email address
                     "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
+                    "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
+                    "calendarEnabledValue" : "yes", # "True" value of above attribute
                     "mapping" : { # maps internal record names to LDAP
                         "recordName": "cn",
                         "fullName" : "cn",
@@ -210,6 +216,8 @@ class LdapDirectoryService(CachingDirectoryService):
         for recordType in self.recordTypes():
             if self.rdnSchema[recordType]["attr"]:
                 attrSet.add(self.rdnSchema[recordType]["attr"])
+            if self.rdnSchema[recordType].get("calendarEnabledAttr", False):
+                attrSet.add(self.rdnSchema[recordType]["calendarEnabledAttr"])
             for attr in self.rdnSchema[recordType]["mapping"].values():
                 if attr:
                     attrSet.add(attr)
@@ -669,6 +677,13 @@ class LdapDirectoryService(CachingDirectoryService):
                 record.enabledForLogin = self._getUniqueLdapAttribute(attrs,
                     loginEnabledAttr) == loginEnabledValue
 
+        # Override with LDAP calendar-enabled control if attribute specified
+        calendarEnabledAttr = self.rdnSchema[recordType].get("calendarEnabledAttr", "")
+        if calendarEnabledAttr:
+            calendarEnabledValue = self.rdnSchema[recordType]["calendarEnabledValue"]
+            record.enabledForCalendaring = self._getUniqueLdapAttribute(attrs,
+                calendarEnabledAttr) == calendarEnabledValue
+
         return record
 
 
@@ -795,6 +810,13 @@ class LdapDirectoryService(CachingDirectoryService):
                                 continue
 
                     record = self._ldapResultToRecord(dn, attrs, recordType)
+
+                    # For non-group records, if not enabled for calendaring do
+                    # not include in principal property search results
+                    if (recordType != self.recordType_groups):
+                        if not record.enabledForCalendaring:
+                            continue
+
                     records.append(record)
 
         self.log_debug("Principal property search matched %d records" % (len(records),))
