@@ -46,7 +46,7 @@ from twisted.python.reflect import namedAny
 # expose.  Its value is 93.
 #
 
-if sys.platform is "darwin":
+if sys.platform in ("darwin", "freebsd8"):
     _ERRNO_NO_ATTR = getattr(errno, "ENOATTR", 93)
 else:
     _ERRNO_NO_ATTR = errno.ENODATA
