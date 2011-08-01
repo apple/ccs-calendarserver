@@ -715,7 +715,7 @@ dependencies () {
 
   local ld="python-ldap-2.3.13";
   py_dependency -v "2.3.13" -m "895223d32fa10bbc29aa349bfad59175" \
-    "python-ldap" "python-ldap" "${ld}" \
+    "python-ldap" "ldap" "${ld}" \
     "${pypi}/p/python-ldap/${ld}.tar.gz";
 
   # XXX actually vObject should be imported in-place.
