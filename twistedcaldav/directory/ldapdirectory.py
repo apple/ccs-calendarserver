@@ -309,6 +309,8 @@ class LdapDirectoryService(CachingDirectoryService):
 
             record = self._ldapResultToRecord(dn, attrs, recordType)
             # self.log_debug("Got LDAP record %s" % (record,))
+            if record is None:
+                continue
 
             if not unrestricted:
                 self.log_debug("%s is not enabled because it's not a member of group: %s" % (guid, self.restrictToGroup))
@@ -535,6 +537,10 @@ class LdapDirectoryService(CachingDirectoryService):
         guidAttr = self.rdnSchema["guidAttr"]
         if guidAttr:
             guid = self._getUniqueLdapAttribute(attrs, guidAttr)
+            if not guid:
+                self.log_error("LDAP data missing required GUID attribute: %s" %
+                    (guidAttr,))
+                return None
 
         # Find or build email
         emailAddresses = self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["emailAddresses"])
@@ -764,16 +770,18 @@ class LdapDirectoryService(CachingDirectoryService):
 
                 record = self._ldapResultToRecord(dn, attrs, recordType)
                 self.log_debug("Got LDAP record %s" % (record,))
-                self.recordCacheForType(recordType).addRecord(record,
-                    indexType, indexKey
-                )
 
-                if not unrestricted:
-                    self.log_debug("%s is not enabled because it's not a member of group: %s" % (guid, self.restrictToGroup))
-                    record.enabledForCalendaring = False
-                    record.enabledForAddressBooks = False
+                if record is not None:
+                    self.recordCacheForType(recordType).addRecord(record,
+                        indexType, indexKey
+                    )
 
-                record.applySACLs()
+                    if not unrestricted:
+                        self.log_debug("%s is not enabled because it's not a member of group: %s" % (guid, self.restrictToGroup))
+                        record.enabledForCalendaring = False
+                        record.enabledForAddressBooks = False
+
+                    record.applySACLs()
 
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         """
@@ -810,6 +818,8 @@ class LdapDirectoryService(CachingDirectoryService):
                                 continue
 
                     record = self._ldapResultToRecord(dn, attrs, recordType)
+                    if record is None:
+                        continue
 
                     # For non-group records, if not enabled for calendaring do
                     # not include in principal property search results

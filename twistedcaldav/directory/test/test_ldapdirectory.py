@@ -276,6 +276,18 @@ else:
             self.assertEquals(record.serverID, "test-server-id")
             self.assertEquals(record.partitionID, "test-partition-id")
 
+            # User missing guidAttr
+
+            dn = "uid=odtestamanda,cn=users,dc=example,dc=com"
+            attrs = {
+                'uid': ['odtestamanda'],
+                'cn': ['Amanda Test'],
+            }
+
+            record = self.service._ldapResultToRecord(dn, attrs,
+                self.service.recordType_users)
+            self.assertEquals(record, None)
+
             # Group with direct user members and nested group
 
             dn = "cn=odtestgrouptop,cn=groups,dc=example,dc=com"
@@ -422,10 +434,21 @@ else:
                         'cn': ['Betty Test']
                     }
                 ),
+                (
+                    "uid=odtestcarlene,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestcarlene'],
+                        # Note: no guid here, to test this record is skipped
+                        'sn': ['Test'],
+                        'mail': ['odtestcarlene@example.com'],
+                        'givenName': ['Carlene'],
+                        'cn': ['Carlene Test']
+                    }
+                ),
             ])
             records = self.service.listRecords(self.service.recordType_users)
             self.assertEquals(len(records), 2)
             self.assertEquals(
                 set([r.firstName for r in records]),
-                set(["Amanda", "Betty"])
+                set(["Amanda", "Betty"]) # Carlene is skipped because no guid in LDAP
             )
