@@ -48,7 +48,10 @@ from twext.web2.dav.noneprops import NonePropertyStore
 
 from twext.python.log import Logger
 
-from twistedcaldav.authkerb import NegotiateCredentials
+try:
+    from twistedcaldav.authkerb import NegotiateCredentials
+except ImportError:
+    NegotiateCredentials = None
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.directory import calendaruserproxy
@@ -153,7 +156,7 @@ class DirectoryProvisioningResource (
         # Basic/Digest creds -> just lookup user name
         if isinstance(user, UsernamePassword) or isinstance(user, DigestedCredentials):
             return self.principalForUser(user.username)
-        elif isinstance(user, NegotiateCredentials):
+        elif NegotiateCredentials is not None and isinstance(user, NegotiateCredentials):
             authID = "Kerberos:%s" % (user.principal,)
             principal = self.principalForRecord(self.directory.recordWithAuthID(authID))
             if principal:
