@@ -185,6 +185,10 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
             int data_len, type, level;
             unsigned char *data, *cmsg_data;
 
+            /* We explicitly allocated enough space for all ancillary data
+               above; if there isn't enough room, all bets are off. */
+            assert(control_message);
+
             if (!PyArg_ParseTuple(item,
                                   "iit#:sendmsg ancillary data (level, type, data)",
                                   &level,
@@ -207,10 +211,6 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
             Py_DECREF(item);
 
             control_message = CMSG_NXTHDR(&message_header, control_message);
-
-            /* We explicitly allocated enough space for all ancillary data
-               above; if there isn't enough room, all bets are off. */
-            assert(control_message);
         }
         
         Py_DECREF(iterator);
