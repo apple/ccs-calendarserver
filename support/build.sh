@@ -699,14 +699,6 @@ dependencies () {
           "http://${sf}/project/cx-oracle/5.1/${cx}.tar.gz";
   fi;
 
-  if [ "${py_version}" != "${py_version##2.5}" ] && \
-      ! py_have_module select26; then
-    local s26="select26-0.1a3";
-    py_dependency -m "01b8929e7cfc4a8deb777b92e3115c15" \
-      "select26" "select26" "${s26}" \
-      "${pypi}/s/select26/${s26}.tar.gz";
-  fi;
-
   local pg="PyGreSQL-4.0";
   py_dependency -v 4.0 -m "1aca50e59ff4cc56abe9452a9a49c5ff" -o \
     "PyGreSQL" "pgdb" "${pg}" \
