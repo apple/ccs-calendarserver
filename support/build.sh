@@ -1,4 +1,3 @@
-#! /bin/bash
 # -*- sh-basic-offset: 2 -*-
 
 ##
