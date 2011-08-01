@@ -1036,7 +1036,7 @@ class MailHandler(LoggingMixIn):
             with translationTo(language) as trans:
                 monthName = trans.monthAbbreviation(month)
             iconName = "%02d.png" % (day,)
-            iconPath = os.path.join(iconDir, monthName, iconName)
+            iconPath = os.path.join(iconDir, monthName.encode("utf-8"), iconName)
             if not os.path.exists(iconPath):
                 # Try the generic (numeric) version
                 iconPath = os.path.join(iconDir, "%02d" % (month,), iconName)
