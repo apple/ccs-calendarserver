@@ -539,11 +539,14 @@ class LdapDirectoryService(CachingDirectoryService):
         uid = None
         enabledForLogin = True
 
+        shortNames = (self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["recordName"]),)
+
         # First check for and add guid
         guidAttr = self.rdnSchema["guidAttr"]
         if guidAttr:
             guid = self._getUniqueLdapAttribute(attrs, guidAttr)
             if not guid:
+                self.log_info("LDAP data for %s is missing guid attribute %s" % (shortNames, guidAttr))
                 raise MissingGuidException()
 
         # Find or build email
@@ -561,7 +564,6 @@ class LdapDirectoryService(CachingDirectoryService):
         memberGUIDs = set()
 
         # LDAP attribute -> principal matchings
-        shortNames = (self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["recordName"]),)
         if recordType == self.recordType_users:
             fullName = self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["fullName"])
             firstName = self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["firstName"])
@@ -786,8 +788,8 @@ class LdapDirectoryService(CachingDirectoryService):
                     record.applySACLs()
 
                 except MissingGuidException:
-                    self.log_warn("LDAP data missing required GUID attribute: %s" %
-                        (guidAttr,))
+                    self.log_warn("Ignoring record missing guid attribute: recordType %s, indexType %s and indexKey %s"
+                        % (recordTypes, indexType, indexKey))
 
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         """

@@ -534,6 +534,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # We're in quick-start mode.  Check first to see if someone has
             # populated the membership cache, and if so, return immediately
             if isPopulated:
+                self.log_debug("Group membership cache is already populated")
                 returnValue((fast, 0))
 
             # We don't care what others are doing right now, we need to update
