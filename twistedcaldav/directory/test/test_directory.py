@@ -461,7 +461,7 @@ class GroupMembershipTests (TestCase):
 
         # Note that because fast=True and isPopulated() is False, locking is
         # ignored:
-        acquiredLock = (yield cache.acquireLock())
+        yield cache.acquireLock()
 
         self.assertFalse((yield cache.isPopulated()))
         fast, numMembers = (yield updater.updateCache(fast=True))
