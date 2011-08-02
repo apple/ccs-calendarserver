@@ -46,14 +46,14 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         """
 
         def __init__(self):
-            self._cache = {}
+            self._cache = {} # (value, expireTime, check-and-set identifier)
             self._clock = 0
 
         def add(self, key, value, expireTime=0):
             if key not in self._cache:
                 if not expireTime:
                     expireTime = 99999
-                self._cache[key] = (value, self._clock + expireTime)
+                self._cache[key] = (value, self._clock + expireTime, 0)
                 return succeed(True)
             else:
                 return succeed(False)
@@ -61,13 +61,34 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         def set(self, key, value, expireTime=0):
             if not expireTime:
                 expireTime = 99999
-            self._cache[key] = (value, self._clock + expireTime)
+            if self._cache.has_key(key):
+                identifier = self._cache[key][2]
+                identifier += 1
+            else:
+                identifier = 0
+            self._cache[key] = (value, self._clock + expireTime, identifier)
             return succeed(True)
 
-        def get(self, key):
-            value, expires = self._cache.get(key, (None, 0))
+        def checkAndSet(self, key, value, cas, flags=0, expireTime=0):
+            if not expireTime:
+                expireTime = 99999
+            if self._cache.has_key(key):
+                identifier = self._cache[key][2]
+                if cas != str(identifier):
+                    return succeed(False)
+                identifier += 1
+            else:
+                return succeed(False)
+            self._cache[key] = (value, self._clock + expireTime, identifier)
+            return succeed(True)
+
+        def get(self, key, withIdentifier=False):
+            value, expires, identifier = self._cache.get(key, (None, 0, ""))
             if self._clock >= expires:
-                return succeed((0, None,))
+                value = None
+                identifier = ""
+            if withIdentifier:
+                return succeed((0, value, str(identifier)))
             else:
                 return succeed((0, value,))
 
@@ -78,7 +99,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             except KeyError:
                 return succeed(False)
 
-        def flush_all(self):
+        def flushAll(self):
             self._cache = {}
             return succeed(True)
 
@@ -102,13 +123,16 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         def set(self, key, value, expireTime=0):
             return succeed(True)
 
-        def get(self, key):
+        def checkAndSet(self, key, value, cas, flags=0, expireTime=0):
+            return succeed(True)
+
+        def get(self, key, withIdentifier=False):
             return succeed((0, None,))
 
         def delete(self, key):
             return succeed(True)
 
-        def flush_all(self):
+        def flushAll(self):
             return succeed(True)
 
     def __init__(self, namespace, pickle=False, no_invalidation=False, key_normalization=True):
@@ -170,7 +194,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         else:
             return key
 
-    def add(self, key, value, expire_time=0):
+    def add(self, key, value, expireTime=0):
         
         proto = self._getMemcacheProtocol()
 
@@ -178,9 +202,9 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         if self._pickle:
             my_value = cPickle.dumps(value)
         self.log_debug("Adding Cache Token for %r" % (key,))
-        return proto.add('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expire_time)
+        return proto.add('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expireTime)
 
-    def set(self, key, value, expire_time=0):
+    def set(self, key, value, expireTime=0):
         
         proto = self._getMemcacheProtocol()
 
@@ -188,24 +212,39 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         if self._pickle:
             my_value = cPickle.dumps(value)
         self.log_debug("Setting Cache Token for %r" % (key,))
-        return proto.set('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expire_time)
+        return proto.set('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expireTime)
 
-    def get(self, key):
-        def _gotit(result):
-            _ignore_flags, value = result
+    def checkAndSet(self, key, value, cas, flags=0, expireTime=0):
+
+        proto = self._getMemcacheProtocol()
+
+        my_value = value
+        if self._pickle:
+            my_value = cPickle.dumps(value)
+        self.log_debug("Setting Cache Token for %r" % (key,))
+        return proto.checkAndSet('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, cas, expireTime=expireTime)
+
+    def get(self, key, withIdentifier=False):
+        def _gotit(result, withIdentifier):
+            if withIdentifier:
+                _ignore_flags, identifier, value = result
+            else:
+                _ignore_flags, value = result
             if self._pickle and value is not None:
                 value = cPickle.loads(value)
+            if withIdentifier:
+                value = (identifier, value)
             return value
 
         self.log_debug("Getting Cache Token for %r" % (key,))
-        d = self._getMemcacheProtocol().get('%s:%s' % (self._namespace, self._normalizeKey(key)))
-        d.addCallback(_gotit)
+        d = self._getMemcacheProtocol().get('%s:%s' % (self._namespace, self._normalizeKey(key)), withIdentifier=withIdentifier)
+        d.addCallback(_gotit, withIdentifier)
         return d
 
     def delete(self, key):
         self.log_debug("Deleting Cache Token for %r" % (key,))
         return self._getMemcacheProtocol().delete('%s:%s' % (self._namespace, self._normalizeKey(key)))
 
-    def flush_all(self):
+    def flushAll(self):
         self.log_debug("Flushing All Cache Tokens")
-        return self._getMemcacheProtocol().flush_all()
+        return self._getMemcacheProtocol().flushAll()

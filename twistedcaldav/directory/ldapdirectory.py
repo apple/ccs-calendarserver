@@ -296,20 +296,22 @@ class LdapDirectoryService(CachingDirectoryService):
             ldap.SCOPE_SUBTREE, filter, self.attrList)
 
         records = []
-
+        numMissingGuids = 0
+        guidAttr = self.rdnSchema["guidAttr"]
         for dn, attrs in results:
 
             unrestricted = True
             if self.restrictedGUIDs is not None:
-                guidAttr = self.rdnSchema["guidAttr"]
                 if guidAttr:
                     guid = self._getUniqueLdapAttribute(attrs, guidAttr)
                     if guid not in self.restrictedGUIDs:
                         unrestricted = False
 
-            record = self._ldapResultToRecord(dn, attrs, recordType)
-            # self.log_debug("Got LDAP record %s" % (record,))
-            if record is None:
+            try:
+                record = self._ldapResultToRecord(dn, attrs, recordType)
+                # self.log_debug("Got LDAP record %s" % (record,))
+            except MissingGuidException:
+                numMissingGuids += 1
                 continue
 
             if not unrestricted:
@@ -318,6 +320,10 @@ class LdapDirectoryService(CachingDirectoryService):
                 record.enabledForAddressBooks = False
 
             records.append(record)
+
+        if numMissingGuids:
+            self.log_warn("%d %s records are missing %s" %
+                (numMissingGuids, recordType, guidAttr))
 
         return records
 
@@ -517,8 +523,8 @@ class LdapDirectoryService(CachingDirectoryService):
         Convert the attrs returned by a LDAP search into a LdapDirectoryRecord
         object.
 
-        Mappings are hardcoded below but the most standard LDAP schemas were
-        used to define them
+        If guidAttr was specified in the config but is missing from attrs,
+        raises MissingGuidException
         """
 
         guid = None
@@ -538,14 +544,11 @@ class LdapDirectoryService(CachingDirectoryService):
         if guidAttr:
             guid = self._getUniqueLdapAttribute(attrs, guidAttr)
             if not guid:
-                self.log_error("LDAP data missing required GUID attribute: %s" %
-                    (guidAttr,))
-                return None
+                raise MissingGuidException()
 
         # Find or build email
         emailAddresses = self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["emailAddresses"])
         emailSuffix = self.rdnSchema[recordType]["emailSuffix"]
-
 
         if len(emailAddresses) == 0 and emailSuffix:
             emailPrefix = self._getUniqueLdapAttribute(attrs,
@@ -709,6 +712,7 @@ class LdapDirectoryService(CachingDirectoryService):
         self.log_debug("LDAP query for types %s, indexType %s and indexKey %s"
             % (recordTypes, indexType, indexKey))
 
+        guidAttr = self.rdnSchema["guidAttr"]
         for recordType in recordTypes:
             # Build base for this record Type
             base = self.typeRDNs[recordType] + self.base
@@ -723,7 +727,6 @@ class LdapDirectoryService(CachingDirectoryService):
                 # Query on guid only works if guid attribute has been defined.
                 # Support for query on guid even if is auto-generated should
                 # be added.
-                guidAttr = self.rdnSchema["guidAttr"]
                 if not guidAttr: return
                 filter = "(&%s(%s=%s))" % (filter, guidAttr, indexKey)
 
@@ -762,16 +765,15 @@ class LdapDirectoryService(CachingDirectoryService):
 
                 unrestricted = True
                 if self.restrictedGUIDs is not None:
-                    guidAttr = self.rdnSchema["guidAttr"]
                     if guidAttr:
                         guid = self._getUniqueLdapAttribute(attrs, guidAttr)
                         if guid not in self.restrictedGUIDs:
                             unrestricted = False
 
-                record = self._ldapResultToRecord(dn, attrs, recordType)
-                self.log_debug("Got LDAP record %s" % (record,))
+                try:
+                    record = self._ldapResultToRecord(dn, attrs, recordType)
+                    self.log_debug("Got LDAP record %s" % (record,))
 
-                if record is not None:
                     self.recordCacheForType(recordType).addRecord(record,
                         indexType, indexKey
                     )
@@ -783,6 +785,10 @@ class LdapDirectoryService(CachingDirectoryService):
 
                     record.applySACLs()
 
+                except MissingGuidException:
+                    self.log_warn("LDAP data missing required GUID attribute: %s" %
+                        (guidAttr,))
+
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         """
         Carries out the work of a principal-property-search against LDAP
@@ -792,11 +798,12 @@ class LdapDirectoryService(CachingDirectoryService):
 
         self.log_debug("Peforming principal property search for %s" % (fields,))
         recordTypes = [recordType] if recordType else self.recordTypes()
+        guidAttr = self.rdnSchema["guidAttr"]
         for recordType in recordTypes:
-            filter = buildFilter(self.rdnSchema[recordType]["mapping"], fields, operand=operand)
+            filter = buildFilter(self.rdnSchema[recordType]["mapping"], fields,
+                operand=operand)
 
             if filter is not None:
-
                 # Query the LDAP server
                 base = self.typeRDNs[recordType] + self.base
 
@@ -806,28 +813,34 @@ class LdapDirectoryService(CachingDirectoryService):
                     ldap.SCOPE_SUBTREE, filter, self.attrList)
                 self.log_debug("LDAP search returned %d results" % (len(results),))
 
+                numMissingGuids = 0
                 for dn, attrs in results:
                     # Skip if group restriction is in place and guid is not
                     # a member
                     if (recordType != self.recordType_groups and
                         self.restrictedGUIDs is not None):
-                        guidAttr = self.rdnSchema["guidAttr"]
                         if guidAttr:
                             guid = self._getUniqueLdapAttribute(attrs, guidAttr)
                             if guid not in self.restrictedGUIDs:
                                 continue
 
-                    record = self._ldapResultToRecord(dn, attrs, recordType)
-                    if record is None:
-                        continue
+                    try:
+                        record = self._ldapResultToRecord(dn, attrs, recordType)
 
-                    # For non-group records, if not enabled for calendaring do
-                    # not include in principal property search results
-                    if (recordType != self.recordType_groups):
-                        if not record.enabledForCalendaring:
-                            continue
+                        # For non-group records, if not enabled for calendaring do
+                        # not include in principal property search results
+                        if (recordType != self.recordType_groups):
+                            if not record.enabledForCalendaring:
+                                continue
 
-                    records.append(record)
+                        records.append(record)
+
+                    except MissingGuidException:
+                        numMissingGuids += 1
+
+                if numMissingGuids:
+                    self.log_warn("%d %s records are missing %s" %
+                        (numMissingGuids, recordType, guidAttr))
 
         self.log_debug("Principal property search matched %d records" % (len(records),))
         return succeed(records)
@@ -1095,3 +1108,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
 
         return super(LdapDirectoryRecord, self).verifyCredentials(credentials)
 
+
+class MissingGuidException(Exception):
+    """ Raised when LDAP record is missing guidAttr and it's required """
+    pass

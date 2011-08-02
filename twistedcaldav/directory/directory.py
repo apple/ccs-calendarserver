@@ -28,6 +28,7 @@ __all__ = [
     "UnknownRecordTypeError",
 ]
 
+import datetime
 import os
 import sys
 import types
@@ -395,12 +396,13 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
 
     Keys in this cache are:
 
-    "group-membership-cache-populated" : gets set to "true" after the cache
-    is populated, so clients know they can now use it.  Note, this needs to
-    be made robust in the face of memcached evictions.
-
     "groups-for:<GUID>" : comma-separated list of groups that GUID is a member
-    of
+    of.  Note that when using LDAP, the key for this is an LDAP DN.
+
+    "group-cacher-populated" : contains a datestamp indicating the most recent
+    population.
+
+    "group-cacher-lock" : used to prevent multiple updates, it has a value of "1"
 
     """
 
@@ -417,7 +419,7 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
         self.log_debug("set groups-for %s : %s" % (guid, memberships))
         return self.set("groups-for:%s" %
             (str(guid)), str(",".join(memberships)),
-            expire_time=self.expireSeconds)
+            expireTime=self.expireSeconds)
 
     def getGroupsFor(self, guid):
         self.log_debug("get groups-for %s" % (guid,))
@@ -430,6 +432,19 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
         d.addCallback(_value)
         return d
 
+    def setPopulatedMarker(self):
+        return self.set("group-cacher-populated", str(datetime.datetime.now()))
+
+    @inlineCallbacks
+    def isPopulated(self):
+        value = (yield self.get("group-cacher-populated"))
+        returnValue(value is not None)
+
+    def acquireLock(self):
+        return self.add("group-cacher-lock", "1", expireTime=self.expireSeconds)
+
+    def releaseLock(self):
+        return self.delete("group-cacher-lock")
 
 
 class GroupMembershipCacheUpdater(LoggingMixIn):
@@ -494,8 +509,35 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         delegated to.  Fault these principals in.  For any of these principals
         that are groups, expand the members of that group and store those in
         the cache
+
+        If fast=True, we're in quick-start mode, used only by the master process
+        to start servicing requests as soon as possible.  In this mode we look
+        for DataRoot/memberships_cache which is a pickle of a dictionary whose
+        keys are guids (except when using LDAP where the keys will be DNs), and
+        the values are lists of group guids.  If the cache file does not exist
+        we switch to fast=False.
+
+        The return value is mainly used for unit tests; it's a tuple containing
+        the (possibly modified) value for fast, and the number of members loaded
+        into the cache (which can be zero if fast=True and isPopulated(), or
+        fast=False and the cache is locked by someone else).
         """
+
         # TODO: add memcached eviction protection
+
+        # See if anyone has completely populated the group membership cache
+        isPopulated = (yield self.cache.isPopulated())
+
+        useLock = True
+
+        if fast:
+            # We're in quick-start mode.  Check first to see if someone has
+            # populated the membership cache, and if so, return immediately
+            if isPopulated:
+                returnValue((fast, 0))
+
+            # We don't care what others are doing right now, we need to update
+            useLock = False
 
         self.log_debug("Updating group membership cache")
 
@@ -508,6 +550,14 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         else:
             self.log_debug("Group membership snapshot file exists: %s" %
                            (snapshotFile.path,))
+
+        if useLock:
+            self.log_debug("Attempting to acquire group membership cache lock")
+            acquiredLock = (yield self.cache.acquireLock())
+            if not acquiredLock:
+                self.log_debug("Group membership cache lock held by another process")
+                returnValue((fast, 0))
+            self.log_debug("Acquired lock")
 
         if not fast and self.useExternalProxies:
             self.log_debug("Retrieving proxy assignments from directory")
@@ -580,6 +630,12 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         for member, groups in members.iteritems():
             # self.log_debug("%s is in %s" % (member, groups))
             yield self.cache.setGroupsFor(member, groups)
+
+        yield self.cache.setPopulatedMarker()
+
+        if useLock:
+            self.log_debug("Releasing lock")
+            yield self.cache.releaseLock()
 
         self.log_debug("Group memberships cache updated")
 

@@ -115,7 +115,7 @@ class DigestCredentialsMemcache(Memcacher):
         super(DigestCredentialsMemcache, self).set(
             key,
             value,
-            expire_time=self.CHALLENGE_MAXTIME_SECS
+            expireTime=self.CHALLENGE_MAXTIME_SECS
         )
 
 class QopDigestCredentialFactory(DigestCredentialFactory):

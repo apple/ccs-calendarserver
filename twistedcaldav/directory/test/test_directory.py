@@ -184,7 +184,7 @@ class GroupMembershipTests (TestCase):
         Let the GroupMembershipCacheUpdater populate the cache, then make
         sure proxyFor( ) and groupMemberships( ) work from the cache
         """
-        cache = GroupMembershipCache("ProxyDB", 60)
+        cache = GroupMembershipCache("ProxyDB", expireSeconds=60)
         # Having a groupMembershipCache assigned to the directory service is the
         # trigger to use such a cache:
         self.directoryService.groupMembershipCache = cache
@@ -238,7 +238,21 @@ class GroupMembershipTests (TestCase):
             )
         )
 
-        yield updater.updateCache()
+        # Prevent an update by locking the cache
+        acquiredLock = (yield cache.acquireLock())
+        self.assertTrue(acquiredLock)
+        self.assertEquals((False, 0), (yield updater.updateCache()))
+
+        # You can't lock when already locked:
+        acquiredLockAgain = (yield cache.acquireLock())
+        self.assertFalse(acquiredLockAgain)
+
+        # Allow an update by unlocking the cache
+        yield cache.releaseLock()
+        self.assertEquals((False, 8), (yield updater.updateCache()))
+
+        # Verify cache is populated:
+        self.assertTrue((yield cache.isPopulated()))
 
         delegates = (
 
@@ -325,7 +339,7 @@ class GroupMembershipTests (TestCase):
         Exercise external proxy assignment support (assignments come from the
         directory service itself)
         """
-        cache = GroupMembershipCache("ProxyDB", 60)
+        cache = GroupMembershipCache("ProxyDB", expireSeconds=60)
         # Having a groupMembershipCache assigned to the directory service is the
         # trigger to use such a cache:
         self.directoryService.groupMembershipCache = cache
@@ -426,7 +440,7 @@ class GroupMembershipTests (TestCase):
         the member -> groups dictionary, and can quickly refresh memcached
         from that snapshot when restarting the server.
         """
-        cache = GroupMembershipCache("ProxyDB", 60)
+        cache = GroupMembershipCache("ProxyDB", expireSeconds=60)
         # Having a groupMembershipCache assigned to the directory service is the
         # trigger to use such a cache:
         self.directoryService.groupMembershipCache = cache
@@ -444,17 +458,28 @@ class GroupMembershipTests (TestCase):
         # Try a fast update (as when the server starts up for the very first
         # time), but since the snapshot doesn't exist we fault in from the
         # directory (fast now is False), and snapshot will get created
+
+        # Note that because fast=True and isPopulated() is False, locking is
+        # ignored:
+        acquiredLock = (yield cache.acquireLock())
+
+        self.assertFalse((yield cache.isPopulated()))
         fast, numMembers = (yield updater.updateCache(fast=True))
         self.assertEquals(fast, False)
         self.assertEquals(numMembers, 8)
         self.assertTrue(snapshotFile.exists())
+        self.assertTrue((yield cache.isPopulated()))
+
+        yield cache.releaseLock()
 
         # Try another fast update where the snapshot already exists (as in a
         # server-restart scenario), which will only read from the snapshot
-        # as indicated by the return value for "fast"
+        # as indicated by the return value for "fast".  Note that the cache
+        # is already populated so updateCache( ) in fast mode will not do
+        # anything, and numMembers will be 0.
         fast, numMembers = (yield updater.updateCache(fast=True))
         self.assertEquals(fast, True)
-        self.assertEquals(numMembers, 8)
+        self.assertEquals(numMembers, 0)
 
         # Try an update which faults in from the directory (fast=False)
         fast, numMembers = (yield updater.updateCache(fast=False))
@@ -511,3 +536,5 @@ class GroupMembershipTests (TestCase):
                     ])
             }
         )
+
+

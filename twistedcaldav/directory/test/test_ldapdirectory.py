@@ -15,7 +15,9 @@
 ##
 
 try:
-    from twistedcaldav.directory.ldapdirectory import buildFilter, LdapDirectoryService
+    from twistedcaldav.directory.ldapdirectory import (
+        buildFilter, LdapDirectoryService, MissingGuidException
+    )
 except ImportError:
     print "Skipping because ldap module not installed"
 else:
@@ -284,9 +286,9 @@ else:
                 'cn': ['Amanda Test'],
             }
 
-            record = self.service._ldapResultToRecord(dn, attrs,
+            self.assertRaises(MissingGuidException,
+                self.service._ldapResultToRecord, dn, attrs,
                 self.service.recordType_users)
-            self.assertEquals(record, None)
 
             # Group with direct user members and nested group
 
