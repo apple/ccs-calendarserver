@@ -433,17 +433,21 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
         return d
 
     def setPopulatedMarker(self):
+        self.log_debug("set group-cacher-populated")
         return self.set("group-cacher-populated", str(datetime.datetime.now()))
 
     @inlineCallbacks
     def isPopulated(self):
+        self.log_debug("is group-cacher-populated")
         value = (yield self.get("group-cacher-populated"))
         returnValue(value is not None)
 
     def acquireLock(self):
+        self.log_debug("add group-cacher-lock")
         return self.add("group-cacher-lock", "1", expireTime=self.expireSeconds)
 
     def releaseLock(self):
+        self.log_debug("delete group-cacher-lock")
         return self.delete("group-cacher-lock")
 
 
@@ -534,46 +538,46 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # We're in quick-start mode.  Check first to see if someone has
             # populated the membership cache, and if so, return immediately
             if isPopulated:
-                self.log_debug("Group membership cache is already populated")
+                self.log_info("Group membership cache is already populated")
                 returnValue((fast, 0))
 
             # We don't care what others are doing right now, we need to update
             useLock = False
 
-        self.log_debug("Updating group membership cache")
+        self.log_info("Updating group membership cache")
 
         dataRoot = FilePath(config.DataRoot)
         snapshotFile = dataRoot.child("memberships_cache")
 
         if not snapshotFile.exists():
-            self.log_debug("Group membership snapshot file does not yet exist")
+            self.log_info("Group membership snapshot file does not yet exist")
             fast = False
         else:
-            self.log_debug("Group membership snapshot file exists: %s" %
-                           (snapshotFile.path,))
+            self.log_info("Group membership snapshot file exists: %s" %
+                (snapshotFile.path,))
 
         if useLock:
-            self.log_debug("Attempting to acquire group membership cache lock")
+            self.log_info("Attempting to acquire group membership cache lock")
             acquiredLock = (yield self.cache.acquireLock())
             if not acquiredLock:
-                self.log_debug("Group membership cache lock held by another process")
+                self.log_info("Group membership cache lock held by another process")
                 returnValue((fast, 0))
-            self.log_debug("Acquired lock")
+            self.log_info("Acquired lock")
 
         if not fast and self.useExternalProxies:
-            self.log_debug("Retrieving proxy assignments from directory")
+            self.log_info("Retrieving proxy assignments from directory")
             assignments = self.externalProxiesSource()
-            self.log_debug("%d proxy assignments retrieved from directory" %
+            self.log_info("%d proxy assignments retrieved from directory" %
                 (len(assignments),))
             # populate proxy DB from external resource info
-            self.log_debug("Applying proxy assignment changes")
+            self.log_info("Applying proxy assignment changes")
             assignmentCount = 0
             for principalUID, members in assignments:
                 current = (yield self.proxyDB.getMembers(principalUID))
                 if members != current:
                     assignmentCount += 1
                     yield self.proxyDB.setGroupMembers(principalUID, members)
-            self.log_debug("Applied %d assignment%s to proxy database" %
+            self.log_info("Applied %d assignment%s to proxy database" %
                 (assignmentCount, "" if assignmentCount == 1 else "s"))
 
         if fast:
@@ -581,7 +585,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # load that and put into memcached, bypassing the faulting in of
             # any records, so that the server can start up quickly.
 
-            self.log_debug("Loading group memberships from snapshot")
+            self.log_info("Loading group memberships from snapshot")
             members = pickle.loads(snapshotFile.getContent())
 
         else:
@@ -589,18 +593,18 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # of delegated-to guids, intersect those and build a dictionary
             # containing which delegated-to groups a user is a member of
 
-            self.log_debug("Retrieving list of all proxies")
+            self.log_info("Retrieving list of all proxies")
             delegatedGUIDs = set((yield self.proxyDB.getAllMembers()))
-            self.log_debug("There are %d proxies" % (len(delegatedGUIDs),))
+            self.log_info("There are %d proxies" % (len(delegatedGUIDs),))
 
-            self.log_debug("Retrieving group hierarchy from directory")
+            self.log_info("Retrieving group hierarchy from directory")
             groups = self.getGroups()
             groupGUIDs = set(groups.keys())
-            self.log_debug("There are %d groups in the directory" %
+            self.log_info("There are %d groups in the directory" %
                            (len(groupGUIDs),))
 
             delegatedGUIDs = delegatedGUIDs.intersection(groupGUIDs)
-            self.log_debug("%d groups are proxies" % (len(delegatedGUIDs),))
+            self.log_info("%d groups are proxies" % (len(delegatedGUIDs),))
 
             # Reverse index the group membership from cache
             members = {}
@@ -610,11 +614,11 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
                     memberships = members.setdefault(member, set())
                     memberships.add(groupGUID)
 
-            self.log_debug("There are %d users delegated-to via groups" %
+            self.log_info("There are %d users delegated-to via groups" %
                 (len(members),))
 
             # Store snapshot
-            self.log_debug("Taking snapshot of group memberships to %s" %
+            self.log_info("Taking snapshot of group memberships to %s" %
                 (snapshotFile.path,))
             snapshotFile.setContent(pickle.dumps(members))
 
@@ -626,7 +630,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
                 gid = grp.getgrnam(config.GroupName).gr_gid
             os.chown(snapshotFile.path, uid, gid)
 
-        self.log_debug("Storing %d group memberships in memcached" %
+        self.log_info("Storing %d group memberships in memcached" %
                        (len(members),))
         for member, groups in members.iteritems():
             # self.log_debug("%s is in %s" % (member, groups))
@@ -635,10 +639,10 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         yield self.cache.setPopulatedMarker()
 
         if useLock:
-            self.log_debug("Releasing lock")
+            self.log_info("Releasing lock")
             yield self.cache.releaseLock()
 
-        self.log_debug("Group memberships cache updated")
+        self.log_info("Group memberships cache updated")
 
         returnValue((fast, len(members)))
 
@@ -790,7 +794,7 @@ class GroupMembershipCacherService(service.Service, LoggingMixIn):
         try:
             yield self.updateMethod()
         finally:
-            self.log_debug("Scheduling next group membership update")
+            self.log_info("Scheduling next group membership update")
             self.nextUpdate = self.reactor.callLater(self.updateSeconds,
                 self.update)
 

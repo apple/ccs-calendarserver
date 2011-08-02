@@ -322,7 +322,7 @@ class LdapDirectoryService(CachingDirectoryService):
             records.append(record)
 
         if numMissingGuids:
-            self.log_warn("%d %s records are missing %s" %
+            self.log_info("%d %s records are missing %s" %
                 (numMissingGuids, recordType, guidAttr))
 
         return records
@@ -430,7 +430,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     nestedGroups = []
 
                 self._cachedRestrictedGUIDs = set(self._expandGroupMembership(members, nestedGroups, returnGroups=True))
-                self.log_debug("Got %d restricted group members" % (len(self._cachedRestrictedGUIDs),))
+                self.log_info("Got %d restricted group members" % (len(self._cachedRestrictedGUIDs),))
                 self.restrictedTimestamp = time.time()
             return self._cachedRestrictedGUIDs
         else:
@@ -546,7 +546,7 @@ class LdapDirectoryService(CachingDirectoryService):
         if guidAttr:
             guid = self._getUniqueLdapAttribute(attrs, guidAttr)
             if not guid:
-                self.log_info("LDAP data for %s is missing guid attribute %s" % (shortNames, guidAttr))
+                self.log_debug("LDAP data for %s is missing guid attribute %s" % (shortNames, guidAttr))
                 raise MissingGuidException()
 
         # Find or build email
