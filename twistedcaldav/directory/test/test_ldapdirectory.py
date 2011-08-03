@@ -18,6 +18,11 @@ try:
     from twistedcaldav.directory.ldapdirectory import (
         buildFilter, LdapDirectoryService, MissingGuidException
     )
+    from twistedcaldav.test.util import proxiesFile
+    from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
+    from twistedcaldav.directory import calendaruserproxy
+    from twistedcaldav.directory.directory import GroupMembershipCache, GroupMembershipCacheUpdater
+    from twisted.internet.defer import inlineCallbacks
 except ImportError:
     print "Skipping because ldap module not installed"
 else:
@@ -108,6 +113,8 @@ else:
     class LdapDirectoryServiceTestCase(TestCase):
 
         def setUp(self):
+            super(LdapDirectoryServiceTestCase, self).setUp()
+
             params = {
                 "augmentService" : None,
                 "groupMembershipCache" : None,
@@ -191,9 +198,9 @@ else:
                     },
                 },
                 "groupSchema": {
-                    "membersAttr": "apple-group-memberguid", # how members are specified
-                    "nestedGroupsAttr": "apple-group-nestedgroup", # how nested groups are specified
-                    "memberIdAttr": "apple-generateduid", # which attribute the above refer to
+                    "membersAttr": "uniqueMember", # how members are specified
+                    "nestedGroupsAttr": "", # how nested groups are specified
+                    "memberIdAttr": "", # which attribute the above refer to
                 },
                 "resourceSchema": {
                     "resourceInfoAttr": "apple-resource-info", # contains location/resource info
@@ -296,13 +303,10 @@ else:
             guid = '6C6CD280-E6E3-11DF-9492-0800200C9A66'
             attrs = {
                 'apple-generateduid': [guid],
-                'apple-group-memberguid':
+                'uniqueMember':
                     [
                         '9DC04A70-E6DD-11DF-9492-0800200C9A66',
-                        '9DC04A71-E6DD-11DF-9492-0800200C9A66'
-                    ],
-                'apple-group-nestedgroup':
-                    [
+                        '9DC04A71-E6DD-11DF-9492-0800200C9A66',
                         '6C6CD282-E6E3-11DF-9492-0800200C9A66'
                     ],
                 'cn': ['odtestgrouptop']
@@ -454,3 +458,85 @@ else:
                 set([r.firstName for r in records]),
                 set(["Amanda", "Betty"]) # Carlene is skipped because no guid in LDAP
             )
+
+        @inlineCallbacks
+        def test_groupMembershipAliases(self):
+            """
+            Exercise a directory enviornment where group membership does not refer
+            to guids but instead uses LDAP DNs.  This example uses the LDAP attribute
+            "uniqueMember" to specify members of a group.  The value of this attribute
+            is each members' DN.  Even though the proxy database deals strictly in
+            guids, updateCache( ) is smart enough to map between guids and this
+            attribute which is referred to in the code as record.cachedGroupsAlias().
+            """
+
+            # Set up proxydb and preload it from xml
+            calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB("proxies.sqlite")
+            yield XMLCalendarUserProxyLoader(proxiesFile.path).updateProxyDB()
+
+            # Set up the GroupMembershipCache
+            cache = GroupMembershipCache("ProxyDB", expireSeconds=60)
+            self.service.groupMembershipCache = cache
+            updater = GroupMembershipCacheUpdater(calendaruserproxy.ProxyDBService,
+                self.service, 30, cache=cache, useExternalProxies=False)
+
+            # Fake LDAP results for the group listRecords performed within updateCache()
+            self.service.ldap.setTestResults([
+                (
+                    "cn=bothcoasts,cn=groups,dc=example,dc=com",
+                    {
+                        'cn': ['topgroup'],
+                        'apple-generateduid': ['both_coasts'],
+                        'uniqueMember': [
+                            'cn=right_coast,cn=groups,dc=example,dc=com',
+                            'cn=left_coast,cn=groups,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    'cn=right_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['right_coast'],
+                        'apple-generateduid': ['right_coast'],
+                        'uniqueMember': [
+                            'uid=cdaboo,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    'cn=left_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['left_coast'],
+                        'apple-generateduid': ['left_coast'],
+                        'uniqueMember': [
+                            'uid=wsanchez,cn=users,dc=example,dc=com',
+                            'uid=lecroy,cn=users,dc=example,dc=com',
+                            'uid=dreid,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+            ])
+
+            self.assertEquals((False, 6), (yield updater.updateCache()))
+
+            users = self.service.recordType_users
+
+            for shortName, groups in [
+                ("cdaboo", set(["both_coasts"])),
+                ("wsanchez", set(["both_coasts", "left_coast"])),
+            ]:
+
+                # Fake LDAP results for the record lookup
+                self.service.ldap.setTestResults([
+                    (
+                        "uid=%s,cn=users,dc=example,dc=com" % (shortName,),
+                        {
+                            'uid': [shortName],
+                            'cn': [shortName],
+                            'apple-generateduid': [shortName],
+                        }
+                    ),
+                ])
+
+                record = self.service.recordWithShortName(users, shortName)
+                self.assertEquals(groups, (yield record.cachedGroups()))

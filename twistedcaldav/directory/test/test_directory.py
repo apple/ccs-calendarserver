@@ -162,11 +162,11 @@ class GroupMembershipTests (TestCase):
         """
         cache = GroupMembershipCache("ProxyDB", expireSeconds=10)
 
-        yield cache.setGroupsFor("a", ["b", "c", "d"]) # a is in b, c, d
+        yield cache.setGroupsFor("a", set(["b", "c", "d"])) # a is in b, c, d
         members = (yield cache.getGroupsFor("a"))
         self.assertEquals(members, set(["b", "c", "d"]))
 
-        yield cache.setGroupsFor("b", []) # b not in any groups
+        yield cache.setGroupsFor("b", set()) # b not in any groups
         members = (yield cache.getGroupsFor("b"))
         self.assertEquals(members, set())
 
@@ -194,7 +194,7 @@ class GroupMembershipTests (TestCase):
             cache=cache, useExternalProxies=False)
 
         # Exercise getGroups()
-        groups = updater.getGroups()
+        groups, aliases = updater.getGroups()
         self.assertEquals(
             groups,
             {
@@ -223,6 +223,21 @@ class GroupMembershipTests (TestCase):
                          'recursive1_coasts']),
                 'right_coast':
                     set(['5A985493-EE2C-4665-94CF-4DFEA3A89500'])
+            }
+        )
+        self.assertEquals(
+            aliases,
+            {
+                '9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1':
+                    '9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1',
+                 'admin': 'admin',
+                 'both_coasts': 'both_coasts',
+                 'grunts': 'grunts',
+                 'left_coast': 'left_coast',
+                 'non_calendar_group': 'non_calendar_group',
+                 'recursive1_coasts': 'recursive1_coasts',
+                 'recursive2_coasts': 'recursive2_coasts',
+                 'right_coast': 'right_coast'
             }
         )
 

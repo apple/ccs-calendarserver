@@ -406,7 +406,7 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
 
     """
 
-    def __init__(self, namespace, pickle=False, no_invalidation=False,
+    def __init__(self, namespace, pickle=True, no_invalidation=False,
         key_normalization=True, expireSeconds=0):
 
         super(GroupMembershipCache, self).__init__(namespace, pickle=pickle,
@@ -418,14 +418,14 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
     def setGroupsFor(self, guid, memberships):
         self.log_debug("set groups-for %s : %s" % (guid, memberships))
         return self.set("groups-for:%s" %
-            (str(guid)), str(",".join(memberships)),
+            (str(guid)), memberships,
             expireTime=self.expireSeconds)
 
     def getGroupsFor(self, guid):
         self.log_debug("get groups-for %s" % (guid,))
         def _value(value):
             if value:
-                return set(value.split(","))
+                return value
             else:
                 return set()
         d = self.get("groups-for:%s" % (str(guid),))
@@ -476,14 +476,22 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
     def getGroups(self):
         """
         Retrieve all groups and their member info (but don't actually fault in
-        the records of the members), and return a dictionary of group-guid to
-        member-guids.  Ultimately this dictionary will be used to reverse-index
-        the groups that users are in by expandedMembers().
+        the records of the members), and return two dictionaries.  The first maps
+        group-guid to members.  The keys will be guids, the values are lists of
+        members usually specified by guid, but in a directory system like LDAP which
+        can use a different attribute to refer to members this could be a DN.  The
+        second dictionary returns maps that member attribute back to the corresponding
+        guid.  These dictionaries are used to reverse-index the groups that users are
+        in by expandedMembers().
         """
         groups = {}
+        aliases = {}
         for record in self.directory.listRecords(self.directory.recordType_groups):
-            groups[record.guid] = record.memberGUIDs()
-        return groups
+            alias = record.cachedGroupsAlias()
+            groups[alias] = record.memberGUIDs()
+            aliases[record.guid] = alias
+        return groups, aliases
+
 
     def expandedMembers(self, groups, guid, members=None, seen=None):
         """
@@ -503,8 +511,8 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
                 if groups.has_key(member): # it's a group then
                     self.expandedMembers(groups, member, members=members,
                                          seen=seen)
-
         return members
+
 
     @inlineCallbacks
     def updateCache(self, fast=False):
@@ -525,6 +533,12 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         the (possibly modified) value for fast, and the number of members loaded
         into the cache (which can be zero if fast=True and isPopulated(), or
         fast=False and the cache is locked by someone else).
+
+        The pickled snapshot file is a dict whose keys represent a record and
+        the values are the guids of the groups that record is a member of.  The
+        keys are normally guids except in the case of a directory system like LDAP
+        where there can be a different attribute used for referring to members,
+        such as a DN.
         """
 
         # TODO: add memcached eviction protection
@@ -594,12 +608,18 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # containing which delegated-to groups a user is a member of
 
             self.log_info("Retrieving list of all proxies")
+            # This is always a set of guids:
             delegatedGUIDs = set((yield self.proxyDB.getAllMembers()))
             self.log_info("There are %d proxies" % (len(delegatedGUIDs),))
-
             self.log_info("Retrieving group hierarchy from directory")
-            groups = self.getGroups()
-            groupGUIDs = set(groups.keys())
+
+            # "groups" maps a group to its members; the keys and values consist
+            # of whatever directory attribute is used to refer to members.  The
+            # attribute value comes from record.cachedGroupsAlias().
+            # "aliases" maps the record.cachedGroupsAlias() value for a group
+            # back to the group's guid.
+            groups, aliases = self.getGroups()
+            groupGUIDs = set(aliases.keys())
             self.log_info("There are %d groups in the directory" %
                            (len(groupGUIDs),))
 
@@ -609,7 +629,8 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # Reverse index the group membership from cache
             members = {}
             for groupGUID in delegatedGUIDs:
-                groupMembers = self.expandedMembers(groups, groupGUID)
+                groupMembers = self.expandedMembers(groups, aliases[groupGUID])
+                # groupMembers is in cachedGroupsAlias() format
                 for member in groupMembers:
                     memberships = members.setdefault(member, set())
                     memberships.add(groupGUID)
@@ -1034,7 +1055,18 @@ class DirectoryRecord(LoggingMixIn):
         Return the set of groups (guids) this record is a member of, based on
         the data cached by cacheGroupMembership( )
         """
-        return self.service.groupMembershipCache.getGroupsFor(self.guid)
+        return self.service.groupMembershipCache.getGroupsFor(self.cachedGroupsAlias())
+
+    def cachedGroupsAlias(self):
+        """
+        The GroupMembershipCache uses keys based on this value.  Normally it's
+        a record's guid but in a directory system like LDAP which can use a
+        different attribute to refer to group members, we need to be able to
+        look up an entry in the GroupMembershipCache by that attribute.
+        Subclasses which don't use record.guid to look up group membership
+        should override this method.
+        """
+        return self.guid
 
     def externalProxies(self):
         """

@@ -1035,12 +1035,14 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
 
         return groups
 
-    def cachedGroups(self):
+    def cachedGroupsAlias(self):
         """
-        Return the set of groups (guids) this record is a member of, based on
-        the data cached by cacheGroupMembership( )
+        See directory.py for full description
+
+        LDAP group members can be referred to by attributes other than guid.  _memberId
+        will be set to the appropriate value to look up group-membership with.
         """
-        return self.service.groupMembershipCache.getGroupsFor(self._memberId)
+        return self._memberId
 
     def memberGUIDs(self):
         return set(self._memberGUIDs)
