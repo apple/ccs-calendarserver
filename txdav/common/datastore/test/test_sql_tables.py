@@ -50,4 +50,15 @@ class SampleSomeColumns(TestCase):
         _translateSchema(StringIO())
 
 
+    def test_schemaTranslationIncludesVersion(self):
+        """
+        _translateSchema includes 'insert' rows too.
+        """
+        io = StringIO()
+        _translateSchema(io)
+        self.assertIn("insert into CALENDARSERVER (NAME, VALUE) "
+                      "values ('VERSION', '3');",
+                      io.getvalue())
+
+
 

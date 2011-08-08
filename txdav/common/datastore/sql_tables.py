@@ -1,4 +1,4 @@
-# -*- test-case-name: txdav.caldav.datastore.test.test_sql -*-
+# -*- test-case-name: txdav.common.datastore.test.test_sql_tables -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -23,6 +23,9 @@ from twisted.python.modules import getModule
 from twext.enterprise.dal.syntax import SchemaSyntax
 from twext.enterprise.dal.model import NO_DEFAULT
 from twext.enterprise.dal.model import Sequence, ProcedureCall
+from twext.enterprise.dal.syntax import FixedPlaceholder
+from twext.enterprise.ienterprise import ORACLE_DIALECT
+from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.parseschema import schemaFromPath
 
 
@@ -265,6 +268,26 @@ def _translateSchema(out):
                 out.write(" on delete cascade")
 
         out.write('\n);\n\n')
+
+        fakeMeta = FixedPlaceholder(ORACLE_DIALECT, '%s')
+        def quoted(x):
+            if isinstance(x, (str, unicode)):
+                return ''.join(["'", x.replace("'", "''"), "'"])
+            else:
+                return str(x)
+
+        for row in table.model.schemaRows:
+            cmap = dict(
+                [(getattr(table, cmodel.name), val)
+                 for (cmodel, val) in row.items()]
+            )
+            fragment = Insert(cmap).toSQL(fakeMeta)
+            out.write(
+                fragment.text % tuple([quoted(param)
+                                       for param in fragment.parameters]),
+            )
+            out.write(";\n")
+
 
     for (num, index) in enumerate(schema.model.indexes):
         # Index names combine and repeat multiple table names and column names,
