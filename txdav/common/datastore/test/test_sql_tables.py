@@ -79,7 +79,7 @@ class SampleSomeColumns(TestCase):
         addSQLToSchema(
             schema, """
             create table same_012345678012345678990123456789_1 (foo integer);
-            create table same_012345678012345678990123456789_1 (bar text);
+            create table same_012345678012345678990123456789_2 (bar text);
             """
         )
         io = StringIO()
