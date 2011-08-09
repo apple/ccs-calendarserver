@@ -76,7 +76,7 @@ class DistributionTests(TestCase):
             # of the hours, and then five and a half hours into the fourth
             # workday, saturday.  Workday starts at 10am, so the sample value
             # is 3:30pm, ie 1530 hours.
-            PyCalendarDateTime(2011, 6, 4, 15, 30, 0, tzid=PyCalendarTimezone(tzname)),
+            PyCalendarDateTime(2011, 6, 4, 15, 30, 0, tzid=PyCalendarTimezone(tzid=tzname)),
             value
         )
 
