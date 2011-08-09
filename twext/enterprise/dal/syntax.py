@@ -443,6 +443,17 @@ class SequenceSyntax(ExpressionSyntax):
 
 
 
+def _nameForDialect(name, dialect):
+    """
+    If the given name is being computed in the oracle dialect, truncate it to 30
+    characters.
+    """
+    if dialect == ORACLE_DIALECT:
+        name = name[:30]
+    return name
+
+
+
 class TableSyntax(Syntax):
     """
     Syntactic convenience for L{Table}.
@@ -462,7 +473,7 @@ class TableSyntax(Syntax):
         """
         # XXX maybe there should be a specific method which is only invoked
         # from the FROM clause, that only tables and joins would implement?
-        return SQLFragment(self.model.name)
+        return SQLFragment(_nameForDialect(self.model.name, metadata.dialect))
 
 
     def __getattr__(self, attr):

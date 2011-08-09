@@ -1069,3 +1069,27 @@ class GenerationTests(TestCase):
             )
         )
 
+
+    def test_oracleTableTruncation(self):
+        """
+        L{Table}'s SQL generation logic will truncate table names if the dialect
+        (i.e. Oracle) demands it.  (See txdav.common.datastore.sql_tables for
+        the schema translator and enforcement of name uniqueness in the derived
+        schema.)
+        """
+
+        addSQLToSchema(
+            self.schema.model,
+            "create table veryveryveryveryveryveryveryverylong "
+            "(foo integer);"
+        )
+        vvl = self.schema.veryveryveryveryveryveryveryverylong
+        self.assertEquals(
+            Insert({vvl.foo: 1}).toSQL(FixedPlaceholder(ORACLE_DIALECT, "?")),
+            SQLFragment(
+                "insert into veryveryveryveryveryveryveryve (foo) values "
+                "(?)", [1]
+            )
+        )
+
+

@@ -26,6 +26,7 @@ from twext.enterprise.dal.model import Sequence, ProcedureCall
 from twext.enterprise.dal.syntax import FixedPlaceholder
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.ienterprise import ORACLE_TABLE_NAME_MAX
 from twext.enterprise.dal.parseschema import schemaFromPath
 
 
@@ -222,7 +223,7 @@ def _translateSchema(out, schema=schema):
         # The only table name which actually exceeds the length limit right now
         # is CALENDAR_OBJECT_ATTACHMENTS_MODE, which isn't actually _used_
         # anywhere, so we can fake it for now.
-        shortName = table.model.name[:30]
+        shortName = table.model.name[:ORACLE_TABLE_NAME_MAX]
         if shortName in shortNames:
             raise SchemaBroken("short-name conflict between %s and %s" %
                                (table.model.name, shortNames[shortName]))
