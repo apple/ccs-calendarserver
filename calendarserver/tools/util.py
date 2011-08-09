@@ -128,8 +128,11 @@ def getDirectory():
 
 
     # Load augment/proxy db classes now
-    augmentClass = namedClass(config.AugmentService.type)
-    augmentService = augmentClass(**config.AugmentService.params)
+    if config.AugmentService.type:
+        augmentClass = namedClass(config.AugmentService.type)
+        augmentService = augmentClass(**config.AugmentService.params)
+    else:
+        augmentService = None
 
     proxydbClass = namedClass(config.ProxyDBService.type)
     calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)

@@ -172,9 +172,10 @@ class XMLDirectoryService(DirectoryService):
                             shortNames    = tuple(xmlAccountRecord.shortNames),
                             xmlPrincipal  = xmlAccountRecord,
                         )
-                        d = self.augmentService.getAugmentRecord(record.guid,
-                            record.recordType)
-                        d.addCallback(lambda x:record.addAugmentInformation(x))
+                        if self.augmentService is not None:
+                            d = self.augmentService.getAugmentRecord(record.guid,
+                                record.recordType)
+                            d.addCallback(lambda x:record.addAugmentInformation(x))
 
                         self._addToIndex(record)
 

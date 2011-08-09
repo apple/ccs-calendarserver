@@ -349,8 +349,8 @@ DEFAULT_CONFIG = {
     #    Augments for the directory service records to add calendar specific attributes.
     #
     "AugmentService": {
-        "type": "twistedcaldav.directory.augment.AugmentXMLDB",
-        "params": DEFAULT_AUGMENT_PARAMS["twistedcaldav.directory.augment.AugmentXMLDB"],
+        "type": "",
+        "params" : {}
     },
 
     #

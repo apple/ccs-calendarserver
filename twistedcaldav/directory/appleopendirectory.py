@@ -348,9 +348,10 @@ class OpenDirectoryService(CachingDirectoryService):
             # TODO: this needs to be deferred but for now we hard code
             # the deferred result because we know it is completing
             # immediately.
-            d = self.augmentService.getAugmentRecord(record.guid,
-                recordType)
-            d.addCallback(lambda x:record.addAugmentInformation(x))
+            if self.augmentService is not None:
+                d = self.augmentService.getAugmentRecord(record.guid,
+                    recordType)
+                d.addCallback(lambda x:record.addAugmentInformation(x))
             records.append(record)
 
         self.log_debug("ListRecords returning %d %s records" % (len(records),
@@ -590,9 +591,10 @@ class OpenDirectoryService(CachingDirectoryService):
                     # TODO: this needs to be deferred but for now we hard code
                     # the deferred result because we know it is completing
                     # immediately.
-                    d = self.augmentService.getAugmentRecord(record.guid,
-                        recordType)
-                    d.addCallback(lambda x:record.addAugmentInformation(x))
+                    if self.augmentService is not None:
+                        d = self.augmentService.getAugmentRecord(record.guid,
+                            recordType)
+                        d.addCallback(lambda x:record.addAugmentInformation(x))
 
                     yield record
 
@@ -897,9 +899,10 @@ class OpenDirectoryService(CachingDirectoryService):
             # Look up augment information
             # TODO: this needs to be deferred but for now we hard code the deferred result because
             # we know it is completing immediately.
-            d = self.augmentService.getAugmentRecord(record.guid,
-                recordType)
-            d.addCallback(lambda x:record.addAugmentInformation(x))
+            if self.augmentService is not None:
+                d = self.augmentService.getAugmentRecord(record.guid,
+                    recordType)
+                d.addCallback(lambda x:record.addAugmentInformation(x))
 
             # Override based on ResourceInfo
             if autoSchedule:

@@ -56,6 +56,7 @@ class UpgradeTests(TestCase):
 
         xmlAugmentsFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
             "directory", "test", "augments.xml")
+        config.AugmentService.type = "twistedcaldav.directory.augment.AugmentXMLDB"
         config.AugmentService.params.xmlFiles = (xmlAugmentsFile,)
 
         resourceFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),

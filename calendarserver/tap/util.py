@@ -215,15 +215,16 @@ def directoryFromConfig(config):
     #
     # Setup the Augment Service
     #
-    augmentClass = namedClass(config.AugmentService.type)
-
-    log.info("Configuring augment service of type: %s" % (augmentClass,))
-
-    try:
-        augmentService = augmentClass(**config.AugmentService.params)
-    except IOError:
-        log.error("Could not start augment service")
-        raise
+    if config.AugmentService.type:
+        augmentClass = namedClass(config.AugmentService.type)
+        log.info("Configuring augment service of type: %s" % (augmentClass,))
+        try:
+            augmentService = augmentClass(**config.AugmentService.params)
+        except IOError:
+            log.error("Could not start augment service")
+            raise
+    else:
+        augmentService = None
 
     #
     # Setup the group membership cacher
