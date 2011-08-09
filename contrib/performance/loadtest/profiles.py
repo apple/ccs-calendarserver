@@ -24,12 +24,6 @@ from __future__ import division
 import sys, random
 from uuid import uuid4
 
-from datetime import datetime, timedelta
-
-from vobject import readComponents
-from vobject.base import Component, ContentLine
-from vobject.icalendar import VEvent
-
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 
 from twisted.python import context
@@ -39,10 +33,14 @@ from twisted.internet.defer import Deferred, succeed, fail
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
+from twistedcaldav.ical import Property, Component
+
 from contrib.performance.stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean, median
 from contrib.performance.loadtest.logger import SummarizingMixin
 from contrib.performance.loadtest.ical import IncorrectResponseCode
 
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.duration import PyCalendarDuration
 
 class ProfileBase(object):
     """
@@ -77,7 +75,7 @@ class ProfileBase(object):
         C{self._client}'s identifiers.  Return C{True} if something matches,
         C{False} otherwise.
         """
-        return attendee.params[u'EMAIL'][0] == self._client.email[len('mailto:'):]
+        return attendee.parameterValue('EMAIL') == self._client.email[len('mailto:'):]
 
 
     def _newOperation(self, label, deferred):
@@ -158,7 +156,7 @@ class Inviter(ProfileBase):
         selfRecord = self._sim.getUserRecord(self._number)
         invitees = set([u'urn:uuid:%s' % (selfRecord.uid,)])
         for att in attendees:
-            invitees.add(att.value)
+            invitees.add(att.value())
 
         for _ignore_i in range(10):
             invitee = max(
@@ -173,19 +171,19 @@ class Inviter(ProfileBase):
         else:
             return fail(CannotAddAttendee("Can't find uninvited user to invite."))
 
-        attendee = ContentLine(
-            name=u'ATTENDEE', params=[
-                [u'CN', record.commonName],
-                [u'CUTYPE', u'INDIVIDUAL'],
-                [u'EMAIL', record.email],
-                [u'PARTSTAT', u'NEEDS-ACTION'],
-                [u'ROLE', u'REQ-PARTICIPANT'],
-                [u'RSVP', u'TRUE'],
-                # [u'SCHEDULE-STATUS', u'1.2'],
-                ],
+        attendee = Property(
+            name=u'ATTENDEE',
             value=uuid,
-            encoded=True)
-        attendee.parentBehavior = VEvent
+            params={
+            'CN': record.commonName,
+            'CUTYPE': 'INDIVIDUAL',
+            'EMAIL': record.email,
+            'PARTSTAT': 'NEEDS-ACTION',
+            'ROLE': 'REQ-PARTICIPANT',
+            'RSVP': 'TRUE',
+            #'SCHEDULE-STATUS': '1.2',
+            },
+        )
 
         return succeed(attendee)
 
@@ -219,8 +217,8 @@ class Inviter(ProfileBase):
                 if event is None:
                     continue
 
-                vevent = event.contents[u'vevent'][0]
-                organizer = vevent.contents.get('organizer', [None])[0]
+                vevent = event.mainComponent()
+                organizer = vevent.getOrganizerProperty()
                 if organizer is not None and not self._isSelfAttendee(organizer):
                     # This event was organized by someone else, don't try to invite someone to it.
                     continue
@@ -228,7 +226,7 @@ class Inviter(ProfileBase):
                 href = calendar.url + uuid
 
                 # Find out who might attend
-                attendees = vevent.contents.get('attendee', [])
+                attendees = tuple(vevent.properties('ATTENDEE'))
 
                 d = self._addAttendee(event, attendees)
                 d.addCallbacks(
@@ -287,10 +285,10 @@ class Accepter(ProfileBase):
         vevent = self._client._events[href].vevent
         # Check to see if this user is in the attendee list in the
         # NEEDS-ACTION PARTSTAT.
-        attendees = vevent.contents['vevent'][0].contents.get('attendee', [])
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
         for attendee in attendees:
             if self._isSelfAttendee(attendee):
-                if attendee.params[u'PARTSTAT'][0] == 'NEEDS-ACTION':
+                if attendee.parameterValue('PARTSTAT') == 'NEEDS-ACTION':
                     delay = self._acceptDelayDistribution.sample()
                     self._accepting.add(href)
                     self._reactor.callLater(
@@ -302,7 +300,7 @@ class Accepter(ProfileBase):
             return
 
         vevent = self._client._events[href].vevent
-        method = vevent.contents.get('method')[0].value
+        method = vevent.propertyValue('METHOD')
         if method == "REPLY":
             # Replies are immediately deleted
             self._accepting.add(href)
@@ -391,12 +389,9 @@ class Accepter(ProfileBase):
 
 
     def _makeAcceptedAttendee(self, attendee):
-        accepted = ContentLine.duplicate(attendee)
-        accepted.params[u'PARTSTAT'] = [u'ACCEPTED']
-        try:
-            del accepted.params[u'RSVP']
-        except KeyError:
-            msg("Duplicated an attendee with no RSVP: %r" % (attendee,))
+        accepted = attendee.duplicate()
+        accepted.setParameter('PARTSTAT', 'ACCEPTED')
+        accepted.removeParameter('RSVP')
         return accepted
 
 
@@ -405,28 +400,11 @@ class Eventer(ProfileBase):
     """
     A Calendar user who creates new events.
     """
-    _eventTemplate = list(readComponents("""\
+    _eventTemplate = Component.fromString("""\
 BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//iCal 4.0.3//EN
 CALSCALE:GREGORIAN
-BEGIN:VTIMEZONE
-TZID:America/New_York
-BEGIN:DAYLIGHT
-TZOFFSETFROM:-0500
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
-DTSTART:20070311T020000
-TZNAME:EDT
-TZOFFSETTO:-0400
-END:DAYLIGHT
-BEGIN:STANDARD
-TZOFFSETFROM:-0400
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-DTSTART:20071104T020000
-TZNAME:EST
-TZOFFSETTO:-0500
-END:STANDARD
-END:VTIMEZONE
 BEGIN:VEVENT
 CREATED:20101018T155431Z
 UID:C98AD237-55AD-4F7D-9009-0D355D835822
@@ -438,7 +416,7 @@ DTSTAMP:20101018T155438Z
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-"""))[0]
+""".replace("\n", "\r\n"))
 
     def setParameters(
         self,
@@ -472,20 +450,18 @@ END:VCALENDAR
 
             # Copy the template event and fill in some of its fields
             # to make a new event to create on the calendar.
-            vcalendar = Component.duplicate(self._eventTemplate)
-            vevent = vcalendar.contents[u'vevent'][0]
-            tz = vevent.contents[u'created'][0].value.tzinfo
-            dtstamp = datetime.now(tz)
-            dtstart = datetime.fromtimestamp(self._eventStartDistribution.sample(), tz)
-            dtend = dtstart + timedelta(seconds=self._eventDurationDistribution.sample())
-            vevent.contents[u'created'][0].value = dtstamp
-            vevent.contents[u'dtstamp'][0].value = dtstamp
-            vevent.contents[u'dtstart'][0].value = dtstart
-            vevent.contents[u'dtend'][0].value = dtend
-            vevent.contents[u'uid'][0].value = unicode(uuid4())
+            vcalendar = self._eventTemplate.duplicate()
+            vevent = vcalendar.mainComponent()
+            uid = str(uuid4())
+            dtstart = self._eventStartDistribution.sample()
+            dtend = dtstart + PyCalendarDuration(seconds=self._eventDurationDistribution.sample())
+            vevent.replaceProperty(Property("CREATED", PyCalendarDateTime.getNowUTC()))
+            vevent.replaceProperty(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+            vevent.replaceProperty(Property("DTSTART", dtstart))
+            vevent.replaceProperty(Property("DTEND", dtend))
+            vevent.replaceProperty(Property("UID", uid))
 
-            href = '%s%s.ics' % (
-                calendar.url, vevent.contents[u'uid'][0].value)
+            href = '%s%s.ics' % (calendar.url, uid)
             d = self._client.addEvent(href, vcalendar)
             return self._newOperation("create", d)
 

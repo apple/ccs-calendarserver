@@ -418,7 +418,7 @@ py_dependency () {
   local  inplace="";      # Do development in-place; don't run setup.py to
                           # build, and instead add the source directory plus the
                           # given relative path directly to sys.path.  twisted
-                          # and vobject are developed often enough that this is
+                          # and pycalendar are developed often enough that this is
                           # convenient.
   local skip_egg="false"; # Skip even the 'egg_info' step, because nothing needs
                           # to be built.
@@ -717,13 +717,8 @@ dependencies () {
     "python-ldap" "ldap" "${ld}" \
     "${pypi}/p/python-ldap/${ld}.tar.gz";
 
-  # XXX actually vObject should be imported in-place.
-  py_dependency -fe -i "" -r 219 \
-    "vobject" "vobject" "vobject" \
-    "http://svn.osafoundation.org/vobject/trunk";
-
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 169 \
+  py_dependency -fe -i "src" -r 171 \
     "pycalendar" "pycalendar" "pycalendar" \
     "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
 

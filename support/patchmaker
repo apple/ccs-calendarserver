@@ -23,8 +23,8 @@ import sys
 # Create a new set of patch files for dependent projects.
 #
 
-#projects = ("Twisted", "vobject", "dateutil", "xattr")
-projects = ("vobject",)
+#projects = ("Twisted", "dateutil", "xattr")
+projects = ()
 cwd = os.getcwd()
 libpatches = os.path.join(cwd, "lib-patches")
 

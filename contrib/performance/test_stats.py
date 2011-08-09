@@ -14,14 +14,13 @@
 # limitations under the License.
 ##
 
-import pytz
-from datetime import datetime
-
 from twisted.trial.unittest import TestCase
 
 from stats import (
     SQLDuration, LogNormalDistribution, UniformDiscreteDistribution,
     UniformIntegerDistribution, WorkDistribution, quantize)
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
 
 class SQLDurationTests(TestCase):
     def setUp(self):
@@ -50,7 +49,7 @@ class SQLDurationTests(TestCase):
 class DistributionTests(TestCase):
     def test_lognormal(self):
         dist = LogNormalDistribution(1, 1)
-        for i in range(100):
+        for _ignore_i in range(100):
             value = dist.sample()
             self.assertIsInstance(value, float)
             self.assertTrue(value >= 0.0, "negative value %r" % (value,))
@@ -61,35 +60,40 @@ class DistributionTests(TestCase):
         population = [1, 5, 6, 9]
         counts = dict.fromkeys(population, 0)
         dist = UniformDiscreteDistribution(population)
-        for i in range(len(population) * 10):
+        for _ignore_i in range(len(population) * 10):
             counts[dist.sample()] += 1
         self.assertEqual(dict.fromkeys(population, 10), counts)
 
 
     def test_workdistribution(self):
         tzname = "US/Eastern"
-        tzinfo = pytz.timezone(tzname)
         dist = WorkDistribution(["mon", "wed", "thu", "sat"], 10, 20, tzname)
         dist._helperDistribution = UniformDiscreteDistribution([35 * 60 * 60 + 30 * 60])
-        dist.now = lambda tz=None: datetime(2011, 5, 29, 18, 5, 36, tzinfo=tz)
+        dist.now = lambda tzname=None: PyCalendarDateTime(2011, 5, 29, 18, 5, 36, tzid=tzname)
         value = dist.sample()
         self.assertEqual(
             # Move past three workdays - monday, wednesday, thursday - using 30
             # of the hours, and then five and a half hours into the fourth
             # workday, saturday.  Workday starts at 10am, so the sample value
             # is 3:30pm, ie 1530 hours.
-            datetime(2011, 6, 4, 15, 30, 0, tzinfo=tzinfo),
-            datetime.fromtimestamp(value, tzinfo))
+            PyCalendarDateTime(2011, 6, 4, 15, 30, 0, tzid=PyCalendarTimezone(tzname)),
+            value
+        )
+
+        dist = WorkDistribution(["mon", "tue", "wed", "thu", "fri"], 10, 20, tzname)
+        dist._helperDistribution = UniformDiscreteDistribution([35 * 60 * 60 + 30 * 60])
+        value = dist.sample()
+        self.assertTrue(isinstance(value, PyCalendarDateTime))
 
     # twisted.trial.unittest.FailTest: not equal:
     # a = datetime.datetime(2011, 6, 4, 15, 30, tzinfo=<DstTzInfo 'US/Eastern' EST-1 day, 19:00:00 STD>)
     # b = datetime.datetime(2011, 6, 4, 19, 30, tzinfo=<DstTzInfo 'US/Eastern' EDT-1 day, 20:00:00 DST>)
-    test_workdistribution.todo = "Somehow timezones mess this up"
+    #test_workdistribution.todo = "Somehow timezones mess this up"
 
 
     def test_uniform(self):
         dist = UniformIntegerDistribution(-5, 10)
-        for i in range(100):
+        for _ignore_i in range(100):
             value = dist.sample()
             self.assertTrue(-5 <= value < 10)
             self.assertIsInstance(value, int)

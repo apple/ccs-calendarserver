@@ -195,6 +195,13 @@ class Property (object):
     def __ge__(self, other): return self.__eq__(other) or self.__gt__(other)
     def __le__(self, other): return self.__eq__(other) or self.__lt__(other)
 
+    def duplicate(self):
+        """
+        Duplicate this object and all its contents.
+        @return: the duplicated calendar.
+        """
+        return Property(None, None, None, pycalendar=self._pycalendar.duplicate())
+        
     def name  (self): return self._pycalendar.getName()
 
     def value (self): return self._pycalendar.getValue().getValue()

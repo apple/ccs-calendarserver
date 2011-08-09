@@ -16,15 +16,14 @@
 ##
 
 from uuid import uuid4
-from datetime import timedelta, datetime
 from urlparse import urlparse, urlunparse
 
 from xml.etree import ElementTree
+from twistedcaldav.ical import Component, Property
+from pycalendar.duration import PyCalendarDuration
+from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import PyCalendarDateTime
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
-
-from vobject import readComponents
-from vobject.base import ContentLine
-from vobject.icalendar import VEvent, dateTimeToString
 
 from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
@@ -98,8 +97,7 @@ class Event(object):
         Return the UID from the vevent, if there is one.
         """
         if self.vevent is not None:
-            uid = self.vevent.contents['vevent'][0].contents['uid'][0]
-            return uid.value
+            return self.vevent.resourceUID()
         return None
 
 
@@ -443,7 +441,7 @@ class SnowLeopard(BaseClient):
         event.etag = etag
         if scheduleTag is not None:
             event.scheduleTag = scheduleTag
-        event.vevent = list(readComponents(body))[0]
+        event.vevent = Component.fromString(body)
         self.catalog["eventChanged"].issue(href)
 
                 
@@ -623,33 +621,33 @@ class SnowLeopard(BaseClient):
 
 
     def _makeSelfAttendee(self):
-        attendee = ContentLine(
-            name=u'ATTENDEE', params=[
-                [u'CN', self.record.commonName],
-                [u'CUTYPE', u'INDIVIDUAL'],
-                [u'PARTSTAT', u'ACCEPTED'],
-                ],
+        attendee = Property(
+            name=u'ATTENDEE',
             value=self.uuid,
-            encoded=True)
-        attendee.parentBehavior = VEvent
+            params={
+                'CN': self.record.commonName,
+                'CUTYPE': 'INDIVIDUAL',
+                'PARTSTAT': 'ACCEPTED',
+            },
+        )
         return attendee
 
 
     def _makeSelfOrganizer(self):
-        organizer = ContentLine(
-            name=u'ORGANIZER', params=[
-                [u'CN', self.record.commonName],
-                ],
+        organizer = Property(
+            name=u'ORGANIZER',
             value=self.uuid,
-            encoded=True)
-        organizer.parentBehavior = VEvent
+            params={
+                'CN': self.record.commonName,
+            },
+        )
         return organizer
 
 
     def addEventAttendee(self, href, attendee):
-        name = attendee.params[u'CN'][0].encode('utf-8')
+        name = attendee.parameterValue('CN')
         prefix = name[:4].lower()
-        email = attendee.params[u'EMAIL'][0].encode('utf-8')
+        email = attendee.parameterValue('EMAIL')
 
         event = self._events[href]
         vevent = event.vevent
@@ -683,21 +681,21 @@ class SnowLeopard(BaseClient):
         def specific(ignored):
             # Now learn about the attendee's availability
             return self.requestAvailability(
-                vevent.contents[u'vevent'][0].contents[u'dtstart'][0].value,
-                vevent.contents[u'vevent'][0].contents[u'dtend'][0].value,
+                vevent.mainComponent.getStartDateUTC(),
+                vevent.mainComponent.getEndDateUTC(),
                 [self.email, u'mailto:' + email],
-                [vevent.contents[u'vevent'][0].contents[u'uid'][0].value])
+                [vevent.resourceUID()])
             return d
         d.addCallback(specific)
         def availability(ignored):
             # If the event has no attendees, add ourselves as an attendee.
-            attendees = vevent.contents[u'vevent'][0].contents.setdefault(u'attendee', [])
+            attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
             if len(attendees) == 0:
                 # First add ourselves as a participant and as the
                 # organizer.  In the future for this event we should
                 # already have those roles.
-                attendees.append(self._makeSelfAttendee())
-                vevent.contents[u'vevent'][0].contents[u'organizer'] = [self._makeSelfOrganizer()]
+                vevent.mainComponent().addProperty(self._makeSelfOrganizer())
+                vevent.mainComponent().addProperty(self._makeSelfAttendee())
             attendees.append(attendee)
 
             # At last, upload the new event definition
@@ -719,9 +717,8 @@ class SnowLeopard(BaseClient):
         vevent = event.vevent
 
         # Change the event to have the new attendee instead of the old attendee
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
-        attendees.remove(oldAttendee)
-        attendees.append(newAttendee)
+        vevent.mainComponent().removeProperty(oldAttendee)
+        vevent.mainComponent().addProperty(newAttendee)
         headers = Headers({
                 'content-type': ['text/calendar'],
                 })
@@ -730,7 +727,7 @@ class SnowLeopard(BaseClient):
 
         d = self._request(
             NO_CONTENT, 'PUT', self.root + href[1:].encode('utf-8'),
-            headers, StringProducer(vevent.serialize()))
+            headers, StringProducer(vevent.getTextWithTimezones(includeTimezones=True)))
         d.addCallback(self._updateEvent, href)
         return d
 
@@ -756,7 +753,7 @@ class SnowLeopard(BaseClient):
                 })
         d = self._request(
             CREATED, 'PUT', self.root + href[1:].encode('utf-8'),
-            headers, StringProducer(vcalendar.serialize()))
+            headers, StringProducer(vcalendar.getTextWithTimezones(includeTimezones=True)))
         d.addCallback(self._localUpdateEvent, href, vcalendar)
         return d
 
@@ -824,24 +821,17 @@ class SnowLeopard(BaseClient):
                                    for uuid in users]) + '\r\n'
 
         # iCal issues 24 hour wide vfreebusy requests, starting and ending at 4am.
-        if start.date() != end.date():
+        if start.compareDate(end):
             msg("Availability request spanning multiple days (%r to %r), "
                 "dropping the end date." % (start, end))
 
-        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-        end = start + timedelta(hours=24)
+        start.setTimezone(PyCalendarTimezone(utc=True))
+        start.setHHMMSS(0, 0, 0)
+        end = start + PyCalendarDuration(hours=24)
 
-        start = dateTimeToString(start, convertToUTC=True)
-        end = dateTimeToString(end, convertToUTC=True)
-        now = dateTimeToString(datetime.now(), convertToUTC=True)
-
-        # XXX Why does it not end up UTC sometimes?
-        if not start.endswith('Z'):
-            start = start + 'Z'
-        if not end.endswith('Z'):
-            end = end + 'Z'
-        if not now.endswith('Z'):
-            now = now + 'Z'
+        start = start.getText()
+        end = end.getText()
+        now = PyCalendarDateTime.getNowUTC().getText()
 
         d = self._request(
             OK, 'POST', outbox,

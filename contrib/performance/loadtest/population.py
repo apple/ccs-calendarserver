@@ -29,6 +29,8 @@ from twisted.python.filepath import FilePath
 from twisted.python.util import FancyEqMixin
 from twisted.python.log import msg, err
 
+from twistedcaldav.timezones import TimezoneCache
+
 from contrib.performance.stats import mean, median, stddev, mad
 from contrib.performance.loadtest.trafficlogger import loggedReactor
 from contrib.performance.loadtest.logger import SummarizingMixin
@@ -156,6 +158,7 @@ class CalendarClientSimulator(object):
         self._user = 0
         self._stopped = False
 
+        TimezoneCache.create()
 
     def getUserRecord(self, index):
         return self._records[index]

@@ -33,7 +33,7 @@ from contrib.performance.httpauth import AuthHandlerAgent
 from contrib.performance.httpclient import StringProducer
 from contrib.performance.benchlib import initialize, sample
 
-# XXX Represent these as vobjects?  Would make it easier to add more vevents.
+# XXX Represent these as pycalendar objects?  Would make it easier to add more vevents.
 event = """\
 BEGIN:VCALENDAR
 VERSION:2.0
@@ -102,7 +102,7 @@ END:VEVENT
 """
     interval = timedelta(hours=2)
     duration = timedelta(hours=1)
-    return event % {
+    data = event % {
         'VEVENTS': s % {
             'UID': uuid4(),
             'START': formatDate(base + i * interval),
@@ -110,7 +110,7 @@ END:VEVENT
             'SEQUENCE': i,
             },
         }
-
+    return data.replace("\n", "\r\n")
 
 def makeEvents(base, n):
     return [makeEventNear(base, i) for i in range(n)]
@@ -146,13 +146,15 @@ def measure(host, port, dtrace, events, samples):
             "content-type": ["text/calendar"],
             "originator": ["mailto:%s@example.com" % (user,)],
             "recipient": ["urn:uuid:%s, urn:uuid:user02" % (user,)]})
-    body = StringProducer(VFREEBUSY % {
+    
+    vfb = VFREEBUSY % {
             "attendees": "".join([
                     "ATTENDEE:urn:uuid:%s\n" % (user,),
                     "ATTENDEE:urn:uuid:user02\n"]),
             "start": formatDate(baseTime.replace(hour=0, minute=0)) + 'Z',
             "end": formatDate(
-                baseTime.replace(hour=0, minute=0) + timedelta(days=1)) + 'Z'})
+                baseTime.replace(hour=0, minute=0) + timedelta(days=1)) + 'Z'}
+    body = StringProducer(vfb.replace("\n", "\r\n"))
 
     samples = yield sample(
         dtrace, samples,

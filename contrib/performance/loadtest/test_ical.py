@@ -15,12 +15,6 @@
 #
 ##
 
-from datetime import datetime
-
-from vobject import readComponents
-from vobject.base import Component, ContentLine
-from vobject.icalendar import dateTimeToString
-
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred
 from twisted.trial.unittest import TestCase
@@ -37,6 +31,10 @@ from caldavclientlibrary.protocol.caldav.definitions import csxml
 from contrib.performance.loadtest.ical import XMPPPush, Event, Calendar, SnowLeopard
 from contrib.performance.loadtest.sim import _DirectoryRecord
 from contrib.performance.httpclient import MemoryConsumer, StringProducer
+from twistedcaldav.ical import Component
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
+from twistedcaldav.timezones import TimezoneCache
 
 EVENT_UID = 'D94F247D-7433-43AF-B84B-ADD684D023B0'
 
@@ -45,20 +43,170 @@ BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//iCal 4.0.3//EN
 CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20101018T155454Z
+UID:%(UID)s
+DTEND;TZID=America/New_York:20101028T130000
+ATTENDEE;CN="User 03";CUTYPE=INDIVIDUAL;EMAIL="user03@example.com";PARTS
+ TAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:user03@example.co
+ m
+ATTENDEE;CN="User 01";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:user01@
+ example.com
+TRANSP:OPAQUE
+SUMMARY:Attended Event
+DTSTART;TZID=America/New_York:20101028T120000
+DTSTAMP:20101018T155513Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+SEQUENCE:3
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {'UID': EVENT_UID}
+
+EVENT_AND_TIMEZONE = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+CALSCALE:GREGORIAN
 BEGIN:VTIMEZONE
 TZID:America/New_York
+X-LIC-LOCATION:America/New_York
+BEGIN:STANDARD
+DTSTART:18831118T120358
+RDATE:18831118T120358
+TZNAME:EST
+TZOFFSETFROM:-045602
+TZOFFSETTO:-0500
+END:STANDARD
 BEGIN:DAYLIGHT
-TZOFFSETFROM:-0500
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
-DTSTART:20070311T020000
+DTSTART:19180331T020000
+RRULE:FREQ=YEARLY;UNTIL=19190330T070000Z;BYDAY=-1SU;BYMONTH=3
 TZNAME:EDT
+TZOFFSETFROM:-0500
 TZOFFSETTO:-0400
 END:DAYLIGHT
 BEGIN:STANDARD
-TZOFFSETFROM:-0400
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-DTSTART:20071104T020000
+DTSTART:19181027T020000
+RRULE:FREQ=YEARLY;UNTIL=19191026T060000Z;BYDAY=-1SU;BYMONTH=10
 TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:STANDARD
+DTSTART:19200101T000000
+RDATE:19200101T000000
+RDATE:19420101T000000
+RDATE:19460101T000000
+RDATE:19670101T000000
+TZNAME:EST
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19200328T020000
+RDATE:19200328T020000
+RDATE:19740106T020000
+RDATE:19750223T020000
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19201031T020000
+RDATE:19201031T020000
+RDATE:19450930T020000
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19210424T020000
+RRULE:FREQ=YEARLY;UNTIL=19410427T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19210925T020000
+RRULE:FREQ=YEARLY;UNTIL=19410928T060000Z;BYDAY=-1SU;BYMONTH=9
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19420209T020000
+RDATE:19420209T020000
+TZNAME:EWT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:19450814T190000
+RDATE:19450814T190000
+TZNAME:EPT
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:19460428T020000
+RRULE:FREQ=YEARLY;UNTIL=19660424T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19460929T020000
+RRULE:FREQ=YEARLY;UNTIL=19540926T060000Z;BYDAY=-1SU;BYMONTH=9
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:STANDARD
+DTSTART:19551030T020000
+RRULE:FREQ=YEARLY;UNTIL=19661030T060000Z;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19670430T020000
+RRULE:FREQ=YEARLY;UNTIL=19730429T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19671029T020000
+RRULE:FREQ=YEARLY;UNTIL=20061029T060000Z;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19760425T020000
+RRULE:FREQ=YEARLY;UNTIL=19860427T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:19870405T020000
+RRULE:FREQ=YEARLY;UNTIL=20060402T070000Z;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:EST
+TZOFFSETFROM:-0400
 TZOFFSETTO:-0500
 END:STANDARD
 END:VTIMEZONE
@@ -79,7 +227,7 @@ ORGANIZER;CN="User 01":mailto:user01@example.com
 SEQUENCE:3
 END:VEVENT
 END:VCALENDAR
-""" % {'UID': EVENT_UID}
+""".replace("\n", "\r\n") % {'UID': EVENT_UID}
 
 
 class EventTests(TestCase):
@@ -91,7 +239,7 @@ class EventTests(TestCase):
         When the C{vevent} attribute of an L{Event} instance is set,
         L{Event.getUID} returns the UID value from it.
         """
-        event = Event(u'/foo/bar', u'etag', list(readComponents(EVENT))[0])
+        event = Event(u'/foo/bar', u'etag', Component.fromString(EVENT))
         self.assertEquals(event.getUID(), EVENT_UID)
 
 
@@ -834,6 +982,7 @@ class SnowLeopardMixin:
     Mixin for L{TestCase}s for L{SnowLeopard}.
     """
     def setUp(self):
+        TimezoneCache.create()
         self.record = _DirectoryRecord(
             u"user91", u"user91", u"User 91", u"user91@example.org")
         self.client = SnowLeopard(None, "http://127.0.0.1/", self.record, None)
@@ -962,11 +1111,11 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         """
         requests = self.interceptRequests()
 
-        vevent = list(readComponents(EVENT))[0]
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        vevent = Component.fromString(EVENT)
+        attendees = tuple(vevent.mainComponent().properties("ATTENDEE"))
         old = attendees[0]
-        new = ContentLine.duplicate(old)
-        new.params[u'CN'] = [u'Some Other Guy']
+        new = old.duplicate()
+        new.setParameter('CN', 'Some Other Guy')
         event = Event(u'/some/calendar/1234.ics', None, vevent)
         self.client._events[event.url] = event
         self.client.changeEventAttendee(event.url, old, new)
@@ -983,11 +1132,11 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         consumer = MemoryConsumer()
         finished = body.startProducing(consumer)
         def cbFinished(ignored):
-            vevent = list(readComponents(consumer.value()))[0]
-            attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+            vevent = Component.fromString(consumer.value())
+            attendees = tuple(vevent.mainComponent().properties("ATTENDEE"))
             self.assertEquals(len(attendees), 2)
-            self.assertEquals(attendees[0].params[u'CN'], [u'User 01'])
-            self.assertEquals(attendees[1].params[u'CN'], [u'Some Other Guy'])
+            self.assertEquals(attendees[0].parameterValue('CN'), 'User 01')
+            self.assertEquals(attendees[1].parameterValue('CN'), 'Some Other Guy')
         finished.addCallback(cbFinished)
         return finished
 
@@ -1002,7 +1151,7 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         calendar = Calendar(caldavxml.calendar, u'calendar', u'/mumble/', None)
         self.client._calendars[calendar.url] = calendar
 
-        vcalendar = list(readComponents(EVENT))[0]
+        vcalendar = Component.fromString(EVENT)
         d = self.client.addEvent(u'/mumble/frotz.ics', vcalendar)
 
         result, req = requests.pop(0)
@@ -1018,9 +1167,9 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         consumer = MemoryConsumer()
         finished = body.startProducing(consumer)
         def cbFinished(ignored):
-            self.assertComponentsEqual(
-                list(readComponents(consumer.value()))[0],
-                vcalendar)
+            self.assertEqual(
+                Component.fromString(consumer.value()),
+                Component.fromString(EVENT_AND_TIMEZONE))
         finished.addCallback(cbFinished)
 
         def requested(ignored):
@@ -1065,39 +1214,6 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
             StringProducer(""))
         result.callback(response)
         return d
-
-
-    def assertComponentsEqual(self, first, second):
-        self.assertEquals(first.name, second.name, "Component names not equal")
-        self.assertEquals(first.behavior, second.behavior, "Component behaviors not equal")
-
-        for k in first.contents:
-            if k not in second.contents:
-                self.fail("Content %r present in first but not second" % (k,))
-            self.assertEquals(
-                len(first.contents[k]), len(second.contents[k]), "Different length content %r" % (k,))
-            for (a, b) in zip(first.contents[k], second.contents[k]):
-                if isinstance(a, ContentLine):
-                    f = self.assertContentLinesEqual
-                elif isinstance(a, Component):
-                    f = self.assertComponentsEqual
-                else:
-                    f = self.assertEquals
-                f(a, b)
-        for k in second.contents:
-            if k not in first.contents:
-                self.fail("Content %r present in second but not first" % (k,))
-
-
-    def assertContentLinesEqual(self, first, second):
-        self.assertEquals(first.name, second.name, "ContentLine names not equal")
-        self.assertEquals(first.behavior, second.behavior, "ContentLine behaviors not equal")
-        self.assertEquals(first.value, second.value, "ContentLine values not equal")
-        self.assertEquals(first.params, second.params, "ContentLine params not equal")
-        self.assertEquals(
-            first.singletonparams, second.singletonparams,
-            "ContentLine singletonparams not equal")
-
 
 
 class UpdateCalendarTests(SnowLeopardMixin, TestCase):
@@ -1336,8 +1452,8 @@ class VFreeBusyTests(SnowLeopardMixin, TestCase):
         self.client.email = u'mailto:user01@example.com'
         requests = self.interceptRequests()
 
-        start = datetime(2011, 6, 10, 10, 45, 0)
-        end = datetime(2011, 6, 10, 11, 15, 0)
+        start = PyCalendarDateTime(2011, 6, 10, 10, 45, 0, tzid=PyCalendarTimezone(utc=True))
+        end = PyCalendarDateTime(2011, 6, 10, 11, 15, 0, tzid=PyCalendarTimezone(utc=True))
         d = self.client.requestAvailability(
             start, end, [u"urn:uuid:user05", u"urn:uuid:user10"])
 
@@ -1357,10 +1473,10 @@ class VFreeBusyTests(SnowLeopardMixin, TestCase):
         consumer = MemoryConsumer()
         finished = body.startProducing(consumer)
         def cbFinished(ignored):
-            vevent = list(readComponents(consumer.value()))[0]
-            uid = vevent.contents[u'vfreebusy'][0].contents[u'uid'][0].value.encode('utf-8')
-            dtstamp = vevent.contents[u'vfreebusy'][0].contents[u'dtstamp'][0].value
-            dtstamp = dateTimeToString(dtstamp, False)
+            vevent = Component.fromString(consumer.value())
+            uid = vevent.resourceUID()
+            dtstamp = vevent.mainComponent().propertyValue("DTSTAMP")
+            dtstamp = dtstamp.getText()
             self.assertEqual(
 """\
 BEGIN:VCALENDAR
