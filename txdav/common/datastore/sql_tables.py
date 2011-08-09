@@ -202,12 +202,20 @@ ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE = _combine(
 
 
 
-def _translateSchema(out):
+class SchemaBroken(Exception):
+    """
+    The schema is broken and cannot be translated.
+    """
+
+
+
+def _translateSchema(out, schema=schema):
     """
     When run as a script, translate the schema to another dialect.  Currently
     only postgres and oracle are supported, and native format is postgres, so
     emit in oracle format.
     """
+    shortNames = {}
     for sequence in schema.model.sequences:
         out.write('create sequence %s;\n' % (sequence.name,))
     for table in schema:
@@ -215,6 +223,10 @@ def _translateSchema(out):
         # is CALENDAR_OBJECT_ATTACHMENTS_MODE, which isn't actually _used_
         # anywhere, so we can fake it for now.
         shortName = table.model.name[:30]
+        if shortName in shortNames:
+            raise SchemaBroken("short-name conflict between %s and %s" %
+                               (table.model.name, shortNames[shortName]))
+        shortNames[shortName] = table.model.name
         out.write('create table %s (\n' % (shortName,))
         first = True
         for column in table:

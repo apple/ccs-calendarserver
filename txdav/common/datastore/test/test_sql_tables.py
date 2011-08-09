@@ -26,6 +26,10 @@ by L{txdav.base.datastore.test.test_parseschema}.
 from cStringIO import StringIO
 
 from txdav.common.datastore.sql_tables import schema, _translateSchema
+from txdav.common.datastore.sql_tables import SchemaBroken
+from twext.enterprise.dal.parseschema import addSQLToSchema
+from twext.enterprise.dal.model import Schema
+from twext.enterprise.dal.syntax import SchemaSyntax
 from twisted.trial.unittest import TestCase
 
 class SampleSomeColumns(TestCase):
@@ -59,6 +63,29 @@ class SampleSomeColumns(TestCase):
         self.assertIn("insert into CALENDARSERVER (NAME, VALUE) "
                       "values ('VERSION', '3');",
                       io.getvalue())
+
+
+    def test_youBrokeTheSchema(self):
+        """
+        Oracle table names have a 30-character limit.  Our schema translator
+        simply truncates the names if necessary, but that means that you can't
+        have tables whose first 30 characters differ.  L{_translateSchema}
+        raises a SchemaBroken() exception if this happens.  (This test is to
+        make sure L{test_schemaTranslation}, above, will actually fail if this
+        happens.)
+        """
+        # TODO: same thing for sequences.
+        schema = Schema()
+        addSQLToSchema(
+            schema, """
+            create table same_012345678012345678990123456789_1 (foo integer);
+            create table same_012345678012345678990123456789_1 (bar text);
+            """
+        )
+        io = StringIO()
+        self.assertRaises(
+            SchemaBroken, _translateSchema, io, SchemaSyntax(schema)
+        )
 
 
 
