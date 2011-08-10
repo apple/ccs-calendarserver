@@ -601,7 +601,7 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
             """Directory GUID: %s\n"""         % (self.record.service.guid,),
             """Realm: %s\n"""                  % (self.record.service.realmName,),
             """Hosted-At: %s\n"""              % (self.record.serverURI(),) if config.Servers.Enabled else "", 
-            """Partition: %s\n"""              % (self.record.partitionID,) if config.Servers.Enabled and self.record.partitionID else "", 
+            """Partition: %s\n"""              % (self.record.effectivePartitionID(),) if config.Servers.Enabled else "", 
             """\n"""
             """Principal Information\n"""
             """---------------------\n"""

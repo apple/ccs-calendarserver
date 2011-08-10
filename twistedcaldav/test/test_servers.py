@@ -122,6 +122,13 @@ class ServerTests(TestCase):
         self.assertFalse(servers.getServerById("00001").thisServer)
         self.assertTrue(servers.getServerById("00002").thisServer)
 
+    def test_check_is_partitioned(self):
+
+        servers = self._setupServers()
+        
+        self.assertFalse(servers.getServerById("00001").isPartitioned())
+        self.assertTrue(servers.getServerById("00002").isPartitioned())
+
     def test_check_this_ip(self):
 
         servers = self._setupServers()

@@ -1145,9 +1145,19 @@ class DirectoryRecord(LoggingMixIn):
         if config.Servers.Enabled and self.serverID:
             s = servers.Servers.getServerById(self.serverID)
             if s:
-                return s.thisServer and (not self.partitionID or self.partitionID == config.ServerPartitionID)
+                return s.thisServer and (not s.isPartitioned() or not self.partitionID or self.partitionID == config.ServerPartitionID)
         return True
 
+    def effectivePartitionID(self):
+        """
+        Record partition ID taking into account whether the server is partitioned.
+        """
+        if config.Servers.Enabled and self.serverID:
+            s = servers.Servers.getServerById(self.serverID)
+            if s and s.isPartitioned():
+                return self.partitionID
+        return ""
+        
     def thisServer(self):
         if config.Servers.Enabled and self.serverID:
             s = servers.Servers.getServerById(self.serverID)
