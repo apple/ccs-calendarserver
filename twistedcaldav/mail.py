@@ -1116,7 +1116,6 @@ class MailHandler(LoggingMixIn):
     def generateEmail(self, inviteState, calendar, orgEmail, orgCN,
                       attendees, fromAddress, replyToAddress, toAddress,
                       language='en'):
-
         """
         Generate MIME text containing an iMIP invitation, cancellation, update
         or reply.
@@ -1215,7 +1214,6 @@ class MailHandler(LoggingMixIn):
             details['attLabel'] = _("Attendees")
             details['locLabel'] = _("Location")
 
-
             plainAttendeeList = []
             for cn, mailto in attendees:
                 if cn:
@@ -1249,7 +1247,6 @@ class MailHandler(LoggingMixIn):
             # html version
             msgHtmlRelated = MIMEMultipart("related", type="text/html")
             msgAlt.attach(msgHtmlRelated)
-
 
             htmlAttendees = []
             for cn, mailto in attendees:
