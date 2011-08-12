@@ -41,8 +41,11 @@ from twisted.mail import pop3client, imap4
 from twisted.mail.smtp import messageid, rfc822date, ESMTPSenderFactory
 from twisted.plugin import IPlugin
 from twisted.python.usage import Options, UsageError
+
 from twisted.web import client
-from twisted.web.template import XMLString
+from twisted.web.template import XMLString, TEMPLATE_NAMESPACE
+from twisted.web.microdom import parseString
+from twisted.web.microdom import Text as DOMText, Element as DOMElement
 
 from twext.web2 import server, responsecode
 from twext.web2.channel.http import HTTPFactory
@@ -67,6 +70,7 @@ from twistedcaldav.scheduling.scheduler import IMIPScheduler
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
+
 
 from calendarserver.tap.util import getRootResource, directoryFromConfig
 
@@ -144,6 +148,54 @@ htmlInviteTemplate = u"""<html>
     </p>
     """
 
+def _visit(document, node):
+    if isinstance(node, DOMText):
+        idx = node.parentNode.childNodes.index(node)
+        splitted = node.data.split("%(")
+        firstTextNode = document.createTextNode(splitted[0])
+        firstTextNode.parentNode = node.parentNode
+        replacements = [firstTextNode]
+        for moreText in splitted[1:]:
+            slotName, extra = moreText.split(')', 1)
+            extra = extra[1:]
+            slotElement = document.createElement('t:slot')
+            slotElement.setAttribute("name", slotName)
+            slotElement.parentNode = node.parentNode
+            textNode = document.createTextNode(extra)
+            textNode.parentNode = node.parentNode
+            replacements.append(slotElement)
+            replacements.append(textNode)
+        node.parentNode.childNodes[idx:idx+1] = replacements
+
+    elif isinstance(node, DOMElement):
+        for attrName, attrVal in node.attributes.items():
+            if '%(' in attrVal:
+                del node.attributes[attrName]
+                elem = document.createElement('t:attr')
+                elem.setAttribute('name', attrName)
+                textNode = document.createTextNode(attrVal)
+                elem.appendChild(textNode)
+                node.appendChild(elem)
+
+
+def _walk(document, n):
+    _visit(document, n)
+    for subn in n.childNodes:
+        _walk(document, subn)
+
+
+def _fixup(data, rendererName):
+    document = parseString(data)
+    document.documentElement.setAttribute(
+        "xmlns:t", TEMPLATE_NAMESPACE
+    )
+    document.documentElement.setAttribute(
+        "t:render", rendererName
+    )
+    _walk(document, document)
+    return document.toxml()
+
+
 
 class StringFormatTemplateLoader(object):
     """
@@ -163,16 +215,7 @@ class StringFormatTemplateLoader(object):
 
 
     def load(self):
-        class FormatterShim(object):
-            def __getitem__(self, item):
-                return "<t:slot name=%r />" % (item,)
-
-        starttag, everything = self.fileFactory().read().split(">", 1)
-        html = starttag + (
-            ' xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"'
-            ' t:render=%r >' % (self.rendererName,))
-        html += everything % FormatterShim()
-        print html
+        html = _fixup(self.fileFactory().read(), self.rendererName)
         return XMLString(html).load()
 
 
