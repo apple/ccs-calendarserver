@@ -42,6 +42,7 @@ from twisted.python.modules import getModule
 from twext.web2.http_headers import MimeType
 from zope.interface.declarations import implements
 from twext.web2.stream import MemoryStream
+from twisted.internet.defer import succeed
 from twext.web2.dav import davxml
 
 from twisted.web.iweb import ITemplateLoader
@@ -127,24 +128,7 @@ class WebAdminPage(Element):
         Renderer which renders resource search results.
         """
         d = self.performSearch(request)
-        def searchPerformed(results):
-            for idx, record in enumerate(results):
-                yield tag.clone().fillSlots(
-                    rowClass="even" if (idx % 2 == 0) else "odd",
-                    type=record.recordType,
-                    shortName=record.shortNames[0],
-                    name= record.fullName,
-                    typeStr={
-                        "users"     : "User",
-                        "groups"    : "Group",
-                        "locations" : "Place",
-                        "resources" : "Resource",
-                    }.get(record.recordType),
-                    shortNames=str(", ".join(record.shortNames)),
-                    authIds=str(", ".join(record.authIDs)),
-                    emails=str(", ".join(record.emailAddresses)),
-                )
-        return d.addCallback(searchPerformed)
+        return d.addCallback(searchToSlots, tag)
 
 
     @renderer
@@ -164,6 +148,28 @@ class WebAdminPage(Element):
             )
         else:
             return ""
+
+
+def searchToSlots(results, tag):
+    """
+    Convert the result of doing a search to an iterable of tags.
+    """
+    for idx, record in enumerate(results):
+        yield tag.clone().fillSlots(
+            rowClass="even" if (idx % 2 == 0) else "odd",
+            type=record.recordType,
+            shortName=record.shortNames[0],
+            name=record.fullName,
+            typeStr={
+                "users"     : "User",
+                "groups"    : "Group",
+                "locations" : "Place",
+                "resources" : "Resource",
+            }.get(record.recordType),
+            shortNames=str(", ".join(record.shortNames)),
+            authIds=str(", ".join(record.authIDs)),
+            emails=str(", ".join(record.emailAddresses)),
+        )
 
 
 
@@ -191,7 +197,9 @@ class DetailsElement(Element):
         self.adminResource = adminResource
         tag.fillSlots(resourceTitle=unicode(principalResource),
                       resourceId=resourceId,
-                      davPropertyName=davPropertyName)
+                      davPropertyName=davPropertyName,
+                      # FIXME implement
+                      proxySearch="")
         try:
             namespace, name = davPropertyName.split("#")
         except Exception:
@@ -297,6 +305,19 @@ class DetailsElement(Element):
                         ProxyRow(tag.clone(), idx, readProxy, writeProxy)
                     )
         returnValue(result)
+
+
+    def performProxySearch(self, request):
+        return succeed([])
+
+
+    @renderer
+    def proxySearchRows(self, request, tag):
+        """
+        Renderer which renders search results for the proxy form.
+        """
+        d = self.performProxySearch(request)
+        return d.addCallback(searchToSlots, tag)
 
 
 

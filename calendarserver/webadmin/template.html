@@ -177,7 +177,51 @@
           </tr>
         </table>
       </form>
+
+      <!-- proxySearchHtml -->
+
+      <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>
+      <form id="frm_proxySearch" name="proxySearchForm" action="/admin/"
+          style="margin-top:15px; margin-bottom:0; padding-bottom:0">
+          Search to add proxies:
+          <input type="hidden" id="hdn_resourceId" name="resourceId"
+          ><t:attr name="value"><t:slot name="resourceId" /></t:attr></input>
+          <input type="text" id="txt_proxySearch" name="proxySearch" size="40"
+          ><t:attr name="value"><t:slot name="proxySearch" /></t:attr></input>
+          <input type="submit" value="Search"></input>
+      </form>
+
+      <form id="frm_proxyAdd" name="proxyAddForm" action="/admin/"
+          style="margin-top:2px; padding-top:0">
+          <input type="hidden" id="hdn_resourceId" name="resourceId"
+          ><t:attr name="value"><t:slot name="resourceId" /></t:attr></input>
+          <table cellspacing="0" cellpadding="3" border="1">
+              <tr class="odd">
+                  <th>Full Name</th>
+                  <th>Type</th>
+                  <th>Short Names</th>
+                  <th>Email Addresses</th>
+                  <th></th>
+              </tr>
+              <tr t:render="proxySearchRows">
+                  <t:attr name="class"><t:slot name="rowClass" /> </t:attr>
+                  <td><t:slot name="name" /></td>
+                  <td><t:slot name="typeStr" /></td>
+                  <td><t:slot name="shortNames" /></td>
+                  <td><t:slot name="emails" /></td>
+                  <td>
+                      <input type="submit" value="Make Read-Only Proxy"><t:attr
+                      name="name">mkReadProxy|<t:slot name="type" />:<t:slot
+                      name="shortName"/></t:attr></input>
+                      <input type="submit" value="Make Read-Write Proxy"><t:attr
+                      name="name">mkWriteProxy|<t:slot name="type" />:<t:slot
+                      name="shortName"/></t:attr></input>
+                  </td>
+              </tr>
+          </table>
+      </form>
       </t:transparent>
     </div>
+
   </body>
 </html>
