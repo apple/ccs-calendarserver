@@ -211,7 +211,10 @@ class DetailsElement(Element):
         except Exception:
             self.namespace = None
             self.name = None
-            self.error = davPropertyName
+            if davPropertyName:
+                self.error = davPropertyName
+            else:
+                self.error = None
         else:
             self.namespace = namespace
             self.name = name
@@ -239,7 +242,7 @@ class DetailsElement(Element):
         Renderer to display an error when the user specifies an invalid property
         name.
         """
-        if self.error is None:
+        if self.name is not None:
             try:
                 propval = yield self.principalResource.readProperty(
                     (self.namespace, self.name), request

@@ -253,6 +253,9 @@ class RenderingTests(TestCase):
         self.assertNotIn("No matches found for resource",
                          gatherTextNodes(document))
         self.assertIdentical(document.getElementById("tab_searchResults"), None)
+        # I'm not attempting to retrieve a property, there's nothing to fail to
+        # parse.
+        self.assertNotIn("Unable to parse property", gatherTextNodes(document))
 
 
     @inlineCallbacks
