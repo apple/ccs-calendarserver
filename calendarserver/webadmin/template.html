@@ -141,7 +141,8 @@
         ><t:attr name="value"><t:slot name="resourceId" /></t:attr></input>
         <div t:render="noProxies" style="margin-top:15px"
             >This resource has no proxies.</div>
-        <table cellspacing="0" cellpadding="3" border="1">
+        <table cellspacing="0" cellpadding="3" border="1"
+               t:render="hasProxies">
           <tr class="odd">
             <th colspan="2">Read-Only Proxies</th>
             <th colspan="2">Read-Write Proxies</th>

@@ -283,22 +283,24 @@ class DetailsElement(Element):
         return tag
 
 
-    @renderer
-    def noProxies(self, request, tag):
-        """
-        Renderer which shows its tag if there are no proxies for this resource.
-        """
-        return tag
+    _matrix = None
 
-
-    @renderer
     @inlineCallbacks
-    def proxyRows(self, request, tag):
+    def proxyMatrix(self):
         """
-        Renderer which does zipping logic to render read-only and read-write
-        rows of existing proxies for the currently-viewed resource.
+        Compute a matrix of proxies to display in a 2-column table.
+
+        This value is cached so that multiple renderers may refer to it without
+        causing additional back-end queries.
+
+        @return: a L{Deferred} which fires with a list of 2-tuples of
+            (readProxy, writeProxy).  If there is an unequal number of read and
+            write proxies, the tables will be padded out with C{None}s so that
+            some readProxy or writeProxy values will be C{None} at the end of
+            the table.
         """
-        result = []
+        if self._matrix is not None:
+            returnValue(self._matrix)
         (readSubPrincipal, writeSubPrincipal) = (
             proxySubprincipal(self.principalResource, "read"),
             proxySubprincipal(self.principalResource, "write")
@@ -325,12 +327,49 @@ class DetailsElement(Element):
                     writeProxies += [None] * lendiff
                 elif lendiff < 0:
                     readProxies += [None] * lendiff
-                for idx, (readProxy, writeProxy) in enumerate(
-                        zip(readProxies, writeProxies)
-                    ):
-                    result.append(
-                        ProxyRow(tag.clone(), idx, readProxy, writeProxy)
-                    )
+                self._matrix = zip(readProxies, writeProxies)
+            else:
+                self._matrix = []
+        else:
+            self._matrix = []
+        returnValue(self._matrix)
+
+
+    @renderer
+    @inlineCallbacks
+    def noProxies(self, request, tag):
+        """
+        Renderer which shows its tag if there are no proxies for this resource.
+        """
+        mtx = yield self.proxyMatrix()
+        if mtx:
+            returnValue("")
+        returnValue(tag)
+
+
+    @renderer
+    @inlineCallbacks
+    def hasProxies(self, request, tag):
+        """
+        Renderer which shows its tag if there are any proxies for this resource.
+        """
+        mtx = yield self.proxyMatrix()
+        if mtx:
+            returnValue(tag)
+        returnValue("")
+
+
+    @renderer
+    @inlineCallbacks
+    def proxyRows(self, request, tag):
+        """
+        Renderer which does zipping logic to render read-only and read-write
+        rows of existing proxies for the currently-viewed resource.
+        """
+        result = []
+        mtx = yield self.proxyMatrix()
+        for idx, (readProxy, writeProxy) in enumerate(mtx):
+            result.append(ProxyRow(tag.clone(), idx, readProxy, writeProxy))
         returnValue(result)
 
 
