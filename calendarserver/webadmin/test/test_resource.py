@@ -100,10 +100,10 @@ class RenderingTests(TestCase):
         self.assertEquals(document.documentElement.tagName, 'html')
 
 
-    @inlineCallbacks
-    def test_resourceSearch(self):
+    def expectSomeRecords(self):
         """
-        Searching for resources should result in an HTML table resource search.
+        Sample invocation of expectRecordSearch that includes two sample
+        directory records.
         """
         self.expectRecordSearch(
             "bob", [
@@ -120,6 +120,14 @@ class RenderingTests(TestCase):
                      ["bobd@example.com"]),
                    ]
             ])
+
+
+    @inlineCallbacks
+    def test_resourceSearch(self):
+        """
+        Searching for resources should result in an HTML table resource search.
+        """
+        self.expectSomeRecords()
         document = yield self.renderPage(dict(resourceSearch=["bob"]))
 
         # Form is filled out with existing input.
@@ -147,6 +155,33 @@ class RenderingTests(TestCase):
         self.assertNotIn(
             "No matches found for resource bob",
             gatherTextNodes(document)
+        )
+
+
+    @inlineCallbacks
+    def test_proxySearch(self):
+        """
+        Test for searching for a proxy.
+        """
+        self.expectSomeRecords()
+        self.resource.getResourceById = partial(FakePrincipalResource, self)
+        document = yield self.renderPage(dict(resourceId=["qux"],
+                                              proxySearch=["bob"]))
+
+        # Form is filled out with existing input.
+        self.assertEquals(
+            document.getElementById("txt_proxySearch").getAttribute("value"),
+            "bob"
+        )
+        proxyAddForm = document.getElementById("frm_proxyAdd")
+        [proxyResultsTable] = getElementsByTagName(proxyAddForm, "table")
+
+        rows = getElementsByTagName(proxyResultsTable, 'tr')
+        self.assertEquals(len(rows), 3)
+        firstRowCells = getElementsByTagName(rows[1], 'td')
+        self.assertEquals(
+            [gatherTextNodes(cell) for cell in firstRowCells[1:]],
+            ["User", "bob", "bob@example.com, bob@other.example.com", ""]
         )
 
 
