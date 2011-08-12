@@ -319,12 +319,13 @@ class RenderingTests(TestCase):
 
 class FakePrincipalResource(object):
     def __init__(self, test, req=None, resid='no-id-given', autosched=True,
-                 recordType="users", extraProperties=()):
+                 recordType="users", extraProperties=(), hasProxies=True):
         self.test = test
         self.resid = resid
         self.autosched = autosched
         self.recordType = recordType
         self.extraProperties = extraProperties
+        self.hasProxies = hasProxies
 
 
     @property
@@ -346,19 +347,26 @@ class FakePrincipalResource(object):
 
     def getChild(self, name):
         if name == 'calendar-proxy-read':
+            if self.hasProxies:
+                proxyProps = [GroupMemberSet(HRef("read-1"),
+                                             HRef("read-2"),
+                                             HRef("read-3"))]
+            else:
+                proxyProps = []
             return FakePrincipalResource(
                 self.test,
-                extraProperties=[GroupMemberSet(HRef("read-1"),
-                                                HRef("read-2"),
-                                                HRef("read-3"))]
+                extraProperties=proxyProps
             )
         elif name == 'calendar-proxy-write':
+            if self.hasProxies:
+                proxyProps = [GroupMemberSet(HRef("write-1"),
+                                             HRef("write-2"))]
+            else:
+                proxyProps = []
             return FakePrincipalResource(
                 self.test,
-                extraProperties=[GroupMemberSet(HRef("write-1"),
-                                                HRef("write-2"))]
+                extraProperties=proxyProps
             )
-        return self
 
 
     @inlineCallbacks
@@ -371,8 +379,6 @@ class FakePrincipalResource(object):
                 returnValue(prop)
         if name == DisplayName.qname():
             returnValue(DisplayName("The Name To Display"))
-        elif name == GroupMemberSet.qname():
-            returnValue(GroupMemberSet())
         else:
             raise HTTPError(CONFLICT)
 
