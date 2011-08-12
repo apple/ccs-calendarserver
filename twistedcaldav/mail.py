@@ -43,7 +43,9 @@ from twisted.plugin import IPlugin
 from twisted.python.usage import Options, UsageError
 
 from twisted.web import client
-from twisted.web.template import XMLString, TEMPLATE_NAMESPACE
+from twisted.web.template import (
+    XMLString, TEMPLATE_NAMESPACE, Element, renderer, flattenString
+)
 from twisted.web.microdom import parseString
 from twisted.web.microdom import Text as DOMText, Element as DOMElement
 
@@ -120,7 +122,7 @@ htmlCancelTemplate = u"""<html>
     <p>
     <h3>%(timeLabel)s:</h3> %(timeInfo)s %(durationInfo)s
     </p>
-    """
+    """.encode("utf-8")
 
 
 htmlInviteTemplate = u"""<html>
@@ -146,7 +148,7 @@ htmlInviteTemplate = u"""<html>
     <p>
     <h3>%(attLabel)s:</h3> %(htmlAttendees)s
     </p>
-    """
+    """.encode("utf-8")
 
 def _visit(document, node):
     if isinstance(node, DOMText):
@@ -193,7 +195,8 @@ def _fixup(data, rendererName):
         "t:render", rendererName
     )
     _walk(document, document)
-    return document.toxml()
+    result = document.toxml()
+    return result
 
 
 
@@ -1460,7 +1463,18 @@ class MailHandler(LoggingMixIn):
 
             with open(templatePath) as templateFile:
                 htmlTemplate = templateFile.read()
-        htmlText = htmlTemplate % details
+
+        class EmailElement(Element):
+            loader = StringFormatTemplateLoader(lambda : StringIO(htmlTemplate),
+                                                "email")
+
+            @renderer
+            def email(self, request, tag):
+                return tag.fillSlots(**details)
+
+        textCollector = []
+        flattenString(None, EmailElement()).addCallback(textCollector.append)
+        htmlText = textCollector[0]
 
         # If the template refers to an icon in a cid: link, it needs to be added
         # in the MIME.
