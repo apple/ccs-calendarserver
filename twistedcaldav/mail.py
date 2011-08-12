@@ -144,6 +144,52 @@ htmlInviteTemplate = u"""<html>
     """
 
 
+def localizedLabels(language, canceled, inviteState):
+    """
+    Generate localized labels for an email in the given language.
+
+    @param language: a 2-letter language code
+
+    @type language: C{str}
+
+    @return: a 2-tuple of (subjectFormatString, labelDict), where the first is a
+        format string for use in the subject, and the latter is a dictionary
+        with labels suitable for filling out HTML and plain-text templates.  All
+        values are C{str}s.
+    """
+    with translationTo(language):
+        if canceled:
+            subjectFormatString = _("Event canceled: %(summary)s")
+        elif inviteState == "new":
+            subjectFormatString = _("Event invitation: %(summary)s")
+        elif inviteState == "update":
+            subjectFormatString = _("Event update: %(summary)s")
+        else:
+            subjectFormatString = _("Event reply: %(summary)s")
+
+        if canceled:
+            inviteLabel = _("Event Canceled")
+        else:
+            if inviteState == "new":
+                inviteLabel = _("Event Invitation")
+            elif inviteState == "update":
+                inviteLabel = _("Event Update")
+            else:
+                inviteLabel = _("Event Reply")
+
+        labels = dict(
+            dateLabel = _("Date"),
+            timeLabel = _("Time"),
+            durationLabel = _("Duration"),
+            recurrenceLabel = _("Occurs"),
+            descLabel = _("Description"),
+            orgLabel = _("Organizer"),
+            attLabel = _("Attendees"),
+            locLabel = _("Location"),
+            inviteLabel = inviteLabel,
+        )
+
+    return subjectFormatString, labels
 
 #
 # Mail gateway service config
@@ -1201,46 +1247,21 @@ class MailHandler(LoggingMixIn):
         msgId = messageid()
         msg["Message-ID"] = msgId
 
+        subjectFormat, labels = localizedLabels(language, canceled, inviteState)
+
+        # The translations we get back from gettext are utf-8 encoded strings,
+        # so convert to unicode.
+
+        details['subject'] = msg['Subject'] = subjectFormat.decode('utf-8') % {
+            'summary' : details['summary']
+        }
+
+        details.update(labels)
+
         with translationTo(language):
-            if canceled:
-                formatString = _("Event canceled: %(summary)s")
-            elif inviteState == "new":
-                formatString = _("Event invitation: %(summary)s")
-            elif inviteState == "update":
-                formatString = _("Event update: %(summary)s")
-            else:
-                formatString = _("Event reply: %(summary)s")
-
-            # The translations we get back from gettext are utf-8 encoded
-            # strings, so convert to unicode
-            formatString = formatString.decode("utf-8")
-
-            details['subject'] = msg['Subject'] = formatString % {
-                'summary' : details['summary']
-            }
 
             msgAlt = MIMEMultipart("alternative")
             msg.attach(msgAlt)
-
-            # Get localized labels
-            if canceled:
-                details['inviteLabel'] = _("Event Canceled")
-            else:
-                if inviteState == "new":
-                    details['inviteLabel'] = _("Event Invitation")
-                elif inviteState == "update":
-                    details['inviteLabel'] = _("Event Update")
-                else:
-                    details['inviteLabel'] = _("Event Reply")
-
-            details['dateLabel'] = _("Date")
-            details['timeLabel'] = _("Time")
-            details['durationLabel'] = _("Duration")
-            details['recurrenceLabel'] = _("Occurs")
-            details['descLabel'] = _("Description")
-            details['orgLabel'] = _("Organizer")
-            details['attLabel'] = _("Attendees")
-            details['locLabel'] = _("Location")
 
             plainAttendeeList = []
             for cn, mailto in attendees:
