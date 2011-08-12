@@ -1270,7 +1270,6 @@ class MailHandler(LoggingMixIn):
                 if canceled:
                     htmlTemplate = htmlCancelTemplate
                 else:
-
                     htmlTemplate = htmlInviteTemplate
             else: # HTML template file exists
 
