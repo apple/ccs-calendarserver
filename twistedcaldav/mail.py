@@ -1431,7 +1431,13 @@ class MailHandler(LoggingMixIn):
         # template fragment.  Luckily that fragment is the same regardless
         # of the rest of the template.
         htmlAttendees = []
+        first = True
         for cn, mailto in attendees:
+            if not first:
+                htmlAttendees.append(u", ")
+            else:
+                first = False
+
             if mailto:
                 if not cn:
                     cn = mailto
