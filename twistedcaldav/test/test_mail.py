@@ -586,6 +586,32 @@ END:VCALENDAR
                           ["<test><alpha>hello</alpha>world</test>"])
 
 
+    def test_templateLoaderWithAttributes(self):
+        """
+        L{StringFormatTemplateLoader.load} will convert a template with
+        C{%(x)s}-format slots inside attributes into t:attr elements containing
+        t:slot slots.
+        """
+        class StubElement(Element):
+            loader = StringFormatTemplateLoader(
+                lambda : StringIO(
+                    '<test><alpha beta="before %(slot1)s after">inner</alpha>'
+                    '%(other)s</test>'
+                ),
+                "testRenderHere"
+            )
+
+            @renderer
+            def testRenderHere(self, request, tag):
+                return tag.fillSlots(slot1="hello",
+                                     other="world")
+        result = []
+        flattenString(None, StubElement()).addCallback(result.append)
+        self.assertEquals(result,
+                          ['<test><alpha beta="before hello after">'
+                           'inner</alpha>world</test>'])
+
+
 
 def partByType(message, contentType):
     """
