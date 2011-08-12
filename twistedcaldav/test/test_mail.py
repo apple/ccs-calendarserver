@@ -14,19 +14,22 @@
 # limitations under the License.
 ##
 
+import os
+import datetime
+import email
+
+from twisted.internet.defer import inlineCallbacks
+
 from twistedcaldav.test.util import TestCase
+
 from twistedcaldav.ical import Component
 from twistedcaldav.config import config
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 
-
-from twisted.internet.defer import inlineCallbacks
-import email
 from twistedcaldav.mail import MailHandler
 from twistedcaldav.mail import MailGatewayTokensDatabase
+
 from twistedcaldav.directory.directory import DirectoryRecord
-import os
-import datetime
 
 
 def echo(*args):
