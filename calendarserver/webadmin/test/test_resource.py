@@ -131,6 +131,6 @@ class NewRenderingTests(RenderingTests):
     @inlineCallbacks
     def renderPage(self, args={}):
         self.resource.render = self.resource.renderNew
-        returnValue((yield super(NewRenderingTests, self).renderPage()))
+        returnValue((yield super(NewRenderingTests, self).renderPage(args)))
 
 
