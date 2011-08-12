@@ -40,9 +40,11 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2.http import Response
 from twisted.python.modules import getModule
 from twext.web2.http_headers import MimeType
+from zope.interface.declarations import implements
 from twext.web2.stream import MemoryStream
 from twext.web2.dav import davxml
 
+from twisted.web.iweb import ITemplateLoader
 from twisted.web.template import (
     Element, renderer, XMLFile, flattenString
 )
@@ -151,10 +153,35 @@ class WebAdminPage(Element):
         Renderer which fills slots for details of the resource selected by
         the resourceId request parameter.
         """
+        return DetailsElement(tag)
+
+
+
+class stan(object):
+    """
+    L{ITemplateLoader} wrapper for an existing tag, in the style of Nevow's
+    'stan' loader.
+    """
+    implements(ITemplateLoader)
+
+    def __init__(self, tag):
+        self.tag = tag
+
+
+    def load(self):
+        return self.tag
+
+
+
+class DetailsElement(Element):
+
+    def __init__(self, tag):
         # FIXME IMPLEMENT
-        return tag.fillSlots(resourceTitle="",
-                             resourceId="",
-                             davPropertyName="")
+        tag.fillSlots(resourceTitle="",
+                      resourceId="",
+                      davPropertyName="")
+        super(DetailsElement, self).__init__(loader=stan(tag))
+
 
     @renderer
     def propertyParseError(self, request, tag):
