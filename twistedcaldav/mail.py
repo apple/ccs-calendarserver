@@ -1295,10 +1295,11 @@ class MailHandler(LoggingMixIn):
                 (iconName,))
             msgHtmlRelated.attach(msgIcon)
 
+        calendarText = str(calendar)
         # the icalendar attachment
         self.log_debug("Mail gateway sending calendar body: %s"
-                       % (str(calendar)))
-        msgIcal = MIMEText(str(calendar), "calendar", "UTF-8")
+                       % (calendarText,))
+        msgIcal = MIMEText(calendarText, "calendar", "UTF-8")
         method = calendar.propertyValue("METHOD").lower()
         msgIcal.set_param("method", method)
         msgIcal.add_header("Content-ID", "<invitation.ics>")
