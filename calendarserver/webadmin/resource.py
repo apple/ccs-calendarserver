@@ -194,11 +194,11 @@ class DetailsElement(Element):
         except Exception:
             self.namespace = None
             self.name = None
-            self.error = True
+            self.error = davPropertyName
         else:
             self.namespace = namespace
             self.name = name
-            self.error = False
+            self.error = None
 
         super(DetailsElement, self).__init__(loader=stan(tag))
 
@@ -209,10 +209,10 @@ class DetailsElement(Element):
         Renderer to display an error when the user specifies an invalid property
         name.
         """
-        if not self.error:
+        if self.error is None:
             return ""
-        # FIXME IMPLEMENT
-        return tag
+        else:
+            return tag.fillSlots(davPropertyName=self.error)
 
 
     @renderer
@@ -222,10 +222,13 @@ class DetailsElement(Element):
         Renderer to display an error when the user specifies an invalid property
         name.
         """
-        propval = yield self.principalResource.readProperty(
-            (self.namespace, self.name), request
-        )
-        returnValue(tag.fillSlots(value=propval.toxml()))
+        if self.error is None:
+            propval = yield self.principalResource.readProperty(
+                (self.namespace, self.name), request
+            )
+            returnValue(tag.fillSlots(value=propval.toxml()))
+        else:
+            returnValue("")
 
 
     @renderer

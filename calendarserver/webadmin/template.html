@@ -104,12 +104,15 @@
         <input type="submit" value="Get Value" />
       </form>
 
-      <div t:render="propertyParseError">Unable to parse property to read:
-        <b><t:slot name="davPropertyName" /></b></div>
+      <div t:render="propertyParseError">
+      Unable to parse property to read: <b><t:slot name="davPropertyName" /></b>
+      </div>
 
-      <div t:render="davProperty" style="margin-top: 7px">Value of property
+      <t:invisible t:render="davProperty">
+      <div style="margin-top: 7px">Value of property
         <b><t:slot name="davPropertyName" /></b>:</div>
       <pre style="margin-top:5px; padding-top:0"><t:slot name="value" /></pre>
+      </t:invisible>
 
       <!-- autoScheduleHtml -->
 
