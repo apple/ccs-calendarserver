@@ -1245,37 +1245,31 @@ class MailHandler(LoggingMixIn):
         canceled = (calendar.propertyValue("METHOD") == "CANCEL")
         iconPath = self.getIconPath(details, canceled, language=language)
 
+        subjectFormat, labels = localizedLabels(language, canceled, inviteState)
+        details.update(labels)
+
+        details['subject'] = subjectFormat % {'summary' : details['summary']}
+        details['iconName'] = iconName = "calicon.png"
+
+        plainText = self.renderPlainText(details, (orgCN, orgEmail),
+                                         attendees, canceled)
+
+        [addIcon, htmlText] = self.renderHTML(details, (orgCN, orgEmail),
+                                              attendees, canceled)
+
         msg = MIMEMultipart()
         msg["From"] = fromAddress
+        msg["Subject"] = details['subject']
         msg["Reply-To"] = replyToAddress
         msg["To"] = toAddress
         msg["Date"] = rfc822date()
         msgId = messageid()
         msg["Message-ID"] = msgId
 
-        subjectFormat, labels = localizedLabels(language, canceled, inviteState)
-
-        # The translations we get back from gettext are utf-8 encoded strings,
-        # so convert to unicode.
-
-        details['subject'] = msg['Subject'] = subjectFormat % {
-            'summary' : details['summary']
-        }
-
-        details['iconName'] = iconName = "calicon.png"
-
-        details.update(labels)
-
-        plainText = self.renderPlainText(
-            details, (orgCN, orgEmail), attendees, canceled
-        )
-        addIcon, htmlText = self.renderHTML(
-            details, (orgCN, orgEmail), attendees, canceled
-        )
-
         msgAlt = MIMEMultipart("alternative")
         msg.attach(msgAlt)
 
+        # plain version
         msgPlain = MIMEText(plainText.encode("UTF-8"), "plain", "UTF-8")
         msgAlt.attach(msgPlain)
 
