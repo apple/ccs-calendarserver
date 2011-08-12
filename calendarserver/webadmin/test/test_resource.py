@@ -38,6 +38,7 @@ from twext.web2.dav.element.rfc2518 import DisplayName
 
 from twext.web2.http import HTTPError
 from twext.web2.responsecode import CONFLICT
+from twext.web2.dav.element.rfc2518 import HRef
 from twistedcaldav.directory.directory import DirectoryRecord
 
 
@@ -250,6 +251,30 @@ class RenderingTests(TestCase):
             self.assertEquals(expectedTrue.getAttribute("selected"), "selected")
 
 
+    @inlineCallbacks
+    def test_proxiesListing(self):
+        """
+        Resource principals will have their proxies listed in a table.
+        """
+
+        self.resource.getResourceById = partial(FakePrincipalResource, self,
+                                                recordType="resources")
+        document = yield self.renderPage(dict(resourceId=["qux"]))
+        proxiesForm = document.getElementById("frm_proxies")
+        [proxiesTable] = getElementsByTagName(proxiesForm, "table")
+        rows = getElementsByTagName(proxiesTable, "tr")
+
+        # header + 3 data rows (see FakePrincipalResource)
+        self.assertEquals(len(rows), 4)
+        firstRowCells = getElementsByTagName(rows[1], "td")
+        # name, buttons, name, buttons
+        self.assertEquals(len(firstRowCells), 4)
+        lastRowCells = getElementsByTagName(rows[-1], "td")
+        # name, buttons, blank space
+        self.assertEquals(len(lastRowCells), 3)
+        self.assertEquals(lastRowCells[-1].getAttribute("colspan"), "2")
+
+
     # Properties for being a fake directory service as far as the implementation
     # of DirectoryRecord is concerned.
     realmName = 'Fake'
@@ -258,18 +283,20 @@ class RenderingTests(TestCase):
 
 
 class FakePrincipalResource(object):
-    def __init__(self, test, req, resid, autosched=True, recordType="users"):
+    def __init__(self, test, req=None, resid=None, autosched=True,
+                 recordType="users", extraProperties=()):
         self.test = test
-        test.assertEquals(resid, "qux")
+        self.resid = resid
         self.autosched = autosched
         self.recordType = recordType
+        self.extraProperties = extraProperties
 
 
     @property
     def record(self):
         authIds = ['fake auth id']
         emails = ['fake email']
-        shortNames = ['fake short name']
+        shortNames = [self.resid]
         fullName = 'nobody'
         return DirectoryRecord(
             service=self.test, recordType=self.recordType, guid=None,
@@ -283,6 +310,19 @@ class FakePrincipalResource(object):
 
 
     def getChild(self, name):
+        if name == 'calendar-proxy-read':
+            return FakePrincipalResource(
+                self.test,
+                extraProperties=[GroupMemberSet(HRef("read-1"),
+                                                HRef("read-2"),
+                                                HRef("read-3"))]
+            )
+        elif name == 'calendar-proxy-write':
+            return FakePrincipalResource(
+                self.test,
+                extraProperties=[GroupMemberSet(HRef("write-1"),
+                                                HRef("write-2"))]
+            )
         return self
 
 
@@ -291,6 +331,9 @@ class FakePrincipalResource(object):
         yield None
         if not isinstance(name, tuple):
             name = name.qname()
+        for prop in self.extraProperties:
+            if name == prop.qname():
+                returnValue(prop)
         if name == DisplayName.qname():
             returnValue(DisplayName("The Name To Display"))
         elif name == GroupMemberSet.qname():
